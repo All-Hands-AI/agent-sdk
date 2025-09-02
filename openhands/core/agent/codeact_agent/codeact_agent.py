@@ -52,8 +52,7 @@ class CodeActAgent(AgentBase):
         if len(messages) == 0:
             # Prepare system message
             event = SystemPromptEvent(source="agent", system_prompt=self.system_message, tools=[t.to_openai_tool() for t in self.tools.values()])
-            # TODO: maybe we should combine this into on_event?
-            state.events.append(event)
+            # emit event; Conversation default callback persists it
             on_event(event)
 
     def step(
@@ -99,7 +98,6 @@ class CodeActAgent(AgentBase):
                 if action_event is None:
                     continue
                 action_events.append(action_event)
-                state.events.append(action_event)
 
             for action_event in action_events:
                 self._execute_action_events(state, action_event, on_event=on_event)
@@ -107,7 +105,6 @@ class CodeActAgent(AgentBase):
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
             msg_event = MessageEvent(source="agent", llm_message=message)
-            state.events.append(msg_event)
             on_event(msg_event)
 
     def _get_action_events(
@@ -131,7 +128,6 @@ class CodeActAgent(AgentBase):
             err = f"Tool '{tool_name}' not found. Available: {list(self.tools.keys())}"
             logger.error(err)
             event = AgentErrorEvent(error=err)
-            state.events.append(event)
             on_event(event)
             state.agent_finished = True
             return
@@ -142,7 +138,6 @@ class CodeActAgent(AgentBase):
         except (json.JSONDecodeError, ValidationError) as e:
             err = f"Error validating args {tool_call.function.arguments} for tool '{tool.name}': {e}"
             event = AgentErrorEvent(error=err)
-            state.events.append(event)
             on_event(event)
             return
 
@@ -172,5 +167,5 @@ class CodeActAgent(AgentBase):
         # Set conversation state
         if tool.name == FinishTool.name:
             state.agent_finished = True
-        state.events.append(obs_event)
+        # Persist observation via default on_event appender
         return obs_event
