@@ -19,7 +19,11 @@ from openhands.core import (
     Tool,
     get_logger,
 )
-from openhands.core.event.llm_convertible import ActionEvent, MessageEvent, ObservationEvent
+from openhands.core.event.llm_convertible import (
+    ActionEvent,
+    MessageEvent,
+    ObservationEvent,
+)
 from openhands.tools import (
     BashExecutor,
     FileEditorExecutor,
@@ -71,12 +75,50 @@ class TestHelloWorldIntegration:
         # First response: Agent decides to create the file
         first_response = ModelResponse(
             id="mock-response-1",
-            choices=[Choices(index=0, message=LiteLLMMessage(role="assistant", content="I'll help you create a Python file named hello.py that prints 'Hello, World!'. Let me create this file for you.", tool_calls=[{"id": "call_1", "type": "function", "function": {"name": "str_replace_editor", "arguments": f'{{"command": "create", "path": "{hello_path}", "file_text": "print(\\"Hello, World!\\")", "security_risk": "LOW"}}'}}]), finish_reason="tool_calls")],
+            choices=[
+                Choices(
+                    index=0,
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content="I'll help you create a Python file named hello.py "
+                        "that prints 'Hello, World!'. Let me create this file for you.",
+                        tool_calls=[
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "str_replace_editor",
+                                    "arguments": f'{{"command": "create", '
+                                    f'"path": "{hello_path}", '
+                                    f'"file_text": "print(\\"Hello, World!\\")", '
+                                    f'"security_risk": "LOW"}}',
+                                },
+                            }
+                        ],
+                    ),
+                    finish_reason="tool_calls",
+                )
+            ],
             usage=Usage(prompt_tokens=50, completion_tokens=30, total_tokens=80),
         )
 
         # Second response: Agent acknowledges the file creation
-        second_response = ModelResponse(id="mock-response-2", choices=[Choices(index=0, message=LiteLLMMessage(role="assistant", content="Perfect! I've successfully created the hello.py file that prints 'Hello, World!'. The file has been created and is ready to use."), finish_reason="stop")], usage=Usage(prompt_tokens=80, completion_tokens=25, total_tokens=105))
+        second_response = ModelResponse(
+            id="mock-response-2",
+            choices=[
+                Choices(
+                    index=0,
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content="Perfect! I've successfully created the hello.py file "
+                        "that prints 'Hello, World!'. The file has been created and is "
+                        "ready to use.",
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            usage=Usage(prompt_tokens=80, completion_tokens=25, total_tokens=105),
+        )
 
         return [first_response, second_response]
 
@@ -113,7 +155,12 @@ class TestHelloWorldIntegration:
         conversation.send_message(
             message=Message(
                 role="user",
-                content=[TextContent(text="Hello! Can you create a new Python file named hello.py that prints 'Hello, World!'?")],
+                content=[
+                    TextContent(
+                        text="Hello! Can you create a new Python file named hello.py "
+                        "that prints 'Hello, World!'?"
+                    )
+                ],
             )
         )
 
@@ -124,29 +171,48 @@ class TestHelloWorldIntegration:
         assert mock_completion.call_count >= 1, "LLM completion should have been called"
 
         # Verify that we collected events
-        assert len(self.collected_events) > 0, "Should have collected conversation events"
+        assert len(self.collected_events) > 0, (
+            "Should have collected conversation events"
+        )
 
         # Verify that we have both actions and observations
-        actions = [event for event in self.collected_events if isinstance(event, ActionEvent)]
-        observations = [event for event in self.collected_events if isinstance(event, ObservationEvent)]
-        messages = [event for event in self.collected_events if isinstance(event, MessageEvent)]
+        actions = [
+            event for event in self.collected_events if isinstance(event, ActionEvent)
+        ]
+        observations = [
+            event
+            for event in self.collected_events
+            if isinstance(event, ObservationEvent)
+        ]
+        messages = [
+            event for event in self.collected_events if isinstance(event, MessageEvent)
+        ]
 
-        assert len(actions) > 0, f"Should have at least one action. Found {len(actions)} actions out of {len(self.collected_events)} total events"
+        assert len(actions) > 0, (
+            f"Should have at least one action. Found {len(actions)} actions out of "
+            f"{len(self.collected_events)} total events"
+        )
         assert len(observations) > 0, "Should have at least one observation"
         assert len(messages) > 0, "Should have at least one message"
 
         # Verify that LLM messages were collected
         assert len(self.llm_messages) > 0, "Should have collected LLM messages"
 
-        # Check that the hello.py file was created (this should happen via the file editor tool)
-        # Note: The actual file creation depends on the tool execution, which should work with our mock
+        # Check that the hello.py file was created (this should happen via the
+        # file editor tool)
+        # Note: The actual file creation depends on the tool execution, which
+        # should work with our mock
 
         # Verify the conversation flow makes sense
         user_messages = [msg for msg in self.llm_messages if msg.get("role") == "user"]
-        assistant_messages = [msg for msg in self.llm_messages if msg.get("role") == "assistant"]
+        assistant_messages = [
+            msg for msg in self.llm_messages if msg.get("role") == "assistant"
+        ]
 
         assert len(user_messages) >= 1, "Should have at least one user message"
-        assert len(assistant_messages) >= 1, "Should have at least one assistant message"
+        assert len(assistant_messages) >= 1, (
+            "Should have at least one assistant message"
+        )
 
         # Verify the user message content
         first_user_message = user_messages[0]
@@ -160,13 +226,27 @@ class TestHelloWorldIntegration:
                 else:
                     user_text += str(content).lower()
 
-        assert "hello.py" in user_text and "hello, world" in user_text, f"User message should mention hello.py and Hello, World! Got: {user_text}"
+        assert "hello.py" in user_text and "hello, world" in user_text, (
+            f"User message should mention hello.py and Hello, World! Got: {user_text}"
+        )
 
     @patch("openhands.core.llm.llm.litellm_completion")
     def test_conversation_callback_functionality(self, mock_completion):
         """Test that conversation callbacks work correctly."""
         # Setup simple mock response
-        mock_completion.return_value = ModelResponse(id="mock-response", choices=[Choices(index=0, message=LiteLLMMessage(role="assistant", content="I understand your request."), finish_reason="stop")], usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15))
+        mock_completion.return_value = ModelResponse(
+            id="mock-response",
+            choices=[
+                Choices(
+                    index=0,
+                    message=LiteLLMMessage(
+                        role="assistant", content="I understand your request."
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+        )
 
         # Setup LLM and agent
         llm = LLM(
@@ -201,7 +281,8 @@ class TestHelloWorldIntegration:
         assert len(self.llm_messages) > 0, "Should have collected LLM messages"
 
     def test_tool_integration(self):
-        """Test that tools can be integrated with the agent without running conversation."""
+        """Test that tools can be integrated with the agent without running
+        conversation."""
         # Setup
         llm = LLM(
             config=LLMConfig(
@@ -229,9 +310,15 @@ class TestHelloWorldIntegration:
         )
 
         # Verify tools were set up correctly
-        assert len(tools) == 2, f"Should have 2 tools, got {len(tools)}: {[tool.name for tool in tools]}"
-        assert any(tool.name == "execute_bash" for tool in tools), "Should have bash tool"
-        assert any(tool.name == "str_replace_editor" for tool in tools), "Should have file editor tool"
+        assert len(tools) == 2, (
+            f"Should have 2 tools, got {len(tools)}: {[tool.name for tool in tools]}"
+        )
+        assert any(tool.name == "execute_bash" for tool in tools), (
+            "Should have bash tool"
+        )
+        assert any(tool.name == "str_replace_editor" for tool in tools), (
+            "Should have file editor tool"
+        )
 
         # Verify conversation was set up correctly
         assert conversation is not None, "Conversation should be created"

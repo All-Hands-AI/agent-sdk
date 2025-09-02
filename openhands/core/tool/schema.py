@@ -29,7 +29,7 @@ def py_type(spec: dict[str, Any]) -> Any:
 def _process_schema_node(node, defs):
     """Recursively process a schema node to simplify and resolve $ref.
 
-    https://www.reddit.com/r/mcp/comments/1kjo9gt/toolinputschema_conversion_from_pydanticmodel/
+    https://www.reddit.com/r/mcp/comments/1kjo9gt/toolinputschema_conversion_from_pydanticmodel/  # noqa: E501
     https://gist.github.com/leandromoreira/3de4819e4e4df9422d87f1d3e7465c16
     """
     # Handle $ref references
@@ -94,11 +94,13 @@ class Schema(BaseModel):
     def to_mcp_schema(cls) -> dict[str, Any]:
         """Convert to JSON schema format compatible with MCP."""
         full_schema = cls.model_json_schema()
-        # This will get rid of all "anyOf" in the schema, so it is fully compatible with MCP tool schema
+        # This will get rid of all "anyOf" in the schema, so it is fully compatible with MCP tool schema  # noqa: E501
         return _process_schema_node(full_schema, full_schema.get("$defs", {}))
 
     @classmethod
-    def from_mcp_schema(cls: type[S], model_name: str, schema: dict[str, Any]) -> type["S"]:
+    def from_mcp_schema(
+        cls: type[S], model_name: str, schema: dict[str, Any]
+    ) -> type["S"]:
         """Create a Schema subclass from an MCP/JSON Schema object."""
         assert isinstance(schema, dict), "Schema must be a dict"
         assert schema.get("type") == "object", "Only object schemas are supported"
@@ -110,12 +112,16 @@ class Schema(BaseModel):
         for fname, spec in props.items():
             tp = py_type(spec if isinstance(spec, dict) else {})
             default = ... if fname in required else None
-            desc: str | None = spec.get("description") if isinstance(spec, dict) else None
+            desc: str | None = (
+                spec.get("description") if isinstance(spec, dict) else None
+            )
             fields[fname] = (
                 tp,
-                Field(default=default, description=desc) if desc else Field(default=default),
+                Field(default=default, description=desc)
+                if desc
+                else Field(default=default),
             )
-        return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
+        return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]  # noqa: E501
 
 
 class ActionBase(Schema):

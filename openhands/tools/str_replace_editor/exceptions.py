@@ -24,7 +24,11 @@ class EditorToolParameterInvalidError(ToolError):
     def __init__(self, parameter, value, hint=None):
         self.parameter = parameter
         self.value = value
-        self.message = f"Invalid `{parameter}` parameter: {value}. {hint}" if hint else f"Invalid `{parameter}` parameter: {value}."
+        self.message = (
+            f"Invalid `{parameter}` parameter: {value}. {hint}"
+            if hint
+            else f"Invalid `{parameter}` parameter: {value}."
+        )
 
 
 class FileValidationError(ToolError):

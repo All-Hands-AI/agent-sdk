@@ -17,7 +17,9 @@ class SystemPromptEvent(LLMConvertibleEvent):
     kind: EventType = "system_prompt"
     source: SourceType = "agent"
     system_prompt: TextContent = Field(..., description="The system prompt text")
-    tools: list[ChatCompletionToolParam] = Field(..., description="List of tools in OpenAI tool format")
+    tools: list[ChatCompletionToolParam] = Field(
+        ..., description="List of tools in OpenAI tool format"
+    )
 
     def to_llm_message(self) -> Message:
         return Message(role="system", content=[self.system_prompt])
@@ -25,31 +27,59 @@ class SystemPromptEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for SystemPromptEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        prompt_preview = self.system_prompt.text[:N_CHAR_PREVIEW] + "..." if len(self.system_prompt.text) > N_CHAR_PREVIEW else self.system_prompt.text
+        prompt_preview = (
+            self.system_prompt.text[:N_CHAR_PREVIEW] + "..."
+            if len(self.system_prompt.text) > N_CHAR_PREVIEW
+            else self.system_prompt.text
+        )
         tool_count = len(self.tools)
-        return f"{base_str}\n  System: {prompt_preview}\n  Tools: {tool_count} available"
+        return (
+            f"{base_str}\n  System: {prompt_preview}\n  Tools: {tool_count} available"
+        )
 
 
 class ActionEvent(LLMConvertibleEvent):
     kind: EventType = "action"
     source: SourceType = "agent"
-    thought: list[TextContent] = Field(..., description="The thought process of the agent before taking this action")
-    action: ActionBase = Field(..., description="Single action (tool call) returned by LLM")
+    thought: list[TextContent] = Field(
+        ..., description="The thought process of the agent before taking this action"
+    )
+    action: ActionBase = Field(
+        ..., description="Single action (tool call) returned by LLM"
+    )
     tool_name: str = Field(..., description="The name of the tool being called")
-    tool_call_id: str = Field(..., description="The unique id returned by LLM API for this tool call")
-    tool_call: ChatCompletionMessageToolCall = Field(..., description=("The tool call received from the LLM response. We keep a copy of it so it is easier to construct it into LLM message"))
-    llm_response_id: str = Field(..., description=("Groups related actions from same LLM response. This helps in tracking and managing results of parallel function calling from the same LLM response."))
+    tool_call_id: str = Field(
+        ..., description="The unique id returned by LLM API for this tool call"
+    )
+    tool_call: ChatCompletionMessageToolCall = Field(
+        ...,
+        description=(
+            "The tool call received from the LLM response. We keep a copy of it so it is easier to construct it into LLM message"  # noqa: E501
+        ),
+    )
+    llm_response_id: str = Field(
+        ...,
+        description=(
+            "Groups related actions from same LLM response. This helps in tracking and managing results of parallel function calling from the same LLM response."  # noqa: E501
+        ),
+    )
 
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
-        content: list[TextContent | ImageContent] = cast(list[TextContent | ImageContent], self.thought)
+        content: list[TextContent | ImageContent] = cast(
+            list[TextContent | ImageContent], self.thought
+        )
         return Message(role="assistant", content=content, tool_calls=[self.tool_call])
 
     def __str__(self) -> str:
         """Plain text string representation for ActionEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
         thought_text = " ".join([t.text for t in self.thought])
-        thought_preview = thought_text[:N_CHAR_PREVIEW] + "..." if len(thought_text) > N_CHAR_PREVIEW else thought_text
+        thought_preview = (
+            thought_text[:N_CHAR_PREVIEW] + "..."
+            if len(thought_text) > N_CHAR_PREVIEW
+            else thought_text
+        )
         action_name = self.action.__class__.__name__
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
 
@@ -57,19 +87,36 @@ class ActionEvent(LLMConvertibleEvent):
 class ObservationEvent(LLMConvertibleEvent):
     kind: EventType = "observation"
     source: SourceType = "environment"
-    observation: ObservationBase = Field(..., description="The observation (tool call) sent to LLM")
+    observation: ObservationBase = Field(
+        ..., description="The observation (tool call) sent to LLM"
+    )
 
-    action_id: str = Field(..., description="The action id that this observation is responding to")
-    tool_name: str = Field(..., description="The tool name that this observation is responding to")
-    tool_call_id: str = Field(..., description="The tool call id that this observation is responding to")
+    action_id: str = Field(
+        ..., description="The action id that this observation is responding to"
+    )
+    tool_name: str = Field(
+        ..., description="The tool name that this observation is responding to"
+    )
+    tool_call_id: str = Field(
+        ..., description="The tool call id that this observation is responding to"
+    )
 
     def to_llm_message(self) -> Message:
-        return Message(role="tool", content=[TextContent(text=self.observation.agent_observation)], name=self.tool_name, tool_call_id=self.tool_call_id)
+        return Message(
+            role="tool",
+            content=[TextContent(text=self.observation.agent_observation)],
+            name=self.tool_name,
+            tool_call_id=self.tool_call_id,
+        )
 
     def __str__(self) -> str:
         """Plain text string representation for ObservationEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        obs_preview = self.observation.agent_observation[:N_CHAR_PREVIEW] + "..." if len(self.observation.agent_observation) > N_CHAR_PREVIEW else self.observation.agent_observation
+        obs_preview = (
+            self.observation.agent_observation[:N_CHAR_PREVIEW] + "..."
+            if len(self.observation.agent_observation) > N_CHAR_PREVIEW
+            else self.observation.agent_observation
+        )
         return f"{base_str}\n  Tool: {self.tool_name}\n  Result: {obs_preview}"
 
 
@@ -80,10 +127,14 @@ class MessageEvent(LLMConvertibleEvent):
 
     kind: EventType = "message"
     source: SourceType
-    llm_message: Message = Field(..., description="The exact LLM message for this message event")
+    llm_message: Message = Field(
+        ..., description="The exact LLM message for this message event"
+    )
 
     # context extensions stuff / microagent can go here
-    activated_microagents: list[str] = Field(default_factory=list, description="List of activated microagent name")
+    activated_microagents: list[str] = Field(
+        default_factory=list, description="List of activated microagent name"
+    )
 
     def to_llm_message(self) -> Message:
         return self.llm_message
@@ -103,8 +154,12 @@ class MessageEvent(LLMConvertibleEvent):
             content_preview = " ".join(text_parts)
             if len(content_preview) > N_CHAR_PREVIEW:
                 content_preview = content_preview[: N_CHAR_PREVIEW - 3] + "..."
-            microagent_info = f" [Microagents: {', '.join(self.activated_microagents)}]" if self.activated_microagents else ""
-            return f"{base_str}\n  {self.llm_message.role}: {content_preview}{microagent_info}"
+            microagent_info = (
+                f" [Microagents: {', '.join(self.activated_microagents)}]"
+                if self.activated_microagents
+                else ""
+            )
+            return f"{base_str}\n  {self.llm_message.role}: {content_preview}{microagent_info}"  # noqa: E501
         else:
             return f"{base_str}\n  {self.llm_message.role}: [no text content]"
 
@@ -122,5 +177,9 @@ class AgentErrorEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for AgentErrorEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        error_preview = self.error[:N_CHAR_PREVIEW] + "..." if len(self.error) > N_CHAR_PREVIEW else self.error
+        error_preview = (
+            self.error[:N_CHAR_PREVIEW] + "..."
+            if len(self.error) > N_CHAR_PREVIEW
+            else self.error
+        )
         return f"{base_str}\n  Error: {error_preview}"

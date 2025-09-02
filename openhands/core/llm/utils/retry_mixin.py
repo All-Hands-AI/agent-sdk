@@ -31,7 +31,7 @@ class RetryMixin:
         retry_listener: RetryListener | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """
-        Create a LLM retry decorator with customizable parameters. This is used for 429 errors, and a few other exceptions in LLM classes.
+        Create a LLM retry decorator with customizable parameters. This is used for 429 errors, and a few other exceptions in LLM classes.  # noqa: E501
         """
 
         def before_sleep(retry_state: RetryCallState) -> None:
@@ -55,10 +55,12 @@ class RetryMixin:
                     current_temp = kwargs.get("temperature", 0)
                     if current_temp == 0:
                         kwargs["temperature"] = 1.0
-                        logger.warning("LLMNoResponseError detected with temperature=0, setting temperature to 1.0 for next attempt.")
+                        logger.warning(
+                            "LLMNoResponseError detected with temperature=0, setting temperature to 1.0 for next attempt."  # noqa: E501
+                        )
                     else:
                         logger.warning(
-                            "LLMNoResponseError detected with temperature=%s, keeping original temperature",
+                            "LLMNoResponseError detected with temperature=%s, keeping original temperature",  # noqa: E501
                             current_temp,
                         )
 
@@ -79,7 +81,9 @@ class RetryMixin:
         """Log retry attempts."""
 
         if retry_state.outcome is None:
-            logger.error("retry_state.outcome is None. This should not happen, please check the retry logic.")
+            logger.error(
+                "retry_state.outcome is None. This should not happen, please check the retry logic."  # noqa: E501
+            )
             return
 
         exc = retry_state.outcome.exception()

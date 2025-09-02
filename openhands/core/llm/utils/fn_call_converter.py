@@ -430,7 +430,9 @@ def convert_tool_call_to_string(tool_call: dict) -> str:
     try:
         args = json.loads(tool_call["function"]["arguments"])
     except json.JSONDecodeError as e:
-        raise FunctionCallConversionError(f"Failed to parse arguments as JSON. Arguments: {tool_call['function']['arguments']}") from e
+        raise FunctionCallConversionError(
+            f"Failed to parse arguments as JSON. Arguments: {tool_call['function']['arguments']}"
+        ) from e
     for param_name, param_value in args.items():
         is_multiline = isinstance(param_value, str) and "\n" in param_value
         ret += f"<parameter={param_name}>"
@@ -477,7 +479,9 @@ def convert_tools_to_description(tools: list[ChatCompletionToolParam]) -> str:
                     enum_values = ", ".join(f"`{v}`" for v in param_info["enum"])
                     desc += f"\nAllowed values: [{enum_values}]"
 
-                ret += f"  ({j + 1}) {param_name} ({param_type}, {param_status}): {desc}\n"
+                ret += (
+                    f"  ({j + 1}) {param_name} ({param_type}, {param_status}): {desc}\n"
+                )
         else:
             ret += "No parameters are required for this function.\n"
 
@@ -494,7 +498,9 @@ def convert_fncall_messages_to_non_fncall_messages(
     messages = copy.deepcopy(messages)
 
     formatted_tools = convert_tools_to_description(tools)
-    system_prompt_suffix = SYSTEM_PROMPT_SUFFIX_TEMPLATE.format(description=formatted_tools)
+    system_prompt_suffix = SYSTEM_PROMPT_SUFFIX_TEMPLATE.format(
+        description=formatted_tools
+    )
 
     converted_messages = []
     first_user_message_encountered = False
@@ -513,7 +519,9 @@ def convert_fncall_messages_to_non_fncall_messages(
                 else:
                     content.append({"type": "text", "text": system_prompt_suffix})
             else:
-                raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                raise FunctionCallConversionError(
+                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                )
             converted_messages.append({"role": "system", "content": content})
 
         # 2. USER MESSAGES (no change)
@@ -532,7 +540,11 @@ def convert_fncall_messages_to_non_fncall_messages(
                         content = example + content + IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX
                     elif isinstance(content, list):
                         if content and content[0]["type"] == "text":
-                            content[0]["text"] = example + content[0]["text"] + IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX
+                            content[0]["text"] = (
+                                example
+                                + content[0]["text"]
+                                + IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX
+                            )
                         else:
                             content = (
                                 [
@@ -556,7 +568,9 @@ def convert_fncall_messages_to_non_fncall_messages(
                                 ]
                             )
                     else:
-                        raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                        raise FunctionCallConversionError(
+                            f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                        )
             converted_messages.append(
                 {
                     "role": "user",
@@ -570,11 +584,15 @@ def convert_fncall_messages_to_non_fncall_messages(
         elif role == "assistant":
             if "tool_calls" in message and message["tool_calls"] is not None:
                 if len(message["tool_calls"]) != 1:
-                    raise FunctionCallConversionError(f"Expected exactly one tool call in the message. More than one tool call is not supported. But got {len(message['tool_calls'])} tool calls. Content: {content}")
+                    raise FunctionCallConversionError(
+                        f"Expected exactly one tool call in the message. More than one tool call is not supported. But got {len(message['tool_calls'])} tool calls. Content: {content}"
+                    )
                 try:
                     tool_content = convert_tool_call_to_string(message["tool_calls"][0])
                 except FunctionCallConversionError as e:
-                    raise FunctionCallConversionError(f"Failed to convert tool call to string.\nCurrent tool call: {message['tool_calls'][0]}.\nRaw messages: {json.dumps(messages, indent=2)}") from e
+                    raise FunctionCallConversionError(
+                        f"Failed to convert tool call to string.\nCurrent tool call: {message['tool_calls'][0]}.\nRaw messages: {json.dumps(messages, indent=2)}"
+                    ) from e
                 if isinstance(content, str):
                     content += "\n\n" + tool_content
                     content = content.lstrip()
@@ -585,7 +603,9 @@ def convert_fncall_messages_to_non_fncall_messages(
                     else:
                         content.append({"type": "text", "text": tool_content})
                 else:
-                    raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                    raise FunctionCallConversionError(
+                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                    )
             converted_messages.append({"role": "assistant", "content": content})
 
         # 4. TOOL MESSAGES (tool outputs)
@@ -597,19 +617,31 @@ def convert_fncall_messages_to_non_fncall_messages(
             if isinstance(content, str):
                 content = prefix + content
             elif isinstance(content, list):
-                if content and (first_text_content := next((c for c in content if c["type"] == "text"), None)):
+                if content and (
+                    first_text_content := next(
+                        (c for c in content if c["type"] == "text"), None
+                    )
+                ):
                     first_text_content["text"] = prefix + first_text_content["text"]
                 else:
-                    content = [cast(TextPart, {"type": "text", "text": prefix})] + content
+                    content = [
+                        cast(TextPart, {"type": "text", "text": prefix})
+                    ] + content
 
                 if "cache_control" in message:
-                    content[-1]["cache_control"] = cast(CacheControl, {"type": "ephemeral"})
+                    content[-1]["cache_control"] = cast(
+                        CacheControl, {"type": "ephemeral"}
+                    )
             else:
-                raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                raise FunctionCallConversionError(
+                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                )
 
             converted_messages.append({"role": "user", "content": content})
         else:
-            raise FunctionCallConversionError(f"Unexpected role {role}. Expected system, user, assistant or tool.")
+            raise FunctionCallConversionError(
+                f"Unexpected role {role}. Expected system, user, assistant or tool."
+            )
     return converted_messages
 
 
@@ -630,7 +662,10 @@ def _extract_and_validate_params(
 
     param_name_to_type = {}
     if "parameters" in matching_tool and "properties" in matching_tool["parameters"]:
-        param_name_to_type = {name: val.get("type", "string") for name, val in matching_tool["parameters"]["properties"].items()}
+        param_name_to_type = {
+            name: val.get("type", "string")
+            for name, val in matching_tool["parameters"]["properties"].items()
+        }
 
     # Collect parameters
     found_params = set()
@@ -640,7 +675,9 @@ def _extract_and_validate_params(
 
         # Validate parameter is allowed
         if allowed_params and param_name not in allowed_params:
-            raise FunctionCallValidationError(f"Parameter '{param_name}' is not allowed for function '{fn_name}'. Allowed parameters: {allowed_params}")
+            raise FunctionCallValidationError(
+                f"Parameter '{param_name}' is not allowed for function '{fn_name}'. Allowed parameters: {allowed_params}"
+            )
 
         # Validate and convert parameter type
         # supported: string, integer, array
@@ -649,20 +686,32 @@ def _extract_and_validate_params(
                 try:
                     param_value = int(param_value)
                 except ValueError:
-                    raise FunctionCallValidationError(f"Parameter '{param_name}' is expected to be an integer.")
+                    raise FunctionCallValidationError(
+                        f"Parameter '{param_name}' is expected to be an integer."
+                    )
             elif param_name_to_type[param_name] == "array":
                 try:
                     param_value = json.loads(param_value)
                 except json.JSONDecodeError:
-                    raise FunctionCallValidationError(f"Parameter '{param_name}' is expected to be an array.")
+                    raise FunctionCallValidationError(
+                        f"Parameter '{param_name}' is expected to be an array."
+                    )
             else:
                 # string
                 pass
 
         # Enum check
-        if "parameters" in matching_tool and "enum" in matching_tool["parameters"]["properties"][param_name]:
-            if param_value not in matching_tool["parameters"]["properties"][param_name]["enum"]:
-                raise FunctionCallValidationError(f"Parameter '{param_name}' is expected to be one of {matching_tool['parameters']['properties'][param_name]['enum']}.")
+        if (
+            "parameters" in matching_tool
+            and "enum" in matching_tool["parameters"]["properties"][param_name]
+        ):
+            if (
+                param_value
+                not in matching_tool["parameters"]["properties"][param_name]["enum"]
+            ):
+                raise FunctionCallValidationError(
+                    f"Parameter '{param_name}' is expected to be one of {matching_tool['parameters']['properties'][param_name]['enum']}."
+                )
 
         params[param_name] = param_value
         found_params.add(param_name)
@@ -670,7 +719,9 @@ def _extract_and_validate_params(
     # Check all required parameters are present
     missing_params = required_params - found_params
     if missing_params:
-        raise FunctionCallValidationError(f"Missing required parameters for function '{fn_name}': {missing_params}")
+        raise FunctionCallValidationError(
+            f"Missing required parameters for function '{fn_name}': {missing_params}"
+        )
     return params
 
 
@@ -710,7 +761,9 @@ def convert_non_fncall_messages_to_fncall_messages(
     """Convert non-function calling messages back to function calling messages."""
     messages = copy.deepcopy(messages)
     formatted_tools = convert_tools_to_description(tools)
-    system_prompt_suffix = SYSTEM_PROMPT_SUFFIX_TEMPLATE.format(description=formatted_tools)
+    system_prompt_suffix = SYSTEM_PROMPT_SUFFIX_TEMPLATE.format(
+        description=formatted_tools
+    )
 
     converted_messages = []
     tool_call_counter = 1  # Counter for tool calls
@@ -727,7 +780,9 @@ def convert_non_fncall_messages_to_fncall_messages(
             elif isinstance(content, list):
                 if content and content[-1]["type"] == "text":
                     # Remove the suffix from the last text item
-                    content[-1]["text"] = content[-1]["text"].split(system_prompt_suffix)[0]
+                    content[-1]["text"] = content[-1]["text"].split(
+                        system_prompt_suffix
+                    )[0]
             converted_messages.append({"role": "system", "content": content})
         # Skip user messages (no conversion needed)
         elif role == "user":
@@ -737,9 +792,13 @@ def convert_non_fncall_messages_to_fncall_messages(
                 if isinstance(content, str):
                     # Remove any existing example
                     if content.startswith(IN_CONTEXT_LEARNING_EXAMPLE_PREFIX(tools)):
-                        content = content.replace(IN_CONTEXT_LEARNING_EXAMPLE_PREFIX(tools), "", 1)
+                        content = content.replace(
+                            IN_CONTEXT_LEARNING_EXAMPLE_PREFIX(tools), "", 1
+                        )
                     if content.endswith(IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX):
-                        content = content.replace(IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX, "", 1)
+                        content = content.replace(
+                            IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX, "", 1
+                        )
                 elif isinstance(content, list):
                     for item in content:
                         if item["type"] == "text":
@@ -747,29 +806,54 @@ def convert_non_fncall_messages_to_fncall_messages(
                             example = IN_CONTEXT_LEARNING_EXAMPLE_PREFIX(tools)
                             if item["text"].startswith(example):
                                 item["text"] = item["text"].replace(example, "", 1)
-                            if item["text"].endswith(IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX):
-                                item["text"] = item["text"].replace(IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX, "", 1)
+                            if item["text"].endswith(
+                                IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX
+                            ):
+                                item["text"] = item["text"].replace(
+                                    IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX, "", 1
+                                )
                 else:
-                    raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                    raise FunctionCallConversionError(
+                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                    )
 
             # Check for tool execution result pattern
             if isinstance(content, str):
-                tool_result_match = re.search(TOOL_RESULT_REGEX_PATTERN, content, re.DOTALL)
+                tool_result_match = re.search(
+                    TOOL_RESULT_REGEX_PATTERN, content, re.DOTALL
+                )
             elif isinstance(content, list):
                 tool_result_match = next(
-                    (_match for item in content if item.get("type") == "text" and (_match := re.search(TOOL_RESULT_REGEX_PATTERN, item["text"], re.DOTALL))),
+                    (
+                        _match
+                        for item in content
+                        if item.get("type") == "text"
+                        and (
+                            _match := re.search(
+                                TOOL_RESULT_REGEX_PATTERN, item["text"], re.DOTALL
+                            )
+                        )
+                    ),
                     None,
                 )
             else:
-                raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                raise FunctionCallConversionError(
+                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                )
 
             if tool_result_match:
                 if isinstance(content, list):
-                    text_content_items = [item for item in content if item.get("type") == "text"]
+                    text_content_items = [
+                        item for item in content if item.get("type") == "text"
+                    ]
                     if not text_content_items:
-                        raise FunctionCallConversionError(f"Could not find text content in message with tool result. Content: {content}")
+                        raise FunctionCallConversionError(
+                            f"Could not find text content in message with tool result. Content: {content}"
+                        )
                 elif not isinstance(content, str):
-                    raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                    raise FunctionCallConversionError(
+                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                    )
 
                 tool_name = tool_result_match.group(1)
                 tool_result = tool_result_match.group(2).strip()
@@ -779,7 +863,9 @@ def convert_non_fncall_messages_to_fncall_messages(
                     {
                         "role": "tool",
                         "name": tool_name,
-                        "content": [{"type": "text", "text": tool_result}] if isinstance(content, list) else tool_result,
+                        "content": [{"type": "text", "text": tool_result}]
+                        if isinstance(content, list)
+                        else tool_result,
                         "tool_call_id": f"toolu_{tool_call_counter - 1:02d}",  # Use last generated ID
                     }
                 )
@@ -794,29 +880,48 @@ def convert_non_fncall_messages_to_fncall_messages(
             elif isinstance(content, list):
                 if content and content[-1]["type"] == "text":
                     content[-1]["text"] = _fix_stopword(content[-1]["text"])
-                    fn_match = re.search(FN_REGEX_PATTERN, content[-1]["text"], re.DOTALL)
+                    fn_match = re.search(
+                        FN_REGEX_PATTERN, content[-1]["text"], re.DOTALL
+                    )
                 else:
                     fn_match = None
-                fn_match_exists = any(item.get("type") == "text" and re.search(FN_REGEX_PATTERN, item["text"], re.DOTALL) for item in content)
+                fn_match_exists = any(
+                    item.get("type") == "text"
+                    and re.search(FN_REGEX_PATTERN, item["text"], re.DOTALL)
+                    for item in content
+                )
                 if fn_match_exists and not fn_match:
-                    raise FunctionCallConversionError(f"Expecting function call in the LAST index of content list. But got content={content}")
+                    raise FunctionCallConversionError(
+                        f"Expecting function call in the LAST index of content list. But got content={content}"
+                    )
             else:
-                raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                raise FunctionCallConversionError(
+                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                )
 
             if fn_match:
                 fn_name = fn_match.group(1)
                 fn_body = _normalize_parameter_tags(fn_match.group(2))
                 matching_tool: ChatCompletionToolParamFunctionChunk | None = next(
-                    (tool["function"] for tool in tools if tool["type"] == "function" and tool["function"]["name"] == fn_name),
+                    (
+                        tool["function"]
+                        for tool in tools
+                        if tool["type"] == "function"
+                        and tool["function"]["name"] == fn_name
+                    ),
                     None,
                 )
                 # Validate function exists in tools
                 if not matching_tool:
-                    raise FunctionCallValidationError(f"Function '{fn_name}' not found in available tools: {[tool['function']['name'] for tool in tools if tool['type'] == 'function']}")
+                    raise FunctionCallValidationError(
+                        f"Function '{fn_name}' not found in available tools: {[tool['function']['name'] for tool in tools if tool['type'] == 'function']}"
+                    )
 
                 # Parse parameters
                 param_matches = re.finditer(FN_PARAM_REGEX_PATTERN, fn_body, re.DOTALL)
-                params = _extract_and_validate_params(matching_tool, param_matches, fn_name)
+                params = _extract_and_validate_params(
+                    matching_tool, param_matches, fn_name
+                )
 
                 # Create tool call with unique ID
                 tool_call_id = f"toolu_{tool_call_counter:02d}"
@@ -831,19 +936,27 @@ def convert_non_fncall_messages_to_fncall_messages(
                 # Remove the function call part from content
                 if isinstance(content, list):
                     assert content and content[-1]["type"] == "text"
-                    content[-1]["text"] = content[-1]["text"].split("<function=")[0].strip()
+                    content[-1]["text"] = (
+                        content[-1]["text"].split("<function=")[0].strip()
+                    )
                 elif isinstance(content, str):
                     content = content.split("<function=")[0].strip()
                 else:
-                    raise FunctionCallConversionError(f"Unexpected content type {type(content)}. Expected str or list. Content: {content}")
+                    raise FunctionCallConversionError(
+                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"
+                    )
 
-                converted_messages.append({"role": "assistant", "content": content, "tool_calls": [tool_call]})
+                converted_messages.append(
+                    {"role": "assistant", "content": content, "tool_calls": [tool_call]}
+                )
             else:
                 # No function call, keep message as is
                 converted_messages.append(message)
 
         else:
-            raise FunctionCallConversionError(f"Unexpected role {role}. Expected system, user, or assistant in non-function calling messages.")
+            raise FunctionCallConversionError(
+                f"Unexpected role {role}. Expected system, user, or assistant in non-function calling messages."
+            )
     return converted_messages
 
 
@@ -878,12 +991,18 @@ def convert_from_multiple_tool_calls_to_single_tool_call_messages(
                 # add the tool result
                 converted_messages.append(message)
             else:
-                assert len(pending_tool_calls) == 0, f"Found pending tool calls but not found in pending list: {pending_tool_calls=}"
+                assert len(pending_tool_calls) == 0, (
+                    f"Found pending tool calls but not found in pending list: {pending_tool_calls=}"
+                )
                 converted_messages.append(message)
         else:
-            assert len(pending_tool_calls) == 0, f"Found pending tool calls but not expect to handle it with role {role}: {pending_tool_calls=}, {message=}"
+            assert len(pending_tool_calls) == 0, (
+                f"Found pending tool calls but not expect to handle it with role {role}: {pending_tool_calls=}, {message=}"
+            )
             converted_messages.append(message)
 
     if not ignore_final_tool_result and len(pending_tool_calls) > 0:
-        raise FunctionCallConversionError(f"Found pending tool calls but no tool result: {pending_tool_calls=}")
+        raise FunctionCallConversionError(
+            f"Found pending tool calls but no tool result: {pending_tool_calls=}"
+        )
     return converted_messages

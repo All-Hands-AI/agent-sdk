@@ -9,8 +9,12 @@ from jinja2 import Environment, FileSystemBytecodeCache, FileSystemLoader, Templ
 
 def refine(text: str) -> str:
     if sys.platform == "win32":
-        text = re.sub(r"\bexecute_bash\b", "execute_powershell", text, flags=re.IGNORECASE)
-        text = re.sub(r"(?<!execute_)(?<!_)\bbash\b", "powershell", text, flags=re.IGNORECASE)
+        text = re.sub(
+            r"\bexecute_bash\b", "execute_powershell", text, flags=re.IGNORECASE
+        )
+        text = re.sub(
+            r"(?<!execute_)(?<!_)\bbash\b", "powershell", text, flags=re.IGNORECASE
+        )
     return text
 
 
@@ -38,7 +42,9 @@ def _get_template(prompt_dir: str, template_name: str) -> Template:
     try:
         return env.get_template(template_name)
     except Exception:
-        raise FileNotFoundError(f"Prompt file {os.path.join(prompt_dir, template_name)} not found")
+        raise FileNotFoundError(
+            f"Prompt file {os.path.join(prompt_dir, template_name)} not found"
+        )
 
 
 def render_template(prompt_dir: str, template_name: str, **ctx) -> str:
@@ -47,7 +53,9 @@ def render_template(prompt_dir: str, template_name: str, **ctx) -> str:
 
 
 # Convenience wrappers keeping old names/semantics
-def render_system_message(prompt_dir: str, system_prompt_filename: str = "system_prompt.j2", **ctx) -> str:
+def render_system_message(
+    prompt_dir: str, system_prompt_filename: str = "system_prompt.j2", **ctx
+) -> str:
     return render_template(prompt_dir, system_prompt_filename, **ctx)
 
 

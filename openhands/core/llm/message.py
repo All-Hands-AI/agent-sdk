@@ -78,14 +78,18 @@ class Message(BaseModel):
         # - into a single string: for providers that don't support list of content items (e.g. no vision, no tool calls)
         # - into a list of content items: the new APIs of providers with vision/prompt caching/tool calls
         # NOTE: remove this when litellm or providers support the new API
-        if not self.force_string_serializer and (self.cache_enabled or self.vision_enabled or self.function_calling_enabled):
+        if not self.force_string_serializer and (
+            self.cache_enabled or self.vision_enabled or self.function_calling_enabled
+        ):
             return self._list_serializer()
         # some providers, like HF and Groq/llama, don't support a list here, but a single string
         return self._string_serializer()
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
-        content = "\n".join(item.text for item in self.content if isinstance(item, TextContent))
+        content = "\n".join(
+            item.text for item in self.content if isinstance(item, TextContent)
+        )
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 
         # add tool call keys if we have a tool call or response
@@ -143,7 +147,9 @@ class Message(BaseModel):
 
         # an observation message with tool response
         if self.tool_call_id is not None:
-            assert self.name is not None, "name is required when tool_call_id is not None"
+            assert self.name is not None, (
+                "name is required when tool_call_id is not None"
+            )
             message_dict["tool_call_id"] = self.tool_call_id
             message_dict["name"] = self.name
 
@@ -155,6 +161,8 @@ class Message(BaseModel):
         assert message.role != "function", "Function role is not supported"
         return Message(
             role=message.role,
-            content=[TextContent(text=message.content)] if isinstance(message.content, str) else [],
+            content=[TextContent(text=message.content)]
+            if isinstance(message.content, str)
+            else [],
             tool_calls=message.tool_calls,
         )
