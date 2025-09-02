@@ -52,7 +52,6 @@ class CodeActAgent(AgentBase):
         if len(messages) == 0:
             # Prepare system message
             event = SystemPromptEvent(source="agent", system_prompt=self.system_message, tools=[t.to_openai_tool() for t in self.tools.values()])
-            # emit event; Conversation default callback persists it
             on_event(event)
 
     def step(
