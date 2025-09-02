@@ -13,6 +13,7 @@ from .types import SourceType
 if TYPE_CHECKING:
     from .llm_convertible import ActionEvent
 
+N_CHAR_PREVIEW = 500
 
 class EventBase(BaseModel, ABC):
     """Base class for all events: timestamped envelope with media."""
@@ -54,8 +55,8 @@ class LLMConvertibleEvent(EventBase, ABC):
             if text_parts:
                 content_preview = " ".join(text_parts)
                 # Truncate long content for display
-                if len(content_preview) > 100:
-                    content_preview = content_preview[:97] + "..."
+                if len(content_preview) > N_CHAR_PREVIEW:
+                    content_preview = content_preview[:N_CHAR_PREVIEW-3] + "..."
                 return f"{base_str}\n  {llm_message.role}: {content_preview}"
             else:
                 return f"{base_str}\n  {llm_message.role}: [no text content]"
@@ -66,6 +67,7 @@ class LLMConvertibleEvent(EventBase, ABC):
     @staticmethod
     def events_to_messages(events: list["LLMConvertibleEvent"]) -> list[Message]:
         """Convert event stream to LLM message stream, handling multi-action batches"""
+        # TODO: We should add extensive tests for this
         from .llm_convertible import ActionEvent  # Import here to avoid circular import
 
         messages = []

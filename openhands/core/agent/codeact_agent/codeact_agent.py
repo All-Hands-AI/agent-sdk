@@ -98,6 +98,7 @@ class CodeActAgent(AgentBase):
                 )
                 if action_event is None:
                     continue
+                action_events.append(action_event)
                 state.events.append(action_event)
 
             for action_event in action_events:
