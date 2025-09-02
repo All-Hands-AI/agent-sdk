@@ -535,7 +535,8 @@ class LLM(RetryMixin):
         """Acquire from litellm if model is vision capable.
 
         Returns:
-            bool: True if model is vision capable. Return False if model not supported by litellm.  # noqa: E501
+            bool: True if model is vision capable. Return False if model not
+                supported by litellm.
         """
         # litellm.supports_vision currently returns False for 'openai/gpt-...' or 'anthropic/claude-...' (with prefixes)  # noqa: E501
         # but model_info will have the correct value for some reason.
@@ -556,7 +557,8 @@ class LLM(RetryMixin):
         """Check if prompt caching is supported and enabled for current model.
 
         Returns:
-            boolean: True if prompt caching is supported and enabled for the given model.  # noqa: E501
+            boolean: True if prompt caching is supported and enabled for the given
+                model.
         """
         if not self.config.caching_prompt:
             return False
@@ -564,7 +566,8 @@ class LLM(RetryMixin):
         return get_features(self.config.model).supports_prompt_cache
 
     def is_function_calling_active(self) -> bool:
-        """Returns whether function calling is supported and enabled for this LLM instance.  # noqa: E501
+        """Returns whether function calling is supported and enabled for this LLM
+        instance.
 
         The result is cached during initialization for performance.
         """
@@ -658,10 +661,12 @@ class LLM(RetryMixin):
         return cur_cost
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
-        """Get the number of tokens in a list of messages. Use dicts for better token counting.  # noqa: E501
+        """Get the number of tokens in a list of messages. Use dicts for better
+        token counting.
 
         Args:
-            messages (list): A list of messages, either as a list of dicts or as a list of Message objects.  # noqa: E501
+            messages (list): A list of messages, either as a list of dicts or as a
+                list of Message objects.
 
         Returns:
             int: The number of tokens.
@@ -725,7 +730,8 @@ class LLM(RetryMixin):
     def _completion_cost(self, response: Any) -> float:
         """Calculate completion cost and update metrics with running total.
 
-        Calculate the cost of a completion response based on the model. Local models are treated as free.  # noqa: E501
+        Calculate the cost of a completion response based on the model. Local
+        models are treated as free.
         Add the current cost into total cost in metrics.
 
         Args:

@@ -73,9 +73,11 @@ class FunctionCallConversionError(LLMError):
 
 
 class FunctionCallValidationError(LLMError):
-    """Exception raised when FunctionCallingConverter failed to validate a function call message.  # noqa: E501
+    """Exception raised when FunctionCallingConverter failed to validate a function
+    call message.
 
-    This typically happens when the LLM outputs unrecognized function call / parameter names / values.  # noqa: E501
+    This typically happens when the LLM outputs unrecognized function call /
+    parameter names / values.
     """
 
     def __init__(self, message: str) -> None:

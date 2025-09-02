@@ -75,14 +75,17 @@ class Message(BaseModel):
     @model_serializer(mode="plain")
     def serialize_model(self) -> dict[str, Any]:
         # We need two kinds of serializations:
-        # - into a single string: for providers that don't support list of content items (e.g. no vision, no tool calls)
-        # - into a list of content items: the new APIs of providers with vision/prompt caching/tool calls
+        # - into a single string: for providers that don't support list of content
+        #   items (e.g. no vision, no tool calls)
+        # - into a list of content items: the new APIs of providers with
+        #   vision/prompt caching/tool calls
         # NOTE: remove this when litellm or providers support the new API
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
             return self._list_serializer()
-        # some providers, like HF and Groq/llama, don't support a list here, but a single string
+        # some providers, like HF and Groq/llama, don't support a list here, but a
+        # single string
         return self._string_serializer()
 
     def _string_serializer(self) -> dict[str, Any]:
@@ -102,7 +105,8 @@ class Message(BaseModel):
         for item in self.content:
             # Serialize with the subclass-specific return type
             raw = item.model_dump()
-            # We have to remove cache_prompt for tool content and move it up to the message level
+            # We have to remove cache_prompt for tool content and move it up to the
+            # message level
             # See discussion here for details: https://github.com/BerriAI/litellm/issues/6422#issuecomment-2438765472
             if isinstance(item, TextContent):
                 d = cast(dict[str, Any], raw)
