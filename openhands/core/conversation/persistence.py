@@ -67,19 +67,26 @@ class ConversationPersistence:
                     continue
                 self._write_individual(msg_dir, idx, msg, filestore)
 
-    def load(self, cls: "type[Conversation]", agent, dir_path: str, ConversationState, Message, file_store: FileStore | None = None, **kwargs) -> "Conversation":
+    def load(self, dir_path: str, agent, file_store: FileStore | None = None, **kwargs) -> "Conversation":
         """
         Restore a Conversation instance from `dir_path`:
           - read base_state.json
           - list and sort individual message files
           - stream JSONL and validate into Message objects
         """
+        # Lazy imports to avoid circular imports
+        from openhands.core.event import MessageEvent
+        from openhands.core.llm import Message
+
+        from .conversation import Conversation
+        from .state import ConversationState
+
         filestore = file_store or LocalFileStore(root=dir_path)
         base_path = BASE_STATE_NAME
 
         base_state_dict = json.loads(filestore.read(base_path))
 
-        obj: "Conversation" = cls(agent=agent, **kwargs)
+        obj: "Conversation" = Conversation(agent=agent, **kwargs)
         with obj.state:
             obj.state = ConversationState.model_validate(base_state_dict)
 
@@ -93,7 +100,7 @@ class ConversationPersistence:
                     entries.append((int(m.group("idx")), p))
             entries.sort(key=lambda t: t[0])
 
-            # append messages in order
+            # append messages in order as MessageEvent(s)
             for _, path in entries:
                 blob = filestore.read(path)
                 for line in blob.splitlines():
@@ -101,9 +108,17 @@ class ConversationPersistence:
                         continue
                     msg_dict = json.loads(line)
                     try:
-                        obj.state.history.messages.append(
-                            Message.model_validate(msg_dict)
-                        )
+                        message = Message.model_validate(msg_dict)
+                        role = message.role
+                        if role == "user":
+                            source = "user"
+                        elif role == "assistant" or role == "system":
+                            source = "agent"
+                        elif role == "tool":
+                            source = "environment"
+                        else:
+                            source = "agent"
+                        obj.state.events.append(MessageEvent(source=source, llm_message=message))
                     except ValidationError as e:
                         logger.error(f"Failed to validate message from {path}: {e}")
         return obj

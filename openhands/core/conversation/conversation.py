@@ -110,10 +110,7 @@ class Conversation:
         """
         persistence = persistence or ConversationPersistence()
         return persistence.load(
-            cls,
-            agent,
-            dir_path,
-            ConversationState,
-            Message,
+            dir_path=dir_path,
+            agent=agent,
             **(kwargs or {})
         )
