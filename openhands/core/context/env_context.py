@@ -1,14 +1,11 @@
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
+from openhands.core.context.utils.prompt import render_microagent_info
 from openhands.core.llm.message import TextContent
 
 from .microagents import MicroagentKnowledge
-
-
-if TYPE_CHECKING:
-    from .prompt import PromptManager
+from .utils import render_additional_info
 
 
 class RuntimeInfo(BaseModel):
@@ -69,12 +66,13 @@ class EnvContext(BaseModel):
         description="List of microagents that have been activated based on the user's input",
     )
 
-    def render(self, prompt_manager: "PromptManager") -> list[TextContent]:
+    def render(self, prompt_dir: str) -> list[TextContent]:
         """Renders the environment context into a string using the provided PromptManager."""
         message_content = []
         # Build the workspace context information
         if self.repository_info or self.runtime_info or self.repository_instructions or self.conversation_instructions:
-            formatted_workspace_text = prompt_manager.build_workspace_context(
+            formatted_workspace_text = render_additional_info(
+                prompt_dir=prompt_dir,
                 repository_info=self.repository_info,
                 runtime_info=self.runtime_info,
                 conversation_instructions=self.conversation_instructions,
@@ -84,7 +82,8 @@ class EnvContext(BaseModel):
 
         # Add microagent knowledge if present
         if self.activated_microagents:
-            formatted_microagent_text = prompt_manager.build_microagent_info(
+            formatted_microagent_text = render_microagent_info(
+                prompt_dir=prompt_dir,
                 triggered_agents=self.activated_microagents,
             )
             message_content.append(TextContent(text=formatted_microagent_text))

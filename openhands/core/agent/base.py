@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from types import MappingProxyType
 
@@ -35,6 +36,11 @@ class AgentBase(ABC):
             logger.debug(f"Registering tool: {tool}")
             _tools_map[tool.name] = tool
         self._tools = MappingProxyType(_tools_map)
+
+    @property
+    def prompt_dir(self) -> str:
+        """Returns the directory where prompt templates are stored, if applicable."""
+        return os.path.join(os.path.dirname(__file__), "prompts")
 
     @property
     def name(self) -> str:

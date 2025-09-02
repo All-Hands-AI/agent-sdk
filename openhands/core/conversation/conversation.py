@@ -62,7 +62,7 @@ class Conversation:
                 # to *any* action execution runtime information
                 if self.env_context:
                     # TODO: the prompt manager here is a hack, will systematically fix it with LLMContextManager design
-                    initial_env_context: list[TextContent] = self.env_context.render(self.agent.prompt_manager)  # type: ignore
+                    initial_env_context: list[TextContent] = self.env_context.render(self.agent.prompt_dir)  # type: ignore
                     message.content += initial_env_context
                     if self.env_context.activated_microagents:
                         activated_microagents = [microagent.name for microagent in self.env_context.activated_microagents]

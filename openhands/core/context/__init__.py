@@ -14,7 +14,7 @@ from .microagents import (
     RepoMicroagent,
     load_microagents_from_dir,
 )
-from .prompt import PromptManager
+from .utils import render_additional_info, render_initial_user_message, render_microagent_info, render_system_message
 
 
 __all__ = [
@@ -23,7 +23,6 @@ __all__ = [
     "RuntimeInfo",
     "ConversationInstructions",
     "MessageContext",
-    "PromptManager",
     "BaseMicroagent",
     "KnowledgeMicroagent",
     "RepoMicroagent",
@@ -31,4 +30,8 @@ __all__ = [
     "MicroagentType",
     "MicroagentKnowledge",
     "load_microagents_from_dir",
+    "render_system_message",
+    "render_initial_user_message",
+    "render_additional_info",
+    "render_microagent_info"
 ]

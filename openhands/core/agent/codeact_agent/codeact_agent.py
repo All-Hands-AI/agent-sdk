@@ -1,5 +1,4 @@
 import json
-import os
 from typing import cast
 
 from litellm.types.utils import (
@@ -10,7 +9,7 @@ from litellm.types.utils import (
 )
 from pydantic import ValidationError
 
-from openhands.core.context import EnvContext, PromptManager
+from openhands.core.context import EnvContext, render_system_message
 from openhands.core.conversation import ConversationCallbackType, ConversationState
 from openhands.core.event import ActionEvent, AgentErrorEvent, LLMConvertibleEvent, MessageEvent, ObservationEvent, SystemPromptEvent
 from openhands.core.llm import LLM, Message, TextContent, get_llm_metadata
@@ -35,11 +34,14 @@ class CodeActAgent(AgentBase):
         for tool in BUILT_IN_TOOLS:
             assert tool not in tools, f"{tool} is automatically included and should not be provided."
         super().__init__(llm=llm, tools=tools + BUILT_IN_TOOLS, env_context=env_context)
-        self.prompt_manager = PromptManager(
-            prompt_dir=os.path.join(os.path.dirname(__file__), "prompts"),
+
+        self.system_message: TextContent = TextContent(
+            text=render_system_message(
+            prompt_dir=self.prompt_dir,
             system_prompt_filename=system_prompt_filename,
-        )
-        self.system_message: TextContent = self.prompt_manager.get_system_message(cli_mode=cli_mode)
+            cli_mode=cli_mode
+        ))
+
         self.max_iterations: int = 10
 
     def init_state(
