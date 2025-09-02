@@ -7,7 +7,7 @@ from pydantic import Field
 from openhands.core.llm import ImageContent, Message, TextContent
 from openhands.core.tool import ActionBase, ObservationBase
 
-from .base import LLMConvertibleEvent
+from .base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from .types import EventType, SourceType
 
 
@@ -25,7 +25,7 @@ class SystemPromptEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for SystemPromptEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        prompt_preview = self.system_prompt.text[:100] + "..." if len(self.system_prompt.text) > 100 else self.system_prompt.text
+        prompt_preview = self.system_prompt.text[:N_CHAR_PREVIEW] + "..." if len(self.system_prompt.text) > N_CHAR_PREVIEW else self.system_prompt.text
         tool_count = len(self.tools)
         return f"{base_str}\n  System: {prompt_preview}\n  Tools: {tool_count} available"
 
@@ -49,7 +49,7 @@ class ActionEvent(LLMConvertibleEvent):
         """Plain text string representation for ActionEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
         thought_text = " ".join([t.text for t in self.thought])
-        thought_preview = thought_text[:80] + "..." if len(thought_text) > 80 else thought_text
+        thought_preview = thought_text[:N_CHAR_PREVIEW] + "..." if len(thought_text) > N_CHAR_PREVIEW else thought_text
         action_name = self.action.__class__.__name__
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
 
@@ -69,7 +69,7 @@ class ObservationEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for ObservationEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        obs_preview = self.observation.agent_observation[:100] + "..." if len(self.observation.agent_observation) > 100 else self.observation.agent_observation
+        obs_preview = self.observation.agent_observation[:N_CHAR_PREVIEW] + "..." if len(self.observation.agent_observation) > N_CHAR_PREVIEW else self.observation.agent_observation
         return f"{base_str}\n  Tool: {self.tool_name}\n  Result: {obs_preview}"
 
 
@@ -101,8 +101,8 @@ class MessageEvent(LLMConvertibleEvent):
 
         if text_parts:
             content_preview = " ".join(text_parts)
-            if len(content_preview) > 100:
-                content_preview = content_preview[:97] + "..."
+            if len(content_preview) > N_CHAR_PREVIEW:
+                content_preview = content_preview[:N_CHAR_PREVIEW-3] + "..."
             microagent_info = f" [Microagents: {', '.join(self.activated_microagents)}]" if self.activated_microagents else ""
             return f"{base_str}\n  {self.llm_message.role}: {content_preview}{microagent_info}"
         else:
@@ -122,5 +122,5 @@ class AgentErrorEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for AgentErrorEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        error_preview = self.error[:100] + "..." if len(self.error) > 100 else self.error
+        error_preview = self.error[:N_CHAR_PREVIEW] + "..." if len(self.error) > N_CHAR_PREVIEW else self.error
         return f"{base_str}\n  Error: {error_preview}"
