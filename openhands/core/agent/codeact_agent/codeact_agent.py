@@ -9,11 +9,9 @@ from litellm.types.utils import (
 )
 from pydantic import ValidationError
 
-
-from openhands.core.context import EnvContext, PromptManager
+from openhands.core.context import EnvContext, render_system_message
 from openhands.core.context.condenser import Condenser
 from openhands.core.context.view import View
-from openhands.core.context import EnvContext, render_system_message
 from openhands.core.conversation import ConversationCallbackType, ConversationState
 from openhands.core.event import ActionEvent, AgentErrorEvent, LLMConvertibleEvent, MessageEvent, ObservationEvent, SystemPromptEvent
 from openhands.core.event.context import Condensation
