@@ -11,8 +11,8 @@ from openhands.core.event import EventType
 
 class ConversationState(BaseModel):
     model_config = ConfigDict(
-        arbitrary_types_allowed=True,   # allow RLock in PrivateAttr
-        validate_assignment=True,       # validate on attribute set
+        arbitrary_types_allowed=True,  # allow RLock in PrivateAttr
+        validate_assignment=True,  # validate on attribute set
         frozen=False,
     )
 

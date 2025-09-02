@@ -1,7 +1,7 @@
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,15 +16,16 @@ if TYPE_CHECKING:
 
 class EventBase(BaseModel, ABC):
     """Base class for all events: timestamped envelope with media."""
+
     model_config = ConfigDict(extra="forbid")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique event id (ULID/UUID)")
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Event timestamp") # consistent with V1
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Event timestamp")  # consistent with V1
     source: SourceType = Field(..., description="The source of this event")
 
     def __str__(self) -> str:
         """Plain text string representation for display."""
         return f"{self.__class__.__name__} ({self.source})"
-    
+
     def __repr__(self) -> str:
         """Developer-friendly representation."""
         return f"{self.__class__.__name__}(id='{self.id[:8]}...', source='{self.source}', timestamp='{self.timestamp}')"
@@ -32,10 +33,11 @@ class EventBase(BaseModel, ABC):
 
 class LLMConvertibleEvent(EventBase, ABC):
     """Base class for events that can be converted to LLM messages."""
+
     @abstractmethod
     def to_llm_message(self) -> Message:
         raise NotImplementedError()
-    
+
     def __str__(self) -> str:
         """Plain text string representation showing LLM message content."""
         base_str = super().__str__()
@@ -48,7 +50,7 @@ class LLMConvertibleEvent(EventBase, ABC):
                     text_parts.append(content.text)
                 elif isinstance(content, ImageContent):
                     text_parts.append(f"[Image: {len(content.image_urls)} URLs]")
-            
+
             if text_parts:
                 content_preview = " ".join(text_parts)
                 # Truncate long content for display
@@ -60,57 +62,55 @@ class LLMConvertibleEvent(EventBase, ABC):
         except Exception:
             # Fallback to base representation if LLM message conversion fails
             return base_str
-    
+
     @staticmethod
     def events_to_messages(events: list["LLMConvertibleEvent"]) -> list[Message]:
         """Convert event stream to LLM message stream, handling multi-action batches"""
         from .llm_convertible import ActionEvent  # Import here to avoid circular import
-        
+
         messages = []
         i = 0
-        
+
         while i < len(events):
             event = events[i]
-            
+
             if isinstance(event, ActionEvent):
-                # Collect all ActionEvents from same LLM batch
+                # Collect all ActionEvents from same LLM respone
+                # This happens when function calling happens
                 batch_events: list[ActionEvent] = [event]
-                batch_id = event.llm_batch_id
-                
+                response_id = event.llm_response_id
+
                 # Look ahead for related events
                 j = i + 1
-                while (j < len(events) and 
-                       isinstance(events[j], ActionEvent) and 
-                       hasattr(events[j], 'llm_batch_id') and
-                       events[j].llm_batch_id == batch_id):  # type: ignore
-                    batch_events.append(events[j])  # type: ignore
+                while j < len(events) and isinstance(events[j], ActionEvent) and events[j].llm_response_id == response_id:  # type: ignore
+                    batch_events.append(cast(ActionEvent, events[j]))
                     j += 1
-                
-                # Create combined message for the batch
+
+                # Create combined message for the response
                 messages.append(_combine_action_events(batch_events))
                 i = j
             else:
                 # Regular event - direct conversion
                 messages.append(event.to_llm_message())
                 i += 1
-                
+
         return messages
 
 
 def _combine_action_events(events: list["ActionEvent"]) -> Message:
-    """Combine multiple ActionEvents into single LLM message"""
-    from typing import cast
-
-    from openhands.core.llm import ImageContent
+    """Combine multiple ActionEvents into single LLM message.
     
+    We receive multiple ActionEvents per LLM message WHEN LLM returns
+    multiple tool calls with parallel function calling.
+    """
     if len(events) == 1:
         return events[0].to_llm_message()
-    
     # Multi-action case - reconstruct original LLM response
-    all_tool_calls = [event._action_to_tool_call() for event in events]
-    content: list[TextContent | ImageContent] = cast(list[TextContent | ImageContent], events[0].thought)
+    for e in events[1:]:
+        assert len(e.thought) == 0, "Expected empty thought for multi-action events after the first one"
+
     return Message(
         role="assistant",
-        content=content,  # Shared thought content
-        tool_calls=all_tool_calls
+        content=cast(list[TextContent | ImageContent], events[0].thought),  # Shared thought content only in the first event
+        tool_calls=[event.tool_call for event in events],
     )

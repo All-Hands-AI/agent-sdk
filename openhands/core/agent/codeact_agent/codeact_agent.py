@@ -1,6 +1,6 @@
 import json
 import os
-import uuid
+from typing import cast
 
 from litellm.types.utils import (
     ChatCompletionMessageToolCall,
@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from openhands.core.context import EnvContext, PromptManager
 from openhands.core.conversation import ConversationCallbackType, ConversationState
-from openhands.core.event import ActionEvent, AgentErrorEvent, MessageEvent, ObservationEvent, SystemPromptEvent
+from openhands.core.event import ActionEvent, AgentErrorEvent, LLMConvertibleEvent, MessageEvent, ObservationEvent, SystemPromptEvent
 from openhands.core.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.core.logger import get_logger
 from openhands.core.tool import BUILT_IN_TOOLS, ActionBase, FinishTool, ObservationBase, Tool
@@ -21,7 +21,6 @@ from ..base import AgentBase
 
 
 logger = get_logger(__name__)
-
 
 
 class CodeActAgent(AgentBase):
@@ -52,11 +51,7 @@ class CodeActAgent(AgentBase):
         messages = [e.to_llm_message() for e in state.events]
         if len(messages) == 0:
             # Prepare system message
-            event = SystemPromptEvent(
-                source="agent",
-                system_prompt=self.system_message,
-                tools=[t.to_openai_tool() for t in self.tools.values()]
-            )
+            event = SystemPromptEvent(source="agent", system_prompt=self.system_message, tools=[t.to_openai_tool() for t in self.tools.values()])
             # TODO: maybe we should combine this into on_event?
             state.events.append(event)
             on_event(event)
@@ -66,15 +61,9 @@ class CodeActAgent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        
         # Get LLM Response (Action)
-        from typing import cast
-
-        from openhands.core.event.base import LLMConvertibleEvent
-        llm_convertible_events = cast(list[LLMConvertibleEvent], state.events)
-        _messages = self.llm.format_messages_for_llm(
-            LLMConvertibleEvent.events_to_messages(llm_convertible_events)
-        )
+        llm_convertible_events = cast(list[LLMConvertibleEvent], [e for e in state.events if isinstance(e, LLMConvertibleEvent)])
+        _messages = self.llm.format_messages_for_llm(LLMConvertibleEvent.events_to_messages(llm_convertible_events))
         logger.debug(f"Sending messages to LLM: {json.dumps(_messages, indent=2)}")
         response: ModelResponse = self.llm.completion(
             messages=_messages,
@@ -94,60 +83,42 @@ class CodeActAgent(AgentBase):
             assert len(tool_calls) > 0, "LLM returned tool calls but none are of type 'function'"
             if not all(isinstance(c, TextContent) for c in message.content):
                 logger.warning("LLM returned tool calls but message content is not all TextContent - ignoring non-text content")
-            
-            # Generate unique batch ID for this LLM response
-            batch_id = str(uuid.uuid4())
-            thought_content = [c for c in message.content if isinstance(c, TextContent)]
-            
-            action_events = []
-            obs_events = []
-            
-            for i, tool_call in enumerate(tool_calls):
-                ret = self._handle_tool_call(tool_call, state, on_event)
-                if ret is None:
-                    continue
-                tool_name, action, observation = ret
-                
-                # Create one ActionEvent per action - clean!
-                action_event = ActionEvent(
-                    action=action,
-                    thought=thought_content if i == 0 else [],  # Only first gets thought
-                    tool_call_id=tool_call.id,
-                    llm_batch_id=batch_id
-                )
-                action_events.append(action_event)
-                
-                obs_event = ObservationEvent(
-                    observation=observation,
-                    action_id=action_event.id,
-                    tool_name=tool_name,
-                    tool_call_id=tool_call.id
-                )
-                obs_events.append(obs_event)
 
-            # Add all events to state
-            state.events.extend(action_events)
-            state.events.extend(obs_events)
-            for event in action_events + obs_events:
-                on_event(event)
+            # Generate unique batch ID for this LLM response
+            thought_content = [c for c in message.content if isinstance(c, TextContent)]
+
+            action_events = []
+            for i, tool_call in enumerate(tool_calls):
+                action_event = self._get_action_events(
+                    state,
+                    tool_call,
+                    llm_response_id=response.id,
+                    on_event=on_event,
+                    thought=thought_content if i == 0 else [],  # Only first gets thought
+                )
+                if action_event is None:
+                    continue
+                state.events.append(action_event)
+
+            for action_event in action_events:
+                self._execute_action_events(state, action_event, on_event=on_event)
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
-            msg_event = MessageEvent(
-                source="agent",
-                llm_message=message
-            )
+            msg_event = MessageEvent(source="agent", llm_message=message)
             state.events.append(msg_event)
             on_event(msg_event)
 
-    def _handle_tool_call(
+    def _get_action_events(
         self,
-        tool_call: ChatCompletionMessageToolCall,
         state: ConversationState,
+        tool_call: ChatCompletionMessageToolCall,
+        llm_response_id: str,
         on_event: ConversationCallbackType,
-    ) -> tuple[str, ActionBase, ObservationBase] | None:
+        thought: list[TextContent] = [],
+    ) -> ActionEvent | None:
         """Handle tool calls from the LLM.
-        
+
         NOTE: state will be mutated in-place.
         """
         assert tool_call.type == "function"
@@ -173,14 +144,32 @@ class CodeActAgent(AgentBase):
             state.events.append(event)
             on_event(event)
             return
+
+        # Create one ActionEvent per action
+        action_event = ActionEvent(action=action, thought=thought, tool_name=tool.name, tool_call_id=tool_call.id, tool_call=tool_call, llm_response_id=llm_response_id)
+        on_event(action_event)
+        return action_event
+
+    def _execute_action_events(self, state: ConversationState, action_event: ActionEvent, on_event: ConversationCallbackType):
+        """Execute action events and update the conversation state.
+
+        It will call the tool's executor and update the state & call callback fn with the observation.
+        """
+        tool = self.tools.get(action_event.tool_name, None)
+        if tool is None:
+            raise RuntimeError(f"Tool '{action_event.tool_name}' not found. This should not happen as it was checked earlier.")
+
         # Execute actions!
         if tool.executor is None:
             raise RuntimeError(f"Tool '{tool.name}' has no executor")
-        observation: ObservationBase = tool.executor(action)
+        observation: ObservationBase = tool.executor(action_event.action)
         assert isinstance(observation, ObservationBase), f"Tool '{tool.name}' executor must return an ObservationBase"
+
+        obs_event = ObservationEvent(observation=observation, action_id=action_event.id, tool_name=tool.name, tool_call_id=action_event.tool_call.id)
+        on_event(obs_event)
 
         # Set conversation state
         if tool.name == FinishTool.name:
             state.agent_finished = True
-
-        return (tool_name, action, observation)
+        state.events.append(obs_event)
+        return obs_event

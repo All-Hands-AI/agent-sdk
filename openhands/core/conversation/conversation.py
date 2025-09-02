@@ -22,22 +22,16 @@ def compose_callbacks(callbacks: Iterable[ConversationCallbackType]) -> Conversa
         for cb in callbacks:
             if cb:
                 cb(event)
+
     return composed
 
+
 class Conversation:
-    def __init__(
-        self,
-        agent: "AgentBase",
-        callbacks: list[ConversationCallbackType] | None = None,
-        max_iteration_per_run: int = 500,
-        env_context: EnvContext | None = None
-    ):
+    def __init__(self, agent: "AgentBase", callbacks: list[ConversationCallbackType] | None = None, max_iteration_per_run: int = 500, env_context: EnvContext | None = None):
         """Initialize the conversation."""
         self._visualizer = ConversationVisualizer()
         # Compose multiple callbacks if a list is provided
-        self._on_event = compose_callbacks(
-            [self._visualizer.on_event] + (callbacks if callbacks else [])
-        )
+        self._on_event = compose_callbacks([self._visualizer.on_event] + (callbacks if callbacks else []))
         self.max_iteration_per_run = max_iteration_per_run
 
         self.agent = agent
@@ -69,12 +63,8 @@ class Conversation:
             else:
                 # TODO: handle per-message microagent context here
                 pass
-            
-            user_msg_event = MessageEvent(
-                source="user",
-                llm_message=message,
-                activated_microagents=activated_microagents
-            )
+
+            user_msg_event = MessageEvent(source="user", llm_message=message, activated_microagents=activated_microagents)
             self.state.events.append(user_msg_event)
             self._on_event(user_msg_event)
 

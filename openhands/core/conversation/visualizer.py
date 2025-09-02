@@ -1,4 +1,3 @@
-
 from rich.console import Console
 
 from openhands.core.event import EventType
@@ -14,7 +13,7 @@ from openhands.core.llm import ImageContent, TextContent
 
 class ConversationVisualizer:
     """Handles visualization of conversation events with Rich formatting.
-    
+
     Provides Rich-formatted output while keeping the event's __str__ methods clean.
     """
 
@@ -73,7 +72,7 @@ class ConversationVisualizer:
                 text_parts.append(content.text)
             elif isinstance(content, ImageContent):
                 text_parts.append(f"[Image: {len(content.image_urls)} URLs]")
-        
+
         if text_parts:
             content_preview = " ".join(text_parts)
             if len(content_preview) > 100:

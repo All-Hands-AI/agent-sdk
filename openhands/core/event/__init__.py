@@ -8,15 +8,6 @@ from .llm_convertible import (
 )
 
 
-EventType = ActionEvent | ObservationEvent | MessageEvent | SystemPromptEvent | AgentErrorEvent
+EventType = LLMConvertibleEvent | ActionEvent | ObservationEvent | MessageEvent | SystemPromptEvent | AgentErrorEvent
 
-__all__ = [
-    "EventBase",
-    "LLMConvertibleEvent",
-    "SystemPromptEvent",
-    "ActionEvent",
-    "ObservationEvent",
-    "MessageEvent",
-    "AgentErrorEvent",
-    "EventType"
-]
+__all__ = ["EventBase", "LLMConvertibleEvent", "SystemPromptEvent", "ActionEvent", "ObservationEvent", "MessageEvent", "AgentErrorEvent", "EventType"]
