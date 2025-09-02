@@ -11,7 +11,7 @@ from pydantic import ValidationError
 if TYPE_CHECKING:
     from .conversation import Conversation  # noqa
 
-from openhands.core.event import LLMConvertibleEvent
+from openhands.core.event import EventBase, EventType, LLMConvertibleEvent
 from openhands.core.io import FileStore, LocalFileStore
 from openhands.core.logger import get_logger
 
@@ -21,13 +21,15 @@ logger = get_logger(__name__)
 
 INDEX_WIDTH = 4
 MESSAGE_DIR_NAME = "messages"
+EVENTS_DIR_NAME = "events"
 BASE_STATE_NAME = "base_state.json"
 
 class ConversationPersistence:
     """
     Layout under `root/`:
-      - base_state.json                     # small JSON
-      - messages/<index>-<ts>.jsonl         # one message per file, one JSON object per line
+      - base_state.json                     # small JSON (without events)
+      - events/<index>-<ts>.jsonl           # ALL events, one event per file, one JSON object per line
+      - messages/<index>-<ts>.jsonl         # LLM messages derived from events (for backward compatibility)
 
     Conventions:
       - <index> is zero-padded to `cfg.index_width`
@@ -51,19 +53,25 @@ class ConversationPersistence:
         # Use keys relative to the filestore root
         base_path = BASE_STATE_NAME
         msg_dir = MESSAGE_DIR_NAME
+        events_dir = EVENTS_DIR_NAME
 
         with obj.state:
             # 1) write base_state (without messages)
             self._write_base_state(base_path, obj, filestore)
 
-            # 2) compute which indices are already on disk
-            saved_indices = self._saved_indices(msg_dir, filestore)
+            # 2) save ALL events
+            saved_event_indices = self._saved_indices(events_dir, filestore)
+            for idx, event in enumerate(obj.state.events):
+                if idx in saved_event_indices:
+                    continue
+                self._write_individual(events_dir, idx, event, filestore)
 
-            # 3) write missing messages (convert events to LLM messages)
-            llm_events = [e for e in obj.state.events if isinstance(e, LLMConvertibleEvent)]
-            msgs = LLMConvertibleEvent.events_to_messages(llm_events)
+            # 3) save LLM messages (for backward compatibility and LLM interaction)
+            saved_msg_indices = self._saved_indices(msg_dir, filestore)
+            # All events in obj.state.events are LLMConvertibleEvent instances, no need to filter
+            msgs = LLMConvertibleEvent.events_to_messages(obj.state.events)
             for idx, msg in enumerate(msgs):
-                if idx in saved_indices:
+                if idx in saved_msg_indices:
                     continue
                 self._write_individual(msg_dir, idx, msg, filestore)
 
@@ -71,8 +79,8 @@ class ConversationPersistence:
         """
         Restore a Conversation instance from `dir_path`:
           - read base_state.json
-          - list and sort individual message files
-          - stream JSONL and validate into Message objects
+          - try to load from events/ directory first (new format)
+          - fall back to messages/ directory for backward compatibility
         """
         # Lazy imports to avoid circular imports
         from openhands.core.event import MessageEvent
@@ -90,37 +98,65 @@ class ConversationPersistence:
         with obj.state:
             obj.state = ConversationState.model_validate(base_state_dict)
 
+            events_dir = EVENTS_DIR_NAME
             msg_dir = MESSAGE_DIR_NAME
-            # collect (idx, path) for individual files
-            entries: list[tuple[int, str]] = []
-            for p in filestore.list(msg_dir):
+            
+            # Try to load from events directory first (new format with ALL events)
+            events_entries: list[tuple[int, str]] = []
+            for p in filestore.list(events_dir):
                 name = os.path.basename(p)
                 m = self._RE_INDIV.match(name)
                 if m:
-                    entries.append((int(m.group("idx")), p))
-            entries.sort(key=lambda t: t[0])
+                    events_entries.append((int(m.group("idx")), p))
+            
+            if events_entries:
+                # Load from events directory (new format)
+                events_entries.sort(key=lambda t: t[0])
+                for _, path in events_entries:
+                    blob = filestore.read(path)
+                    for line in blob.splitlines():
+                        if not line:
+                            continue
+                        event_dict = json.loads(line)
+                        try:
+                            # Deserialize the event based on its type
+                            event = self._deserialize_event(event_dict)
+                            # Type cast needed because EventBase is not in EventType union
+                            # but we want to support future non-LLMConvertibleEvent types
+                            obj.state.events.append(event)  # type: ignore
+                        except Exception as e:
+                            logger.error(f"Failed to deserialize event from {path}: {e}")
+            else:
+                # Fall back to messages directory (backward compatibility)
+                msg_entries: list[tuple[int, str]] = []
+                for p in filestore.list(msg_dir):
+                    name = os.path.basename(p)
+                    m = self._RE_INDIV.match(name)
+                    if m:
+                        msg_entries.append((int(m.group("idx")), p))
+                msg_entries.sort(key=lambda t: t[0])
 
-            # append messages in order as MessageEvent(s)
-            for _, path in entries:
-                blob = filestore.read(path)
-                for line in blob.splitlines():
-                    if not line:
-                        continue
-                    msg_dict = json.loads(line)
-                    try:
-                        message = Message.model_validate(msg_dict)
-                        role = message.role
-                        if role == "user":
-                            source = "user"
-                        elif role == "assistant" or role == "system":
-                            source = "agent"
-                        elif role == "tool":
-                            source = "environment"
-                        else:
-                            source = "agent"
-                        obj.state.events.append(MessageEvent(source=source, llm_message=message))
-                    except ValidationError as e:
-                        logger.error(f"Failed to validate message from {path}: {e}")
+                # append messages in order as MessageEvent(s)
+                for _, path in msg_entries:
+                    blob = filestore.read(path)
+                    for line in blob.splitlines():
+                        if not line:
+                            continue
+                        msg_dict = json.loads(line)
+                        try:
+                            message = Message.model_validate(msg_dict)
+                            role = message.role
+                            if role == "user":
+                                source = "user"
+                            elif role == "assistant" or role == "system":
+                                source = "agent"
+                            elif role == "tool":
+                                source = "environment"
+                            else:
+                                source = "agent"
+                            obj.state.events.append(MessageEvent(source=source, llm_message=message))
+                        except ValidationError as e:
+                            logger.error(f"Failed to validate message from {path}: {e}")
         return obj
 
     # ---------- Internals ----------
@@ -147,6 +183,36 @@ class ConversationPersistence:
             if m:
                 saved.add(int(m.group("idx")))
         return saved
+
+    def _deserialize_event(self, event_dict: dict) -> EventType | EventBase:
+        """Deserialize an event dictionary back to an EventType instance."""
+        from openhands.core.event import (
+            ActionEvent,
+            AgentErrorEvent,
+            EventBase,
+            MessageEvent,
+            ObservationEvent,
+            SystemPromptEvent,
+        )
+        
+        # Map event kind to event class
+        event_classes = {
+            "action": ActionEvent,
+            "observation": ObservationEvent,
+            "message": MessageEvent,
+            "system_prompt": SystemPromptEvent,
+            "agent_error": AgentErrorEvent,
+        }
+        
+        kind = event_dict.get("kind")
+        if kind in event_classes:
+            event_class = event_classes[kind]
+            return event_class.model_validate(event_dict)
+        else:
+            # For unknown event types, try to deserialize as generic EventBase
+            # This provides forward compatibility for new event types
+            logger.warning(f"Unknown event kind '{kind}', deserializing as generic EventBase")
+            return EventBase.model_validate(event_dict)
 
     @staticmethod
     def _join(prefix: str, *parts: str) -> str:

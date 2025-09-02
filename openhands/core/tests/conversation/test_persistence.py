@@ -4,8 +4,9 @@ from typing import Any, cast
 
 from openhands.core.agent.base import AgentBase
 from openhands.core.conversation import Conversation
-from openhands.core.conversation.persistence import BASE_STATE_NAME, MESSAGE_DIR_NAME
+from openhands.core.conversation.persistence import BASE_STATE_NAME, EVENTS_DIR_NAME, MESSAGE_DIR_NAME
 from openhands.core.conversation.state import ConversationState
+from openhands.core.event import MessageEvent
 from openhands.core.io.local import LocalFileStore
 from openhands.core.llm import Message, TextContent
 from openhands.core.tool import Tool
@@ -106,3 +107,48 @@ def test_saved_indices_ignores_invalid_filenames(tmp_path: Path) -> None:
 
     files = sorted(os.listdir(junk_dir))
     assert any(f.startswith("0000-") and f.endswith(".jsonl") for f in files), files
+
+
+def test_save_creates_events_directory(tmp_path: Path) -> None:
+    """Test that events directory is created and ALL events are saved."""
+    conv = Conversation(agent=DummyAgent())
+    
+    # Add a regular message (LLMConvertibleEvent)
+    conv.send_message(Message(role="user", content=[TextContent(text="hi")]))
+    
+    # Save the conversation
+    conv.save(str(tmp_path))
+    
+    # Check that events directory exists and contains files
+    events_dir_path = _physical_path(tmp_path, EVENTS_DIR_NAME)
+    assert events_dir_path.exists(), "events directory should exist"
+    
+    events_files = sorted(os.listdir(events_dir_path))
+    assert len(events_files) == 1, f"Should have 1 event file, got {len(events_files)}: {events_files}"
+    assert events_files[0].startswith("0000-") and events_files[0].endswith(".jsonl")
+    
+    # Check that messages directory also exists (for backward compatibility)
+    msg_dir_path = _physical_path(tmp_path, MESSAGE_DIR_NAME)
+    assert msg_dir_path.exists(), "messages directory should exist for backward compatibility"
+    
+    msg_files = sorted(os.listdir(msg_dir_path))
+    assert len(msg_files) == 1, f"Should have 1 message file, got {len(msg_files)}: {msg_files}"
+
+
+def test_load_prioritizes_events_over_messages(tmp_path: Path) -> None:
+    """Test that loading prioritizes events directory over messages directory."""
+    conv = Conversation(agent=DummyAgent())
+    conv.send_message(Message(role="user", content=[TextContent(text="test message")]))
+    
+    # Save the conversation (creates both events and messages directories)
+    conv.save(str(tmp_path))
+    
+    # Load the conversation back
+    loaded_conv = Conversation.load(str(tmp_path), agent=DummyAgent())
+    
+    # Should have loaded from events directory
+    assert len(loaded_conv.state.events) == 1
+    assert isinstance(loaded_conv.state.events[0], MessageEvent)
+    # Check the message content properly
+    content = loaded_conv.state.events[0].llm_message.content[0]
+    assert isinstance(content, TextContent) and content.text == "test message"
