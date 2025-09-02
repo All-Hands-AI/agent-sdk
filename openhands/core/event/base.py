@@ -99,7 +99,7 @@ class LLMConvertibleEvent(EventBase, ABC):
 
 def _combine_action_events(events: list["ActionEvent"]) -> Message:
     """Combine multiple ActionEvents into single LLM message.
-    
+
     We receive multiple ActionEvents per LLM message WHEN LLM returns
     multiple tool calls with parallel function calling.
     """
