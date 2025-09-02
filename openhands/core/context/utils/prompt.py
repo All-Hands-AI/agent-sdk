@@ -18,7 +18,9 @@ def _get_env(prompt_dir: str) -> Environment:
     if not prompt_dir:
         raise ValueError("prompt_dir is required")
     # BytecodeCache avoids reparsing templates across processes
-    bcc = FileSystemBytecodeCache(directory=os.path.join(prompt_dir, ".jinja_cache"))
+    cache_folder = os.path.join(prompt_dir, ".jinja_cache")
+    os.makedirs(cache_folder, exist_ok=True)
+    bcc = FileSystemBytecodeCache(directory=cache_folder)
     env = Environment(
         loader=FileSystemLoader(prompt_dir),
         bytecode_cache=bcc,

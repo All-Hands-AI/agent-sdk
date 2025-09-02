@@ -1,4 +1,5 @@
 import os
+import sys
 from abc import ABC, abstractmethod
 from types import MappingProxyType
 
@@ -39,8 +40,12 @@ class AgentBase(ABC):
 
     @property
     def prompt_dir(self) -> str:
-        """Returns the directory where prompt templates are stored, if applicable."""
-        return os.path.join(os.path.dirname(__file__), "prompts")
+        """Returns the directory where this class's module file is located."""
+        module = sys.modules[self.__class__.__module__]
+        module_file = module.__file__  # e.g. ".../mypackage/mymodule.py"
+        if module_file is None:
+            raise ValueError(f"Module file for {module} is None")
+        return os.path.join(os.path.dirname(module_file), "prompts")
 
     @property
     def name(self) -> str:
