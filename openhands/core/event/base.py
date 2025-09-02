@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 N_CHAR_PREVIEW = 500
 
 class EventBase(BaseModel, ABC):
-    """Base class for all events: timestamped envelope with media."""
+    """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique event id (ULID/UUID)")

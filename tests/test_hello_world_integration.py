@@ -1,5 +1,6 @@
 """Integration test based on hello_world.py example with mocked LLM responses."""
 
+import os
 import tempfile
 from typing import Any, Dict, List
 from unittest.mock import patch
@@ -9,17 +10,16 @@ from pydantic import SecretStr
 
 from openhands.core import (
     LLM,
-    ActionBase,
     CodeActAgent,
     Conversation,
-    ConversationEventType,
+    EventType,
     LLMConfig,
     Message,
-    ObservationBase,
     TextContent,
     Tool,
     get_logger,
 )
+from openhands.core.event.llm_convertible import ActionEvent, MessageEvent, ObservationEvent
 from openhands.tools import (
     BashExecutor,
     FileEditorExecutor,
@@ -35,27 +35,37 @@ class TestHelloWorldIntegration:
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
         self.logger = get_logger(__name__)
-        self.collected_events: List[ConversationEventType] = []
+        self.collected_events: List[EventType] = []
         self.llm_messages: List[Dict[str, Any]] = []
+        
+        # Clean up any existing hello.py files
+        import os
+        hello_files = ["/tmp/hello.py", os.path.join(self.temp_dir, "hello.py")]
+        for file_path in hello_files:
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def conversation_callback(self, event: ConversationEventType):
+    def conversation_callback(self, event: EventType):
         """Callback to collect conversation events."""
         self.collected_events.append(event)
-        if isinstance(event, ActionBase):
+        if isinstance(event, ActionEvent):
             self.logger.info(f"Found a conversation action: {event}")
-        elif isinstance(event, ObservationBase):
+        elif isinstance(event, ObservationEvent):
             self.logger.info(f"Found a conversation observation: {event}")
-        elif isinstance(event, Message):
+        elif isinstance(event, MessageEvent):
             self.logger.info(f"Found a conversation message: {str(event)[:200]}...")
-            self.llm_messages.append(event.model_dump())
+            self.llm_messages.append(event.llm_message.model_dump())
 
     def create_mock_llm_responses(self):
         """Create mock LLM responses that simulate the agent's behavior."""
+        # Use absolute path in temp directory
+        hello_path = os.path.join(self.temp_dir, "hello.py")
+        
         # First response: Agent decides to create the file
         first_response = ModelResponse(
             id="mock-response-1",
@@ -71,7 +81,7 @@ class TestHelloWorldIntegration:
                                 "type": "function",
                                 "function": {
                                     "name": "str_replace_editor",
-                                    "arguments": '{"command": "create", "path": "/tmp/hello.py", "file_text": "print(\\"Hello, World!\\")", "security_risk": "LOW"}'
+                                    "arguments": f'{{"command": "create", "path": "{hello_path}", "file_text": "print(\\"Hello, World!\\")", "security_risk": "LOW"}}'
                                 }
                             }
                         ]
@@ -145,11 +155,11 @@ class TestHelloWorldIntegration:
         assert len(self.collected_events) > 0, "Should have collected conversation events"
 
         # Verify that we have both actions and observations
-        actions = [event for event in self.collected_events if isinstance(event, ActionBase)]
-        observations = [event for event in self.collected_events if isinstance(event, ObservationBase)]
-        messages = [event for event in self.collected_events if isinstance(event, Message)]
+        actions = [event for event in self.collected_events if isinstance(event, ActionEvent)]
+        observations = [event for event in self.collected_events if isinstance(event, ObservationEvent)]
+        messages = [event for event in self.collected_events if isinstance(event, MessageEvent)]
 
-        assert len(actions) > 0, "Should have at least one action"
+        assert len(actions) > 0, f"Should have at least one action. Found {len(actions)} actions out of {len(self.collected_events)} total events"
         assert len(observations) > 0, "Should have at least one observation"
         assert len(messages) > 0, "Should have at least one message"
 
