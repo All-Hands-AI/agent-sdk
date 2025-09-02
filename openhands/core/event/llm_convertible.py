@@ -1,3 +1,4 @@
+from litellm import ChatCompletionMessageToolCall
 from openai.types.chat import ChatCompletionToolParam
 from pydantic import Field
 
@@ -26,13 +27,32 @@ class ActionEvent(LLMConvertibleEvent):
     kind: EventType = "action"
     source: SourceType = "agent"
     thought: list[TextContent] = Field(..., description="The thought process of the agent before taking this action")
-    actions: list[ActionBase] = Field(..., description="One (tool call) or a list of action (parallel tool call) returned by LLM")
-    # TODO: we could also do .tool_calls, and then piece it back to llm_message, but just felt a bit risky
-    # since there could be missing fields.
-    llm_message: Message = Field(..., description="The exact LLM message that produced this action")
+    action: ActionBase = Field(..., description="Single action (tool call) returned by LLM")
+    tool_call_id: str = Field(..., description="The tool call ID from the LLM response")
+    llm_batch_id: str = Field(..., description="Groups related actions from same LLM response")
     
     def to_llm_message(self) -> Message:
-        return self.llm_message
+        """Individual message - may be incomplete for multi-action batches"""
+        from typing import cast
+
+        from openhands.core.llm import ImageContent
+        content: list[TextContent | ImageContent] = cast(list[TextContent | ImageContent], self.thought)
+        return Message(
+            role="assistant",
+            content=content,
+            tool_calls=[self._action_to_tool_call()]
+        )
+    
+    def _action_to_tool_call(self) -> ChatCompletionMessageToolCall:
+        """Convert action back to tool call format"""
+        return ChatCompletionMessageToolCall(
+            id=self.tool_call_id,
+            type="function",
+            function={
+                "name": self.action.__class__.__name__.lower().replace("action", ""),
+                "arguments": self.action.model_dump_json()
+            }
+        )
 
 class ObservationEvent(LLMConvertibleEvent):
     kind: EventType = "observation"
