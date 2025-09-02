@@ -1,46 +1,55 @@
-"""Convert function calling messages to non-function calling messages and vice versa.
+"""Convert function calling messages to non-function calling messages and vice versa.  # noqa
 
 This will inject prompts so that models that doesn't support function calling
 can still be used with function calling agents.
 
 We follow format from: https://docs.litellm.ai/docs/completion/function_call
-"""
+"""  # noqa
 
-import copy
-import json
-import re
-import sys
-from typing import Iterable, Literal, NotRequired, TypedDict, cast
+# noqa
+import copy  # noqa
+import json  # noqa
+import re  # noqa
+import sys  # noqa
+from typing import Iterable, Literal, NotRequired, TypedDict, cast  # noqa
 
-from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
+# noqa
+from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk  # noqa
 
-from openhands.core.llm.exceptions import (
+# noqa
+from openhands.core.llm.exceptions import (  # noqa
     FunctionCallConversionError,
     FunctionCallValidationError,
 )
 
 
+# noqa
+# noqa
 class CacheControl(TypedDict):
     type: Literal["ephemeral"]
 
 
+# noqa
+# noqa
 class TextPart(TypedDict):
     type: Literal["text"]
     text: str
     cache_control: NotRequired[CacheControl]
 
 
-Content = str | list[TextPart]
-
-EXECUTE_BASH_TOOL_NAME = "execute_bash"
-STR_REPLACE_EDITOR_TOOL_NAME = "str_replace_editor"
-BROWSER_TOOL_NAME = "browser"
-FINISH_TOOL_NAME = "finish"
-LLM_BASED_EDIT_TOOL_NAME = "edit_file"
-TASK_TRACKER_TOOL_NAME = "task_tracker"
-
-# Inspired by: https://docs.together.ai/docs/llama-3-function-calling#function-calling-w-llama-31-70b # noqa
-SYSTEM_PROMPT_SUFFIX_TEMPLATE = """
+# noqa
+# noqa
+Content = str | list[TextPart]  # noqa
+# noqa
+EXECUTE_BASH_TOOL_NAME = "execute_bash"  # noqa
+STR_REPLACE_EDITOR_TOOL_NAME = "str_replace_editor"  # noqa
+BROWSER_TOOL_NAME = "browser"  # noqa
+FINISH_TOOL_NAME = "finish"  # noqa
+LLM_BASED_EDIT_TOOL_NAME = "edit_file"  # noqa
+TASK_TRACKER_TOOL_NAME = "task_tracker"  # noqa
+# noqa
+# Inspired by: https://docs.together.ai/docs/llama-3-function-calling#function-calling-w-llama-31-70b # noqa  # noqa
+SYSTEM_PROMPT_SUFFIX_TEMPLATE = """  # noqa
 You have access to the following functions:
 
 {description}
@@ -58,30 +67,31 @@ multiple lines
 
 <IMPORTANT>
 Reminder:
-- Function calls MUST follow the specified format, start with <function= and end with
-  </function>
+- Function calls MUST follow the specified format, start with <function= and end with </function>  # noqa
 - Required parameters MUST be specified
 - Only call one function at a time
-- You may provide optional reasoning for your function call in natural language BEFORE
-  the function call, but NOT after.
-- If there is no function call available, answer the question like normal with your
-  current knowledge and do not tell the user about function calls
+- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after.
+- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls
 </IMPORTANT>
-"""
-
-STOP_WORDS = ["</function"]
-
-
-def refine_prompt(prompt: str) -> str:
-    if sys.platform == "win32":
-        return prompt.replace("bash", "powershell")
-    return prompt
+"""  # noqa
+# noqa
+STOP_WORDS = ["</function"]  # noqa
 
 
-# NOTE: we need to make sure these examples are always in-sync with the tool interface designed in openhands/agenthub/codeact_agent/function_calling.py # noqa
+# noqa
+# noqa
+def refine_prompt(prompt: str) -> str:  # noqa
+    if sys.platform == "win32":  # noqa
+        return prompt.replace("bash", "powershell")  # noqa
+    return prompt  # noqa
 
-# Example snippets for each tool
-TOOL_EXAMPLES = {
+
+# noqa
+# noqa
+# NOTE: we need to make sure these examples are always in-sync with the tool interface designed in openhands/agenthub/codeact_agent/function_calling.py # noqa  # noqa
+# noqa
+# Example snippets for each tool  # noqa
+TOOL_EXAMPLES = {  # noqa
     "execute_bash": {
         "check_dir": """
 ASSISTANT: Sure! Let me first check the current directory:
@@ -94,7 +104,7 @@ pwd && ls
 USER: EXECUTION RESULT of [execute_bash]:
 /workspace
 openhands@runtime:~/workspace$
-""",
+""",  # noqa
         "run_server": """
 ASSISTANT:
 Let me run the Python file for you:
@@ -109,8 +119,7 @@ USER: EXECUTION RESULT of [execute_bash]:
 [1]+  Exit 1                  python3 app.py > server.log 2>&1
 
 ASSISTANT:
-Looks like the server was running with PID 121 then crashed. Let me check the server
-log:
+Looks like the server was running with PID 121 then crashed. Let me check the server log:
 <function=execute_bash>
 <parameter=command>
 cat server.log
@@ -124,8 +133,7 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'flask'
 
 ASSISTANT:
-Looks like the server crashed because the `flask` module is not installed. Let me
-install the `flask` module for you:
+Looks like the server crashed because the `flask` module is not installed. Let me install the `flask` module for you:
 <function=execute_bash>
 <parameter=command>
 pip3 install flask
@@ -144,13 +152,10 @@ Collecting click>=8.1.3
   Using cached click-8.1.7-py3-none-any.whl (97 kB)
 Collecting itsdangerous>=2.1.2
   Using cached itsdangerous-2.2.0-py3-none-any.whl (16 kB)
-Requirement already satisfied: Jinja2>=3.1.2 in 
-/home/openhands/.local/lib/python3.10/site-packages (from flask) (3.1.3)
-Requirement already satisfied: MarkupSafe>=2.0 in 
-/home/openhands/.local/lib/python3.10/site-packages (from Jinja2>=3.1.2->flask) (2.1.5)
+Requirement already satisfied: Jinja2>=3.1.2 in /home/openhands/.local/lib/python3.10/site-packages (from flask) (3.1.3)  # noqa
+Requirement already satisfied: MarkupSafe>=2.0 in /home/openhands/.local/lib/python3.10/site-packages (from Jinja2>=3.1.2->flask) (2.1.5)  # noqa
 Installing collected packages: Werkzeug, itsdangerous, click, blinker, flask
-Successfully installed Werkzeug-3.0.2 blinker-1.7.0 click-8.1.7 flask-3.0.3 
-itsdangerous-2.2.0
+Successfully installed Werkzeug-3.0.2 blinker-1.7.0 click-8.1.7 flask-3.0.3 itsdangerous-2.2.0
 
 ASSISTANT:
 The `flask` module is installed successfully. Let me run the Python file again:
@@ -174,15 +179,13 @@ cat server.log
 USER: EXECUTION RESULT of [execute_bash]:
 * Serving Flask app 'app'
  * Debug mode: off
-WARNING: This is a development server. Do not use it in a production deployment.
-Use a production WSGI server instead.
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
  * Running on http://127.0.0.1:5000
 Press CTRL+C to quit
 
 ASSISTANT:
-The server is running on port 5000 with PID 124. You can access the list of numbers
-by visiting http://127.0.0.1:5000. If you have any further questions, feel free to ask!
-""",
+The server is running on port 5000 with PID 124. You can access the list of numbers by visiting http://127.0.0.1:5000. If you have any further questions, feel free to ask!
+""",  # noqa
         "kill_server": """
 USER: Now kill the server, make it display the numbers in a table format.
 
@@ -196,7 +199,7 @@ kill 124
 
 USER: EXECUTION RESULT of [execute_bash]:
 [1]+  Terminated              python3 app.py > server.log 2>&1
-""",
+""",  # noqa
         "run_server_again": """
 ASSISTANT:
 Running the updated file:
@@ -210,15 +213,13 @@ USER: EXECUTION RESULT of [execute_bash]:
 [1] 126
 
 ASSISTANT:
-The server is running on port 5000 with PID 126. You can access the list of numbers
-in a table format by visiting http://127.0.0.1:5000.
-""",
+The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000.
+""",  # noqa
     },
     "str_replace_editor": {
         "create_file": """
 ASSISTANT:
-There is no `app.py` file in the current directory. Let me create a Python file
-`app.py`:
+There is no `app.py` file in the current directory. Let me create a Python file `app.py`:
 <function=str_replace_editor>
 <parameter=command>create</parameter>
 <parameter=path>/workspace/app.py</parameter>
@@ -238,7 +239,7 @@ if __name__ == '__main__':
 
 USER: EXECUTION RESULT of [str_replace_editor]:
 File created successfully at: /workspace/app.py
-""",
+""",  # noqa
         "edit_file": """
 ASSISTANT:
 Now let me display the numbers in a table format:
@@ -246,25 +247,22 @@ Now let me display the numbers in a table format:
 <parameter=command>str_replace</parameter>
 <parameter=path>/workspace/app.py</parameter>
 <parameter=old_str>return str(numbers)</parameter>
-<parameter=new_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in
-numbers]) + '</table>'</parameter>
+<parameter=new_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'</parameter>  # noqa
 </function>
 
 USER: EXECUTION RESULT of [str_replace_editor]:
-The file /workspace/app.py has been edited. Here's the result of running `cat -n`
-on a snippet of /workspace/app.py:
+The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py:
      3
      4  @app.route('/')
      5  def index():
      6      numbers = list(range(1, 11))
-     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) +
-'</table>'
+     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'  # noqa
      8
      9  if __name__ == '__main__':
     10      app.run(port=5000)
 Review the changes and make sure they are as expected. Edit the file again if necessary.
 
-""",
+""",  # noqa
     },
     "browser": {
         "view_page": """
@@ -279,13 +277,11 @@ noop(1000)  # Wait for page to load
 
 USER: EXECUTION RESULT of [browser]:
 [Browser shows the numbers in a table format]
-"""
+"""  # noqa
     },
     "edit_file": {
         "create_file": """
-ASSISTANT: There is no `app.py` file in the current directory. Let me create a Python
-file
-`app.py`:
+ASSISTANT: There is no `app.py` file in the current directory. Let me create a Python file `app.py`:
 <function=edit_file>
 <parameter=path>/workspace/app.py</parameter>
 <parameter=start>1</parameter>
@@ -306,7 +302,7 @@ if __name__ == '__main__':
 
 USER: EXECUTION RESULT of [edit_file]:
 File created successfully at: /workspace/app.py
-""",
+""",  # noqa
         "edit_file": """
 ASSISTANT:
 Now let me display the numbers in a table format:
@@ -323,37 +319,34 @@ if __name__ == '__main__':
 </function>
 
 USER: EXECUTION RESULT of [edit_file]:
-The file /workspace/app.py has been edited. Here's the result of running `cat -n`
-on a snippet of /workspace/app.py:
+The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py:
      3
      4  @app.route('/')
      5  def index():
      6      numbers = list(range(1, 11))
-     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) +
-'</table>'
+     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'  # noqa
      8
      9  if __name__ == '__main__':
     10      app.run(port=5000)
 Review the changes and make sure they are as expected. Edit the file again if necessary.
-""",
+""",  # noqa
     },
     "finish": {
         "example": """
 ASSISTANT:
-The server is running on port 5000 with PID 126. You can access the list of numbers
-in a table format by visiting http://127.0.0.1:5000. Let me know if you have any
-further requests!
+The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000. Let me know if you have any further requests!  # noqa
 <function=finish>
-<parameter=message>The task has been completed. The web server is running and
-displaying numbers 1-10 in a table format at http://127.0.0.1:5000.</parameter>
+<parameter=message>The task has been completed. The web server is running and displaying numbers 1-10 in a table format at http://127.0.0.1:5000.</parameter>  # noqa
 </function>
-"""
+"""  # noqa
     },
 }
 
 
-def get_example_for_tools(tools: list[ChatCompletionToolParam]) -> str:
-    """Generate an in-context learning example based on available tools."""
+# noqa
+# noqa
+def get_example_for_tools(tools: list[ChatCompletionToolParam]) -> str:  # noqa
+    """Generate an in-context learning example based on available tools."""  # noqa
     available_tools = set()
     for tool in tools:
         if tool["type"] == "function":
@@ -372,15 +365,13 @@ def get_example_for_tools(tools: list[ChatCompletionToolParam]) -> str:
     if not available_tools:
         return ""
 
-    example = """Here's a running example of how to perform a task with the provided
-tools.
-
+    example = """Here's a running example of how to perform a task with the provided tools. # noqa  # noqa
+  # noqa
 --------------------- START OF EXAMPLE ---------------------
-
-USER: Create a list of numbers from 1 to 10, and display them in a web page at port
-5000.
-
-"""
+  # noqa
+USER: Create a list of numbers from 1 to 10, and display them in a web page at port 5000.
+  # noqa
+"""  # noqa
 
     # Build example based on available tools
     if "execute_bash" in available_tools:
@@ -411,13 +402,13 @@ USER: Create a list of numbers from 1 to 10, and display them in a web page at p
     if "finish" in available_tools:
         example += TOOL_EXAMPLES["finish"]["example"]
 
-    example += """
+    example += """  # noqa
 --------------------- END OF EXAMPLE ---------------------
-
+  # noqa
 Do NOT assume the environment is the same as in the example above.
-
+  # noqa
 --------------------- NEW TASK DESCRIPTION ---------------------
-"""
+"""  # noqa
     example = example.lstrip()
 
     return refine_prompt(example)
@@ -425,12 +416,11 @@ Do NOT assume the environment is the same as in the example above.
 
 IN_CONTEXT_LEARNING_EXAMPLE_PREFIX = get_example_for_tools
 
-IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX = """
+IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX = """  # noqa
 --------------------- END OF NEW TASK DESCRIPTION ---------------------
-
-PLEASE follow the format strictly! PLEASE EMIT ONE AND ONLY ONE FUNCTION CALL PER
-MESSAGE.
-"""
+  # noqa
+PLEASE follow the format strictly! PLEASE EMIT ONE AND ONLY ONE FUNCTION CALL PER MESSAGE.
+"""  # noqa
 
 # Regex patterns for function call parsing
 FN_REGEX_PATTERN = r"<function=([^>]+)>\n(.*?)</function>"
@@ -441,85 +431,89 @@ TOOL_RESULT_REGEX_PATTERN = r"EXECUTION RESULT of \[(.*?)\]:\n(.*)"
 
 
 def convert_tool_call_to_string(tool_call: dict) -> str:
-    """Convert tool call to content in string format."""
-    if "function" not in tool_call:
-        raise FunctionCallConversionError("Tool call must contain 'function' key.")
-    if "id" not in tool_call:
-        raise FunctionCallConversionError("Tool call must contain 'id' key.")
-    if "type" not in tool_call:
-        raise FunctionCallConversionError("Tool call must contain 'type' key.")
-    if tool_call["type"] != "function":
-        raise FunctionCallConversionError("Tool call type must be 'function'.")
-
-    ret = f"<function={tool_call['function']['name']}>\n"
+    """Convert tool call to content in string format."""  # noqa
+    if "function" not in tool_call:  # noqa
+        raise FunctionCallConversionError("Tool call must contain 'function' key.")  # noqa
+    if "id" not in tool_call:  # noqa
+        raise FunctionCallConversionError("Tool call must contain 'id' key.")  # noqa
+    if "type" not in tool_call:  # noqa
+        raise FunctionCallConversionError("Tool call must contain 'type' key.")  # noqa
+    if tool_call["type"] != "function":  # noqa
+        raise FunctionCallConversionError("Tool call type must be 'function'.")  # noqa
+    # noqa
+    ret = f"<function={tool_call['function']['name']}>\n"  # noqa
     try:
-        args = json.loads(tool_call["function"]["arguments"])
+        args = json.loads(tool_call["function"]["arguments"])  # noqa
     except json.JSONDecodeError as e:
-        raise FunctionCallConversionError(
-            f"Failed to parse arguments as JSON. Arguments: {tool_call['function']['arguments']}"  # noqa
+        raise FunctionCallConversionError(  # noqa
+            f"Failed to parse arguments as JSON. Arguments: {tool_call['function']['arguments']}"  # noqa  # noqa
         ) from e
     for param_name, param_value in args.items():
-        is_multiline = isinstance(param_value, str) and "\n" in param_value
-        ret += f"<parameter={param_name}>"
-        if is_multiline:
-            ret += "\n"
-        if isinstance(param_value, list) or isinstance(param_value, dict):
-            ret += json.dumps(param_value)
+        is_multiline = isinstance(param_value, str) and "\n" in param_value  # noqa
+        ret += f"<parameter={param_name}>"  # noqa
+        if is_multiline:  # noqa
+            ret += "\n"  # noqa
+        if isinstance(param_value, list) or isinstance(param_value, dict):  # noqa
+            ret += json.dumps(param_value)  # noqa
         else:
-            ret += f"{param_value}"
-        if is_multiline:
-            ret += "\n"
-        ret += "</parameter>\n"
-    ret += "</function>"
-    return ret
+            ret += f"{param_value}"  # noqa
+        if is_multiline:  # noqa
+            ret += "\n"  # noqa
+        ret += "</parameter>\n"  # noqa
+    ret += "</function>"  # noqa
+    return ret  # noqa
 
 
-def convert_tools_to_description(tools: list[ChatCompletionToolParam]) -> str:
-    ret = ""
+# noqa
+# noqa
+def convert_tools_to_description(tools: list[ChatCompletionToolParam]) -> str:  # noqa
+    ret = ""  # noqa
     for i, tool in enumerate(tools):
-        assert tool["type"] == "function"
-        fn = tool["function"]
-        if i > 0:
-            ret += "\n"
-        ret += f"---- BEGIN FUNCTION #{i + 1}: {fn['name']} ----\n"
-        if "description" in fn:
-            ret += f"Description: {fn['description']}\n"
-
-        if "parameters" in fn:
-            ret += "Parameters:\n"
-            properties = fn["parameters"].get("properties", {})
-            required_params = set(fn["parameters"].get("required", []))
-
+        assert tool["type"] == "function"  # noqa
+        fn = tool["function"]  # noqa
+        if i > 0:  # noqa
+            ret += "\n"  # noqa
+        ret += f"---- BEGIN FUNCTION #{i + 1}: {fn['name']} ----\n"  # noqa
+        if "description" in fn:  # noqa
+            ret += f"Description: {fn['description']}\n"  # noqa
+        # noqa
+        if "parameters" in fn:  # noqa
+            ret += "Parameters:\n"  # noqa
+            properties = fn["parameters"].get("properties", {})  # noqa
+            required_params = set(fn["parameters"].get("required", []))  # noqa
+            # noqa
             for j, (param_name, param_info) in enumerate(properties.items()):
-                # Indicate required/optional in parentheses with type
-                is_required = param_name in required_params
-                param_status = "required" if is_required else "optional"
-                param_type = param_info.get("type", "string")
-
-                # Get parameter description
-                desc = param_info.get("description", "No description provided")
-
-                # Handle enum values if present
-                if "enum" in param_info:
-                    enum_values = ", ".join(f"`{v}`" for v in param_info["enum"])
-                    desc += f"\nAllowed values: [{enum_values}]"
-
-                ret += (
-                    f"  ({j + 1}) {param_name} ({param_type}, {param_status}): {desc}\n"
+                # Indicate required/optional in parentheses with type  # noqa
+                is_required = param_name in required_params  # noqa
+                param_status = "required" if is_required else "optional"  # noqa
+                param_type = param_info.get("type", "string")  # noqa
+                # noqa
+                # Get parameter description  # noqa
+                desc = param_info.get("description", "No description provided")  # noqa
+                # noqa
+                # Handle enum values if present  # noqa
+                if "enum" in param_info:  # noqa
+                    enum_values = ", ".join(f"`{v}`" for v in param_info["enum"])  # noqa
+                    desc += f"\nAllowed values: [{enum_values}]"  # noqa
+                # noqa
+                ret += (  # noqa
+                    f"  ({j + 1}) {param_name} ({param_type}, {param_status}): {desc}\n"  # noqa
                 )
         else:
-            ret += "No parameters are required for this function.\n"
+            ret += "No parameters are required for this function.\n"  # noqa
+        # noqa
+        ret += f"---- END FUNCTION #{i + 1} ----\n"  # noqa
+    return ret  # noqa
 
-        ret += f"---- END FUNCTION #{i + 1} ----\n"
-    return ret
 
-
-def convert_fncall_messages_to_non_fncall_messages(
+# noqa
+# noqa
+def convert_fncall_messages_to_non_fncall_messages(  # noqa
     messages: list[dict],
     tools: list[ChatCompletionToolParam],
-    add_in_context_learning_example: bool = True,
+    add_in_context_learning_example: bool = True,  # noqa
 ) -> list[dict]:
-    """Convert function calling messages to non-function calling messages."""
+    """Convert function calling messages to non-function calling messages."""  # noqa
     messages = copy.deepcopy(messages)
 
     formatted_tools = convert_tools_to_description(tools)
@@ -751,17 +745,19 @@ def _extract_and_validate_params(
 
 
 def _fix_stopword(content: str) -> str:
-    """Fix the issue when some LLM would NOT return the stopword."""
-    if "<function=" in content and content.count("<function=") == 1:
-        if content.endswith("</"):
-            content = content.rstrip() + "function>"
+    """Fix the issue when some LLM would NOT return the stopword."""  # noqa
+    if "<function=" in content and content.count("<function=") == 1:  # noqa
+        if content.endswith("</"):  # noqa
+            content = content.rstrip() + "function>"  # noqa
         else:
-            content = content + "\n</function>"
-    return content
+            content = content + "\n</function>"  # noqa
+    return content  # noqa
 
 
-def _normalize_parameter_tags(fn_body: str) -> str:
-    """Normalize malformed parameter tags to the canonical format.
+# noqa
+# noqa
+def _normalize_parameter_tags(fn_body: str) -> str:  # noqa
+    """Normalize malformed parameter tags to the canonical format.  # noqa
 
     Some models occasionally emit malformed parameter tags like:
         <parameter=command=str_replace</parameter>
@@ -770,20 +766,22 @@ def _normalize_parameter_tags(fn_body: str) -> str:
 
     This function rewrites the malformed form into the correct one to allow
     downstream parsing to succeed.
-    """
-    # Replace '<parameter=name=value</parameter>' with '<parameter=name>value</parameter>' # noqa
-    return re.sub(
-        r"<parameter=([a-zA-Z0-9_]+)=([^<]*)</parameter>",
-        r"<parameter=\1>\2</parameter>",
+    """  # noqa
+    # Replace '<parameter=name=value</parameter>' with '<parameter=name>value</parameter>' # noqa  # noqa
+    return re.sub(  # noqa
+        r"<parameter=([a-zA-Z0-9_]+)=([^<]*)</parameter>",  # noqa
+        r"<parameter=\1>\2</parameter>",  # noqa
         fn_body,
     )
 
 
-def convert_non_fncall_messages_to_fncall_messages(
+# noqa
+# noqa
+def convert_non_fncall_messages_to_fncall_messages(  # noqa
     messages: list[dict],
     tools: list[ChatCompletionToolParam],
 ) -> list[dict]:
-    """Convert non-function calling messages back to function calling messages."""
+    """Convert non-function calling messages back to function calling messages."""  # noqa
     messages = copy.deepcopy(messages)
     formatted_tools = convert_tools_to_description(tools)
     system_prompt_suffix = SYSTEM_PROMPT_SUFFIX_TEMPLATE.format(
@@ -891,7 +889,7 @@ def convert_non_fncall_messages_to_fncall_messages(
                         "content": [{"type": "text", "text": tool_result}]
                         if isinstance(content, list)
                         else tool_result,
-                        "tool_call_id": f"toolu_{tool_call_counter - 1:02d}",  # Use last generated ID # noqa
+                        "tool_call_id": f"toolu_{tool_call_counter - 1:02d}",  # Use last generated ID  # noqa
                     }
                 )
             else:
@@ -951,7 +949,7 @@ def convert_non_fncall_messages_to_fncall_messages(
                 # Create tool call with unique ID
                 tool_call_id = f"toolu_{tool_call_counter:02d}"
                 tool_call = {
-                    "index": 1,  # always 1 because we only support **one tool call per message** # noqa
+                    "index": 1,  # always 1 because we only support **one tool call per message**  # noqa
                     "id": tool_call_id,
                     "type": "function",
                     "function": {"name": fn_name, "arguments": json.dumps(params)},
@@ -989,45 +987,45 @@ def convert_from_multiple_tool_calls_to_single_tool_call_messages(
     messages: list[dict],
     ignore_final_tool_result: bool = False,
 ) -> list[dict]:
-    """Break one message with multiple tool calls into multiple messages."""
-    converted_messages = []
-
-    pending_tool_calls: dict[str, dict] = {}
+    """Break one message with multiple tool calls into multiple messages."""  # noqa
+    converted_messages = []  # noqa
+    # noqa
+    pending_tool_calls: dict[str, dict] = {}  # noqa
     for message in messages:
         role: str
         content: Content
-        role, content = message["role"], message["content"]
-        if role == "assistant":
-            if message.get("tool_calls") and len(message["tool_calls"]) > 1:
-                # handle multiple tool calls by breaking them into multiple messages
+        role, content = message["role"], message["content"]  # noqa
+        if role == "assistant":  # noqa
+            if message.get("tool_calls") and len(message["tool_calls"]) > 1:  # noqa
+                # handle multiple tool calls by breaking them into multiple messages  # noqa
                 for i, tool_call in enumerate(message["tool_calls"]):
-                    pending_tool_calls[tool_call["id"]] = {
+                    pending_tool_calls[tool_call["id"]] = {  # noqa
                         "role": "assistant",
-                        "content": content if i == 0 else "",
+                        "content": content if i == 0 else "",  # noqa
                         "tool_calls": [tool_call],
                     }
             else:
                 converted_messages.append(message)
-        elif role == "tool":
-            if message["tool_call_id"] in pending_tool_calls:
-                # remove the tool call from the pending list
-                _tool_call_message = pending_tool_calls.pop(message["tool_call_id"])
+        elif role == "tool":  # noqa
+            if message["tool_call_id"] in pending_tool_calls:  # noqa
+                # remove the tool call from the pending list  # noqa
+                _tool_call_message = pending_tool_calls.pop(message["tool_call_id"])  # noqa
                 converted_messages.append(_tool_call_message)
-                # add the tool result
+                # add the tool result  # noqa
                 converted_messages.append(message)
             else:
-                assert len(pending_tool_calls) == 0, (
-                    f"Found pending tool calls but not found in pending list: {pending_tool_calls=}"  # noqa
+                assert len(pending_tool_calls) == 0, (  # noqa
+                    f"Found pending tool calls but not found in pending list: {pending_tool_calls=}"  # noqa  # noqa
                 )
                 converted_messages.append(message)
         else:
-            assert len(pending_tool_calls) == 0, (
-                f"Found pending tool calls but not expect to handle it with role {role}: {pending_tool_calls=}, {message=}"  # noqa
+            assert len(pending_tool_calls) == 0, (  # noqa
+                f"Found pending tool calls but not expect to handle it with role {role}: {pending_tool_calls=}, {message=}"  # noqa  # noqa
             )
             converted_messages.append(message)
-
-    if not ignore_final_tool_result and len(pending_tool_calls) > 0:
-        raise FunctionCallConversionError(
-            f"Found pending tool calls but no tool result: {pending_tool_calls=}"
+    # noqa
+    if not ignore_final_tool_result and len(pending_tool_calls) > 0:  # noqa
+        raise FunctionCallConversionError(  # noqa
+            f"Found pending tool calls but no tool result: {pending_tool_calls=}"  # noqa
         )
-    return converted_messages
+    return converted_messages  # noqa

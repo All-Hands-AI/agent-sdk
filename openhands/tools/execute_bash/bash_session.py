@@ -301,9 +301,9 @@ class BashSession:
             pane_content: The full pane content containing PS1 prompts and command
                 outputs
             ps1_matches: List of regex matches for PS1 prompts
-            get_content_before_last_match: when there's only one PS1 match, whether to
-                get the content before the last PS1 prompt (True) or after the last PS1
-                prompt (False)
+            get_content_before_last_match: when there's only one PS1 match, whether
+                to get the content before the last PS1 prompt (True) or after the
+                last PS1 prompt (False)
 
         Returns:
             Combined string of all outputs between matches

@@ -29,9 +29,8 @@ def py_type(spec: dict[str, Any]) -> Any:
 def _process_schema_node(node, defs):
     """Recursively process a schema node to simplify and resolve $ref.
 
-        https://www.reddit.com/r/mcp/comments/1kjo9gt/
-    toolinputschema_conversion_from_pydanticmodel/
-        https://gist.github.com/leandromoreira/3de4819e4e4df9422d87f1d3e7465c16
+    https://www.reddit.com/r/mcp/comments/1kjo9gt/toolinputschema_conversion_from_pydanticmodel/
+    https://gist.github.com/leandromoreira/3de4819e4e4df9422d87f1d3e7465c16
     """
     # Handle $ref references
     if "$ref" in node:

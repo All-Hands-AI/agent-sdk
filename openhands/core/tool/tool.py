@@ -130,8 +130,8 @@ class Tool(Generic[ActionT, ObservationT]):
     def call(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
 
-        We always return some ObservationBase subclass, but not always the generic
-        ObservationT.
+        We always return some ObservationBase subclass, but not always the
+        generic ObservationT.
         """
         if self.executor is None:
             raise NotImplementedError(f"Tool '{self.name}' has no executor")
