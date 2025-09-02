@@ -110,8 +110,8 @@ def test_ps1_metadata_parsing_string_real_example():
     assert metadata.hostname == "fv-az1055-610"
     assert metadata.working_dir == "/home/runner/work/OpenHands/OpenHands"
     assert (
-        metadata.py_interpreter_path
-        == "/home/runner/.cache/pypoetry/virtualenvs/openhands-ai-ULPBlkAi-py3.12/bin/python"  # noqa: E501
+        metadata.py_interpreter_path == "/home/runner/.cache/pypoetry/virtualenvs/"
+        "openhands-ai-ULPBlkAi-py3.12/bin/python"
     )
 
 

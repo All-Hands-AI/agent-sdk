@@ -54,13 +54,16 @@ class ActionEvent(LLMConvertibleEvent):
     tool_call: ChatCompletionMessageToolCall = Field(
         ...,
         description=(
-            "The tool call received from the LLM response. We keep a copy of it so it is easier to construct it into LLM message"  # noqa: E501
+            "The tool call received from the LLM response. We keep a copy of it "
+            "so it is easier to construct it into LLM message"
         ),
     )
     llm_response_id: str = Field(
         ...,
         description=(
-            "Groups related actions from same LLM response. This helps in tracking and managing results of parallel function calling from the same LLM response."  # noqa: E501
+            "Groups related actions from same LLM response. This helps in tracking "
+            "and managing results of parallel function calling from the same LLM "
+            "response."
         ),
     )
 
@@ -159,7 +162,10 @@ class MessageEvent(LLMConvertibleEvent):
                 if self.activated_microagents
                 else ""
             )
-            return f"{base_str}\n  {self.llm_message.role}: {content_preview}{microagent_info}"  # noqa: E501
+            return (
+                f"{base_str}\n  {self.llm_message.role}: {content_preview}"
+                f"{microagent_info}"
+            )
         else:
             return f"{base_str}\n  {self.llm_message.role}: [no text content]"
 

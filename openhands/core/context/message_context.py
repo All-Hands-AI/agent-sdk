@@ -14,7 +14,9 @@ class MessageContext(BaseModel):
 
     activated_microagents: list[MicroagentKnowledge] = Field(
         default_factory=list,
-        description="List of microagents that have been activated based on the user's input",  # noqa: E501
+        description=(
+            "List of microagents that have been activated based on the user's input"
+        ),
     )
 
     def render(self, prompt_dir: str) -> list[Message]:

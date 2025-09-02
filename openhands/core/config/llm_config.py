@@ -22,28 +22,28 @@ class LLMConfig(BaseModel):
         aws_region_name: The AWS region name.
         num_retries: The number of retries to attempt.
         retry_multiplier: The multiplier for the exponential backoff.
-        retry_min_wait: The minimum time to wait between retries, in seconds. This is exponential backoff minimum. For models with very low limits, this can be set to 15-20.  # noqa: E501
-        retry_max_wait: The maximum time to wait between retries, in seconds. This is exponential backoff maximum.  # noqa: E501
+        retry_min_wait: The minimum time to wait between retries, in seconds. This is exponential backoff minimum. For models with very low limits, this can be set to 15-20.
+        retry_max_wait: The maximum time to wait between retries, in seconds. This is exponential backoff maximum.
         timeout: The timeout for the API.
-        max_message_chars: The approximate max number of characters in the content of an event included in the prompt to the LLM. Larger observations are truncated.  # noqa: E501
+        max_message_chars: The approximate max number of characters in the content of an event included in the prompt to the LLM. Larger observations are truncated.
         temperature: The temperature for the API.
         top_p: The top p for the API.
         top_k: The top k for the API.
-        custom_llm_provider: The custom LLM provider to use. This is undocumented in openhands, and normally not used. It is documented on the litellm side.  # noqa: E501
-        max_input_tokens: The maximum number of input tokens. Note that this is currently unused, and the value at runtime is actually the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).  # noqa: E501
+        custom_llm_provider: The custom LLM provider to use. This is undocumented in openhands, and normally not used. It is documented on the litellm side.
+        max_input_tokens: The maximum number of input tokens. Note that this is currently unused, and the value at runtime is actually the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).
         max_output_tokens: The maximum number of output tokens. This is sent to the LLM.
-        input_cost_per_token: The cost per input token. This will available in logs for the user to check.  # noqa: E501
-        output_cost_per_token: The cost per output token. This will available in logs for the user to check.  # noqa: E501
+        input_cost_per_token: The cost per input token. This will available in logs for the user to check.
+        output_cost_per_token: The cost per output token. This will available in logs for the user to check.
         ollama_base_url: The base URL for the OLLAMA API.
-        drop_params: Drop any unmapped (unsupported) params without causing an exception.  # noqa: E501
-        modify_params: Modify params allows litellm to do transformations like adding a default message, when a message is empty.  # noqa: E501
-        disable_vision: If model is vision capable, this option allows to disable image processing (useful for cost reduction).  # noqa: E501
-        caching_prompt: Use the prompt caching feature if provided by the LLM and supported by the provider.  # noqa: E501
+        drop_params: Drop any unmapped (unsupported) params without causing an exception.
+        modify_params: Modify params allows litellm to do transformations like adding a default message, when a message is empty.
+        disable_vision: If model is vision capable, this option allows to disable image processing (useful for cost reduction).
+        caching_prompt: Use the prompt caching feature if provided by the LLM and supported by the provider.
         log_completions: Whether to log LLM completions to the state.
-        log_completions_folder: The folder to log LLM completions to. Required if log_completions is True.  # noqa: E501
+        log_completions_folder: The folder to log LLM completions to. Required if log_completions is True.
         custom_tokenizer: A custom tokenizer to use for token counting.
-        native_tool_calling: Whether to use native tool calling if supported by the model. Can be True, False, or not set.  # noqa: E501
-        reasoning_effort: The effort to put into reasoning. This is a string that can be one of 'low', 'medium', 'high', or 'none'. Can apply to all reasoning models.  # noqa: E501
+        native_tool_calling: Whether to use native tool calling if supported by the model. Can be True, False, or not set.
+        reasoning_effort: The effort to put into reasoning. This is a string that can be one of 'low', 'medium', 'high', or 'none'. Can apply to all reasoning models.
         seed: The seed to use for the LLM.
         safety_settings: Safety settings for models that support them (like Mistral AI and Gemini).
     """  # noqa: E501
@@ -92,7 +92,9 @@ class LLMConfig(BaseModel):
     seed: int | None = Field(default=None)
     safety_settings: list[dict[str, str]] | None = Field(
         default=None,
-        description="Safety settings for models that support them (like Mistral AI and Gemini)",  # noqa: E501
+        description=(
+            "Safety settings for models that support them (like Mistral AI and Gemini)"
+        ),
     )
 
     model_config = ConfigDict(extra="forbid")

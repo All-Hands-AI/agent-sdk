@@ -36,7 +36,10 @@ class EventBase(BaseModel, ABC):
 
     def __repr__(self) -> str:
         """Developer-friendly representation."""
-        return f"{self.__class__.__name__}(id='{self.id[:8]}...', source='{self.source}', timestamp='{self.timestamp}')"  # noqa: E501
+        return (
+            f"{self.__class__.__name__}(id='{self.id[:8]}...', "
+            f"source='{self.source}', timestamp='{self.timestamp}')"
+        )
 
 
 class LLMConvertibleEvent(EventBase, ABC):

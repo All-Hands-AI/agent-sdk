@@ -95,7 +95,8 @@ class CmdOutputMetadata(BaseModel):
                 processed["exit_code"] = int(float(str(metadata["exit_code"])))
             except (ValueError, TypeError):
                 logger.debug(
-                    f"Failed to parse exit code: {metadata['exit_code']}. Setting to -1."  # noqa: E501
+                    f"Failed to parse exit code: {metadata['exit_code']}. "
+                    f"Setting to -1."
                 )
                 processed["exit_code"] = -1
         return cls(**processed)

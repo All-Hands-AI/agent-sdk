@@ -169,8 +169,9 @@ class MCPStdioServerConfig(BaseModel):
                     raise ValueError("Environment variable key cannot be empty")
                 if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", key):
                     raise ValueError(
-                        f"Invalid environment variable name '{key}'. Must start with letter "  # noqa: E501
-                        f"or underscore, contain only alphanumeric characters and underscores"  # noqa: E501
+                        f"Invalid environment variable name '{key}'. Must start with "
+                        f"letter or underscore, contain only alphanumeric characters "
+                        f"and underscores"
                     )
 
                 env[key] = value

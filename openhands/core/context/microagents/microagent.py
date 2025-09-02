@@ -110,12 +110,14 @@ class BaseMicroagent(BaseModel):
             if metadata.mcp_tools:
                 if metadata.mcp_tools.sse_servers:
                     logger.warning(
-                        f"Microagent {metadata.name} has SSE servers. Only stdio servers are currently supported."  # noqa: E501
+                        f"Microagent {metadata.name} has SSE servers. Only stdio "
+                        f"servers are currently supported."
                     )
 
                 if not metadata.mcp_tools.stdio_servers:
                     raise MicroagentValidationError(
-                        f"Microagent {metadata.name} has MCP tools configuration but no stdio servers. Only stdio servers are currently supported."  # noqa: E501
+                        f"Microagent {metadata.name} has MCP tools configuration but "
+                        f"no stdio servers. Only stdio servers are currently supported."
                     )
         except Exception as e:
             # Provide more detailed error message for validation errors
@@ -124,7 +126,10 @@ class BaseMicroagent(BaseModel):
                 t.value for t in MicroagentType
             ]:
                 valid_types = ", ".join([f'"{t.value}"' for t in MicroagentType])
-                error_msg += f'. Invalid "type" value: "{metadata_dict["type"]}". Valid types are: {valid_types}'  # noqa: E501
+                error_msg += (
+                    f'. Invalid "type" value: "{metadata_dict["type"]}". '
+                    f"Valid types are: {valid_types}"
+                )
             raise MicroagentValidationError(error_msg) from e
 
         # Create appropriate subclass based on type
@@ -249,7 +254,10 @@ class TaskMicroagent(KnowledgeMicroagent):
         if not self.requires_user_input() and not self.metadata.inputs:
             return
 
-        prompt = "\n\nIf the user didn't provide any of these variables, ask the user to provide them first before the agent can proceed with the task."  # noqa: E501
+        prompt = (
+            "\n\nIf the user didn't provide any of these variables, ask the user to "
+            "provide them first before the agent can proceed with the task."
+        )
         self.content += prompt
 
     def extract_variables(self, content: str) -> list[str]:
@@ -338,6 +346,7 @@ def load_microagents_from_dir(
             raise ValueError(error_msg) from e
 
     logger.debug(
-        f"Loaded {len(repo_agents) + len(knowledge_agents)} microagents: {[*repo_agents.keys(), *knowledge_agents.keys()]}"  # noqa: E501
+        f"Loaded {len(repo_agents) + len(knowledge_agents)} microagents: "
+        f"{[*repo_agents.keys(), *knowledge_agents.keys()]}"
     )
     return repo_agents, knowledge_agents

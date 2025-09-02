@@ -407,7 +407,10 @@ def test_python_interactive_input():
     session.initialize()
 
     # Test Python program that asks for input - properly escaped for bash
-    python_script = """name = input('Enter your name: '); age = input('Enter your age: '); print(f'Hello {name}, you are {age} years old')"""  # noqa: E501
+    python_script = (
+        "name = input('Enter your name: '); age = input('Enter your age: '); "
+        "print(f'Hello {name}, you are {age} years old')"
+    )
 
     # Start Python with the interactive script
     obs = session.execute(

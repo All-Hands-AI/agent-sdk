@@ -48,7 +48,11 @@ def _configure_litellm_logger(level: int) -> None:
 _ENABLE_LITELLM_DEBUG = False
 if ENV_DEBUG_LLM:
     confirmation = input(
-        "\n⚠️ WARNING: You are enabling DEBUG_LLM which may expose sensitive information like API keys.\nThis should NEVER be enabled in production.\nType 'y' to confirm you understand the risks: "  # noqa: E501
+        (
+            "\n⚠️ WARNING: You are enabling DEBUG_LLM which may expose sensitive "
+            "information like API keys.\nThis should NEVER be enabled in production.\n"
+            "Type 'y' to confirm you understand the risks: "
+        )
     )
     if confirmation.lower() == "y":
         _ENABLE_LITELLM_DEBUG = True
