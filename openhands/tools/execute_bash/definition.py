@@ -16,15 +16,15 @@ class ExecuteBashAction(ActionBase):
     """Schema for bash command execution."""
 
     command: str = Field(
-        description="The bash command to execute. Can be empty string to view additional logs when previous exit code is `-1`. Can be `C-c` (Ctrl+C) to interrupt the currently running process. Note: You can only execute one bash command at a time. If you need to run multiple commands sequentially, you can use `&&` or `;` to chain them together."  # noqa: E501
+        description="The bash command to execute. Can be empty string to view additional logs when previous exit code is `-1`. Can be `C-c` (Ctrl+C) to interrupt the currently running process. Note: You can only execute one bash command at a time. If you need to run multiple commands sequentially, you can use `&&` or `;` to chain them together."  # noqa
     )
     is_input: bool = Field(
         default=False,
-        description="If True, the command is an input to the running process. If False, the command is a bash command to be executed in the terminal. Default is False.",  # noqa: E501
+        description="If True, the command is an input to the running process. If False, the command is a bash command to be executed in the terminal. Default is False.",  # noqa
     )
     timeout: float | None = Field(
         default=None,
-        description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa: E501
+        description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa
     )
     security_risk: SECURITY_RISK_LITERAL = Field(description=SECURITY_RISK_DESC)
 
@@ -35,11 +35,11 @@ class ExecuteBashObservation(ObservationBase):
     output: str = Field(description="The raw output from the tool.")
     command: str | None = Field(
         default=None,
-        description="The bash command that was executed. Can be empty string if the observation is from a previous command that hit soft timeout and is not yet finished.",  # noqa: E501
+        description="The bash command that was executed. Can be empty string if the observation is from a previous command that hit soft timeout and is not yet finished.",  # noqa
     )
     exit_code: int | None = Field(
         default=None,
-        description="The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",  # noqa: E501
+        description="The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",  # noqa
     )
     error: bool = Field(
         default=False,
@@ -72,30 +72,30 @@ class ExecuteBashObservation(ObservationBase):
         return ret
 
 
-TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent shell session.  # noqa: E501
+TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent shell session. # noqa
 
 
 ### Command Execution
-* One command at a time: You can only execute one bash command at a time. If you need to run multiple commands sequentially, use `&&` or `;` to chain them together.  # noqa: E501
-* Persistent session: Commands execute in a persistent shell session where environment variables, virtual environments, and working directory persist between commands.  # noqa: E501
-* Soft timeout: Commands have a soft timeout of 10 seconds, once that's reached, you have the option to continue or interrupt the command (see section below for details)  # noqa: E501
-* Shell options: Do NOT use `set -e`, `set -eu`, or `set -euo pipefail` in shell scripts or commands in this environment. The runtime may not support them and can cause unusable shell sessions. If you want to run multi-line bash commands, write the commands to a file and then run it, instead.  # noqa: E501
+* One command at a time: You can only execute one bash command at a time. If you need to run multiple commands sequentially, use `&&` or `;` to chain them together. # noqa
+* Persistent session: Commands execute in a persistent shell session where environment variables, virtual environments, and working directory persist between commands. # noqa
+* Soft timeout: Commands have a soft timeout of 10 seconds, once that's reached, you have the option to continue or interrupt the command (see section below for details) # noqa
+* Shell options: Do NOT use `set -e`, `set -eu`, or `set -euo pipefail` in shell scripts or commands in this environment. The runtime may not support them and can cause unusable shell sessions. If you want to run multi-line bash commands, write the commands to a file and then run it, instead. # noqa
 
 ### Long-running Commands
-* For commands that may run indefinitely, run them in the background and redirect output to a file, e.g. `python3 app.py > server.log 2>&1 &`.  # noqa: E501
-* For commands that may run for a long time (e.g. installation or testing commands), or commands that run for a fixed amount of time (e.g. sleep), you should set the "timeout" parameter of your function call to an appropriate value.  # noqa: E501
-* If a bash command returns exit code `-1`, this means the process hit the soft timeout and is not yet finished. By setting `is_input` to `true`, you can:  # noqa: E501
+* For commands that may run indefinitely, run them in the background and redirect output to a file, e.g. `python3 app.py > server.log 2>&1 &`. # noqa
+* For commands that may run for a long time (e.g. installation or testing commands), or commands that run for a fixed amount of time (e.g. sleep), you should set the "timeout" parameter of your function call to an appropriate value. # noqa
+* If a bash command returns exit code `-1`, this means the process hit the soft timeout and is not yet finished. By setting `is_input` to `true`, you can: # noqa
   - Send empty `command` to retrieve additional logs
   - Send text (set `command` to the text) to STDIN of the running process
-  - Send control commands like `C-c` (Ctrl+C), `C-d` (Ctrl+D), or `C-z` (Ctrl+Z) to interrupt the process  # noqa: E501
-  - If you do C-c, you can re-start the process with a longer "timeout" parameter to let it run to completion  # noqa: E501
+  - Send control commands like `C-c` (Ctrl+C), `C-d` (Ctrl+D), or `C-z` (Ctrl+Z) to interrupt the process # noqa
+  - If you do C-c, you can re-start the process with a longer "timeout" parameter to let it run to completion # noqa
 
 ### Best Practices
-* Directory verification: Before creating new directories or files, first verify the parent directory exists and is the correct location.  # noqa: E501
-* Directory management: Try to maintain working directory by using absolute paths and avoiding excessive use of `cd`.  # noqa: E501
+* Directory verification: Before creating new directories or files, first verify the parent directory exists and is the correct location. # noqa
+* Directory management: Try to maintain working directory by using absolute paths and avoiding excessive use of `cd`. # noqa
 
 ### Output Handling
-* Output truncation: If the output exceeds a maximum length, it will be truncated before being returned.  # noqa: E501
+* Output truncation: If the output exceeds a maximum length, it will be truncated before being returned. # noqa
 """
 
 

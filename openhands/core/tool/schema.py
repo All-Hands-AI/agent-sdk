@@ -29,7 +29,7 @@ def py_type(spec: dict[str, Any]) -> Any:
 def _process_schema_node(node, defs):
     """Recursively process a schema node to simplify and resolve $ref.
 
-    https://www.reddit.com/r/mcp/comments/1kjo9gt/toolinputschema_conversion_from_pydanticmodel/  # noqa: E501
+    https://www.reddit.com/r/mcp/comments/1kjo9gt/toolinputschema_conversion_from_pydanticmodel/ # noqa
     https://gist.github.com/leandromoreira/3de4819e4e4df9422d87f1d3e7465c16
     """
     # Handle $ref references
@@ -94,7 +94,7 @@ class Schema(BaseModel):
     def to_mcp_schema(cls) -> dict[str, Any]:
         """Convert to JSON schema format compatible with MCP."""
         full_schema = cls.model_json_schema()
-        # This will get rid of all "anyOf" in the schema, so it is fully compatible with MCP tool schema  # noqa: E501
+        # This will get rid of all "anyOf" in the schema, so it is fully compatible with MCP tool schema # noqa
         return _process_schema_node(full_schema, full_schema.get("$defs", {}))
 
     @classmethod
@@ -121,7 +121,7 @@ class Schema(BaseModel):
                 if desc
                 else Field(default=default),
             )
-        return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]  # noqa: E501
+        return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value] # noqa
 
 
 class ActionBase(Schema):

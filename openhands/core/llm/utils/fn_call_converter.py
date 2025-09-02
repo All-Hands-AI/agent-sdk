@@ -39,7 +39,7 @@ FINISH_TOOL_NAME = "finish"
 LLM_BASED_EDIT_TOOL_NAME = "edit_file"
 TASK_TRACKER_TOOL_NAME = "task_tracker"
 
-# Inspired by: https://docs.together.ai/docs/llama-3-function-calling#function-calling-w-llama-31-70b  # noqa: E501
+# Inspired by: https://docs.together.ai/docs/llama-3-function-calling#function-calling-w-llama-31-70b # noqa
 SYSTEM_PROMPT_SUFFIX_TEMPLATE = """
 You have access to the following functions:
 
@@ -58,11 +58,11 @@ multiple lines
 
 <IMPORTANT>
 Reminder:
-- Function calls MUST follow the specified format, start with <function= and end with </function>  # noqa: E501
+- Function calls MUST follow the specified format, start with <function= and end with </function>  # noqa
 - Required parameters MUST be specified
 - Only call one function at a time
-- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after.  # noqa: E501
-- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls  # noqa: E501
+- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after. # noqa
+- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls # noqa
 </IMPORTANT>
 """
 
@@ -75,7 +75,7 @@ def refine_prompt(prompt: str) -> str:
     return prompt
 
 
-# NOTE: we need to make sure these examples are always in-sync with the tool interface designed in openhands/agenthub/codeact_agent/function_calling.py  # noqa: E501
+# NOTE: we need to make sure these examples are always in-sync with the tool interface designed in openhands/agenthub/codeact_agent/function_calling.py # noqa
 
 # Example snippets for each tool
 TOOL_EXAMPLES = {
@@ -106,7 +106,7 @@ USER: EXECUTION RESULT of [execute_bash]:
 [1]+  Exit 1                  python3 app.py > server.log 2>&1
 
 ASSISTANT:
-Looks like the server was running with PID 121 then crashed. Let me check the server log:  # noqa: E501
+Looks like the server was running with PID 121 then crashed. Let me check the server log: # noqa
 <function=execute_bash>
 <parameter=command>
 cat server.log
@@ -120,7 +120,7 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'flask'
 
 ASSISTANT:
-Looks like the server crashed because the `flask` module is not installed. Let me install the `flask` module for you:  # noqa: E501
+Looks like the server crashed because the `flask` module is not installed. Let me install the `flask` module for you: # noqa
 <function=execute_bash>
 <parameter=command>
 pip3 install flask
@@ -139,10 +139,10 @@ Collecting click>=8.1.3
   Using cached click-8.1.7-py3-none-any.whl (97 kB)
 Collecting itsdangerous>=2.1.2
   Using cached itsdangerous-2.2.0-py3-none-any.whl (16 kB)
-Requirement already satisfied: Jinja2>=3.1.2 in /home/openhands/.local/lib/python3.10/site-packages (from flask) (3.1.3)  # noqa: E501
-Requirement already satisfied: MarkupSafe>=2.0 in /home/openhands/.local/lib/python3.10/site-packages (from Jinja2>=3.1.2->flask) (2.1.5)  # noqa: E501
+Requirement already satisfied: Jinja2>=3.1.2 in /home/openhands/.local/lib/python3.10/site-packages (from flask) (3.1.3) # noqa
+Requirement already satisfied: MarkupSafe>=2.0 in /home/openhands/.local/lib/python3.10/site-packages (from Jinja2>=3.1.2->flask) (2.1.5) # noqa
 Installing collected packages: Werkzeug, itsdangerous, click, blinker, flask
-Successfully installed Werkzeug-3.0.2 blinker-1.7.0 click-8.1.7 flask-3.0.3 itsdangerous-2.2.0  # noqa: E501
+Successfully installed Werkzeug-3.0.2 blinker-1.7.0 click-8.1.7 flask-3.0.3 itsdangerous-2.2.0 # noqa
 
 ASSISTANT:
 The `flask` module is installed successfully. Let me run the Python file again:
@@ -166,12 +166,12 @@ cat server.log
 USER: EXECUTION RESULT of [execute_bash]:
 * Serving Flask app 'app'
  * Debug mode: off
-WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.  # noqa: E501
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead. # noqa
  * Running on http://127.0.0.1:5000
 Press CTRL+C to quit
 
 ASSISTANT:
-The server is running on port 5000 with PID 124. You can access the list of numbers by visiting http://127.0.0.1:5000. If you have any further questions, feel free to ask!  # noqa: E501
+The server is running on port 5000 with PID 124. You can access the list of numbers by visiting http://127.0.0.1:5000. If you have any further questions, feel free to ask! # noqa
 """,
         "kill_server": """
 USER: Now kill the server, make it display the numbers in a table format.
@@ -200,13 +200,13 @@ USER: EXECUTION RESULT of [execute_bash]:
 [1] 126
 
 ASSISTANT:
-The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000.  # noqa: E501
+The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000. # noqa
 """,
     },
     "str_replace_editor": {
         "create_file": """
 ASSISTANT:
-There is no `app.py` file in the current directory. Let me create a Python file `app.py`:  # noqa: E501
+There is no `app.py` file in the current directory. Let me create a Python file `app.py`: # noqa
 <function=str_replace_editor>
 <parameter=command>create</parameter>
 <parameter=path>/workspace/app.py</parameter>
@@ -234,16 +234,16 @@ Now let me display the numbers in a table format:
 <parameter=command>str_replace</parameter>
 <parameter=path>/workspace/app.py</parameter>
 <parameter=old_str>return str(numbers)</parameter>
-<parameter=new_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'</parameter>  # noqa: E501
+<parameter=new_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'</parameter> # noqa
 </function>
 
 USER: EXECUTION RESULT of [str_replace_editor]:
-The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py:  # noqa: E501
+The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py: # noqa
      3
      4  @app.route('/')
      5  def index():
      6      numbers = list(range(1, 11))
-     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'  # noqa: E501
+     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>' # noqa
      8
      9  if __name__ == '__main__':
     10      app.run(port=5000)
@@ -268,7 +268,7 @@ USER: EXECUTION RESULT of [browser]:
     },
     "edit_file": {
         "create_file": """
-ASSISTANT: There is no `app.py` file in the current directory. Let me create a Python file `app.py`:  # noqa: E501
+ASSISTANT: There is no `app.py` file in the current directory. Let me create a Python file `app.py`: # noqa
 <function=edit_file>
 <parameter=path>/workspace/app.py</parameter>
 <parameter=start>1</parameter>
@@ -306,12 +306,12 @@ if __name__ == '__main__':
 </function>
 
 USER: EXECUTION RESULT of [edit_file]:
-The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py:  # noqa: E501
+The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py: # noqa
      3
      4  @app.route('/')
      5  def index():
      6      numbers = list(range(1, 11))
-     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'  # noqa: E501
+     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>' # noqa
      8
      9  if __name__ == '__main__':
     10      app.run(port=5000)
@@ -321,9 +321,9 @@ Review the changes and make sure they are as expected. Edit the file again if ne
     "finish": {
         "example": """
 ASSISTANT:
-The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000. Let me know if you have any further requests!  # noqa: E501
+The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000. Let me know if you have any further requests! # noqa
 <function=finish>
-<parameter=message>The task has been completed. The web server is running and displaying numbers 1-10 in a table format at http://127.0.0.1:5000.</parameter>  # noqa: E501
+<parameter=message>The task has been completed. The web server is running and displaying numbers 1-10 in a table format at http://127.0.0.1:5000.</parameter> # noqa
 </function>
 """
     },
@@ -350,11 +350,11 @@ def get_example_for_tools(tools: list[ChatCompletionToolParam]) -> str:
     if not available_tools:
         return ""
 
-    example = """Here's a running example of how to perform a task with the provided tools.  # noqa: E501
+    example = """Here's a running example of how to perform a task with the provided tools. # noqa
 
 --------------------- START OF EXAMPLE ---------------------
 
-USER: Create a list of numbers from 1 to 10, and display them in a web page at port 5000.  # noqa: E501
+USER: Create a list of numbers from 1 to 10, and display them in a web page at port 5000. # noqa
 
 """
 
@@ -404,7 +404,7 @@ IN_CONTEXT_LEARNING_EXAMPLE_PREFIX = get_example_for_tools
 IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX = """
 --------------------- END OF NEW TASK DESCRIPTION ---------------------
 
-PLEASE follow the format strictly! PLEASE EMIT ONE AND ONLY ONE FUNCTION CALL PER MESSAGE.  # noqa: E501
+PLEASE follow the format strictly! PLEASE EMIT ONE AND ONLY ONE FUNCTION CALL PER MESSAGE. # noqa
 """
 
 # Regex patterns for function call parsing
@@ -431,7 +431,7 @@ def convert_tool_call_to_string(tool_call: dict) -> str:
         args = json.loads(tool_call["function"]["arguments"])
     except json.JSONDecodeError as e:
         raise FunctionCallConversionError(
-            f"Failed to parse arguments as JSON. Arguments: {tool_call['function']['arguments']}"  # noqa: E501
+            f"Failed to parse arguments as JSON. Arguments: {tool_call['function']['arguments']}"  # noqa
         ) from e
     for param_name, param_value in args.items():
         is_multiline = isinstance(param_value, str) and "\n" in param_value
@@ -520,7 +520,7 @@ def convert_fncall_messages_to_non_fncall_messages(
                     content.append({"type": "text", "text": system_prompt_suffix})
             else:
                 raise FunctionCallConversionError(
-                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                 )
             converted_messages.append({"role": "system", "content": content})
 
@@ -569,7 +569,7 @@ def convert_fncall_messages_to_non_fncall_messages(
                             )
                     else:
                         raise FunctionCallConversionError(
-                            f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                            f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                         )
             converted_messages.append(
                 {
@@ -585,13 +585,13 @@ def convert_fncall_messages_to_non_fncall_messages(
             if "tool_calls" in message and message["tool_calls"] is not None:
                 if len(message["tool_calls"]) != 1:
                     raise FunctionCallConversionError(
-                        f"Expected exactly one tool call in the message. More than one tool call is not supported. But got {len(message['tool_calls'])} tool calls. Content: {content}"  # noqa: E501
+                        f"Expected exactly one tool call in the message. More than one tool call is not supported. But got {len(message['tool_calls'])} tool calls. Content: {content}"  # noqa
                     )
                 try:
                     tool_content = convert_tool_call_to_string(message["tool_calls"][0])
                 except FunctionCallConversionError as e:
                     raise FunctionCallConversionError(
-                        f"Failed to convert tool call to string.\nCurrent tool call: {message['tool_calls'][0]}.\nRaw messages: {json.dumps(messages, indent=2)}"  # noqa: E501
+                        f"Failed to convert tool call to string.\nCurrent tool call: {message['tool_calls'][0]}.\nRaw messages: {json.dumps(messages, indent=2)}"  # noqa
                     ) from e
                 if isinstance(content, str):
                     content += "\n\n" + tool_content
@@ -604,7 +604,7 @@ def convert_fncall_messages_to_non_fncall_messages(
                         content.append({"type": "text", "text": tool_content})
                 else:
                     raise FunctionCallConversionError(
-                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                     )
             converted_messages.append({"role": "assistant", "content": content})
 
@@ -634,7 +634,7 @@ def convert_fncall_messages_to_non_fncall_messages(
                     )
             else:
                 raise FunctionCallConversionError(
-                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                 )
 
             converted_messages.append({"role": "user", "content": content})
@@ -676,7 +676,7 @@ def _extract_and_validate_params(
         # Validate parameter is allowed
         if allowed_params and param_name not in allowed_params:
             raise FunctionCallValidationError(
-                f"Parameter '{param_name}' is not allowed for function '{fn_name}'. Allowed parameters: {allowed_params}"  # noqa: E501
+                f"Parameter '{param_name}' is not allowed for function '{fn_name}'. Allowed parameters: {allowed_params}"  # noqa
             )
 
         # Validate and convert parameter type
@@ -710,7 +710,7 @@ def _extract_and_validate_params(
                 not in matching_tool["parameters"]["properties"][param_name]["enum"]
             ):
                 raise FunctionCallValidationError(
-                    f"Parameter '{param_name}' is expected to be one of {matching_tool['parameters']['properties'][param_name]['enum']}."  # noqa: E501
+                    f"Parameter '{param_name}' is expected to be one of {matching_tool['parameters']['properties'][param_name]['enum']}."  # noqa
                 )
 
         params[param_name] = param_value
@@ -746,7 +746,7 @@ def _normalize_parameter_tags(fn_body: str) -> str:
     This function rewrites the malformed form into the correct one to allow
     downstream parsing to succeed.
     """
-    # Replace '<parameter=name=value</parameter>' with '<parameter=name>value</parameter>'  # noqa: E501
+    # Replace '<parameter=name=value</parameter>' with '<parameter=name>value</parameter>' # noqa
     return re.sub(
         r"<parameter=([a-zA-Z0-9_]+)=([^<]*)</parameter>",
         r"<parameter=\1>\2</parameter>",
@@ -814,7 +814,7 @@ def convert_non_fncall_messages_to_fncall_messages(
                                 )
                 else:
                     raise FunctionCallConversionError(
-                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                     )
 
             # Check for tool execution result pattern
@@ -838,7 +838,7 @@ def convert_non_fncall_messages_to_fncall_messages(
                 )
             else:
                 raise FunctionCallConversionError(
-                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                 )
 
             if tool_result_match:
@@ -848,11 +848,11 @@ def convert_non_fncall_messages_to_fncall_messages(
                     ]
                     if not text_content_items:
                         raise FunctionCallConversionError(
-                            f"Could not find text content in message with tool result. Content: {content}"  # noqa: E501
+                            f"Could not find text content in message with tool result. Content: {content}"  # noqa
                         )
                 elif not isinstance(content, str):
                     raise FunctionCallConversionError(
-                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                     )
 
                 tool_name = tool_result_match.group(1)
@@ -866,7 +866,7 @@ def convert_non_fncall_messages_to_fncall_messages(
                         "content": [{"type": "text", "text": tool_result}]
                         if isinstance(content, list)
                         else tool_result,
-                        "tool_call_id": f"toolu_{tool_call_counter - 1:02d}",  # Use last generated ID  # noqa: E501
+                        "tool_call_id": f"toolu_{tool_call_counter - 1:02d}",  # Use last generated ID # noqa
                     }
                 )
             else:
@@ -892,11 +892,11 @@ def convert_non_fncall_messages_to_fncall_messages(
                 )
                 if fn_match_exists and not fn_match:
                     raise FunctionCallConversionError(
-                        f"Expecting function call in the LAST index of content list. But got content={content}"  # noqa: E501
+                        f"Expecting function call in the LAST index of content list. But got content={content}"  # noqa
                     )
             else:
                 raise FunctionCallConversionError(
-                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                    f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                 )
 
             if fn_match:
@@ -914,7 +914,7 @@ def convert_non_fncall_messages_to_fncall_messages(
                 # Validate function exists in tools
                 if not matching_tool:
                     raise FunctionCallValidationError(
-                        f"Function '{fn_name}' not found in available tools: {[tool['function']['name'] for tool in tools if tool['type'] == 'function']}"  # noqa: E501
+                        f"Function '{fn_name}' not found in available tools: {[tool['function']['name'] for tool in tools if tool['type'] == 'function']}"  # noqa
                     )
 
                 # Parse parameters
@@ -926,7 +926,7 @@ def convert_non_fncall_messages_to_fncall_messages(
                 # Create tool call with unique ID
                 tool_call_id = f"toolu_{tool_call_counter:02d}"
                 tool_call = {
-                    "index": 1,  # always 1 because we only support **one tool call per message**  # noqa: E501
+                    "index": 1,  # always 1 because we only support **one tool call per message** # noqa
                     "id": tool_call_id,
                     "type": "function",
                     "function": {"name": fn_name, "arguments": json.dumps(params)},
@@ -943,7 +943,7 @@ def convert_non_fncall_messages_to_fncall_messages(
                     content = content.split("<function=")[0].strip()
                 else:
                     raise FunctionCallConversionError(
-                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa: E501
+                        f"Unexpected content type {type(content)}. Expected str or list. Content: {content}"  # noqa
                     )
 
                 converted_messages.append(
@@ -955,7 +955,7 @@ def convert_non_fncall_messages_to_fncall_messages(
 
         else:
             raise FunctionCallConversionError(
-                f"Unexpected role {role}. Expected system, user, or assistant in non-function calling messages."  # noqa: E501
+                f"Unexpected role {role}. Expected system, user, or assistant in non-function calling messages."  # noqa
             )
     return converted_messages
 
@@ -992,12 +992,12 @@ def convert_from_multiple_tool_calls_to_single_tool_call_messages(
                 converted_messages.append(message)
             else:
                 assert len(pending_tool_calls) == 0, (
-                    f"Found pending tool calls but not found in pending list: {pending_tool_calls=}"  # noqa: E501
+                    f"Found pending tool calls but not found in pending list: {pending_tool_calls=}"  # noqa
                 )
                 converted_messages.append(message)
         else:
             assert len(pending_tool_calls) == 0, (
-                f"Found pending tool calls but not expect to handle it with role {role}: {pending_tool_calls=}, {message=}"  # noqa: E501
+                f"Found pending tool calls but not expect to handle it with role {role}: {pending_tool_calls=}, {message=}"  # noqa
             )
             converted_messages.append(message)
 

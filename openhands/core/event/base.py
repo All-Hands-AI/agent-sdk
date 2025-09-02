@@ -94,8 +94,8 @@ class LLMConvertibleEvent(EventBase, ABC):
                 while (
                     j < len(events)
                     and isinstance(events[j], ActionEvent)
-                    and events[j].llm_response_id == response_id
-                ):  # type: ignore
+                    and cast(ActionEvent, events[j]).llm_response_id == response_id
+                ):
                     batch_events.append(cast(ActionEvent, events[j]))
                     j += 1
 

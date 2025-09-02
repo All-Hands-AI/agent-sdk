@@ -20,7 +20,7 @@ def to_camel_case(s: str) -> str:
 class ToolAnnotations(BaseModel):
     """Annotations to provide hints about the tool's behavior.
 
-    Based on Model Context Protocol (MCP) spec: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838  # noqa: E501
+    Based on Model Context Protocol (MCP) spec: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838 # noqa
     """
 
     title: str | None = Field(
@@ -32,15 +32,15 @@ class ToolAnnotations(BaseModel):
     )
     destructiveHint: bool = Field(
         default=True,
-        description="If true, the tool may perform destructive updates to its environment. If false, the tool performs only additive updates. (This property is meaningful only when `readOnlyHint == false`) Default: true",  # noqa: E501
+        description="If true, the tool may perform destructive updates to its environment. If false, the tool performs only additive updates. (This property is meaningful only when `readOnlyHint == false`) Default: true",  # noqa
     )
     idempotentHint: bool = Field(
         default=False,
-        description="If true, calling the tool repeatedly with the same arguments will have no additional effect on the its environment. (This property is meaningful only when `readOnlyHint == false`) Default: false",  # noqa: E501
+        description="If true, calling the tool repeatedly with the same arguments will have no additional effect on the its environment. (This property is meaningful only when `readOnlyHint == false`) Default: false",  # noqa
     )
     openWorldHint: bool = Field(
         default=True,
-        description="If true, this tool may interact with an 'open world' of external entities. If false, the tool's domain of interaction is closed. For example, the world of a web search tool is open, whereas that of a memory tool is not. Default: true",  # noqa: E501
+        description="If true, this tool may interact with an 'open world' of external entities. If false, the tool's domain of interaction is closed. For example, the world of a web search tool is open, whereas that of a memory tool is not. Default: true",  # noqa
     )
 
 
@@ -129,7 +129,7 @@ class Tool(Generic[ActionT, ObservationT]):
     def call(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
 
-        We always return some ObservationBase subclass, but not always the generic ObservationT.  # noqa: E501
+        We always return some ObservationBase subclass, but not always the generic ObservationT. # noqa
         """
         if self.executor is None:
             raise NotImplementedError(f"Tool '{self.name}' has no executor")
