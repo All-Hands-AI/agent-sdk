@@ -69,7 +69,7 @@ def test_view_inserts_summary() -> None:
         view = View.from_events(events)
 
         assert len(view) == 6  # 5 message events + 1 summary observation
-        for index, event in enumerate(view):
+        for index, event in enumerate(view.events):
             assert isinstance(event, MessageEvent)
             assert isinstance(event.llm_message.content[0], TextContent)
             content = event.llm_message.content[0].text
