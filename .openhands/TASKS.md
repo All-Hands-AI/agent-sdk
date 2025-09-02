@@ -1,19 +1,19 @@
 # Task List
 
-1. 🔄 Sync branch with latest main
-Resolved merge conflicts in conversation.py; still need to complete merge commit
+1. ✅ Sync branch with latest main
+Resolved merge in conversation.py; aligned with EventType; committed
 2. ⏳ Bootstrap dev environment
-Run make build to install deps and set up pre-commit
+Run make build and ensure everything installs; we have been using uv already
 3. ✅ Retrieve PR #41 details and diff
-Fetched PR details and files list via GitHub API
+Done previously
 4. ✅ Collect and analyze review comments addressed to OpenHands
-Identified requests: 1) remove S3 from SDK scope, 2) simplify persistence internals (done), 3) fix rooted filestore path handling (done), 4) question about cls param in load (consider). Now need to remove S3 + dependencies and adjust tests/examples if any.
-5. ⏳ Implement code changes to address review comments
-Remove S3 implementation and dependency; ensure io.__init__ updated; adjust any imports; ensure example/tests unaffected.
-6. ⏳ Run tests & linters
-uv run pytest; pre-commit
+Done previously
+5. 🔄 Implement code changes to address review comments
+Removed S3; made persistence event-based; simplified load API; fixed example and tests.
+6. 🔄 Run tests & linters
+Pre-commit passes; pytest failing due to package import paths not installed in venv; need uv sync / uv run pip install -e? But uv workspace should handle; Makefile build likely needed.
 7. ⏳ Commit and push changes
-Commit with Co-authored-by and push
+Push branch after tests pass
 8. ⏳ Summarize answers to any direct questions (without commenting on PR)
-Answer the 'cls' param question here.
+To include here once final
 
