@@ -1,4 +1,5 @@
 from openhands.core.event.base import EventBase
+from openhands.core.event.types import SourceType
 
 
 class Condensation(EventBase):
@@ -23,6 +24,8 @@ class Condensation(EventBase):
     summary_offset: int | None = None
     """An optional offset to the start of the resulting view indicating where the summary should be inserted."""
 
+    source: SourceType = "environment"
+
     @property
     def forgotten(self) -> list[str]:
         """The list of event IDs that should be forgotten."""
@@ -44,6 +47,8 @@ class CondensationRequest(EventBase):
     Attributes:
         action (str): The action type, namely ActionType.CONDENSATION_REQUEST.
     """
+
+    source: SourceType = "environment"
 
     @property
     def message(self) -> str:
