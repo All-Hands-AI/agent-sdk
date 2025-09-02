@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 N_CHAR_PREVIEW = 500
 
+
 class EventBase(BaseModel, ABC):
     """Base class for all events."""
 
@@ -56,7 +57,7 @@ class LLMConvertibleEvent(EventBase, ABC):
                 content_preview = " ".join(text_parts)
                 # Truncate long content for display
                 if len(content_preview) > N_CHAR_PREVIEW:
-                    content_preview = content_preview[:N_CHAR_PREVIEW-3] + "..."
+                    content_preview = content_preview[: N_CHAR_PREVIEW - 3] + "..."
                 return f"{base_str}\n  {llm_message.role}: {content_preview}"
             else:
                 return f"{base_str}\n  {llm_message.role}: [no text content]"

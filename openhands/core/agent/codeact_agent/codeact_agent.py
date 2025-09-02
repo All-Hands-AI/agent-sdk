@@ -9,7 +9,7 @@ from litellm.types.utils import (
 )
 from pydantic import ValidationError
 
-from openhands.core.context import EnvContext, render_system_message
+from openhands.core.context import AgentContext, render_system_message
 from openhands.core.conversation import ConversationCallbackType, ConversationState
 from openhands.core.event import ActionEvent, AgentErrorEvent, LLMConvertibleEvent, MessageEvent, ObservationEvent, SystemPromptEvent
 from openhands.core.llm import LLM, Message, TextContent, get_llm_metadata
@@ -27,22 +27,15 @@ class CodeActAgent(AgentBase):
         self,
         llm: LLM,
         tools: list[Tool],
-        env_context: EnvContext | None = None,
+        agent_context: AgentContext | None = None,
         system_prompt_filename: str = "system_prompt.j2",
         cli_mode: bool = True,
     ) -> None:
         for tool in BUILT_IN_TOOLS:
             assert tool not in tools, f"{tool} is automatically included and should not be provided."
-        super().__init__(llm=llm, tools=tools + BUILT_IN_TOOLS, env_context=env_context)
+        super().__init__(llm=llm, tools=tools + BUILT_IN_TOOLS, agent_context=agent_context)
 
-        self.system_message: TextContent = TextContent(
-            text=render_system_message(
-            prompt_dir=self.prompt_dir,
-            system_prompt_filename=system_prompt_filename,
-            cli_mode=cli_mode
-        ))
-
-        self.max_iterations: int = 10
+        self.system_message: TextContent = TextContent(text=render_system_message(prompt_dir=self.prompt_dir, system_prompt_filename=system_prompt_filename, cli_mode=cli_mode))
 
     def init_state(
         self,

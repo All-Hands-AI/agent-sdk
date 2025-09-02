@@ -1,4 +1,3 @@
-
 from typing import List
 from unittest.mock import MagicMock
 
@@ -20,7 +19,7 @@ class DummyAgent(AgentBase):
         on_event(event)
 
     def step(self, state: ConversationState, on_event: ConversationCallbackType) -> None:
-        on_event(MessageEvent(source="agent", llm_message=Message(role="assistant", content=[TextContent(text="ok")])) )
+        on_event(MessageEvent(source="agent", llm_message=Message(role="assistant", content=[TextContent(text="ok")])))
 
 
 def test_default_callback_appends_on_init():

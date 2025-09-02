@@ -1,3 +1,4 @@
+import copy
 from typing import cast
 
 from litellm import ChatCompletionMessageToolCall
@@ -84,16 +85,20 @@ class MessageEvent(LLMConvertibleEvent):
 
     # context extensions stuff / microagent can go here
     activated_microagents: list[str] = Field(default_factory=list, description="List of activated microagent name")
+    extended_content: list[TextContent] = Field(default_factory=list, description="List of content added by agent context")
 
     def to_llm_message(self) -> Message:
-        return self.llm_message
+        msg = copy.deepcopy(self.llm_message)
+        msg.content.extend(self.extended_content)
+        return msg
 
     def __str__(self) -> str:
         """Plain text string representation for MessageEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
         # Extract text content from the message
         text_parts = []
-        for content in self.llm_message.content:
+        message = self.to_llm_message()
+        for content in message.content:
             if isinstance(content, TextContent):
                 text_parts.append(content.text)
             elif isinstance(content, ImageContent):
@@ -102,11 +107,11 @@ class MessageEvent(LLMConvertibleEvent):
         if text_parts:
             content_preview = " ".join(text_parts)
             if len(content_preview) > N_CHAR_PREVIEW:
-                content_preview = content_preview[:N_CHAR_PREVIEW-3] + "..."
+                content_preview = content_preview[: N_CHAR_PREVIEW - 3] + "..."
             microagent_info = f" [Microagents: {', '.join(self.activated_microagents)}]" if self.activated_microagents else ""
-            return f"{base_str}\n  {self.llm_message.role}: {content_preview}{microagent_info}"
+            return f"{base_str}\n  {message.role}: {content_preview}{microagent_info}"
         else:
-            return f"{base_str}\n  {self.llm_message.role}: [no text content]"
+            return f"{base_str}\n  {message.role}: [no text content]"
 
 
 class AgentErrorEvent(LLMConvertibleEvent):

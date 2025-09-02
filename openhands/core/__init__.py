@@ -2,6 +2,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from .agent import AgentBase, CodeActAgent
 from .config import LLMConfig, MCPConfig
+from .context import AgentContext
 from .conversation import Conversation, ConversationCallbackType
 from .event import EventBase, EventType, LLMConvertibleEvent
 from .llm import LLM, ImageContent, Message, TextContent
@@ -33,4 +34,5 @@ __all__ = [
     "EventBase",
     "LLMConvertibleEvent",
     "__version__",
+    "AgentContext"
 ]
