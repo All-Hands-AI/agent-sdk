@@ -31,13 +31,20 @@ class Conversation:
     def __init__(self, agent: "AgentBase", callbacks: list[ConversationCallbackType] | None = None, max_iteration_per_run: int = 500, env_context: EnvContext | None = None):
         """Initialize the conversation."""
         self._visualizer = ConversationVisualizer()
-        # Compose multiple callbacks if a list is provided
-        self._on_event = compose_callbacks([self._visualizer.on_event] + (callbacks if callbacks else []))
         self._persistence = ConversationPersistence()
-        self.max_iteration_per_run = max_iteration_per_run
-
         self.agent = agent
         self.state = ConversationState()
+
+        # Default callback: persist every event to state
+        def _append_event(e):
+            self.state.events.append(e)
+
+        # Compose callbacks; default appender runs last to keep agent-emitted event order (on_event then persist)
+        composed_list = [self._visualizer.on_event] + (callbacks if callbacks else []) + [_append_event]
+        self._on_event = compose_callbacks(composed_list)
+
+        self.max_iteration_per_run = max_iteration_per_run
+
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
 
@@ -67,7 +74,6 @@ class Conversation:
                 pass
 
             user_msg_event = MessageEvent(source="user", llm_message=message, activated_microagents=activated_microagents)
-            self.state.events.append(user_msg_event)
             self._on_event(user_msg_event)
 
     def run(self) -> None:
