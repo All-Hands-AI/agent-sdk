@@ -11,8 +11,11 @@ from litellm.types.utils import (
 from pydantic import ValidationError
 
 from openhands.core.context import EnvContext, PromptManager
+from openhands.core.context.condenser import Condenser
+from openhands.core.context.view import View
 from openhands.core.conversation import ConversationCallbackType, ConversationState
 from openhands.core.event import ActionEvent, AgentErrorEvent, LLMConvertibleEvent, MessageEvent, ObservationEvent, SystemPromptEvent
+from openhands.core.event.context import Condensation
 from openhands.core.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.core.logger import get_logger
 from openhands.core.tool import BUILT_IN_TOOLS, ActionBase, FinishTool, ObservationBase, Tool
@@ -30,6 +33,7 @@ class CodeActAgent(AgentBase):
         tools: list[Tool],
         env_context: EnvContext | None = None,
         system_prompt_filename: str = "system_prompt.j2",
+        condenser: Condenser | None = None,
         cli_mode: bool = True,
     ) -> None:
         for tool in BUILT_IN_TOOLS:
@@ -41,6 +45,7 @@ class CodeActAgent(AgentBase):
         )
         self.system_message: TextContent = self.prompt_manager.get_system_message(cli_mode=cli_mode)
         self.max_iterations: int = 10
+        self.condenser = condenser
 
     def init_state(
         self,
@@ -61,8 +66,27 @@ class CodeActAgent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        # If a condenser is registered with the agent, we need to give it an
+        # opportunity to transform the events. This will either produce a list
+        # of events, exactly as expected, or a new condensation that needs to be
+        # processed before the agent can sample another action.
+        if self.condenser is not None:
+            view = View.from_events(state.events)
+            condensation_result = self.condenser.condense(view)
+
+            match condensation_result:
+                case View():
+                    llm_convertible_events = condensation_result.events
+                
+                case Condensation():
+                    state.events.append(condensation_result)
+                    on_event(condensation_result)
+                    return None
+
+        else:
+            llm_convertible_events = cast(list[LLMConvertibleEvent], [e for e in state.events if isinstance(e, LLMConvertibleEvent)])
+
         # Get LLM Response (Action)
-        llm_convertible_events = cast(list[LLMConvertibleEvent], [e for e in state.events if isinstance(e, LLMConvertibleEvent)])
         _messages = self.llm.format_messages_for_llm(LLMConvertibleEvent.events_to_messages(llm_convertible_events))
         logger.debug(f"Sending messages to LLM: {json.dumps(_messages, indent=2)}")
         response: ModelResponse = self.llm.completion(
