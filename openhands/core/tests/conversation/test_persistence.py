@@ -12,7 +12,7 @@ from openhands.core.tool import Tool
 
 
 class DummyAgent(AgentBase):
-    """Minimal agent that just records the initial user message."""
+    """Minimal agent used for persistence tests."""
 
     def __init__(self) -> None:
         super().__init__(llm=cast(Any, object()), tools=cast(list[Tool], []))
@@ -20,23 +20,18 @@ class DummyAgent(AgentBase):
     def init_state(
         self,
         state: ConversationState,
-        initial_user_message: Message | None = None,
-        on_event=None,
+        on_event,
     ) -> None:
-        if initial_user_message is not None:
-            state.history.messages.append(initial_user_message)
-            state.agent_initialized = True
-            if on_event:
-                on_event(initial_user_message)
+        # No-op for these tests
+        pass
 
-    def step(self, state: ConversationState, on_event=None) -> None:  # pragma: no cover - not used in these tests
+    def step(self, state: ConversationState, on_event) -> None:  # pragma: no cover - not used in these tests
         state.agent_finished = True
 
 
 def _physical_path(root: Path, rel: str) -> Path:
-    """Replicate LocalFileStore path resolution so tests can inspect files on disk."""
+    """Resolve a filestore-relative key to a physical path under tmp root."""
     fs = LocalFileStore(str(root))
-    # LocalFileStore.get_full_path expects a string path relative to the filestore root
     return Path(fs.get_full_path(rel))
 
 

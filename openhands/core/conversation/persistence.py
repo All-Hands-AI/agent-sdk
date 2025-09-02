@@ -11,6 +11,7 @@ from pydantic import ValidationError
 if TYPE_CHECKING:
     from .conversation import Conversation  # noqa
 
+from openhands.core.event import LLMConvertibleEvent
 from openhands.core.io import FileStore, LocalFileStore
 from openhands.core.logger import get_logger
 
@@ -58,8 +59,9 @@ class ConversationPersistence:
             # 2) compute which indices are already on disk
             saved_indices = self._saved_indices(msg_dir, filestore)
 
-            # 3) write missing messages
-            msgs = obj.state.history.messages
+            # 3) write missing messages (convert events to LLM messages)
+            llm_events = [e for e in obj.state.events if isinstance(e, LLMConvertibleEvent)]
+            msgs = LLMConvertibleEvent.events_to_messages(llm_events)
             for idx, msg in enumerate(msgs):
                 if idx in saved_indices:
                     continue
@@ -110,7 +112,8 @@ class ConversationPersistence:
 
     def _write_base_state(self, base_path: str, obj: "Conversation", file_store: FileStore, ) -> None:
         base = obj.state.model_copy()
-        base.history = type(obj.state.history)()  # empty history
+        # Remove events for compact base state
+        base.events = []
         data = json.dumps(base.model_dump(), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         file_store.write(base_path, data)
 

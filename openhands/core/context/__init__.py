@@ -4,7 +4,6 @@ from .env_context import (
     RepositoryInfo,
     RuntimeInfo,
 )
-from .history import AgentHistory
 from .message_context import MessageContext
 from .microagents import (
     BaseMicroagent,
@@ -32,5 +31,4 @@ __all__ = [
     "MicroagentType",
     "MicroagentKnowledge",
     "load_microagents_from_dir",
-    "AgentHistory",
 ]

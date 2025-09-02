@@ -6,20 +6,20 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from openhands.core.context import AgentHistory
+from openhands.core.event import EventType
 
 
 class ConversationState(BaseModel):
     model_config = ConfigDict(
-        arbitrary_types_allowed=True,   # allow RLock in PrivateAttr
-        validate_assignment=True,       # validate on attribute set
+        arbitrary_types_allowed=True,  # allow RLock in PrivateAttr
+        validate_assignment=True,  # validate on attribute set
         frozen=False,
     )
 
     # Public, validated fields
-    history: AgentHistory = Field(default_factory=AgentHistory)
+    events: list[EventType] = Field(default_factory=list)
     agent_finished: bool = False
-    agent_initialized: bool = False
+    initial_message_sent: bool = False
 
     # Private attrs (NOT Fields) — allowed to start with underscore
     _lock: RLock = PrivateAttr(default_factory=RLock)

@@ -3,7 +3,7 @@ from types import MappingProxyType
 
 from openhands.core.context.env_context import EnvContext
 from openhands.core.conversation import ConversationCallbackType, ConversationState
-from openhands.core.llm import LLM, Message
+from openhands.core.llm import LLM
 from openhands.core.logger import get_logger
 from openhands.core.tool import Tool
 
@@ -60,15 +60,11 @@ class AgentBase(ABC):
     def init_state(
         self,
         state: ConversationState,
-        initial_user_message: Message | None = None,
-        on_event: ConversationCallbackType | None = None,
+        on_event: ConversationCallbackType,
     ) -> None:
         """Initialize the empty conversation state to prepare the agent for user messages.
 
-        Typically this involves:
-        1. Adding system message
-        2. Adding initial user messages with environment context
-            (e.g., microagents, current working dir, etc)
+        Typically this involves adding system message
 
         NOTE: state will be mutated in-place.
         """
@@ -78,7 +74,7 @@ class AgentBase(ABC):
     def step(
         self,
         state: ConversationState,
-        on_event: ConversationCallbackType | None = None,
+        on_event: ConversationCallbackType,
     ) -> None:
         """Taking a step in the conversation.
 

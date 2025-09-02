@@ -7,7 +7,6 @@ from openhands.core import (
     ActionBase,
     CodeActAgent,
     Conversation,
-    ConversationEventType,
     LLMConfig,
     Message,
     ObservationBase,
@@ -15,6 +14,7 @@ from openhands.core import (
     Tool,
     get_logger,
 )
+from openhands.core.event import EventType
 from openhands.tools import (
     BashExecutor,
     FileEditorExecutor,
@@ -47,7 +47,7 @@ tools: list[Tool] = [
 agent = CodeActAgent(llm=llm, tools=tools)
 
 llm_messages = []  # collect raw LLM messages
-def conversation_callback(event: ConversationEventType):
+def conversation_callback(event: EventType):
     # print all the actions
     if isinstance(event, ActionBase):
         logger.info(f"Found a conversation action: {event}")

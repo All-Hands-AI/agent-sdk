@@ -6,12 +6,14 @@ from ..tool import ActionBase, ObservationBase, Tool, ToolAnnotations, ToolExecu
 class FinishAction(ActionBase):
     message: str = Field(description="Final message to send to the user.")
 
+
 class FinishObservation(ObservationBase):
     message: str = Field(description="Final message sent to the user.")
 
     @property
     def agent_observation(self) -> str:
         return self.message
+
 
 TOOL_DESCRIPTION = """Signals the completion of the current task or conversation.
 
@@ -25,6 +27,7 @@ The message should include:
 - Explanation if you're unable to complete the task
 - Any follow-up questions if more information is needed
 """
+
 
 class FinishExecutor(ToolExecutor):
     def __call__(self, action: FinishAction) -> FinishObservation:

@@ -1,4 +1,5 @@
 name: Run tests
+
 on:
   push:
     branches: ["main"]
@@ -10,41 +11,180 @@ permissions:
   pull-requests: write
 
 jobs:
-  tests:
+  core-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Detect core changes
+        id: changed
+        uses: tj-actions/changed-files@v44
         with:
-          python-version: "3.12"
+          files: |
+            openhands/core/**
+            pyproject.toml
+            uv.lock
+            .github/workflows/tests.yml
 
       - name: Install uv
+        if: steps.changed.outputs.any_changed == 'true'
         uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
 
-      - name: Install dependencies
+      - name: Install deps
+        if: steps.changed.outputs.any_changed == 'true'
         run: uv sync --frozen --group dev
-        
-      - name: Run tests with coverage
+
+      - name: Run core tests with coverage
+        if: steps.changed.outputs.any_changed == 'true'
+        env:
+          COVERAGE_FILE: .coverage.core
         run: |
-          CI=true uv run pytest \
-            -vvxss \
+          CI=true uv run pytest -vvxss \
+            --cov=openhands/core \
+            --cov-report=term-missing \
+            openhands/core/tests
+
+      - name: Upload core coverage
+        if: steps.changed.outputs.any_changed == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-core
+          path: .coverage.core
+
+  tools-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Detect tools changes
+        id: changed
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            openhands/tools/**
+            pyproject.toml
+            uv.lock
+            .github/workflows/tests.yml
+      
+      - name: Install uv
+        if: steps.changed.outputs.any_changed == 'true'
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        if: steps.changed.outputs.any_changed == 'true'
+        run: uv sync --frozen --group dev
+
+      - name: Run tools tests with coverage
+        if: steps.changed.outputs.any_changed == 'true'
+        env:
+          COVERAGE_FILE: .coverage.tools
+        run: |
+          CI=true uv run pytest -vvxss \
+            --cov=openhands/tools \
+            --cov-report=term-missing \
+            openhands/tools/tests
+
+      - name: Upload tools coverage
+        if: steps.changed.outputs.any_changed == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-tools
+          path: .coverage.tools
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Detect integration changes
+        id: changed
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            tests/**
+            openhands/**
+            pyproject.toml
+            uv.lock
+            .github/workflows/tests.yml
+      
+      - name: Install uv
+        if: steps.changed.outputs.any_changed == 'true'
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        if: steps.changed.outputs.any_changed == 'true'
+        run: uv sync --frozen --group dev
+
+      - name: Run integration tests with coverage
+        if: steps.changed.outputs.any_changed == 'true'
+        env:
+          COVERAGE_FILE: .coverage.integration
+        run: |
+          CI=true uv run pytest -vvxss \
             --basetemp="${{ runner.temp }}/pytest" \
             -o tmp_path_retention=none \
             -o tmp_path_retention_count=0 \
-            --cov=openhands/core \
-            --cov=openhands/tools \
+            --cov=openhands \
             --cov-report=term-missing \
-            openhands/core/tests openhands/tools/tests tests
+            tests
 
-      - name: Build coverage XML (separate step, lower mem)
-        if: always()
-        run: uv run coverage xml -i -o coverage.xml
+      - name: Upload integration coverage
+        if: steps.changed.outputs.any_changed == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration
+          path: .coverage.integration
+
+  coverage-report:
+    runs-on: ubuntu-latest
+    needs: [core-tests, tools-tests, integration-tests]
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install deps (for coverage CLI)
+        run: uv sync --frozen --group dev
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./cov
+        continue-on-error: true
+
+      - name: Combine coverage data
+        run: |
+          shopt -s nullglob
+          files=(cov/**/.coverage*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No coverage files found; skipping combined report."
+            exit 0
+          fi
+          # Bring files to cwd so coverage can find them easily
+          cp "${files[@]}" .
+          uv run coverage combine
+          uv run coverage xml -i -o coverage.xml
+          uv run coverage report -m || true
 
       - name: Pytest coverage PR comment
-        if: ${{ always() && github.event_name == 'pull_request' }}
+        if: always()
         continue-on-error: true
         uses: MishaKav/pytest-coverage-comment@v1
         with:
@@ -52,4 +192,3 @@ jobs:
           pytest-xml-coverage-path: coverage.xml
           title: Coverage Report
           create-new-comment: false
-

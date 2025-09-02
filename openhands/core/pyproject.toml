@@ -5,7 +5,6 @@ description = "OpenHands SDK - Core functionality for building AI agents"
 
 requires-python = ">=3.12"
 dependencies = [
-    "boto3>=1.40.19",
     "fastmcp>=2.11.3",
     "litellm>=1.75.9",
     "pydantic>=2.11.7",
