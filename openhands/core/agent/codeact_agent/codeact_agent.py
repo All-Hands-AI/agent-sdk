@@ -1,5 +1,4 @@
 import json
-import os
 from typing import cast
 
 from litellm.types.utils import (
@@ -10,9 +9,11 @@ from litellm.types.utils import (
 )
 from pydantic import ValidationError
 
+
 from openhands.core.context import EnvContext, PromptManager
 from openhands.core.context.condenser import Condenser
 from openhands.core.context.view import View
+from openhands.core.context import EnvContext, render_system_message
 from openhands.core.conversation import ConversationCallbackType, ConversationState
 from openhands.core.event import ActionEvent, AgentErrorEvent, LLMConvertibleEvent, MessageEvent, ObservationEvent, SystemPromptEvent
 from openhands.core.event.context import Condensation
@@ -39,11 +40,14 @@ class CodeActAgent(AgentBase):
         for tool in BUILT_IN_TOOLS:
             assert tool not in tools, f"{tool} is automatically included and should not be provided."
         super().__init__(llm=llm, tools=tools + BUILT_IN_TOOLS, env_context=env_context)
-        self.prompt_manager = PromptManager(
-            prompt_dir=os.path.join(os.path.dirname(__file__), "prompts"),
+
+        self.system_message: TextContent = TextContent(
+            text=render_system_message(
+            prompt_dir=self.prompt_dir,
             system_prompt_filename=system_prompt_filename,
-        )
-        self.system_message: TextContent = self.prompt_manager.get_system_message(cli_mode=cli_mode)
+            cli_mode=cli_mode
+        ))
+
         self.max_iterations: int = 10
         self.condenser = condenser
 
@@ -57,8 +61,6 @@ class CodeActAgent(AgentBase):
         if len(llm_convertible_messages) == 0:
             # Prepare system message
             event = SystemPromptEvent(source="agent", system_prompt=self.system_message, tools=[t.to_openai_tool() for t in self.tools.values()])
-            # TODO: maybe we should combine this into on_event?
-            state.events.append(event)
             on_event(event)
 
     def step(
@@ -123,7 +125,6 @@ class CodeActAgent(AgentBase):
                 if action_event is None:
                     continue
                 action_events.append(action_event)
-                state.events.append(action_event)
 
             for action_event in action_events:
                 self._execute_action_events(state, action_event, on_event=on_event)
@@ -131,7 +132,6 @@ class CodeActAgent(AgentBase):
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
             msg_event = MessageEvent(source="agent", llm_message=message)
-            state.events.append(msg_event)
             on_event(msg_event)
 
     def _get_action_events(
@@ -155,7 +155,6 @@ class CodeActAgent(AgentBase):
             err = f"Tool '{tool_name}' not found. Available: {list(self.tools.keys())}"
             logger.error(err)
             event = AgentErrorEvent(error=err)
-            state.events.append(event)
             on_event(event)
             state.agent_finished = True
             return
@@ -166,7 +165,6 @@ class CodeActAgent(AgentBase):
         except (json.JSONDecodeError, ValidationError) as e:
             err = f"Error validating args {tool_call.function.arguments} for tool '{tool.name}': {e}"
             event = AgentErrorEvent(error=err)
-            state.events.append(event)
             on_event(event)
             return
 
@@ -196,5 +194,4 @@ class CodeActAgent(AgentBase):
         # Set conversation state
         if tool.name == FinishTool.name:
             state.agent_finished = True
-        state.events.append(obs_event)
         return obs_event
