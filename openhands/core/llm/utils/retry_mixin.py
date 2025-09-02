@@ -31,7 +31,8 @@ class RetryMixin:
         retry_listener: RetryListener | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """
-        Create a LLM retry decorator with customizable parameters. This is used for 429 errors, and a few other exceptions in LLM classes. # noqa
+        Create a LLM retry decorator with customizable parameters. This is used for 429
+        errors, and a few other exceptions in LLM classes.
         """
 
         def before_sleep(retry_state: RetryCallState) -> None:

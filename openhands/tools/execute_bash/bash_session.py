@@ -161,7 +161,8 @@ class BashSession:
             command: The command that was executed.
             raw_command_output: The raw output from the command.
             metadata: The metadata object to store prefix/suffix in.
-            continue_prefix: The prefix to add to the command output if it's a continuation of the previous command. # noqa
+            continue_prefix: The prefix to add to the command output if it's a
+                continuation of the previous command.
         """
         # remove the previous command output from the new output if any
         if self.prev_output:
@@ -297,10 +298,12 @@ class BashSession:
         """Combine all outputs between PS1 matches.
 
         Args:
-            pane_content: The full pane content containing PS1 prompts and command outputs # noqa
+            pane_content: The full pane content containing PS1 prompts and command
+                outputs
             ps1_matches: List of regex matches for PS1 prompts
-            get_content_before_last_match: when there's only one PS1 match, whether to get # noqa
-                the content before the last PS1 prompt (True) or after the last PS1 prompt (False) # noqa
+            get_content_before_last_match: when there's only one PS1 match, whether to
+                get the content before the last PS1 prompt (True) or after the last PS1
+                prompt (False)
 
         Returns:
             Combined string of all outputs between matches

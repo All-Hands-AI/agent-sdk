@@ -58,11 +58,14 @@ multiple lines
 
 <IMPORTANT>
 Reminder:
-- Function calls MUST follow the specified format, start with <function= and end with </function>  # noqa
+- Function calls MUST follow the specified format, start with <function= and end with
+  </function>
 - Required parameters MUST be specified
 - Only call one function at a time
-- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after. # noqa
-- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls # noqa
+- You may provide optional reasoning for your function call in natural language BEFORE
+  the function call, but NOT after.
+- If there is no function call available, answer the question like normal with your
+  current knowledge and do not tell the user about function calls
 </IMPORTANT>
 """
 
@@ -106,7 +109,8 @@ USER: EXECUTION RESULT of [execute_bash]:
 [1]+  Exit 1                  python3 app.py > server.log 2>&1
 
 ASSISTANT:
-Looks like the server was running with PID 121 then crashed. Let me check the server log: # noqa
+Looks like the server was running with PID 121 then crashed. Let me check the server
+log:
 <function=execute_bash>
 <parameter=command>
 cat server.log
@@ -120,7 +124,8 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'flask'
 
 ASSISTANT:
-Looks like the server crashed because the `flask` module is not installed. Let me install the `flask` module for you: # noqa
+Looks like the server crashed because the `flask` module is not installed. Let me
+install the `flask` module for you:
 <function=execute_bash>
 <parameter=command>
 pip3 install flask
@@ -139,10 +144,13 @@ Collecting click>=8.1.3
   Using cached click-8.1.7-py3-none-any.whl (97 kB)
 Collecting itsdangerous>=2.1.2
   Using cached itsdangerous-2.2.0-py3-none-any.whl (16 kB)
-Requirement already satisfied: Jinja2>=3.1.2 in /home/openhands/.local/lib/python3.10/site-packages (from flask) (3.1.3) # noqa
-Requirement already satisfied: MarkupSafe>=2.0 in /home/openhands/.local/lib/python3.10/site-packages (from Jinja2>=3.1.2->flask) (2.1.5) # noqa
+Requirement already satisfied: Jinja2>=3.1.2 in 
+/home/openhands/.local/lib/python3.10/site-packages (from flask) (3.1.3)
+Requirement already satisfied: MarkupSafe>=2.0 in 
+/home/openhands/.local/lib/python3.10/site-packages (from Jinja2>=3.1.2->flask) (2.1.5)
 Installing collected packages: Werkzeug, itsdangerous, click, blinker, flask
-Successfully installed Werkzeug-3.0.2 blinker-1.7.0 click-8.1.7 flask-3.0.3 itsdangerous-2.2.0 # noqa
+Successfully installed Werkzeug-3.0.2 blinker-1.7.0 click-8.1.7 flask-3.0.3 
+itsdangerous-2.2.0
 
 ASSISTANT:
 The `flask` module is installed successfully. Let me run the Python file again:
@@ -166,12 +174,14 @@ cat server.log
 USER: EXECUTION RESULT of [execute_bash]:
 * Serving Flask app 'app'
  * Debug mode: off
-WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead. # noqa
+WARNING: This is a development server. Do not use it in a production deployment.
+Use a production WSGI server instead.
  * Running on http://127.0.0.1:5000
 Press CTRL+C to quit
 
 ASSISTANT:
-The server is running on port 5000 with PID 124. You can access the list of numbers by visiting http://127.0.0.1:5000. If you have any further questions, feel free to ask! # noqa
+The server is running on port 5000 with PID 124. You can access the list of numbers
+by visiting http://127.0.0.1:5000. If you have any further questions, feel free to ask!
 """,
         "kill_server": """
 USER: Now kill the server, make it display the numbers in a table format.
@@ -200,13 +210,15 @@ USER: EXECUTION RESULT of [execute_bash]:
 [1] 126
 
 ASSISTANT:
-The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000. # noqa
+The server is running on port 5000 with PID 126. You can access the list of numbers
+in a table format by visiting http://127.0.0.1:5000.
 """,
     },
     "str_replace_editor": {
         "create_file": """
 ASSISTANT:
-There is no `app.py` file in the current directory. Let me create a Python file `app.py`: # noqa
+There is no `app.py` file in the current directory. Let me create a Python file
+`app.py`:
 <function=str_replace_editor>
 <parameter=command>create</parameter>
 <parameter=path>/workspace/app.py</parameter>
@@ -234,16 +246,19 @@ Now let me display the numbers in a table format:
 <parameter=command>str_replace</parameter>
 <parameter=path>/workspace/app.py</parameter>
 <parameter=old_str>return str(numbers)</parameter>
-<parameter=new_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'</parameter> # noqa
+<parameter=new_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in
+numbers]) + '</table>'</parameter>
 </function>
 
 USER: EXECUTION RESULT of [str_replace_editor]:
-The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py: # noqa
+The file /workspace/app.py has been edited. Here's the result of running `cat -n`
+on a snippet of /workspace/app.py:
      3
      4  @app.route('/')
      5  def index():
      6      numbers = list(range(1, 11))
-     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>' # noqa
+     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) +
+'</table>'
      8
      9  if __name__ == '__main__':
     10      app.run(port=5000)
@@ -268,7 +283,9 @@ USER: EXECUTION RESULT of [browser]:
     },
     "edit_file": {
         "create_file": """
-ASSISTANT: There is no `app.py` file in the current directory. Let me create a Python file `app.py`: # noqa
+ASSISTANT: There is no `app.py` file in the current directory. Let me create a Python
+file
+`app.py`:
 <function=edit_file>
 <parameter=path>/workspace/app.py</parameter>
 <parameter=start>1</parameter>
@@ -306,12 +323,14 @@ if __name__ == '__main__':
 </function>
 
 USER: EXECUTION RESULT of [edit_file]:
-The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py: # noqa
+The file /workspace/app.py has been edited. Here's the result of running `cat -n`
+on a snippet of /workspace/app.py:
      3
      4  @app.route('/')
      5  def index():
      6      numbers = list(range(1, 11))
-     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>' # noqa
+     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) +
+'</table>'
      8
      9  if __name__ == '__main__':
     10      app.run(port=5000)
@@ -321,9 +340,12 @@ Review the changes and make sure they are as expected. Edit the file again if ne
     "finish": {
         "example": """
 ASSISTANT:
-The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000. Let me know if you have any further requests! # noqa
+The server is running on port 5000 with PID 126. You can access the list of numbers
+in a table format by visiting http://127.0.0.1:5000. Let me know if you have any
+further requests!
 <function=finish>
-<parameter=message>The task has been completed. The web server is running and displaying numbers 1-10 in a table format at http://127.0.0.1:5000.</parameter> # noqa
+<parameter=message>The task has been completed. The web server is running and
+displaying numbers 1-10 in a table format at http://127.0.0.1:5000.</parameter>
 </function>
 """
     },
@@ -350,11 +372,13 @@ def get_example_for_tools(tools: list[ChatCompletionToolParam]) -> str:
     if not available_tools:
         return ""
 
-    example = """Here's a running example of how to perform a task with the provided tools. # noqa
+    example = """Here's a running example of how to perform a task with the provided
+tools.
 
 --------------------- START OF EXAMPLE ---------------------
 
-USER: Create a list of numbers from 1 to 10, and display them in a web page at port 5000. # noqa
+USER: Create a list of numbers from 1 to 10, and display them in a web page at port
+5000.
 
 """
 
@@ -404,7 +428,8 @@ IN_CONTEXT_LEARNING_EXAMPLE_PREFIX = get_example_for_tools
 IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX = """
 --------------------- END OF NEW TASK DESCRIPTION ---------------------
 
-PLEASE follow the format strictly! PLEASE EMIT ONE AND ONLY ONE FUNCTION CALL PER MESSAGE. # noqa
+PLEASE follow the format strictly! PLEASE EMIT ONE AND ONLY ONE FUNCTION CALL PER
+MESSAGE.
 """
 
 # Regex patterns for function call parsing

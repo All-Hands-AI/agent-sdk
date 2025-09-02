@@ -20,7 +20,8 @@ def to_camel_case(s: str) -> str:
 class ToolAnnotations(BaseModel):
     """Annotations to provide hints about the tool's behavior.
 
-    Based on Model Context Protocol (MCP) spec: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838 # noqa
+    Based on Model Context Protocol (MCP) spec:
+    https://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838
     """
 
     title: str | None = Field(
@@ -129,7 +130,8 @@ class Tool(Generic[ActionT, ObservationT]):
     def call(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
 
-        We always return some ObservationBase subclass, but not always the generic ObservationT. # noqa
+        We always return some ObservationBase subclass, but not always the generic
+        ObservationT.
         """
         if self.executor is None:
             raise NotImplementedError(f"Tool '{self.name}' has no executor")
