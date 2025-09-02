@@ -10,7 +10,7 @@ def message_event(content: str) -> MessageEvent:
     return MessageEvent(llm_message=Message(role="user", content=[TextContent(text=content)]), source="user")
 
 
-def test_noop_condenser():
+def test_noop_condenser() -> None:
     """Test that NoOpCondensers preserve their input events."""
     events: list[EventType] = [
         message_event("Event 1"),

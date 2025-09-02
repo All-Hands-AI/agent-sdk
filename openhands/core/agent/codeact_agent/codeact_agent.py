@@ -48,8 +48,8 @@ class CodeActAgent(AgentBase):
         on_event: ConversationCallbackType,
     ) -> None:
         # TODO(openhands): we should add test to test this init_state will actually modify state in-place
-        messages = [e.to_llm_message() for e in state.events]
-        if len(messages) == 0:
+        llm_convertible_messages = [event for event in state.events if isinstance(event, LLMConvertibleEvent)]
+        if len(llm_convertible_messages) == 0:
             # Prepare system message
             event = SystemPromptEvent(source="agent", system_prompt=self.system_message, tools=[t.to_openai_tool() for t in self.tools.values()])
             # TODO: maybe we should combine this into on_event?

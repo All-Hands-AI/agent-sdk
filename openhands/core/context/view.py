@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from logging import getLogger
 from typing import overload
 
 from pydantic import BaseModel
 
-from openhands.core.event.base import EventBase, LLMConvertibleEvent
-from openhands.core.event.context import Condensation, CondensationRequest
-from openhands.core.event.llm_convertible import MessageEvent
+from openhands.core.event import Condensation, CondensationRequest, EventType, LLMConvertibleEvent, MessageEvent
 from openhands.core.llm import Message, TextContent
 
 
@@ -47,7 +44,7 @@ class View(BaseModel):
             raise ValueError(f"Invalid key type: {type(key)}")
 
     @staticmethod
-    def from_events(events: Sequence[EventBase]) -> View:
+    def from_events(events: list[EventType]) -> View:
         """Create a view from a list of events, respecting the semantics of any condensation events."""
         forgotten_event_ids: set[str] = set()
         for event in events:
