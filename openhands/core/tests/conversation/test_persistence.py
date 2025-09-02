@@ -46,8 +46,8 @@ def test_save_no_messages_writes_base_state_only(tmp_path: Path) -> None:
     # Save immediately (no messages)
     conv.save(str(tmp_path))
 
-    base_rel = str(Path(str(tmp_path)).joinpath(BASE_STATE_NAME))
-    msg_dir_rel = str(Path(str(tmp_path)).joinpath(MESSAGE_DIR_NAME))
+    base_rel = BASE_STATE_NAME
+    msg_dir_rel = MESSAGE_DIR_NAME
 
     base_path = _physical_path(tmp_path, base_rel)
     msg_dir_path = _physical_path(tmp_path, msg_dir_rel)
@@ -62,7 +62,7 @@ def test_save_then_resave_no_duplicate_messages(tmp_path: Path) -> None:
 
     conv.save(str(tmp_path))
 
-    msg_dir_rel = str(Path(str(tmp_path)).joinpath(MESSAGE_DIR_NAME))
+    msg_dir_rel = MESSAGE_DIR_NAME
     msg_dir_path = _physical_path(tmp_path, msg_dir_rel)
     assert msg_dir_path.exists()
 
@@ -81,7 +81,7 @@ def test_incremental_save_writes_only_new_indices(tmp_path: Path) -> None:
     conv.send_message(Message(role="user", content=[TextContent(text="hi")]))
     conv.save(str(tmp_path))
 
-    msg_dir_rel = str(Path(str(tmp_path)).joinpath(MESSAGE_DIR_NAME))
+    msg_dir_rel = MESSAGE_DIR_NAME
     msg_dir_path = _physical_path(tmp_path, msg_dir_rel)
 
     files1 = sorted(os.listdir(msg_dir_path))
@@ -100,7 +100,7 @@ def test_saved_indices_ignores_invalid_filenames(tmp_path: Path) -> None:
     conv = Conversation(agent=DummyAgent())
 
     # Place a junk file in messages dir that shouldn't match the regex
-    junk_rel_dir = str(Path(str(tmp_path)).joinpath(MESSAGE_DIR_NAME))
+    junk_rel_dir = MESSAGE_DIR_NAME
     junk_dir = _physical_path(tmp_path, junk_rel_dir)
     junk_dir.mkdir(parents=True, exist_ok=True)
     (junk_dir / "not-a-message.txt").write_text("junk")

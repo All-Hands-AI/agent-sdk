@@ -47,8 +47,9 @@ class ConversationPersistence:
           - write new files for missing indices
         """
         filestore = filestore or LocalFileStore(root=dir_path)
-        base_path = self._join(dir_path, BASE_STATE_NAME)
-        msg_dir = self._join(dir_path, MESSAGE_DIR_NAME)
+        # Use keys relative to the filestore root
+        base_path = BASE_STATE_NAME
+        msg_dir = MESSAGE_DIR_NAME
 
         with obj.state:
             # 1) write base_state (without messages)
@@ -72,7 +73,7 @@ class ConversationPersistence:
           - stream JSONL and validate into Message objects
         """
         filestore = file_store or LocalFileStore(root=dir_path)
-        base_path = self._join(dir_path, BASE_STATE_NAME)
+        base_path = BASE_STATE_NAME
 
         base_state_dict = json.loads(filestore.read(base_path))
 
@@ -80,7 +81,7 @@ class ConversationPersistence:
         with obj.state:
             obj.state = ConversationState.model_validate(base_state_dict)
 
-            msg_dir = self._join(dir_path, MESSAGE_DIR_NAME)
+            msg_dir = MESSAGE_DIR_NAME
             # collect (idx, path) for individual files
             entries: list[tuple[int, str]] = []
             for p in filestore.list(msg_dir):
