@@ -167,5 +167,4 @@ class CodeActAgent(AgentBase):
         # Set conversation state
         if tool.name == FinishTool.name:
             state.agent_finished = True
-        # Persist observation via default on_event appender
         return obs_event
