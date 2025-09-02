@@ -11,7 +11,7 @@ from pydantic import ValidationError
 if TYPE_CHECKING:
     from .conversation import Conversation  # noqa
 
-from openhands.core.event import EventBase, EventType, LLMConvertibleEvent
+from openhands.core.event import EventBase, EventType
 from openhands.core.io import FileStore, LocalFileStore
 from openhands.core.logger import get_logger
 
@@ -29,7 +29,7 @@ class ConversationPersistence:
     Layout under `root/`:
       - base_state.json                     # small JSON (without events)
       - events/<index>-<ts>.jsonl           # ALL events, one event per file, one JSON object per line
-      - messages/<index>-<ts>.jsonl         # LLM messages derived from events (for backward compatibility)
+      - messages/<index>-<ts>.jsonl         # legacy format (for backward compatibility only)
 
     Conventions:
       - <index> is zero-padded to `cfg.index_width`
@@ -46,17 +46,17 @@ class ConversationPersistence:
         """
         Persist `obj.state` into `dir_path`:
           - overwrite base_state.json each call (it’s small)
-          - enumerate existing message files to see which indices are already saved
+          - save ALL events to events/ directory
+          - enumerate existing event files to see which indices are already saved
           - write new files for missing indices
         """
         filestore = filestore or LocalFileStore(root=dir_path)
         # Use keys relative to the filestore root
         base_path = BASE_STATE_NAME
-        msg_dir = MESSAGE_DIR_NAME
         events_dir = EVENTS_DIR_NAME
 
         with obj.state:
-            # 1) write base_state (without messages)
+            # 1) write base_state (without events)
             self._write_base_state(base_path, obj, filestore)
 
             # 2) save ALL events
@@ -65,15 +65,6 @@ class ConversationPersistence:
                 if idx in saved_event_indices:
                     continue
                 self._write_individual(events_dir, idx, event, filestore)
-
-            # 3) save LLM messages (for backward compatibility and LLM interaction)
-            saved_msg_indices = self._saved_indices(msg_dir, filestore)
-            # All events in obj.state.events are LLMConvertibleEvent instances, no need to filter
-            msgs = LLMConvertibleEvent.events_to_messages(obj.state.events)
-            for idx, msg in enumerate(msgs):
-                if idx in saved_msg_indices:
-                    continue
-                self._write_individual(msg_dir, idx, msg, filestore)
 
     def load(self, dir_path: str, agent, file_store: FileStore | None = None, **kwargs) -> "Conversation":
         """

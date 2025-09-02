@@ -52,24 +52,24 @@ def test_save_no_messages_writes_base_state_only(tmp_path: Path) -> None:
     assert not msg_dir_path.exists(), "messages directory should not exist when no messages"
 
 
-def test_save_then_resave_no_duplicate_messages(tmp_path: Path) -> None:
+def test_save_then_resave_no_duplicate_events(tmp_path: Path) -> None:
     conv = Conversation(agent=DummyAgent())
     conv.send_message(Message(role="user", content=[TextContent(text="hi")]))
 
     conv.save(str(tmp_path))
 
-    msg_dir_rel = MESSAGE_DIR_NAME
-    msg_dir_path = _physical_path(tmp_path, msg_dir_rel)
-    assert msg_dir_path.exists()
+    events_dir_rel = EVENTS_DIR_NAME
+    events_dir_path = _physical_path(tmp_path, events_dir_rel)
+    assert events_dir_path.exists()
 
-    files1 = sorted(os.listdir(msg_dir_path))
+    files1 = sorted(os.listdir(events_dir_path))
     assert len(files1) == 1 and files1[0].startswith("0000-"), files1
 
     # Save again without changes: should not create a new file
     conv.save(str(tmp_path))
 
-    files2 = sorted(os.listdir(msg_dir_path))
-    assert files2 == files1, "Saving twice without changes should not duplicate message files"
+    files2 = sorted(os.listdir(events_dir_path))
+    assert files2 == files1, "Saving twice without changes should not duplicate event files"
 
 
 def test_incremental_save_writes_only_new_indices(tmp_path: Path) -> None:
@@ -77,17 +77,17 @@ def test_incremental_save_writes_only_new_indices(tmp_path: Path) -> None:
     conv.send_message(Message(role="user", content=[TextContent(text="hi")]))
     conv.save(str(tmp_path))
 
-    msg_dir_rel = MESSAGE_DIR_NAME
-    msg_dir_path = _physical_path(tmp_path, msg_dir_rel)
+    events_dir_rel = EVENTS_DIR_NAME
+    events_dir_path = _physical_path(tmp_path, events_dir_rel)
 
-    files1 = sorted(os.listdir(msg_dir_path))
+    files1 = sorted(os.listdir(events_dir_path))
     assert len(files1) == 1 and files1[0].startswith("0000-"), files1
 
     # Add second message and save again; only index 0001 should be new
     conv.send_message(Message(role="user", content=[TextContent(text="second")]))
     conv.save(str(tmp_path))
 
-    files2 = sorted(os.listdir(msg_dir_path))
+    files2 = sorted(os.listdir(events_dir_path))
     assert len(files2) == 2
     assert files2[0].startswith("0000-") and files2[1].startswith("0001-")
 
@@ -95,13 +95,13 @@ def test_incremental_save_writes_only_new_indices(tmp_path: Path) -> None:
 def test_saved_indices_ignores_invalid_filenames(tmp_path: Path) -> None:
     conv = Conversation(agent=DummyAgent())
 
-    # Place a junk file in messages dir that shouldn't match the regex
-    junk_rel_dir = MESSAGE_DIR_NAME
+    # Place a junk file in events dir that shouldn't match the regex
+    junk_rel_dir = EVENTS_DIR_NAME
     junk_dir = _physical_path(tmp_path, junk_rel_dir)
     junk_dir.mkdir(parents=True, exist_ok=True)
-    (junk_dir / "not-a-message.txt").write_text("junk")
+    (junk_dir / "not-an-event.txt").write_text("junk")
 
-    # First real message should still be written as 0000-*.jsonl
+    # First real event should still be written as 0000-*.jsonl
     conv.send_message(Message(role="user", content=[TextContent(text="hi")]))
     conv.save(str(tmp_path))
 
@@ -127,12 +127,9 @@ def test_save_creates_events_directory(tmp_path: Path) -> None:
     assert len(events_files) == 1, f"Should have 1 event file, got {len(events_files)}: {events_files}"
     assert events_files[0].startswith("0000-") and events_files[0].endswith(".jsonl")
     
-    # Check that messages directory also exists (for backward compatibility)
+    # Check that messages directory does NOT exist (no longer created)
     msg_dir_path = _physical_path(tmp_path, MESSAGE_DIR_NAME)
-    assert msg_dir_path.exists(), "messages directory should exist for backward compatibility"
-    
-    msg_files = sorted(os.listdir(msg_dir_path))
-    assert len(msg_files) == 1, f"Should have 1 message file, got {len(msg_files)}: {msg_files}"
+    assert not msg_dir_path.exists(), "messages directory should not be created anymore"
 
 
 def test_load_prioritizes_events_over_messages(tmp_path: Path) -> None:
