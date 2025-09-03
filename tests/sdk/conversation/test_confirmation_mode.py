@@ -425,7 +425,8 @@ class TestConfirmationMode:
 
         # This test verifies the logic fix in agent.py where we removed:
         # OLD (removed): if not action_events: state.agent_finished = True
-        # NEW: Agent only finishes on explicit message responses, not when no actions created
+        # NEW: Agent only finishes on explicit message responses, not when no
+        # actions created
 
         # Simulate the scenario where no actions are created
         # The agent should not finish in this case when in confirmation mode

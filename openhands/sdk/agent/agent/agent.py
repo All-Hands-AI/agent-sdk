@@ -54,7 +54,7 @@ class Agent(AgentBase):
         super().__init__(
             llm=llm,
             tools=tools + BUILT_IN_TOOLS,
-            env_context=env_context,
+            agent_context=agent_context,
         )
 
         self.system_message: str = render_template(
@@ -204,9 +204,10 @@ class Agent(AgentBase):
                 for action_event in action_events:
                     self._execute_action_events(state, action_event, on_event=on_event)
 
-            # Note: We don't set agent_finished = True here just because no actions were created
-            # The agent should only finish when it explicitly produces a message response
-            # or when it explicitly decides to finish the conversation
+            # Note: We don't set agent_finished = True here just because no actions
+            # were created. The agent should only finish when it explicitly
+            # produces a message response or when it explicitly decides to finish
+            # the conversation
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True

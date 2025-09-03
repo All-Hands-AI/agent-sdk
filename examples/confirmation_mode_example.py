@@ -32,9 +32,10 @@ from openhands.tools import BashExecutor, execute_bash_tool
 # Setup helpers
 # ---------------------------
 
+
 def build_llm() -> LLM:
-    api_key = os.getenv("LITELLM_API_KEY")
-    model = os.getenv("LITELLM_MODEL")
+    api_key = os.getenv("LITELLM_API_KEY") or "fake-key"
+    model = os.getenv("LITELLM_MODEL") or "gpt-4o-mini"
     llm = LLM(
         config=LLMConfig(
             model=model,
@@ -50,7 +51,9 @@ def build_tools(cwd: Optional[str] = None) -> list[Tool]:
     return [execute_bash_tool.set_executor(executor=bash)]
 
 
-def make_conversation(llm: LLM, tools: Iterable[Tool], confirmation: bool = True) -> Conversation:
+def make_conversation(
+    llm: LLM, tools: Iterable[Tool], confirmation: bool = True
+) -> Conversation:
     agent = Agent(llm=llm, tools=list(tools))
     convo = Conversation(agent=agent)
     convo.set_confirmation_mode(confirmation)
@@ -60,6 +63,7 @@ def make_conversation(llm: LLM, tools: Iterable[Tool], confirmation: bool = True
 # ---------------------------
 # User interaction
 # ---------------------------
+
 
 def ask_user_confirmation(pending_count: int, previews: list[str]) -> bool:
     """
@@ -74,7 +78,11 @@ def ask_user_confirmation(pending_count: int, previews: list[str]) -> bool:
 
     while True:
         try:
-            user_input = input("\nDo you want to execute these actions? (yes/no): ").strip().lower()
+            user_input = (
+                input("\nDo you want to execute these actions? (yes/no): ")
+                .strip()
+                .lower()
+            )
         except (EOFError, KeyboardInterrupt):
             print("\n❌ No input received; rejecting by default.")
             return False
@@ -91,6 +99,7 @@ def ask_user_confirmation(pending_count: int, previews: list[str]) -> bool:
 # ---------------------------
 # Conversation runner
 # ---------------------------
+
 
 def run_until_done(conversation: Conversation) -> None:
     """
@@ -123,7 +132,10 @@ def run_until_done(conversation: Conversation) -> None:
                 # If approved: fall through to run() which will execute actions
             else:
                 # Defensive: clear the flag if somehow set without actions
-                print("⚠️ Agent is waiting for confirmation but no pending actions were found.")
+                print(
+                    "⚠️ Agent is waiting for confirmation but no pending actions "
+                    "were found."
+                )
                 conversation.state.waiting_for_confirmation = False
 
         print("▶️  Running conversation.run()…")
@@ -133,6 +145,7 @@ def run_until_done(conversation: Conversation) -> None:
 # ---------------------------
 # Scripted examples
 # ---------------------------
+
 
 def send_and_run(conversation: Conversation, text: str) -> None:
     """Convenience wrapper to send a user message and run until done."""
@@ -151,7 +164,9 @@ def main() -> None:
     conversation = make_conversation(llm, tools, confirmation=True)
 
     print("\n1) Command that will likely create actions…")
-    send_and_run(conversation, "Please list the files in the current directory using ls -la")
+    send_and_run(
+        conversation, "Please list the files in the current directory using ls -la"
+    )
 
     print("\n2) Command the user may choose to reject…")
     send_and_run(conversation, "Please create a file called 'dangerous_file.txt'")
@@ -165,9 +180,14 @@ def main() -> None:
 
     print("\n=== Example Complete ===")
     print("Key points:")
-    print("- conversation.run() creates actions; confirmation mode sets waiting_for_confirmation=True")
+    print(
+        "- conversation.run() creates actions; confirmation mode sets "
+        "waiting_for_confirmation=True"
+    )
     print("- ask_user_confirmation() centralizes the yes/no prompt")
-    print("- Rejection uses conversation.reject_pending_actions() and continues the loop")
+    print(
+        "- Rejection uses conversation.reject_pending_actions() and continues the loop"
+    )
     print("- Simple responses work normally without actions")
 
 
