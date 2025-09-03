@@ -25,10 +25,52 @@ from openhands.tools import BashExecutor, execute_bash_tool
 
 
 def run_until_done(conversation: Conversation) -> None:
-    """Keep running conversation.run() until agent finishes."""
+    """Keep running conversation.run() until agent finishes.
+
+    In confirmation mode, this will:
+    1. Run conversation.run() to create actions
+    2. Check if waiting_for_confirmation flag is set
+    3. Ask user for yes/no input if actions are pending
+    4. Run conversation.run() again to execute or reject actions
+    """
     while not conversation.state.agent_finished:
         print("Running conversation.run()...")
         conversation.run()
+
+        # Check if agent is waiting for confirmation
+        if conversation.state.waiting_for_confirmation:
+            pending_actions = conversation.get_pending_actions()
+            if pending_actions:
+                print(
+                    f"\n🔍 Agent created {len(pending_actions)} action(s) "
+                    "and is waiting for confirmation:"
+                )
+                for i, action in enumerate(pending_actions, 1):
+                    action_preview = str(action.action)[:100]
+                    print(f"  {i}. {action.tool_name}: {action_preview}...")
+
+                # Ask user for confirmation
+                while True:
+                    user_input = (
+                        input("\nDo you want to execute these actions? (yes/no): ")
+                        .strip()
+                        .lower()
+                    )
+                    if user_input in ["yes", "y"]:
+                        print("✅ User approved - executing actions...")
+                        break
+                    elif user_input in ["no", "n"]:
+                        print("❌ User rejected - rejecting actions...")
+                        conversation.reject_pending_actions("User rejected the actions")
+                        break
+                    else:
+                        print("Please enter 'yes' or 'no'")
+            else:
+                # This shouldn't happen, but handle gracefully
+                print(
+                    "⚠️  Agent is waiting for confirmation but no pending actions found"
+                )
+                conversation.state.waiting_for_confirmation = False
 
 
 def main() -> None:
@@ -69,35 +111,19 @@ def main() -> None:
     )
     conversation.send_message(user_message)
 
-    # Run until agent finishes (may take multiple steps)
+    # Run until agent finishes - will automatically handle confirmation
     run_until_done(conversation)
 
-    # Check for pending actions and confirm them
-    pending_actions = conversation.get_pending_actions()
-    if pending_actions:
-        print(
-            f"Found {len(pending_actions)} pending actions. Running again to confirm..."
-        )
-        run_until_done(conversation)
-    else:
-        print("No pending actions (agent responded with message only)")
-
-    # Example 2: Command that we'll reject
-    print("\n2. Sending command that we'll reject...")
+    # Example 2: Command that we can reject (user will be prompted)
+    print("\n2. Sending command that user can choose to reject...")
     user_message2 = Message(
         role="user",
         content=[TextContent(text="Please create a file called 'dangerous_file.txt'")],
     )
     conversation.send_message(user_message2)
 
+    # Run until agent finishes - user will be prompted to approve/reject
     run_until_done(conversation)
-
-    pending_actions = conversation.get_pending_actions()
-    if pending_actions:
-        print("Rejecting pending actions...")
-        conversation.reject_pending_actions("User decided this action is too dangerous")
-    else:
-        print("No pending actions to reject")
 
     # Example 3: Simple greeting (no actions expected)
     print("\n3. Sending simple greeting...")
@@ -125,10 +151,11 @@ def main() -> None:
 
     print("\n=== Example Complete ===")
     print("Key points:")
-    print("- Always run conversation.run() in a loop until agent finishes")
-    print("- Check for pending actions after agent finishes")
-    print("- Run again to confirm actions, or reject them")
-    print("- Not every response creates actions")
+    print("- conversation.run() creates actions and sets waiting_for_confirmation=True")
+    print("- Example detects this flag and prompts user for yes/no confirmation")
+    print("- User approval leads to implicit confirmation (second run() call)")
+    print("- User rejection calls reject_pending_actions() and clears the flag")
+    print("- Not every response creates actions (simple greetings work normally)")
 
 
 if __name__ == "__main__":

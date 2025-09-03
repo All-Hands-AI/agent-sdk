@@ -141,13 +141,18 @@ class Conversation:
         """Reject all pending actions from the agent.
 
         This is a non-invasive method to reject actions between run() calls.
+        Also clears the waiting_for_confirmation flag.
         """
         pending_actions = self.agent.get_pending_actions(self.state)
-        if not pending_actions:
-            logger.warning("No pending actions to reject")
-            return
 
         with self.state:
+            # Always clear the waiting_for_confirmation flag
+            self.state.waiting_for_confirmation = False
+
+            if not pending_actions:
+                logger.warning("No pending actions to reject")
+                return
+
             for action_event in pending_actions:
                 # Create rejection observation
                 rejection_event = UserRejectsObservation(

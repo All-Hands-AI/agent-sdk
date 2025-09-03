@@ -102,6 +102,7 @@ class Agent(AgentBase):
                     "Confirmation mode: Executing %d pending action(s)",
                     len(pending_actions),
                 )
+                state.waiting_for_confirmation = False
                 for action_event in pending_actions:
                     self._execute_action_events(state, action_event, on_event=on_event)
                 return
@@ -195,6 +196,7 @@ class Agent(AgentBase):
                     f"Confirmation mode: Created {len(action_events)} action(s), "
                     "waiting for confirmation"
                 )
+                state.waiting_for_confirmation = True
                 return
             elif state.confirmation_mode and not action_events:
                 # In confirmation mode but no actions were created - continue normally

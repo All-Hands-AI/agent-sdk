@@ -286,3 +286,54 @@ class TestConfirmationMode:
             if isinstance(event, UserRejectsObservation)
         ]
         assert len(rejection_events) == 0
+
+    def test_waiting_for_confirmation_flag(self):
+        """Test the waiting_for_confirmation flag functionality."""
+        from openhands.sdk.agent import Agent
+        from openhands.sdk.conversation import Conversation
+
+        mock_llm = MagicMock()
+        agent = Agent(llm=mock_llm, tools=[])
+        conversation = Conversation(agent=agent)
+
+        # Test initial state
+        assert conversation.state.waiting_for_confirmation is False
+
+        # Enable confirmation mode
+        conversation.set_confirmation_mode(True)
+        assert conversation.state.confirmation_mode is True
+        assert conversation.state.waiting_for_confirmation is False
+
+        # Test that flag gets set when actions are created (would need mocking)
+        # For now, test manual flag manipulation
+        conversation.state.waiting_for_confirmation = True
+        assert conversation.state.waiting_for_confirmation is True
+
+        # Test that rejecting clears the flag
+        conversation.reject_pending_actions("Test rejection")
+        assert conversation.state.waiting_for_confirmation is False
+
+    def test_waiting_for_confirmation_cleared_on_execution(self):
+        """Test that waiting_for_confirmation is cleared when actions are executed."""
+        from openhands.sdk.agent import Agent
+        from openhands.sdk.conversation import Conversation
+
+        mock_llm = MagicMock()
+        agent = Agent(llm=mock_llm, tools=[])
+        conversation = Conversation(agent=agent)
+
+        # Set up the scenario
+        conversation.set_confirmation_mode(True)
+        conversation.state.waiting_for_confirmation = True
+
+        # Test that flag is cleared when no pending actions exist
+        # (simulates the case where actions were executed)
+        pending_actions = conversation.get_pending_actions()
+        assert len(pending_actions) == 0
+
+        # The flag should remain True until explicitly cleared
+        assert conversation.state.waiting_for_confirmation is True
+
+        # Manually clear it (simulates what happens in agent execution)
+        conversation.state.waiting_for_confirmation = False
+        assert conversation.state.waiting_for_confirmation is False

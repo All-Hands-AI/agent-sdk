@@ -18,6 +18,7 @@ class ConversationState(BaseModel):
     agent_finished: bool = False
     initial_message_sent: bool = False
     confirmation_mode: bool = False
+    waiting_for_confirmation: bool = False
 
     # Private attrs (NOT Fields) — allowed to start with underscore
     _lock: RLock = PrivateAttr(default_factory=RLock)
