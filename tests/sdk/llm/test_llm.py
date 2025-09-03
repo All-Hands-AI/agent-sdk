@@ -47,7 +47,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
 def mock_logger(monkeypatch):
     # suppress logging of completion data to file
     mock_logger = MagicMock()
-    monkeypatch.setattr("openhands.core.llm.llm.logger", mock_logger)
+    monkeypatch.setattr("openhands.sdk.llm.llm.logger", mock_logger)
     return mock_logger
 
 
@@ -180,7 +180,7 @@ def test_metrics_diff():
     assert accumulated_diff["cache_write_tokens"] == 2
 
 
-@patch("openhands.core.llm.llm.litellm_completion")
+@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_completion_with_mock(mock_completion, default_config):
     """Test LLM completion with mocked litellm."""
     mock_response = create_mock_response("Test response")
@@ -196,7 +196,7 @@ def test_llm_completion_with_mock(mock_completion, default_config):
     mock_completion.assert_called_once()
 
 
-@patch("openhands.core.llm.llm.litellm_completion")
+@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_retry_on_rate_limit(mock_completion, default_config):
     """Test that LLM retries on rate limit errors."""
     mock_response = create_mock_response("Success after retry")
@@ -420,7 +420,7 @@ def test_llm_config_validation():
     assert full_llm.config.max_output_tokens == 1000
 
 
-@patch("openhands.core.llm.llm.litellm_completion")
+@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_no_response_error(mock_completion, default_config):
     """Test handling of LLMNoResponseError."""
     # Mock empty response

@@ -51,7 +51,7 @@ def default_config():
     )
 
 
-@patch("openhands.core.llm.llm.litellm_completion")
+@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_completion_basic(mock_completion, default_config):
     """Test basic LLM completion functionality."""
     mock_response = create_mock_response("Test response")
@@ -78,7 +78,7 @@ def test_llm_streaming_not_supported(default_config):
         llm.completion(messages=messages, stream=True)
 
 
-@patch("openhands.core.llm.llm.litellm_completion")
+@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_completion_with_tools(mock_completion, default_config):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
@@ -115,7 +115,7 @@ def test_llm_completion_with_tools(mock_completion, default_config):
     mock_completion.assert_called_once()
 
 
-@patch("openhands.core.llm.llm.litellm_completion")
+@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_completion_error_handling(mock_completion, default_config):
     """Test LLM completion error handling."""
     # Mock an exception
@@ -217,7 +217,7 @@ def test_llm_token_usage_tracking(default_config):
     assert accumulated.completion_tokens >= 5
 
 
-@patch("openhands.core.llm.llm.litellm_completion")
+@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_completion_with_custom_params(mock_completion, default_config):
     """Test LLM completion with custom parameters."""
     mock_response = create_mock_response("Custom response")

@@ -1,4 +1,4 @@
-"""Tests for the Tool class in openhands.core.runtime.tool."""
+"""Tests for the Tool class in openhands.sdk.runtime.tool."""
 
 from typing import Any, Dict, List, Optional
 

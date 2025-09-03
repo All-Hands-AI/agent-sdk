@@ -91,7 +91,7 @@ This project follows principles of simplicity, pragmatism, and maintainability:
 
 The SDK is built around two core packages:
 
-- **`openhands/core`**: Core SDK functionality (agents, LLM, context, conversation)
+- **`openhands.sdk.**: Core SDK functionality (agents, LLM, context, conversation)
 - **`openhands/tools`**: Tool implementations (bash execution, file editing)
 
 Each package is independently testable and deployable, with clear separation of concerns.
@@ -130,7 +130,7 @@ uv run pre-commit run --all-files
 #### 4. Testing Strategy
 
 **Unit Tests**: Located in package-specific test directories
-- `openhands/core/tests/` - Tests for core functionality
+- `openhands.sdk.tests/` - Tests for core functionality
 - `openhands/tools/tests/` - Tests for tool implementations
 
 **Integration Tests**: Located in root `tests/` directory
@@ -142,7 +142,7 @@ uv run pre-commit run --all-files
 uv run pytest
 
 # Run specific test file
-uv run pytest openhands/core/tests/tool/test_tool.py
+uv run pytest openhands.sdk.tests/tool/test_tool.py
 
 # Run with coverage
 uv run pytest --cov=openhands
