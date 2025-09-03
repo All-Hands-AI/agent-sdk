@@ -1,12 +1,12 @@
 """Runtime tools package."""
 
-from .execute_bash import (
+from openhands.tools.execute_bash import (
     BashExecutor,
     ExecuteBashAction,
     ExecuteBashObservation,
     execute_bash_tool,
 )
-from .str_replace_editor import (
+from openhands.tools.str_replace_editor import (
     FileEditorExecutor,
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
@@ -29,6 +29,6 @@ from importlib.metadata import PackageNotFoundError, version
 
 
 try:
-    __version__ = version("openhands-core")
+    __version__ = version("openhands-tools")
 except PackageNotFoundError:
     __version__ = "0.0.0"  # fallback for editable/unbuilt environments

@@ -2,10 +2,10 @@ import os
 
 from pydantic import SecretStr
 
-from openhands.core import (
+from openhands.sdk import (
     LLM,
+    Agent,
     AgentContext,
-    CodeActAgent,
     Conversation,
     EventType,
     LLMConfig,
@@ -15,7 +15,7 @@ from openhands.core import (
     Tool,
     get_logger,
 )
-from openhands.core.context import (
+from openhands.sdk.context import (
     KnowledgeMicroagent,
     MicroagentMetadata,
     RepoMicroagent,
@@ -72,7 +72,7 @@ agent_context = AgentContext(
 
 
 # Agent
-agent = CodeActAgent(llm=llm, tools=tools, agent_context=agent_context)
+agent = Agent(llm=llm, tools=tools, agent_context=agent_context)
 
 
 llm_messages = []  # collect raw LLM messages

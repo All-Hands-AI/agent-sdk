@@ -5,10 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from openhands.core.context import (
+from openhands.sdk.context import (
     BaseMicroagent,
     KnowledgeMicroagent,
     MicroagentType,
+    MicroagentValidationError,
     RepoMicroagent,
     load_microagents_from_dir,
 )
@@ -187,9 +188,6 @@ This microagent has an invalid type.
 """
     invalid_file = temp_microagents_dir / "invalid_type.md"
     invalid_file.write_text(invalid_agent)
-
-    # Attempt to load the microagent should raise a MicroagentValidationError
-    from openhands.core.context import MicroagentValidationError
 
     with pytest.raises(MicroagentValidationError) as excinfo:
         load_microagents_from_dir(temp_microagents_dir)

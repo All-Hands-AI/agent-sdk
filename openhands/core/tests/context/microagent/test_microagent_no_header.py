@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from openhands.core.context import BaseMicroagent, MicroagentType, RepoMicroagent
+from openhands.sdk.context import BaseMicroagent, MicroagentType, RepoMicroagent
 
 
 def test_load_markdown_without_frontmatter():
