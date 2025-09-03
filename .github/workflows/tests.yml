@@ -40,20 +40,24 @@ jobs:
 
       - name: Run sdk tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.sdk
         run: |
-          CI=true timeout 10m uv run python -m pytest -vvs \
+          CI=true uv run python -m pytest -vvs \
             --cov=openhands/sdk \
             --cov-report=term-missing \
             --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/sdk || true
+          # Rename coverage file to avoid conflicts
+          if [ -f .coverage ]; then
+            mv .coverage .coverage.sdk
+          fi
 
       - name: Check sdk coverage file
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
           echo "Checking for coverage file..."
           ls -la .coverage* || echo "No coverage files found"
+          pwd
           if [ -f .coverage.sdk ]; then
             echo "SDK coverage file exists, size: $(stat -c%s .coverage.sdk) bytes"
           else
@@ -97,20 +101,24 @@ jobs:
 
       - name: Run tools tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.tools
         run: |
-          CI=true timeout 10m uv run python -m pytest -vvs \
+          CI=true uv run python -m pytest -vvs \
             --cov=openhands/tools \
             --cov-report=term-missing \
             --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/tools || true
+          # Rename coverage file to avoid conflicts
+          if [ -f .coverage ]; then
+            mv .coverage .coverage.tools
+          fi
 
       - name: Check tools coverage file
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
           echo "Checking for coverage file..."
           ls -la .coverage* || echo "No coverage files found"
+          pwd
           if [ -f .coverage.tools ]; then
             echo "Tools coverage file exists, size: $(stat -c%s .coverage.tools) bytes"
           else
@@ -155,23 +163,27 @@ jobs:
 
       - name: Run integration tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.integration
         run: |
-          CI=true timeout 10m uv run python -m pytest -vvs \
+          CI=true uv run python -m pytest -vvs \
             --basetemp="${{ runner.temp }}/pytest" \
             -o tmp_path_retention=none \
             -o tmp_path_retention_count=0 \
             --cov=openhands \
             --cov-report=term-missing \
             --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/integration || true
+          # Rename coverage file to avoid conflicts
+          if [ -f .coverage ]; then
+            mv .coverage .coverage.integration
+          fi
 
       - name: Check integration coverage file
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
           echo "Checking for coverage file..."
           ls -la .coverage* || echo "No coverage files found"
+          pwd
           if [ -f .coverage.integration ]; then
             echo "Integration coverage file exists, size: $(stat -c%s .coverage.integration) bytes"
           else
