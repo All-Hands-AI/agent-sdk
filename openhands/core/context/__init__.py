@@ -10,6 +10,7 @@ from .microagents import (
     MicroagentKnowledge,
     MicroagentMetadata,
     MicroagentType,
+    MicroagentValidationError,
     RepoMicroagent,
     load_microagents_from_dir,
 )
@@ -37,4 +38,5 @@ __all__ = [
     "render_initial_user_message",
     "render_additional_info",
     "render_microagent_info",
+    "MicroagentValidationError",
 ]
