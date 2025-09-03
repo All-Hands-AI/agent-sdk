@@ -60,8 +60,8 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py that "
-                    "prints 'Hello, World!'?"
+                    "Hello! Can you create a new Python file named hello.py"
+                    " that prints 'Hello, World!'?"
                 )
             )
         ],
