@@ -1,4 +1,4 @@
-from .prompt import (
+from openhands.core.context.utils.prompt import (
     render_additional_info,
     render_initial_user_message,
     render_microagent_info,

@@ -1,11 +1,11 @@
-from .env_context import (
+from openhands.core.context.env_context import (
     ConversationInstructions,
     EnvContext,
     RepositoryInfo,
     RuntimeInfo,
 )
-from .message_context import MessageContext
-from .microagents import (
+from openhands.core.context.message_context import MessageContext
+from openhands.core.context.microagents import (
     BaseMicroagent,
     KnowledgeMicroagent,
     MicroagentKnowledge,
@@ -14,7 +14,7 @@ from .microagents import (
     RepoMicroagent,
     load_microagents_from_dir,
 )
-from .utils import (
+from openhands.core.context.utils import (
     render_additional_info,
     render_initial_user_message,
     render_microagent_info,

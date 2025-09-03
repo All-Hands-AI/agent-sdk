@@ -8,10 +8,9 @@ from typing import Any, Callable, TypeGuard, cast
 import httpx
 
 from openhands.core.config import LLMConfig
+from openhands.core.llm.utils.metrics import Metrics
+from openhands.core.llm.utils.model_features import get_features
 from openhands.core.logger import get_logger
-
-from .utils.metrics import Metrics
-from .utils.model_features import get_features
 
 
 with warnings.catch_warnings():
@@ -43,14 +42,14 @@ from litellm.utils import (
     token_counter,
 )
 
-from .exceptions import LLMNoResponseError
-from .message import Message
-from .utils.fn_call_converter import (
+from openhands.core.llm.exceptions import LLMNoResponseError
+from openhands.core.llm.message import Message
+from openhands.core.llm.utils.fn_call_converter import (
     STOP_WORDS,
     convert_fncall_messages_to_non_fncall_messages,
     convert_non_fncall_messages_to_fncall_messages,
 )
-from .utils.retry_mixin import RetryMixin
+from openhands.core.llm.utils.retry_mixin import RetryMixin
 
 
 logger = get_logger(__name__)

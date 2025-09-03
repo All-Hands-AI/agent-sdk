@@ -1,5 +1,5 @@
-from .agent import Agent
-from .base import AgentBase
+from openhands.core.agent.agent import Agent
+from openhands.core.agent.base import AgentBase
 
 
 __all__ = [

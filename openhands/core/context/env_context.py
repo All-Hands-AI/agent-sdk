@@ -1,10 +1,9 @@
 from pydantic import BaseModel, Field
 
+from openhands.core.context.microagents import MicroagentKnowledge
+from openhands.core.context.utils import render_additional_info
 from openhands.core.context.utils.prompt import render_microagent_info
 from openhands.core.llm.message import TextContent
-
-from .microagents import MicroagentKnowledge
-from .utils import render_additional_info
 
 
 class RuntimeInfo(BaseModel):

@@ -1,12 +1,11 @@
 from openhands.core.tool import ToolExecutor
-
-from .definition import (
+from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
 )
-from .editor import FileEditor
-from .exceptions import ToolError
+from openhands.tools.str_replace_editor.editor import FileEditor
+from openhands.tools.str_replace_editor.exceptions import ToolError
 
 
 # Module-global editor instance (lazily initialized in file_editor)
