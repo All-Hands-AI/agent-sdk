@@ -65,7 +65,7 @@ trailer
 >>
 startxref
 299
-%%EOF"""
+%%EOF"""  # noqa: W291
         f.write(pdf_content)
         test_file = f.name
 
