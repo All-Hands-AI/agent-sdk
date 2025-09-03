@@ -198,19 +198,14 @@ class Agent(AgentBase):
                 )
                 state.waiting_for_confirmation = True
                 return
-            elif state.confirmation_mode and not action_events:
-                # In confirmation mode but no actions were created - continue normally
-                logger.info(
-                    "Confirmation mode: No actions created, continuing normally"
-                )
-                # Fall through to set agent_finished = True
-            else:
+            elif not state.confirmation_mode:
                 # Not in confirmation mode, execute actions immediately
                 for action_event in action_events:
                     self._execute_action_events(state, action_event, on_event=on_event)
 
-            # If we reach here and no actions were created, agent should finish
-            if not action_events:
+            # Only set agent_finished if no actions were created AND we're not in confirmation mode  # noqa: E501
+            # In confirmation mode, the agent should continue to allow message responses
+            if not action_events and not state.confirmation_mode:
                 state.agent_finished = True
         else:
             logger.info("LLM produced a message response - awaits user input")
