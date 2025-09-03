@@ -1,9 +1,8 @@
 from pydantic import BaseModel, Field
 
+from openhands.core.context.microagents import MicroagentKnowledge
+from openhands.core.context.utils import render_microagent_info
 from openhands.core.llm.message import Message, TextContent
-
-from .microagents import MicroagentKnowledge
-from .utils import render_microagent_info
 
 
 class MessageContext(BaseModel):

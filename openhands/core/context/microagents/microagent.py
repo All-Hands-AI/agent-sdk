@@ -7,10 +7,13 @@ from typing import ClassVar, Union
 import frontmatter
 from pydantic import BaseModel
 
+from openhands.core.context.microagents.exceptions import MicroagentValidationError
+from openhands.core.context.microagents.types import (
+    InputMetadata,
+    MicroagentMetadata,
+    MicroagentType,
+)
 from openhands.core.logger import get_logger
-
-from .exceptions import MicroagentValidationError
-from .types import InputMetadata, MicroagentMetadata, MicroagentType
 
 
 logger = get_logger(__name__)

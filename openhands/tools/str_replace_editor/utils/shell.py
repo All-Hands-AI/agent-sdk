@@ -2,9 +2,9 @@ import os
 import subprocess
 import time
 
-from .config import MAX_RESPONSE_LEN_CHAR
-from .prompts import CONTENT_TRUNCATED_NOTICE
-from .truncate import maybe_truncate
+from openhands.tools.str_replace_editor.utils.config import MAX_RESPONSE_LEN_CHAR
+from openhands.tools.str_replace_editor.utils.prompts import CONTENT_TRUNCATED_NOTICE
+from openhands.tools.str_replace_editor.utils.truncate import maybe_truncate
 
 
 def run_shell_cmd(

@@ -1,7 +1,13 @@
 """OpenHands runtime package."""
 
-from .builtins import BUILT_IN_TOOLS, FinishTool
-from .tool import ActionBase, ObservationBase, Tool, ToolAnnotations, ToolExecutor
+from openhands.core.tool.builtins import BUILT_IN_TOOLS, FinishTool
+from openhands.core.tool.tool import (
+    ActionBase,
+    ObservationBase,
+    Tool,
+    ToolAnnotations,
+    ToolExecutor,
+)
 
 
 __all__ = [

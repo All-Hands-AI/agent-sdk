@@ -1,7 +1,9 @@
 from openhands.core.tool import ToolExecutor
-
-from .bash_session import BashSession
-from .definition import ExecuteBashAction, ExecuteBashObservation
+from openhands.tools.execute_bash.bash_session import BashSession
+from openhands.tools.execute_bash.definition import (
+    ExecuteBashAction,
+    ExecuteBashObservation,
+)
 
 
 class BashExecutor(ToolExecutor):

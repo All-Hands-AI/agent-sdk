@@ -5,7 +5,7 @@ from openai.types.chat import ChatCompletionToolParam
 from openai.types.shared_params.function_definition import FunctionDefinition
 from pydantic import BaseModel, Field
 
-from .schema import ActionBase, ObservationBase, Schema
+from openhands.core.tool.schema import ActionBase, ObservationBase, Schema
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)

@@ -1,6 +1,6 @@
-from .llm import LLM
-from .message import ImageContent, Message, TextContent
-from .metadata import get_llm_metadata
+from openhands.core.llm.llm import LLM
+from openhands.core.llm.message import ImageContent, Message, TextContent
+from openhands.core.llm.metadata import get_llm_metadata
 
 
 __all__ = [

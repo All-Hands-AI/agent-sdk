@@ -1,5 +1,5 @@
-from .base import EventBase, LLMConvertibleEvent
-from .llm_convertible import (
+from openhands.core.event.base import EventBase, LLMConvertibleEvent
+from openhands.core.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
