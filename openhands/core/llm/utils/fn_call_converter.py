@@ -351,7 +351,7 @@ def get_example_for_tools(tools: list[ChatCompletionToolParam]) -> str:
     if not available_tools:
         return ""
 
-    example = """Here's a running example of how to perform a task with the provided tools. # noqa
+    example = """Here's a running example of how to perform a task with the provided tools.
 
 --------------------- START OF EXAMPLE ---------------------
 
@@ -762,7 +762,8 @@ def _normalize_parameter_tags(fn_body: str) -> str:
     This function rewrites the malformed form into the correct one to allow
     downstream parsing to succeed.
     """
-    # Replace '<parameter=name=value</parameter>' with '<parameter=name>value</parameter>' # noqa
+    # Replace '<parameter=name=value</parameter>'
+    # with '<parameter=name>value</parameter>'
     return re.sub(
         r"<parameter=([a-zA-Z0-9_]+)=([^<]*)</parameter>",
         r"<parameter=\1>\2</parameter>",

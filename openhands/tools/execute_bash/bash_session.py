@@ -76,7 +76,8 @@ class BashSession:
         # https://unix.stackexchange.com/questions/43414/unlimited-history-in-tmux
         self.session.set_option("history-limit", str(HISTORY_LIMIT))
         self.session.history_limit = str(HISTORY_LIMIT)
-        # We need to create a new pane because the initial pane's history limit is (default) 2000 # noqa
+        # We need to create a new pane because the initial
+        # pane's history limit is (default) 2000
         _initial_window = self.session.active_window
         self.window = self.session.new_window(
             window_name="bash",
@@ -182,11 +183,12 @@ class BashSession:
     ) -> ExecuteBashObservation:
         is_special_key = self._is_special_key(command)
         assert len(ps1_matches) >= 1, (
-            f"Expected at least one PS1 metadata block, but got {len(ps1_matches)}.\n---FULL OUTPUT---\n{pane_content!r}\n---END OF OUTPUT---"  # noqa
+            f"Expected at least one PS1 metadata block, but got {len(ps1_matches)}.\n---FULL OUTPUT---\n{pane_content!r}\n---END OF OUTPUT---"  # noqa: E501
         )
         metadata = CmdOutputMetadata.from_ps1_match(ps1_matches[-1])
 
-        # Special case where the previous command output is truncated due to history limit # noqa
+        # Special case where the previous command output is truncated
+        # due to history limit
         # We should get the content BEFORE the last PS1 prompt
         get_content_before_last_match = bool(len(ps1_matches) == 1)
 
@@ -205,12 +207,12 @@ class BashSession:
         if get_content_before_last_match:
             # Count the number of lines in the truncated output
             num_lines = len(raw_command_output.splitlines())
-            metadata.prefix = f"[Previous command outputs are truncated. Showing the last {num_lines} lines of the output below.]\n"  # noqa
+            metadata.prefix = f"[Previous command outputs are truncated. Showing the last {num_lines} lines of the output below.]\n"  # noqa: E501
 
         metadata.suffix = (
             f"\n[The command completed with exit code {metadata.exit_code}.]"
             if not is_special_key
-            else f"\n[The command completed with exit code {metadata.exit_code}. CTRL+{command[-1].upper()} was sent.]"  # noqa
+            else f"\n[The command completed with exit code {metadata.exit_code}. CTRL+{command[-1].upper()} was sent.]"  # noqa: E501
         )
         command_output = self._get_command_output(
             command,
@@ -235,13 +237,13 @@ class BashSession:
         self.prev_status = BashCommandStatus.NO_CHANGE_TIMEOUT
         if len(ps1_matches) != 1:
             logger.warning(
-                f"Expected exactly one PS1 metadata block BEFORE the execution of a command, but got {len(ps1_matches)} PS1 metadata blocks:\n---\n{pane_content!r}\n---"  # noqa
+                f"Expected exactly one PS1 metadata block BEFORE the execution of a command, but got {len(ps1_matches)} PS1 metadata blocks:\n---\n{pane_content!r}\n---"  # noqa: E501
             )
         raw_command_output = self._combine_outputs_between_matches(
             pane_content, ps1_matches
         )
         metadata = CmdOutputMetadata()  # No metadata available
-        metadata.suffix = f"\n[The command has no new output after {self.no_change_timeout_seconds} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"  # noqa
+        metadata.suffix = f"\n[The command has no new output after {self.no_change_timeout_seconds} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"  # noqa: E501
         command_output = self._get_command_output(
             command,
             raw_command_output,
@@ -264,13 +266,13 @@ class BashSession:
         self.prev_status = BashCommandStatus.HARD_TIMEOUT
         if len(ps1_matches) != 1:
             logger.warning(
-                f"Expected exactly one PS1 metadata block BEFORE the execution of a command, but got {len(ps1_matches)} PS1 metadata blocks:\n---\n{pane_content!r}\n---"  # noqa
+                f"Expected exactly one PS1 metadata block BEFORE the execution of a command, but got {len(ps1_matches)} PS1 metadata blocks:\n---\n{pane_content!r}\n---"  # noqa: E501
             )
         raw_command_output = self._combine_outputs_between_matches(
             pane_content, ps1_matches
         )
         metadata = CmdOutputMetadata()  # No metadata available
-        metadata.suffix = f"\n[The command timed out after {timeout} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"  # noqa
+        metadata.suffix = f"\n[The command timed out after {timeout} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"  # noqa: E501
         command_output = self._get_command_output(
             command,
             raw_command_output,
@@ -339,7 +341,8 @@ class BashSession:
         command = action.command.strip()
         is_input: bool = action.is_input
 
-        # If the previous command is not completed, we need to check if the command is empty # noqa
+        # If the previous command is not completed,
+        # we need to check if the command is empty
         if self.prev_status not in {
             BashCommandStatus.CONTINUE,
             BashCommandStatus.NO_CHANGE_TIMEOUT,
@@ -361,7 +364,7 @@ class BashSession:
         if len(splited_commands) > 1:
             return ExecuteBashObservation(
                 output=(
-                    f"ERROR: Cannot execute multiple commands at once.\nPlease run each command separately OR chain them into a single command via && or ;\nProvided commands:\n{'\n'.join(f'({i + 1}) {cmd}' for i, cmd in enumerate(splited_commands))}"  # noqa
+                    f"ERROR: Cannot execute multiple commands at once.\nPlease run each command separately OR chain them into a single command via && or ;\nProvided commands:\n{'\n'.join(f'({i + 1}) {cmd}' for i, cmd in enumerate(splited_commands))}"  # noqa: E501
                 ),
                 error=True,
             )
@@ -394,9 +397,9 @@ class BashSession:
             and command != ""  # not input and not empty command
         ):
             _ps1_matches = CmdOutputMetadata.matches_ps1_metadata(last_pane_output)
-            # Use initial_ps1_matches if _ps1_matches is empty, otherwise use _ps1_matches # noqa
-            # This handles the case where the prompt might be scrolled off screen
-            # but existed before
+            # Use initial_ps1_matches if _ps1_matches is empty,
+            # otherwise use _ps1_matches. This handles the case where
+            # the prompt might be scrolled off screen but existed before
             current_matches_for_output = (
                 _ps1_matches if _ps1_matches else initial_ps1_matches
             )
@@ -404,7 +407,7 @@ class BashSession:
                 last_pane_output, current_matches_for_output
             )
             metadata = CmdOutputMetadata()  # No metadata available
-            metadata.suffix = f'\n[Your command "{command}" is NOT executed. The previous command is still running - You CANNOT send new commands until the previous command is completed. By setting `is_input` to `true`, you can interact with the current process: {TIMEOUT_MESSAGE_TEMPLATE}]'  # noqa
+            metadata.suffix = f'\n[Your command "{command}" is NOT executed. The previous command is still running - You CANNOT send new commands until the previous command is completed. By setting `is_input` to `true`, you can interact with the current process: {TIMEOUT_MESSAGE_TEMPLATE}]'  # noqa: E501
             logger.debug(f"PREVIOUS COMMAND OUTPUT: {raw_command_output}")
             command_output = self._get_command_output(
                 command,

@@ -57,12 +57,13 @@ class RetryMixin:
                     if current_temp == 0:
                         kwargs["temperature"] = 1.0
                         logger.warning(
-                            "LLMNoResponseError detected with temperature=0, setting temperature to 1.0 for next attempt."  # noqa
+                            "LLMNoResponseError with temperature=0, "
+                            "setting temperature to 1.0 for next attempt."
                         )
                     else:
                         logger.warning(
-                            "LLMNoResponseError detected with temperature=%s, keeping original temperature",  # noqa
-                            current_temp,
+                            f"LLMNoResponseError with temperature={current_temp}, "
+                            "keeping original temperature"
                         )
 
         retry_decorator: Callable[[Callable[..., Any]], Callable[..., Any]] = retry(
@@ -83,7 +84,8 @@ class RetryMixin:
 
         if retry_state.outcome is None:
             logger.error(
-                "retry_state.outcome is None. This should not happen, please check the retry logic."  # noqa
+                "retry_state.outcome is None. "
+                "This should not happen, please check the retry logic."
             )
             return
 
