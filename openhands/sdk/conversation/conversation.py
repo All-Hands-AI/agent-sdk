@@ -68,25 +68,9 @@ class Conversation:
             activated_microagent_names: list[str] = []
             extended_content: list[TextContent] = []
 
-            # 1) Handle initial message
-            if not self.state.initial_message_sent:
-                if self.agent.agent_context:
-                    initial_env_context: TextContent | None = (
-                        self.agent.agent_context.render_environment_context(
-                            self.agent.prompt_dir
-                        )
-                    )
-                    logger.debug(
-                        f"Got initial environment context: {initial_env_context}"
-                    )
-                    if initial_env_context:
-                        extended_content.append(initial_env_context)
-                self.state.initial_message_sent = True
-
-            # 2) Handle per-turn user message (i.e., knowledge agent trigger)
+            # Handle per-turn user message (i.e., knowledge agent trigger)
             if self.agent.agent_context:
-                ctx = self.agent.agent_context.augment_user_message_with_knowledge(
-                    prompt_dir=self.agent.prompt_dir,
+                ctx = self.agent.agent_context.get_user_message_suffix(
                     user_message=message,
                     # We skip microagents that were already activated
                     skip_microagent_names=self.state.activated_knowledge_microagents,

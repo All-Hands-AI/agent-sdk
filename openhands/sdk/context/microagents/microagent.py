@@ -78,7 +78,7 @@ class BaseMicroagent(BaseModel):
                 path.name.lower()
             ) or str(path.relative_to(microagent_dir).with_suffix(""))
         else:
-            microagent_name = path.stem
+            microagent_name = path.name
 
         # Only load directly from path if file_content is not provided
         if file_content is None:

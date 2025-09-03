@@ -1,4 +1,4 @@
-from datetime import datetime
+import pathlib
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -8,63 +8,14 @@ from openhands.sdk.context.microagents import (
     MicroagentKnowledge,
     RepoMicroagent,
 )
-from openhands.sdk.context.utils import render_additional_info
-from openhands.sdk.context.utils.prompt import render_microagent_info
+from openhands.sdk.context.utils import render_template
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
 
-
-class RuntimeInfo(BaseModel):
-    date: str = Field(
-        default_factory=lambda: datetime.now().strftime("%Y-%m-%d"),
-        description="Current date in YYYY-MM-DD format",
-    )
-    available_hosts: dict[str, int] = Field(
-        default_factory=dict, description="Available hosts for agents to deploy to"
-    )
-    additional_agent_instructions: str = Field(
-        default="", description="Additional instructions for the agent to follow"
-    )
-    custom_secrets_descriptions: dict[str, str] = Field(
-        default_factory=dict,
-        description="Descriptions of custom secrets available to the agent",
-    )
-    working_dir: str = Field(
-        default="", description="Current working directory of the agent"
-    )
-
-
-class RepositoryInfo(BaseModel):
-    """Information about a GitHub repository that has been cloned."""
-
-    repo_name: str | None = Field(
-        None, description="Name of the repository, e.g., 'username/repo'"
-    )
-    repo_directory: str | None = Field(
-        None, description="Local directory path where the repository is cloned"
-    )
-    branch_name: str | None = Field(
-        None, description="Current branch name of the repository"
-    )
-
-
-class ConversationInstructions(BaseModel):
-    """Optional instructions the agent must follow throughout the conversation while addressing the user's initial task
-
-    Examples include
-        1. Resolver instructions: you're responding to GitHub issue #1234, make sure to open a PR
-            when you are done
-        2. Slack instructions: make sure to check whether any of the context attached
-            is relevant to the task <context_messages>
-    """  # noqa: E501
-
-    content: str = Field(
-        default="",
-        description="Instructions for the agent to follow during the conversation",
-    )
+PROMPT_DIR = pathlib.Path(__file__).parent / "utils" / "prompts"
 
 
 class AgentContext(BaseModel):
@@ -93,18 +44,11 @@ class AgentContext(BaseModel):
         default_factory=list,
         description="List of available microagents that can extend the user's input.",
     )
-    repository_info: RepositoryInfo | None = Field(
-        default=None, description="Information about the cloned GitHub repository"
+    system_prompt_suffix: str | None = Field(
+        default=None, description="Optional suffix to append to the system prompt."
     )
-    runtime_info: RuntimeInfo | None = Field(
-        default=None, description="Information about the current runtime environment"
-    )
-    conversation_instructions: ConversationInstructions | None = Field(
-        default=None,
-        description=(
-            "Optional instructions the agent must follow throughout "
-            "the conversation while addressing the user's initial task"
-        ),
+    user_message_suffix: str | None = Field(
+        default=None, description="Optional suffix to append to the user's message."
     )
 
     @field_validator("microagents")
@@ -120,47 +64,35 @@ class AgentContext(BaseModel):
             seen_names.add(microagent.name)
         return v
 
-    def _collect_repository_instructions(self) -> str:
-        repo_instructions = ""
-        # Retrieve the context of repo instructions from all repo microagents
-        for microagent in self.microagents:
-            if not isinstance(microagent, RepoMicroagent):
-                continue
-            if repo_instructions:
-                repo_instructions += "\n\n"
-            repo_instructions += microagent.content
-        return repo_instructions
+    def get_system_message_suffix(self) -> str | None:
+        """Get the system message with repo microagent content and custom suffix.
 
-    def render_environment_context(self, prompt_dir: str) -> TextContent | None:
-        """Render the environment context into a formatted string.
-
-        This typically includes:
+        Custom suffix can typically includes:
         - Repository information (repo name, branch name, PR number, etc.)
         - Runtime information (e.g., available hosts, current date)
         - Conversation instructions (e.g., user preferences, task details)
         - Repository-specific instructions (collected from repo microagents)
         """
-        repository_instructions = self._collect_repository_instructions()
-        logger.debug(f"Collected repository instructions: {repository_instructions}")
+        repo_microagents = [
+            m for m in self.microagents if isinstance(m, RepoMicroagent)
+        ]
+        logger.debug(
+            f"Triggered {len(repo_microagents)} repository "
+            f"microagents: {repo_microagents}"
+        )
         # Build the workspace context information
-        if (
-            self.repository_info
-            or self.runtime_info
-            or repository_instructions
-            or self.conversation_instructions
-        ):
-            # TODO(test): add a test for this as well
-            formatted_workspace_text = render_additional_info(
-                prompt_dir=prompt_dir,
-                repository_info=self.repository_info,
-                runtime_info=self.runtime_info,
-                conversation_instructions=self.conversation_instructions,
-                repository_instructions=repository_instructions,
-            )
-            return TextContent(text=formatted_workspace_text)
+        if repo_microagents:
+            # TODO(test): add a test for this rendering to make sure they work
+            formatted_text = render_template(
+                prompt_dir=str(PROMPT_DIR),
+                template_name="system_prompt_suffix.j2",
+                repo_microagents=repo_microagents,
+                system_prompt_suffix=self.system_prompt_suffix or "",
+            ).strip()
+            return formatted_text
 
-    def augment_user_message_with_knowledge(
-        self, prompt_dir: str, user_message: Message, skip_microagent_names: list[str]
+    def get_user_message_suffix(
+        self, user_message: Message, skip_microagent_names: list[str]
     ) -> tuple[TextContent, list[str]] | None:
         """Augment the user’s message with knowledge recalled from microagents.
 
@@ -195,8 +127,9 @@ class AgentContext(BaseModel):
                     )
                 )
         if recalled_knowledge:
-            formatted_microagent_text = render_microagent_info(
-                prompt_dir=prompt_dir,
+            formatted_microagent_text = render_template(
+                prompt_dir=str(PROMPT_DIR),
+                template_name="microagent_knowledge_info.j2",
                 triggered_agents=recalled_knowledge,
             )
             return TextContent(text=formatted_microagent_text), [

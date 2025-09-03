@@ -16,7 +16,6 @@ class ConversationState(BaseModel):
     # Public, validated fields
     events: list[EventType] = Field(default_factory=list)
     agent_finished: bool = False
-    initial_message_sent: bool = False
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list, description="List of activated knowledge microagents name"
     )
