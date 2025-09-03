@@ -8,7 +8,6 @@ import pytest
 from openhands.core.context import (
     BaseMicroagent,
     KnowledgeMicroagent,
-    MicroagentMetadata,
     MicroagentType,
     RepoMicroagent,
     load_microagents_from_dir,
@@ -71,20 +70,19 @@ Repository-specific test instructions.
 
 def test_knowledge_agent():
     """Test knowledge agent functionality."""
-    # Note: We still pass type to the constructor here, as it expects it.
-    # The loader infers the type before calling the constructor.
+    # Create a knowledge agent with triggers
     agent = KnowledgeMicroagent(
         name="test",
         content="Test content",
-        metadata=MicroagentMetadata(name="test", triggers=["test", "pytest"]),
         source="test.md",
-        type=MicroagentType.KNOWLEDGE,  # Constructor still needs type
+        type=MicroagentType.KNOWLEDGE,
+        triggers=["testing", "pytest"],
     )
 
-    assert agent.match_trigger("running a test") == "test"
-    assert agent.match_trigger("using pytest") == "test"
+    assert agent.match_trigger("running a testing") == "testing"
+    assert agent.match_trigger("using pytest") == "pytest"
     assert agent.match_trigger("no match here") is None
-    assert agent.triggers == ["test", "pytest"]
+    assert agent.triggers == ["testing", "pytest"]
 
 
 def test_load_microagents(temp_microagents_dir):

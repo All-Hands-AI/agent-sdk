@@ -104,6 +104,20 @@ class BaseMicroagent(BaseModel):
         # Handle case where there's no frontmatter or empty frontmatter
         metadata_dict = loaded.metadata or {}
 
+        # Use name from frontmatter if provided, otherwise use derived name
+        agent_name = str(metadata_dict.get("name", microagent_name))
+
+        # Validate type field if provided in frontmatter
+        if "type" in metadata_dict:
+            type_value = metadata_dict["type"]
+            valid_types = [t.value for t in MicroagentType]
+            if type_value not in valid_types:
+                valid_types_str = ", ".join(f'"{t}"' for t in valid_types)
+                raise MicroagentValidationError(
+                    f'Invalid "type" value: "{type_value}". '
+                    f"Valid types are: {valid_types_str}"
+                )
+
         # Infer the agent type:
         # 1. If inputs exist -> TASK
         # 2. If triggers exist -> KNOWLEDGE
@@ -113,11 +127,11 @@ class BaseMicroagent(BaseModel):
             raise MicroagentValidationError("Triggers must be a list of strings")
         if "inputs" in metadata_dict:
             # Add a trigger for the agent name if not already present
-            trigger = f"/{microagent_name}"
+            trigger = f"/{agent_name}"
             if trigger not in triggers:
                 triggers.append(trigger)
             return TaskMicroagent(
-                name=microagent_name,
+                name=agent_name,
                 content=content,
                 source=str(path),
                 triggers=triggers,
@@ -125,16 +139,14 @@ class BaseMicroagent(BaseModel):
 
         elif metadata_dict.get("triggers", None):
             return KnowledgeMicroagent(
-                name=microagent_name,
+                name=agent_name,
                 content=content,
                 source=str(path),
                 triggers=triggers,
             )
         else:
             # No triggers, default to REPO
-            return RepoMicroagent(
-                name=microagent_name, content=content, source=str(path)
-            )
+            return RepoMicroagent(name=agent_name, content=content, source=str(path))
 
 
 class KnowledgeMicroagent(BaseMicroagent):
