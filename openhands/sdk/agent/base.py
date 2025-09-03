@@ -88,21 +88,25 @@ class AgentBase(ABC):
         pass
 
     def _get_unmatched_actions(self, events) -> list:
-        """Find actions in the event history that don't have matching observations."""
+        """Find actions in the event history that don't have matching observations.
+
+        Optimized to search in reverse chronological order since recent actions
+        are more likely to be unmatched (pending confirmation).
+        """
         from openhands.sdk.event import ActionEvent, ObservationEvent
         from openhands.sdk.event.llm_convertible import UserRejectsObservation
 
-        # Get all action IDs that have observations
         observed_action_ids = set()
-        for event in events:
+        unmatched_actions = []
+
+        # Search in reverse - recent events are more likely to be unmatched
+        for event in reversed(events):
             if isinstance(event, (ObservationEvent, UserRejectsObservation)):
                 observed_action_ids.add(event.action_id)
-
-        # Find actions without matching observations
-        unmatched_actions = []
-        for event in events:
-            if isinstance(event, ActionEvent) and event.id not in observed_action_ids:
-                unmatched_actions.append(event)
+            elif isinstance(event, ActionEvent):
+                if event.id not in observed_action_ids:
+                    # Insert at beginning to maintain chronological order in result
+                    unmatched_actions.insert(0, event)
 
         return unmatched_actions
 
