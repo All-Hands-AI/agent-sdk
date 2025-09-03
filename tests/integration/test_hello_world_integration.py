@@ -13,7 +13,6 @@ from openhands.sdk import (
     Agent,
     Conversation,
     EventType,
-    LLMConfig,
     Message,
     TextContent,
     Tool,
@@ -131,10 +130,8 @@ class TestHelloWorldIntegration:
 
         # Configure mock LLM (no real API key needed)
         llm = LLM(
-            config=LLMConfig(
-                model="mock-model",
-                api_key=SecretStr("mock-api-key"),
-            )
+            model="mock-model",
+            api_key=SecretStr("mock-api-key"),
         )
 
         # Tools setup with temporary directory
@@ -250,10 +247,8 @@ class TestHelloWorldIntegration:
 
         # Setup LLM and agent
         llm = LLM(
-            config=LLMConfig(
-                model="mock-model",
-                api_key=SecretStr("mock-api-key"),
-            )
+            model="mock-model",
+            api_key=SecretStr("mock-api-key"),
         )
 
         bash = BashExecutor(working_dir=self.temp_dir)
@@ -285,10 +280,8 @@ class TestHelloWorldIntegration:
         conversation."""
         # Setup
         llm = LLM(
-            config=LLMConfig(
-                model="mock-model",
-                api_key=SecretStr("mock-api-key"),
-            )
+            model="mock-model",
+            api_key=SecretStr("mock-api-key"),
         )
 
         bash = BashExecutor(working_dir=self.temp_dir)
@@ -328,10 +321,8 @@ class TestHelloWorldIntegration:
         """Test that agent and tools can be set up correctly without LLM calls."""
         # Setup without mocking LLM (just test the setup)
         llm = LLM(
-            config=LLMConfig(
-                model="mock-model",
-                api_key=SecretStr("mock-api-key"),
-            )
+            model="mock-model",
+            api_key=SecretStr("mock-api-key"),
         )
 
         bash = BashExecutor(working_dir=self.temp_dir)

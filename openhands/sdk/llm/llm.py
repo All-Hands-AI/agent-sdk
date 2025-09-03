@@ -1,4 +1,5 @@
 import copy
+import json as json_module
 import os
 import time
 import warnings
@@ -6,11 +7,11 @@ from functools import partial
 from typing import Any, Callable, TypeGuard, cast
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
-from openhands.sdk.config import LLMConfig
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
-from openhands.sdk.logger import get_logger
+from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
 with warnings.catch_warnings():
@@ -29,7 +30,6 @@ from litellm.exceptions import (
 from litellm.types.utils import (
     Choices,
     CostPerToken,
-    ModelInfo,
     ModelResponse,
     PromptTokensDetailsWrapper,
     StreamingChoices,
@@ -67,49 +67,344 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 
-class LLM(RetryMixin):
-    """The LLM class represents a Language Model instance.
+class LLM(BaseModel, RetryMixin):
+    """The LLM class represents a Language Model instance with integrated configuration.
+
+    This class combines both configuration and functionality, eliminating the need
+    for a separate LLMConfig class. It can be instantiated directly with configuration
+    parameters and provides serialization/deserialization capabilities.
 
     Attributes:
-        config: an LLMConfig object specifying the configuration of the LLM.
-    """
+        model: The model to use.
+        api_key: The API key to use.
+        base_url: The base URL for the API. This is necessary for local LLMs.
+        api_version: The version of the API.
+        aws_access_key_id: The AWS access key ID.
+        aws_secret_access_key: The AWS secret access key.
+        aws_region_name: The AWS region name.
+        num_retries: The number of retries to attempt.
+        retry_multiplier: The multiplier for the exponential backoff.
+        retry_min_wait: The minimum time to wait between retries, in seconds. This is exponential backoff minimum. For models with very low limits, this can be set to 15-20.
+        retry_max_wait: The maximum time to wait between retries, in seconds. This is exponential backoff maximum.
+        timeout: The timeout for the API.
+        max_message_chars: The approximate max number of characters in the content of an event included in the prompt to the LLM. Larger observations are truncated.
+        temperature: The temperature for the API.
+        top_p: The top p for the API.
+        top_k: The top k for the API.
+        custom_llm_provider: The custom LLM provider to use. This is undocumented in openhands, and normally not used. It is documented on the litellm side.
+        max_input_tokens: The maximum number of input tokens. Note that this is currently unused, and the value at runtime is actually the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).
+        max_output_tokens: The maximum number of output tokens. This is sent to the LLM.
+        input_cost_per_token: The cost per input token. This will available in logs for the user to check.
+        output_cost_per_token: The cost per output token. This will available in logs for the user to check.
+        ollama_base_url: The base URL for the OLLAMA API.
+        drop_params: Drop any unmapped (unsupported) params without causing an exception.
+        modify_params: Modify params allows litellm to do transformations like adding a default message, when a message is empty.
+        disable_vision: If model is vision capable, this option allows to disable image processing (useful for cost reduction).
+        caching_prompt: Use the prompt caching feature if provided by the LLM and supported by the provider.
+        log_completions: Whether to log LLM completions to the state.
+        log_completions_folder: The folder to log LLM completions to. Required if log_completions is True.
+        custom_tokenizer: A custom tokenizer to use for token counting.
+        native_tool_calling: Whether to use native tool calling if supported by the model. Can be True, False, or not set.
+        reasoning_effort: The effort to put into reasoning. This is a string that can be one of 'low', 'medium', 'high', or 'none'. Can apply to all reasoning models.
+        seed: The seed to use for the LLM.
+        safety_settings: Safety settings for models that support them (like Mistral AI and Gemini).
+    """  # noqa: E501
+
+    # Configuration fields (moved from LLMConfig)
+    model: str = Field(default="claude-sonnet-4-20250514")
+    api_key: SecretStr | None = Field(default=None)
+    base_url: str | None = Field(default=None)
+    api_version: str | None = Field(default=None)
+    aws_access_key_id: SecretStr | None = Field(default=None)
+    aws_secret_access_key: SecretStr | None = Field(default=None)
+    aws_region_name: str | None = Field(default=None)
+    openrouter_site_url: str = Field(default="https://docs.all-hands.dev/")
+    openrouter_app_name: str = Field(default="OpenHands")
+    # total wait time: 8 + 16 + 32 + 64 = 120 seconds
+    num_retries: int = Field(default=5)
+    retry_multiplier: float = Field(default=8)
+    retry_min_wait: int = Field(default=8)
+    retry_max_wait: int = Field(default=64)
+    timeout: int | None = Field(default=None)
+    max_message_chars: int = Field(
+        default=30_000
+    )  # maximum number of characters in an observation's content when sent to the llm
+    temperature: float = Field(default=0.0)
+    top_p: float = Field(default=1.0)
+    top_k: float | None = Field(default=None)
+    custom_llm_provider: str | None = Field(default=None)
+    max_input_tokens: int | None = Field(default=None)
+    max_output_tokens: int | None = Field(default=None)
+    input_cost_per_token: float | None = Field(default=None)
+    output_cost_per_token: float | None = Field(default=None)
+    ollama_base_url: str | None = Field(default=None)
+    # This setting can be sent in each call to litellm
+    drop_params: bool = Field(default=True)
+    # Note: this setting is actually global, unlike drop_params
+    modify_params: bool = Field(default=True)
+    disable_vision: bool | None = Field(default=None)
+    disable_stop_word: bool | None = Field(default=False)
+    caching_prompt: bool = Field(default=True)
+    log_completions: bool = Field(default=False)
+    log_completions_folder: str = Field(
+        default=os.path.join(ENV_LOG_DIR, "completions")
+    )
+    custom_tokenizer: str | None = Field(default=None)
+    native_tool_calling: bool | None = Field(default=None)
+    reasoning_effort: str | None = Field(default=None)
+    seed: int | None = Field(default=None)
+    safety_settings: list[dict[str, str]] | None = Field(
+        default=None,
+        description=(
+            "Safety settings for models that support them (like Mistral AI and Gemini)"
+        ),
+    )
+
+    # Runtime fields (not part of configuration)
+    service_id: str = Field(default="default", exclude=True)
+    metrics: Metrics | None = Field(default=None, exclude=True)
+    retry_listener: Callable[[int, int], None] | None = Field(
+        default=None, exclude=True
+    )
+
+    model_config = ConfigDict(
+        extra="forbid",
+        arbitrary_types_allowed=True,  # For Metrics and Callable types
+    )
+
+    # Dynamic attributes set in __post_init__ (for type checking)
+    model_info: Any = None
+    tokenizer: Any = None
+    cost_metric_supported: bool = False
+    _completion: Any = None
+    _completion_unwrapped: Any = None
+    _tried_model_info: bool = False
+    _function_calling_active: bool = False
+
+    # 1) Pre-validation: transform inputs for a frozen model
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_inputs(cls, data):
+        # data can be dict or BaseModel – normalize to dict
+        if not isinstance(data, dict):
+            return data
+        d = dict(data)
+
+        model_val = d.get("model", None)
+        if model_val is None:
+            raise ValueError("model must be specified in LLM")
+
+        # reasoning_effort default (unless Gemini)
+        if d.get("reasoning_effort") is None and "gemini-2.5-pro" not in model_val:
+            d["reasoning_effort"] = "high"
+
+        # Azure default api_version
+        if model_val.startswith("azure") and not d.get("api_version"):
+            d["api_version"] = "2024-12-01-preview"
+
+        # Provider rewrite: openhands/* -> litellm_proxy/*
+        if model_val.startswith("openhands/"):
+            model_name = model_val.removeprefix("openhands/")
+            d["model"] = f"litellm_proxy/{model_name}"
+            # don't overwrite if caller explicitly set base_url
+            d.setdefault("base_url", "https://llm-proxy.app.all-hands.dev/")
+
+        # HF doesn't support the OpenAI default value for top_p (1)
+        if model_val.startswith("huggingface"):
+            logger.debug(f"Setting top_p to 0.9 for Hugging Face model: {model_val}")
+            _cur_top_p = d.get("top_p", 1.0)
+            d["top_p"] = 0.9 if _cur_top_p == 1 else _cur_top_p
+
+        return d
+
+    # 2) Post-validation: side effects only; must return self
+    @model_validator(mode="after")
+    def _set_env_side_effects(self):
+        if self.openrouter_site_url:
+            os.environ["OR_SITE_URL"] = self.openrouter_site_url
+        if self.openrouter_app_name:
+            os.environ["OR_APP_NAME"] = self.openrouter_app_name
+
+        if self.aws_access_key_id:
+            os.environ["AWS_ACCESS_KEY_ID"] = self.aws_access_key_id.get_secret_value()
+        if self.aws_secret_access_key:
+            os.environ["AWS_SECRET_ACCESS_KEY"] = (
+                self.aws_secret_access_key.get_secret_value()
+            )
+        if self.aws_region_name:
+            os.environ["AWS_REGION_NAME"] = self.aws_region_name
+
+        logger.debug(
+            f"LLM finalized with model={self.model} "
+            f"base_url={self.base_url} "
+            f"api_version={self.api_version} "
+            f"reasoning_effort={self.reasoning_effort}",
+        )
+        return self
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any]) -> "LLM":
+        """Deserialize LLM from dictionary data.
+
+        Args:
+            data: Dictionary containing LLM configuration data.
+
+        Returns:
+            LLM instance.
+        """
+        return cls(**data)
+
+    def serialize(self) -> dict[str, Any]:
+        """Serialize LLM to dictionary data.
+
+        Returns:
+            Dictionary containing LLM configuration data.
+        """
+        return self.model_dump(exclude={"service_id", "metrics", "retry_listener"})
+
+    @classmethod
+    def load_from_json(cls, json_path: str) -> "LLM":
+        """Load LLM configuration from JSON file.
+
+        Args:
+            json_path: Path to JSON file containing LLM configuration.
+
+        Returns:
+            LLM instance.
+        """
+        with open(json_path, "r") as f:
+            data = json_module.load(f)
+        return cls.deserialize(data)
+
+    @classmethod
+    def load_from_env(cls, prefix: str = "LLM_") -> "LLM":
+        """Load LLM configuration from environment variables.
+
+        Args:
+            prefix: Prefix for environment variables (default: "LLM_").
+
+        Returns:
+            LLM instance.
+        """
+        data = {}
+        for key, value in os.environ.items():
+            if key.startswith(prefix):
+                field_name = key[len(prefix) :].lower()
+                # Handle special cases for secret fields
+                if field_name in (
+                    "api_key",
+                    "aws_access_key_id",
+                    "aws_secret_access_key",
+                ):
+                    data[field_name] = SecretStr(value)
+                # Handle boolean fields
+                elif field_name in (
+                    "drop_params",
+                    "modify_params",
+                    "disable_vision",
+                    "disable_stop_word",
+                    "caching_prompt",
+                    "log_completions",
+                    "native_tool_calling",
+                ):
+                    data[field_name] = value.lower() in ("true", "1", "yes", "on")
+                # Handle numeric fields
+                elif field_name in (
+                    "num_retries",
+                    "retry_min_wait",
+                    "retry_max_wait",
+                    "timeout",
+                    "max_message_chars",
+                    "max_input_tokens",
+                    "max_output_tokens",
+                    "seed",
+                ):
+                    try:
+                        data[field_name] = int(value)
+                    except ValueError:
+                        continue
+                elif field_name in (
+                    "retry_multiplier",
+                    "temperature",
+                    "top_p",
+                    "top_k",
+                    "input_cost_per_token",
+                    "output_cost_per_token",
+                ):
+                    try:
+                        data[field_name] = float(value)
+                    except ValueError:
+                        continue
+                else:
+                    data[field_name] = value
+        return cls.deserialize(data)
+
+    @classmethod
+    def load_from_toml(cls, toml_path: str) -> "LLM":
+        """Load LLM configuration from TOML file.
+
+        Args:
+            toml_path: Path to TOML file containing LLM configuration.
+
+        Returns:
+            LLM instance.
+        """
+        try:
+            import tomllib
+        except ImportError:
+            try:
+                import tomli as tomllib  # type: ignore # fallback for Python < 3.11
+            except ImportError:
+                raise ImportError("tomllib or tomli is required to load TOML files")
+
+        with open(toml_path, "rb") as f:
+            data = tomllib.load(f)
+
+        # Handle nested structure if LLM config is under a section
+        if "llm" in data:
+            data = data["llm"]
+
+        return cls.deserialize(data)
 
     def __init__(
         self,
-        config: LLMConfig,
         service_id: str = "default",
         metrics: Metrics | None = None,
         retry_listener: Callable[[int, int], None] | None = None,
+        **data: Any,
     ) -> None:
-        """Initializes the LLM. If LLMConfig is passed, its values will be the fallback.
-
-        Passing simple parameters always overrides config.
+        """Initializes the LLM with configuration and runtime parameters.
 
         Args:
-            config: The LLM configuration.
+            service_id: The service ID for this LLM instance.
             metrics: The metrics to use.
+            retry_listener: Optional callback for retry events.
+            **data: Configuration parameters (model, api_key, etc.)
         """
-        self._tried_model_info = False
-        self.cost_metric_supported: bool = True
-        self.config: LLMConfig = copy.deepcopy(config)
-        self.service_id = service_id
-        self.metrics: Metrics = (
-            metrics if metrics is not None else Metrics(model_name=config.model)
+        super().__init__(
+            service_id=service_id,
+            metrics=metrics,
+            retry_listener=retry_listener,
+            **data,
         )
 
-        self.model_info: ModelInfo | None = None
-        self._function_calling_active: bool = False
-        self._max_input_tokens: int | None = self.config.max_input_tokens
-        self._max_output_tokens: int | None = self.config.max_output_tokens
-        self.retry_listener = retry_listener
-        if self.config.log_completions:
-            if self.config.log_completions_folder is None:
+        # Initialize runtime attributes using object.__setattr__ for pydantic models
+        object.__setattr__(self, "_tried_model_info", False)
+        object.__setattr__(self, "cost_metric_supported", True)
+        if self.metrics is None:
+            object.__setattr__(self, "metrics", Metrics(model_name=self.model))
+
+        object.__setattr__(self, "model_info", None)
+        object.__setattr__(self, "_function_calling_active", False)
+        # max_input_tokens is already set as a field, no need to copy it
+        if self.log_completions:
+            if self.log_completions_folder is None:
                 raise RuntimeError(
                     "log_completions_folder is required when log_completions is enabled"
                 )
-            os.makedirs(self.config.log_completions_folder, exist_ok=True)
+            os.makedirs(self.log_completions_folder, exist_ok=True)
 
-        # call init_model_info to initialize config.max_output_tokens
+        # call init_model_info to initialize max_output_tokens
         # which is used in partial function
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -122,96 +417,100 @@ class LLM(RetryMixin):
             logger.debug("LLM: model supports function calling")
 
         # if using a custom tokenizer, make sure it's loaded and accessible in the format expected by litellm  # noqa: E501
-        if self.config.custom_tokenizer is not None:
-            self.tokenizer = create_pretrained_tokenizer(self.config.custom_tokenizer)
+        if self.custom_tokenizer is not None:
+            object.__setattr__(
+                self, "tokenizer", create_pretrained_tokenizer(self.custom_tokenizer)
+            )
         else:
-            self.tokenizer = None
+            object.__setattr__(self, "tokenizer", None)
 
         # set up the completion function
         kwargs: dict[str, Any] = {
-            "temperature": self.config.temperature,
-            "max_completion_tokens": self.config.max_output_tokens,
+            "temperature": self.temperature,
+            "max_completion_tokens": self.max_output_tokens,
         }
-        if self.config.top_k is not None:
+        if self.top_k is not None:
             # openai doesn't expose top_k
             # litellm will handle it a bit differently than the openai-compatible params
-            kwargs["top_k"] = self.config.top_k
-        if self.config.top_p is not None:
+            kwargs["top_k"] = self.top_k
+        if self.top_p is not None:
             # openai doesn't expose top_p, but litellm does
-            kwargs["top_p"] = self.config.top_p
+            kwargs["top_p"] = self.top_p
 
-        features = get_features(self.config.model)
+        features = get_features(self.model)
         if features.supports_reasoning_effort:
             # For Gemini models, only map 'low' to optimized thinking budget
             # Let other reasoning_effort values pass through to API as-is
-            if "gemini-2.5-pro" in self.config.model:
+            if "gemini-2.5-pro" in self.model:
                 logger.debug(
-                    f"Gemini model {self.config.model} with reasoning_effort {self.config.reasoning_effort}"  # noqa: E501
+                    f"Gemini model {self.model} with reasoning_effort {self.reasoning_effort}"  # noqa: E501
                 )
-                if self.config.reasoning_effort in {None, "low", "none"}:
+                if self.reasoning_effort in {None, "low", "none"}:
                     kwargs["thinking"] = {"budget_tokens": 128}
                     kwargs["allowed_openai_params"] = ["thinking"]
                     kwargs.pop("reasoning_effort", None)
                 else:
-                    kwargs["reasoning_effort"] = self.config.reasoning_effort
+                    kwargs["reasoning_effort"] = self.reasoning_effort
                 logger.debug(
-                    f"Gemini model {self.config.model} with reasoning_effort {self.config.reasoning_effort} mapped to thinking {kwargs.get('thinking')}"  # noqa: E501
+                    f"Gemini model {self.model} with reasoning_effort {self.reasoning_effort} mapped to thinking {kwargs.get('thinking')}"  # noqa: E501
                 )
 
             else:
-                kwargs["reasoning_effort"] = self.config.reasoning_effort
+                kwargs["reasoning_effort"] = self.reasoning_effort
             kwargs.pop(
                 "temperature"
             )  # temperature is not supported for reasoning models
             kwargs.pop("top_p")  # reasoning model like o3 doesn't support top_p
         # Azure issue: https://github.com/All-Hands-AI/OpenHands/issues/6777
-        if self.config.model.startswith("azure"):
-            kwargs["max_tokens"] = self.config.max_output_tokens
+        if self.model.startswith("azure"):
+            kwargs["max_tokens"] = self.max_output_tokens
             kwargs.pop("max_completion_tokens")
 
         # Add safety settings for models that support them
-        if "mistral" in self.config.model.lower() and self.config.safety_settings:
-            kwargs["safety_settings"] = self.config.safety_settings
-        elif "gemini" in self.config.model.lower() and self.config.safety_settings:
-            kwargs["safety_settings"] = self.config.safety_settings
+        if "mistral" in self.model.lower() and self.safety_settings:
+            kwargs["safety_settings"] = self.safety_settings
+        elif "gemini" in self.model.lower() and self.safety_settings:
+            kwargs["safety_settings"] = self.safety_settings
 
         # Explicitly disable Anthropic extended thinking for Opus 4.1 to avoid
         # requiring 'thinking' content blocks. See issue #10510.
-        if "claude-opus-4-1" in self.config.model.lower():
+        if "claude-opus-4-1" in self.model.lower():
             kwargs["thinking"] = {"type": "disabled"}
 
         # Anthropic constraint: Opus models cannot accept both temperature and top_p
         # Prefer temperature (drop top_p) if both are specified.
-        _model_lower = self.config.model.lower()
+        _model_lower = self.model.lower()
         # Limit to Opus 4.1 specifically to avoid changing behavior of other Anthropic models  # noqa: E501
         if ("claude-opus-4-1" in _model_lower) and (
             "temperature" in kwargs and "top_p" in kwargs
         ):
             kwargs.pop("top_p", None)
 
-        self._completion = partial(
-            litellm_completion,
-            model=self.config.model,
-            api_key=self.config.api_key.get_secret_value()
-            if self.config.api_key
-            else None,
-            base_url=self.config.base_url,
-            api_version=self.config.api_version,
-            custom_llm_provider=self.config.custom_llm_provider,
-            timeout=self.config.timeout,
-            drop_params=self.config.drop_params,
-            seed=self.config.seed,
-            **kwargs,
+        object.__setattr__(
+            self,
+            "_completion",
+            partial(
+                litellm_completion,
+                model=self.model,
+                api_key=self.api_key.get_secret_value() if self.api_key else None,
+                base_url=self.base_url,
+                api_version=self.api_version,
+                custom_llm_provider=self.custom_llm_provider,
+                timeout=self.timeout,
+                drop_params=self.drop_params,
+                seed=self.seed,
+                **kwargs,
+            ),
         )
 
-        self._completion_unwrapped: callable[..., ModelResponse] = self._completion  # type: ignore[assignment]  # noqa: E501
+        object.__setattr__(self, "_completion_unwrapped", self._completion)  # type: ignore[assignment]  # noqa: E501
 
         @self.retry_decorator(
-            num_retries=self.config.num_retries,
+            num_retries=self.num_retries,
             retry_exceptions=LLM_RETRY_EXCEPTIONS,
-            retry_min_wait=self.config.retry_min_wait,
-            retry_max_wait=self.config.retry_max_wait,
-            retry_multiplier=self.config.retry_multiplier,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
             retry_listener=self.retry_listener,
         )
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -262,10 +561,7 @@ class LLM(RetryMixin):
             # if the agent or caller has defined tools, and we mock via prompting, convert the messages  # noqa: E501
             if mock_function_calling and "tools" in kwargs:
                 add_in_context_learning_example = True
-                if (
-                    "openhands-lm" in self.config.model
-                    or "devstral" in self.config.model
-                ):
+                if "openhands-lm" in self.model or "devstral" in self.model:
                     add_in_context_learning_example = False
 
                 messages = convert_fncall_messages_to_non_fncall_messages(
@@ -277,13 +573,13 @@ class LLM(RetryMixin):
 
                 # add stop words if the model supports it and stop words are not disabled  # noqa: E501
                 if (
-                    get_features(self.config.model).supports_stop_words
-                    and not self.config.disable_stop_word
+                    get_features(self.model).supports_stop_words
+                    and not self.disable_stop_word
                 ):
                     kwargs["stop"] = STOP_WORDS
 
                 mock_fncall_tools = kwargs.pop("tools")
-                if "openhands-lm" in self.config.model:
+                if "openhands-lm" in self.model:
                     # If we don't have this, we might run into issue when serving openhands-lm  # noqa: E501
                     # using SGLang
                     # BadRequestError: litellm.BadRequestError: OpenAIException - Error code: 400 - {'object': 'error', 'message': '400', 'type': 'Failed to parse fc related info to json format!', 'param': None, 'code': 400}  # noqa: E501
@@ -301,10 +597,10 @@ class LLM(RetryMixin):
             # set litellm modify_params to the configured value
             # True by default to allow litellm to do transformations like adding a default message, when a message is empty  # noqa: E501
             # NOTE: this setting is global; unlike drop_params, it cannot be overridden in the litellm completion partial  # noqa: E501
-            litellm.modify_params = self.config.modify_params
+            litellm.modify_params = self.modify_params
 
             # if we're not using litellm proxy, remove the extra_body
-            if "litellm_proxy" not in self.config.model:
+            if "litellm_proxy" not in self.model:
                 kwargs.pop("extra_body", None)
 
             # Record start time for latency measurement
@@ -328,7 +624,8 @@ class LLM(RetryMixin):
             # Calculate and record latency
             latency = time.time() - start_time
             response_id = resp.get("id", "unknown") or "unknown"
-            self.metrics.add_response_latency(latency, response_id)
+            if self.metrics:
+                self.metrics.add_response_latency(latency, response_id)
 
             non_fncall_response = copy.deepcopy(resp)
 
@@ -376,11 +673,11 @@ class LLM(RetryMixin):
             cost = self._post_completion(resp)
 
             # log for evals or other scripts that need the raw completion
-            if self.config.log_completions:
-                assert self.config.log_completions_folder is not None
+            if self.log_completions:
+                assert self.log_completions_folder is not None
                 log_file = os.path.join(
-                    self.config.log_completions_folder,
-                    f"{self.config.model.replace('/', '__')}-{time.time()}.json",
+                    self.log_completions_folder,
+                    f"{self.model.replace('/', '__')}-{time.time()}.json",
                 )
 
                 # set up the dict to be logged
@@ -410,15 +707,7 @@ class LLM(RetryMixin):
 
             return resp
 
-        self._completion = wrapper
-
-    @property
-    def max_input_tokens(self) -> int | None:
-        return self._max_input_tokens
-
-    @property
-    def max_output_tokens(self) -> int | None:
-        return self._max_output_tokens
+        object.__setattr__(self, "_completion", wrapper)
 
     @property
     def completion(self) -> Callable:
@@ -431,24 +720,24 @@ class LLM(RetryMixin):
     def init_model_info(self) -> None:
         if self._tried_model_info:
             return
-        self._tried_model_info = True
+        object.__setattr__(self, "_tried_model_info", True)
         try:
-            if self.config.model.startswith("openrouter"):
-                self.model_info = get_model_info(self.config.model)
+            if self.model.startswith("openrouter"):
+                object.__setattr__(self, "model_info", get_model_info(self.model))
         except Exception as e:
             logger.debug(f"Error getting model info: {e}")
 
-        if self.config.model.startswith("litellm_proxy/"):
+        if self.model.startswith("litellm_proxy/"):
             # IF we are using LiteLLM proxy, get model info from LiteLLM proxy
             # GET {base_url}/v1/model/info with litellm_model_id as path param
-            base_url = self.config.base_url.strip() if self.config.base_url else ""
+            base_url = self.base_url.strip() if self.base_url else ""
             if not base_url.startswith(("http://", "https://")):
                 base_url = "http://" + base_url
 
             response = httpx.get(
                 f"{base_url}/v1/model/info",
                 headers={
-                    "Authorization": f"Bearer {self.config.api_key.get_secret_value() if self.config.api_key else None}"  # noqa: E501
+                    "Authorization": f"Bearer {self.api_key.get_secret_value() if self.api_key else None}"  # noqa: E501
                 },
             )
 
@@ -466,25 +755,28 @@ class LLM(RetryMixin):
                 (
                     info
                     for info in all_model_info
-                    if info["model_name"]
-                    == self.config.model.removeprefix("litellm_proxy/")
+                    if info["model_name"] == self.model.removeprefix("litellm_proxy/")
                 ),
                 None,
             )
             if current_model_info:
-                self.model_info = current_model_info["model_info"]
+                object.__setattr__(self, "model_info", current_model_info["model_info"])
                 logger.debug(f"Got model info from litellm proxy: {self.model_info}")
 
         # Last two attempts to get model info from NAME
         if not self.model_info:
             try:
-                self.model_info = get_model_info(self.config.model.split(":")[0])
+                object.__setattr__(
+                    self, "model_info", get_model_info(self.model.split(":")[0])
+                )
             # noinspection PyBroadException
             except Exception:
                 pass
         if not self.model_info:
             try:
-                self.model_info = get_model_info(self.config.model.split("/")[-1])
+                object.__setattr__(
+                    self, "model_info", get_model_info(self.model.split("/")[-1])
+                )
             # noinspection PyBroadException
             except Exception:
                 pass
@@ -492,49 +784,61 @@ class LLM(RetryMixin):
         from openhands.sdk.utils import json
 
         logger.debug(
-            f"Model info: {json.dumps({'model': self.config.model, 'base_url': self.config.base_url}, indent=2)}"  # noqa: E501
+            f"Model info: {json.dumps({'model': self.model, 'base_url': self.base_url}, indent=2)}"  # noqa: E501
         )
 
         # Set max_input_tokens from model info if not explicitly set
         if (
-            self._max_input_tokens is None
+            self.max_input_tokens is None
             and self.model_info is not None
             and "max_input_tokens" in self.model_info
             and isinstance(self.model_info["max_input_tokens"], int)
         ):
-            self._max_input_tokens = self.model_info["max_input_tokens"]
+            object.__setattr__(
+                self, "max_input_tokens", self.model_info["max_input_tokens"]
+            )
 
         # Set max_output_tokens from model info if not explicitly set
-        if self._max_output_tokens is None:
+        if self.max_output_tokens is None:
             # Special case for Claude 3.7 Sonnet models
             if any(
-                model in self.config.model
+                model in self.model
                 for model in ["claude-3-7-sonnet", "claude-3.7-sonnet"]
             ):
-                self._max_output_tokens = 64000  # litellm set max to 128k, but that requires a header to be set  # noqa: E501
+                object.__setattr__(
+                    self, "max_output_tokens", 64000
+                )  # litellm set max to 128k, but that requires a header to be set  # noqa: E501
             # Try to get from model info
             elif self.model_info is not None:
                 # max_output_tokens has precedence over max_tokens
                 if "max_output_tokens" in self.model_info and isinstance(
                     self.model_info["max_output_tokens"], int
                 ):
-                    self._max_output_tokens = self.model_info["max_output_tokens"]
+                    object.__setattr__(
+                        self, "max_output_tokens", self.model_info["max_output_tokens"]
+                    )
                 elif "max_tokens" in self.model_info and isinstance(
                     self.model_info["max_tokens"], int
                 ):
-                    self._max_output_tokens = self.model_info["max_tokens"]
+                    object.__setattr__(
+                        self, "max_output_tokens", self.model_info["max_tokens"]
+                    )
 
         # Initialize function calling using centralized model features
-        features = get_features(self.config.model)
-        if self.config.native_tool_calling is None:
-            self._function_calling_active = features.supports_function_calling
+        features = get_features(self.model)
+        if self.native_tool_calling is None:
+            object.__setattr__(
+                self, "_function_calling_active", features.supports_function_calling
+            )
         else:
-            self._function_calling_active = self.config.native_tool_calling
+            object.__setattr__(
+                self, "_function_calling_active", self.native_tool_calling
+            )
 
     def vision_is_active(self) -> bool:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            return not self.config.disable_vision and self._supports_vision()
+            return not self.disable_vision and self._supports_vision()
 
     def _supports_vision(self) -> bool:
         """Acquire from litellm if model is vision capable.
@@ -549,8 +853,8 @@ class LLM(RetryMixin):
         # remove when litellm is updated to fix https://github.com/BerriAI/litellm/issues/5608  # noqa: E501
         # Check both the full model name and the name after proxy prefix for vision support  # noqa: E501
         return (
-            supports_vision(self.config.model)
-            or supports_vision(self.config.model.split("/")[-1])
+            supports_vision(self.model)
+            or supports_vision(self.model.split("/")[-1])
             or (
                 self.model_info is not None
                 and self.model_info.get("supports_vision", False)
@@ -565,10 +869,10 @@ class LLM(RetryMixin):
             boolean: True if prompt caching is supported and enabled for the given
                 model.
         """
-        if not self.config.caching_prompt:
+        if not self.caching_prompt:
             return False
         # We don't need to look-up model_info, because only Anthropic models need explicit caching breakpoints  # noqa: E501
-        return get_features(self.config.model).supports_prompt_cache
+        return get_features(self.model).supports_prompt_cache
 
     def is_function_calling_active(self) -> bool:
         """Returns whether function calling is supported and enabled for this LLM
@@ -589,7 +893,7 @@ class LLM(RetryMixin):
             cur_cost = 0
 
         stats = ""
-        if self.cost_metric_supported:
+        if self.cost_metric_supported and self.metrics:
             # keep track of the cost
             stats = "Cost: %.2f USD | Accumulated Cost: %.2f USD\n" % (
                 cur_cost,
@@ -597,7 +901,7 @@ class LLM(RetryMixin):
             )
 
         # Add latency to stats if available
-        if self.metrics.response_latencies:
+        if self.metrics and self.metrics.response_latencies:
             latest_latency = self.metrics.response_latencies[-1]
             stats += "Response Latency: %.3f seconds\n" % latest_latency.latency
 
@@ -650,14 +954,15 @@ class LLM(RetryMixin):
 
             # Record in metrics
             # We'll treat cache_hit_tokens as "cache read" and cache_write_tokens as "cache write"  # noqa: E501
-            self.metrics.add_token_usage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                cache_read_tokens=cache_hit_tokens,
-                cache_write_tokens=cache_write_tokens,
-                context_window=context_window,
-                response_id=response_id,
-            )
+            if self.metrics:
+                self.metrics.add_token_usage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    cache_read_tokens=cache_hit_tokens,
+                    cache_write_tokens=cache_write_tokens,
+                    context_window=context_window,
+                    response_id=response_id,
+                )
 
         # log the stats
         if stats:
@@ -700,7 +1005,7 @@ class LLM(RetryMixin):
         try:
             return int(
                 token_counter(
-                    model=self.config.model,
+                    model=self.model,
                     messages=messages,
                     custom_tokenizer=self.tokenizer,
                 )
@@ -708,10 +1013,10 @@ class LLM(RetryMixin):
         except Exception as e:
             # limit logspam in case token count is not supported
             logger.error(
-                f"Error getting token count for\n model {self.config.model}\n{e}"
+                f"Error getting token count for\n model {self.model}\n{e}"
                 + (
-                    f"\ncustom_tokenizer: {self.config.custom_tokenizer}"
-                    if self.config.custom_tokenizer is not None
+                    f"\ncustom_tokenizer: {self.custom_tokenizer}"
+                    if self.custom_tokenizer is not None
                     else ""
                 )
             )
@@ -723,12 +1028,12 @@ class LLM(RetryMixin):
         Returns:
             boolean: True if executing a local model.
         """
-        if self.config.base_url is not None:
+        if self.base_url is not None:
             for substring in ["localhost", "127.0.0.1", "0.0.0.0"]:
-                if substring in self.config.base_url:
+                if substring in self.base_url:
                     return True
-        elif self.config.model is not None:
-            if self.config.model.startswith("ollama"):
+        elif self.model is not None:
+            if self.model.startswith("ollama"):
                 return True
         return False
 
@@ -750,12 +1055,12 @@ class LLM(RetryMixin):
 
         extra_kwargs = {}
         if (
-            self.config.input_cost_per_token is not None
-            and self.config.output_cost_per_token is not None
+            self.input_cost_per_token is not None
+            and self.output_cost_per_token is not None
         ):
             cost_per_token = CostPerToken(
-                input_cost_per_token=self.config.input_cost_per_token,
-                output_cost_per_token=self.config.output_cost_per_token,
+                input_cost_per_token=self.input_cost_per_token,
+                output_cost_per_token=self.output_cost_per_token,
             )
             logger.debug(f"Using custom cost per token: {cost_per_token}")
             extra_kwargs["custom_cost_per_token"] = cost_per_token
@@ -779,26 +1084,27 @@ class LLM(RetryMixin):
                     logger.debug(f"Error getting cost from litellm: {e}")
 
             if cost is None:
-                _model_name = "/".join(self.config.model.split("/")[1:])
+                _model_name = "/".join(self.model.split("/")[1:])
                 cost = litellm_completion_cost(
                     completion_response=response, model=_model_name, **extra_kwargs
                 )
                 logger.debug(
                     f"Using fallback model name {_model_name} to get cost: {cost}"
                 )
-            self.metrics.add_cost(float(cost))
+            if self.metrics:
+                self.metrics.add_cost(float(cost))
             return float(cost)
         except Exception:
-            self.cost_metric_supported = False
+            object.__setattr__(self, "cost_metric_supported", False)
             logger.debug("Cost calculation not supported for this model.")
         return 0.0
 
     def __str__(self) -> str:
-        if self.config.api_version:
-            return f"LLM(model={self.config.model}, api_version={self.config.api_version}, base_url={self.config.base_url})"  # noqa: E501
-        elif self.config.base_url:
-            return f"LLM(model={self.config.model}, base_url={self.config.base_url})"
-        return f"LLM(model={self.config.model})"
+        if self.api_version:
+            return f"LLM(model={self.model}, api_version={self.api_version}, base_url={self.base_url})"  # noqa: E501
+        elif self.base_url:
+            return f"LLM(model={self.model}, base_url={self.base_url})"
+        return f"LLM(model={self.model})"
 
     def __repr__(self) -> str:
         return str(self)
@@ -813,11 +1119,11 @@ class LLM(RetryMixin):
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
             message.function_calling_enabled = self.is_function_calling_active()
-            if "deepseek" in self.config.model:
+            if "deepseek" in self.model:
                 message.force_string_serializer = True
-            if "kimi-k2-instruct" in self.config.model and "groq" in self.config.model:
+            if "kimi-k2-instruct" in self.model and "groq" in self.model:
                 message.force_string_serializer = True
-            if "openrouter/anthropic/claude-sonnet-4" in self.config.model:
+            if "openrouter/anthropic/claude-sonnet-4" in self.model:
                 message.force_string_serializer = True
 
         # let pydantic handle the serialization

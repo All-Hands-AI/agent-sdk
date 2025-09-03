@@ -3,10 +3,10 @@ import os
 from pydantic import SecretStr
 
 from openhands.sdk import (
+    LLM,
     Agent,
     Conversation,
     EventType,
-    LLMConfig,
     LLMConvertibleEvent,
     LLMRegistry,
     Message,
@@ -32,7 +32,7 @@ assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm_registry = LLMRegistry()
 
 # Get LLM from registry (this will create and cache the LLM)
-llm_config = LLMConfig(
+llm_config = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),

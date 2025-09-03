@@ -121,7 +121,7 @@ class Agent(AgentBase):
             tools=[tool.to_openai_tool() for tool in self.tools.values()],
             extra_body={
                 "metadata": get_llm_metadata(
-                    model_name=self.llm.config.model, agent_name=self.name
+                    model_name=self.llm.model, agent_name=self.name
                 )
             },
         )

@@ -3,15 +3,15 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
-from openhands.sdk.config.llm_config import LLMConfig
+from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 
 
 class TestLLMRegistry(unittest.TestCase):
     def setUp(self):
         """Set up test environment before each test."""
-        # Create a basic LLM config for testing
-        self.llm_config = LLMConfig(model="test-model")
+        # Create a basic LLM for testing
+        self.llm_config = LLM(model="test-model")
 
         # Create a registry for testing
         self.registry = LLMRegistry()
@@ -23,7 +23,6 @@ class TestLLMRegistry(unittest.TestCase):
         # Mock the _create_new_llm method to avoid actual LLM initialization
         with patch.object(self.registry, "_create_new_llm") as mock_create:
             mock_llm = MagicMock()
-            mock_llm.config = self.llm_config
             mock_create.return_value = mock_llm
 
             # Get LLM for the first time
@@ -32,24 +31,27 @@ class TestLLMRegistry(unittest.TestCase):
             # Verify LLM was created and stored
             self.assertEqual(llm, mock_llm)
             mock_create.assert_called_once_with(
-                config=self.llm_config, service_id=service_id
+                llm_config=self.llm_config, service_id=service_id
             )
 
     def test_get_llm_returns_existing_llm(self):
         """Test that get_llm returns existing LLM when service already exists."""
         service_id = "test-service"
 
-        # Mock the _create_new_llm method to avoid actual LLM initialization
-        with patch.object(self.registry, "_create_new_llm") as mock_create:
+        # Mock the LLM constructor and RegistryEvent to avoid actual LLM initialization
+        with (
+            patch("openhands.sdk.llm.llm_registry.LLM") as mock_llm_class,
+            patch("openhands.sdk.llm.llm_registry.RegistryEvent"),
+        ):
             mock_llm = MagicMock()
-            mock_llm.config = self.llm_config
-            mock_create.return_value = mock_llm
+            # Make the mock LLM's model_dump return the same config as self.llm_config
+            mock_llm.model_dump.return_value = self.llm_config.model_dump(
+                exclude={"service_id", "metrics", "retry_listener"}
+            )
+            mock_llm_class.return_value = mock_llm
 
             # Get LLM for the first time
             llm1 = self.registry.get_llm(service_id, self.llm_config)
-
-            # Manually add to registry to simulate existing LLM
-            self.registry.service_to_llm[service_id] = mock_llm
 
             # Get LLM for the second time - should return the same instance
             llm2 = self.registry.get_llm(service_id, self.llm_config)
@@ -58,8 +60,8 @@ class TestLLMRegistry(unittest.TestCase):
             self.assertEqual(llm1, llm2)
             self.assertEqual(llm1, mock_llm)
 
-            # Verify _create_new_llm was only called once
-            mock_create.assert_called_once()
+            # Verify LLM constructor was only called once
+            mock_llm_class.assert_called_once()
 
     def test_get_llm_with_different_config_raises_error(self):
         """
@@ -67,10 +69,11 @@ class TestLLMRegistry(unittest.TestCase):
         raises an error.
         """
         service_id = "test-service"
-        different_config = LLMConfig(model="different-model")
+        different_config = LLM(model="different-model")
 
         # Manually add an LLM to the registry to simulate existing service
         mock_llm = MagicMock()
+        mock_llm.model_dump.return_value = {"model": "test-model"}
         self.registry.service_to_llm[service_id] = mock_llm
 
         # Attempt to get LLM with different config should raise ValueError
@@ -125,7 +128,7 @@ class TestLLMRegistry(unittest.TestCase):
 
             # Verify that _create_new_llm was called with correct parameters
             mock_create.assert_called_once_with(
-                config=self.llm_config, service_id=service_id, with_listener=False
+                llm_config=self.llm_config, service_id=service_id, with_listener=False
             )
 
             # Verify completion was called with correct messages
