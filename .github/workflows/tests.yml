@@ -49,19 +49,10 @@ jobs:
             --cov-fail-under=0 \
             --cov-config=pyproject.toml \
             tests/sdk
-          # Rename coverage file to avoid conflicts
+          # Rename coverage file for upload
           if [ -f .coverage ]; then
-            mv .coverage .coverage.sdk
-          fi
-
-      - name: Prepare sdk coverage for upload
-        if: steps.changed.outputs.any_changed == 'true' && always()
-        run: |
-          if [ -f .coverage.sdk ]; then
-            cp .coverage.sdk coverage-sdk.dat
+            mv .coverage coverage-sdk.dat
             echo "SDK coverage file prepared for upload"
-          else
-            echo "SDK coverage file not found"
           fi
 
       - name: Upload sdk coverage
@@ -110,19 +101,10 @@ jobs:
             --cov-fail-under=0 \
             --cov-config=pyproject.toml \
             tests/tools
-          # Rename coverage file to avoid conflicts
+          # Rename coverage file for upload
           if [ -f .coverage ]; then
-            mv .coverage .coverage.tools
-          fi
-
-      - name: Prepare tools coverage for upload
-        if: steps.changed.outputs.any_changed == 'true' && always()
-        run: |
-          if [ -f .coverage.tools ]; then
-            cp .coverage.tools coverage-tools.dat
+            mv .coverage coverage-tools.dat
             echo "Tools coverage file prepared for upload"
-          else
-            echo "Tools coverage file not found"
           fi
 
       - name: Upload tools coverage
@@ -175,19 +157,10 @@ jobs:
             --cov-fail-under=0 \
             --cov-config=pyproject.toml \
             tests/integration
-          # Rename coverage file to avoid conflicts
+          # Rename coverage file for upload
           if [ -f .coverage ]; then
-            mv .coverage .coverage.integration
-          fi
-
-      - name: Prepare integration coverage for upload
-        if: steps.changed.outputs.any_changed == 'true' && always()
-        run: |
-          if [ -f .coverage.integration ]; then
-            cp .coverage.integration coverage-integration.dat
+            mv .coverage coverage-integration.dat
             echo "Integration coverage file prepared for upload"
-          else
-            echo "Integration coverage file not found"
           fi
 
       - name: Upload integration coverage
@@ -224,12 +197,12 @@ jobs:
         run: |
           shopt -s nullglob
           
-          # Convert uploaded .dat files back to .coverage format
+          # Convert uploaded .dat files back to .coverage format for coverage tool
           for dat_file in cov/**/coverage-*.dat; do
             if [[ "$dat_file" == *coverage-sdk.dat ]]; then
               cp "$dat_file" .coverage.sdk
             elif [[ "$dat_file" == *coverage-tools.dat ]]; then
-              cp "$dat_file" .coverage.tools
+              cp "$dat_file" .coverage.tools  
             elif [[ "$dat_file" == *coverage-integration.dat ]]; then
               cp "$dat_file" .coverage.integration
             fi
@@ -245,7 +218,7 @@ jobs:
           echo "Found ${#coverage_files[@]} coverage files"
           uv run coverage combine
           uv run coverage xml -i -o coverage.xml
-          uv run coverage report -m || true
+          uv run coverage report -m
 
       - name: Pytest coverage PR comment
         if: always()
