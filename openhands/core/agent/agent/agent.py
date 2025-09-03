@@ -19,7 +19,6 @@ from openhands.core.event import (
     MessageEvent,
     ObservationEvent,
     SystemPromptEvent,
-    UserRejectsObservation,
 )
 from openhands.core.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.core.logger import get_logger
@@ -88,6 +87,24 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        # Check if we have pending actions to execute (implicit confirmation)
+        # Only execute pending actions if we haven't created any actions in this run
+        if (
+            self.confirmation_mode
+            and self._pending_actions
+            and not self._created_action_in_this_run
+        ):
+            logger.info(
+                f"Confirmation mode: Executing {len(self._pending_actions)} "
+                "pending action(s)"
+            )
+            for action_event in self._pending_actions:
+                self._execute_action_events(state, action_event, on_event=on_event)
+            self.clear_pending_actions()
+            # Reset the flag for next run
+            self._created_action_in_this_run = False
+            return
+
         # Get LLM Response (Action)
         llm_convertible_events = cast(
             list[LLMConvertibleEvent],
@@ -153,7 +170,14 @@ class Agent(AgentBase):
 
             # Handle confirmation mode
             if self.confirmation_mode:
-                self._handle_confirmation_mode(state, action_events, on_event)
+                # In confirmation mode, store actions as pending but don't execute them
+                for action_event in action_events:
+                    self.add_pending_action(action_event)
+                logger.info(
+                    f"Confirmation mode: Created {len(action_events)} action(s), "
+                    "waiting for confirmation"
+                )
+                return
             else:
                 for action_event in action_events:
                     self._execute_action_events(state, action_event, on_event=on_event)
@@ -252,59 +276,3 @@ class Agent(AgentBase):
         if tool.name == FinishTool.name:
             state.agent_finished = True
         return obs_event
-
-    def _handle_confirmation_mode(
-        self,
-        state: ConversationState,
-        action_events: list[ActionEvent],
-        on_event: ConversationCallbackType,
-    ) -> None:
-        """Handle confirmation mode logic for action events."""
-        for action_event in action_events:
-            # Check if this action already has an observation
-            existing_observation = self._find_observation_for_action(
-                state, action_event.id
-            )
-
-            if existing_observation is None:
-                # No observation yet - this means we need confirmation
-                # Return early to wait for user confirmation
-                logger.info(
-                    f"Waiting for confirmation for action: {action_event.tool_name}"
-                )
-                return
-
-            elif isinstance(existing_observation, UserRejectsObservation):
-                # User rejected this action - skip execution
-                logger.info(
-                    f"Action {action_event.tool_name} was rejected by user: "
-                    f"{existing_observation.rejection_reason}"
-                )
-                continue
-
-            else:
-                # Action already has a regular observation - this shouldn't happen
-                # in confirmation mode, but handle it gracefully
-                logger.warning(
-                    f"Action {action_event.tool_name} already has observation, "
-                    "skipping execution"
-                )
-                continue
-
-        # If we get here, all actions have been confirmed - execute them
-        for action_event in action_events:
-            existing_observation = self._find_observation_for_action(
-                state, action_event.id
-            )
-            if not isinstance(existing_observation, UserRejectsObservation):
-                self._execute_action_events(state, action_event, on_event=on_event)
-
-    def _find_observation_for_action(
-        self, state: ConversationState, action_id: str
-    ) -> ObservationEvent | UserRejectsObservation | None:
-        """Find an observation event that corresponds to the given action ID."""
-        for event in reversed(state.events):  # Search from most recent
-            if isinstance(event, (ObservationEvent, UserRejectsObservation)):
-                if event.action_id == action_id:
-                    return event
-        return None

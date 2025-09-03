@@ -102,7 +102,18 @@ class Conversation:
             self._on_event(user_msg_event)
 
     def run(self) -> None:
-        """Runs the conversation until the agent finishes."""
+        """Runs the conversation until the agent finishes.
+
+        In confirmation mode:
+        - First call: creates actions but doesn't execute them
+        - Second call: executes pending actions (implicit confirmation)
+
+        In normal mode:
+        - Creates and executes actions immediately
+        """
+        # Reset the flag that tracks if actions were created in this run
+        self.agent.reset_run_flag()
+
         iteration = 0
         while not self.state.agent_finished:
             logger.debug(f"Conversation run iteration {iteration}")
@@ -114,69 +125,50 @@ class Conversation:
             with self.state:
                 # step must mutate the SAME state object
                 self.agent.step(self.state, on_event=self._on_event)
+
             iteration += 1
             if iteration >= self.max_iteration_per_run:
                 break
 
-    def confirm_action(self, action_id: str) -> None:
-        """Confirm an action by providing a confirmation observation.
-
-        This allows the agent to proceed with executing the action.
-        """
-        with self.state:
-            # Find the action event
-            action_event = self._find_action_by_id(action_id)
-            if action_event is None:
-                raise ValueError(f"Action with ID {action_id} not found")
-
-            # Check if action already has an observation
-            if self._has_observation_for_action(action_id):
-                raise ValueError(f"Action {action_id} already has an observation")
-
-            logger.info(f"User confirmed action: {action_event.tool_name}")
-
-            # Execute the action directly by calling step again
-            # The agent will see the action without observation and execute it
-            self.agent.step(self.state, on_event=self._on_event)
-
-    def reject_action(
-        self, action_id: str, reason: str = "User rejected the action"
-    ) -> None:
-        """Reject an action by providing a UserRejectsObservation."""
-        with self.state:
-            # Find the action event
-            action_event = self._find_action_by_id(action_id)
-            if action_event is None:
-                raise ValueError(f"Action with ID {action_id} not found")
-
-            # Check if action already has an observation
-            if self._has_observation_for_action(action_id):
-                raise ValueError(f"Action {action_id} already has an observation")
-
-            # Create rejection observation
-            rejection_event = UserRejectsObservation(
-                action_id=action_id,
-                tool_name=action_event.tool_name,
-                tool_call_id=action_event.tool_call_id,
-                rejection_reason=reason,
-            )
-            self._on_event(rejection_event)
-            logger.info(f"User rejected action: {action_event.tool_name} - {reason}")
-
     def get_pending_actions(self) -> list[ActionEvent]:
-        """Get all actions that are waiting for confirmation."""
-        with self.state:
-            pending_actions = []
-            for event in self.state.events:
-                if isinstance(event, ActionEvent):
-                    if not self._has_observation_for_action(event.id):
-                        pending_actions.append(event)
-            return pending_actions
+        """Get all actions that are waiting for confirmation from the agent."""
+        return self.agent.get_pending_actions()
 
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode for the agent."""
         self.agent.set_confirmation_mode(enabled)
         logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
+
+        # Clear pending actions when disabling confirmation mode
+        if not enabled:
+            self.agent.clear_pending_actions()
+
+    def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
+        """Reject all pending actions from the agent.
+
+        This is a non-invasive method to reject actions between run() calls.
+        """
+        pending_actions = self.agent.get_pending_actions()
+        if not pending_actions:
+            logger.warning("No pending actions to reject")
+            return
+
+        with self.state:
+            for action_event in pending_actions:
+                # Create rejection observation
+                rejection_event = UserRejectsObservation(
+                    action_id=action_event.id,
+                    tool_name=action_event.tool_name,
+                    tool_call_id=action_event.tool_call_id,
+                    rejection_reason=reason,
+                )
+                self._on_event(rejection_event)
+                logger.info(
+                    f"Rejected pending action: {action_event.tool_name} - {reason}"
+                )
+
+        # Clear pending actions after rejection
+        self.agent.clear_pending_actions()
 
     def _find_action_by_id(self, action_id: str) -> ActionEvent | None:
         """Find an action event by its ID."""

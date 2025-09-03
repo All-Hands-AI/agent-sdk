@@ -30,6 +30,10 @@ class AgentBase(ABC):
         self._llm = llm
         self._env_context = env_context
         self._confirmation_mode = confirmation_mode
+        self._pending_actions: list = []  # Track pending actions in confirmation mode
+        self._created_action_in_this_run = (
+            False  # Track if actions were created in current run
+        )
 
         # Load tools into an immutable dict
         _tools_map = {}
@@ -77,6 +81,23 @@ class AgentBase(ABC):
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode."""
         self._confirmation_mode = enabled
+
+    def get_pending_actions(self) -> list:
+        """Get list of pending actions awaiting confirmation."""
+        return self._pending_actions.copy()
+
+    def clear_pending_actions(self) -> None:
+        """Clear all pending actions."""
+        self._pending_actions.clear()
+
+    def add_pending_action(self, action_event) -> None:
+        """Add an action to the pending list."""
+        self._pending_actions.append(action_event)
+        self._created_action_in_this_run = True
+
+    def reset_run_flag(self) -> None:
+        """Reset the flag that tracks if actions were created in this run."""
+        self._created_action_in_this_run = False
 
     @abstractmethod
     def init_state(

@@ -4,8 +4,8 @@ Example demonstrating confirmation mode in OpenHands Agent SDK.
 
 This example shows how to:
 1. Enable confirmation mode for an agent
-2. Handle pending actions that require confirmation
-3. Confirm or reject actions
+2. Use conversation.run() twice for implicit confirmation
+3. Use conversation.reject_pending_actions() to reject actions
 4. Toggle confirmation mode during conversation
 """
 
@@ -92,13 +92,12 @@ def main() -> None:
     )
     conversation.send_message(user_message)
 
-    # Run one step - this should create an action but not execute it
+    # First run() - this should create an action but not execute it
     print(
-        "Running agent step (should create action but not execute due to "
-        "confirmation mode)..."
+        "Running conversation.run() first time (should create action but not execute "
+        "due to confirmation mode)..."
     )
-    # Note: In confirmation mode, the agent will pause after creating actions
-    # We need to manually handle the confirmation flow
+    conversation.run()
 
     print_separator("Step 2: Check for pending actions")
     print_pending_actions(conversation)
@@ -109,17 +108,12 @@ def main() -> None:
         print("No pending actions found. The agent might not have created an action.")
         return
 
-    action_to_confirm = pending_actions[0]
+    print_separator("Step 3: Demonstrate implicit confirmation")
 
-    print_separator("Step 3: Demonstrate action confirmation")
-
-    # Confirm the action
-    print(f"Confirming action: {action_to_confirm.id}")
-    try:
-        conversation.confirm_action(action_to_confirm.id)
-        print("Action confirmed and executed!")
-    except Exception as e:
-        print(f"Error confirming action: {e}")
+    # Second run() - this should execute the pending actions (implicit confirmation)
+    print("Running conversation.run() second time (should execute pending actions)...")
+    conversation.run()
+    print("Actions executed via implicit confirmation!")
 
     print_separator("Step 4: Send another message and demonstrate rejection")
 
@@ -136,9 +130,9 @@ def main() -> None:
     )
     conversation.send_message(user_message2)
 
-    # Run one step
-    print("Running agent step for second command...")
-    # Again, this will pause in confirmation mode
+    # First run() - this will create new actions
+    print("Running conversation.run() first time for second command...")
+    conversation.run()
 
     # Check for new pending actions
     print("Checking for new pending actions...")
@@ -146,17 +140,15 @@ def main() -> None:
 
     pending_actions = conversation.get_pending_actions()
     if pending_actions:
-        action_to_reject = pending_actions[0]
-
-        # Reject the action
-        print(f"Rejecting action: {action_to_reject.id}")
+        # Reject the pending actions
+        print("Rejecting pending actions...")
         try:
-            conversation.reject_action(
-                action_to_reject.id, "User decided this action is too dangerous"
+            conversation.reject_pending_actions(
+                "User decided this action is too dangerous"
             )
-            print("Action rejected!")
+            print("Actions rejected!")
         except Exception as e:
-            print(f"Error rejecting action: {e}")
+            print(f"Error rejecting actions: {e}")
 
     print_separator("Step 5: Demonstrate toggling confirmation mode")
 
@@ -191,12 +183,14 @@ def main() -> None:
     print_separator("Example Complete")
     print("This example demonstrated:")
     print("1. ✓ Creating an agent with confirmation mode enabled")
-    print("2. ✓ Handling pending actions that require confirmation")
-    print("3. ✓ Confirming actions to allow execution")
-    print("4. ✓ Rejecting actions to prevent execution")
-    print("5. ✓ Toggling confirmation mode during conversation")
-    print("\nConfirmation mode gives you full control over which actions")
-    print("your agent can execute, making it safer for production use!")
+    print("2. ✓ Using conversation.run() twice for implicit confirmation")
+    print("3. ✓ Using conversation.reject_pending_actions() to reject actions")
+    print("4. ✓ Toggling confirmation mode during conversation")
+    print("\nThe new confirmation mode API is simpler:")
+    print("- conversation.run() creates actions (first call)")
+    print("- conversation.run() executes actions (second call = implicit confirmation)")
+    print("- conversation.reject_pending_actions() rejects actions between calls")
+    print("\nThis gives you full control over which actions your agent can execute!")
 
 
 if __name__ == "__main__":
