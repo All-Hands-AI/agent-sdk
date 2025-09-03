@@ -2,14 +2,13 @@
 
 from pydantic import Field
 
-from openhands.core.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.tools.execute_bash.constants import NO_CHANGE_TIMEOUT_SECONDS
+from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 from openhands.tools.utils.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
 )
-
-from .constants import NO_CHANGE_TIMEOUT_SECONDS
-from .metadata import CmdOutputMetadata
 
 
 class ExecuteBashAction(ActionBase):

@@ -2,9 +2,9 @@ import os
 
 from pydantic import SecretStr
 
-from openhands.core import (
+from openhands.sdk import (
     LLM,
-    CodeActAgent,
+    Agent,
     Conversation,
     EventType,
     LLMConfig,
@@ -45,7 +45,7 @@ tools: list[Tool] = [
 ]
 
 # Agent
-agent = CodeActAgent(llm=llm, tools=tools)
+agent = Agent(llm=llm, tools=tools)
 
 llm_messages = []  # collect raw LLM messages
 
@@ -64,8 +64,8 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py that "
-                    "prints 'Hello, World!'?"
+                    "Hello! Can you create a new Python file named hello.py"
+                    " that prints 'Hello, World!'?"
                 )
             )
         ],

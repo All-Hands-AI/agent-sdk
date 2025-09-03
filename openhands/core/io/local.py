@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from openhands.core.logger import get_logger
+from openhands.sdk.logger import get_logger
 
 from .base import FileStore
 

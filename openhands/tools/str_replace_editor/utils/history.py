@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional
 
-from .file_cache import FileCache
+from openhands.tools.str_replace_editor.utils.file_cache import FileCache
 
 
 class FileHistoryManager:

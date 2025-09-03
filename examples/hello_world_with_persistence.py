@@ -2,10 +2,10 @@ import os
 
 from pydantic import SecretStr
 
-from openhands.core import (
+from openhands.sdk import (
     LLM,
     ActionBase,
-    CodeActAgent,
+    Agent,
     Conversation,
     LLMConfig,
     Message,
@@ -14,7 +14,7 @@ from openhands.core import (
     Tool,
     get_logger,
 )
-from openhands.core.event import EventType
+from openhands.sdk.event import EventType
 from openhands.tools import (
     BashExecutor,
     FileEditorExecutor,
@@ -46,7 +46,7 @@ tools: list[Tool] = [
 ]
 
 # Agent
-agent = CodeActAgent(llm=llm, tools=tools)
+agent = Agent(llm=llm, tools=tools)
 
 llm_messages = []  # collect raw LLM messages
 

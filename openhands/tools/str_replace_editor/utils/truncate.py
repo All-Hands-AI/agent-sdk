@@ -1,5 +1,5 @@
-from .config import MAX_RESPONSE_LEN_CHAR
-from .prompts import CONTENT_TRUNCATED_NOTICE
+from openhands.tools.str_replace_editor.utils.config import MAX_RESPONSE_LEN_CHAR
+from openhands.tools.str_replace_editor.utils.prompts import CONTENT_TRUNCATED_NOTICE
 
 
 def maybe_truncate(
