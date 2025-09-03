@@ -41,12 +41,14 @@ jobs:
       - name: Run sdk tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
         run: |
+          # Clean up any existing coverage file
+          rm -f .coverage
           CI=true uv run python -m pytest -vvs \
             --cov=openhands/sdk \
             --cov-report=term-missing \
             --cov-fail-under=0 \
             --cov-config=pyproject.toml \
-            tests/sdk || true
+            tests/sdk
           # Rename coverage file to avoid conflicts
           if [ -f .coverage ]; then
             mv .coverage .coverage.sdk
@@ -100,12 +102,14 @@ jobs:
       - name: Run tools tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
         run: |
+          # Clean up any existing coverage file
+          rm -f .coverage
           CI=true uv run python -m pytest -vvs \
             --cov=openhands/tools \
             --cov-report=term-missing \
             --cov-fail-under=0 \
             --cov-config=pyproject.toml \
-            tests/tools || true
+            tests/tools
           # Rename coverage file to avoid conflicts
           if [ -f .coverage ]; then
             mv .coverage .coverage.tools
@@ -160,6 +164,8 @@ jobs:
       - name: Run integration tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
         run: |
+          # Clean up any existing coverage file
+          rm -f .coverage
           CI=true uv run python -m pytest -vvs \
             --basetemp="${{ runner.temp }}/pytest" \
             -o tmp_path_retention=none \
@@ -168,7 +174,7 @@ jobs:
             --cov-report=term-missing \
             --cov-fail-under=0 \
             --cov-config=pyproject.toml \
-            tests/integration || true
+            tests/integration
           # Rename coverage file to avoid conflicts
           if [ -f .coverage ]; then
             mv .coverage .coverage.integration
