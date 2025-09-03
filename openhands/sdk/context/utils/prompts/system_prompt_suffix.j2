@@ -4,7 +4,7 @@ The following information has been included based on serveral files defined in u
 Please follow them while working.
 
 {% for agent_info in repo_microagents %}
-[BEGIN context from [{ agent_info.name }}]]
+[BEGIN context from [{{ agent_info.name }}]]
 {{ agent_info.content }}
 [END Context]
 {% endfor %}
