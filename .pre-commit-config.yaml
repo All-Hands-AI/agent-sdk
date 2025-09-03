@@ -17,6 +17,14 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: true
+      - id: pycodestyle
+        name: PEP8 style check (pycodestyle)
+        entry: uv
+        args: ["run", "pycodestyle", "--max-line-length=88", "--ignore=E203,E501,W503"]
+        language: system
+        types: [python]
+        pass_filenames: true
+        always_run: false
       - id: pyright
         name: Type check with Pyright (strict)
         entry: uv

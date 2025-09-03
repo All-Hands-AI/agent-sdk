@@ -5,13 +5,12 @@ if TYPE_CHECKING:
     from openhands.core.agent import AgentBase
 
 from openhands.core.context import EnvContext
+from openhands.core.conversation.state import ConversationState
+from openhands.core.conversation.types import ConversationCallbackType
+from openhands.core.conversation.visualizer import ConversationVisualizer
 from openhands.core.event import MessageEvent
 from openhands.core.llm import Message, TextContent
 from openhands.core.logger import get_logger
-
-from .state import ConversationState
-from .types import ConversationCallbackType
-from .visualizer import ConversationVisualizer
 
 
 logger = get_logger(__name__)

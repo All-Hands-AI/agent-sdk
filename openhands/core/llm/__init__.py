@@ -1,7 +1,7 @@
-from .llm import LLM
-from .llm_registry import LLMRegistry, RegistryEvent
-from .message import ImageContent, Message, TextContent
-from .metadata import get_llm_metadata
+from openhands.core.llm.llm import LLM
+from openhands.core.llm.llm_registry import LLMRegistry, RegistryEvent
+from openhands.core.llm.message import ImageContent, Message, TextContent
+from openhands.core.llm.metadata import get_llm_metadata
 
 
 __all__ = [

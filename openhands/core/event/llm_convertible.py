@@ -4,11 +4,10 @@ from litellm import ChatCompletionMessageToolCall
 from openai.types.chat import ChatCompletionToolParam
 from pydantic import Field
 
+from openhands.core.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
+from openhands.core.event.types import EventType, SourceType
 from openhands.core.llm import ImageContent, Message, TextContent
 from openhands.core.tool import ActionBase, ObservationBase
-
-from .base import N_CHAR_PREVIEW, LLMConvertibleEvent
-from .types import EventType, SourceType
 
 
 class SystemPromptEvent(LLMConvertibleEvent):

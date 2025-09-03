@@ -5,7 +5,11 @@ These are built in and are *required* for the agent to work.
 For tools that require interacting with the environment, add them to `openhands/tools`.
 """
 
-from .finish import FinishAction, FinishObservation, FinishTool
+from openhands.core.tool.builtins.finish import (
+    FinishAction,
+    FinishObservation,
+    FinishTool,
+)
 
 
 BUILT_IN_TOOLS = [FinishTool]

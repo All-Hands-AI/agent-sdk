@@ -1,5 +1,5 @@
-from .base import AgentBase
-from .codeact_agent import CodeActAgent
+from openhands.core.agent.base import AgentBase
+from openhands.core.agent.codeact_agent import CodeActAgent
 
 
 __all__ = [

@@ -1,4 +1,4 @@
-from .codeact_agent import CodeActAgent
+from openhands.core.agent.codeact_agent.codeact_agent import CodeActAgent
 
 
 __all__ = [

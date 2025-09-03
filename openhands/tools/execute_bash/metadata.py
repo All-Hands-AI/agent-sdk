@@ -7,8 +7,7 @@ import traceback
 from pydantic import BaseModel, Field
 
 from openhands.core.logger import get_logger
-
-from .constants import (
+from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_METADATA_PS1_REGEX,
     CMD_OUTPUT_PS1_BEGIN,
     CMD_OUTPUT_PS1_END,

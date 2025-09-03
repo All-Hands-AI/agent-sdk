@@ -1,6 +1,12 @@
 from pydantic import Field
 
-from ..tool import ActionBase, ObservationBase, Tool, ToolAnnotations, ToolExecutor
+from openhands.core.tool.tool import (
+    ActionBase,
+    ObservationBase,
+    Tool,
+    ToolAnnotations,
+    ToolExecutor,
+)
 
 
 class FinishAction(ActionBase):

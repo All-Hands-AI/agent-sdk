@@ -1,10 +1,14 @@
-from .microagent import (
+from openhands.core.context.microagents.microagent import (
     BaseMicroagent,
     KnowledgeMicroagent,
     RepoMicroagent,
     load_microagents_from_dir,
 )
-from .types import MicroagentKnowledge, MicroagentMetadata, MicroagentType
+from openhands.core.context.microagents.types import (
+    MicroagentKnowledge,
+    MicroagentMetadata,
+    MicroagentType,
+)
 
 
 __all__ = [

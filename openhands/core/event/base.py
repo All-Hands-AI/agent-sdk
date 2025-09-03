@@ -5,13 +5,12 @@ from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from openhands.core.event.types import SourceType
 from openhands.core.llm import ImageContent, Message, TextContent
-
-from .types import SourceType
 
 
 if TYPE_CHECKING:
-    from .llm_convertible import ActionEvent
+    from openhands.core.event.llm_convertible import ActionEvent
 
 N_CHAR_PREVIEW = 500
 
@@ -78,7 +77,7 @@ class LLMConvertibleEvent(EventBase, ABC):
     def events_to_messages(events: list["LLMConvertibleEvent"]) -> list[Message]:
         """Convert event stream to LLM message stream, handling multi-action batches"""
         # TODO: We should add extensive tests for this
-        from .llm_convertible import ActionEvent  # Import here to avoid circular import
+        from openhands.core.event.llm_convertible import ActionEvent
 
         messages = []
         i = 0

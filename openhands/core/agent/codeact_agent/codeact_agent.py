@@ -9,6 +9,7 @@ from litellm.types.utils import (
 )
 from pydantic import ValidationError
 
+from openhands.core.agent.base import AgentBase
 from openhands.core.context import EnvContext, render_system_message
 from openhands.core.context.condenser import Condenser
 from openhands.core.context.view import View
@@ -31,8 +32,6 @@ from openhands.core.tool import (
     ObservationBase,
     Tool,
 )
-
-from ..base import AgentBase
 
 
 logger = get_logger(__name__)

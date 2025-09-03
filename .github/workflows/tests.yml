@@ -43,10 +43,10 @@ jobs:
         env:
           COVERAGE_FILE: .coverage.core
         run: |
-          CI=true uv run pytest -vvxss \
+          CI=true uv run python -m pytest -vvxss \
             --cov=openhands/core \
             --cov-report=term-missing \
-            openhands/core/tests
+            tests/core
 
       - name: Upload core coverage
         if: steps.changed.outputs.any_changed == 'true' && always()
@@ -87,10 +87,10 @@ jobs:
         env:
           COVERAGE_FILE: .coverage.tools
         run: |
-          CI=true uv run pytest -vvxss \
+          CI=true uv run python -m pytest -vvxss \
             --cov=openhands/tools \
             --cov-report=term-missing \
-            openhands/tools/tests
+            tests/tools
 
       - name: Upload tools coverage
         if: steps.changed.outputs.any_changed == 'true' && always()
@@ -132,13 +132,13 @@ jobs:
         env:
           COVERAGE_FILE: .coverage.integration
         run: |
-          CI=true uv run pytest -vvxss \
+          CI=true uv run python -m pytest -vvxss \
             --basetemp="${{ runner.temp }}/pytest" \
             -o tmp_path_retention=none \
             -o tmp_path_retention_count=0 \
             --cov=openhands \
             --cov-report=term-missing \
-            tests
+            tests/integration
 
       - name: Upload integration coverage
         if: steps.changed.outputs.any_changed == 'true' && always()

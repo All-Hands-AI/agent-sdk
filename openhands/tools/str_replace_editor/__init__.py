@@ -1,9 +1,9 @@
-from .definition import (
+from openhands.tools.str_replace_editor.definition import (
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
     str_replace_editor_tool,
 )
-from .impl import FileEditorExecutor, file_editor
+from openhands.tools.str_replace_editor.impl import FileEditorExecutor, file_editor
 
 
 __all__ = [
