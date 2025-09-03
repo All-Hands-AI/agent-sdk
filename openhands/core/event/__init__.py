@@ -10,7 +10,16 @@ from .llm_convertible import (
 )
 
 
-EventType = LLMConvertibleEvent | ActionEvent | ObservationEvent | MessageEvent | SystemPromptEvent | AgentErrorEvent | Condensation | CondensationRequest
+EventType = (
+    LLMConvertibleEvent
+    | ActionEvent
+    | ObservationEvent
+    | MessageEvent
+    | SystemPromptEvent
+    | AgentErrorEvent
+    | Condensation
+    | CondensationRequest
+)
 
 
 __all__ = [

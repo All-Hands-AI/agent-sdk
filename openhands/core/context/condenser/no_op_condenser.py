@@ -8,5 +8,6 @@ class NoOpCondenser(Condenser):
 
     Primarily intended for testing purposes.
     """
+
     def condense(self, view: View) -> View | Condensation:
         return view

@@ -13,7 +13,6 @@ from openhands.core.context import EnvContext, render_system_message
 from openhands.core.context.condenser import Condenser
 from openhands.core.context.view import View
 from openhands.core.conversation import ConversationCallbackType, ConversationState
-from openhands.core.event.context import Condensation
 from openhands.core.event import (
     ActionEvent,
     AgentErrorEvent,
@@ -22,6 +21,7 @@ from openhands.core.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
+from openhands.core.event.context import Condensation
 from openhands.core.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.core.logger import get_logger
 from openhands.core.tool import (
@@ -70,8 +70,11 @@ class CodeActAgent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # TODO(openhands): we should add test to test this init_state will actually modify state in-place
-        llm_convertible_messages = [event for event in state.events if isinstance(event, LLMConvertibleEvent)]
+        # TODO(openhands): we should add test to test this init_state will actually
+        # modify state in-place
+        llm_convertible_messages = [
+            event for event in state.events if isinstance(event, LLMConvertibleEvent)
+        ]
         if len(llm_convertible_messages) == 0:
             # Prepare system message
             event = SystemPromptEvent(
@@ -97,17 +100,22 @@ class CodeActAgent(AgentBase):
             match condensation_result:
                 case View():
                     llm_convertible_events = condensation_result.events
-                
+
                 case Condensation():
                     state.events.append(condensation_result)
                     on_event(condensation_result)
                     return None
 
         else:
-            llm_convertible_events = cast(list[LLMConvertibleEvent], [e for e in state.events if isinstance(e, LLMConvertibleEvent)])
+            llm_convertible_events = cast(
+                list[LLMConvertibleEvent],
+                [e for e in state.events if isinstance(e, LLMConvertibleEvent)],
+            )
 
         # Get LLM Response (Action)
-        _messages = self.llm.format_messages_for_llm(LLMConvertibleEvent.events_to_messages(llm_convertible_events))
+        _messages = self.llm.format_messages_for_llm(
+            LLMConvertibleEvent.events_to_messages(llm_convertible_events)
+        )
         logger.debug(f"Sending messages to LLM: {json.dumps(_messages, indent=2)}")
         response: ModelResponse = self.llm.completion(
             messages=_messages,

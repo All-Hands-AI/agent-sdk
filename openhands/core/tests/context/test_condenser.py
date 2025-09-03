@@ -7,7 +7,10 @@ from openhands.core.llm import Message, TextContent
 
 
 def message_event(content: str) -> MessageEvent:
-    return MessageEvent(llm_message=Message(role="user", content=[TextContent(text=content)]), source="user")
+    return MessageEvent(
+        llm_message=Message(role="user", content=[TextContent(text=content)]),
+        source="user",
+    )
 
 
 def test_noop_condenser() -> None:
