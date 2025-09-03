@@ -17,7 +17,7 @@ from openhands.sdk.tool import ActionBase, ObservationBase, Tool
 
 
 try:
-    __version__ = version("openhands-core")
+    __version__ = version("openhands.sdk")
 except PackageNotFoundError:
     __version__ = "0.0.0"  # fallback for editable/unbuilt environments
 

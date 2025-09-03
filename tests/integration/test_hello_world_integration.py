@@ -122,7 +122,7 @@ class TestHelloWorldIntegration:
 
         return [first_response, second_response]
 
-    @patch("openhands.core.llm.llm.litellm_completion")
+    @patch("openhands.sdk.llm.llm.litellm_completion")
     def test_hello_world_integration_with_mocked_llm(self, mock_completion):
         """Test the complete hello world flow with mocked LLM responses."""
         # Setup mock responses
@@ -230,7 +230,7 @@ class TestHelloWorldIntegration:
             f"User message should mention hello.py and Hello, World! Got: {user_text}"
         )
 
-    @patch("openhands.core.llm.llm.litellm_completion")
+    @patch("openhands.sdk.llm.llm.litellm_completion")
     def test_conversation_callback_functionality(self, mock_completion):
         """Test that conversation callbacks work correctly."""
         # Setup simple mock response
