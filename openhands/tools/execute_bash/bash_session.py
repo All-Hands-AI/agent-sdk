@@ -6,7 +6,7 @@ from enum import Enum
 
 import libtmux
 
-from openhands.core.logger import get_logger
+from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_PS1_END,
     HISTORY_LIMIT,

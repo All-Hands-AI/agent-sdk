@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from openhands.core.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
 from openhands.tools.utils.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,

@@ -8,7 +8,7 @@ from unittest.mock import patch
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.core import (
+from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
@@ -19,7 +19,7 @@ from openhands.core import (
     Tool,
     get_logger,
 )
-from openhands.core.event.llm_convertible import (
+from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     MessageEvent,
     ObservationEvent,

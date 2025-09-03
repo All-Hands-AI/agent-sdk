@@ -2,7 +2,7 @@ import os
 
 from pydantic import SecretStr
 
-from openhands.core import (
+from openhands.sdk import (
     Agent,
     Conversation,
     EventType,
