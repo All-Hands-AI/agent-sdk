@@ -100,7 +100,9 @@ def test_detect_encoding_none_result(encoding_manager, temp_file):
         f.write(b"\x00\x01\x02\x03")  # Binary data
 
     # Mock chardet.detect to return None for encoding
-    with patch("charset_normalizer.detect", return_value={"encoding": None, "confidence": 0.0}):
+    with patch(
+        "charset_normalizer.detect", return_value={"encoding": None, "confidence": 0.0}
+    ):
         encoding = encoding_manager.detect_encoding(temp_file)
         assert encoding == encoding_manager.default_encoding
 
@@ -112,13 +114,17 @@ def test_get_encoding_cache_hit(encoding_manager, temp_file):
         f.write("Hello, world!")
 
     # First call should detect encoding
-    with patch.object(encoding_manager, "detect_encoding", return_value="utf-8") as mock_detect:
+    with patch.object(
+        encoding_manager, "detect_encoding", return_value="utf-8"
+    ) as mock_detect:
         encoding1 = encoding_manager.get_encoding(temp_file)
         assert encoding1 == "utf-8"
         mock_detect.assert_called_once()
 
     # Second call should use cache
-    with patch.object(encoding_manager, "detect_encoding", return_value="utf-8") as mock_detect:
+    with patch.object(
+        encoding_manager, "detect_encoding", return_value="utf-8"
+    ) as mock_detect:
         encoding2 = encoding_manager.get_encoding(temp_file)
         assert encoding2 == "utf-8"
         mock_detect.assert_not_called()
@@ -142,7 +148,9 @@ def test_get_encoding_cache_invalidation(encoding_manager, temp_file):
         f.write("Modified content")
 
     # Mock detect_encoding to verify it's called again
-    with patch.object(encoding_manager, "detect_encoding", return_value="utf-8") as mock_detect:
+    with patch.object(
+        encoding_manager, "detect_encoding", return_value="utf-8"
+    ) as mock_detect:
         encoding2 = encoding_manager.get_encoding(temp_file)
         assert encoding2 == "utf-8"
         mock_detect.assert_called_once()
@@ -164,7 +172,9 @@ def test_with_encoding_decorator():
 
     # Test with a directory
     with patch.object(Path, "is_dir", return_value=True):
-        with patch.object(editor._encoding_manager, "get_encoding") as mock_get_encoding:
+        with patch.object(
+            editor._encoding_manager, "get_encoding"
+        ) as mock_get_encoding:
             result = editor.read_file(Path("/some/dir"))
             assert result == "Reading file with encoding: utf-8"
             mock_get_encoding.assert_not_called()
@@ -173,12 +183,17 @@ def test_with_encoding_decorator():
     with patch.object(Path, "is_dir", return_value=False):
         with patch.object(Path, "exists", return_value=False):
             result = editor.read_file(Path("/nonexistent/file.txt"))
-            assert result == f"Reading file with encoding: {editor._encoding_manager.default_encoding}"
+            assert (
+                result == f"Reading file with encoding: "
+                f"{editor._encoding_manager.default_encoding}"
+            )
 
     # Test with an existing file
     with patch.object(Path, "is_dir", return_value=False):
         with patch.object(Path, "exists", return_value=True):
-            with patch.object(editor._encoding_manager, "get_encoding", return_value="latin-1"):
+            with patch.object(
+                editor._encoding_manager, "get_encoding", return_value="latin-1"
+            ):
                 result = editor.read_file(Path("/existing/file.txt"))
                 assert result == "Reading file with encoding: latin-1"
 
@@ -226,7 +241,9 @@ def test_cache_size_limit(encoding_manager, temp_file):
     # Mock exists and getmtime to return consistent values
     with patch.object(Path, "exists", return_value=True):
         with patch.object(os.path, "getmtime", return_value=123456):
-            with patch.object(encoding_manager, "detect_encoding", return_value="utf-8"):
+            with patch.object(
+                encoding_manager, "detect_encoding", return_value="utf-8"
+            ):
                 # Access paths in order 0, 1, 2, 3
                 for i, path in enumerate(paths):
                     encoding_manager.get_encoding(path)
@@ -374,7 +391,9 @@ def test_create_non_utf8_file():
         # Parse the result - now using direct access
 
         # Verify the file was created successfully
-        assert result.output is not None and "File created successfully" in result.output
+        assert (
+            result.output is not None and "File created successfully" in result.output
+        )
 
         # Read the file with cp1251 encoding to verify content
         encoding_manager = EncodingManager()

@@ -12,4 +12,14 @@ from .llm_convertible import (
 
 EventType = LLMConvertibleEvent | ActionEvent | ObservationEvent | MessageEvent | SystemPromptEvent | AgentErrorEvent | Condensation | CondensationRequest
 
-__all__ = ["EventBase", "LLMConvertibleEvent", "SystemPromptEvent", "ActionEvent", "ObservationEvent", "MessageEvent", "AgentErrorEvent", "EventType"]
+
+__all__ = [
+    "EventBase",
+    "LLMConvertibleEvent",
+    "SystemPromptEvent",
+    "ActionEvent",
+    "ObservationEvent",
+    "MessageEvent",
+    "AgentErrorEvent",
+    "EventType",
+]

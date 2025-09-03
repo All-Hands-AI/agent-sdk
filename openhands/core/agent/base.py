@@ -73,7 +73,8 @@ class AgentBase(ABC):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        """Initialize the empty conversation state to prepare the agent for user messages.
+        """Initialize the empty conversation state to prepare the agent for user
+        messages.
 
         Typically this involves adding system message
 

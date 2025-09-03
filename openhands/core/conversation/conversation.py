@@ -17,7 +17,9 @@ from .visualizer import ConversationVisualizer
 logger = get_logger(__name__)
 
 
-def compose_callbacks(callbacks: Iterable[ConversationCallbackType]) -> ConversationCallbackType:
+def compose_callbacks(
+    callbacks: Iterable[ConversationCallbackType],
+) -> ConversationCallbackType:
     def composed(event) -> None:
         for cb in callbacks:
             if cb:
@@ -27,7 +29,13 @@ def compose_callbacks(callbacks: Iterable[ConversationCallbackType]) -> Conversa
 
 
 class Conversation:
-    def __init__(self, agent: "AgentBase", callbacks: list[ConversationCallbackType] | None = None, max_iteration_per_run: int = 500, env_context: EnvContext | None = None):
+    def __init__(
+        self,
+        agent: "AgentBase",
+        callbacks: list[ConversationCallbackType] | None = None,
+        max_iteration_per_run: int = 500,
+        env_context: EnvContext | None = None,
+    ):
         """Initialize the conversation."""
         self._visualizer = ConversationVisualizer()
         self.agent = agent
@@ -37,8 +45,12 @@ class Conversation:
         def _append_event(e):
             self.state.events.append(e)
 
-        # Compose callbacks; default appender runs last to keep agent-emitted event order (on_event then persist)
-        composed_list = [self._visualizer.on_event] + (callbacks if callbacks else []) + [_append_event]
+        # Compose callbacks; default appender runs last to keep agent-emitted event order (on_event then persist)  # noqa: E501
+        composed_list = (
+            [self._visualizer.on_event]
+            + (callbacks if callbacks else [])
+            + [_append_event]
+        )
         self._on_event = compose_callbacks(composed_list)
 
         self.max_iteration_per_run = max_iteration_per_run
@@ -51,27 +63,38 @@ class Conversation:
 
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
-        assert message.role == "user", "Only user messages are allowed to be sent to the agent."
+        assert message.role == "user", (
+            "Only user messages are allowed to be sent to the agent."
+        )
         with self.state:
             activated_microagents = []
 
             if not self.state.initial_message_sent:
                 # Special case for initial message to include environment context
-                # TODO: think about this - we might want to handle this outside Agent but inside Conversation (e.g., in send_messages)
-                # downside of handling them inside Conversation would be: conversation don't have access
+                # TODO: think about this - we might want to handle this outside Agent but inside Conversation (e.g., in send_messages)  # noqa: E501
+                # downside of handling them inside Conversation would be: conversation don't have access  # noqa: E501
                 # to *any* action execution runtime information
                 if self.env_context:
-                    # TODO: the prompt manager here is a hack, will systematically fix it with LLMContextManager design
-                    initial_env_context: list[TextContent] = self.env_context.render(self.agent.prompt_dir)  # type: ignore
+                    # TODO: the prompt manager here is a hack, will systematically fix it with LLMContextManager design  # noqa: E501
+                    initial_env_context: list[TextContent] = self.env_context.render(
+                        self.agent.prompt_dir
+                    )  # type: ignore
                     message.content += initial_env_context
                     if self.env_context.activated_microagents:
-                        activated_microagents = [microagent.name for microagent in self.env_context.activated_microagents]
+                        activated_microagents = [
+                            microagent.name
+                            for microagent in self.env_context.activated_microagents
+                        ]
                 self.state.initial_message_sent = True
             else:
                 # TODO: handle per-message microagent context here
                 pass
 
-            user_msg_event = MessageEvent(source="user", llm_message=message, activated_microagents=activated_microagents)
+            user_msg_event = MessageEvent(
+                source="user",
+                llm_message=message,
+                activated_microagents=activated_microagents,
+            )
             self._on_event(user_msg_event)
 
     def run(self) -> None:

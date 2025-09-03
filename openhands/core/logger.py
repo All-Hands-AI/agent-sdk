@@ -16,7 +16,11 @@ import litellm
 
 
 # ========= ENV (loaded at import) =========
-LEVEL_MAP = logging.getLevelNamesMapping() if hasattr(logging, "getLevelNamesMapping") else logging._nameToLevel
+LEVEL_MAP = (
+    logging.getLevelNamesMapping()
+    if hasattr(logging, "getLevelNamesMapping")
+    else logging._nameToLevel
+)
 DEBUG = os.environ.get("DEBUG", "false").lower() in {"1", "true", "yes"}
 ENV_LOG_LEVEL_STR = os.getenv("LOG_LEVEL", "INFO").upper()
 ENV_LOG_LEVEL = LEVEL_MAP.get(ENV_LOG_LEVEL_STR, logging.INFO)
@@ -43,7 +47,13 @@ def _configure_litellm_logger(level: int) -> None:
 # Configure litellm logging based on DEBUG_LLM
 _ENABLE_LITELLM_DEBUG = False
 if ENV_DEBUG_LLM:
-    confirmation = input("\n⚠️ WARNING: You are enabling DEBUG_LLM which may expose sensitive information like API keys.\nThis should NEVER be enabled in production.\nType 'y' to confirm you understand the risks: ")
+    confirmation = input(
+        (
+            "\n⚠️ WARNING: You are enabling DEBUG_LLM which may expose sensitive "
+            "information like API keys.\nThis should NEVER be enabled in production.\n"
+            "Type 'y' to confirm you understand the risks: "
+        )
+    )
     if confirmation.lower() == "y":
         _ENABLE_LITELLM_DEBUG = True
         litellm.suppress_debug_info = False

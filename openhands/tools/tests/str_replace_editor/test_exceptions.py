@@ -22,7 +22,10 @@ def test_editor_tool_parameter_missing_error():
         raise EditorToolParameterMissingError(command, parameter)
     assert exc_info.value.command == command
     assert exc_info.value.parameter == parameter
-    assert exc_info.value.message == f"Parameter `{parameter}` is required for command: {command}."
+    assert (
+        exc_info.value.message
+        == f"Parameter `{parameter}` is required for command: {command}."
+    )
 
 
 def test_editor_tool_parameter_invalid_error_with_hint():

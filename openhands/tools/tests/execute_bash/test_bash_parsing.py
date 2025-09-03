@@ -60,7 +60,9 @@ done
     joined_cmds = "\n".join(cmds)
     split_cmds = split_bash_commands(joined_cmds)
     for i in range(len(cmds)):
-        assert split_cmds[i].strip() == cmds[i].strip(), f"At index {i}: {split_cmds[i]} != {cmds[i]}."
+        assert split_cmds[i].strip() == cmds[i].strip(), (
+            f"At index {i}: {split_cmds[i]} != {cmds[i]}."
+        )
 
 
 @pytest.mark.parametrize(
@@ -156,7 +158,8 @@ def test_invalid_syntax():
 def test_unclosed_backtick():
     # This test reproduces issue #7391
     # The issue occurs when parsing a command with an unclosed backtick
-    # which causes a TypeError: ParsingError.__init__() missing 2 required positional arguments: 's' and 'position'
+    # which causes a TypeError: ParsingError.__init__() missing 2 required
+    # positional arguments: 's' and 'position'
     command = "echo `unclosed backtick"
 
     # Should not raise TypeError
@@ -169,7 +172,13 @@ def test_unclosed_backtick():
         raise e
 
     # Also test with the original command from the issue (with placeholder org/repo)
-    curl_command = 'curl -X POST "https://api.github.com/repos/example-org/example-repo/pulls" \\ -H "Authorization: Bearer $GITHUB_TOKEN" \\ -H "Accept: application/vnd.github.v3+json" \\ -d \'{ "title": "XXX", "head": "XXX", "base": "main", "draft": false }\' `echo unclosed'
+    curl_command = (
+        'curl -X POST "https://api.github.com/repos/example-org/example-repo/pulls" \\ '
+        '-H "Authorization: Bearer $GITHUB_TOKEN" \\ '
+        '-H "Accept: application/vnd.github.v3+json" \\ '
+        '-d \'{ "title": "XXX", "head": "XXX", "base": "main", "draft": false }\' '
+        "`echo unclosed"
+    )
 
     try:
         result = split_bash_commands(curl_command)
@@ -181,7 +190,15 @@ def test_unclosed_backtick():
 def test_over_escaped_command():
     # This test reproduces issue #8369 Example 1
     # The issue occurs when parsing a command with over-escaped quotes
-    over_escaped_command = r"# 0. Setup directory\\nrm -rf /workspace/repro_sphinx_bug && mkdir -p /workspace/repro_sphinx_bug && cd /workspace/repro_sphinx_bug\\n\\n# 1. Run sphinx-quickstart\\nsphinx-quickstart --no-sep --project myproject --author me -v 0.1.0 --release 0.1.0 --language en . -q\\n\\n# 2. Create index.rst\\necho -e \'Welcome\\\\\\\\n=======\\\\\\\\n\\\\\\\\n.. toctree::\\\\n   :maxdepth: 2\\\\\\\\n\\\\\\\\n   mypackage_file\\\\\\\\n\' > index.rst"
+    over_escaped_command = (
+        r"# 0. Setup directory\\nrm -rf /workspace/repro_sphinx_bug && "
+        r"mkdir -p /workspace/repro_sphinx_bug && cd /workspace/repro_sphinx_bug\\n\\n"
+        r"# 1. Run sphinx-quickstart\\nsphinx-quickstart --no-sep --project myproject "
+        r"--author me -v 0.1.0 --release 0.1.0 --language en . -q\\n\\n"
+        r"# 2. Create index.rst\\necho -e \'Welcome\\\\\\\\n=======\\\\\\\\n\\\\\\\\n"
+        r".. toctree::\\\\n   :maxdepth: 2\\\\\\\\n\\\\\\\\n   "
+        r"mypackage_file\\\\\\\\n\' > index.rst"
+    )
 
     # Should not raise any exception
     try:
@@ -326,7 +343,9 @@ def test_escape_bash_special_chars():
 
     for input_cmd, expected in test_cases:
         result = escape_bash_special_chars(input_cmd)
-        assert result == expected, f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        assert result == expected, (
+            f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        )
 
 
 def test_escape_bash_special_chars_with_invalid_syntax():
@@ -349,7 +368,9 @@ EOF"""
     # Heredoc content should not be escaped
     expected = input_cmd
     result = escape_bash_special_chars(input_cmd)
-    assert result == expected, f"Failed to handle heredoc correctly\nExpected: {expected}\nGot: {result}"
+    assert result == expected, (
+        f"Failed to handle heredoc correctly\nExpected: {expected}\nGot: {result}"
+    )
 
 
 def test_escape_bash_special_chars_with_parameter_expansion():
@@ -371,7 +392,9 @@ def test_escape_bash_special_chars_with_parameter_expansion():
 
     for input_cmd, expected in test_cases:
         result = escape_bash_special_chars(input_cmd)
-        assert result == expected, f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        assert result == expected, (
+            f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        )
 
 
 def test_escape_bash_special_chars_with_command_substitution():
@@ -393,7 +416,9 @@ def test_escape_bash_special_chars_with_command_substitution():
 
     for input_cmd, expected in test_cases:
         result = escape_bash_special_chars(input_cmd)
-        assert result == expected, f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        assert result == expected, (
+            f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        )
 
 
 def test_escape_bash_special_chars_mixed_nodes():
@@ -424,7 +449,9 @@ def test_escape_bash_special_chars_mixed_nodes():
 
     for input_cmd, expected in test_cases:
         result = escape_bash_special_chars(input_cmd)
-        assert result == expected, f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        assert result == expected, (
+            f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        )
 
 
 def test_escape_bash_special_chars_with_chained_commands():
@@ -451,4 +478,6 @@ def test_escape_bash_special_chars_with_chained_commands():
 
     for input_cmd, expected in test_cases:
         result = escape_bash_special_chars(input_cmd)
-        assert result == expected, f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        assert result == expected, (
+            f'Failed on input "{input_cmd}"\nExpected: "{expected}"\nGot: "{result}"'
+        )

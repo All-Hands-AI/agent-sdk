@@ -77,7 +77,10 @@ startxref
         assert f"Here's the result of running `cat -n` on {test_file}" in result.output
 
         # Check for specific content present in the PDF
-        assert result.output is not None and "Printer-Friendly Caltrain Schedule" in result.output
+        assert (
+            result.output is not None
+            and "Printer-Friendly Caltrain Schedule" in result.output
+        )
     finally:
         # Clean up the temporary file
         Path(test_file).unlink(missing_ok=True)
