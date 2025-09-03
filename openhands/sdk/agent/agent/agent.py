@@ -188,7 +188,7 @@ class Agent(AgentBase):
                 action_events.append(action_event)
 
             # Handle confirmation mode stored on state
-            if state.confirmation_mode:
+            if state.confirmation_mode and action_events:
                 # In confirmation mode, actions are created but not executed
                 # They will be found and executed on the next run() call
                 logger.info(
@@ -196,9 +196,20 @@ class Agent(AgentBase):
                     "waiting for confirmation"
                 )
                 return
+            elif state.confirmation_mode and not action_events:
+                # In confirmation mode but no actions were created - continue normally
+                logger.info(
+                    "Confirmation mode: No actions created, continuing normally"
+                )
+                # Fall through to set agent_finished = True
             else:
+                # Not in confirmation mode, execute actions immediately
                 for action_event in action_events:
                     self._execute_action_events(state, action_event, on_event=on_event)
+
+            # If we reach here and no actions were created, agent should finish
+            if not action_events:
+                state.agent_finished = True
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
