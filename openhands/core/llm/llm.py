@@ -92,7 +92,7 @@ class LLM(RetryMixin):
         """
         self._tried_model_info = False
         self.cost_metric_supported: bool = True
-        self.config: LLMConfig = copy.deepcopy(config)  # May be modified internally
+        self.config: LLMConfig = copy.deepcopy(config)
         self.service_id = service_id
         self.metrics: Metrics = (
             metrics if metrics is not None else Metrics(model_name=config.model)
