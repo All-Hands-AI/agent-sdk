@@ -2,7 +2,7 @@
 
 import tempfile
 
-from openhands.core.logger import get_logger
+from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.bash_session import BashSession
 from openhands.tools.execute_bash.constants import TIMEOUT_MESSAGE_TEMPLATE
 

@@ -1,6 +1,6 @@
 # UV workspace configuration
 [tool.uv.workspace]
-members = ["openhands/core", "openhands/tools"]
+members = ["openhands/sdk", "openhands/tools"]
 
 # Workspace sources for intra-repo dependencies
 [tool.uv.sources]
@@ -39,25 +39,10 @@ lines-after-imports = 2
 # Pytest configuration
 [tool.pytest.ini_options]
 testpaths = [
-    "openhands/core/tests",
-    "openhands/tools/tests", 
     "tests"
 ]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
-
-# Coverage.py configuration
-[tool.coverage.run]
-omit = [
-    "openhands/core/tests/*",
-    "openhands/tools/tests/*",
-]
-
-[tool.coverage.report]
-omit = [
-    "openhands/core/tests/*",
-    "openhands/tools/tests/*",
-]
 
