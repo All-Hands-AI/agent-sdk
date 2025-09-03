@@ -21,7 +21,7 @@ agent-sdk/
 │   ├── core/               # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
 │   │   │   ├── base.py     # Base agent interface
-│   │   │   └── codeact_agent/  # CodeAct agent implementation
+│   │   │   └── agent/      # Agent implementation
 │   │   ├── config/         # Configuration management
 │   │   │   ├── llm_config.py   # LLM configuration
 │   │   │   └── mcp_config.py   # MCP configuration

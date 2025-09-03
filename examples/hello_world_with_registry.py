@@ -3,7 +3,7 @@ import os
 from pydantic import SecretStr
 
 from openhands.core import (
-    CodeActAgent,
+    Agent,
     Conversation,
     EventType,
     LLMConfig,
@@ -49,7 +49,7 @@ tools: list[Tool] = [
 ]
 
 # Agent
-agent = CodeActAgent(llm=llm, tools=tools)
+agent = Agent(llm=llm, tools=tools)
 
 llm_messages = []  # collect raw LLM messages
 

@@ -10,7 +10,7 @@ from pydantic import SecretStr
 
 from openhands.core import (
     LLM,
-    CodeActAgent,
+    Agent,
     Conversation,
     EventType,
     LLMConfig,
@@ -146,7 +146,7 @@ class TestHelloWorldIntegration:
         ]
 
         # Agent setup
-        agent = CodeActAgent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tools)
 
         # Conversation setup
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
@@ -263,7 +263,7 @@ class TestHelloWorldIntegration:
             str_replace_editor_tool.set_executor(executor=file_editor),
         ]
 
-        agent = CodeActAgent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tools)
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
 
         # Send a simple message
@@ -298,7 +298,7 @@ class TestHelloWorldIntegration:
             str_replace_editor_tool.set_executor(executor=file_editor),
         ]
 
-        agent = CodeActAgent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tools)
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
 
         # Send message without running the conversation
@@ -349,7 +349,7 @@ class TestHelloWorldIntegration:
         assert tools[1].executor is not None
 
         # Verify agent can be created
-        agent = CodeActAgent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tools)
         assert agent is not None
         assert agent.llm == llm
         assert len(agent.tools) == 3  # execute_bash, str_replace_editor, finish

@@ -1,8 +1,6 @@
 from .agent import Agent
-from .base import AgentBase
 
 
 __all__ = [
     "Agent",
-    "AgentBase",
 ]
