@@ -423,9 +423,9 @@ class TestConfirmationMode:
         # The key insight: in confirmation mode, if no actions are created,
         # the agent should continue to allow message responses, not finish
 
-        # This test verifies the logic fix in agent.py where we changed:
-        # OLD: if not action_events: state.agent_finished = True
-        # NEW: if not action_events and not state.confirmation_mode: state.agent_finished = True  # noqa: E501
+        # This test verifies the logic fix in agent.py where we removed:
+        # OLD (removed): if not action_events: state.agent_finished = True
+        # NEW: Agent only finishes on explicit message responses, not when no actions created
 
         # Simulate the scenario where no actions are created
         # The agent should not finish in this case when in confirmation mode
