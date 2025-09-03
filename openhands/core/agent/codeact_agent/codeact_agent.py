@@ -113,10 +113,12 @@ class CodeActAgent(AgentBase):
             )
 
         # Get LLM Response (Action)
-        _messages = self.llm.format_messages_for_llm(
-            LLMConvertibleEvent.events_to_messages(llm_convertible_events)
+        _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
+        logger.debug(
+            "Sending messages to LLM: "
+            f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
+
         )
-        logger.debug(f"Sending messages to LLM: {json.dumps(_messages, indent=2)}")
         response: ModelResponse = self.llm.completion(
             messages=_messages,
             tools=[tool.to_openai_tool() for tool in self.tools.values()],

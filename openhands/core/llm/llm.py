@@ -3,7 +3,7 @@ import os
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, TypeGuard
+from typing import Any, Callable, TypeGuard, cast
 
 import httpx
 
@@ -100,6 +100,8 @@ class LLM(RetryMixin):
 
         self.model_info: ModelInfo | None = None
         self._function_calling_active: bool = False
+        self._max_input_tokens: int | None = self.config.max_input_tokens
+        self._max_output_tokens: int | None = self.config.max_output_tokens
         self.retry_listener = retry_listener
         if self.config.log_completions:
             if self.config.log_completions_folder is None:
@@ -138,15 +140,6 @@ class LLM(RetryMixin):
         if self.config.top_p is not None:
             # openai doesn't expose top_p, but litellm does
             kwargs["top_p"] = self.config.top_p
-
-        # Handle OpenHands provider - rewrite to litellm_proxy
-        if self.config.model.startswith("openhands/"):
-            model_name = self.config.model.removeprefix("openhands/")
-            self.config.model = f"litellm_proxy/{model_name}"
-            self.config.base_url = "https://llm-proxy.app.all-hands.dev/"
-            logger.debug(
-                f"Rewrote openhands/{model_name} to {self.config.model} with base URL {self.config.base_url}"  # noqa: E501
-            )
 
         features = get_features(self.config.model)
         if features.supports_reasoning_effort:
@@ -229,7 +222,9 @@ class LLM(RetryMixin):
             if "stream" in kwargs and kwargs["stream"]:
                 raise ValueError("Streaming is not supported in LLM class.")
 
-            messages_kwarg: list[dict[str, Any]] | dict[str, Any] = []
+            messages_kwarg: (
+                dict[str, Any] | Message | list[dict[str, Any]] | list[Message]
+            ) = []
             mock_function_calling = not self.is_function_calling_active()
 
             # some callers might send the model and messages directly
@@ -248,9 +243,19 @@ class LLM(RetryMixin):
                 messages_kwarg = kwargs["messages"]
 
             # ensure we work with a list of messages
-            messages: list[dict[str, Any]] = (
+            messages_list = (
                 messages_kwarg if isinstance(messages_kwarg, list) else [messages_kwarg]
             )
+            # format Message objects to dict if needed
+            messages: list[dict] = []
+            if messages_list and isinstance(messages_list[0], Message):
+                messages = self.format_messages_for_llm(
+                    cast(list[Message], messages_list)
+                )
+            else:
+                messages = cast(list[dict[str, Any]], messages_list)
+
+            kwargs["messages"] = messages
 
             # handle conversion of to non-function calling messages if needed
             original_fncall_messages = copy.deepcopy(messages)
@@ -409,6 +414,14 @@ class LLM(RetryMixin):
         self._completion = wrapper
 
     @property
+    def max_input_tokens(self) -> int | None:
+        return self._max_input_tokens
+
+    @property
+    def max_output_tokens(self) -> int | None:
+        return self._max_output_tokens
+
+    @property
     def completion(self) -> Callable:
         """Decorator for the litellm completion function.
 
@@ -483,41 +496,34 @@ class LLM(RetryMixin):
             f"Model info: {json.dumps({'model': self.config.model, 'base_url': self.config.base_url}, indent=2)}"  # noqa: E501
         )
 
-        if self.config.model.startswith("huggingface"):
-            # HF doesn't support the OpenAI default value for top_p (1)
-            logger.debug(
-                f"Setting top_p to 0.9 for Hugging Face model: {self.config.model}"
-            )
-            self.config.top_p = 0.9 if self.config.top_p == 1 else self.config.top_p
-
         # Set max_input_tokens from model info if not explicitly set
         if (
-            self.config.max_input_tokens is None
+            self._max_input_tokens is None
             and self.model_info is not None
             and "max_input_tokens" in self.model_info
             and isinstance(self.model_info["max_input_tokens"], int)
         ):
-            self.config.max_input_tokens = self.model_info["max_input_tokens"]
+            self._max_input_tokens = self.model_info["max_input_tokens"]
 
         # Set max_output_tokens from model info if not explicitly set
-        if self.config.max_output_tokens is None:
+        if self._max_output_tokens is None:
             # Special case for Claude 3.7 Sonnet models
             if any(
                 model in self.config.model
                 for model in ["claude-3-7-sonnet", "claude-3.7-sonnet"]
             ):
-                self.config.max_output_tokens = 64000  # litellm set max to 128k, but that requires a header to be set  # noqa: E501
+                self._max_output_tokens = 64000  # litellm set max to 128k, but that requires a header to be set  # noqa: E501
             # Try to get from model info
             elif self.model_info is not None:
                 # max_output_tokens has precedence over max_tokens
                 if "max_output_tokens" in self.model_info and isinstance(
                     self.model_info["max_output_tokens"], int
                 ):
-                    self.config.max_output_tokens = self.model_info["max_output_tokens"]
+                    self._max_output_tokens = self.model_info["max_output_tokens"]
                 elif "max_tokens" in self.model_info and isinstance(
                     self.model_info["max_tokens"], int
                 ):
-                    self.config.max_output_tokens = self.model_info["max_tokens"]
+                    self._max_output_tokens = self.model_info["max_tokens"]
 
         # Initialize function calling using centralized model features
         features = get_features(self.config.model)
