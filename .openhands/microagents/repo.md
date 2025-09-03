@@ -125,7 +125,7 @@ This repo has two python packages, with unit tests specifically written for each
 ├── examples
 ├── openhands
 │   ├── __init__.py
-│   ├── core
+│   ├── sdk
 │   │   ├── __init__.py
 │   │   ├── agent
 │   │   ├── config
@@ -134,7 +134,6 @@ This repo has two python packages, with unit tests specifically written for each
 │   │   ├── llm
 │   │   ├── logger.py
 │   │   ├── pyproject.toml
-│   │   ├── tests  # <- unit test for openhands/core
 │   │   ├── tool
 │   │   └── utils
 │   └── tools
@@ -142,11 +141,12 @@ This repo has two python packages, with unit tests specifically written for each
 │       ├── execute_bash
 │       ├── pyproject.toml
 │       ├── str_replace_editor
-│       ├── tests  # <- unit test for openhands/tools
 │       └── utils
 ├── pyproject.toml
-├── tests  # <- integration test that involves both openhands/core and openhands/tools
-│   ├── __init__.py
+├── tests
+│   ├── integration # <- integration test that involves both openhands/sdk and openhands/tools
+│   ├── sdk
+│   ├── tools
 └── uv.lock
 ```
 
@@ -159,6 +159,13 @@ This repo has two python packages, with unit tests specifically written for each
 - Do NOT commit ALL the file, just commit the relavant file you've changed!
 - in every commit message, you should add "Co-authored-by: openhands <openhands@all-hands.dev>"
 - You can run pytest with `uv run pytest`
+
+# Instruction for fixing "E501 Line too long"
+
+- If it is just code, you can modify it so it spans multiple lne.
+- If it is a single-line string, you can break it into a multi-line string by doing "ABC" -> ("A"\n"B"\n"C")
+- If it is a long multi-line string (e.g., docstring), you should just add type ignore AFTER the ending """. You should NEVER ADD IT INSIDE the docstring.
+
 </DEV_SETUP>
 
 <CODE>
@@ -170,5 +177,5 @@ This repo has two python packages, with unit tests specifically written for each
 - AFTER you edit ONE file, you should run pre-commit hook on that file via `uv run pre-commit run --files [filepath]` to make sure you didn't break it.
 - Don't write TOO MUCH test, you should write just enough to cover edge cases.
 - Check how we perform tests in .github/workflows/tests.yml
-- You should put unit tests in the corresponding test folder. For example, to test `openhands/core/tool/tool.py`, you should put tests under `openhands/core/tests/tool/test_tool.py`.
+- You should put unit tests in the corresponding test folder. For example, to test `openhands.sdk.tool/tool.py`, you should put tests under `openhands.sdk.tests/tool/test_tool.py`.
 </TESTING>

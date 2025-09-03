@@ -1,0 +1,45 @@
+from importlib.metadata import PackageNotFoundError, version
+
+from openhands.sdk.agent import Agent, AgentBase
+from openhands.sdk.config import LLMConfig, MCPConfig
+from openhands.sdk.conversation import Conversation, ConversationCallbackType
+from openhands.sdk.event import EventBase, EventType, LLMConvertibleEvent
+from openhands.sdk.llm import (
+    LLM,
+    ImageContent,
+    LLMRegistry,
+    Message,
+    RegistryEvent,
+    TextContent,
+)
+from openhands.sdk.logger import get_logger
+from openhands.sdk.tool import ActionBase, ObservationBase, Tool
+
+
+try:
+    __version__ = version("openhands.sdk")
+except PackageNotFoundError:
+    __version__ = "0.0.0"  # fallback for editable/unbuilt environments
+
+__all__ = [
+    "LLM",
+    "LLMRegistry",
+    "RegistryEvent",
+    "Message",
+    "TextContent",
+    "ImageContent",
+    "Tool",
+    "AgentBase",
+    "Agent",
+    "ActionBase",
+    "ObservationBase",
+    "LLMConfig",
+    "MCPConfig",
+    "get_logger",
+    "Conversation",
+    "ConversationCallbackType",
+    "EventType",
+    "EventBase",
+    "LLMConvertibleEvent",
+    "__version__",
+]
