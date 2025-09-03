@@ -4,6 +4,7 @@ from openhands.tools.execute_bash.definition import (
     execute_bash_tool,
 )
 from openhands.tools.execute_bash.impl import BashExecutor
+from openhands.tools.execute_bash.tool import BashTool
 
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "ExecuteBashAction",
     "ExecuteBashObservation",
     "BashExecutor",
+    "BashTool",
 ]
