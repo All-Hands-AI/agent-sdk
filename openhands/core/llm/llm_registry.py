@@ -22,7 +22,7 @@ class RegistryEvent(BaseModel):
 
 class LLMRegistry:
     """A minimal LLM registry for managing LLM instances by service ID.
-    
+
     This registry provides a simple way to manage multiple LLM instances,
     avoiding the need to recreate LLMs with the same configuration.
     """
@@ -32,7 +32,7 @@ class LLMRegistry:
         retry_listener: Callable[[int, int], None] | None = None,
     ):
         """Initialize the LLM registry.
-        
+
         Args:
             retry_listener: Optional callback for retry events.
         """
@@ -59,16 +59,16 @@ class LLMRegistry:
         self, service_id: str, llm_config: LLMConfig, messages: list[dict[str, str]]
     ) -> str:
         """Request a completion from an LLM, creating it if necessary.
-        
+
         Args:
             service_id: Unique identifier for the LLM service.
             llm_config: Configuration for the LLM.
             messages: Messages to send to the LLM.
-            
+
         Returns:
             The completion response as a string.
         """
-        logger.info(f'Requesting completion from service: {service_id}')
+        logger.info(f"Requesting completion from service: {service_id}")
         if service_id not in self.service_to_llm:
             self._create_new_llm(
                 config=llm_config, service_id=service_id, with_listener=False
@@ -84,19 +84,19 @@ class LLMRegistry:
         config: LLMConfig,
     ) -> LLM:
         """Get or create an LLM instance for the given service ID.
-        
+
         Args:
             service_id: Unique identifier for the LLM service.
             config: Configuration for the LLM.
-            
+
         Returns:
             The LLM instance.
-            
+
         Raises:
             ValueError: If trying to use the same service_id with different config.
         """
         logger.info(
-            f'[LLM registry {self.registry_id}]: Getting LLM for service {service_id}'
+            f"[LLM registry {self.registry_id}]: Getting LLM for service {service_id}"
         )
 
         # Check if we're trying to switch configs for existing LLM
@@ -105,7 +105,8 @@ class LLMRegistry:
             and self.service_to_llm[service_id].orig_config != config
         ):
             raise ValueError(
-                f'Requesting same service ID {service_id} with different config, use a new service ID'
+                f"Requesting same service ID {service_id} with"
+                " different config, use a new service ID"
             )
 
         if service_id in self.service_to_llm:
@@ -115,7 +116,7 @@ class LLMRegistry:
 
     def subscribe(self, callback: Callable[[RegistryEvent], None]) -> None:
         """Subscribe to registry events.
-        
+
         Args:
             callback: Function to call when LLMs are created or updated.
         """
@@ -123,7 +124,7 @@ class LLMRegistry:
 
     def notify(self, event: RegistryEvent) -> None:
         """Notify subscribers of registry events.
-        
+
         Args:
             event: The registry event to notify about.
         """
@@ -131,11 +132,11 @@ class LLMRegistry:
             try:
                 self.subscriber(event)
             except Exception as e:
-                logger.warning(f'Failed to emit event: {e}')
+                logger.warning(f"Failed to emit event: {e}")
 
     def list_services(self) -> list[str]:
         """List all registered service IDs.
-        
+
         Returns:
             List of service IDs currently in the registry.
         """

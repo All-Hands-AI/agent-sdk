@@ -30,7 +30,9 @@ class MicroagentMetadata(BaseModel):
     type: MicroagentType = Field(default=MicroagentType.REPO_KNOWLEDGE)
     triggers: list[str] = []  # optional, only exists for knowledge microagents
     inputs: list[InputMetadata] = []  # optional, only exists for task microagents
-    mcp_tools: MCPConfig | None = None  # optional, for microagents that provide additional MCP tools
+    mcp_tools: MCPConfig | None = (
+        None  # optional, for microagents that provide additional MCP tools
+    )
 
 
 class MicroagentKnowledge(BaseModel):
@@ -62,7 +64,9 @@ class MicroagentContentResponse(BaseModel):
 
     content: str = Field(description="The full content of the microagent")
     path: str = Field(description="The path or identifier of the microagent")
-    triggers: list[str] = Field(description="List of triggers associated with the microagent")
+    triggers: list[str] = Field(
+        description="List of triggers associated with the microagent"
+    )
     git_provider: str | None = Field(
         None,
         description="Git provider if the microagent is sourced from a Git repository",

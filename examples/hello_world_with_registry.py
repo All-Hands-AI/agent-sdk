@@ -65,7 +65,12 @@ conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 conversation.send_message(
     message=Message(
         role="user",
-        content=[TextContent(text="Hello! Can you create a new Python file named hello_registry.py that prints 'Hello from LLM Registry!'?")],
+        content=[
+            TextContent(
+                text="Hello! Can you create a new Python file named "
+                "hello_registry.py that prints 'Hello from LLM Registry!'?"
+            )
+        ],
     )
 )
 conversation.run()
@@ -86,6 +91,6 @@ print(f"Same LLM instance: {llm is same_llm}")
 completion_response = llm_registry.request_extraneous_completion(
     service_id="completion_service",
     llm_config=llm_config,
-    messages=[{"role": "user", "content": "Say hello in one word."}]
+    messages=[{"role": "user", "content": "Say hello in one word."}],
 )
 print(f"Direct completion response: {completion_response}")

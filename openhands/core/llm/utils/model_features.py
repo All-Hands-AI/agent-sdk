@@ -130,5 +130,7 @@ def get_features(model: str) -> ModelFeatures:
         supports_function_calling=model_matches(model, FUNCTION_CALLING_PATTERNS),
         supports_reasoning_effort=model_matches(model, REASONING_EFFORT_PATTERNS),
         supports_prompt_cache=model_matches(model, PROMPT_CACHE_PATTERNS),
-        supports_stop_words=not model_matches(model, SUPPORTS_STOP_WORDS_FALSE_PATTERNS),
+        supports_stop_words=not model_matches(
+            model, SUPPORTS_STOP_WORDS_FALSE_PATTERNS
+        ),
     )

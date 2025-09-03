@@ -18,7 +18,8 @@ def run_shell_cmd(
     Args:
         cmd: The shell command to run.
         timeout: The maximum time to wait for the command to complete.
-        truncate_after: The maximum number of characters to return for stdout and stderr.
+        truncate_after: The maximum number of characters to return for stdout
+            and stderr.
 
     Returns:
         A tuple containing the return code, stdout, and stderr.
@@ -28,13 +29,17 @@ def run_shell_cmd(
 
     process: subprocess.Popen | None = None
     try:
-        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
 
         stdout, stderr = process.communicate(timeout=timeout)
 
         return (
             process.returncode or 0,
-            maybe_truncate(stdout, truncate_after=truncate_after, truncate_notice=truncate_notice),
+            maybe_truncate(
+                stdout, truncate_after=truncate_after, truncate_notice=truncate_notice
+            ),
             maybe_truncate(
                 stderr,
                 truncate_after=truncate_after,
@@ -45,7 +50,9 @@ def run_shell_cmd(
         if process:
             process.kill()
         elapsed_time = time.time() - start_time
-        raise TimeoutError(f"Command '{cmd}' timed out after {elapsed_time:.2f} seconds")
+        raise TimeoutError(
+            f"Command '{cmd}' timed out after {elapsed_time:.2f} seconds"
+        )
 
 
 def check_tool_installed(tool_name: str) -> bool:

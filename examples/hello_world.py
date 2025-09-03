@@ -61,7 +61,14 @@ conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 conversation.send_message(
     message=Message(
         role="user",
-        content=[TextContent(text="Hello! Can you create a new Python file named hello.py that prints 'Hello, World!'?")],
+        content=[
+            TextContent(
+                text=(
+                    "Hello! Can you create a new Python file named hello.py that "
+                    "prints 'Hello, World!'?"
+                )
+            )
+        ],
     )
 )
 conversation.run()

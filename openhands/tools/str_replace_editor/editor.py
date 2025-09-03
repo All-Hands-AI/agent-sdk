@@ -48,13 +48,16 @@ class FileEditor:
         """Initialize the editor.
 
         Args:
-            max_file_size_mb: Maximum file size in MB. If None, uses the default MAX_FILE_SIZE_MB.
-            workspace_root: Root directory that serves as the current working directory for relative path
-                           suggestions. Must be an absolute path. If None, no path suggestions will be
-                           provided for relative paths.
+            max_file_size_mb: Maximum file size in MB. If None, uses the default
+                MAX_FILE_SIZE_MB.
+            workspace_root: Root directory that serves as the current working
+                directory for relative path suggestions. Must be an absolute path.
+                If None, no path suggestions will be provided for relative paths.
         """
         self._history_manager = FileHistoryManager(max_history_per_file=10)
-        self._max_file_size = (max_file_size_mb or self.MAX_FILE_SIZE_MB) * 1024 * 1024  # Convert to bytes
+        self._max_file_size = (
+            (max_file_size_mb or self.MAX_FILE_SIZE_MB) * 1024 * 1024
+        )  # Convert to bytes
 
         # Initialize encoding manager
         self._encoding_manager = EncodingManager()
@@ -64,7 +67,9 @@ class FileEditor:
             workspace_path = Path(workspace_root)
             # Ensure workspace_root is an absolute path
             if not workspace_path.is_absolute():
-                raise ValueError(f"workspace_root must be an absolute path, got: {workspace_root}")
+                raise ValueError(
+                    f"workspace_root must be an absolute path, got: {workspace_root}"
+                )
             self._cwd = workspace_path
         else:
             self._cwd = None  # type: ignore
@@ -103,7 +108,8 @@ class FileEditor:
                 raise EditorToolParameterInvalidError(
                     "new_str",
                     new_str,
-                    "No replacement was performed. `new_str` and `old_str` must be different.",
+                    "No replacement was performed. `new_str` and `old_str` must be "
+                    "different.",
                 )
             return self.str_replace(_path, old_str, new_str)
         elif command == "insert":
@@ -115,7 +121,10 @@ class FileEditor:
         elif command == "undo_edit":
             return self.undo_edit(_path)
 
-        raise ToolError(f"Unrecognized command {command}. The allowed commands for {self.__class__.__name__} tool are: {', '.join(get_args(CommandLiteral))}")
+        raise ToolError(
+            f"Unrecognized command {command}. The allowed commands for "
+            f"{self.__class__.__name__} tool are: {', '.join(get_args(CommandLiteral))}"
+        )
 
     @with_encoding
     def _count_lines(self, path: Path, encoding: str = "utf-8") -> int:
@@ -124,7 +133,8 @@ class FileEditor:
 
         Args:
             path: Path to the file
-            encoding: The encoding to use when reading the file (auto-detected by decorator)
+            encoding: The encoding to use when reading the file (auto-detected by
+                decorator)
 
         Returns:
             The number of lines in the file
@@ -140,7 +150,8 @@ class FileEditor:
         new_str: str | None,
     ) -> StrReplaceEditorObservation:
         """
-        Implement the str_replace command, which replaces old_str with new_str in the file content.
+        Implement the str_replace command, which replaces old_str with new_str in
+        the file content.
 
         Args:
             path: Path to the file
@@ -152,7 +163,8 @@ class FileEditor:
         self.validate_file(path)
         new_str = new_str or ""
 
-        # Read the entire file first to handle both single-line and multi-line replacements
+        # Read the entire file first to handle both single-line and multi-line
+        # replacements
         file_content = self.read_file(path)
 
         # Find all occurrences using regex
@@ -168,7 +180,8 @@ class FileEditor:
         ]
 
         if not occurrences:
-            # We found no occurrences, possibly because of extra white spaces at either the front or back of the string.
+            # We found no occurrences, possibly because of extra white spaces at
+            # either the front or back of the string.
             # Remove the white spaces and try again.
             old_str = old_str.strip()
             new_str = new_str.strip()
@@ -182,16 +195,24 @@ class FileEditor:
                 for match in re.finditer(pattern, file_content)
             ]
             if not occurrences:
-                raise ToolError(f"No replacement was performed, old_str `{old_str}` did not appear verbatim in {path}.")
+                raise ToolError(
+                    f"No replacement was performed, old_str `{old_str}` did not "
+                    f"appear verbatim in {path}."
+                )
         if len(occurrences) > 1:
             line_numbers = sorted(set(line for line, _, _ in occurrences))
-            raise ToolError(f"No replacement was performed. Multiple occurrences of old_str `{old_str}` in lines {line_numbers}. Please ensure it is unique.")
+            raise ToolError(
+                f"No replacement was performed. Multiple occurrences of old_str "
+                f"`{old_str}` in lines {line_numbers}. Please ensure it is unique."
+            )
 
         # We found exactly one occurrence
         replacement_line, matched_text, idx = occurrences[0]
 
         # Create new content by replacing just the matched text
-        new_file_content = file_content[:idx] + new_str + file_content[idx + len(matched_text) :]
+        new_file_content = (
+            file_content[:idx] + new_str + file_content[idx + len(matched_text) :]
+        )
 
         # Write the new content to the file
         self.write_file(path, new_file_content)
@@ -208,9 +229,14 @@ class FileEditor:
 
         # Prepare the success message
         success_message = f"The file {path} has been edited. "
-        success_message += self._make_output(snippet, f"a snippet of {path}", start_line + 1)
+        success_message += self._make_output(
+            snippet, f"a snippet of {path}", start_line + 1
+        )
 
-        success_message += "Review the changes and make sure they are as expected. Edit the file again if necessary."
+        success_message += (
+            "Review the changes and make sure they are as expected. Edit the "
+            "file again if necessary."
+        )
         return StrReplaceEditorObservation(
             output=success_message,
             prev_exist=True,
@@ -219,7 +245,9 @@ class FileEditor:
             new_content=new_file_content,
         )
 
-    def view(self, path: Path, view_range: list[int] | None = None) -> StrReplaceEditorObservation:
+    def view(
+        self, path: Path, view_range: list[int] | None = None
+    ) -> StrReplaceEditorObservation:
         """
         View the contents of a file or a directory.
         """
@@ -228,17 +256,24 @@ class FileEditor:
                 raise EditorToolParameterInvalidError(
                     "view_range",
                     view_range,
-                    "The `view_range` parameter is not allowed when `path` points to a directory.",
+                    "The `view_range` parameter is not allowed when `path` points to "
+                    "a directory.",
                 )
 
             # First count hidden files/dirs in current directory only
             # -mindepth 1 excludes . and .. automatically
-            _, hidden_stdout, _ = run_shell_cmd(rf"find -L {path} -mindepth 1 -maxdepth 1 -name '.*'")
-            hidden_count = len(hidden_stdout.strip().split("\n")) if hidden_stdout.strip() else 0
+            _, hidden_stdout, _ = run_shell_cmd(
+                rf"find -L {path} -mindepth 1 -maxdepth 1 -name '.*'"
+            )
+            hidden_count = (
+                len(hidden_stdout.strip().split("\n")) if hidden_stdout.strip() else 0
+            )
 
-            # Then get files/dirs up to 2 levels deep, excluding hidden entries at both depth 1 and 2
+            # Then get files/dirs up to 2 levels deep, excluding hidden entries at
+            # both depth 1 and 2
             _, stdout, stderr = run_shell_cmd(
-                rf"find -L {path} -maxdepth 2 -not \( -path '{path}/\.*' -o -path '{path}/*/\.*' \) | sort",
+                rf"find -L {path} -maxdepth 2 -not \( -path '{path}/\.*' -o "
+                rf"-path '{path}/*/\.*' \) | sort",
                 truncate_notice=DIRECTORY_CONTENT_TRUNCATED_NOTICE,
             )
             if not stderr:
@@ -251,9 +286,15 @@ class FileEditor:
                     else:
                         formatted_paths.append(p)
 
-                msg = [f"Here's the files and directories up to 2 levels deep in {path}, excluding hidden items:\n" + "\n".join(formatted_paths)]
+                msg = [
+                    f"Here's the files and directories up to 2 levels deep in {path}, "
+                    "excluding hidden items:\n" + "\n".join(formatted_paths)
+                ]
                 if hidden_count > 0:
-                    msg.append(f"\n{hidden_count} hidden files/directories in this directory are excluded. You can use 'ls -la {path}' to see them.")
+                    msg.append(
+                        f"\n{hidden_count} hidden files/directories in this directory "
+                        f"are excluded. You can use 'ls -la {path}' to see them."
+                    )
                 stdout = "\n".join(msg)
             return StrReplaceEditorObservation(
                 output=stdout,
@@ -289,7 +330,8 @@ class FileEditor:
             raise EditorToolParameterInvalidError(
                 "view_range",
                 view_range,
-                f"Its first element `{start_line}` should be within the range of lines of the file: {[1, num_lines]}.",
+                f"Its first element `{start_line}` should be within the range of "
+                f"lines of the file: {[1, num_lines]}.",
             )
 
         # Normalize end_line and provide a warning if it exceeds file length
@@ -297,20 +339,26 @@ class FileEditor:
         if end_line == -1:
             end_line = num_lines
         elif end_line > num_lines:
-            warning_message = f"We only show up to {num_lines} since there're only {num_lines} lines in this file."
+            warning_message = (
+                f"We only show up to {num_lines} since there're only {num_lines} "
+                "lines in this file."
+            )
             end_line = num_lines
 
         if end_line < start_line:
             raise EditorToolParameterInvalidError(
                 "view_range",
                 view_range,
-                f"Its second element `{end_line}` should be greater than or equal to the first element `{start_line}`.",
+                f"Its second element `{end_line}` should be greater than or equal "
+                f"to the first element `{start_line}`.",
             )
 
         file_content = self.read_file(path, start_line=start_line, end_line=end_line)
 
         # Get the detected encoding
-        output = self._make_output("\n".join(file_content.splitlines()), str(path), start_line)  # Remove extra newlines
+        output = self._make_output(
+            "\n".join(file_content.splitlines()), str(path), start_line
+        )  # Remove extra newlines
 
         # Prepend warning if we truncated the end_line
         if warning_message:
@@ -325,12 +373,14 @@ class FileEditor:
     @with_encoding
     def write_file(self, path: Path, file_text: str, encoding: str = "utf-8") -> None:
         """
-        Write the content of a file to a given path; raise a ToolError if an error occurs.
+        Write the content of a file to a given path; raise a ToolError if an
+        error occurs.
 
         Args:
             path: Path to the file to write
             file_text: Content to write to the file
-            encoding: The encoding to use when writing the file (auto-detected by decorator)
+            encoding: The encoding to use when writing the file (auto-detected by
+                decorator)
         """
         self.validate_file(path)
         try:
@@ -349,7 +399,8 @@ class FileEditor:
         encoding: str = "utf-8",
     ) -> StrReplaceEditorObservation:
         """
-        Implement the insert command, which inserts new_str at the specified line in the file content.
+        Implement the insert command, which inserts new_str at the specified line
+        in the file content.
 
         Args:
             path: Path to the file
@@ -372,7 +423,9 @@ class FileEditor:
         new_str_lines = new_str.split("\n")
 
         # Create temporary file for the new content
-        with tempfile.NamedTemporaryFile(mode="w", encoding=encoding, delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding=encoding, delete=False
+        ) as temp_file:
             # Copy lines before insert point and save them for history
             history_lines = []
             with open(path, "r", encoding=encoding) as f:
@@ -419,7 +472,10 @@ class FileEditor:
             max(1, insert_line - SNIPPET_CONTEXT_WINDOW + 1),
         )
 
-        success_message += "Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc). Edit the file again if necessary."
+        success_message += (
+            "Review the changes and make sure they are as expected (correct "
+            "indentation, no duplicate lines, etc). Edit the file again if necessary."
+        )
         return StrReplaceEditorObservation(
             output=success_message,
             prev_exist=True,
@@ -438,7 +494,9 @@ class FileEditor:
         """
         # Check if its an absolute path
         if not path.is_absolute():
-            suggestion_message = "The path should be an absolute path, starting with `/`."
+            suggestion_message = (
+                "The path should be an absolute path, starting with `/`."
+            )
 
             # Only suggest the absolute path if cwd is provided and the path exists
             if self._cwd is not None:
@@ -457,7 +515,8 @@ class FileEditor:
             raise EditorToolParameterInvalidError(
                 "path",
                 path,
-                f"File already exists at: {path}. Cannot overwrite files using command `create`.",
+                f"File already exists at: {path}. Cannot overwrite files using "
+                "command `create`.",
             )
         if command != "create" and not path.exists():
             raise EditorToolParameterInvalidError(
@@ -470,7 +529,8 @@ class FileEditor:
                 raise EditorToolParameterInvalidError(
                     "path",
                     path,
-                    f"The path {path} is a directory and only the `view` command can be used on directories.",
+                    f"The path {path} is a directory and only the `view` command can "
+                    "be used on directories.",
                 )
 
     def undo_edit(self, path: Path) -> StrReplaceEditorObservation:
@@ -485,7 +545,10 @@ class FileEditor:
         self.write_file(path, old_text)
 
         return StrReplaceEditorObservation(
-            output=f"Last edit to {path} undone successfully. {self._make_output(old_text, str(path))}",
+            output=(
+                f"Last edit to {path} undone successfully. "
+                f"{self._make_output(old_text, str(path))}"
+            ),
             path=str(path),
             prev_exist=True,
             old_content=current_text,
@@ -512,14 +575,20 @@ class FileEditor:
         if file_size > max_size:
             raise FileValidationError(
                 path=str(path),
-                reason=f"File is too large ({file_size / 1024 / 1024:.1f}MB). Maximum allowed size is {int(max_size / 1024 / 1024)}MB.",
+                reason=(
+                    f"File is too large ({file_size / 1024 / 1024:.1f}MB). "
+                    f"Maximum allowed size is {int(max_size / 1024 / 1024)}MB."
+                ),
             )
 
         # Check file type
         if is_binary(str(path)):
             raise FileValidationError(
                 path=str(path),
-                reason="File appears to be binary and this file type cannot be read or edited by this tool.",
+                reason=(
+                    "File appears to be binary and this file type cannot be read "
+                    "or edited by this tool."
+                ),
             )
 
     @with_encoding
@@ -531,13 +600,17 @@ class FileEditor:
         encoding: str = "utf-8",  # Default will be overridden by decorator
     ) -> str:
         """
-        Read the content of a file from a given path; raise a ToolError if an error occurs.
+        Read the content of a file from a given path; raise a ToolError if an
+        error occurs.
 
         Args:
             path: Path to the file to read
-            start_line: Optional start line number (1-based). If provided with end_line, only reads that range.
-            end_line: Optional end line number (1-based). Must be provided with start_line.
-            encoding: The encoding to use when reading the file (auto-detected by decorator)
+            start_line: Optional start line number (1-based). If provided with
+                end_line, only reads that range.
+            end_line: Optional end line number (1-based). Must be provided with
+                start_line.
+            encoding: The encoding to use when reading the file (auto-detected by
+                decorator)
         """
         self.validate_file(path)
         try:
@@ -552,7 +625,9 @@ class FileEditor:
                             lines.append(line)
                 return "".join(lines)
             elif start_line is not None or end_line is not None:
-                raise ValueError("Both start_line and end_line must be provided together")
+                raise ValueError(
+                    "Both start_line and end_line must be provided together"
+                )
             else:
                 # Use line-by-line reading to avoid loading entire file into memory
                 with open(path, "r", encoding=encoding) as f:
@@ -572,10 +647,26 @@ class FileEditor:
         """
         # If the content is converted from Markdown, we don't need line numbers
         if is_converted_markdown:
-            snippet_content = maybe_truncate(snippet_content, truncate_notice=BINARY_FILE_CONTENT_TRUNCATED_NOTICE)
-            return f"Here's the content of the file {snippet_description} displayed in Markdown format:\n" + snippet_content + "\n"
+            snippet_content = maybe_truncate(
+                snippet_content, truncate_notice=BINARY_FILE_CONTENT_TRUNCATED_NOTICE
+            )
+            return (
+                f"Here's the content of the file {snippet_description} displayed in "
+                "Markdown format:\n" + snippet_content + "\n"
+            )
 
-        snippet_content = maybe_truncate(snippet_content, truncate_notice=TEXT_FILE_CONTENT_TRUNCATED_NOTICE)
+        snippet_content = maybe_truncate(
+            snippet_content, truncate_notice=TEXT_FILE_CONTENT_TRUNCATED_NOTICE
+        )
 
-        snippet_content = "\n".join([f"{i + start_line:6}\t{line}" for i, line in enumerate(snippet_content.split("\n"))])
-        return f"Here's the result of running `cat -n` on {snippet_description}:\n" + snippet_content + "\n"
+        snippet_content = "\n".join(
+            [
+                f"{i + start_line:6}\t{line}"
+                for i, line in enumerate(snippet_content.split("\n"))
+            ]
+        )
+        return (
+            f"Here's the result of running `cat -n` on {snippet_description}:\n"
+            + snippet_content
+            + "\n"
+        )

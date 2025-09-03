@@ -10,4 +10,8 @@ def maybe_truncate(
     """
     Truncate content and append a notice if content exceeds the specified length.
     """
-    return content if not truncate_after or len(content) <= truncate_after else content[:truncate_after] + truncate_notice
+    return (
+        content
+        if not truncate_after or len(content) <= truncate_after
+        else content[:truncate_after] + truncate_notice
+    )

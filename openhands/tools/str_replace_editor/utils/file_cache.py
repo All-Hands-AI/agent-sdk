@@ -18,14 +18,19 @@ class FileCache:
         self.size_limit = size_limit
         self.current_size = 0
         self._update_current_size()
-        logger.debug(f"FileCache initialized with directory: {self.directory}, size_limit: {self.size_limit}, current_size: {self.current_size}")
+        logger.debug(
+            f"FileCache initialized with directory: {self.directory}, "
+            f"size_limit: {self.size_limit}, current_size: {self.current_size}"
+        )
 
     def _get_file_path(self, key: str) -> Path:
         hashed_key = hashlib.sha256(key.encode()).hexdigest()
         return self.directory / f"{hashed_key}.json"
 
     def _update_current_size(self):
-        self.current_size = sum(f.stat().st_size for f in self.directory.glob("*.json") if f.is_file())
+        self.current_size = sum(
+            f.stat().st_size for f in self.directory.glob("*.json") if f.is_file()
+        )
         logger.debug(f"Current size updated: {self.current_size}")
 
     def set(self, key: str, value: Any) -> None:
@@ -38,36 +43,62 @@ class FileCache:
             if file_path.exists():
                 old_size = file_path.stat().st_size
                 size_diff = content_size - old_size
-                logger.debug(f"Existing file: old_size: {old_size}, size_diff: {size_diff}")
+                logger.debug(
+                    f"Existing file: old_size: {old_size}, size_diff: {size_diff}"
+                )
                 if size_diff > 0:
-                    while self.current_size + size_diff > self.size_limit and len(self) > 1:
-                        logger.debug(f"Evicting oldest (existing file case): current_size: {self.current_size}, size_limit: {self.size_limit}")
+                    while (
+                        self.current_size + size_diff > self.size_limit
+                        and len(self) > 1
+                    ):
+                        logger.debug(
+                            f"Evicting oldest (existing file case): "
+                            f"current_size: {self.current_size}, "
+                            f"size_limit: {self.size_limit}"
+                        )
                         self._evict_oldest(file_path)
             else:
-                while self.current_size + content_size > self.size_limit and len(self) > 1:
-                    logger.debug(f"Evicting oldest (new file case): current_size: {self.current_size}, size_limit: {self.size_limit}")
+                while (
+                    self.current_size + content_size > self.size_limit and len(self) > 1
+                ):
+                    logger.debug(
+                        f"Evicting oldest (new file case): "
+                        f"current_size: {self.current_size}, "
+                        f"size_limit: {self.size_limit}"
+                    )
                     self._evict_oldest(file_path)
 
         if file_path.exists():
             self.current_size -= file_path.stat().st_size
-            logger.debug(f"Existing file removed from current_size: {self.current_size}")
+            logger.debug(
+                f"Existing file removed from current_size: {self.current_size}"
+            )
 
         with open(file_path, "w") as f:
             f.write(content)
 
         self.current_size += content_size
         logger.debug(f"File written, new current_size: {self.current_size}")
-        os.utime(file_path, (time.time(), time.time()))  # Update access and modification time
+        os.utime(
+            file_path, (time.time(), time.time())
+        )  # Update access and modification time
 
     def _evict_oldest(self, exclude_path: Optional[Path] = None):
         oldest_file = min(
-            (f for f in self.directory.glob("*.json") if f.is_file() and f != exclude_path),
+            (
+                f
+                for f in self.directory.glob("*.json")
+                if f.is_file() and f != exclude_path
+            ),
             key=os.path.getmtime,
         )
         evicted_size = oldest_file.stat().st_size
         self.current_size -= evicted_size
         os.remove(oldest_file)
-        logger.debug(f"Evicted file: {oldest_file}, size: {evicted_size}, new current_size: {self.current_size}")
+        logger.debug(
+            f"Evicted file: {oldest_file}, size: {evicted_size}, "
+            f"new current_size: {self.current_size}"
+        )
 
     def get(self, key: str, default: Any = None) -> Any:
         file_path = self._get_file_path(key)
@@ -86,7 +117,10 @@ class FileCache:
             deleted_size = file_path.stat().st_size
             self.current_size -= deleted_size
             os.remove(file_path)
-            logger.debug(f"Deleted key: {key}, size: {deleted_size}, new current_size: {self.current_size}")
+            logger.debug(
+                f"Deleted key: {key}, size: {deleted_size}, "
+                f"new current_size: {self.current_size}"
+            )
 
     def clear(self) -> None:
         for item in self.directory.glob("*.json"):

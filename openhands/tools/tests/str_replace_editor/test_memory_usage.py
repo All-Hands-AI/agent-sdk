@@ -47,13 +47,18 @@ def test_file_read_memory_usage(temp_file):
     # Check memory usage after reading
     current_memory = psutil.Process(os.getpid()).memory_info().rss
     memory_growth = current_memory - initial_memory
-    print(f"Memory growth after reading 100 lines: {memory_growth / 1024 / 1024:.2f} MB")
+    print(
+        f"Memory growth after reading 100 lines: {memory_growth / 1024 / 1024:.2f} MB"
+    )
 
     # Memory growth should be small since we're only reading 100 lines
     # Allow for some overhead but it should be much less than file size
     # Increased to 3MB to account for chardet's memory usage
     max_growth_mb = 3  # 3MB max growth
-    assert memory_growth <= max_growth_mb * 1024 * 1024, f"Memory growth too high: {memory_growth / 1024 / 1024:.2f} MB (limit: {max_growth_mb} MB)"
+    assert memory_growth <= max_growth_mb * 1024 * 1024, (
+        f"Memory growth too high: {memory_growth / 1024 / 1024:.2f} MB "
+        f"(limit: {max_growth_mb} MB)"
+    )
 
     # Check that the result is successful and get the content
     assert_successful_result(result)
@@ -87,7 +92,9 @@ def test_file_editor_memory_leak(temp_file):
 
     # Create initial content that's large enough to test but not overwhelming
     # Keep total file size under 10MB to avoid file validation errors
-    base_content = "Initial content with some reasonable length to make the file larger\n"
+    base_content = (
+        "Initial content with some reasonable length to make the file larger\n"
+    )
     content = base_content * 100
     print(f"\nCreating initial file with {len(content)} bytes")
     with open(temp_file, "w") as f:
@@ -111,14 +118,21 @@ def test_file_editor_memory_leak(temp_file):
 
             # Insert old_content at a random position while keeping file size stable
             insert_pos = len(current_content) // 2
-            new_file_content = current_content[:insert_pos] + old_content + current_content[insert_pos + len(old_content) :]
+            new_file_content = (
+                current_content[:insert_pos]
+                + old_content
+                + current_content[insert_pos + len(old_content) :]
+            )
             with open(temp_file, "w") as f:
                 f.write(new_file_content)
 
             # Perform the edit
             try:
                 if i == 0:
-                    print(f"\nInitial file size: {os.path.getsize(temp_file) / (1024 * 1024):.2f} MB")
+                    print(
+                        f"\nInitial file size: "
+                        f"{os.path.getsize(temp_file) / (1024 * 1024):.2f} MB"
+                    )
                     print(f"Sample content to replace: {old_content[:100]}...")
                 result = file_editor(
                     command="str_replace",
@@ -149,10 +163,16 @@ def test_file_editor_memory_leak(temp_file):
                 # Calculate memory growth
                 memory_growth = current_memory - initial_memory
                 growth_percent = (memory_growth / initial_memory) * 100
-                print(f"Memory growth: {memory_growth / 1024 / 1024:.2f} MB ({growth_percent:.1f}%)")
+                print(
+                    f"Memory growth: {memory_growth / 1024 / 1024:.2f} MB "
+                    f"({growth_percent:.1f}%)"
+                )
 
                 # Fail if memory growth is too high
-                assert memory_growth < memory_limit, f"Memory growth exceeded limit after {i} edits. Growth: {memory_growth / 1024 / 1024:.2f} MB"
+                assert memory_growth < memory_limit, (
+                    f"Memory growth exceeded limit after {i} edits. "
+                    f"Growth: {memory_growth / 1024 / 1024:.2f} MB"
+                )
 
                 # Check for consistent growth pattern
                 if len(memory_readings) >= 3:
@@ -164,7 +184,10 @@ def test_file_editor_memory_leak(temp_file):
                     # Allow more growth for initial allocations
                     max_growth = 2 if i < 100 else 1  # MB per 50 edits
                     if growth_rate > max_growth:
-                        pytest.fail(f"Consistent memory growth detected: {growth_rate:.2f} MB per 50 edits after {i} edits")
+                        pytest.fail(
+                            f"Consistent memory growth detected: "
+                            f"{growth_rate:.2f} MB per 50 edits after {i} edits"
+                        )
 
     except MemoryError:
         pytest.fail("Memory limit exceeded - possible memory leak detected")
