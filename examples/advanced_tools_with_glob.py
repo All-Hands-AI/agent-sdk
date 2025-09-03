@@ -1,6 +1,5 @@
 """Advanced example showing explicit executor usage and custom glob tool."""
 
-import glob
 import os
 
 from pydantic import Field, SecretStr
@@ -20,6 +19,7 @@ from openhands.sdk import (
 from openhands.sdk.tool import ActionBase, ObservationBase, ToolExecutor
 from openhands.tools import (
     BashExecutor,
+    ExecuteBashAction,
     FileEditorTool,
     execute_bash_tool,
 )
@@ -55,23 +55,62 @@ class GlobObservation(ObservationBase):
 
 # Define the Glob tool executor
 class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
-    """Executor for glob pattern matching."""
+    """Executor for glob pattern matching using bash commands."""
+
+    def __init__(self, bash_executor: BashExecutor):
+        """Initialize with a bash executor."""
+        self.bash_executor = bash_executor
 
     def __call__(self, action: GlobAction) -> GlobObservation:
-        """Execute glob pattern matching."""
+        """Execute glob pattern matching using bash commands."""
         search_path = os.path.abspath(action.path)
-        pattern_path = os.path.join(search_path, action.pattern)
 
-        # Use glob to find matching files
-        matching_files = glob.glob(pattern_path, recursive=True)
-
-        # Sort by modification time (most recent first)
-        matching_files.sort(
-            key=lambda f: os.path.getmtime(f) if os.path.exists(f) else 0, reverse=True
+        # Use bash find command with glob pattern
+        # First, change to the search directory and find files matching the pattern
+        bash_action = ExecuteBashAction(
+            command=(
+                f"cd '{search_path}' && "
+                f"find . -path './{action.pattern}' -type f 2>/dev/null | "
+                f"head -100 | "
+                f"while read file; do "
+                f'  echo "$file\t$(stat -c %Y "$file" 2>/dev/null || echo 0)"; '
+                f"done | "
+                f"sort -k2 -nr | "
+                f"cut -f1"
+            ),
+            security_risk="LOW",
         )
 
-        # Limit to first 100 results
-        matching_files = matching_files[:100]
+        result = self.bash_executor(bash_action)
+
+        if result.exit_code != 0:
+            # If find with -path fails, try with shell globbing
+            bash_action = ExecuteBashAction(
+                command=(
+                    f"cd '{search_path}' && "
+                    f"shopt -s globstar nullglob && "
+                    f"files=({action.pattern}) && "
+                    f'for file in "${{files[@]:0:100}}"; do '
+                    f'  if [[ -f "$file" ]]; then '
+                    f'    echo "$file\t$(stat -c %Y "$file" 2>/dev/null || echo 0)"; '
+                    f"  fi; "
+                    f"done | "
+                    f"sort -k2 -nr | "
+                    f"cut -f1"
+                ),
+                security_risk="LOW",
+            )
+            result = self.bash_executor(bash_action)
+
+        # Parse the output to get file paths
+        if result.exit_code == 0 and result.output.strip():
+            matching_files = [
+                os.path.join(search_path, f.lstrip("./"))
+                for f in result.output.strip().split("\n")
+                if f.strip()
+            ]
+        else:
+            matching_files = []
 
         return GlobObservation(
             files=matching_files,
@@ -90,17 +129,6 @@ _GLOB_DESCRIPTION = """Fast file pattern matching tool.
 * When you are doing an open ended search that may require multiple rounds of globbing and grepping, use the Agent tool instead
 """  # noqa: E501
 
-# Create the glob tool using explicit executor
-glob_executor = GlobExecutor()
-glob_tool = Tool(
-    name="glob",
-    description=_GLOB_DESCRIPTION,
-    input_schema=GlobAction,
-    output_schema=GlobObservation,
-    executor=glob_executor,
-)
-
-
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
@@ -118,6 +146,16 @@ cwd = os.getcwd()
 # Advanced pattern: explicit executor creation and reuse
 bash_executor = BashExecutor(working_dir=cwd)
 bash_tool_advanced = execute_bash_tool.set_executor(executor=bash_executor)
+
+# Create the glob tool using explicit executor that reuses the bash executor
+glob_executor = GlobExecutor(bash_executor)
+glob_tool = Tool(
+    name="glob",
+    description=_GLOB_DESCRIPTION,
+    input_schema=GlobAction,
+    output_schema=GlobObservation,
+    executor=glob_executor,
+)
 
 tools: list[Tool] = [
     # Simplified pattern
