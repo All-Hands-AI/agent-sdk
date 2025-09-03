@@ -8,7 +8,12 @@ from openhands.core.context import EnvContext
 from openhands.core.conversation.state import ConversationState
 from openhands.core.conversation.types import ConversationCallbackType
 from openhands.core.conversation.visualizer import ConversationVisualizer
-from openhands.core.event import MessageEvent
+from openhands.core.event import (
+    ActionEvent,
+    MessageEvent,
+    ObservationEvent,
+    UserRejectsObservation,
+)
 from openhands.core.llm import Message, TextContent
 from openhands.core.logger import get_logger
 
@@ -112,3 +117,78 @@ class Conversation:
             iteration += 1
             if iteration >= self.max_iteration_per_run:
                 break
+
+    def confirm_action(self, action_id: str) -> None:
+        """Confirm an action by providing a confirmation observation.
+
+        This allows the agent to proceed with executing the action.
+        """
+        with self.state:
+            # Find the action event
+            action_event = self._find_action_by_id(action_id)
+            if action_event is None:
+                raise ValueError(f"Action with ID {action_id} not found")
+
+            # Check if action already has an observation
+            if self._has_observation_for_action(action_id):
+                raise ValueError(f"Action {action_id} already has an observation")
+
+            logger.info(f"User confirmed action: {action_event.tool_name}")
+
+            # Execute the action directly by calling step again
+            # The agent will see the action without observation and execute it
+            self.agent.step(self.state, on_event=self._on_event)
+
+    def reject_action(
+        self, action_id: str, reason: str = "User rejected the action"
+    ) -> None:
+        """Reject an action by providing a UserRejectsObservation."""
+        with self.state:
+            # Find the action event
+            action_event = self._find_action_by_id(action_id)
+            if action_event is None:
+                raise ValueError(f"Action with ID {action_id} not found")
+
+            # Check if action already has an observation
+            if self._has_observation_for_action(action_id):
+                raise ValueError(f"Action {action_id} already has an observation")
+
+            # Create rejection observation
+            rejection_event = UserRejectsObservation(
+                action_id=action_id,
+                tool_name=action_event.tool_name,
+                tool_call_id=action_event.tool_call_id,
+                rejection_reason=reason,
+            )
+            self._on_event(rejection_event)
+            logger.info(f"User rejected action: {action_event.tool_name} - {reason}")
+
+    def get_pending_actions(self) -> list[ActionEvent]:
+        """Get all actions that are waiting for confirmation."""
+        with self.state:
+            pending_actions = []
+            for event in self.state.events:
+                if isinstance(event, ActionEvent):
+                    if not self._has_observation_for_action(event.id):
+                        pending_actions.append(event)
+            return pending_actions
+
+    def set_confirmation_mode(self, enabled: bool) -> None:
+        """Enable or disable confirmation mode for the agent."""
+        self.agent.set_confirmation_mode(enabled)
+        logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
+
+    def _find_action_by_id(self, action_id: str) -> ActionEvent | None:
+        """Find an action event by its ID."""
+        for event in self.state.events:
+            if isinstance(event, ActionEvent) and event.id == action_id:
+                return event
+        return None
+
+    def _has_observation_for_action(self, action_id: str) -> bool:
+        """Check if an action already has an observation."""
+        for event in self.state.events:
+            if isinstance(event, (ObservationEvent, UserRejectsObservation)):
+                if event.action_id == action_id:
+                    return True
+        return False

@@ -5,6 +5,7 @@ from openhands.core.event.llm_convertible import (
     MessageEvent,
     ObservationEvent,
     SystemPromptEvent,
+    UserRejectsObservation,
 )
 
 
@@ -15,6 +16,7 @@ EventType = (
     | MessageEvent
     | SystemPromptEvent
     | AgentErrorEvent
+    | UserRejectsObservation
 )
 
 __all__ = [
@@ -25,5 +27,6 @@ __all__ = [
     "ObservationEvent",
     "MessageEvent",
     "AgentErrorEvent",
+    "UserRejectsObservation",
     "EventType",
 ]

@@ -19,6 +19,7 @@ from openhands.core.event import (
     MessageEvent,
     ObservationEvent,
     SystemPromptEvent,
+    UserRejectsObservation,
 )
 from openhands.core.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.core.logger import get_logger
@@ -42,12 +43,18 @@ class Agent(AgentBase):
         env_context: EnvContext | None = None,
         system_prompt_filename: str = "system_prompt.j2",
         cli_mode: bool = True,
+        confirmation_mode: bool = False,
     ) -> None:
         for tool in BUILT_IN_TOOLS:
             assert tool not in tools, (
                 f"{tool} is automatically included and should not be provided."
             )
-        super().__init__(llm=llm, tools=tools + BUILT_IN_TOOLS, env_context=env_context)
+        super().__init__(
+            llm=llm,
+            tools=tools + BUILT_IN_TOOLS,
+            env_context=env_context,
+            confirmation_mode=confirmation_mode,
+        )
 
         self.system_message: TextContent = TextContent(
             text=render_system_message(
@@ -144,8 +151,12 @@ class Agent(AgentBase):
                     continue
                 action_events.append(action_event)
 
-            for action_event in action_events:
-                self._execute_action_events(state, action_event, on_event=on_event)
+            # Handle confirmation mode
+            if self.confirmation_mode:
+                self._handle_confirmation_mode(state, action_events, on_event)
+            else:
+                for action_event in action_events:
+                    self._execute_action_events(state, action_event, on_event=on_event)
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
@@ -241,3 +252,59 @@ class Agent(AgentBase):
         if tool.name == FinishTool.name:
             state.agent_finished = True
         return obs_event
+
+    def _handle_confirmation_mode(
+        self,
+        state: ConversationState,
+        action_events: list[ActionEvent],
+        on_event: ConversationCallbackType,
+    ) -> None:
+        """Handle confirmation mode logic for action events."""
+        for action_event in action_events:
+            # Check if this action already has an observation
+            existing_observation = self._find_observation_for_action(
+                state, action_event.id
+            )
+
+            if existing_observation is None:
+                # No observation yet - this means we need confirmation
+                # Return early to wait for user confirmation
+                logger.info(
+                    f"Waiting for confirmation for action: {action_event.tool_name}"
+                )
+                return
+
+            elif isinstance(existing_observation, UserRejectsObservation):
+                # User rejected this action - skip execution
+                logger.info(
+                    f"Action {action_event.tool_name} was rejected by user: "
+                    f"{existing_observation.rejection_reason}"
+                )
+                continue
+
+            else:
+                # Action already has a regular observation - this shouldn't happen
+                # in confirmation mode, but handle it gracefully
+                logger.warning(
+                    f"Action {action_event.tool_name} already has observation, "
+                    "skipping execution"
+                )
+                continue
+
+        # If we get here, all actions have been confirmed - execute them
+        for action_event in action_events:
+            existing_observation = self._find_observation_for_action(
+                state, action_event.id
+            )
+            if not isinstance(existing_observation, UserRejectsObservation):
+                self._execute_action_events(state, action_event, on_event=on_event)
+
+    def _find_observation_for_action(
+        self, state: ConversationState, action_id: str
+    ) -> ObservationEvent | UserRejectsObservation | None:
+        """Find an observation event that corresponds to the given action ID."""
+        for event in reversed(state.events):  # Search from most recent
+            if isinstance(event, (ObservationEvent, UserRejectsObservation)):
+                if event.action_id == action_id:
+                    return event
+        return None
