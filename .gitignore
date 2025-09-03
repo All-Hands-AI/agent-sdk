@@ -236,6 +236,7 @@ logs
 /_test_workspace
 /debug
 cache
+.jinja_cache/
 
 # configuration
 config.toml

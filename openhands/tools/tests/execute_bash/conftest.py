@@ -12,7 +12,10 @@ logger = get_logger(__name__)
 
 def get_no_change_timeout_suffix(timeout_seconds):
     """Helper function to generate the expected no-change timeout suffix."""
-    return f"\n[The command has no new output after {timeout_seconds} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"
+    return (
+        f"\n[The command has no new output after {timeout_seconds} seconds. "
+        f"{TIMEOUT_MESSAGE_TEMPLATE}]"
+    )
 
 
 def create_test_bash_session(work_dir=None):

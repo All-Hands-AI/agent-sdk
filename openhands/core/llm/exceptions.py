@@ -10,7 +10,7 @@ class LLMError(Exception):
 
 
 class LLMMalformedActionError(LLMError):
-    """Exception raised when the LLM response is malformed or does not conform to the expected format."""
+    """Exception raised when the LLM response is malformed or does not conform to the expected format."""  # noqa: E501
 
     def __init__(self, message: str = "Malformed response") -> None:
         super().__init__(message)
@@ -24,14 +24,17 @@ class LLMNoActionError(LLMError):
 
 
 class LLMResponseError(LLMError):
-    """Exception raised when the LLM response does not include an action or the action is not of the expected type."""
+    """Exception raised when the LLM response does not include an action or the action is not of the expected type."""  # noqa: E501
 
-    def __init__(self, message: str = "Failed to retrieve action from LLM response") -> None:
+    def __init__(
+        self, message: str = "Failed to retrieve action from LLM response"
+    ) -> None:
         super().__init__(message)
 
 
 class LLMNoResponseError(LLMError):
-    """Exception raised when the LLM does not return a response, typically seen in Gemini models.
+    """Exception raised when the LLM does not return a response, typically seen in
+    Gemini models.
 
     This exception should be retried
     Typically, after retry with a non-zero temperature, the LLM will return a response
@@ -39,7 +42,7 @@ class LLMNoResponseError(LLMError):
 
     def __init__(
         self,
-        message: str = "LLM did not return a response. This is only seen in Gemini models so far.",
+        message: str = "LLM did not return a response. This is only seen in Gemini models so far.",  # noqa: E501
     ) -> None:
         super().__init__(message)
 
@@ -47,7 +50,7 @@ class LLMNoResponseError(LLMError):
 class LLMContextWindowExceedError(LLMError):
     def __init__(
         self,
-        message: str = "Conversation history longer than LLM context window limit. Consider turning on enable_history_truncation config to avoid this error",
+        message: str = "Conversation history longer than LLM context window limit. Consider turning on enable_history_truncation config to avoid this error",  # noqa: E501
     ) -> None:
         super().__init__(message)
 
@@ -58,9 +61,11 @@ class LLMContextWindowExceedError(LLMError):
 
 
 class FunctionCallConversionError(LLMError):
-    """Exception raised when FunctionCallingConverter failed to convert a non-function call message to a function call message.
+    """Exception raised when FunctionCallingConverter failed to convert a non-function
+    call message to a function call message.
 
-    This typically happens when there's a malformed message (e.g., missing <function=...> tags). But not due to LLM output.
+    This typically happens when there's a malformed message (e.g., missing
+    <function=...> tags). But not due to LLM output.
     """
 
     def __init__(self, message: str) -> None:
@@ -68,9 +73,11 @@ class FunctionCallConversionError(LLMError):
 
 
 class FunctionCallValidationError(LLMError):
-    """Exception raised when FunctionCallingConverter failed to validate a function call message.
+    """Exception raised when FunctionCallingConverter failed to validate a function
+    call message.
 
-    This typically happens when the LLM outputs unrecognized function call / parameter names / values.
+    This typically happens when the LLM outputs unrecognized function call /
+    parameter names / values.
     """
 
     def __init__(self, message: str) -> None:
@@ -95,7 +102,7 @@ class UserCancelledError(Exception):
 
 
 class OperationCancelled(Exception):
-    """Exception raised when an operation is cancelled (e.g. by a keyboard interrupt)."""
+    """Exception raised when an operation is cancelled (e.g. by a keyboard interrupt)."""  # noqa: E501
 
     def __init__(self, message: str = "Operation was cancelled") -> None:
         super().__init__(message)

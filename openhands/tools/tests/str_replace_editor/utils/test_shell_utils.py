@@ -29,7 +29,9 @@ def test_run_shell_cmd_success():
 def test_run_shell_cmd_timeout(mock_popen):
     """Test that a TimeoutError is raised if command times out."""
     mock_process = MagicMock()
-    mock_process.communicate.side_effect = subprocess.TimeoutExpired(cmd="sleep 2", timeout=1)
+    mock_process.communicate.side_effect = subprocess.TimeoutExpired(
+        cmd="sleep 2", timeout=1
+    )
     mock_popen.return_value = mock_process
 
     with pytest.raises(TimeoutError, match="Command 'sleep 2' timed out"):

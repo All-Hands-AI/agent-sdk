@@ -24,25 +24,26 @@ MESSAGE_DIR_NAME = "messages"
 EVENTS_DIR_NAME = "events"
 BASE_STATE_NAME = "base_state.json"
 
+
 class ConversationPersistence:
     """
     Layout under `root/`:
       - base_state.json                     # small JSON (without events)
-      - events/<index>-<ts>.jsonl           # ALL events, one event per file, one JSON object per line
-      - messages/<index>-<ts>.jsonl         # legacy format (for backward compatibility only)
+      - events/<index>-<ts>.jsonl           # ALL events, one event per file
+      - messages/<index>-<ts>.jsonl         # legacy format (backward compatibility)
 
     Conventions:
       - <index> is zero-padded to `cfg.index_width`
       - <ts> is UTC: YYYYMMDDTHHMMSS
     """
 
-    _RE_INDIV = re.compile(
-        r"^(?P<idx>\d+)-(?P<ts>\d{8}T\d{6})\.jsonl$"
-    )
+    _RE_INDIV = re.compile(r"^(?P<idx>\d+)-(?P<ts>\d{8}T\d{6})\.jsonl$")
 
     # ---------- Public API ----------
 
-    def save(self, obj: "Conversation", dir_path: str, filestore: FileStore | None = None) -> None:
+    def save(
+        self, obj: "Conversation", dir_path: str, filestore: FileStore | None = None
+    ) -> None:
         """
         Persist `obj.state` into `dir_path`:
           - overwrite base_state.json each call (it’s small)
@@ -66,7 +67,9 @@ class ConversationPersistence:
                     continue
                 self._write_individual(events_dir, idx, event, filestore)
 
-    def load(self, dir_path: str, agent, file_store: FileStore | None = None, **kwargs) -> "Conversation":
+    def load(
+        self, dir_path: str, agent, file_store: FileStore | None = None, **kwargs
+    ) -> "Conversation":
         """
         Restore a Conversation instance from `dir_path`:
           - read base_state.json
@@ -91,7 +94,7 @@ class ConversationPersistence:
 
             events_dir = EVENTS_DIR_NAME
             msg_dir = MESSAGE_DIR_NAME
-            
+
             # Try to load from events directory first (new format with ALL events)
             events_entries: list[tuple[int, str]] = []
             for p in filestore.list(events_dir):
@@ -99,7 +102,7 @@ class ConversationPersistence:
                 m = self._RE_INDIV.match(name)
                 if m:
                     events_entries.append((int(m.group("idx")), p))
-            
+
             if events_entries:
                 # Load from events directory (new format)
                 events_entries.sort(key=lambda t: t[0])
@@ -112,11 +115,14 @@ class ConversationPersistence:
                         try:
                             # Deserialize the event based on its type
                             event = self._deserialize_event(event_dict)
-                            # Type cast needed because EventBase is not in EventType union
-                            # but we want to support future non-LLMConvertibleEvent types
+                            # Type cast needed because EventBase is not in EventType
+                            # union but we want to support future non-LLMConvertible
+                            # Event types
                             obj.state.events.append(event)  # type: ignore
                         except Exception as e:
-                            logger.error(f"Failed to deserialize event from {path}: {e}")
+                            logger.error(
+                                f"Failed to deserialize event from {path}: {e}"
+                            )
             else:
                 # Fall back to messages directory (backward compatibility)
                 msg_entries: list[tuple[int, str]] = []
@@ -145,25 +151,41 @@ class ConversationPersistence:
                                 source = "environment"
                             else:
                                 source = "agent"
-                            obj.state.events.append(MessageEvent(source=source, llm_message=message))
+                            obj.state.events.append(
+                                MessageEvent(source=source, llm_message=message)
+                            )
                         except ValidationError as e:
                             logger.error(f"Failed to validate message from {path}: {e}")
         return obj
 
     # ---------- Internals ----------
 
-    def _write_base_state(self, base_path: str, obj: "Conversation", file_store: FileStore, ) -> None:
+    def _write_base_state(
+        self,
+        base_path: str,
+        obj: "Conversation",
+        file_store: FileStore,
+    ) -> None:
         base = obj.state.model_copy()
         # Remove events for compact base state
         base.events = []
-        data = json.dumps(base.model_dump(), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        data = json.dumps(
+            base.model_dump(), ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")
         file_store.write(base_path, data)
 
-    def _write_individual(self, msg_dir: str, index: int, msg_model: Any, file_store: FileStore) -> None:
+    def _write_individual(
+        self, msg_dir: str, index: int, msg_model: Any, file_store: FileStore
+    ) -> None:
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         name = f"{index:0{INDEX_WIDTH}d}-{ts}.jsonl"
         path = self._join(msg_dir, name)
-        line = (json.dumps(msg_model.model_dump(), ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+        line = (
+            json.dumps(
+                msg_model.model_dump(), ensure_ascii=False, separators=(",", ":")
+            )
+            + "\n"
+        ).encode("utf-8")
         file_store.write(path, line)
 
     def _saved_indices(self, msg_dir: str, file_store: FileStore) -> set[int]:
@@ -185,7 +207,7 @@ class ConversationPersistence:
             ObservationEvent,
             SystemPromptEvent,
         )
-        
+
         # Map event kind to event class
         event_classes = {
             "action": ActionEvent,
@@ -194,7 +216,7 @@ class ConversationPersistence:
             "system_prompt": SystemPromptEvent,
             "agent_error": AgentErrorEvent,
         }
-        
+
         kind = event_dict.get("kind")
         if kind in event_classes:
             event_class = event_classes[kind]
@@ -202,7 +224,9 @@ class ConversationPersistence:
         else:
             # For unknown event types, try to deserialize as generic EventBase
             # This provides forward compatibility for new event types
-            logger.warning(f"Unknown event kind '{kind}', deserializing as generic EventBase")
+            logger.warning(
+                f"Unknown event kind '{kind}', deserializing as generic EventBase"
+            )
             return EventBase.model_validate(event_dict)
 
     @staticmethod

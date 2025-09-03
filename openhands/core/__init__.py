@@ -4,7 +4,7 @@ from .agent import AgentBase, CodeActAgent
 from .config import LLMConfig, MCPConfig
 from .conversation import Conversation, ConversationCallbackType
 from .event import EventBase, EventType, LLMConvertibleEvent
-from .llm import LLM, ImageContent, Message, TextContent
+from .llm import LLM, ImageContent, LLMRegistry, Message, RegistryEvent, TextContent
 from .logger import get_logger
 from .tool import ActionBase, ObservationBase, Tool
 
@@ -16,6 +16,8 @@ except PackageNotFoundError:
 
 __all__ = [
     "LLM",
+    "LLMRegistry",
+    "RegistryEvent",
     "Message",
     "TextContent",
     "ImageContent",

@@ -23,7 +23,9 @@ class EncodingManager:
     def __init__(self, max_cache_size=None):
         # Cache detected encodings to avoid repeated detection on the same file
         # Format: {path_str: (encoding, mtime)}
-        self._encoding_cache: LRUCache[str, Tuple[str, float]] = LRUCache(maxsize=max_cache_size or self.DEFAULT_MAX_CACHE_SIZE)
+        self._encoding_cache: LRUCache[str, Tuple[str, float]] = LRUCache(
+            maxsize=max_cache_size or self.DEFAULT_MAX_CACHE_SIZE
+        )
         # Default fallback encoding
         self.default_encoding = "utf-8"
         # Confidence threshold for encoding detection
@@ -49,10 +51,16 @@ class EncodingManager:
         results = charset_normalizer.detect(raw_data)
 
         # Get the best match if any exists
-        if results and results["confidence"] and results["confidence"] > self.confidence_threshold and results["encoding"]:
+        if (
+            results
+            and results["confidence"]
+            and results["confidence"] > self.confidence_threshold
+            and results["encoding"]
+        ):
             encoding = results["encoding"]
-            # Always use utf-8 instead of ascii for text files to support non-ASCII characters
-            # This ensures files initially containing only ASCII can later accept non-ASCII content
+            # Always use utf-8 instead of ascii for text files to support
+            # non-ASCII characters. This ensures files initially containing only
+            # ASCII can later accept non-ASCII content
             if encoding.lower() == "ascii":
                 encoding = self.default_encoding
         else:

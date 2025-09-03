@@ -26,12 +26,21 @@ def test_file_editor_happy_path(temp_file):
 
     # Validate the result
     assert_successful_result(result, str(temp_file))
-    assert result.output is not None and "The file" in result.output and "has been edited" in result.output
+    assert (
+        result.output is not None
+        and "The file" in result.output
+        and "has been edited" in result.output
+    )
     assert result.output is not None and "This is a sample file." in result.output
     assert result.path == str(temp_file)
     assert result.prev_exist is True
-    assert result.old_content == "This is a test file.\nThis file is for testing purposes."
-    assert result.new_content == "This is a sample file.\nThis file is for testing purposes."
+    assert (
+        result.old_content == "This is a test file.\nThis file is for testing purposes."
+    )
+    assert (
+        result.new_content
+        == "This is a sample file.\nThis file is for testing purposes."
+    )
 
     # Ensure the file content was updated
     with open(temp_file, "r") as f:
@@ -61,8 +70,14 @@ match = re.search(
 
     # Validate the result
     assert_successful_result(result, str(temp_file))
-    assert result.output is not None and "Here's the result of running `cat -n`" in result.output
-    assert result.output is not None and "This is a file with XML tags parsing logic..." in result.output
+    assert (
+        result.output is not None
+        and "Here's the result of running `cat -n`" in result.output
+    )
+    assert (
+        result.output is not None
+        and "This is a file with XML tags parsing logic..." in result.output
+    )
     assert result.output is not None and "match = re.search(" in result.output
     assert result.output is not None and "...More text here." in result.output
 
@@ -80,7 +95,10 @@ def test_successful_operations(temp_file):
         path=str(temp_file),
     )
     assert_successful_result(result)
-    assert result.output is not None and "Here's the result of running `cat -n`" in result.output
+    assert (
+        result.output is not None
+        and "Here's the result of running `cat -n`" in result.output
+    )
     assert result.output is not None and "line 1" in result.output
 
     # Test str_replace
