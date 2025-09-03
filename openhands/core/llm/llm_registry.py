@@ -102,7 +102,7 @@ class LLMRegistry:
         # Check if we're trying to switch configs for existing LLM
         if (
             service_id in self.service_to_llm
-            and self.service_to_llm[service_id].config != config
+            and self.service_to_llm[service_id].orig_config != config
         ):
             raise ValueError(
                 f'Requesting same service ID {service_id} with different config, use a new service ID'
