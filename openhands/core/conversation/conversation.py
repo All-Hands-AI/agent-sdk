@@ -111,9 +111,6 @@ class Conversation:
         In normal mode:
         - Creates and executes actions immediately
         """
-        # Reset the flag that tracks if actions were created in this run
-        self.agent.reset_run_flag()
-
         iteration = 0
         while not self.state.agent_finished:
             logger.debug(f"Conversation run iteration {iteration}")
@@ -132,23 +129,19 @@ class Conversation:
 
     def get_pending_actions(self) -> list[ActionEvent]:
         """Get all actions that are waiting for confirmation from the agent."""
-        return self.agent.get_pending_actions()
+        return self.agent.get_pending_actions(self.state)
 
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode for the agent."""
         self.agent.set_confirmation_mode(enabled)
         logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
 
-        # Clear pending actions when disabling confirmation mode
-        if not enabled:
-            self.agent.clear_pending_actions()
-
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         """Reject all pending actions from the agent.
 
         This is a non-invasive method to reject actions between run() calls.
         """
-        pending_actions = self.agent.get_pending_actions()
+        pending_actions = self.agent.get_pending_actions(self.state)
         if not pending_actions:
             logger.warning("No pending actions to reject")
             return
@@ -166,9 +159,6 @@ class Conversation:
                 logger.info(
                     f"Rejected pending action: {action_event.tool_name} - {reason}"
                 )
-
-        # Clear pending actions after rejection
-        self.agent.clear_pending_actions()
 
     def _find_action_by_id(self, action_id: str) -> ActionEvent | None:
         """Find an action event by its ID."""

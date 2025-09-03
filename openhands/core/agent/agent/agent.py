@@ -88,22 +88,16 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
     ) -> None:
         # Check if we have pending actions to execute (implicit confirmation)
-        # Only execute pending actions if we haven't created any actions in this run
-        if (
-            self.confirmation_mode
-            and self._pending_actions
-            and not self._created_action_in_this_run
-        ):
-            logger.info(
-                f"Confirmation mode: Executing {len(self._pending_actions)} "
-                "pending action(s)"
-            )
-            for action_event in self._pending_actions:
-                self._execute_action_events(state, action_event, on_event=on_event)
-            self.clear_pending_actions()
-            # Reset the flag for next run
-            self._created_action_in_this_run = False
-            return
+        if self.confirmation_mode:
+            pending_actions = self._get_unmatched_actions(state.events)
+            if pending_actions:
+                logger.info(
+                    f"Confirmation mode: Executing {len(pending_actions)} "
+                    "pending action(s)"
+                )
+                for action_event in pending_actions:
+                    self._execute_action_events(state, action_event, on_event=on_event)
+                return
 
         # Get LLM Response (Action)
         llm_convertible_events = cast(
@@ -170,9 +164,8 @@ class Agent(AgentBase):
 
             # Handle confirmation mode
             if self.confirmation_mode:
-                # In confirmation mode, store actions as pending but don't execute them
-                for action_event in action_events:
-                    self.add_pending_action(action_event)
+                # In confirmation mode, actions are created but not executed
+                # They will be found and executed on the next run() call
                 logger.info(
                     f"Confirmation mode: Created {len(action_events)} action(s), "
                     "waiting for confirmation"

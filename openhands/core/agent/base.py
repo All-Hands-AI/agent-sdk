@@ -30,10 +30,6 @@ class AgentBase(ABC):
         self._llm = llm
         self._env_context = env_context
         self._confirmation_mode = confirmation_mode
-        self._pending_actions: list = []  # Track pending actions in confirmation mode
-        self._created_action_in_this_run = (
-            False  # Track if actions were created in current run
-        )
 
         # Load tools into an immutable dict
         _tools_map = {}
@@ -82,22 +78,44 @@ class AgentBase(ABC):
         """Enable or disable confirmation mode."""
         self._confirmation_mode = enabled
 
-    def get_pending_actions(self) -> list:
-        """Get list of pending actions awaiting confirmation."""
-        return self._pending_actions.copy()
+    def get_pending_actions(self, state=None) -> list:
+        """Get list of pending actions awaiting confirmation.
+
+        Args:
+            state: ConversationState to scan for unmatched actions.
+                   If None, returns empty list (for backward compatibility).
+        """
+        if state is None:
+            return []
+        return self._get_unmatched_actions(state.events)
 
     def clear_pending_actions(self) -> None:
-        """Clear all pending actions."""
-        self._pending_actions.clear()
+        """Clear all pending actions.
 
-    def add_pending_action(self, action_event) -> None:
-        """Add an action to the pending list."""
-        self._pending_actions.append(action_event)
-        self._created_action_in_this_run = True
+        Note: This is a no-op in the history-based implementation since
+        pending actions are determined by scanning the event history.
+        Kept for backward compatibility.
+        """
+        pass
 
-    def reset_run_flag(self) -> None:
-        """Reset the flag that tracks if actions were created in this run."""
-        self._created_action_in_this_run = False
+    def _get_unmatched_actions(self, events) -> list:
+        """Find actions in the event history that don't have matching observations."""
+        from openhands.core.event import ActionEvent, ObservationEvent
+        from openhands.core.event.llm_convertible import UserRejectsObservation
+
+        # Get all action IDs that have observations
+        observed_action_ids = set()
+        for event in events:
+            if isinstance(event, (ObservationEvent, UserRejectsObservation)):
+                observed_action_ids.add(event.action_id)
+
+        # Find actions without matching observations
+        unmatched_actions = []
+        for event in events:
+            if isinstance(event, ActionEvent) and event.id not in observed_action_ids:
+                unmatched_actions.append(event)
+
+        return unmatched_actions
 
     @abstractmethod
     def init_state(
