@@ -81,13 +81,13 @@ class LLMRegistry:
     def get_llm(
         self,
         service_id: str,
-        config: LLMConfig,
+        config: LLMConfig | None = None,
     ) -> LLM:
         """Get or create an LLM instance for the given service ID.
 
         Args:
             service_id: Unique identifier for the LLM service.
-            config: Configuration for the LLM.
+            config: Configuration for the LLM. Required if creating a new LLM.
 
         Returns:
             The LLM instance.
@@ -111,6 +111,9 @@ class LLMRegistry:
 
         if service_id in self.service_to_llm:
             return self.service_to_llm[service_id]
+
+        if not config:
+            raise ValueError("Requesting new LLM without specifying LLM config")
 
         return self._create_new_llm(config=config, service_id=service_id)
 
