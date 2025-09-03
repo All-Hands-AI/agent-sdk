@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
-Simplified example demonstrating confirmation mode in OpenHands Agent SDK.
+OpenHands Agent SDK — Confirmation Mode Example (Modular)
 
-This example shows how to:
-1. Enable confirmation mode for an agent
-2. Use conversation.run() in a loop until agent finishes
-3. Handle implicit confirmation and rejection
+What this shows:
+1) Turning on confirmation mode for an Agent
+2) Running conversation.run() in a loop until the agent finishes
+3) Prompting the user to approve/reject pending actions (in a separate function)
 """
 
+from __future__ import annotations
+
 import os
+import signal
+from typing import Iterable, Optional
 
 from pydantic import SecretStr
 
@@ -24,140 +28,147 @@ from openhands.sdk import (
 from openhands.tools import BashExecutor, execute_bash_tool
 
 
-def run_until_done(conversation: Conversation) -> None:
-    """Keep running conversation.run() until agent finishes.
+# ---------------------------
+# Setup helpers
+# ---------------------------
 
-    In confirmation mode, this will:
-    1. Check if agent is waiting for confirmation before each run
-    2. If waiting, ask user for yes/no input
-    3. If approved, run conversation.run() to execute actions
-    4. If rejected, call reject_pending_actions()
-    """
-    while not conversation.state.agent_finished:
-        # Check if agent is waiting for confirmation BEFORE running
-        if conversation.state.waiting_for_confirmation:
-            pending_actions = conversation.get_pending_actions()
-            if pending_actions:
-                print(
-                    f"\n🔍 Agent created {len(pending_actions)} action(s) "
-                    "and is waiting for confirmation:"
-                )
-                for i, action in enumerate(pending_actions, 1):
-                    action_preview = str(action.action)[:100]
-                    print(f"  {i}. {action.tool_name}: {action_preview}...")
-
-                # Ask user for confirmation
-                while True:
-                    user_input = (
-                        input("\nDo you want to execute these actions? (yes/no): ")
-                        .strip()
-                        .lower()
-                    )
-                    if user_input in ["yes", "y"]:
-                        print("✅ User approved - executing actions...")
-                        # Continue to run() which will execute the actions
-                        break
-                    elif user_input in ["no", "n"]:
-                        print("❌ User rejected - rejecting actions...")
-                        conversation.reject_pending_actions("User rejected the actions")
-                        # Continue the loop to check if agent is finished
-                        continue
-                    else:
-                        print("Please enter 'yes' or 'no'")
-            else:
-                # This shouldn't happen, but handle gracefully
-                print(
-                    "⚠️  Agent is waiting for confirmation but no pending actions found"
-                )
-                conversation.state.waiting_for_confirmation = False
-
-        print("Running conversation.run()...")
-        conversation.run()
-
-
-def main() -> None:
-    """Main example function."""
-    print("=== OpenHands Agent SDK - Confirmation Mode Example ===")
-
-    # Initialize LLM
-    api_key = os.getenv("LITELLM_API_KEY", "your-api-key-here")
+def build_llm() -> LLM:
+    api_key = os.getenv("LITELLM_API_KEY")
+    model = os.getenv("LITELLM_MODEL")
     llm = LLM(
         config=LLMConfig(
-            model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-            base_url="https://llm-proxy.eval.all-hands.dev",
+            model=model,
             api_key=SecretStr(api_key),
         )
     )
+    return llm
 
-    # Setup tools
-    cwd = os.getcwd()
+
+def build_tools(cwd: Optional[str] = None) -> list[Tool]:
+    cwd = cwd or os.getcwd()
     bash = BashExecutor(working_dir=cwd)
-    tools: list[Tool] = [
-        execute_bash_tool.set_executor(executor=bash),
-    ]
+    return [execute_bash_tool.set_executor(executor=bash)]
 
-    # Create agent and conversation
-    agent = Agent(llm=llm, tools=tools)
-    conversation = Conversation(agent=agent)
-    conversation.set_confirmation_mode(True)
 
-    # Example 1: Command that creates actions
-    print("\n1. Sending command that will create actions...")
-    user_message = Message(
-        role="user",
-        content=[
-            TextContent(
-                text="Please list the files in the current directory using ls -la"
-            )
-        ],
+def make_conversation(llm: LLM, tools: Iterable[Tool], confirmation: bool = True) -> Conversation:
+    agent = Agent(llm=llm, tools=list(tools))
+    convo = Conversation(agent=agent)
+    convo.set_confirmation_mode(confirmation)
+    return convo
+
+
+# ---------------------------
+# User interaction
+# ---------------------------
+
+def ask_user_confirmation(pending_count: int, previews: list[str]) -> bool:
+    """
+    Prompt the user to approve or reject pending actions.
+    Returns True if approved, False if rejected.
+    """
+    print(
+        f"\n🔍 Agent created {pending_count} action(s) and is waiting for confirmation:"
     )
-    conversation.send_message(user_message)
+    for i, preview in enumerate(previews, 1):
+        print(f"  {i}. {preview}")
 
-    # Run until agent finishes - will automatically handle confirmation
+    while True:
+        try:
+            user_input = input("\nDo you want to execute these actions? (yes/no): ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\n❌ No input received; rejecting by default.")
+            return False
+
+        if user_input in ("yes", "y"):
+            print("✅ Approved — executing actions…")
+            return True
+        if user_input in ("no", "n"):
+            print("❌ Rejected — skipping actions…")
+            return False
+        print("Please enter 'yes' or 'no'.")
+
+
+# ---------------------------
+# Conversation runner
+# ---------------------------
+
+def run_until_done(conversation: Conversation) -> None:
+    """
+    Keep running conversation.run() until the agent finishes.
+    If the agent is waiting for confirmation, ask the user and either proceed
+    or reject the pending actions.
+    """
+
+    # Make ^C a clean exit instead of a stack trace.
+    signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
+
+    while not conversation.state.agent_finished:
+        # If agent is waiting for confirmation, preview actions and ask user
+        if conversation.state.waiting_for_confirmation:
+            pending_actions = conversation.get_pending_actions()
+
+            if pending_actions:
+                # Build short previews for display
+                previews = []
+                for a in pending_actions:
+                    tool = getattr(a, "tool_name", "<unknown tool>")
+                    snippet = str(getattr(a, "action", ""))[:100].replace("\n", " ")
+                    previews.append(f"{tool}: {snippet}…")
+
+                approved = ask_user_confirmation(len(pending_actions), previews)
+                if not approved:
+                    conversation.reject_pending_actions("User rejected the actions")
+                    # Loop continues — the agent may produce a new step or finish
+                    continue
+                # If approved: fall through to run() which will execute actions
+            else:
+                # Defensive: clear the flag if somehow set without actions
+                print("⚠️ Agent is waiting for confirmation but no pending actions were found.")
+                conversation.state.waiting_for_confirmation = False
+
+        print("▶️  Running conversation.run()…")
+        conversation.run()
+
+
+# ---------------------------
+# Scripted examples
+# ---------------------------
+
+def send_and_run(conversation: Conversation, text: str) -> None:
+    """Convenience wrapper to send a user message and run until done."""
+    msg = Message(role="user", content=[TextContent(text=text)])
+    conversation.send_message(msg)
     run_until_done(conversation)
 
-    # Example 2: Command that we can reject (user will be prompted)
-    print("\n2. Sending command that user can choose to reject...")
-    user_message2 = Message(
-        role="user",
-        content=[TextContent(text="Please create a file called 'dangerous_file.txt'")],
-    )
-    conversation.send_message(user_message2)
 
-    # Run until agent finishes - user will be prompted to approve/reject
-    run_until_done(conversation)
+def main() -> None:
+    print("=== OpenHands Agent SDK — Confirmation Mode (Modular) ===")
 
-    # Example 3: Simple greeting (no actions expected)
-    print("\n3. Sending simple greeting...")
-    user_message3 = Message(
-        role="user",
-        content=[TextContent(text="Just say hello to me")],
-    )
-    conversation.send_message(user_message3)
+    llm = build_llm()
+    tools = build_tools()
 
-    run_until_done(conversation)
+    # 1) Start with confirmation mode ON
+    conversation = make_conversation(llm, tools, confirmation=True)
 
-    # Example 4: Disable confirmation mode
-    print("\n4. Disabling confirmation mode and running command...")
+    print("\n1) Command that will likely create actions…")
+    send_and_run(conversation, "Please list the files in the current directory using ls -la")
+
+    print("\n2) Command the user may choose to reject…")
+    send_and_run(conversation, "Please create a file called 'dangerous_file.txt'")
+
+    print("\n3) Simple greeting (no actions expected)…")
+    send_and_run(conversation, "Just say hello to me")
+
+    print("\n4) Disable confirmation mode and run a command…")
     conversation.set_confirmation_mode(False)
-
-    user_message4 = Message(
-        role="user",
-        content=[
-            TextContent(text="Please echo 'Hello from confirmation mode example!'")
-        ],
-    )
-    conversation.send_message(user_message4)
-
-    run_until_done(conversation)
+    send_and_run(conversation, "Please echo 'Hello from confirmation mode example!'")
 
     print("\n=== Example Complete ===")
     print("Key points:")
-    print("- conversation.run() creates actions and sets waiting_for_confirmation=True")
-    print("- Example detects this flag and prompts user for yes/no confirmation")
-    print("- User approval leads to implicit confirmation (second run() call)")
-    print("- User rejection calls reject_pending_actions() and clears the flag")
-    print("- Not every response creates actions (simple greetings work normally)")
+    print("- conversation.run() creates actions; confirmation mode sets waiting_for_confirmation=True")
+    print("- ask_user_confirmation() centralizes the yes/no prompt")
+    print("- Rejection uses conversation.reject_pending_actions() and continues the loop")
+    print("- Simple responses work normally without actions")
 
 
 if __name__ == "__main__":
