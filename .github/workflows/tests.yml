@@ -63,6 +63,10 @@ jobs:
           if [ -f .coverage.sdk ]; then
             echo "SDK coverage file exists, size: $(stat -c%s .coverage.sdk) bytes"
             echo "Full path: $(realpath .coverage.sdk)"
+            # Copy to a predictable location for upload
+            cp .coverage.sdk coverage-sdk.dat
+            echo "Copied to coverage-sdk.dat for upload"
+            ls -la coverage-sdk.dat
           else
             echo "SDK coverage file does not exist"
           fi
@@ -72,9 +76,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-sdk
-          path: |
-            .coverage.sdk
-            **/.coverage.sdk
+          path: coverage-sdk.dat
           if-no-files-found: warn
 
   tools-tests:
@@ -129,6 +131,10 @@ jobs:
           if [ -f .coverage.tools ]; then
             echo "Tools coverage file exists, size: $(stat -c%s .coverage.tools) bytes"
             echo "Full path: $(realpath .coverage.tools)"
+            # Copy to a predictable location for upload
+            cp .coverage.tools coverage-tools.dat
+            echo "Copied to coverage-tools.dat for upload"
+            ls -la coverage-tools.dat
           else
             echo "Tools coverage file does not exist"
           fi
@@ -138,9 +144,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-tools
-          path: |
-            .coverage.tools
-            **/.coverage.tools
+          path: coverage-tools.dat
           if-no-files-found: warn
 
   integration-tests:
@@ -199,6 +203,10 @@ jobs:
           if [ -f .coverage.integration ]; then
             echo "Integration coverage file exists, size: $(stat -c%s .coverage.integration) bytes"
             echo "Full path: $(realpath .coverage.integration)"
+            # Copy to a predictable location for upload
+            cp .coverage.integration coverage-integration.dat
+            echo "Copied to coverage-integration.dat for upload"
+            ls -la coverage-integration.dat
           else
             echo "Integration coverage file does not exist"
           fi
@@ -208,9 +216,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-integration
-          path: |
-            .coverage.integration
-            **/.coverage.integration
+          path: coverage-integration.dat
           if-no-files-found: warn
 
   coverage-report:
@@ -238,13 +244,36 @@ jobs:
       - name: Combine coverage data
         run: |
           shopt -s nullglob
-          files=(cov/**/.coverage*)
+          echo "Looking for coverage files..."
+          find cov -name "*.dat" -type f || echo "No .dat files found"
+          find cov -name ".coverage*" -type f || echo "No .coverage* files found"
+          
+          # Look for both old and new file patterns
+          files=(cov/**/.coverage* cov/**/coverage-*.dat)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No coverage files found; skipping combined report."
             exit 0
           fi
-          # Bring files to cwd so coverage can find them easily
-          cp "${files[@]}" .
+          
+          echo "Found coverage files: ${files[@]}"
+          
+          # Rename .dat files back to .coverage format for coverage tool
+          for file in "${files[@]}"; do
+            if [[ "$file" == *coverage-sdk.dat ]]; then
+              cp "$file" .coverage.sdk
+              echo "Renamed $file to .coverage.sdk"
+            elif [[ "$file" == *coverage-tools.dat ]]; then
+              cp "$file" .coverage.tools
+              echo "Renamed $file to .coverage.tools"
+            elif [[ "$file" == *coverage-integration.dat ]]; then
+              cp "$file" .coverage.integration
+              echo "Renamed $file to .coverage.integration"
+            else
+              cp "$file" .
+              echo "Copied $file to current directory"
+            fi
+          done
+          
           uv run coverage combine
           uv run coverage xml -i -o coverage.xml
           uv run coverage report -m || true
