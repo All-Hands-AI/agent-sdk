@@ -56,10 +56,13 @@ jobs:
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
           echo "Checking for coverage file..."
-          ls -la .coverage* || echo "No coverage files found"
-          pwd
+          echo "Current working directory: $(pwd)"
+          echo "Directory structure:"
+          find . -name ".coverage*" -type f 2>/dev/null || echo "No coverage files found with find"
+          ls -la .coverage* 2>/dev/null || echo "No coverage files found with ls"
           if [ -f .coverage.sdk ]; then
             echo "SDK coverage file exists, size: $(stat -c%s .coverage.sdk) bytes"
+            echo "Full path: $(realpath .coverage.sdk)"
           else
             echo "SDK coverage file does not exist"
           fi
@@ -117,10 +120,13 @@ jobs:
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
           echo "Checking for coverage file..."
-          ls -la .coverage* || echo "No coverage files found"
-          pwd
+          echo "Current working directory: $(pwd)"
+          echo "Directory structure:"
+          find . -name ".coverage*" -type f 2>/dev/null || echo "No coverage files found with find"
+          ls -la .coverage* 2>/dev/null || echo "No coverage files found with ls"
           if [ -f .coverage.tools ]; then
             echo "Tools coverage file exists, size: $(stat -c%s .coverage.tools) bytes"
+            echo "Full path: $(realpath .coverage.tools)"
           else
             echo "Tools coverage file does not exist"
           fi
@@ -182,10 +188,13 @@ jobs:
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
           echo "Checking for coverage file..."
-          ls -la .coverage* || echo "No coverage files found"
-          pwd
+          echo "Current working directory: $(pwd)"
+          echo "Directory structure:"
+          find . -name ".coverage*" -type f 2>/dev/null || echo "No coverage files found with find"
+          ls -la .coverage* 2>/dev/null || echo "No coverage files found with ls"
           if [ -f .coverage.integration ]; then
             echo "Integration coverage file exists, size: $(stat -c%s .coverage.integration) bytes"
+            echo "Full path: $(realpath .coverage.integration)"
           else
             echo "Integration coverage file does not exist"
           fi
