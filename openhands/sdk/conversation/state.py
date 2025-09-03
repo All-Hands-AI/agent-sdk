@@ -19,6 +19,9 @@ class ConversationState(BaseModel):
     initial_message_sent: bool = False
     confirmation_mode: bool = False
     waiting_for_confirmation: bool = False
+    activated_knowledge_microagents: list[str] = Field(
+        default_factory=list, description="List of activated knowledge microagents name"
+    )
 
     # Private attrs (NOT Fields) — allowed to start with underscore
     _lock: RLock = PrivateAttr(default_factory=RLock)

@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import ClassVar, Union
 
 import frontmatter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, model_validator
 
+from openhands.sdk.config import MCPConfig
 from openhands.sdk.context.microagents.exceptions import MicroagentValidationError
 from openhands.sdk.context.microagents.types import (
     InputMetadata,
-    MicroagentMetadata,
     MicroagentType,
 )
 from openhands.sdk.logger import get_logger
@@ -24,9 +24,14 @@ class BaseMicroagent(BaseModel):
 
     name: str
     content: str
-    metadata: MicroagentMetadata
-    source: str  # path to the file
-    type: MicroagentType
+    source: str | None = Field(
+        default=None,
+        description=(
+            "The source path or identifier of the microagent. "
+            "When it is None, it is treated as a programmatically defined microagent."
+        ),
+    )
+    type: MicroagentType = Field(..., description="The type of the microagent")
 
     PATH_TO_THIRD_PARTY_MICROAGENT_NAME: ClassVar[dict[str, str]] = {
         ".cursorrules": "cursorrules",
@@ -46,7 +51,6 @@ class BaseMicroagent(BaseModel):
             return RepoMicroagent(
                 name=microagent_name,
                 content=file_content,
-                metadata=MicroagentMetadata(name=microagent_name),
                 source=str(path),
                 type=MicroagentType.REPO_KNOWLEDGE,
             )
@@ -67,13 +71,14 @@ class BaseMicroagent(BaseModel):
         path = Path(path) if isinstance(path, str) else path
 
         # Calculate derived name from relative path if microagent_dir is provided
-        # Otherwise, we will rely on the name from metadata later
-        derived_name = None
+        microagent_name = None
         if microagent_dir is not None:
             # Special handling for files which are not in microagent_dir
-            derived_name = cls.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.get(
+            microagent_name = cls.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.get(
                 path.name.lower()
             ) or str(path.relative_to(microagent_dir).with_suffix(""))
+        else:
+            microagent_name = path.stem
 
         # Only load directly from path if file_content is not provided
         if file_content is None:
@@ -85,7 +90,6 @@ class BaseMicroagent(BaseModel):
             return RepoMicroagent(
                 name="repo_legacy",
                 content=file_content,
-                metadata=MicroagentMetadata(name="repo_legacy"),
                 source=str(path),
                 type=MicroagentType.REPO_KNOWLEDGE,
             )
@@ -102,82 +106,49 @@ class BaseMicroagent(BaseModel):
         # Handle case where there's no frontmatter or empty frontmatter
         metadata_dict = loaded.metadata or {}
 
-        # Ensure version is always a string (YAML may parse numeric versions as integers)  # noqa: E501
-        if "version" in metadata_dict and not isinstance(metadata_dict["version"], str):
-            metadata_dict["version"] = str(metadata_dict["version"])
+        # Use name from frontmatter if provided, otherwise use derived name
+        agent_name = str(metadata_dict.get("name", microagent_name))
 
-        try:
-            metadata = MicroagentMetadata.model_validate(metadata_dict)
-
-            # Validate MCP tools configuration if present
-            if metadata.mcp_tools:
-                if metadata.mcp_tools.sse_servers:
-                    logger.warning(
-                        f"Microagent {metadata.name} has SSE servers. Only stdio "
-                        f"servers are currently supported."
-                    )
-
-                if not metadata.mcp_tools.stdio_servers:
-                    raise MicroagentValidationError(
-                        f"Microagent {metadata.name} has MCP tools configuration but "
-                        f"no stdio servers. Only stdio servers are currently supported."
-                    )
-        except Exception as e:
-            # Provide more detailed error message for validation errors
-            error_msg = f"Error validating microagent metadata in {path.name}: {str(e)}"
-            if "type" in metadata_dict and metadata_dict["type"] not in [
-                t.value for t in MicroagentType
-            ]:
-                valid_types = ", ".join([f'"{t.value}"' for t in MicroagentType])
-                error_msg += (
-                    f'. Invalid "type" value: "{metadata_dict["type"]}". '
-                    f"Valid types are: {valid_types}"
+        # Validate type field if provided in frontmatter
+        if "type" in metadata_dict:
+            type_value = metadata_dict["type"]
+            valid_types = [t.value for t in MicroagentType]
+            if type_value not in valid_types:
+                valid_types_str = ", ".join(f'"{t}"' for t in valid_types)
+                raise MicroagentValidationError(
+                    f'Invalid "type" value: "{type_value}". '
+                    f"Valid types are: {valid_types_str}"
                 )
-            raise MicroagentValidationError(error_msg) from e
-
-        # Create appropriate subclass based on type
-        subclass_map = {
-            MicroagentType.KNOWLEDGE: KnowledgeMicroagent,
-            MicroagentType.REPO_KNOWLEDGE: RepoMicroagent,
-            MicroagentType.TASK: TaskMicroagent,
-        }
 
         # Infer the agent type:
         # 1. If inputs exist -> TASK
         # 2. If triggers exist -> KNOWLEDGE
         # 3. Else (no triggers) -> REPO (always active)
-        inferred_type: MicroagentType
-        if metadata.inputs:
-            inferred_type = MicroagentType.TASK
+        triggers = metadata_dict.get("triggers", [])
+        if not isinstance(triggers, list):
+            raise MicroagentValidationError("Triggers must be a list of strings")
+        if "inputs" in metadata_dict:
             # Add a trigger for the agent name if not already present
-            trigger = f"/{metadata.name}"
-            if not metadata.triggers or trigger not in metadata.triggers:
-                if not metadata.triggers:
-                    metadata.triggers = [trigger]
-                else:
-                    metadata.triggers.append(trigger)
-        elif metadata.triggers:
-            inferred_type = MicroagentType.KNOWLEDGE
+            trigger = f"/{agent_name}"
+            if trigger not in triggers:
+                triggers.append(trigger)
+            return TaskMicroagent(
+                name=agent_name,
+                content=content,
+                source=str(path),
+                triggers=triggers,
+            )
+
+        elif metadata_dict.get("triggers", None):
+            return KnowledgeMicroagent(
+                name=agent_name,
+                content=content,
+                source=str(path),
+                triggers=triggers,
+            )
         else:
             # No triggers, default to REPO
-            # This handles cases where 'type' might be missing or defaulted by Pydantic
-            inferred_type = MicroagentType.REPO_KNOWLEDGE
-
-        if inferred_type not in subclass_map:
-            # This should theoretically not happen with the logic above
-            raise ValueError(f"Could not determine microagent type for: {path}")
-
-        # Use derived_name if available (from relative path), otherwise fallback to metadata.name  # noqa: E501
-        agent_name = derived_name if derived_name is not None else metadata.name
-
-        agent_class = subclass_map[inferred_type]
-        return agent_class(
-            name=agent_name,
-            content=content,
-            metadata=metadata,
-            source=str(path),
-            type=inferred_type,
-        )
+            return RepoMicroagent(name=agent_name, content=content, source=str(path))
 
 
 class KnowledgeMicroagent(BaseMicroagent):
@@ -191,10 +162,13 @@ class KnowledgeMicroagent(BaseMicroagent):
     - Tool usage
     """
 
+    type: MicroagentType = MicroagentType.KNOWLEDGE
+    triggers: list[str] = Field(
+        default_factory=list, description="List of triggers for the microagent"
+    )
+
     def __init__(self, **data):
         super().__init__(**data)
-        if self.type not in [MicroagentType.KNOWLEDGE, MicroagentType.TASK]:
-            raise ValueError("KnowledgeMicroagent must have type KNOWLEDGE or TASK")
 
     def match_trigger(self, message: str) -> str | None:
         """Match a trigger in the message.
@@ -207,10 +181,6 @@ class KnowledgeMicroagent(BaseMicroagent):
                 return trigger
 
         return None
-
-    @property
-    def triggers(self) -> list[str]:
-        return self.metadata.triggers
 
 
 class RepoMicroagent(BaseMicroagent):
@@ -226,12 +196,45 @@ class RepoMicroagent(BaseMicroagent):
         - Custom documentation references
     """
 
-    def __init__(self, **data):
-        super().__init__(**data)
+    type: MicroagentType = MicroagentType.REPO_KNOWLEDGE
+    mcp_tools: MCPConfig | None = Field(
+        default=None,
+        description="MCP tools configuration for the microagent",
+    )
+
+    # Field-level validation for mcp_tools
+    @field_validator("mcp_tools")
+    @classmethod
+    def _validate_mcp_tools(cls, v: MCPConfig | None, info):
+        if v is None:
+            return v
+        # Warn on SSE servers
+        if v.sse_servers:
+            logger.warning(
+                f"Microagent {getattr(info, 'data', {}).get('name', '<unknown>')} has SSE servers. "  # noqa: E501
+                "Only stdio servers are currently supported."
+            )
+        # Require stdio servers to be configured (non-empty)
+        stdio = v.stdio_servers
+        if not stdio:
+            # Try to include the agent name if available
+            agent_name = (
+                getattr(info, "data", {}).get("name") if hasattr(info, "data") else None
+            )
+            agent_label = agent_name or "<unknown>"
+            raise MicroagentValidationError(
+                f"Microagent {agent_label} has MCP tools configuration but no stdio servers. "  # noqa: E501
+                "Only stdio servers are currently supported."
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _enforce_repo_type(self):
         if self.type != MicroagentType.REPO_KNOWLEDGE:
-            raise ValueError(
+            raise MicroagentValidationError(
                 f"RepoMicroagent initialized with incorrect type: {self.type}"
             )
+        return self
 
 
 class TaskMicroagent(KnowledgeMicroagent):
@@ -241,20 +244,22 @@ class TaskMicroagent(KnowledgeMicroagent):
     and will prompt the user for any required inputs before proceeding.
     """
 
+    type: MicroagentType = MicroagentType.TASK
+    inputs: list[InputMetadata] = Field(
+        default_factory=list,
+        description=(
+            "Input metadata for the microagent. Only exists for task microagents"
+        ),
+    )
+
     def __init__(self, **data):
         super().__init__(**data)
-        if self.type != MicroagentType.TASK:
-            raise ValueError(
-                f"TaskMicroagent initialized with incorrect type: {self.type}"
-            )
-
-        # Append a prompt to ask for missing variables
         self._append_missing_variables_prompt()
 
     def _append_missing_variables_prompt(self) -> None:
         """Append a prompt to ask for missing variables."""
         # Check if the content contains any variables or has inputs defined
-        if not self.requires_user_input() and not self.metadata.inputs:
+        if not self.requires_user_input() and not self.inputs:
             return
 
         prompt = (
@@ -282,14 +287,9 @@ class TaskMicroagent(KnowledgeMicroagent):
         logger.debug(f"This microagent requires user input: {variables}")
         return len(variables) > 0
 
-    @property
-    def inputs(self) -> list[InputMetadata]:
-        """Get the inputs for this microagent."""
-        return self.metadata.inputs
-
 
 def load_microagents_from_dir(
-    microagent_dir: Union[str, Path],
+    microagent_dir: str | Path,
 ) -> tuple[dict[str, RepoMicroagent], dict[str, KnowledgeMicroagent]]:
     """Load all microagents from the given directory.
 
@@ -314,16 +314,12 @@ def load_microagents_from_dir(
     special_files = []
     repo_root = microagent_dir.parent.parent
 
-    # Check for .cursorrules
-    if (repo_root / ".cursorrules").exists():
-        special_files.append(repo_root / ".cursorrules")
-
-    # Check for AGENTS.md (case-insensitive)
-    for agents_filename in ["AGENTS.md", "agents.md", "AGENT.md", "agent.md"]:
-        agents_path = repo_root / agents_filename
-        if agents_path.exists():
-            special_files.append(agents_path)
-            break  # Only add the first one found to avoid duplicates
+    # Check for third party rules: .cursorrules, AGENTS.md, etc
+    for filename in BaseMicroagent.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.keys():
+        for variant in [filename, filename.lower(), filename.upper()]:
+            if (repo_root / variant).exists():
+                special_files.append(repo_root / variant)
+                break  # Only add the first one found to avoid duplicates
 
     # Collect .md files from microagents directory if it exists
     md_files = []

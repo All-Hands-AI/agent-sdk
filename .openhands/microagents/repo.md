@@ -139,8 +139,10 @@ This repo has two python packages, with unit tests specifically written for each
 │   └── tools
 │       ├── __init__.py
 │       ├── execute_bash
+│       │   ├── tool.py  # <- BashTool subclass
 │       ├── pyproject.toml
 │       ├── str_replace_editor
+│       │   ├── tool.py  # <- FileEditorTool subclass
 │       └── utils
 ├── pyproject.toml
 ├── tests
@@ -149,6 +151,32 @@ This repo has two python packages, with unit tests specifically written for each
 │   ├── tools
 └── uv.lock
 ```
+
+## Tool Architecture
+
+The tools package now provides two patterns for tool usage:
+
+### Simplified Pattern (Recommended)
+```python
+from openhands.tools import BashTool, FileEditorTool
+
+# Direct instantiation with simplified API
+tools = [
+    BashTool(working_dir=os.getcwd()),
+    FileEditorTool(),
+]
+```
+
+### Advanced Pattern (For Custom Tools)
+```python
+from openhands.tools import BashExecutor, execute_bash_tool
+
+# Explicit executor creation for reuse or customization
+bash_executor = BashExecutor(working_dir=os.getcwd())
+bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
+```
+
+The simplified pattern eliminates the need for manual executor instantiation and `set_executor()` calls, making tool usage more intuitive and reducing boilerplate code.
 
 
 <DEV_SETUP>
