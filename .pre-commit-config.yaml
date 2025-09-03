@@ -24,7 +24,7 @@ repos:
         language: system
         types: [python]
         pass_filenames: true
-        always_run: true
+        always_run: false
       - id: pyright
         name: Type check with Pyright (strict)
         entry: uv
