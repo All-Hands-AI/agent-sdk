@@ -119,6 +119,14 @@ class Conversation:
             # and check will we be able to execute .send_message
             # BEFORE the .run loop finishes?
             with self.state:
+                # Check for implicit confirmation: if waiting and pending actions exist,
+                # clear the flag before calling agent.step() (user approved)
+                if self.state.waiting_for_confirmation and self.get_pending_actions():
+                    logger.debug(
+                        "Implicit confirmation detected - clearing waiting flag"
+                    )
+                    self.state.waiting_for_confirmation = False
+
                 # step must mutate the SAME state object
                 self.agent.step(self.state, on_event=self._on_event)
 
