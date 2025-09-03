@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 
 
 if TYPE_CHECKING:
@@ -126,27 +126,52 @@ class ConversationPersistence:
 
     def _deserialize_event(self, event_dict: dict) -> EventType:
         """Deserialize an event dictionary back to an EventType instance."""
-        from openhands.sdk.event import (
-            ActionEvent,
-            AgentErrorEvent,
-            MessageEvent,
-            ObservationEvent,
-            SystemPromptEvent,
-        )
-
-        # Map event kind to event class
-        event_classes = {
-            "action": ActionEvent,
-            "observation": ObservationEvent,
-            "message": MessageEvent,
-            "system_prompt": SystemPromptEvent,
-            "agent_error": AgentErrorEvent,
-        }
-
         kind = event_dict.get("kind")
-        if kind in event_classes:
-            return event_classes[kind].model_validate(event_dict)
+        if not kind:
+            logger.warning("Event missing 'kind' field, skipping event")
+            raise ValueError("Event missing 'kind' field")
+
+        event_class = self._get_event_class_by_kind(kind)
+
+        if event_class:
+            return event_class.model_validate(event_dict)
         else:
             # For unknown event types, log warning and skip
             logger.warning(f"Unknown event kind '{kind}', skipping event")
             raise ValueError(f"Unknown event kind: {kind}")
+
+    def _get_event_class_by_kind(self, kind: str) -> Type[EventType] | None:
+        """Get event class by kind, using automatic discovery of EventBase subclasses."""  # noqa: E501
+        if not hasattr(self, "_event_class_cache"):
+            self._event_class_cache = self._build_event_class_mapping()
+
+        return self._event_class_cache.get(kind)
+
+    def _build_event_class_mapping(self) -> dict[str, Type[EventType]]:
+        """Build mapping of event kinds to event classes by discovering all EventBase subclasses."""  # noqa: E501
+        from openhands.sdk.event import EventBase
+
+        event_classes = {}
+
+        def collect_subclasses(cls):
+            """Recursively collect all subclasses of EventBase."""
+            for subclass in cls.__subclasses__():
+                # Check if the subclass has a 'kind' field defined
+                if (
+                    hasattr(subclass, "model_fields")
+                    and "kind" in subclass.model_fields
+                ):
+                    # Get the default value of the kind field
+                    kind_field = subclass.model_fields["kind"]
+                    if (
+                        hasattr(kind_field, "default")
+                        and kind_field.default is not None
+                    ):
+                        kind = kind_field.default
+                        event_classes[kind] = subclass
+
+                # Recursively collect subclasses
+                collect_subclasses(subclass)
+
+        collect_subclasses(EventBase)
+        return event_classes
