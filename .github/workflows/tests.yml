@@ -52,23 +52,14 @@ jobs:
             mv .coverage .coverage.sdk
           fi
 
-      - name: Check sdk coverage file
+      - name: Prepare sdk coverage for upload
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
-          echo "Checking for coverage file..."
-          echo "Current working directory: $(pwd)"
-          echo "Directory structure:"
-          find . -name ".coverage*" -type f 2>/dev/null || echo "No coverage files found with find"
-          ls -la .coverage* 2>/dev/null || echo "No coverage files found with ls"
           if [ -f .coverage.sdk ]; then
-            echo "SDK coverage file exists, size: $(stat -c%s .coverage.sdk) bytes"
-            echo "Full path: $(realpath .coverage.sdk)"
-            # Copy to a predictable location for upload
             cp .coverage.sdk coverage-sdk.dat
-            echo "Copied to coverage-sdk.dat for upload"
-            ls -la coverage-sdk.dat
+            echo "SDK coverage file prepared for upload"
           else
-            echo "SDK coverage file does not exist"
+            echo "SDK coverage file not found"
           fi
 
       - name: Upload sdk coverage
@@ -120,23 +111,14 @@ jobs:
             mv .coverage .coverage.tools
           fi
 
-      - name: Check tools coverage file
+      - name: Prepare tools coverage for upload
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
-          echo "Checking for coverage file..."
-          echo "Current working directory: $(pwd)"
-          echo "Directory structure:"
-          find . -name ".coverage*" -type f 2>/dev/null || echo "No coverage files found with find"
-          ls -la .coverage* 2>/dev/null || echo "No coverage files found with ls"
           if [ -f .coverage.tools ]; then
-            echo "Tools coverage file exists, size: $(stat -c%s .coverage.tools) bytes"
-            echo "Full path: $(realpath .coverage.tools)"
-            # Copy to a predictable location for upload
             cp .coverage.tools coverage-tools.dat
-            echo "Copied to coverage-tools.dat for upload"
-            ls -la coverage-tools.dat
+            echo "Tools coverage file prepared for upload"
           else
-            echo "Tools coverage file does not exist"
+            echo "Tools coverage file not found"
           fi
 
       - name: Upload tools coverage
@@ -192,23 +174,14 @@ jobs:
             mv .coverage .coverage.integration
           fi
 
-      - name: Check integration coverage file
+      - name: Prepare integration coverage for upload
         if: steps.changed.outputs.any_changed == 'true' && always()
         run: |
-          echo "Checking for coverage file..."
-          echo "Current working directory: $(pwd)"
-          echo "Directory structure:"
-          find . -name ".coverage*" -type f 2>/dev/null || echo "No coverage files found with find"
-          ls -la .coverage* 2>/dev/null || echo "No coverage files found with ls"
           if [ -f .coverage.integration ]; then
-            echo "Integration coverage file exists, size: $(stat -c%s .coverage.integration) bytes"
-            echo "Full path: $(realpath .coverage.integration)"
-            # Copy to a predictable location for upload
             cp .coverage.integration coverage-integration.dat
-            echo "Copied to coverage-integration.dat for upload"
-            ls -la coverage-integration.dat
+            echo "Integration coverage file prepared for upload"
           else
-            echo "Integration coverage file does not exist"
+            echo "Integration coverage file not found"
           fi
 
       - name: Upload integration coverage
@@ -244,36 +217,26 @@ jobs:
       - name: Combine coverage data
         run: |
           shopt -s nullglob
-          echo "Looking for coverage files..."
-          find cov -name "*.dat" -type f || echo "No .dat files found"
-          find cov -name ".coverage*" -type f || echo "No .coverage* files found"
           
-          # Look for both old and new file patterns
-          files=(cov/**/.coverage* cov/**/coverage-*.dat)
-          if [ ${#files[@]} -eq 0 ]; then
+          # Convert uploaded .dat files back to .coverage format
+          for dat_file in cov/**/coverage-*.dat; do
+            if [[ "$dat_file" == *coverage-sdk.dat ]]; then
+              cp "$dat_file" .coverage.sdk
+            elif [[ "$dat_file" == *coverage-tools.dat ]]; then
+              cp "$dat_file" .coverage.tools
+            elif [[ "$dat_file" == *coverage-integration.dat ]]; then
+              cp "$dat_file" .coverage.integration
+            fi
+          done
+          
+          # Check if we have any coverage files
+          coverage_files=(.coverage.*)
+          if [ ${#coverage_files[@]} -eq 0 ]; then
             echo "No coverage files found; skipping combined report."
             exit 0
           fi
           
-          echo "Found coverage files: ${files[@]}"
-          
-          # Rename .dat files back to .coverage format for coverage tool
-          for file in "${files[@]}"; do
-            if [[ "$file" == *coverage-sdk.dat ]]; then
-              cp "$file" .coverage.sdk
-              echo "Renamed $file to .coverage.sdk"
-            elif [[ "$file" == *coverage-tools.dat ]]; then
-              cp "$file" .coverage.tools
-              echo "Renamed $file to .coverage.tools"
-            elif [[ "$file" == *coverage-integration.dat ]]; then
-              cp "$file" .coverage.integration
-              echo "Renamed $file to .coverage.integration"
-            else
-              cp "$file" .
-              echo "Copied $file to current directory"
-            fi
-          done
-          
+          echo "Found ${#coverage_files[@]} coverage files"
           uv run coverage combine
           uv run coverage xml -i -o coverage.xml
           uv run coverage report -m || true
