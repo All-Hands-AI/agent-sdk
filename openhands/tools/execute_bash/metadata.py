@@ -21,12 +21,24 @@ logger = get_logger(__name__)
 class CmdOutputMetadata(BaseModel):
     """Additional metadata captured from PS1"""
 
-    exit_code: int = Field(default=-1, description="The exit code of the last executed command.")
-    pid: int = Field(default=-1, description="The process ID of the last executed command.")
-    username: str | None = Field(default=None, description="The username of the current user.")
-    hostname: str | None = Field(default=None, description="The hostname of the machine.")
-    working_dir: str | None = Field(default=None, description="The current working directory.")
-    py_interpreter_path: str | None = Field(default=None, description="The path to the current Python interpreter, if any.")
+    exit_code: int = Field(
+        default=-1, description="The exit code of the last executed command."
+    )
+    pid: int = Field(
+        default=-1, description="The process ID of the last executed command."
+    )
+    username: str | None = Field(
+        default=None, description="The username of the current user."
+    )
+    hostname: str | None = Field(
+        default=None, description="The hostname of the machine."
+    )
+    working_dir: str | None = Field(
+        default=None, description="The current working directory."
+    )
+    py_interpreter_path: str | None = Field(
+        default=None, description="The path to the current Python interpreter, if any."
+    )
     prefix: str = Field(default="", description="Prefix to add to command output")
     suffix: str = Field(default="", description="Suffix to add to command output")
 
@@ -59,7 +71,10 @@ class CmdOutputMetadata(BaseModel):
                 json.loads(match.group(1).strip())  # Try to parse as JSON
                 matches.append(match)
             except json.JSONDecodeError:
-                logger.debug(f"Failed to parse PS1 metadata -  Skipping: [{match.group(1)}]" + traceback.format_exc())
+                logger.debug(
+                    f"Failed to parse PS1 metadata -  Skipping: [{match.group(1)}]"
+                    + traceback.format_exc()
+                )
                 continue  # Skip if not valid JSON
         return matches
 
@@ -79,6 +94,9 @@ class CmdOutputMetadata(BaseModel):
             try:
                 processed["exit_code"] = int(float(str(metadata["exit_code"])))
             except (ValueError, TypeError):
-                logger.debug(f"Failed to parse exit code: {metadata['exit_code']}. Setting to -1.")
+                logger.debug(
+                    f"Failed to parse exit code: {metadata['exit_code']}. "
+                    f"Setting to -1."
+                )
                 processed["exit_code"] = -1
         return cls(**processed)

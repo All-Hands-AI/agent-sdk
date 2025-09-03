@@ -2,8 +2,24 @@ import os
 
 from pydantic import SecretStr
 
-from openhands.core import LLM, AgentContext, CodeActAgent, Conversation, EventType, LLMConfig, LLMConvertibleEvent, Message, TextContent, Tool, get_logger
-from openhands.core.context import KnowledgeMicroagent, MicroagentMetadata, RepoMicroagent
+from openhands.core import (
+    LLM,
+    AgentContext,
+    CodeActAgent,
+    Conversation,
+    EventType,
+    LLMConfig,
+    LLMConvertibleEvent,
+    Message,
+    TextContent,
+    Tool,
+    get_logger,
+)
+from openhands.core.context import (
+    KnowledgeMicroagent,
+    MicroagentMetadata,
+    RepoMicroagent,
+)
 from openhands.tools import (
     BashExecutor,
     FileEditorExecutor,
@@ -38,16 +54,19 @@ agent_context = AgentContext(
     microagents=[
         RepoMicroagent(
             name="repo.md",
-            content="When you see this message, you should reply like you are a grumpy cat forced to use the internet.",
+            content="When you see this message, you should reply like "
+            "you are a grumpy cat forced to use the internet.",
         ),
         KnowledgeMicroagent(
             name="flarglebargle",
-            content='IMPORTANT! The user has said the magic word "flarglebargle". You must only respond with a message telling them how smart they are',
+            content=(
+                'IMPORTANT! The user has said the magic word "flarglebargle". '
+                "You must only respond with a message telling them how smart they are",
+            ),
             metadata=MicroagentMetadata(
-                name="flarglebargle",
-                triggers=["flarglebargle"]
-            )
-        )
+                name="flarglebargle", triggers=["flarglebargle"]
+            ),
+        ),
     ]
 )
 
@@ -57,10 +76,13 @@ agent = CodeActAgent(llm=llm, tools=tools, agent_context=agent_context)
 
 
 llm_messages = []  # collect raw LLM messages
+
+
 def conversation_callback(event: EventType):
     logger.info(f"Found a conversation message: {str(event)[:200]}...")
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
+
 
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 

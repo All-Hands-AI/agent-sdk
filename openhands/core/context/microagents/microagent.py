@@ -22,7 +22,13 @@ class BaseMicroagent(BaseModel):
 
     name: str
     content: str
-    source: str | None = Field(default=None, description="The source path or identifier of the microagent. When it is None, it is treated as a programmatically defined microagent.")
+    source: str | None = Field(
+        default=None,
+        description=(
+            "The source path or identifier of the microagent. "
+            "When it is None, it is treated as a programmatically defined microagent."
+        ),
+    )
     type: MicroagentType = Field(..., description="The type of the microagent")
 
     PATH_TO_THIRD_PARTY_MICROAGENT_NAME: ClassVar[dict[str, str]] = {
@@ -32,7 +38,9 @@ class BaseMicroagent(BaseModel):
     }
 
     @classmethod
-    def _handle_third_party(cls, path: Path, file_content: str) -> Union["RepoMicroagent", None]:
+    def _handle_third_party(
+        cls, path: Path, file_content: str
+    ) -> Union["RepoMicroagent", None]:
         # Determine the agent name based on file type
         microagent_name = cls.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.get(path.name.lower())
 
@@ -64,7 +72,9 @@ class BaseMicroagent(BaseModel):
         microagent_name = None
         if microagent_dir is not None:
             # Special handling for files which are not in microagent_dir
-            microagent_name = cls.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.get(path.name.lower()) or str(path.relative_to(microagent_dir).with_suffix(""))
+            microagent_name = cls.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.get(
+                path.name.lower()
+            ) or str(path.relative_to(microagent_dir).with_suffix(""))
         else:
             microagent_name = path.stem
 
@@ -106,17 +116,30 @@ class BaseMicroagent(BaseModel):
             trigger = f"/{microagent_name}"
             if trigger not in triggers:
                 triggers.append(trigger)
-            return TaskMicroagent(name=microagent_name, content=content, source=str(path), triggers=triggers)
+            return TaskMicroagent(
+                name=microagent_name,
+                content=content,
+                source=str(path),
+                triggers=triggers,
+            )
 
         elif metadata_dict.get("triggers", None):
-            return KnowledgeMicroagent(name=microagent_name, content=content, source=str(path), triggers=triggers)
+            return KnowledgeMicroagent(
+                name=microagent_name,
+                content=content,
+                source=str(path),
+                triggers=triggers,
+            )
         else:
             # No triggers, default to REPO
-            return RepoMicroagent(name=microagent_name, content=content, source=str(path))
+            return RepoMicroagent(
+                name=microagent_name, content=content, source=str(path)
+            )
 
 
 class KnowledgeMicroagent(BaseMicroagent):
-    """Knowledge micro-agents provide specialized expertise that's triggered by keywords in conversations.
+    """Knowledge micro-agents provide specialized expertise that's triggered by keywords
+    in conversations.
 
     They help with:
     - Language best practices
@@ -126,7 +149,9 @@ class KnowledgeMicroagent(BaseMicroagent):
     """
 
     type: MicroagentType = MicroagentType.KNOWLEDGE
-    triggers: list[str] = Field(default_factory=list, description="List of triggers for the microagent")
+    triggers: list[str] = Field(
+        default_factory=list, description="List of triggers for the microagent"
+    )
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -147,8 +172,9 @@ class KnowledgeMicroagent(BaseMicroagent):
 class RepoMicroagent(BaseMicroagent):
     """Microagent specialized for repository-specific knowledge and guidelines.
 
-    RepoMicroagents are loaded from `.openhands/microagents/repo.md` files within repositories
-    and contain private, repository-specific instructions that are automatically loaded when
+    RepoMicroagents are loaded from `.openhands/microagents/repo.md` files within
+    repositories and contain private, repository-specific instructions that are
+    automatically loaded when
     working with that repository. They are ideal for:
         - Repository-specific guidelines
         - Team practices and conventions
@@ -170,20 +196,30 @@ class RepoMicroagent(BaseMicroagent):
             return v
         # Warn on SSE servers
         if v.sse_servers:
-            logger.warning(f"Microagent {getattr(info, 'data', {}).get('name', '<unknown>')} has SSE servers. Only stdio servers are currently supported.")
+            logger.warning(
+                f"Microagent {getattr(info, 'data', {}).get('name', '<unknown>')} has SSE servers. "  # noqa: E501
+                "Only stdio servers are currently supported."
+            )
         # Require stdio servers to be configured (non-empty)
         stdio = v.stdio_servers
         if not stdio:
             # Try to include the agent name if available
-            agent_name = getattr(info, "data", {}).get("name") if hasattr(info, "data") else None
+            agent_name = (
+                getattr(info, "data", {}).get("name") if hasattr(info, "data") else None
+            )
             agent_label = agent_name or "<unknown>"
-            raise MicroagentValidationError(f"Microagent {agent_label} has MCP tools configuration but no stdio servers. Only stdio servers are currently supported.")
+            raise MicroagentValidationError(
+                f"Microagent {agent_label} has MCP tools configuration but no stdio servers. "  # noqa: E501
+                "Only stdio servers are currently supported."
+            )
         return v
 
     @model_validator(mode="after")
     def _enforce_repo_type(self):
         if self.type != MicroagentType.REPO_KNOWLEDGE:
-            raise MicroagentValidationError(f"RepoMicroagent initialized with incorrect type: {self.type}")
+            raise MicroagentValidationError(
+                f"RepoMicroagent initialized with incorrect type: {self.type}"
+            )
         return self
 
 
@@ -195,7 +231,12 @@ class TaskMicroagent(KnowledgeMicroagent):
     """
 
     type: MicroagentType = MicroagentType.TASK
-    inputs: list[InputMetadata] = Field(default_factory=list, description="Input metadata for the microagent. Only exists for task microagents")
+    inputs: list[InputMetadata] = Field(
+        default_factory=list,
+        description=(
+            "Input metadata for the microagent. Only exists for task microagents"
+        ),
+    )
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -207,7 +248,10 @@ class TaskMicroagent(KnowledgeMicroagent):
         if not self.requires_user_input() and not self.inputs:
             return
 
-        prompt = "\n\nIf the user didn't provide any of these variables, ask the user to provide them first before the agent can proceed with the task."
+        prompt = (
+            "\n\nIf the user didn't provide any of these variables, ask the user to "
+            "provide them first before the agent can proceed with the task."
+        )
         self.content += prompt
 
     def extract_variables(self, content: str) -> list[str]:
@@ -252,7 +296,7 @@ def load_microagents_from_dir(
     # Load all agents from microagents directory
     logger.debug(f"Loading agents from {microagent_dir}")
 
-    # Always check for .cursorrules and AGENTS.md files in repo root, regardless of whether microagents_dir exists
+    # Always check for .cursorrules and AGENTS.md files in repo root, regardless of whether microagents_dir exists  # noqa: E501
     special_files = []
     repo_root = microagent_dir.parent.parent
 
@@ -286,5 +330,8 @@ def load_microagents_from_dir(
             error_msg = f"Error loading microagent from {file}: {str(e)}"
             raise ValueError(error_msg) from e
 
-    logger.debug(f"Loaded {len(repo_agents) + len(knowledge_agents)} microagents: {[*repo_agents.keys(), *knowledge_agents.keys()]}")
+    logger.debug(
+        f"Loaded {len(repo_agents) + len(knowledge_agents)} microagents: "
+        f"{[*repo_agents.keys(), *knowledge_agents.keys()]}"
+    )
     return repo_agents, knowledge_agents

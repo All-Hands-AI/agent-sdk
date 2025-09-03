@@ -6,7 +6,12 @@ from openhands.core.context.utils.prompt import render_microagent_info
 from openhands.core.llm import Message, TextContent
 from openhands.core.logger import get_logger
 
-from .microagents import BaseMicroagent, KnowledgeMicroagent, MicroagentKnowledge, RepoMicroagent
+from .microagents import (
+    BaseMicroagent,
+    KnowledgeMicroagent,
+    MicroagentKnowledge,
+    RepoMicroagent,
+)
 from .utils import render_additional_info
 
 
@@ -14,34 +19,48 @@ logger = get_logger(__name__)
 
 
 class RuntimeInfo(BaseModel):
-    date: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"), description="Current date in YYYY-MM-DD format")
-    available_hosts: dict[str, int] = Field(default_factory=dict, description="Available hosts for agents to deploy to")
+    date: str = Field(
+        default_factory=lambda: datetime.now().strftime("%Y-%m-%d"),
+        description="Current date in YYYY-MM-DD format",
+    )
+    available_hosts: dict[str, int] = Field(
+        default_factory=dict, description="Available hosts for agents to deploy to"
+    )
     additional_agent_instructions: str = Field(
-        default="",
-        description="Additional instructions for the agent to follow during the conversation",
+        default="", description="Additional instructions for the agent to follow"
     )
     custom_secrets_descriptions: dict[str, str] = Field(
         default_factory=dict,
         description="Descriptions of custom secrets available to the agent",
     )
-    working_dir: str = Field(default="", description="Current working directory of the agent")
+    working_dir: str = Field(
+        default="", description="Current working directory of the agent"
+    )
 
 
 class RepositoryInfo(BaseModel):
     """Information about a GitHub repository that has been cloned."""
 
-    repo_name: str | None = Field(None, description="Name of the repository, e.g., 'username/repo'")
-    repo_directory: str | None = Field(None, description="Local directory path where the repository is cloned")
-    branch_name: str | None = Field(None, description="Current branch name of the repository")
+    repo_name: str | None = Field(
+        None, description="Name of the repository, e.g., 'username/repo'"
+    )
+    repo_directory: str | None = Field(
+        None, description="Local directory path where the repository is cloned"
+    )
+    branch_name: str | None = Field(
+        None, description="Current branch name of the repository"
+    )
 
 
 class ConversationInstructions(BaseModel):
     """Optional instructions the agent must follow throughout the conversation while addressing the user's initial task
 
     Examples include
-        1. Resolver instructions: you're responding to GitHub issue #1234, make sure to open a PR when you are done
-        2. Slack instructions: make sure to check whether any of the context attached is relevant to the task <context_messages>
-    """
+        1. Resolver instructions: you're responding to GitHub issue #1234, make sure to open a PR
+            when you are done
+        2. Slack instructions: make sure to check whether any of the context attached
+            is relevant to the task <context_messages>
+    """  # noqa: E501
 
     content: str = Field(
         default="",
@@ -69,17 +88,24 @@ class AgentContext(BaseModel):
     Together, these elements make AgentContext the primary container responsible
     for assembling, formatting, and injecting all prompt-relevant context into
     LLM interactions.
-    """
+    """  # noqa: E501
 
     microagents: list[BaseMicroagent] = Field(
         default_factory=list,
         description="List of available microagents that can extend the user's input.",
     )
-    repository_info: RepositoryInfo | None = Field(default=None, description="Information about the cloned GitHub repository")
-    runtime_info: RuntimeInfo | None = Field(default=None, description="Information about the current runtime environment")
+    repository_info: RepositoryInfo | None = Field(
+        default=None, description="Information about the cloned GitHub repository"
+    )
+    runtime_info: RuntimeInfo | None = Field(
+        default=None, description="Information about the current runtime environment"
+    )
     conversation_instructions: ConversationInstructions | None = Field(
         default=None,
-        description="Optional instructions the agent must follow throughout the conversation while addressing the user's initial task",
+        description=(
+            "Optional instructions the agent must follow throughout "
+            "the conversation while addressing the user's initial task"
+        ),
     )
 
     @field_validator("microagents")
@@ -118,7 +144,12 @@ class AgentContext(BaseModel):
         repository_instructions = self._collect_repository_instructions()
         logger.debug(f"Collected repository instructions: {repository_instructions}")
         # Build the workspace context information
-        if self.repository_info or self.runtime_info or repository_instructions or self.conversation_instructions:
+        if (
+            self.repository_info
+            or self.runtime_info
+            or repository_instructions
+            or self.conversation_instructions
+        ):
             # TODO(test): add a test for this as well
             formatted_workspace_text = render_additional_info(
                 prompt_dir=prompt_dir,
@@ -129,15 +160,19 @@ class AgentContext(BaseModel):
             )
             return TextContent(text=formatted_workspace_text)
 
-    def augment_user_message_with_knowledge(self, prompt_dir: str, user_message: Message, skip_microagent_names: list[str]) -> tuple[TextContent, list[str]] | None:
+    def augment_user_message_with_knowledge(
+        self, prompt_dir: str, user_message: Message, skip_microagent_names: list[str]
+    ) -> tuple[TextContent, list[str]] | None:
         """Augment the user’s message with knowledge recalled from microagents.
 
         This works by:
         - Extracting the text content of the user message
         - Matching microagent triggers against the query
         - Returning formatted knowledge and triggered microagent names if relevant microagents were triggered
-        """
-        query = "\n".join((c.text for c in user_message.content if isinstance(c, TextContent))).strip()
+        """  # noqa: E501
+        query = "\n".join(
+            (c.text for c in user_message.content if isinstance(c, TextContent))
+        ).strip()
         recalled_knowledge: list[MicroagentKnowledge] = []
         # skip empty queries
         if not query:
@@ -148,7 +183,11 @@ class AgentContext(BaseModel):
                 continue
             trigger = microagent.match_trigger(query)
             if trigger and microagent.name not in skip_microagent_names:
-                logger.info("Microagent '%s' triggered by keyword '%s'", microagent.name, trigger)
+                logger.info(
+                    "Microagent '%s' triggered by keyword '%s'",
+                    microagent.name,
+                    trigger,
+                )
                 recalled_knowledge.append(
                     MicroagentKnowledge(
                         name=microagent.name,
@@ -161,4 +200,6 @@ class AgentContext(BaseModel):
                 prompt_dir=prompt_dir,
                 triggered_agents=recalled_knowledge,
             )
-            return TextContent(text=formatted_microagent_text), [k.name for k in recalled_knowledge]
+            return TextContent(text=formatted_microagent_text), [
+                k.name for k in recalled_knowledge
+            ]

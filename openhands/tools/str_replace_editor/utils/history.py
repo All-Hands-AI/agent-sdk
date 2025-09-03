@@ -11,15 +11,20 @@ from .file_cache import FileCache
 class FileHistoryManager:
     """Manages file edit history with disk-based storage and memory constraints."""
 
-    def __init__(self, max_history_per_file: int = 5, history_dir: Optional[Path] = None):
+    def __init__(
+        self, max_history_per_file: int = 5, history_dir: Optional[Path] = None
+    ):
         """Initialize the history manager.
 
         Args:
-            max_history_per_file: Maximum number of history entries to keep per file (default: 5)
-            history_dir: Directory to store history files. If None, uses a temp directory
+            max_history_per_file: Maximum number of history entries to keep per
+                file (default: 5)
+            history_dir: Directory to store history files. If None, uses a temp
+                directory
 
         Notes:
-            - Each file's history is limited to the last N entries to conserve memory
+            - Each file's history is limited to the last N entries to conserve
+              memory
             - The file cache is limited to prevent excessive disk usage
             - Older entries are automatically removed when limits are exceeded
         """

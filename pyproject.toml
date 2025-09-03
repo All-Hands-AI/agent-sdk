@@ -20,7 +20,7 @@ dev = [
 # Ruff configuration
 [tool.ruff]
 target-version = "py312"
-line-length = 500
+line-length = 88
 
 [tool.ruff.format]
 quote-style = "double"

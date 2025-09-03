@@ -14,12 +14,23 @@ class DummyAgent(AgentBase):
         super().__init__(llm=MagicMock(name="LLM"), tools=[])
         self.prompt_manager = MagicMock()
 
-    def init_state(self, state: ConversationState, on_event: ConversationCallbackType) -> None:
-        event = SystemPromptEvent(source="agent", system_prompt=TextContent(text="dummy"), tools=[])
+    def init_state(
+        self, state: ConversationState, on_event: ConversationCallbackType
+    ) -> None:
+        event = SystemPromptEvent(
+            source="agent", system_prompt=TextContent(text="dummy"), tools=[]
+        )
         on_event(event)
 
-    def step(self, state: ConversationState, on_event: ConversationCallbackType) -> None:
-        on_event(MessageEvent(source="agent", llm_message=Message(role="assistant", content=[TextContent(text="ok")])))
+    def step(
+        self, state: ConversationState, on_event: ConversationCallbackType
+    ) -> None:
+        on_event(
+            MessageEvent(
+                source="agent",
+                llm_message=Message(role="assistant", content=[TextContent(text="ok")]),
+            )
+        )
 
 
 def test_default_callback_appends_on_init():

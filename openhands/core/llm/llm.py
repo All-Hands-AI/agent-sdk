@@ -94,14 +94,18 @@ class LLM(RetryMixin):
         self.cost_metric_supported: bool = True
         self.config: LLMConfig = copy.deepcopy(config)
         self.service_id = service_id
-        self.metrics: Metrics = metrics if metrics is not None else Metrics(model_name=config.model)
+        self.metrics: Metrics = (
+            metrics if metrics is not None else Metrics(model_name=config.model)
+        )
 
         self.model_info: ModelInfo | None = None
         self._function_calling_active: bool = False
         self.retry_listener = retry_listener
         if self.config.log_completions:
             if self.config.log_completions_folder is None:
-                raise RuntimeError("log_completions_folder is required when log_completions is enabled")
+                raise RuntimeError(
+                    "log_completions_folder is required when log_completions is enabled"
+                )
             os.makedirs(self.config.log_completions_folder, exist_ok=True)
 
         # call init_model_info to initialize config.max_output_tokens
@@ -116,7 +120,7 @@ class LLM(RetryMixin):
         if self.is_function_calling_active():
             logger.debug("LLM: model supports function calling")
 
-        # if using a custom tokenizer, make sure it's loaded and accessible in the format expected by litellm
+        # if using a custom tokenizer, make sure it's loaded and accessible in the format expected by litellm  # noqa: E501
         if self.config.custom_tokenizer is not None:
             self.tokenizer = create_pretrained_tokenizer(self.config.custom_tokenizer)
         else:
@@ -140,25 +144,33 @@ class LLM(RetryMixin):
             model_name = self.config.model.removeprefix("openhands/")
             self.config.model = f"litellm_proxy/{model_name}"
             self.config.base_url = "https://llm-proxy.app.all-hands.dev/"
-            logger.debug(f"Rewrote openhands/{model_name} to {self.config.model} with base URL {self.config.base_url}")
+            logger.debug(
+                f"Rewrote openhands/{model_name} to {self.config.model} with base URL {self.config.base_url}"  # noqa: E501
+            )
 
         features = get_features(self.config.model)
         if features.supports_reasoning_effort:
             # For Gemini models, only map 'low' to optimized thinking budget
             # Let other reasoning_effort values pass through to API as-is
             if "gemini-2.5-pro" in self.config.model:
-                logger.debug(f"Gemini model {self.config.model} with reasoning_effort {self.config.reasoning_effort}")
+                logger.debug(
+                    f"Gemini model {self.config.model} with reasoning_effort {self.config.reasoning_effort}"  # noqa: E501
+                )
                 if self.config.reasoning_effort in {None, "low", "none"}:
                     kwargs["thinking"] = {"budget_tokens": 128}
                     kwargs["allowed_openai_params"] = ["thinking"]
                     kwargs.pop("reasoning_effort", None)
                 else:
                     kwargs["reasoning_effort"] = self.config.reasoning_effort
-                logger.debug(f"Gemini model {self.config.model} with reasoning_effort {self.config.reasoning_effort} mapped to thinking {kwargs.get('thinking')}")
+                logger.debug(
+                    f"Gemini model {self.config.model} with reasoning_effort {self.config.reasoning_effort} mapped to thinking {kwargs.get('thinking')}"  # noqa: E501
+                )
 
             else:
                 kwargs["reasoning_effort"] = self.config.reasoning_effort
-            kwargs.pop("temperature")  # temperature is not supported for reasoning models
+            kwargs.pop(
+                "temperature"
+            )  # temperature is not supported for reasoning models
             kwargs.pop("top_p")  # reasoning model like o3 doesn't support top_p
         # Azure issue: https://github.com/All-Hands-AI/OpenHands/issues/6777
         if self.config.model.startswith("azure"):
@@ -179,14 +191,18 @@ class LLM(RetryMixin):
         # Anthropic constraint: Opus models cannot accept both temperature and top_p
         # Prefer temperature (drop top_p) if both are specified.
         _model_lower = self.config.model.lower()
-        # Limit to Opus 4.1 specifically to avoid changing behavior of other Anthropic models
-        if ("claude-opus-4-1" in _model_lower) and ("temperature" in kwargs and "top_p" in kwargs):
+        # Limit to Opus 4.1 specifically to avoid changing behavior of other Anthropic models  # noqa: E501
+        if ("claude-opus-4-1" in _model_lower) and (
+            "temperature" in kwargs and "top_p" in kwargs
+        ):
             kwargs.pop("top_p", None)
 
         self._completion = partial(
             litellm_completion,
             model=self.config.model,
-            api_key=self.config.api_key.get_secret_value() if self.config.api_key else None,
+            api_key=self.config.api_key.get_secret_value()
+            if self.config.api_key
+            else None,
             base_url=self.config.base_url,
             api_version=self.config.api_version,
             custom_llm_provider=self.config.custom_llm_provider,
@@ -196,7 +212,7 @@ class LLM(RetryMixin):
             **kwargs,
         )
 
-        self._completion_unwrapped: callable[..., ModelResponse] = self._completion  # type: ignore[assignment]
+        self._completion_unwrapped: callable[..., ModelResponse] = self._completion  # type: ignore[assignment]  # noqa: E501
 
         @self.retry_decorator(
             num_retries=self.config.num_retries,
@@ -207,7 +223,7 @@ class LLM(RetryMixin):
             retry_listener=self.retry_listener,
         )
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            """Wrapper for the litellm completion function. Logs the input and output of the completion function."""
+            """Wrapper for the litellm completion function. Logs the input and output of the completion function."""  # noqa: E501
             from openhands.core.utils import json
 
             if "stream" in kwargs and kwargs["stream"]:
@@ -221,7 +237,7 @@ class LLM(RetryMixin):
             if len(args) > 1:
                 # ignore the first argument if it's provided (it would be the model)
                 # design wise: we don't allow overriding the configured values
-                # implementation wise: the partial function set the model as a kwarg already
+                # implementation wise: the partial function set the model as a kwarg already  # noqa: E501
                 # as well as other kwargs
                 messages_kwarg = args[1] if len(args) > 1 else args[0]
                 kwargs["messages"] = messages_kwarg
@@ -232,15 +248,20 @@ class LLM(RetryMixin):
                 messages_kwarg = kwargs["messages"]
 
             # ensure we work with a list of messages
-            messages: list[dict[str, Any]] = messages_kwarg if isinstance(messages_kwarg, list) else [messages_kwarg]
+            messages: list[dict[str, Any]] = (
+                messages_kwarg if isinstance(messages_kwarg, list) else [messages_kwarg]
+            )
 
             # handle conversion of to non-function calling messages if needed
             original_fncall_messages = copy.deepcopy(messages)
             mock_fncall_tools = None
-            # if the agent or caller has defined tools, and we mock via prompting, convert the messages
+            # if the agent or caller has defined tools, and we mock via prompting, convert the messages  # noqa: E501
             if mock_function_calling and "tools" in kwargs:
                 add_in_context_learning_example = True
-                if "openhands-lm" in self.config.model or "devstral" in self.config.model:
+                if (
+                    "openhands-lm" in self.config.model
+                    or "devstral" in self.config.model
+                ):
                     add_in_context_learning_example = False
 
                 messages = convert_fncall_messages_to_non_fncall_messages(
@@ -250,15 +271,18 @@ class LLM(RetryMixin):
                 )
                 kwargs["messages"] = messages
 
-                # add stop words if the model supports it and stop words are not disabled
-                if get_features(self.config.model).supports_stop_words and not self.config.disable_stop_word:
+                # add stop words if the model supports it and stop words are not disabled  # noqa: E501
+                if (
+                    get_features(self.config.model).supports_stop_words
+                    and not self.config.disable_stop_word
+                ):
                     kwargs["stop"] = STOP_WORDS
 
                 mock_fncall_tools = kwargs.pop("tools")
                 if "openhands-lm" in self.config.model:
-                    # If we don't have this, we might run into issue when serving openhands-lm
+                    # If we don't have this, we might run into issue when serving openhands-lm  # noqa: E501
                     # using SGLang
-                    # BadRequestError: litellm.BadRequestError: OpenAIException - Error code: 400 - {'object': 'error', 'message': '400', 'type': 'Failed to parse fc related info to json format!', 'param': None, 'code': 400}
+                    # BadRequestError: litellm.BadRequestError: OpenAIException - Error code: 400 - {'object': 'error', 'message': '400', 'type': 'Failed to parse fc related info to json format!', 'param': None, 'code': 400}  # noqa: E501
                     kwargs["tool_choice"] = "none"
                 else:
                     # tool_choice should not be specified when mocking function calling
@@ -266,11 +290,13 @@ class LLM(RetryMixin):
 
             # if we have no messages, something went very wrong
             if not messages:
-                raise ValueError("The messages list is empty. At least one message is required.")
+                raise ValueError(
+                    "The messages list is empty. At least one message is required."
+                )
 
             # set litellm modify_params to the configured value
-            # True by default to allow litellm to do transformations like adding a default message, when a message is empty
-            # NOTE: this setting is global; unlike drop_params, it cannot be overridden in the litellm completion partial
+            # True by default to allow litellm to do transformations like adding a default message, when a message is empty  # noqa: E501
+            # NOTE: this setting is global; unlike drop_params, it cannot be overridden in the litellm completion partial  # noqa: E501
             litellm.modify_params = self.config.modify_params
 
             # if we're not using litellm proxy, remove the extra_body
@@ -282,10 +308,12 @@ class LLM(RetryMixin):
             # we don't support streaming here, thus we get a ModelResponse
 
             # Suppress httpx deprecation warnings during LiteLLM calls
-            # This prevents the "Use 'content=<...>' to upload raw bytes/text content" warning
+            # This prevents the "Use 'content=<...>' to upload raw bytes/text content" warning  # noqa: E501
             # that appears when LiteLLM makes HTTP requests to LLM providers
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=DeprecationWarning, module="httpx.*")
+                warnings.filterwarnings(
+                    "ignore", category=DeprecationWarning, module="httpx.*"
+                )
                 warnings.filterwarnings(
                     "ignore",
                     message=r".*content=.*upload.*",
@@ -300,10 +328,13 @@ class LLM(RetryMixin):
 
             non_fncall_response = copy.deepcopy(resp)
 
-            # if we mocked function calling, and we have tools, convert the response back to function calling format
+            # if we mocked function calling, and we have tools, convert the response back to function calling format  # noqa: E501
             if mock_function_calling and mock_fncall_tools is not None:
                 if len(resp.choices) < 1:
-                    raise LLMNoResponseError("Response choices is less than 1 - This is only seen in Gemini models so far. Response: " + str(resp))
+                    raise LLMNoResponseError(
+                        "Response choices is less than 1 - This is only seen in Gemini models so far. Response: "  # noqa: E501
+                        + str(resp)
+                    )
 
                 # For type checking: it is not possible to get StreamingChoices here
                 def _all_choices(
@@ -312,19 +343,30 @@ class LLM(RetryMixin):
                     return all(isinstance(c, Choices) for c in items)
 
                 if not _all_choices(resp.choices):
-                    raise AssertionError("Expected non-streaming Choices (no StreamingChoices) here")
+                    raise AssertionError(
+                        "Expected non-streaming Choices (no StreamingChoices) here"
+                    )
 
                 non_fncall_response_message: dict = resp.choices[0].message.model_dump()
                 # messages is already a list with proper typing from line 223
-                fn_call_messages_with_response = convert_non_fncall_messages_to_fncall_messages(messages + [non_fncall_response_message], mock_fncall_tools)
+                fn_call_messages_with_response = (
+                    convert_non_fncall_messages_to_fncall_messages(
+                        messages + [non_fncall_response_message], mock_fncall_tools
+                    )
+                )
                 fn_call_response_message = fn_call_messages_with_response[-1]
                 if not isinstance(fn_call_response_message, LiteLLMMessage):
-                    fn_call_response_message = LiteLLMMessage(**fn_call_response_message)
+                    fn_call_response_message = LiteLLMMessage(
+                        **fn_call_response_message
+                    )
                 resp.choices[0].message = fn_call_response_message
 
             # Check if resp has 'choices' key with at least one item
             if not resp.get("choices") or len(resp["choices"]) < 1:
-                raise LLMNoResponseError("Response choices is less than 1 - This is only seen in Gemini models so far. Response: " + str(resp))
+                raise LLMNoResponseError(
+                    "Response choices is less than 1 - This is only seen in Gemini models so far. Response: "  # noqa: E501
+                    + str(resp)
+                )
 
             # post-process the response first to calculate cost
             cost = self._post_completion(resp)
@@ -342,7 +384,11 @@ class LLM(RetryMixin):
                     "messages": messages,
                     "response": resp,
                     "args": args,
-                    "kwargs": {k: v for k, v in kwargs.items() if k not in ("messages", "client")},
+                    "kwargs": {
+                        k: v
+                        for k, v in kwargs.items()
+                        if k not in ("messages", "client")
+                    },
                     "timestamp": time.time(),
                     "cost": cost,
                 }
@@ -389,19 +435,28 @@ class LLM(RetryMixin):
 
             response = httpx.get(
                 f"{base_url}/v1/model/info",
-                headers={"Authorization": f"Bearer {self.config.api_key.get_secret_value() if self.config.api_key else None}"},
+                headers={
+                    "Authorization": f"Bearer {self.config.api_key.get_secret_value() if self.config.api_key else None}"  # noqa: E501
+                },
             )
 
             try:
                 resp_json = response.json()
                 if "data" not in resp_json:
-                    logger.info(f"No data field in model info response from LiteLLM proxy: {resp_json}")
+                    logger.info(
+                        f"No data field in model info response from LiteLLM proxy: {resp_json}"  # noqa: E501
+                    )
                 all_model_info = resp_json.get("data", [])
             except Exception as e:
                 logger.info(f"Error parsing JSON response from LiteLLM proxy: {e}")
                 all_model_info = []
             current_model_info = next(
-                (info for info in all_model_info if info["model_name"] == self.config.model.removeprefix("litellm_proxy/")),
+                (
+                    info
+                    for info in all_model_info
+                    if info["model_name"]
+                    == self.config.model.removeprefix("litellm_proxy/")
+                ),
                 None,
             )
             if current_model_info:
@@ -424,28 +479,44 @@ class LLM(RetryMixin):
 
         from openhands.core.utils import json
 
-        logger.debug(f"Model info: {json.dumps({'model': self.config.model, 'base_url': self.config.base_url}, indent=2)}")
+        logger.debug(
+            f"Model info: {json.dumps({'model': self.config.model, 'base_url': self.config.base_url}, indent=2)}"  # noqa: E501
+        )
 
         if self.config.model.startswith("huggingface"):
             # HF doesn't support the OpenAI default value for top_p (1)
-            logger.debug(f"Setting top_p to 0.9 for Hugging Face model: {self.config.model}")
+            logger.debug(
+                f"Setting top_p to 0.9 for Hugging Face model: {self.config.model}"
+            )
             self.config.top_p = 0.9 if self.config.top_p == 1 else self.config.top_p
 
         # Set max_input_tokens from model info if not explicitly set
-        if self.config.max_input_tokens is None and self.model_info is not None and "max_input_tokens" in self.model_info and isinstance(self.model_info["max_input_tokens"], int):
+        if (
+            self.config.max_input_tokens is None
+            and self.model_info is not None
+            and "max_input_tokens" in self.model_info
+            and isinstance(self.model_info["max_input_tokens"], int)
+        ):
             self.config.max_input_tokens = self.model_info["max_input_tokens"]
 
         # Set max_output_tokens from model info if not explicitly set
         if self.config.max_output_tokens is None:
             # Special case for Claude 3.7 Sonnet models
-            if any(model in self.config.model for model in ["claude-3-7-sonnet", "claude-3.7-sonnet"]):
-                self.config.max_output_tokens = 64000  # litellm set max to 128k, but that requires a header to be set
+            if any(
+                model in self.config.model
+                for model in ["claude-3-7-sonnet", "claude-3.7-sonnet"]
+            ):
+                self.config.max_output_tokens = 64000  # litellm set max to 128k, but that requires a header to be set  # noqa: E501
             # Try to get from model info
             elif self.model_info is not None:
                 # max_output_tokens has precedence over max_tokens
-                if "max_output_tokens" in self.model_info and isinstance(self.model_info["max_output_tokens"], int):
+                if "max_output_tokens" in self.model_info and isinstance(
+                    self.model_info["max_output_tokens"], int
+                ):
                     self.config.max_output_tokens = self.model_info["max_output_tokens"]
-                elif "max_tokens" in self.model_info and isinstance(self.model_info["max_tokens"], int):
+                elif "max_tokens" in self.model_info and isinstance(
+                    self.model_info["max_tokens"], int
+                ):
                     self.config.max_output_tokens = self.model_info["max_tokens"]
 
         # Initialize function calling using centralized model features
@@ -464,30 +535,39 @@ class LLM(RetryMixin):
         """Acquire from litellm if model is vision capable.
 
         Returns:
-            bool: True if model is vision capable. Return False if model not supported by litellm.
+            bool: True if model is vision capable. Return False if model not
+                supported by litellm.
         """
-        # litellm.supports_vision currently returns False for 'openai/gpt-...' or 'anthropic/claude-...' (with prefixes)
+        # litellm.supports_vision currently returns False for 'openai/gpt-...' or 'anthropic/claude-...' (with prefixes)  # noqa: E501
         # but model_info will have the correct value for some reason.
-        # we can go with it, but we will need to keep an eye if model_info is correct for Vertex or other providers
-        # remove when litellm is updated to fix https://github.com/BerriAI/litellm/issues/5608
-        # Check both the full model name and the name after proxy prefix for vision support
+        # we can go with it, but we will need to keep an eye if model_info is correct for Vertex or other providers  # noqa: E501
+        # remove when litellm is updated to fix https://github.com/BerriAI/litellm/issues/5608  # noqa: E501
+        # Check both the full model name and the name after proxy prefix for vision support  # noqa: E501
         return (
-            supports_vision(self.config.model) or supports_vision(self.config.model.split("/")[-1]) or (self.model_info is not None and self.model_info.get("supports_vision", False)) or False  # fallback to False if model_info is None
+            supports_vision(self.config.model)
+            or supports_vision(self.config.model.split("/")[-1])
+            or (
+                self.model_info is not None
+                and self.model_info.get("supports_vision", False)
+            )
+            or False  # fallback to False if model_info is None
         )
 
     def is_caching_prompt_active(self) -> bool:
         """Check if prompt caching is supported and enabled for current model.
 
         Returns:
-            boolean: True if prompt caching is supported and enabled for the given model.
+            boolean: True if prompt caching is supported and enabled for the given
+                model.
         """
         if not self.config.caching_prompt:
             return False
-        # We don't need to look-up model_info, because only Anthropic models need explicit caching breakpoints
+        # We don't need to look-up model_info, because only Anthropic models need explicit caching breakpoints  # noqa: E501
         return get_features(self.config.model).supports_prompt_cache
 
     def is_function_calling_active(self) -> bool:
-        """Returns whether function calling is supported and enabled for this LLM instance.
+        """Returns whether function calling is supported and enabled for this LLM
+        instance.
 
         The result is cached during initialization for performance.
         """
@@ -528,19 +608,32 @@ class LLM(RetryMixin):
                 stats += "Input tokens: " + str(prompt_tokens)
 
             if completion_tokens:
-                stats += (" | " if prompt_tokens else "") + "Output tokens: " + str(completion_tokens) + "\n"
+                stats += (
+                    (" | " if prompt_tokens else "")
+                    + "Output tokens: "
+                    + str(completion_tokens)
+                    + "\n"
+                )
 
             # read the prompt cache hit, if any
-            prompt_tokens_details: PromptTokensDetailsWrapper | None = usage.prompt_tokens_details
-            cache_hit_tokens = prompt_tokens_details.cached_tokens if prompt_tokens_details and prompt_tokens_details.cached_tokens else 0
+            prompt_tokens_details: PromptTokensDetailsWrapper | None = (
+                usage.prompt_tokens_details
+            )
+            cache_hit_tokens = (
+                prompt_tokens_details.cached_tokens
+                if prompt_tokens_details and prompt_tokens_details.cached_tokens
+                else 0
+            )
             if cache_hit_tokens:
                 stats += "Input tokens (cache hit): " + str(cache_hit_tokens) + "\n"
 
-            # For Anthropic, the cache writes have a different cost than regular input tokens
+            # For Anthropic, the cache writes have a different cost than regular input tokens  # noqa: E501
             # but litellm doesn't separate them in the usage stats
             # we can read it from the provider-specific extra field
             model_extra = usage.get("model_extra", {})
-            cache_write_tokens = model_extra.get("cache_creation_input_tokens", 0) if model_extra else 0
+            cache_write_tokens = (
+                model_extra.get("cache_creation_input_tokens", 0) if model_extra else 0
+            )
             if cache_write_tokens:
                 stats += "Input tokens (cache write): " + str(cache_write_tokens) + "\n"
 
@@ -551,7 +644,7 @@ class LLM(RetryMixin):
                 logger.debug(f"Using context window: {context_window}")
 
             # Record in metrics
-            # We'll treat cache_hit_tokens as "cache read" and cache_write_tokens as "cache write"
+            # We'll treat cache_hit_tokens as "cache read" and cache_write_tokens as "cache write"  # noqa: E501
             self.metrics.add_token_usage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
@@ -568,19 +661,29 @@ class LLM(RetryMixin):
         return cur_cost
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
-        """Get the number of tokens in a list of messages. Use dicts for better token counting.
+        """Get the number of tokens in a list of messages. Use dicts for better
+        token counting.
 
         Args:
-            messages (list): A list of messages, either as a list of dicts or as a list of Message objects.
+            messages (list): A list of messages, either as a list of dicts or as a
+                list of Message objects.
 
         Returns:
             int: The number of tokens.
         """
         # attempt to convert Message objects to dicts, litellm expects dicts
-        if isinstance(messages, list) and len(messages) > 0 and isinstance(messages[0], Message):
-            logger.info("Message objects now include serialized tool calls in token counting")
+        if (
+            isinstance(messages, list)
+            and len(messages) > 0
+            and isinstance(messages[0], Message)
+        ):
+            logger.info(
+                "Message objects now include serialized tool calls in token counting"
+            )
             # Assert the expected type for format_messages_for_llm
-            assert isinstance(messages, list) and all(isinstance(m, Message) for m in messages), "Expected list of Message objects"
+            assert isinstance(messages, list) and all(
+                isinstance(m, Message) for m in messages
+            ), "Expected list of Message objects"
 
             # We've already asserted that messages is a list of Message objects
             # Use explicit typing to satisfy mypy
@@ -599,7 +702,14 @@ class LLM(RetryMixin):
             )
         except Exception as e:
             # limit logspam in case token count is not supported
-            logger.error(f"Error getting token count for\n model {self.config.model}\n{e}" + (f"\ncustom_tokenizer: {self.config.custom_tokenizer}" if self.config.custom_tokenizer is not None else ""))
+            logger.error(
+                f"Error getting token count for\n model {self.config.model}\n{e}"
+                + (
+                    f"\ncustom_tokenizer: {self.config.custom_tokenizer}"
+                    if self.config.custom_tokenizer is not None
+                    else ""
+                )
+            )
             return 0
 
     def _is_local(self) -> bool:
@@ -620,7 +730,8 @@ class LLM(RetryMixin):
     def _completion_cost(self, response: Any) -> float:
         """Calculate completion cost and update metrics with running total.
 
-        Calculate the cost of a completion response based on the model. Local models are treated as free.
+        Calculate the cost of a completion response based on the model. Local
+        models are treated as free.
         Add the current cost into total cost in metrics.
 
         Args:
@@ -633,7 +744,10 @@ class LLM(RetryMixin):
             return 0.0
 
         extra_kwargs = {}
-        if self.config.input_cost_per_token is not None and self.config.output_cost_per_token is not None:
+        if (
+            self.config.input_cost_per_token is not None
+            and self.config.output_cost_per_token is not None
+        ):
             cost_per_token = CostPerToken(
                 input_cost_per_token=self.config.input_cost_per_token,
                 output_cost_per_token=self.config.output_cost_per_token,
@@ -643,7 +757,9 @@ class LLM(RetryMixin):
 
         # try directly get response_cost from response
         _hidden_params = getattr(response, "_hidden_params", {})
-        cost = _hidden_params.get("additional_headers", {}).get("llm_provider-x-litellm-response-cost", None)
+        cost = _hidden_params.get("additional_headers", {}).get(
+            "llm_provider-x-litellm-response-cost", None
+        )
         if cost is not None:
             cost = float(cost)
             logger.debug(f"Got response_cost from response: {cost}")
@@ -651,14 +767,20 @@ class LLM(RetryMixin):
         try:
             if cost is None:
                 try:
-                    cost = litellm_completion_cost(completion_response=response, **extra_kwargs)
+                    cost = litellm_completion_cost(
+                        completion_response=response, **extra_kwargs
+                    )
                 except Exception as e:
                     logger.debug(f"Error getting cost from litellm: {e}")
 
             if cost is None:
                 _model_name = "/".join(self.config.model.split("/")[1:])
-                cost = litellm_completion_cost(completion_response=response, model=_model_name, **extra_kwargs)
-                logger.debug(f"Using fallback model name {_model_name} to get cost: {cost}")
+                cost = litellm_completion_cost(
+                    completion_response=response, model=_model_name, **extra_kwargs
+                )
+                logger.debug(
+                    f"Using fallback model name {_model_name} to get cost: {cost}"
+                )
             self.metrics.add_cost(float(cost))
             return float(cost)
         except Exception:
@@ -668,7 +790,7 @@ class LLM(RetryMixin):
 
     def __str__(self) -> str:
         if self.config.api_version:
-            return f"LLM(model={self.config.model}, api_version={self.config.api_version}, base_url={self.config.base_url})"
+            return f"LLM(model={self.config.model}, api_version={self.config.api_version}, base_url={self.config.base_url})"  # noqa: E501
         elif self.config.base_url:
             return f"LLM(model={self.config.model}, base_url={self.config.base_url})"
         return f"LLM(model={self.config.model})"
@@ -676,7 +798,7 @@ class LLM(RetryMixin):
     def __repr__(self) -> str:
         return str(self)
 
-    # TODO: we should ideally format this into a `to_litellm_message` for `Message` class`
+    # TODO: we should ideally format this into a `to_litellm_message` for `Message` class`  # noqa: E501
     def format_messages_for_llm(self, messages: Message | list[Message]) -> list[dict]:
         if isinstance(messages, Message):
             messages = [messages]

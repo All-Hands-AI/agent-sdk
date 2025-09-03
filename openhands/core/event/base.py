@@ -20,8 +20,14 @@ class EventBase(BaseModel, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique event id (ULID/UUID)")
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Event timestamp")  # consistent with V1
+    id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique event id (ULID/UUID)",
+    )
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now().isoformat(),
+        description="Event timestamp",
+    )  # consistent with V1
     source: SourceType = Field(..., description="The source of this event")
 
     def __str__(self) -> str:
@@ -30,7 +36,10 @@ class EventBase(BaseModel, ABC):
 
     def __repr__(self) -> str:
         """Developer-friendly representation."""
-        return f"{self.__class__.__name__}(id='{self.id[:8]}...', source='{self.source}', timestamp='{self.timestamp}')"
+        return (
+            f"{self.__class__.__name__}(id='{self.id[:8]}...', "
+            f"source='{self.source}', timestamp='{self.timestamp}')"
+        )
 
 
 class LLMConvertibleEvent(EventBase, ABC):
@@ -85,7 +94,11 @@ class LLMConvertibleEvent(EventBase, ABC):
 
                 # Look ahead for related events
                 j = i + 1
-                while j < len(events) and isinstance(events[j], ActionEvent) and events[j].llm_response_id == response_id:  # type: ignore
+                while (
+                    j < len(events)
+                    and isinstance(events[j], ActionEvent)
+                    and cast(ActionEvent, events[j]).llm_response_id == response_id
+                ):
                     batch_events.append(cast(ActionEvent, events[j]))
                     j += 1
 
@@ -110,10 +123,14 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
         return events[0].to_llm_message()
     # Multi-action case - reconstruct original LLM response
     for e in events[1:]:
-        assert len(e.thought) == 0, "Expected empty thought for multi-action events after the first one"
+        assert len(e.thought) == 0, (
+            "Expected empty thought for multi-action events after the first one"
+        )
 
     return Message(
         role="assistant",
-        content=cast(list[TextContent | ImageContent], events[0].thought),  # Shared thought content only in the first event
+        content=cast(
+            list[TextContent | ImageContent], events[0].thought
+        ),  # Shared thought content only in the first event
         tool_calls=[event.tool_call for event in events],
     )

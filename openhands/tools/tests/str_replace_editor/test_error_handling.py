@@ -22,7 +22,10 @@ def test_validation_error_formatting():
         new_str="new",
     )
     assert_error_result(result)
-    assert result.error is not None and "directory and only the `view` command" in result.error
+    assert (
+        result.error is not None
+        and "directory and only the `view` command" in result.error
+    )
 
 
 def test_str_replace_error_handling(temp_file):
@@ -71,7 +74,9 @@ def test_view_range_validation(temp_file):
         view_range=[1],  # Should be [start, end]
     )
     assert_error_result(result)
-    assert result.error is not None and "should be a list of two integers" in result.error
+    assert (
+        result.error is not None and "should be a list of two integers" in result.error
+    )
 
     # Test out of bounds range: should clamp to file end and show a warning
     result = file_editor(
@@ -81,7 +86,10 @@ def test_view_range_validation(temp_file):
     )
     # This should succeed but show a warning
     assert result.error is None
-    assert "NOTE: We only show up to 3 since there're only 3 lines in this file." in result.output
+    assert (
+        "NOTE: We only show up to 3 since there're only 3 lines in this file."
+        in result.output
+    )
 
     # Test invalid range order
     result = file_editor(
@@ -90,7 +98,10 @@ def test_view_range_validation(temp_file):
         view_range=[3, 1],  # End before start
     )
     assert_error_result(result)
-    assert result.error is not None and "should be greater than or equal to" in result.error
+    assert (
+        result.error is not None
+        and "should be greater than or equal to" in result.error
+    )
 
 
 def test_insert_validation(temp_file):

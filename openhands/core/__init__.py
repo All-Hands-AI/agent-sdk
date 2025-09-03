@@ -34,5 +34,5 @@ __all__ = [
     "EventBase",
     "LLMConvertibleEvent",
     "__version__",
-    "AgentContext"
+    "AgentContext",
 ]
