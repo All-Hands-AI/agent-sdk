@@ -98,60 +98,63 @@ class LLMConfig(BaseModel, frozen=True):
 
     model_config = ConfigDict(extra="forbid")
 
-    @model_validator(mode="after")
-    def _post_validate(self) -> "LLMConfig":
-        """
-        Runs after all fields are validated. Because the model is frozen,
-        we must return a *new* instance with any cross-field updates.
-        """
-        updates: dict = {}
+    # 1) Pre-validation: transform inputs for a frozen model
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_inputs(cls, data):
+        # data can be dict or BaseModel – normalize to dict
+        if not isinstance(data, dict):
+            return data
+        d = dict(data)
 
-        # Defaults that depend on other fields
-        if self.reasoning_effort is None and "gemini-2.5-pro" not in self.model:
-            updates["reasoning_effort"] = "high"
+        model_val = d.get("model", None)
+        if model_val is None:
+            raise ValueError("model must be specified in LLMConfig")
 
-        # Azure API version default
-        if self.model.startswith("azure") and self.api_version is None:
-            updates["api_version"] = "2024-12-01-preview"
+        # reasoning_effort default (unless Gemini)
+        if d.get("reasoning_effort") is None and "gemini-2.5-pro" not in model_val:
+            d["reasoning_effort"] = "high"
+
+        # Azure default api_version
+        if model_val.startswith("azure") and not d.get("api_version"):
+            d["api_version"] = "2024-12-01-preview"
 
         # Provider rewrite: openhands/* -> litellm_proxy/*
-        if self.model.startswith("openhands/"):
-            model_name = self.model.removeprefix("openhands/")
-            updates["model"] = f"litellm_proxy/{model_name}"
-            updates["base_url"] = "https://llm-proxy.app.all-hands.dev/"
-            logger.debug(
-                f"Rewrote openhands/{model_name} to {updates['model']} with base URL {updates['base_url']}"  # noqa: E501
-            )
+        if model_val.startswith("openhands/"):
+            model_name = model_val.removeprefix("openhands/")
+            d["model"] = f"litellm_proxy/{model_name}"
+            # don't overwrite if caller explicitly set base_url
+            d.setdefault("base_url", "https://llm-proxy.app.all-hands.dev/")
 
-        if self.model.startswith("huggingface"):
-            # HF doesn't support the OpenAI default value for top_p (1)
-            logger.debug(f"Setting top_p to 0.9 for Hugging Face model: {self.model}")
-            updates["top_p"] = 0.9 if self.top_p == 1 else self.top_p
+        # HF doesn't support the OpenAI default value for top_p (1)
+        if model_val.startswith("huggingface"):
+            logger.debug(f"Setting top_p to 0.9 for Hugging Face model: {model_val}")
+            _cur_top_p = d.get("top_p", 1.0)
+            d["top_p"] = 0.9 if _cur_top_p == 1 else _cur_top_p
 
-        # Apply updates in one go (required for frozen models)
-        new_self = self.model_copy(update=updates) if updates else self
+        return d
 
-        # Side effects (env vars) are fine even on frozen models
-        if new_self.openrouter_site_url:
-            os.environ["OR_SITE_URL"] = new_self.openrouter_site_url
-        if new_self.openrouter_app_name:
-            os.environ["OR_APP_NAME"] = new_self.openrouter_app_name
+    # 2) Post-validation: side effects only; must return self
+    @model_validator(mode="after")
+    def _set_env_side_effects(self):
+        if self.openrouter_site_url:
+            os.environ["OR_SITE_URL"] = self.openrouter_site_url
+        if self.openrouter_app_name:
+            os.environ["OR_APP_NAME"] = self.openrouter_app_name
 
-        if new_self.aws_access_key_id:
-            os.environ["AWS_ACCESS_KEY_ID"] = (
-                new_self.aws_access_key_id.get_secret_value()
-            )
-        if new_self.aws_secret_access_key:
+        if self.aws_access_key_id:
+            os.environ["AWS_ACCESS_KEY_ID"] = self.aws_access_key_id.get_secret_value()
+        if self.aws_secret_access_key:
             os.environ["AWS_SECRET_ACCESS_KEY"] = (
-                new_self.aws_secret_access_key.get_secret_value()
+                self.aws_secret_access_key.get_secret_value()
             )
-        if new_self.aws_region_name:
-            os.environ["AWS_REGION_NAME"] = new_self.aws_region_name
+        if self.aws_region_name:
+            os.environ["AWS_REGION_NAME"] = self.aws_region_name
 
         logger.debug(
-            f"LLMConfig finalized with model={new_self.model} "
-            f"base_url={new_self.base_url} "
-            f"api_version={new_self.api_version} "
-            f"reasoning_effort={new_self.reasoning_effort}",
+            f"LLMConfig finalized with model={self.model} "
+            f"base_url={self.base_url} "
+            f"api_version={self.api_version} "
+            f"reasoning_effort={self.reasoning_effort}",
         )
-        return new_self
+        return self

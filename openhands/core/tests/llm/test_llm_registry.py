@@ -42,7 +42,7 @@ class TestLLMRegistry(unittest.TestCase):
         # Mock the _create_new_llm method to avoid actual LLM initialization
         with patch.object(self.registry, "_create_new_llm") as mock_create:
             mock_llm = MagicMock()
-            mock_llm.orig_config = self.llm_config
+            mock_llm.config = self.llm_config
             mock_create.return_value = mock_llm
 
             # Get LLM for the first time
