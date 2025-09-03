@@ -117,7 +117,6 @@ class CodeActAgent(AgentBase):
         logger.debug(
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
-
         )
         response: ModelResponse = self.llm.completion(
             messages=_messages,
