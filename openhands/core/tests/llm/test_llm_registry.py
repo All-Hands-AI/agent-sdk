@@ -71,7 +71,6 @@ class TestLLMRegistry(unittest.TestCase):
 
         # Manually add an LLM to the registry to simulate existing service
         mock_llm = MagicMock()
-        mock_llm.orig_config = self.llm_config
         self.registry.service_to_llm[service_id] = mock_llm
 
         # Attempt to get LLM with different config should raise ValueError
@@ -164,5 +163,3 @@ class TestLLMRegistry(unittest.TestCase):
         self.assertNotEqual(self.registry.registry_id, registry2.registry_id)
         self.assertTrue(len(self.registry.registry_id) > 0)
         self.assertTrue(len(registry2.registry_id) > 0)
-
-
