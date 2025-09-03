@@ -2,7 +2,7 @@ import os
 import tempfile
 import time
 
-from openhands.core.logger import get_logger
+from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.bash_session import (
     BashCommandStatus,
     BashSession,

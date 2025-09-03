@@ -5,7 +5,7 @@ from typing import Any
 import bashlex
 from bashlex.errors import ParsingError
 
-from openhands.core.logger import get_logger
+from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)

@@ -1,8 +1,8 @@
-from openhands.core.context.view import View
-from openhands.core.event import EventType
-from openhands.core.event.context import Condensation, CondensationRequest
-from openhands.core.event.llm_convertible import MessageEvent
-from openhands.core.llm import Message, TextContent
+from openhands.sdk.context.view import View
+from openhands.sdk.event import EventType
+from openhands.sdk.event.context import Condensation, CondensationRequest
+from openhands.sdk.event.llm_convertible import MessageEvent
+from openhands.sdk.llm import Message, TextContent
 
 
 def message_event(content: str) -> MessageEvent:

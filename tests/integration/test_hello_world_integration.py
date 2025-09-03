@@ -8,9 +8,9 @@ from unittest.mock import patch
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.core import (
+from openhands.sdk import (
     LLM,
-    CodeActAgent,
+    Agent,
     Conversation,
     EventType,
     LLMConfig,
@@ -19,7 +19,7 @@ from openhands.core import (
     Tool,
     get_logger,
 )
-from openhands.core.event.llm_convertible import (
+from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     MessageEvent,
     ObservationEvent,
@@ -122,7 +122,7 @@ class TestHelloWorldIntegration:
 
         return [first_response, second_response]
 
-    @patch("openhands.core.llm.llm.litellm_completion")
+    @patch("openhands.sdk.llm.llm.litellm_completion")
     def test_hello_world_integration_with_mocked_llm(self, mock_completion):
         """Test the complete hello world flow with mocked LLM responses."""
         # Setup mock responses
@@ -146,7 +146,7 @@ class TestHelloWorldIntegration:
         ]
 
         # Agent setup
-        agent = CodeActAgent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tools)
 
         # Conversation setup
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
@@ -230,7 +230,7 @@ class TestHelloWorldIntegration:
             f"User message should mention hello.py and Hello, World! Got: {user_text}"
         )
 
-    @patch("openhands.core.llm.llm.litellm_completion")
+    @patch("openhands.sdk.llm.llm.litellm_completion")
     def test_conversation_callback_functionality(self, mock_completion):
         """Test that conversation callbacks work correctly."""
         # Setup simple mock response
@@ -263,7 +263,7 @@ class TestHelloWorldIntegration:
             str_replace_editor_tool.set_executor(executor=file_editor),
         ]
 
-        agent = CodeActAgent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tools)
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
 
         # Send a simple message
@@ -298,7 +298,7 @@ class TestHelloWorldIntegration:
             str_replace_editor_tool.set_executor(executor=file_editor),
         ]
 
-        agent = CodeActAgent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tools)
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
 
         # Send message without running the conversation
@@ -349,7 +349,7 @@ class TestHelloWorldIntegration:
         assert tools[1].executor is not None
 
         # Verify agent can be created
-        agent = CodeActAgent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tools)
         assert agent is not None
         assert agent.llm == llm
         assert len(agent.tools) == 3  # execute_bash, str_replace_editor, finish

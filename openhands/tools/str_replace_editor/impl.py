@@ -1,4 +1,4 @@
-from openhands.core.tool import ToolExecutor
+from openhands.sdk.tool import ToolExecutor
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
     StrReplaceEditorAction,
