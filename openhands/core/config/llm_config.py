@@ -1,7 +1,6 @@
 import os
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 from openhands.core.logger import ENV_LOG_DIR, get_logger
 
@@ -9,8 +8,8 @@ from openhands.core.logger import ENV_LOG_DIR, get_logger
 logger = get_logger(__name__)
 
 
-class LLMConfig(BaseModel):
-    """Configuration for the LLM model.
+class LLMConfig(BaseModel, frozen=True):
+    """Immutable configuration for the LLM model.
 
     Attributes:
         model: The model to use.
@@ -99,32 +98,50 @@ class LLMConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    def model_post_init(self, __context: Any) -> None:
-        """Post-initialization hook to assign OpenRouter-related variables to
-        environment variables.
+    # 1) Pre-validation: transform inputs for a frozen model
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_inputs(cls, data):
+        # data can be dict or BaseModel – normalize to dict
+        if not isinstance(data, dict):
+            return data
+        d = dict(data)
 
-        This ensures that these values are accessible to litellm at runtime.
-        """
-        super().model_post_init(__context)
+        model_val = d.get("model", None)
+        if model_val is None:
+            raise ValueError("model must be specified in LLMConfig")
 
-        # Assign OpenRouter-specific variables to environment variables
+        # reasoning_effort default (unless Gemini)
+        if d.get("reasoning_effort") is None and "gemini-2.5-pro" not in model_val:
+            d["reasoning_effort"] = "high"
+
+        # Azure default api_version
+        if model_val.startswith("azure") and not d.get("api_version"):
+            d["api_version"] = "2024-12-01-preview"
+
+        # Provider rewrite: openhands/* -> litellm_proxy/*
+        if model_val.startswith("openhands/"):
+            model_name = model_val.removeprefix("openhands/")
+            d["model"] = f"litellm_proxy/{model_name}"
+            # don't overwrite if caller explicitly set base_url
+            d.setdefault("base_url", "https://llm-proxy.app.all-hands.dev/")
+
+        # HF doesn't support the OpenAI default value for top_p (1)
+        if model_val.startswith("huggingface"):
+            logger.debug(f"Setting top_p to 0.9 for Hugging Face model: {model_val}")
+            _cur_top_p = d.get("top_p", 1.0)
+            d["top_p"] = 0.9 if _cur_top_p == 1 else _cur_top_p
+
+        return d
+
+    # 2) Post-validation: side effects only; must return self
+    @model_validator(mode="after")
+    def _set_env_side_effects(self):
         if self.openrouter_site_url:
             os.environ["OR_SITE_URL"] = self.openrouter_site_url
         if self.openrouter_app_name:
             os.environ["OR_APP_NAME"] = self.openrouter_app_name
 
-        # Set reasoning_effort to 'high' by default for non-Gemini models
-        # Gemini models use optimized thinking budget when reasoning_effort is None
-        if self.reasoning_effort is None and "gemini-2.5-pro" not in self.model:
-            self.reasoning_effort = "high"
-
-        # Set an API version by default for Azure models
-        # Required for newer models.
-        # Azure issue: https://github.com/All-Hands-AI/OpenHands/issues/7755
-        if self.model.startswith("azure") and self.api_version is None:
-            self.api_version = "2024-12-01-preview"
-
-        # Set AWS credentials as environment variables for LiteLLM Bedrock
         if self.aws_access_key_id:
             os.environ["AWS_ACCESS_KEY_ID"] = self.aws_access_key_id.get_secret_value()
         if self.aws_secret_access_key:
@@ -133,3 +150,11 @@ class LLMConfig(BaseModel):
             )
         if self.aws_region_name:
             os.environ["AWS_REGION_NAME"] = self.aws_region_name
+
+        logger.debug(
+            f"LLMConfig finalized with model={self.model} "
+            f"base_url={self.base_url} "
+            f"api_version={self.api_version} "
+            f"reasoning_effort={self.reasoning_effort}",
+        )
+        return self

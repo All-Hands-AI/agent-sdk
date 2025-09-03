@@ -159,6 +159,13 @@ This repo has two python packages, with unit tests specifically written for each
 - Do NOT commit ALL the file, just commit the relavant file you've changed!
 - in every commit message, you should add "Co-authored-by: openhands <openhands@all-hands.dev>"
 - You can run pytest with `uv run pytest`
+
+# Instruction for fixing "E501 Line too long"
+
+- If it is just code, you can modify it so it spans multiple lne.
+- If it is a single-line string, you can break it into a multi-line string by doing "ABC" -> ("A"\n"B"\n"C")
+- If it is a long multi-line string (e.g., docstring), you should just add type ignore AFTER the ending """. You should NEVER ADD IT INSIDE the docstring.
+
 </DEV_SETUP>
 
 <CODE>

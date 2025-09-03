@@ -4,7 +4,14 @@ from openhands.core.agent import AgentBase, CodeActAgent
 from openhands.core.config import LLMConfig, MCPConfig
 from openhands.core.conversation import Conversation, ConversationCallbackType
 from openhands.core.event import EventBase, EventType, LLMConvertibleEvent
-from openhands.core.llm import LLM, ImageContent, Message, TextContent
+from openhands.core.llm import (
+    LLM,
+    ImageContent,
+    LLMRegistry,
+    Message,
+    RegistryEvent,
+    TextContent,
+)
 from openhands.core.logger import get_logger
 from openhands.core.tool import ActionBase, ObservationBase, Tool
 
@@ -16,6 +23,8 @@ except PackageNotFoundError:
 
 __all__ = [
     "LLM",
+    "LLMRegistry",
+    "RegistryEvent",
     "Message",
     "TextContent",
     "ImageContent",
