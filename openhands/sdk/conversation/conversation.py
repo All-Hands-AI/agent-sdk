@@ -11,7 +11,6 @@ from openhands.sdk.conversation.visualizer import ConversationVisualizer
 from openhands.sdk.event import (
     ActionEvent,
     MessageEvent,
-    ObservationEvent,
     UserRejectsObservation,
 )
 from openhands.sdk.llm import Message, TextContent
@@ -105,7 +104,7 @@ class Conversation:
         """Runs the conversation until the agent finishes.
 
         In confirmation mode:
-        - First call: creates actions but doesn't execute them
+        - First call: creates actions but doesn't execute them, stops and waits
         - Second call: executes pending actions (implicit confirmation)
 
         In normal mode:
@@ -122,6 +121,11 @@ class Conversation:
             with self.state:
                 # step must mutate the SAME state object
                 self.agent.step(self.state, on_event=self._on_event)
+
+            # In confirmation mode, stop after one iteration if waiting for confirmation
+            if self.state.waiting_for_confirmation:
+                logger.debug("Stopping run() - agent is waiting for user confirmation")
+                break
 
             iteration += 1
             if iteration >= self.max_iteration_per_run:

@@ -28,16 +28,13 @@ def run_until_done(conversation: Conversation) -> None:
     """Keep running conversation.run() until agent finishes.
 
     In confirmation mode, this will:
-    1. Run conversation.run() to create actions
-    2. Check if waiting_for_confirmation flag is set
-    3. Ask user for yes/no input if actions are pending
-    4. Run conversation.run() again to execute or reject actions
+    1. Check if agent is waiting for confirmation before each run
+    2. If waiting, ask user for yes/no input
+    3. If approved, run conversation.run() to execute actions
+    4. If rejected, call reject_pending_actions()
     """
     while not conversation.state.agent_finished:
-        print("Running conversation.run()...")
-        conversation.run()
-
-        # Check if agent is waiting for confirmation
+        # Check if agent is waiting for confirmation BEFORE running
         if conversation.state.waiting_for_confirmation:
             pending_actions = conversation.get_pending_actions()
             if pending_actions:
@@ -58,11 +55,13 @@ def run_until_done(conversation: Conversation) -> None:
                     )
                     if user_input in ["yes", "y"]:
                         print("✅ User approved - executing actions...")
+                        # Continue to run() which will execute the actions
                         break
                     elif user_input in ["no", "n"]:
                         print("❌ User rejected - rejecting actions...")
                         conversation.reject_pending_actions("User rejected the actions")
-                        break
+                        # Continue the loop to check if agent is finished
+                        continue
                     else:
                         print("Please enter 'yes' or 'no'")
             else:
@@ -71,6 +70,9 @@ def run_until_done(conversation: Conversation) -> None:
                     "⚠️  Agent is waiting for confirmation but no pending actions found"
                 )
                 conversation.state.waiting_for_confirmation = False
+
+        print("Running conversation.run()...")
+        conversation.run()
 
 
 def main() -> None:
