@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from logging import getLogger
 
 from openhands.sdk.context.view import View
-from openhands.sdk.event.context import Condensation
+from openhands.sdk.event.condenser import Condensation
 
 
 logger = getLogger(__name__)

@@ -1,6 +1,6 @@
 from openhands.sdk.context.condenser.condenser import Condenser
 from openhands.sdk.context.view import View
-from openhands.sdk.event.context import Condensation
+from openhands.sdk.event.condenser import Condensation
 
 
 class NoOpCondenser(Condenser):

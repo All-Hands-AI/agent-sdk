@@ -22,7 +22,7 @@ from openhands.sdk.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.event.context import Condensation
+from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
@@ -101,7 +101,6 @@ class Agent(AgentBase):
                     llm_convertible_events = condensation_result.events
 
                 case Condensation():
-                    state.events.append(condensation_result)
                     on_event(condensation_result)
                     return None
 
