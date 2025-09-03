@@ -7,7 +7,6 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.persistence import (
     BASE_STATE_NAME,
     EVENTS_DIR_NAME,
-    MESSAGE_DIR_NAME,
 )
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event import MessageEvent
@@ -48,15 +47,12 @@ def test_save_no_messages_writes_base_state_only(tmp_path: Path) -> None:
     # Save immediately (no messages)
     conv.save(str(tmp_path))
 
-    base_rel = BASE_STATE_NAME
-    msg_dir_rel = MESSAGE_DIR_NAME
-
-    base_path = _physical_path(tmp_path, base_rel)
-    msg_dir_path = _physical_path(tmp_path, msg_dir_rel)
+    base_path = _physical_path(tmp_path, BASE_STATE_NAME)
+    events_dir_path = _physical_path(tmp_path, EVENTS_DIR_NAME)
 
     assert base_path.exists(), "base_state.json should be written"
-    assert not msg_dir_path.exists(), (
-        "messages directory should not exist when no messages"
+    assert not events_dir_path.exists(), (
+        "events directory should not exist when no events"
     )
 
 
@@ -139,23 +135,22 @@ def test_save_creates_events_directory(tmp_path: Path) -> None:
     )
     assert events_files[0].startswith("0000-") and events_files[0].endswith(".jsonl")
 
-    # Check that messages directory does NOT exist (no longer created)
-    msg_dir_path = _physical_path(tmp_path, MESSAGE_DIR_NAME)
-    assert not msg_dir_path.exists(), "messages directory should not be created anymore"
+    # Verify that only events directory is created (no messages directory)
+    # This confirms we're using the new simplified approach
 
 
-def test_load_prioritizes_events_over_messages(tmp_path: Path) -> None:
-    """Test that loading prioritizes events directory over messages directory."""
+def test_load_events_correctly(tmp_path: Path) -> None:
+    """Test that loading works correctly with events."""
     conv = Conversation(agent=DummyAgent())
     conv.send_message(Message(role="user", content=[TextContent(text="test message")]))
 
-    # Save the conversation (creates both events and messages directories)
+    # Save the conversation
     conv.save(str(tmp_path))
 
     # Load the conversation back
     loaded_conv = Conversation.load(str(tmp_path), agent=DummyAgent())
 
-    # Should have loaded from events directory
+    # Should have loaded the event correctly
     assert len(loaded_conv.state.events) == 1
     assert isinstance(loaded_conv.state.events[0], MessageEvent)
     # Check the message content properly
