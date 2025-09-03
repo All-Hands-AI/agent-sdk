@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Example demonstrating confirmation mode in OpenHands Agent SDK.
+Simplified example demonstrating confirmation mode in OpenHands Agent SDK.
 
 This example shows how to:
 1. Enable confirmation mode for an agent
-2. Use conversation.run() twice for implicit confirmation
-3. Use conversation.reject_pending_actions() to reject actions
-4. Toggle confirmation mode during conversation
+2. Use conversation.run() in a loop until agent finishes
+3. Handle implicit confirmation and rejection
 """
 
 import os
@@ -25,33 +24,18 @@ from openhands.sdk import (
 from openhands.tools import BashExecutor, execute_bash_tool
 
 
-def print_separator(title: str) -> None:
-    """Print a separator with title."""
-    print(f"\n{'=' * 60}")
-    print(f" {title}")
-    print(f"{'=' * 60}")
-
-
-def print_pending_actions(conversation: Conversation) -> None:
-    """Print all pending actions that need confirmation."""
-    pending_actions = conversation.get_pending_actions()
-    if not pending_actions:
-        print("No pending actions.")
-        return
-
-    print(f"Found {len(pending_actions)} pending action(s):")
-    for i, action in enumerate(pending_actions, 1):
-        print(f"  {i}. Action ID: {action.id}")
-        print(f"     Tool: {action.tool_name}")
-        print(f"     Details: {str(action.action)[:100]}...")
-        print()
+def run_until_done(conversation: Conversation) -> None:
+    """Keep running conversation.run() until agent finishes."""
+    while not conversation.state.agent_finished:
+        print("Running conversation.run()...")
+        conversation.run()
 
 
 def main() -> None:
     """Main example function."""
-    print_separator("OpenHands Agent SDK - Confirmation Mode Example")
+    print("=== OpenHands Agent SDK - Confirmation Mode Example ===")
 
-    # Initialize LLM (you can replace this with your preferred LLM)
+    # Initialize LLM
     api_key = os.getenv("LITELLM_API_KEY", "your-api-key-here")
     llm = LLM(
         config=LLMConfig(
@@ -68,21 +52,13 @@ def main() -> None:
         execute_bash_tool.set_executor(executor=bash),
     ]
 
-    # Create agent with confirmation mode enabled
-    print("Creating agent with confirmation mode enabled...")
-    agent = Agent(
-        llm=llm,
-        tools=tools,
-    )
-
-    # Create conversation
+    # Create agent and conversation
+    agent = Agent(llm=llm, tools=tools)
     conversation = Conversation(agent=agent)
-    # Enable confirmation mode at the start
     conversation.set_confirmation_mode(True)
 
-    print_separator("Step 1: Send a message that will trigger an action")
-
-    # Send a message that will likely trigger a bash command
+    # Example 1: Command that creates actions
+    print("\n1. Sending command that will create actions...")
     user_message = Message(
         role="user",
         content=[
@@ -93,134 +69,66 @@ def main() -> None:
     )
     conversation.send_message(user_message)
 
-    # First run() - this should create an action but not execute it
-    print(
-        "Running conversation.run() first time (should create action but not execute "
-        "due to confirmation mode)..."
-    )
-    conversation.run()
+    # Run until agent finishes (may take multiple steps)
+    run_until_done(conversation)
 
-    print_separator("Step 2: Check for pending actions")
-    print_pending_actions(conversation)
-
-    # Get the pending action
+    # Check for pending actions and confirm them
     pending_actions = conversation.get_pending_actions()
-    if not pending_actions:
-        print("No pending actions found. The agent responded with a message only.")
-        print("This is normal behavior - not all agent responses create actions.")
+    if pending_actions:
         print(
-            "For example, if the agent just says 'Hello world', no actions are needed."
+            f"Found {len(pending_actions)} pending actions. Running again to confirm..."
         )
+        run_until_done(conversation)
     else:
-        print_separator("Step 3: Demonstrate implicit confirmation")
+        print("No pending actions (agent responded with message only)")
 
-        # Second run() - this should execute the pending actions (implicit confirmation)
-        print(
-            "Running conversation.run() second time (should execute pending actions)..."
-        )
-        conversation.run()
-        print("Actions executed via implicit confirmation!")
-
-    print_separator("Step 4: Send another message and demonstrate rejection")
-
-    # Send another message
+    # Example 2: Command that we'll reject
+    print("\n2. Sending command that we'll reject...")
     user_message2 = Message(
         role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Please create a file called 'dangerous_file.txt' with some content"
-                )
-            )
-        ],
+        content=[TextContent(text="Please create a file called 'dangerous_file.txt'")],
     )
     conversation.send_message(user_message2)
 
-    # First run() - this will create new actions
-    print("Running conversation.run() first time for second command...")
-    conversation.run()
-
-    # Check for new pending actions
-    print("Checking for new pending actions...")
-    print_pending_actions(conversation)
+    run_until_done(conversation)
 
     pending_actions = conversation.get_pending_actions()
     if pending_actions:
-        # Reject the pending actions
         print("Rejecting pending actions...")
-        try:
-            conversation.reject_pending_actions(
-                "User decided this action is too dangerous"
-            )
-            print("Actions rejected!")
-        except Exception as e:
-            print(f"Error rejecting actions: {e}")
+        conversation.reject_pending_actions("User decided this action is too dangerous")
     else:
-        print(
-            "No pending actions to reject. Agent may have responded with message only."
-        )
+        print("No pending actions to reject")
 
-    print_separator("Step 5: Demonstrate message-only response in confirmation mode")
-
-    # Send a message that will likely result in a simple text response
-    user_message_simple = Message(
+    # Example 3: Simple greeting (no actions expected)
+    print("\n3. Sending simple greeting...")
+    user_message3 = Message(
         role="user",
         content=[TextContent(text="Just say hello to me")],
     )
-    conversation.send_message(user_message_simple)
+    conversation.send_message(user_message3)
 
-    print("Running conversation.run() with a simple greeting request...")
-    conversation.run()
+    run_until_done(conversation)
 
-    # Check for pending actions - there should be none for a simple greeting
-    print("Checking for pending actions after simple greeting...")
-    print_pending_actions(conversation)
-
-    print_separator("Step 6: Demonstrate toggling confirmation mode")
-
-    # Disable confirmation mode
-    print("Disabling confirmation mode...")
+    # Example 4: Disable confirmation mode
+    print("\n4. Disabling confirmation mode and running command...")
     conversation.set_confirmation_mode(False)
-    print(
-        f"Confirmation mode is now: "
-        f"{'enabled' if conversation.state.confirmation_mode else 'disabled'}"
-    )
 
-    # Send a message that should execute immediately
-    user_message3 = Message(
+    user_message4 = Message(
         role="user",
         content=[
             TextContent(text="Please echo 'Hello from confirmation mode example!'")
         ],
     )
-    conversation.send_message(user_message3)
+    conversation.send_message(user_message4)
 
-    print("Running agent step (should execute immediately without confirmation)...")
-    conversation.run()
+    run_until_done(conversation)
 
-    # Re-enable confirmation mode
-    print("\nRe-enabling confirmation mode...")
-    conversation.set_confirmation_mode(True)
-    print(
-        f"Confirmation mode is now: "
-        f"{'enabled' if conversation.state.confirmation_mode else 'disabled'}"
-    )
-
-    print_separator("Example Complete")
-    print("This example demonstrated:")
-    print("1. ✓ Creating an agent with confirmation mode enabled")
-    print("2. ✓ Using conversation.run() twice for implicit confirmation")
-    print("3. ✓ Using conversation.reject_pending_actions() to reject actions")
-    print("4. ✓ Handling message-only responses (no actions created)")
-    print("5. ✓ Toggling confirmation mode during conversation")
-    print("\nKey insights about confirmation mode:")
-    print("- Not every agent response creates actions (e.g., simple greetings)")
-    print("- conversation.run() handles both scenarios gracefully:")
-    print("  * Creates actions when needed (first call)")
-    print("  * Executes actions when they exist (second call = implicit confirmation)")
-    print("  * Finishes normally when no actions are created")
-    print("- conversation.reject_pending_actions() rejects actions between calls")
-    print("\nThis gives you full control over which actions your agent can execute!")
+    print("\n=== Example Complete ===")
+    print("Key points:")
+    print("- Always run conversation.run() in a loop until agent finishes")
+    print("- Check for pending actions after agent finishes")
+    print("- Run again to confirm actions, or reject them")
+    print("- Not every response creates actions")
 
 
 if __name__ == "__main__":
