@@ -19,7 +19,6 @@ class AgentBase(ABC):
         llm: LLM,
         tools: list[Tool],
         env_context: EnvContext | None = None,
-        confirmation_mode: bool = False,
     ) -> None:
         """Initializes a new instance of the Agent class.
 
@@ -29,7 +28,6 @@ class AgentBase(ABC):
         """
         self._llm = llm
         self._env_context = env_context
-        self._confirmation_mode = confirmation_mode
 
         # Load tools into an immutable dict
         _tools_map = {}
@@ -68,15 +66,6 @@ class AgentBase(ABC):
     def env_context(self) -> EnvContext | None:
         """Returns the environment context used by the Agent."""
         return self._env_context
-
-    @property
-    def confirmation_mode(self) -> bool:
-        """Returns whether confirmation mode is enabled."""
-        return self._confirmation_mode
-
-    def set_confirmation_mode(self, enabled: bool) -> None:
-        """Enable or disable confirmation mode."""
-        self._confirmation_mode = enabled
 
     def get_pending_actions(self, state=None) -> list:
         """Get list of pending actions awaiting confirmation.

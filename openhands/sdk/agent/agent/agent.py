@@ -46,7 +46,6 @@ class Agent(AgentBase):
         system_prompt_filename: str = "system_prompt.j2",
         condenser: Condenser | None = None,
         cli_mode: bool = True,
-        confirmation_mode: bool = False,
     ) -> None:
         for tool in BUILT_IN_TOOLS:
             assert tool not in tools, (
@@ -56,7 +55,6 @@ class Agent(AgentBase):
             llm=llm,
             tools=tools + BUILT_IN_TOOLS,
             env_context=env_context,
-            confirmation_mode=confirmation_mode,
         )
 
         self.system_message: TextContent = TextContent(
@@ -94,9 +92,10 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # In confirmation mode, first check if there are any pending actions
-        # (implicit confirmation) and execute them before sampling a new action.
-        if self.confirmation_mode:
+        # If in confirmation mode stored on state, first check if there are any
+        # pending actions (implicit confirmation) and execute them before sampling
+        # a new action.
+        if state.confirmation_mode:
             pending_actions = self._get_unmatched_actions(state.events)
             if pending_actions:
                 logger.info(
@@ -188,8 +187,8 @@ class Agent(AgentBase):
                     continue
                 action_events.append(action_event)
 
-            # Handle confirmation mode
-            if self.confirmation_mode:
+            # Handle confirmation mode stored on state
+            if state.confirmation_mode:
                 # In confirmation mode, actions are created but not executed
                 # They will be found and executed on the next run() call
                 logger.info(

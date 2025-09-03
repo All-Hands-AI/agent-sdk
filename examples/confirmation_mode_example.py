@@ -73,11 +73,12 @@ def main() -> None:
     agent = Agent(
         llm=llm,
         tools=tools,
-        confirmation_mode=True,  # Enable confirmation mode
     )
 
     # Create conversation
     conversation = Conversation(agent=agent)
+    # Enable confirmation mode at the start
+    conversation.set_confirmation_mode(True)
 
     print_separator("Step 1: Send a message that will trigger an action")
 
@@ -157,7 +158,7 @@ def main() -> None:
     conversation.set_confirmation_mode(False)
     print(
         f"Confirmation mode is now: "
-        f"{'enabled' if agent.confirmation_mode else 'disabled'}"
+        f"{'enabled' if conversation.state.confirmation_mode else 'disabled'}"
     )
 
     # Send a message that should execute immediately
@@ -177,7 +178,7 @@ def main() -> None:
     conversation.set_confirmation_mode(True)
     print(
         f"Confirmation mode is now: "
-        f"{'enabled' if agent.confirmation_mode else 'disabled'}"
+        f"{'enabled' if conversation.state.confirmation_mode else 'disabled'}"
     )
 
     print_separator("Example Complete")

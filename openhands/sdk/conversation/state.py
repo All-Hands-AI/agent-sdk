@@ -17,6 +17,7 @@ class ConversationState(BaseModel):
     events: list[EventType] = Field(default_factory=list)
     agent_finished: bool = False
     initial_message_sent: bool = False
+    confirmation_mode: bool = False
 
     # Private attrs (NOT Fields) — allowed to start with underscore
     _lock: RLock = PrivateAttr(default_factory=RLock)

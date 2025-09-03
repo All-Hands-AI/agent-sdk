@@ -132,8 +132,9 @@ class Conversation:
         return self.agent.get_pending_actions(self.state)
 
     def set_confirmation_mode(self, enabled: bool) -> None:
-        """Enable or disable confirmation mode for the agent."""
-        self.agent.set_confirmation_mode(enabled)
+        """Enable or disable confirmation mode and store it in conversation state."""
+        with self.state:
+            self.state.confirmation_mode = enabled
         logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
