@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
-from openhands.core.io.local import LocalFileStore
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.persistence import (
@@ -12,6 +11,7 @@ from openhands.sdk.conversation.persistence import (
 )
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event import MessageEvent
+from openhands.sdk.io.local import LocalFileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.tool import Tool
 

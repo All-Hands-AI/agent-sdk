@@ -11,8 +11,8 @@ from pydantic import ValidationError
 if TYPE_CHECKING:
     from .conversation import Conversation  # noqa
 
-from openhands.core.io import FileStore, LocalFileStore
 from openhands.sdk.event import EventBase, EventType
+from openhands.sdk.io import FileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
 
 
