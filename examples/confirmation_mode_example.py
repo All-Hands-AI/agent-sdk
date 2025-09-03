@@ -106,15 +106,20 @@ def main() -> None:
     # Get the pending action
     pending_actions = conversation.get_pending_actions()
     if not pending_actions:
-        print("No pending actions found. The agent might not have created an action.")
-        return
+        print("No pending actions found. The agent responded with a message only.")
+        print("This is normal behavior - not all agent responses create actions.")
+        print(
+            "For example, if the agent just says 'Hello world', no actions are needed."
+        )
+    else:
+        print_separator("Step 3: Demonstrate implicit confirmation")
 
-    print_separator("Step 3: Demonstrate implicit confirmation")
-
-    # Second run() - this should execute the pending actions (implicit confirmation)
-    print("Running conversation.run() second time (should execute pending actions)...")
-    conversation.run()
-    print("Actions executed via implicit confirmation!")
+        # Second run() - this should execute the pending actions (implicit confirmation)
+        print(
+            "Running conversation.run() second time (should execute pending actions)..."
+        )
+        conversation.run()
+        print("Actions executed via implicit confirmation!")
 
     print_separator("Step 4: Send another message and demonstrate rejection")
 
@@ -150,8 +155,28 @@ def main() -> None:
             print("Actions rejected!")
         except Exception as e:
             print(f"Error rejecting actions: {e}")
+    else:
+        print(
+            "No pending actions to reject. Agent may have responded with message only."
+        )
 
-    print_separator("Step 5: Demonstrate toggling confirmation mode")
+    print_separator("Step 5: Demonstrate message-only response in confirmation mode")
+
+    # Send a message that will likely result in a simple text response
+    user_message_simple = Message(
+        role="user",
+        content=[TextContent(text="Just say hello to me")],
+    )
+    conversation.send_message(user_message_simple)
+
+    print("Running conversation.run() with a simple greeting request...")
+    conversation.run()
+
+    # Check for pending actions - there should be none for a simple greeting
+    print("Checking for pending actions after simple greeting...")
+    print_pending_actions(conversation)
+
+    print_separator("Step 6: Demonstrate toggling confirmation mode")
 
     # Disable confirmation mode
     print("Disabling confirmation mode...")
@@ -186,10 +211,14 @@ def main() -> None:
     print("1. ✓ Creating an agent with confirmation mode enabled")
     print("2. ✓ Using conversation.run() twice for implicit confirmation")
     print("3. ✓ Using conversation.reject_pending_actions() to reject actions")
-    print("4. ✓ Toggling confirmation mode during conversation")
-    print("\nThe new confirmation mode API is simpler:")
-    print("- conversation.run() creates actions (first call)")
-    print("- conversation.run() executes actions (second call = implicit confirmation)")
+    print("4. ✓ Handling message-only responses (no actions created)")
+    print("5. ✓ Toggling confirmation mode during conversation")
+    print("\nKey insights about confirmation mode:")
+    print("- Not every agent response creates actions (e.g., simple greetings)")
+    print("- conversation.run() handles both scenarios gracefully:")
+    print("  * Creates actions when needed (first call)")
+    print("  * Executes actions when they exist (second call = implicit confirmation)")
+    print("  * Finishes normally when no actions are created")
     print("- conversation.reject_pending_actions() rejects actions between calls")
     print("\nThis gives you full control over which actions your agent can execute!")
 
