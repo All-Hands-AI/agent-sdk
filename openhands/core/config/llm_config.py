@@ -1,7 +1,6 @@
 import os
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 from openhands.core.logger import ENV_LOG_DIR, get_logger
 
@@ -9,8 +8,8 @@ from openhands.core.logger import ENV_LOG_DIR, get_logger
 logger = get_logger(__name__)
 
 
-class LLMConfig(BaseModel):
-    """Configuration for the LLM model.
+class LLMConfig(BaseModel, frozen=True):
+    """Immutable configuration for the LLM model.
 
     Attributes:
         model: The model to use.
@@ -99,37 +98,60 @@ class LLMConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    def model_post_init(self, __context: Any) -> None:
-        """Post-initialization hook to assign OpenRouter-related variables to
-        environment variables.
-
-        This ensures that these values are accessible to litellm at runtime.
+    @model_validator(mode="after")
+    def _post_validate(self) -> "LLMConfig":
         """
-        super().model_post_init(__context)
+        Runs after all fields are validated. Because the model is frozen,
+        we must return a *new* instance with any cross-field updates.
+        """
+        updates: dict = {}
 
-        # Assign OpenRouter-specific variables to environment variables
-        if self.openrouter_site_url:
-            os.environ["OR_SITE_URL"] = self.openrouter_site_url
-        if self.openrouter_app_name:
-            os.environ["OR_APP_NAME"] = self.openrouter_app_name
-
-        # Set reasoning_effort to 'high' by default for non-Gemini models
-        # Gemini models use optimized thinking budget when reasoning_effort is None
+        # Defaults that depend on other fields
         if self.reasoning_effort is None and "gemini-2.5-pro" not in self.model:
-            self.reasoning_effort = "high"
+            updates["reasoning_effort"] = "high"
 
-        # Set an API version by default for Azure models
-        # Required for newer models.
-        # Azure issue: https://github.com/All-Hands-AI/OpenHands/issues/7755
+        # Azure API version default
         if self.model.startswith("azure") and self.api_version is None:
-            self.api_version = "2024-12-01-preview"
+            updates["api_version"] = "2024-12-01-preview"
 
-        # Set AWS credentials as environment variables for LiteLLM Bedrock
-        if self.aws_access_key_id:
-            os.environ["AWS_ACCESS_KEY_ID"] = self.aws_access_key_id.get_secret_value()
-        if self.aws_secret_access_key:
-            os.environ["AWS_SECRET_ACCESS_KEY"] = (
-                self.aws_secret_access_key.get_secret_value()
+        # Provider rewrite: openhands/* -> litellm_proxy/*
+        if self.model.startswith("openhands/"):
+            model_name = self.model.removeprefix("openhands/")
+            updates["model"] = f"litellm_proxy/{model_name}"
+            updates["base_url"] = "https://llm-proxy.app.all-hands.dev/"
+            logger.debug(
+                f"Rewrote openhands/{model_name} to {updates['model']} with base URL {updates['base_url']}"  # noqa: E501
             )
-        if self.aws_region_name:
-            os.environ["AWS_REGION_NAME"] = self.aws_region_name
+
+        if self.model.startswith("huggingface"):
+            # HF doesn't support the OpenAI default value for top_p (1)
+            logger.debug(f"Setting top_p to 0.9 for Hugging Face model: {self.model}")
+            updates["top_p"] = 0.9 if self.top_p == 1 else self.top_p
+
+        # Apply updates in one go (required for frozen models)
+        new_self = self.model_copy(update=updates) if updates else self
+
+        # Side effects (env vars) are fine even on frozen models
+        if new_self.openrouter_site_url:
+            os.environ["OR_SITE_URL"] = new_self.openrouter_site_url
+        if new_self.openrouter_app_name:
+            os.environ["OR_APP_NAME"] = new_self.openrouter_app_name
+
+        if new_self.aws_access_key_id:
+            os.environ["AWS_ACCESS_KEY_ID"] = (
+                new_self.aws_access_key_id.get_secret_value()
+            )
+        if new_self.aws_secret_access_key:
+            os.environ["AWS_SECRET_ACCESS_KEY"] = (
+                new_self.aws_secret_access_key.get_secret_value()
+            )
+        if new_self.aws_region_name:
+            os.environ["AWS_REGION_NAME"] = new_self.aws_region_name
+
+        logger.debug(
+            f"LLMConfig finalized with model={new_self.model} "
+            f"base_url={new_self.base_url} "
+            f"api_version={new_self.api_version} "
+            f"reasoning_effort={new_self.reasoning_effort}",
+        )
+        return new_self
