@@ -165,18 +165,3 @@ class Conversation:
                 logger.info(
                     f"Rejected pending action: {action_event.tool_name} - {reason}"
                 )
-
-    def _find_action_by_id(self, action_id: str) -> ActionEvent | None:
-        """Find an action event by its ID."""
-        for event in self.state.events:
-            if isinstance(event, ActionEvent) and event.id == action_id:
-                return event
-        return None
-
-    def _has_observation_for_action(self, action_id: str) -> bool:
-        """Check if an action already has an observation."""
-        for event in self.state.events:
-            if isinstance(event, (ObservationEvent, UserRejectsObservation)):
-                if event.action_id == action_id:
-                    return True
-        return False

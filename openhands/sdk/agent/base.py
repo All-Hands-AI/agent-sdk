@@ -78,15 +78,6 @@ class AgentBase(ABC):
             return []
         return self._get_unmatched_actions(state.events)
 
-    def clear_pending_actions(self) -> None:
-        """Clear all pending actions.
-
-        Note: This is a no-op in the history-based implementation since
-        pending actions are determined by scanning the event history.
-        Kept for backward compatibility.
-        """
-        pass
-
     def _get_unmatched_actions(self, events) -> list:
         """Find actions in the event history that don't have matching observations.
 
