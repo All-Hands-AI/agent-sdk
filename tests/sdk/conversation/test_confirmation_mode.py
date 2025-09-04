@@ -103,6 +103,64 @@ class TestConfirmationMode:
             object="chat.completion",
         )
 
+    def _mock_finish_action(self, message: str = "Task completed") -> None:
+        """Configure LLM to return a FinishAction tool call."""
+        tool_call = ChatCompletionMessageToolCall(
+            id="finish_call_1",
+            type="function",
+            function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
+        )
+
+        self.mock_llm.completion.return_value = ModelResponse(
+            id="response_finish",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content=f"I'll finish with: {message}",
+                        tool_calls=[tool_call],
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
+
+    def _mock_multiple_actions_with_finish(self) -> None:
+        """Configure LLM to return both a regular action and a FinishAction."""
+        regular_tool_call = ChatCompletionMessageToolCall(
+            id="call_1",
+            type="function",
+            function=Function(
+                name="test_tool", arguments='{"command": "test_command"}'
+            ),
+        )
+
+        finish_tool_call = ChatCompletionMessageToolCall(
+            id="finish_call_1",
+            type="function",
+            function=Function(
+                name="finish", arguments='{"message": "Task completed!"}'
+            ),
+        )
+
+        self.mock_llm.completion.return_value = ModelResponse(
+            id="response_multiple",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content="I'll execute the command and then finish",
+                        tool_calls=[regular_tool_call, finish_tool_call],
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
+
     def _create_test_action(self, call_id="call_1", command="test_command"):
         """Helper to create test action events."""
         TestAction = ActionBase.from_mcp_schema(
@@ -353,60 +411,4 @@ class TestConfirmationMode:
         ]
         assert len(obs_events) == 0
 
-    def _mock_finish_action(self, message: str = "Task completed") -> None:
-        """Configure LLM to return a FinishAction tool call."""
-        tool_call = ChatCompletionMessageToolCall(
-            id="finish_call_1",
-            type="function",
-            function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
-        )
-
-        self.mock_llm.completion.return_value = ModelResponse(
-            id="response_finish",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content=f"I'll finish with: {message}",
-                        tool_calls=[tool_call],
-                    )
-                )
-            ],
-            created=0,
-            model="test-model",
-            object="chat.completion",
-        )
-
-    def _mock_multiple_actions_with_finish(self) -> None:
-        """Configure LLM to return both a regular action and a FinishAction."""
-        regular_tool_call = ChatCompletionMessageToolCall(
-            id="call_1",
-            type="function",
-            function=Function(
-                name="test_tool", arguments='{"command": "test_command"}'
-            ),
-        )
-
-        finish_tool_call = ChatCompletionMessageToolCall(
-            id="finish_call_1",
-            type="function",
-            function=Function(
-                name="finish", arguments='{"message": "Task completed!"}'
-            ),
-        )
-
-        self.mock_llm.completion.return_value = ModelResponse(
-            id="response_multiple",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content="I'll execute the command and then finish",
-                        tool_calls=[regular_tool_call, finish_tool_call],
-                    )
-                )
-            ],
-            created=0,
-            model="test-model",
-            object="chat.completion",
-        )
+    
