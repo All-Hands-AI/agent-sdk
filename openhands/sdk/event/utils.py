@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from openhands.sdk.event import ActionEvent, ObservationEvent
+from openhands.sdk.event.llm_convertible import UserRejectsObservation
+
 
 if TYPE_CHECKING:
-    from openhands.sdk.event import ActionEvent
+    pass
 
 
 def get_unmatched_actions(events: list) -> list[ActionEvent]:
@@ -21,9 +24,6 @@ def get_unmatched_actions(events: list) -> list[ActionEvent]:
     Returns:
         List of ActionEvent objects that don't have corresponding observations
     """
-    from openhands.sdk.event import ActionEvent, ObservationEvent
-    from openhands.sdk.event.llm_convertible import UserRejectsObservation
-
     observed_action_ids = set()
     unmatched_actions = []
 
