@@ -14,6 +14,11 @@ from openhands.sdk.llm import (
     TextContent,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.mcp import (
+    MCPClient,
+    MCPTool,
+    create_mcp_tools_from_config,
+)
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool
 
 
@@ -36,6 +41,9 @@ __all__ = [
     "ObservationBase",
     "LLMConfig",
     "MCPConfig",
+    "MCPClient",
+    "MCPTool",
+    "create_mcp_tools_from_config",
     "get_logger",
     "Conversation",
     "ConversationCallbackType",
