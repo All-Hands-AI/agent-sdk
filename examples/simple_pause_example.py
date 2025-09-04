@@ -40,15 +40,10 @@ tools = [
 agent = Agent(llm=llm, tools=tools)
 conversation = Conversation(agent)
 
-# Global flag to control the main loop
-running = True
-
 
 def signal_handler(signum, frame):
-    global running
     print("\n🛑 Pausing conversation...")
     conversation.pause()
-    running = False
 
 
 # Set up signal handler for Ctrl+C
@@ -66,7 +61,7 @@ thread = threading.Thread(target=conversation.run, daemon=True)
 thread.start()
 
 # Main loop - similar to the user's sample script
-while running and not conversation.state.agent_finished:
+while not conversation.state.agent_finished:
     # Send encouraging messages periodically
     conversation.send_message(
         Message(
@@ -77,21 +72,6 @@ while running and not conversation.state.agent_finished:
     time.sleep(1)
 
 # Wait for the thread to finish
-thread.join(timeout=2.0)
+thread.join()
 
-if not running:
-    print("🔄 Conversation paused! Press Enter to resume or Ctrl+C to exit...")
-    try:
-        input()
-        print("▶️  Resuming...")
-        running = True
-
-        # Resume by calling run() again
-        thread = threading.Thread(target=conversation.run, daemon=True)
-        thread.start()
-        thread.join()
-
-    except KeyboardInterrupt:
-        print("\n👋 Goodbye!")
-
-print("✅ Conversation completed!")
+print(f"Agent paused: {conversation.state.agent_paused}")
