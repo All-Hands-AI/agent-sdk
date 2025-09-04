@@ -696,7 +696,7 @@ class LLM(BaseModel, RetryMixin):
             if "openrouter/anthropic/claude-sonnet-4" in self.model:
                 message.force_string_serializer = True
 
-        return [message.model_dump() for message in messages]
+        return [message.to_llm_dict() for message in messages]
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
         if isinstance(messages, list) and messages and isinstance(messages[0], Message):
