@@ -5,7 +5,7 @@ from litellm import ChatCompletionMessageToolCall
 from openai.types.chat import ChatCompletionToolParam
 from pydantic import Field
 
-from openhands.sdk.event.base import N_CHAR_PREVIEW, EventBase, LLMConvertibleEvent
+from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventType, SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
@@ -232,10 +232,16 @@ class AgentErrorEvent(LLMConvertibleEvent):
         return f"{base_str}\n  Error: {error_preview}"
 
 
-class PauseEvent(EventBase):
+class PauseEvent(LLMConvertibleEvent):
     """Event indicating that the agent execution was paused by user request."""
 
     source: SourceType = "user"
+
+    def to_llm_message(self) -> Message:
+        return Message(
+            role="user",
+            content=[TextContent(text="Agent execution paused by user request.")],
+        )
 
     def __str__(self) -> str:
         """Plain text string representation for PauseEvent."""
