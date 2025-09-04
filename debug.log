@@ -1,0 +1,92 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.7, pytest-8.4.1, pluggy-1.6.0 -- /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests
+configfile: pyproject.toml
+plugins: anyio-4.10.0, cov-6.2.1, libtmux-0.46.2
+collecting ... collected 1 item
+
+tests/tools/execute_bash/test_bash_session.py::test_session_initialization[subprocess] 2025-09-04 18:29:19,794 | INFO | openhands.tools.execute_bash.terminal.factory | factory.py:86 | Using forced SubprocessTerminal
+2025-09-04 18:29:19,794 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:75 | Initializing PTY terminal with: /bin/bash -i
+2025-09-04 18:29:19,801 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:177 | Wrote to subprocess PTY: b'export PROMPT_COMMAND=\'export PS1="\n###PS1JSON###\n{\n  \\"pid\\": \\"$!\\",\n  \\"exit_code\\": \\"$?\\",\n  \\"username\\": \\"\\\\u\\",\n  \\"hostname\\": \\"\\\\h\\",\n  \\"working_dir\\": \\"$(pwd)\\",\n  \\"py_interpreter_path\\": \\"$(which python 2>/dev/null || echo \\\\"\\\\")\\"\n}\n###PS1END###\n"\'; export PS2=""; printf "__OH_READY_781abca88a324f4da335583542ccfa84__"\n'
+2025-09-04 18:29:19,823 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:177 | Wrote to subprocess PTY: b'\n'
+2025-09-04 18:29:19,878 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:128 | PTY terminal initialized with work dir: /var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl
+2025-09-04 18:29:19,878 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:81 | Unified session initialized with SubprocessTerminal
+2025-09-04 18:29:19,879 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:300 | RECEIVED ACTION: command='pwd' is_input=False timeout=None security_risk='LOW'
+2025-09-04 18:29:19,879 | DEBUG | openhands.tools.execute_bash.utils.command | command.py:52 | BASH PARSING command: pwd
+2025-09-04 18:29:19,879 | DEBUG | openhands.tools.execute_bash.utils.command | command.py:59 | BASH PARSING remaining: 
+2025-09-04 18:29:19,879 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:328 | Read from subprocess PTY: '\n\n###PS1JSON###\n{\n  "pid": "",\n  "exit_code": "0",\n  "username": "xingyaow",\n  "hostname": "XINGYAO-MBP",\n  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",\n  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"\n}\n###PS1END###\n'
+2025-09-04 18:29:19,879 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:341 | Initial PS1 count: 1
+2025-09-04 18:29:19,879 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:342 | INITIAL TERMINAL OUTPUT: '\n\n###PS1JSON###\n{\n  "pid": "",\n  "exit_code": "0",\n  "username": "xingyaow",\n  "hostname": "XINGYAO-MBP",\n  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",\n  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"\n}\n###PS1END###\n'
+2025-09-04 18:29:19,879 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:405 | SENDING COMMAND: 'pwd'
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:177 | Wrote to subprocess PTY: b'pwd\n'
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:414 | GETTING TERMINAL CONTENT at 1757024959.88007
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:328 | Read from subprocess PTY: '\n\n###PS1JSON###\n{\n  "pid": "",\n  "exit_code": "0",\n  "username": "xingyaow",\n  "hostname": "XINGYAO-MBP",\n  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",\n  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"\n}\n###PS1END###\n'
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:416 | TERMINAL CONTENT GOT after 0.00 seconds
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:419 | BEGIN OF TERMINAL CONTENT: ['', '', '###PS1JSON###', '{', '  "pid": "",', '  "exit_code": "0",', '  "username": "xingyaow",', '  "hostname": "XINGYAO-MBP",', '  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",', '  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"']
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:422 | END OF TERMINAL CONTENT: ['{', '  "pid": "",', '  "exit_code": "0",', '  "username": "xingyaow",', '  "hostname": "XINGYAO-MBP",', '  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",', '  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"', '}', '###PS1END###', '']
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:150 | [Prev PS1 not matched: True] COMMAND OUTPUT: 
+
+###PS1JSON###
+{
+  "pid": "",
+  "exit_code": "0",
+  "username": "xingyaow",
+  "hostname": "XINGYAO-MBP",
+  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",
+  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"
+}
+###PS1END###
+
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:177 | Wrote to subprocess PTY: b'\n'
+2025-09-04 18:29:19,880 | DEBUG | openhands.tools.execute_bash.terminal.terminal_session | terminal_session.py:447 | RETURNING OBSERVATION (completed): output='' command='pwd' exit_code=None error=False timeout=False metadata=CmdOutputMetadata(exit_code=0, pid=-1, username='xingyaow', hostname='XINGYAO-MBP', working_dir='/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl', py_interpreter_path='/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python', prefix='[Previous command outputs are truncated. Showing the last 2 lines of the output below.]\n', suffix='\n[The command completed with exit code 0.]')
+FAILED
+
+=================================== FAILURES ===================================
+___________________ test_session_initialization[subprocess] ____________________
+tests/tools/execute_bash/test_bash_session.py:43: in test_session_initialization
+    assert temp_dir in obs.output
+E   AssertionError: assert '/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl' in ''
+E    +  where '' = ExecuteBashObservation(output='', command='pwd', exit_code=None, error=False, timeout=False, metadata=CmdOutputMetadata(exit_code=0, pid=-1, username='xingyaow', hostname='XINGYAO-MBP', working_dir='/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl', py_interpreter_path='/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python', prefix='[Previous command outputs are truncated. Showing the last 2 lines of the output below.]\n', suffix='\n[The command completed with exit code 0.]')).output
+------------------------------ Captured log call -------------------------------
+INFO     openhands.tools.execute_bash.terminal.factory:factory.py:86 Using forced SubprocessTerminal
+DEBUG    openhands.tools.execute_bash.terminal.subprocess_terminal:subprocess_terminal.py:75 Initializing PTY terminal with: /bin/bash -i
+DEBUG    openhands.tools.execute_bash.terminal.subprocess_terminal:subprocess_terminal.py:177 Wrote to subprocess PTY: b'export PROMPT_COMMAND=\'export PS1="\n###PS1JSON###\n{\n  \\"pid\\": \\"$!\\",\n  \\"exit_code\\": \\"$?\\",\n  \\"username\\": \\"\\\\u\\",\n  \\"hostname\\": \\"\\\\h\\",\n  \\"working_dir\\": \\"$(pwd)\\",\n  \\"py_interpreter_path\\": \\"$(which python 2>/dev/null || echo \\\\"\\\\")\\"\n}\n###PS1END###\n"\'; export PS2=""; printf "__OH_READY_781abca88a324f4da335583542ccfa84__"\n'
+DEBUG    openhands.tools.execute_bash.terminal.subprocess_terminal:subprocess_terminal.py:177 Wrote to subprocess PTY: b'\n'
+DEBUG    openhands.tools.execute_bash.terminal.subprocess_terminal:subprocess_terminal.py:128 PTY terminal initialized with work dir: /var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:81 Unified session initialized with SubprocessTerminal
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:300 RECEIVED ACTION: command='pwd' is_input=False timeout=None security_risk='LOW'
+DEBUG    openhands.tools.execute_bash.utils.command:command.py:52 BASH PARSING command: pwd
+DEBUG    openhands.tools.execute_bash.utils.command:command.py:59 BASH PARSING remaining: 
+DEBUG    openhands.tools.execute_bash.terminal.subprocess_terminal:subprocess_terminal.py:328 Read from subprocess PTY: '\n\n###PS1JSON###\n{\n  "pid": "",\n  "exit_code": "0",\n  "username": "xingyaow",\n  "hostname": "XINGYAO-MBP",\n  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",\n  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"\n}\n###PS1END###\n'
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:341 Initial PS1 count: 1
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:342 INITIAL TERMINAL OUTPUT: '\n\n###PS1JSON###\n{\n  "pid": "",\n  "exit_code": "0",\n  "username": "xingyaow",\n  "hostname": "XINGYAO-MBP",\n  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",\n  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"\n}\n###PS1END###\n'
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:405 SENDING COMMAND: 'pwd'
+DEBUG    openhands.tools.execute_bash.terminal.subprocess_terminal:subprocess_terminal.py:177 Wrote to subprocess PTY: b'pwd\n'
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:414 GETTING TERMINAL CONTENT at 1757024959.88007
+DEBUG    openhands.tools.execute_bash.terminal.subprocess_terminal:subprocess_terminal.py:328 Read from subprocess PTY: '\n\n###PS1JSON###\n{\n  "pid": "",\n  "exit_code": "0",\n  "username": "xingyaow",\n  "hostname": "XINGYAO-MBP",\n  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",\n  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"\n}\n###PS1END###\n'
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:416 TERMINAL CONTENT GOT after 0.00 seconds
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:419 BEGIN OF TERMINAL CONTENT: ['', '', '###PS1JSON###', '{', '  "pid": "",', '  "exit_code": "0",', '  "username": "xingyaow",', '  "hostname": "XINGYAO-MBP",', '  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",', '  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"']
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:422 END OF TERMINAL CONTENT: ['{', '  "pid": "",', '  "exit_code": "0",', '  "username": "xingyaow",', '  "hostname": "XINGYAO-MBP",', '  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",', '  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"', '}', '###PS1END###', '']
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:150 [Prev PS1 not matched: True] COMMAND OUTPUT: 
+
+###PS1JSON###
+{
+  "pid": "",
+  "exit_code": "0",
+  "username": "xingyaow",
+  "hostname": "XINGYAO-MBP",
+  "working_dir": "/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl",
+  "py_interpreter_path": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python"
+}
+###PS1END###
+
+DEBUG    openhands.tools.execute_bash.terminal.subprocess_terminal:subprocess_terminal.py:177 Wrote to subprocess PTY: b'\n'
+DEBUG    openhands.tools.execute_bash.terminal.terminal_session:terminal_session.py:447 RETURNING OBSERVATION (completed): output='' command='pwd' exit_code=None error=False timeout=False metadata=CmdOutputMetadata(exit_code=0, pid=-1, username='xingyaow', hostname='XINGYAO-MBP', working_dir='/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl', py_interpreter_path='/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python', prefix='[Previous command outputs are truncated. Showing the last 2 lines of the output below.]\n', suffix='\n[The command completed with exit code 0.]')
+=========================== short test summary info ============================
+FAILED tests/tools/execute_bash/test_bash_session.py::test_session_initialization[subprocess] - AssertionError: assert '/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl' in ''
+ +  where '' = ExecuteBashObservation(output='', command='pwd', exit_code=None, error=False, timeout=False, metadata=CmdOutputMetadata(exit_code=0, pid=-1, username='xingyaow', hostname='XINGYAO-MBP', working_dir='/private/var/folders/1v/38jx5lh94_xfy_5d7n_4mm5w0000gn/T/tmp70slckvl', py_interpreter_path='/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/add-runtime-bash-tests/.venv/bin/python', prefix='[Previous command outputs are truncated. Showing the last 2 lines of the output below.]\n', suffix='\n[The command completed with exit code 0.]')).output
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+============================== 1 failed in 0.17s ===============================
+2025-09-04 18:29:20,083 | DEBUG | asyncio | selector_events.py:64 | Using selector: KqueueSelector
+2025-09-04 18:29:20,148 | DEBUG | openhands.tools.execute_bash.terminal.subprocess_terminal | subprocess_terminal.py:177 | Wrote to subprocess PTY: b'exit\n'

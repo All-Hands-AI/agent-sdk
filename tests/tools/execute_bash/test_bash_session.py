@@ -465,6 +465,7 @@ fi""",
     session.close()
 
 
+@parametrize_terminal_types
 def test_python_interactive_input(terminal_type):
     session = create_terminal_session(
         work_dir=os.getcwd(), no_change_timeout_seconds=2, session_type=terminal_type

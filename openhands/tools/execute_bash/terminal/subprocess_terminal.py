@@ -51,7 +51,11 @@ class SubprocessTerminal(TerminalInterface):
         self.PS1 = CmdOutputMetadata.to_ps1_prompt()
         self.process: subprocess.Popen | None = None
         self._pty_master_fd: int | None = None
-        self.output_buffer: Deque[str] = deque(maxlen=HISTORY_LIMIT)  # Circular buffer
+        # Use a slightly larger buffer to match tmux behavior which seems to keep
+        # ~10,001 lines instead of exactly 10,000
+        self.output_buffer: Deque[str] = deque(
+            maxlen=HISTORY_LIMIT + 50
+        )  # Circular buffer
         self.output_lock = threading.Lock()
         self.reader_thread: threading.Thread | None = None
         self._current_command_running = False
@@ -205,10 +209,8 @@ class SubprocessTerminal(TerminalInterface):
                     # Normalize newlines; PTY typically uses \n already
                     text = chunk.decode("utf-8", errors="replace")
                     with self.output_lock:
-                        if self.output_buffer and len(self.output_buffer[-1]) < 1000:
-                            self.output_buffer[-1] += text
-                        else:
-                            self.output_buffer.append(text)
+                        # Store one line per buffer item to make deque truncation work
+                        self._add_text_to_buffer(text)
                 except OSError:
                     # Would-block or FD closed
                     continue
@@ -217,6 +219,26 @@ class SubprocessTerminal(TerminalInterface):
                     break
         except Exception as e:
             logger.error(f"PTY reader thread error: {e}")
+
+    def _add_text_to_buffer(self, text: str) -> None:
+        """Add text to buffer, ensuring one line per buffer item."""
+        # If there's a partial line in the last buffer item, combine with new text
+        if self.output_buffer and not self.output_buffer[-1].endswith("\n"):
+            combined_text = self.output_buffer[-1] + text
+            self.output_buffer.pop()  # Remove the partial line
+        else:
+            combined_text = text
+
+        # Split into lines and add each line as a separate buffer item
+        lines = combined_text.split("\n")
+
+        # Add all complete lines (all but the last, which might be partial)
+        for line in lines[:-1]:
+            self.output_buffer.append(line + "\n")
+
+        # Add the last part (might be partial line)
+        if lines[-1]:  # Only add if not empty
+            self.output_buffer.append(lines[-1])
 
     # ------------------------- Readiness Helpers -------------------------
 
