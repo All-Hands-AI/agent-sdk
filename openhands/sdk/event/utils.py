@@ -1,9 +1,7 @@
 """Utility functions for event processing."""
 
-from typing import TYPE_CHECKING
+from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 
-from openhands.sdk.event import ActionEvent, ObservationEvent
-from openhands.sdk.event.llm_convertible import UserRejectsObservation
 
 def get_unmatched_actions(events: list) -> list[ActionEvent]:
     """Find actions in the event history that don't have matching observations.
@@ -22,7 +20,7 @@ def get_unmatched_actions(events: list) -> list[ActionEvent]:
 
     # Search in reverse - recent events are more likely to be unmatched
     for event in reversed(events):
-        if isinstance(event, (ObservationEvent, UserRejectsObservation)):
+        if isinstance(event, (ObservationEvent, UserRejectObservation)):
             observed_action_ids.add(event.action_id)
         elif isinstance(event, ActionEvent):
             if event.id not in observed_action_ids:

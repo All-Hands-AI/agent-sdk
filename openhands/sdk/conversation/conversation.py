@@ -9,7 +9,7 @@ from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
 from openhands.sdk.event import (
     MessageEvent,
-    UserRejectsObservation,
+    UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import Message, TextContent
@@ -159,7 +159,7 @@ class Conversation:
 
             for action_event in pending_actions:
                 # Create rejection observation
-                rejection_event = UserRejectsObservation(
+                rejection_event = UserRejectObservation(
                     action_id=action_event.id,
                     tool_name=action_event.tool_name,
                     tool_call_id=action_event.tool_call_id,

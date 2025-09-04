@@ -173,7 +173,7 @@ class MessageEvent(LLMConvertibleEvent):
             return f"{base_str}\n  {message.role}: [no text content]"
 
 
-class UserRejectsObservation(LLMConvertibleEvent):
+class UserRejectObservation(LLMConvertibleEvent):
     """Observation when user rejects an action in confirmation mode."""
 
     kind: EventType = "observation"
@@ -201,7 +201,7 @@ class UserRejectsObservation(LLMConvertibleEvent):
         )
 
     def __str__(self) -> str:
-        """Plain text string representation for UserRejectsObservation."""
+        """Plain text string representation for UserRejectObservation."""
         base_str = f"{self.__class__.__name__} ({self.source})"
         reason_preview = (
             self.rejection_reason[:N_CHAR_PREVIEW] + "..."

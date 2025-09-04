@@ -18,7 +18,7 @@ from litellm.types.utils import (
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
-from openhands.sdk.event.llm_convertible import UserRejectsObservation
+from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.tool import Tool, ToolExecutor
@@ -48,7 +48,6 @@ class TestConfirmationMode:
         """Set up test fixtures."""
 
         self.mock_llm = MagicMock()
-
 
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:
@@ -207,7 +206,7 @@ class TestConfirmationMode:
         rejection_events = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, UserRejectsObservation)
+            if isinstance(event, UserRejectObservation)
         ]
         assert len(rejection_events) == 0
 
@@ -243,7 +242,7 @@ class TestConfirmationMode:
         events.append(action_event2)
 
         # Add rejection for the second action
-        rejection = UserRejectsObservation(
+        rejection = UserRejectObservation(
             action_id=action_event2.id,
             tool_name="test_tool",
             tool_call_id="call_2",
@@ -255,7 +254,7 @@ class TestConfirmationMode:
         unmatched = get_unmatched_actions(events)
         assert len(unmatched) == 0
 
-        # Test UserRejectsObservation functionality
+        # Test UserRejectObservation functionality
         llm_message = rejection.to_llm_message()
         assert llm_message.role == "tool"
         assert llm_message.name == "test_tool"
@@ -310,7 +309,7 @@ class TestConfirmationMode:
             rejection_events = [
                 e
                 for e in self.conversation.state.events
-                if isinstance(e, UserRejectsObservation)
+                if isinstance(e, UserRejectObservation)
             ]
             assert len(rejection_events) == 0
             assert self.conversation.state.agent_waiting_for_confirmation is False
@@ -321,7 +320,7 @@ class TestConfirmationMode:
             rejection_events = [
                 e
                 for e in self.conversation.state.events
-                if isinstance(e, UserRejectsObservation)
+                if isinstance(e, UserRejectObservation)
             ]
             assert len(rejection_events) == 1
             obs_events = [
