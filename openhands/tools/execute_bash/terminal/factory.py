@@ -86,16 +86,6 @@ def create_terminal_session(
             logger.info("Using forced SubprocessTerminal")
             terminal = SubprocessTerminal(work_dir, username)
             return TerminalSession(terminal, no_change_timeout_seconds)
-        elif session_type == "powershell":
-            if not _is_powershell_available():
-                raise RuntimeError("PowerShell is not available on this system")
-            from openhands.tools.execute_bash.terminal.powershell_terminal import (
-                PowershellTerminal,
-            )
-
-            logger.info("Using forced PowershellTerminal")
-            terminal = PowershellTerminal(work_dir, username)
-            return TerminalSession(terminal, no_change_timeout_seconds)
         else:
             raise ValueError(f"Unknown session type: {session_type}")
 
@@ -103,26 +93,7 @@ def create_terminal_session(
     system = platform.system()
 
     if system == "Windows":
-        # On Windows, prefer PowerShell if available, otherwise use subprocess
-        if _is_powershell_available():
-            from openhands.tools.execute_bash.terminal.powershell_terminal import (
-                PowershellTerminal,
-            )
-
-            logger.info("Auto-detected: Using PowershellTerminal on Windows")
-            terminal = PowershellTerminal(work_dir, username)
-            return TerminalSession(terminal, no_change_timeout_seconds)
-        else:
-            from openhands.tools.execute_bash.terminal.subprocess_terminal import (
-                SubprocessTerminal,
-            )
-
-            logger.info(
-                "Auto-detected: Using SubprocessTerminal on Windows "
-                "(PowerShell not available)"
-            )
-            terminal = SubprocessTerminal(work_dir, username)
-            return TerminalSession(terminal, no_change_timeout_seconds)
+        raise NotImplementedError("Windows is not supported yet for OpenHands V1.")
     else:
         # On Unix-like systems, prefer tmux if available, otherwise use subprocess
         if _is_tmux_available():

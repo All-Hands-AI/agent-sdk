@@ -3,7 +3,6 @@ from openhands.tools.execute_bash.terminal.interface import (
     TerminalInterface,
     TerminalSessionBase,
 )
-from openhands.tools.execute_bash.terminal.powershell_terminal import PowershellTerminal
 from openhands.tools.execute_bash.terminal.subprocess_terminal import SubprocessTerminal
 from openhands.tools.execute_bash.terminal.terminal_session import (
     TerminalCommandStatus,
@@ -17,7 +16,6 @@ __all__ = [
     "TerminalSessionBase",
     "TmuxTerminal",
     "SubprocessTerminal",
-    "PowershellTerminal",
     "TerminalSession",
     "TerminalCommandStatus",
     "create_terminal_session",
