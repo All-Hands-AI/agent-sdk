@@ -68,7 +68,7 @@ class AgentBase(ABC):
         """Returns the agent context used by the Agent."""
         return self._agent_context
 
-    def get_pending_actions(self, state=None) -> list:
+    def get_pending_actions(self, state: ConversationState =None) -> list[ActionEvent]:
         """Get list of pending actions awaiting confirmation.
 
         Args:
