@@ -1,7 +1,7 @@
 """Execute bash tool implementation."""
 
 # Import for type annotation
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
@@ -130,7 +130,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         working_dir: str,
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
-        terminal_type: str | None = None,
+        terminal_type: Literal["tmux", "subprocess"] | None = None,
     ):
         """Initialize BashTool with executor parameters.
 
@@ -139,7 +139,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
             username: Optional username for the bash session
             no_change_timeout_seconds: Timeout for no output change
             terminal_type: Force a specific session type:
-                         ('tmux', 'subprocess', 'powershell').
+                         ('tmux', 'subprocess').
                          If None, auto-detect based on system capabilities:
                          - On Windows: PowerShell if available, otherwise subprocess
                          - On Unix-like: tmux if available, otherwise subprocess

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from openhands.sdk.tool import ToolExecutor
 from openhands.tools.execute_bash.definition import (
     ExecuteBashAction,
@@ -12,7 +14,7 @@ class BashExecutor(ToolExecutor):
         working_dir: str,
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
-        terminal_type: str | None = None,
+        terminal_type: Literal["tmux", "subprocess"] | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
 

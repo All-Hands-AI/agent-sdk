@@ -2,6 +2,7 @@
 
 import platform
 import subprocess
+from typing import Literal
 
 from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.terminal.terminal_session import TerminalSession
@@ -49,7 +50,7 @@ def create_terminal_session(
     work_dir: str,
     username: str | None = None,
     no_change_timeout_seconds: int | None = None,
-    terminal_type: str | None = None,
+    terminal_type: Literal["tmux", "subprocess"] | None = None,
 ) -> TerminalSession:
     """Create an appropriate terminal session based on system capabilities.
 
