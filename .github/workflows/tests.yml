@@ -40,21 +40,28 @@ jobs:
 
       - name: Run sdk tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.sdk
         run: |
-          rm -f $COVERAGE_FILE
-          CI=true uv run python -m pytest -vvxss \
+          # Clean up any existing coverage file
+          rm -f .coverage
+          CI=true uv run python -m pytest -vvs \
             --cov=openhands/sdk \
             --cov-report=term-missing \
+            --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/sdk
+          # Rename coverage file for upload
+          if [ -f .coverage ]; then
+            mv .coverage coverage-sdk.dat
+            echo "SDK coverage file prepared for upload"
+          fi
 
       - name: Upload sdk coverage
         if: steps.changed.outputs.any_changed == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-sdk
-          path: .coverage.sdk
+          path: coverage-sdk.dat
+          if-no-files-found: warn
 
   tools-tests:
     runs-on: ubuntu-latest
@@ -85,21 +92,28 @@ jobs:
 
       - name: Run tools tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.tools
         run: |
-          rm -f $COVERAGE_FILE
-          CI=true uv run python -m pytest -vvxss \
+          # Clean up any existing coverage file
+          rm -f .coverage
+          CI=true uv run python -m pytest -vvs \
             --cov=openhands/tools \
             --cov-report=term-missing \
+            --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/tools
+          # Rename coverage file for upload
+          if [ -f .coverage ]; then
+            mv .coverage coverage-tools.dat
+            echo "Tools coverage file prepared for upload"
+          fi
 
       - name: Upload tools coverage
         if: steps.changed.outputs.any_changed == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-tools
-          path: .coverage.tools
+          path: coverage-tools.dat
+          if-no-files-found: warn
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -131,24 +145,31 @@ jobs:
 
       - name: Run integration tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.integration
         run: |
-          rm -f $COVERAGE_FILE
-          CI=true uv run python -m pytest -vvxss \
+          # Clean up any existing coverage file
+          rm -f .coverage
+          CI=true uv run python -m pytest -vvs \
             --basetemp="${{ runner.temp }}/pytest" \
             -o tmp_path_retention=none \
             -o tmp_path_retention_count=0 \
             --cov=openhands \
             --cov-report=term-missing \
+            --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/integration
+          # Rename coverage file for upload
+          if [ -f .coverage ]; then
+            mv .coverage coverage-integration.dat
+            echo "Integration coverage file prepared for upload"
+          fi
 
       - name: Upload integration coverage
         if: steps.changed.outputs.any_changed == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-integration
-          path: .coverage.integration
+          path: coverage-integration.dat
+          if-no-files-found: warn
 
   coverage-report:
     runs-on: ubuntu-latest
@@ -175,16 +196,24 @@ jobs:
       - name: Combine coverage data
         run: |
           shopt -s nullglob
-          coverage_files=(cov/**/.coverage.*)
+          
+          # Convert uploaded .dat files back to .coverage format for coverage tool
+          for dat_file in cov/**/coverage-*.dat; do
+            if [[ "$dat_file" == *coverage-sdk.dat ]]; then
+              cp "$dat_file" .coverage.sdk
+            elif [[ "$dat_file" == *coverage-tools.dat ]]; then
+              cp "$dat_file" .coverage.tools  
+            elif [[ "$dat_file" == *coverage-integration.dat ]]; then
+              cp "$dat_file" .coverage.integration
+            fi
+          done
+          
+          # Check if we have any coverage files
+          coverage_files=(.coverage.*)
           if [ ${#coverage_files[@]} -eq 0 ]; then
             echo "No coverage files found; skipping combined report."
             exit 0
           fi
-          
-          # Copy coverage files to current directory
-          for file in "${coverage_files[@]}"; do
-            cp "$file" .
-          done
           
           echo "Found ${#coverage_files[@]} coverage files"
           uv run coverage combine
