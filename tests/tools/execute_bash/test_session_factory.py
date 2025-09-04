@@ -10,9 +10,10 @@ from openhands.tools.execute_bash.sessions.factory import (
     _is_tmux_available,
     create_terminal_session,
 )
-from openhands.tools.execute_bash.sessions.powershell import PowershellSession
-from openhands.tools.execute_bash.sessions.subprocess import SubprocessBashSession
-from openhands.tools.execute_bash.sessions.tmux import TmuxBashSession
+from openhands.tools.execute_bash.sessions.powershell_terminal import PowershellTerminal
+from openhands.tools.execute_bash.sessions.subprocess_terminal import SubprocessTerminal
+from openhands.tools.execute_bash.sessions.tmux_terminal import TmuxTerminal
+from openhands.tools.execute_bash.sessions.unified_session import UnifiedBashSession
 
 
 class TestSessionFactory:
@@ -36,7 +37,8 @@ class TestSessionFactory:
             session = create_terminal_session(
                 work_dir=temp_dir, session_type="subprocess"
             )
-            assert isinstance(session, SubprocessBashSession)
+            assert isinstance(session, UnifiedBashSession)
+            assert isinstance(session.terminal, SubprocessTerminal)
             session.close()
 
             # Test forced tmux session (if available)
@@ -44,7 +46,8 @@ class TestSessionFactory:
                 session = create_terminal_session(
                     work_dir=temp_dir, session_type="tmux"
                 )
-                assert isinstance(session, TmuxBashSession)
+                assert isinstance(session, UnifiedBashSession)
+                assert isinstance(session.terminal, TmuxTerminal)
                 session.close()
 
             # Test forced PowerShell session (if available)
@@ -52,7 +55,8 @@ class TestSessionFactory:
                 session = create_terminal_session(
                     work_dir=temp_dir, session_type="powershell"
                 )
-                assert isinstance(session, PowershellSession)
+                assert isinstance(session, UnifiedBashSession)
+                assert isinstance(session.terminal, PowershellTerminal)
                 session.close()
 
     def test_invalid_session_type(self):
@@ -94,7 +98,8 @@ class TestSessionFactory:
                 return_value=True,
             ):
                 session = create_terminal_session(work_dir=temp_dir)
-                assert isinstance(session, PowershellSession)
+                assert isinstance(session, UnifiedBashSession)
+                assert isinstance(session.terminal, PowershellTerminal)
                 session.close()
 
             # Mock PowerShell as unavailable
@@ -103,7 +108,8 @@ class TestSessionFactory:
                 return_value=False,
             ):
                 session = create_terminal_session(work_dir=temp_dir)
-                assert isinstance(session, SubprocessBashSession)
+                assert isinstance(session, UnifiedBashSession)
+                assert isinstance(session.terminal, SubprocessTerminal)
                 session.close()
 
     @patch("platform.system")
@@ -118,7 +124,8 @@ class TestSessionFactory:
                 return_value=True,
             ):
                 session = create_terminal_session(work_dir=temp_dir)
-                assert isinstance(session, TmuxBashSession)
+                assert isinstance(session, UnifiedBashSession)
+                assert isinstance(session.terminal, TmuxTerminal)
                 session.close()
 
             # Mock tmux as unavailable
@@ -127,7 +134,8 @@ class TestSessionFactory:
                 return_value=False,
             ):
                 session = create_terminal_session(work_dir=temp_dir)
-                assert isinstance(session, SubprocessBashSession)
+                assert isinstance(session, UnifiedBashSession)
+                assert isinstance(session.terminal, SubprocessTerminal)
                 session.close()
 
     def test_session_parameters_passed(self):
@@ -141,8 +149,13 @@ class TestSessionFactory:
                 session_type="subprocess",
             )
 
+            assert isinstance(session, UnifiedBashSession)
             assert session.work_dir == temp_dir
             assert session.username == "testuser"
             assert session.max_memory_mb == 1024
             assert session.no_change_timeout_seconds == 60
+            # Check terminal parameters too
+            assert session.terminal.work_dir == temp_dir
+            assert session.terminal.username == "testuser"
+            assert session.terminal.max_memory_mb == 1024
             session.close()

@@ -5,9 +5,6 @@ import subprocess
 
 from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.sessions.base import TerminalSession
-from openhands.tools.execute_bash.sessions.powershell import PowershellSession
-from openhands.tools.execute_bash.sessions.subprocess import SubprocessBashSession
-from openhands.tools.execute_bash.sessions.tmux import TmuxBashSession
 
 
 logger = get_logger(__name__)
@@ -71,27 +68,36 @@ def create_terminal_session(
     Raises:
         RuntimeError: If the requested session type is not available
     """
+    from openhands.tools.execute_bash.sessions.unified_session import UnifiedBashSession
+
     if session_type:
         # Force specific session type
         if session_type == "tmux":
             if not _is_tmux_available():
                 raise RuntimeError("Tmux is not available on this system")
-            logger.info("Using forced TmuxBashSession")
-            return TmuxBashSession(
-                work_dir, username, max_memory_mb, no_change_timeout_seconds
-            )
+            from openhands.tools.execute_bash.sessions.tmux_terminal import TmuxTerminal
+
+            logger.info("Using forced TmuxTerminal")
+            terminal = TmuxTerminal(work_dir, username, max_memory_mb)
+            return UnifiedBashSession(terminal, no_change_timeout_seconds)
         elif session_type == "subprocess":
-            logger.info("Using forced SubprocessBashSession")
-            return SubprocessBashSession(
-                work_dir, username, max_memory_mb, no_change_timeout_seconds
+            from openhands.tools.execute_bash.sessions.subprocess_terminal import (
+                SubprocessTerminal,
             )
+
+            logger.info("Using forced SubprocessTerminal")
+            terminal = SubprocessTerminal(work_dir, username, max_memory_mb)
+            return UnifiedBashSession(terminal, no_change_timeout_seconds)
         elif session_type == "powershell":
             if not _is_powershell_available():
                 raise RuntimeError("PowerShell is not available on this system")
-            logger.info("Using forced PowershellSession")
-            return PowershellSession(
-                work_dir, username, max_memory_mb, no_change_timeout_seconds
+            from openhands.tools.execute_bash.sessions.powershell_terminal import (
+                PowershellTerminal,
             )
+
+            logger.info("Using forced PowershellTerminal")
+            terminal = PowershellTerminal(work_dir, username, max_memory_mb)
+            return UnifiedBashSession(terminal, no_change_timeout_seconds)
         else:
             raise ValueError(f"Unknown session type: {session_type}")
 
@@ -101,29 +107,37 @@ def create_terminal_session(
     if system == "Windows":
         # On Windows, prefer PowerShell if available, otherwise use subprocess
         if _is_powershell_available():
-            logger.info("Auto-detected: Using PowershellSession on Windows")
-            return PowershellSession(
-                work_dir, username, max_memory_mb, no_change_timeout_seconds
+            from openhands.tools.execute_bash.sessions.powershell_terminal import (
+                PowershellTerminal,
             )
+
+            logger.info("Auto-detected: Using PowershellTerminal on Windows")
+            terminal = PowershellTerminal(work_dir, username, max_memory_mb)
+            return UnifiedBashSession(terminal, no_change_timeout_seconds)
         else:
+            from openhands.tools.execute_bash.sessions.subprocess_terminal import (
+                SubprocessTerminal,
+            )
+
             logger.info(
-                "Auto-detected: Using SubprocessBashSession on Windows "
+                "Auto-detected: Using SubprocessTerminal on Windows "
                 "(PowerShell not available)"
             )
-            return SubprocessBashSession(
-                work_dir, username, max_memory_mb, no_change_timeout_seconds
-            )
+            terminal = SubprocessTerminal(work_dir, username, max_memory_mb)
+            return UnifiedBashSession(terminal, no_change_timeout_seconds)
     else:
         # On Unix-like systems, prefer tmux if available, otherwise use subprocess
         if _is_tmux_available():
-            logger.info("Auto-detected: Using TmuxBashSession (tmux available)")
-            return TmuxBashSession(
-                work_dir, username, max_memory_mb, no_change_timeout_seconds
-            )
+            from openhands.tools.execute_bash.sessions.tmux_terminal import TmuxTerminal
+
+            logger.info("Auto-detected: Using TmuxTerminal (tmux available)")
+            terminal = TmuxTerminal(work_dir, username, max_memory_mb)
+            return UnifiedBashSession(terminal, no_change_timeout_seconds)
         else:
-            logger.info(
-                "Auto-detected: Using SubprocessBashSession (tmux not available)"
+            from openhands.tools.execute_bash.sessions.subprocess_terminal import (
+                SubprocessTerminal,
             )
-            return SubprocessBashSession(
-                work_dir, username, max_memory_mb, no_change_timeout_seconds
-            )
+
+            logger.info("Auto-detected: Using SubprocessTerminal (tmux not available)")
+            terminal = SubprocessTerminal(work_dir, username, max_memory_mb)
+            return UnifiedBashSession(terminal, no_change_timeout_seconds)

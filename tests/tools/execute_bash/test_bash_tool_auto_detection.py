@@ -5,9 +5,10 @@ from unittest.mock import patch
 
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.sessions.powershell import PowershellSession
-from openhands.tools.execute_bash.sessions.subprocess import SubprocessBashSession
-from openhands.tools.execute_bash.sessions.tmux import TmuxBashSession
+from openhands.tools.execute_bash.sessions.powershell_terminal import PowershellTerminal
+from openhands.tools.execute_bash.sessions.subprocess_terminal import SubprocessTerminal
+from openhands.tools.execute_bash.sessions.tmux_terminal import TmuxTerminal
+from openhands.tools.execute_bash.sessions.unified_session import UnifiedBashSession
 
 
 class TestBashToolAutoDetection:
@@ -18,12 +19,15 @@ class TestBashToolAutoDetection:
         with tempfile.TemporaryDirectory() as temp_dir:
             tool = BashTool(working_dir=temp_dir)
 
-            # Should auto-detect based on system capabilities
-            session_type = type(tool.executor.session).__name__
-            assert session_type in [
-                "TmuxBashSession",
-                "SubprocessBashSession",
-                "PowershellSession",
+            # Should always use UnifiedBashSession now
+            assert isinstance(tool.executor.session, UnifiedBashSession)
+
+            # Check that the terminal backend is appropriate
+            terminal_type = type(tool.executor.session.terminal).__name__
+            assert terminal_type in [
+                "TmuxTerminal",
+                "SubprocessTerminal",
+                "PowershellTerminal",
             ]
 
             # Test that it works
@@ -38,7 +42,8 @@ class TestBashToolAutoDetection:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Test forced subprocess session
             tool = BashTool(working_dir=temp_dir, session_type="subprocess")
-            assert isinstance(tool.executor.session, SubprocessBashSession)
+            assert isinstance(tool.executor.session, UnifiedBashSession)
+            assert isinstance(tool.executor.session.terminal, SubprocessTerminal)
 
             # Test basic functionality
             action = ExecuteBashAction(
@@ -53,18 +58,31 @@ class TestBashToolAutoDetection:
         mock_system.return_value = "Windows"
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Mock PowerShell as available
+            # Mock PowerShell as available and mock its initialization
             with (
                 patch(
                     "openhands.tools.execute_bash.sessions.factory._is_powershell_available",
                     return_value=True,
                 ),
                 patch("subprocess.run") as mock_run,
+                patch("subprocess.Popen") as mock_popen,
             ):
-                # Mock successful PowerShell initialization
+                # Mock successful PowerShell detection
                 mock_run.return_value.returncode = 0
-                tool = BashTool(working_dir=temp_dir)
-                assert isinstance(tool.executor.session, PowershellSession)
+
+                # Mock PowerShell process
+                mock_process = mock_popen.return_value
+                mock_process.poll.return_value = None
+                mock_process.stdin = None
+                mock_process.stdout = None
+
+                # Skip actual initialization by mocking the terminal
+                with patch.object(PowershellTerminal, "initialize"):
+                    tool = BashTool(working_dir=temp_dir)
+                    assert isinstance(tool.executor.session, UnifiedBashSession)
+                    assert isinstance(
+                        tool.executor.session.terminal, PowershellTerminal
+                    )
 
             # Mock PowerShell as unavailable
             with patch(
@@ -72,7 +90,8 @@ class TestBashToolAutoDetection:
                 return_value=False,
             ):
                 tool = BashTool(working_dir=temp_dir)
-                assert isinstance(tool.executor.session, SubprocessBashSession)
+                assert isinstance(tool.executor.session, UnifiedBashSession)
+                assert isinstance(tool.executor.session.terminal, SubprocessTerminal)
 
     @patch("platform.system")
     def test_unix_auto_detection(self, mock_system):
@@ -86,7 +105,8 @@ class TestBashToolAutoDetection:
                 return_value=True,
             ):
                 tool = BashTool(working_dir=temp_dir)
-                assert isinstance(tool.executor.session, TmuxBashSession)
+                assert isinstance(tool.executor.session, UnifiedBashSession)
+                assert isinstance(tool.executor.session.terminal, TmuxTerminal)
 
             # Mock tmux as unavailable
             with patch(
@@ -94,7 +114,8 @@ class TestBashToolAutoDetection:
                 return_value=False,
             ):
                 tool = BashTool(working_dir=temp_dir)
-                assert isinstance(tool.executor.session, SubprocessBashSession)
+                assert isinstance(tool.executor.session, UnifiedBashSession)
+                assert isinstance(tool.executor.session.terminal, SubprocessTerminal)
 
     def test_session_parameters(self):
         """Test that session parameters are properly passed."""
