@@ -4,7 +4,6 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,6 +25,22 @@ from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
+class MockAction(ActionBase):
+    """Mock action schema for testing."""
+
+    command: str
+
+
+class MockObservation(ObservationBase):
+    """Mock observation schema for testing."""
+
+    result: str
+
+    @property
+    def agent_observation(self) -> str:
+        return self.result
+
+
 class TestConfirmationMode:
     """Test suite for confirmation mode functionality."""
 
@@ -35,27 +50,16 @@ class TestConfirmationMode:
         self.mock_llm = MagicMock()
 
         # Create a test tool for the agent
-        TestAction = ActionBase.from_mcp_schema(
-            "TestAction",
-            {"type": "object", "properties": {"command": {"type": "string"}}},
-        )
 
-        class TestObservation(ObservationBase):
-            result: str
-
-            @property
-            def agent_observation(self) -> str:
-                return self.result
-
-        class TestExecutor(ToolExecutor[Any, Any]):  # type: ignore[type-arg]
-            def __call__(self, action: Any) -> Any:
-                return TestObservation(result=f"Executed: {action.command}")  # type: ignore[call-arg]
+        class TestExecutor(ToolExecutor[MockAction, MockObservation]):
+            def __call__(self, action: MockAction) -> MockObservation:
+                return MockObservation(result=f"Executed: {action.command}")
 
         test_tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=TestAction,
-            output_schema=TestObservation,
+            input_schema=MockAction,
+            output_schema=MockObservation,
             executor=TestExecutor(),
         )
 
@@ -164,11 +168,7 @@ class TestConfirmationMode:
 
     def _create_test_action(self, call_id="call_1", command="test_command"):
         """Helper to create test action events."""
-        TestAction = ActionBase.from_mcp_schema(
-            "TestAction",
-            {"type": "object", "properties": {"command": {"type": "string"}}},
-        )
-        action = TestAction(command=command)  # type: ignore[call-arg]
+        action = MockAction(command=command)
 
         tool_call = ChatCompletionMessageToolCall(
             id=call_id,
@@ -224,11 +224,7 @@ class TestConfirmationMode:
         assert unmatched[0].id == action_event.id
 
         # Add observation for the action
-        TestObservation = ObservationBase.from_mcp_schema(
-            "TestObservation",
-            {"type": "object", "properties": {"result": {"type": "string"}}},
-        )
-        obs = TestObservation(result="test result")  # type: ignore[call-arg]
+        obs = MockObservation(result="test result")
 
         obs_event = ObservationEvent(
             source="environment",
