@@ -1,4 +1,6 @@
 from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
 
 from openhands.sdk.event import EventType
 from openhands.sdk.event.llm_convertible import (
@@ -14,7 +16,7 @@ from openhands.sdk.llm import ImageContent, TextContent
 class ConversationVisualizer:
     """Handles visualization of conversation events with Rich formatting.
 
-    Provides Rich-formatted output while keeping the event's __str__ methods clean.
+    Provides Rich-formatted output with panels and complete content display.
     """
 
     def __init__(self):
@@ -22,116 +24,154 @@ class ConversationVisualizer:
 
     def on_event(self, event: EventType) -> None:
         """Main event handler that displays events with Rich formatting."""
-        rich_formatted = self._format_event_rich(event)
-        self._console.print(rich_formatted)
+        panel = self._create_event_panel(event)
+        self._console.print(panel)
+        self._console.print()  # Add spacing between events
 
-    def _format_event_rich(self, event: EventType) -> str:
-        """Format an event with Rich markup for enhanced display."""
+    def _create_event_panel(self, event: EventType) -> Panel:
+        """Create a Rich Panel for the event with appropriate styling."""
         if isinstance(event, SystemPromptEvent):
-            return self._format_system_prompt_rich(event)
+            return self._create_system_prompt_panel(event)
         elif isinstance(event, ActionEvent):
-            return self._format_action_rich(event)
+            return self._create_action_panel(event)
         elif isinstance(event, ObservationEvent):
-            return self._format_observation_rich(event)
+            return self._create_observation_panel(event)
         elif isinstance(event, MessageEvent):
-            return self._format_message_rich(event)
+            return self._create_message_panel(event)
         elif isinstance(event, AgentErrorEvent):
-            return self._format_error_rich(event)
+            return self._create_error_panel(event)
         else:
-            # Fallback to base formatting with Rich styling
-            return (
-                f"[bold blue]{event.__class__.__name__}[/bold blue] "
-                f"[dim]({event.source})[/dim]"
+            # Fallback panel for unknown event types
+            content = Text(f"Unknown event type: {event.__class__.__name__}")
+            return Panel(
+                content,
+                title=f"[bold blue]{event.__class__.__name__}[/bold blue]",
+                subtitle=f"[dim]({event.source})[/dim]",
+                border_style="blue",
+                expand=True,
             )
 
-    def _format_system_prompt_rich(self, event: SystemPromptEvent) -> str:
-        """Rich-formatted string representation for SystemPromptEvent."""
-        base_str = (
-            f"[bold blue]{event.__class__.__name__}[/bold blue] "
-            f"[dim]({event.source})[/dim]"
-        )
-        prompt_preview = (
-            event.system_prompt.text[:100] + "..."
-            if len(event.system_prompt.text) > 100
-            else event.system_prompt.text
-        )
-        tool_count = len(event.tools)
-        return (
-            f"{base_str}\n[dim]  System: {prompt_preview}[/dim]\n"
-            f"[dim]  Tools: {tool_count} available[/dim]"
+    def _create_system_prompt_panel(self, event: SystemPromptEvent) -> Panel:
+        """Create a Rich Panel for SystemPromptEvent with complete content."""
+        content = Text()
+        content.append("System Prompt:\n", style="bold cyan")
+        content.append(event.system_prompt.text, style="white")
+        content.append(f"\n\nTools Available: {len(event.tools)}", style="dim cyan")
+
+        return Panel(
+            content,
+            title="[bold magenta]System Prompt[/bold magenta]",
+            subtitle=f"[dim]({event.source})[/dim]",
+            border_style="magenta",
+            expand=True,
         )
 
-    def _format_action_rich(self, event: ActionEvent) -> str:
-        """Rich-formatted string representation for ActionEvent."""
-        base_str = (
-            f"[bold blue]{event.__class__.__name__}[/bold blue] "
-            f"[dim]({event.source})[/dim]"
-        )
+    def _create_action_panel(self, event: ActionEvent) -> Panel:
+        """Create a Rich Panel for ActionEvent with complete content."""
+        content = Text()
+
+        # Display complete thought content
         thought_text = " ".join([t.text for t in event.thought])
-        thought_preview = (
-            thought_text[:80] + "..." if len(thought_text) > 80 else thought_text
-        )
+        if thought_text:
+            content.append("Thought:\n", style="bold green")
+            content.append(thought_text, style="white")
+            content.append("\n\n")
+
+        # Display action information
         action_name = event.action.__class__.__name__
-        return (
-            f"{base_str}\n[dim]  Thought: {thought_preview}[/dim]\n"
-            f"[dim]  Action: {action_name}[/dim]"
+        content.append("Action: ", style="bold green")
+        content.append(action_name, style="yellow")
+
+        return Panel(
+            content,
+            title="[bold green]Agent Action[/bold green]",
+            subtitle=f"[dim]({event.source})[/dim]",
+            border_style="green",
+            expand=True,
         )
 
-    def _format_observation_rich(self, event: ObservationEvent) -> str:
-        """Rich-formatted string representation for ObservationEvent."""
-        base_str = (
-            f"[bold blue]{event.__class__.__name__}[/bold blue] "
-            f"[dim]({event.source})[/dim]"
-        )
-        obs_preview = (
-            event.observation.agent_observation[:100] + "..."
-            if len(event.observation.agent_observation) > 100
-            else event.observation.agent_observation
-        )
-        return (
-            f"{base_str}\n[dim]  Tool: {event.tool_name}[/dim]\n"
-            f"[dim]  Result: {obs_preview}[/dim]"
+    def _create_observation_panel(self, event: ObservationEvent) -> Panel:
+        """Create a Rich Panel for ObservationEvent with complete content."""
+        content = Text()
+        content.append("Tool: ", style="bold blue")
+        content.append(event.tool_name, style="cyan")
+        content.append("\n\nResult:\n", style="bold blue")
+        content.append(event.observation.agent_observation, style="white")
+
+        return Panel(
+            content,
+            title="[bold blue]Tool Observation[/bold blue]",
+            subtitle=f"[dim]({event.source})[/dim]",
+            border_style="blue",
+            expand=True,
         )
 
-    def _format_message_rich(self, event: MessageEvent) -> str:
-        """Rich-formatted string representation for MessageEvent."""
-        base_str = (
-            f"[bold blue]{event.__class__.__name__}[/bold blue] "
-            f"[dim]({event.source})[/dim]"
+    def _create_message_panel(self, event: MessageEvent) -> Panel:
+        """Create a Rich Panel for MessageEvent with complete content."""
+        content = Text()
+
+        # Role-based styling
+        role_colors = {
+            "user": "bright_cyan",
+            "assistant": "bright_green",
+            "system": "bright_magenta",
+        }
+        role_color = role_colors.get(event.llm_message.role, "white")
+
+        content.append(
+            f"{event.llm_message.role.title()}:\n", style=f"bold {role_color}"
         )
-        # Extract text content from the message
+
+        # Extract and display all content
         text_parts = []
-        for content in event.llm_message.content:
-            if isinstance(content, TextContent):
-                text_parts.append(content.text)
-            elif isinstance(content, ImageContent):
-                text_parts.append(f"[Image: {len(content.image_urls)} URLs]")
+        for content_item in event.llm_message.content:
+            if isinstance(content_item, TextContent):
+                text_parts.append(content_item.text)
+            elif isinstance(content_item, ImageContent):
+                text_parts.append(f"[Image: {len(content_item.image_urls)} URLs]")
 
         if text_parts:
-            content_preview = " ".join(text_parts)
-            if len(content_preview) > 100:
-                content_preview = content_preview[:97] + "..."
-            microagent_info = (
-                f" [Microagents: {', '.join(event.activated_microagents)}]"
-                if event.activated_microagents
-                else ""
-            )
-            return (
-                f"{base_str}\n[dim]  {event.llm_message.role}: "
-                f"{content_preview}{microagent_info}[/dim]"
-            )
+            full_content = " ".join(text_parts)
+            content.append(full_content, style="white")
         else:
-            return (
-                f"{base_str}\n[dim]  {event.llm_message.role}: [no text content][/dim]"
+            content.append("[no text content]", style="dim white")
+
+        # Add microagent information if present
+        if event.activated_microagents:
+            content.append(
+                f"\n\nActivated Microagents: {', '.join(event.activated_microagents)}",
+                style="dim yellow",
             )
 
-    def _format_error_rich(self, event: AgentErrorEvent) -> str:
-        """Rich-formatted string representation for AgentErrorEvent."""
-        base_str = (
-            f"[bold blue]{event.__class__.__name__}[/bold blue] "
-            f"[dim]({event.source})[/dim]"
+        # Panel styling based on role
+        panel_colors = {
+            "user": "cyan",
+            "assistant": "green",
+            "system": "magenta",
+        }
+        border_color = panel_colors.get(event.llm_message.role, "white")
+
+        title_text = (
+            f"[bold {role_color}]Message ({event.llm_message.role})[/bold {role_color}]"
         )
-        error_preview = (
-            event.error[:100] + "..." if len(event.error) > 100 else event.error
+        return Panel(
+            content,
+            title=title_text,
+            subtitle=f"[dim]({event.source})[/dim]",
+            border_style=border_color,
+            expand=True,
         )
-        return f"{base_str}\n[dim red]  Error: {error_preview}[/dim red]"
+
+    def _create_error_panel(self, event: AgentErrorEvent) -> Panel:
+        """Create a Rich Panel for AgentErrorEvent with complete content."""
+        content = Text()
+        content.append("Error Details:\n", style="bold red")
+        content.append(event.error, style="bright_red")
+
+        return Panel(
+            content,
+            title="[bold red]Agent Error[/bold red]",
+            subtitle=f"[dim]({event.source})[/dim]",
+            border_style="red",
+            expand=True,
+        )
