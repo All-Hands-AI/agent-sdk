@@ -14,12 +14,24 @@ from collections import deque
 from typing import Deque
 
 from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.constants import CMD_OUTPUT_PS1_END, HISTORY_LIMIT
+from openhands.tools.execute_bash.constants import (
+    CMD_OUTPUT_PS1_BEGIN,
+    CMD_OUTPUT_PS1_END,
+    HISTORY_LIMIT,
+)
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 from openhands.tools.execute_bash.terminal import TerminalInterface
 
 
 logger = get_logger(__name__)
+
+ENTER = b"\r"
+
+
+def _normalize_eols(raw: bytes) -> bytes:
+    # CRLF/LF/CR -> CR, so each logical line is terminated with \r for the TTY
+    raw = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return ENTER.join(raw.split(b"\n"))
 
 
 class SubprocessTerminal(TerminalInterface):
@@ -96,34 +108,25 @@ class SubprocessTerminal(TerminalInterface):
         self._initialized = True
 
         # ===== Deterministic readiness (no blind sleeps) =====
-        # 1) Nudge bash to render something
-        self._write_pty(b"\n")
-
-        # 2) Single atomic init line: clear PROMPT_COMMAND, set PS2/PS1, print sentinel
+        # 1) Single atomic init line: clear PROMPT_COMMAND, set PS2/PS1, print sentinel
         sentinel = f"__OH_READY_{uuid.uuid4().hex}__"
         init_cmd = (
             f"export PROMPT_COMMAND='export PS1=\"{self.PS1}\"'; "
             f'export PS2=""; '
-            f'printf "{sentinel}\\n"'
+            f'printf "{sentinel}"'
         ).encode("utf-8", "ignore")
 
-        self._write_pty(init_cmd + b"\n")
+        self._write_pty(init_cmd + ENTER)
         if not self._wait_for_output(sentinel, timeout=8.0):
-            # Retry once in case initial write raced with shell bring-up
-            logger.debug("Sentinel not seen, retrying init command once")
-            self._write_pty(init_cmd + b"\n")
-            if not self._wait_for_output(sentinel, timeout=8.0):
-                raise RuntimeError("Shell did not become ready (sentinel not seen)")
+            raise RuntimeError("Shell did not become ready (sentinel not seen)")
+
+        self.clear_screen()
 
         # 3) Wait for prompt to actually be visible
         if not self._wait_for_prompt(timeout=5.0):
-            # Final nudge
-            self._write_pty(b"\n")
-            if not self._wait_for_prompt(timeout=2.0):
-                raise RuntimeError("Prompt not visible after init")
+            raise RuntimeError("Prompt not visible after init")
 
         logger.debug("PTY terminal initialized with work dir: %s", self.work_dir)
-        self.clear_screen()
 
     def close(self) -> None:
         """Clean up the PTY terminal."""
@@ -172,6 +175,7 @@ class SubprocessTerminal(TerminalInterface):
         if self._pty_master_fd is None:
             raise RuntimeError("PTY terminal is not initialized")
         try:
+            logger.debug(f"Wrote to subprocess PTY: {data!r}")
             os.write(self._pty_master_fd, data)
         except Exception as e:
             logger.error(f"Failed to write to PTY: {e}")
@@ -263,7 +267,7 @@ class SubprocessTerminal(TerminalInterface):
             raise RuntimeError("PTY terminal is not initialized")
 
         specials = {
-            "ENTER": b"\n",
+            "ENTER": ENTER,
             "TAB": b"\t",
             "BS": b"\x7f",  # Backspace (DEL)
             "ESC": b"\x1b",
@@ -285,6 +289,8 @@ class SubprocessTerminal(TerminalInterface):
         # Named specials
         if upper in specials:
             payload = specials[upper]
+            # Do NOT auto-append another EOL; special already includes it when needed.
+            append_eol = False
         # Generic Ctrl-<letter>, including C-C (preferred over sending SIGINT directly)
         elif upper.startswith(("C-", "CTRL-", "CTRL+")):
             # last char after dash/plus is the key
@@ -294,47 +300,59 @@ class SubprocessTerminal(TerminalInterface):
             else:
                 # Unknown form; fall back to raw text
                 payload = text.encode("utf-8", "ignore")
+            append_eol = False  # ctrl combos are “instant”
         else:
-            # Plain text
-            payload = text.encode("utf-8", "ignore")
+            raw = text.encode("utf-8", "ignore")
+            payload = _normalize_eols(raw) if enter else raw
+            append_eol = enter and not payload.endswith(ENTER)
 
-        # Append newline if requested (and not already newline)
-        if enter and (payload is not None) and not payload.endswith(b"\n"):
-            payload += b"\n"
+        if append_eol:
+            payload += ENTER
 
         self._write_pty(payload)
-        # Heuristic: consider a command "running" if we sent a newline
-        self._current_command_running = self._current_command_running or enter
+        self._current_command_running = self._current_command_running or (
+            append_eol or payload.endswith(ENTER)
+        )
 
     def read_screen(self) -> str:
-        """Read the current terminal screen content."""
+        """Read the current terminal screen content.
+
+        The content we return should NOT contains carriage returns (CR, \r).
+        """
         if not self._initialized:
             raise RuntimeError("PTY terminal is not initialized")
 
         with self.output_lock:
             content = "".join(self.output_buffer)
             lines = content.split("\n")
-            return "\n".join(lines)
+            return "\n".join(lines).replace("\r", "")
 
     def clear_screen(self) -> None:
-        """Clear the terminal screen and history and ensure a prompt is visible."""
+        """Drop buffered output up to the most recent PS1 block; do not emit ^L."""
         if not self._initialized:
             return
 
-        # 1) Drop our local buffer
+        need_prompt_nudge = False
         with self.output_lock:
-            self.output_buffer.clear()
+            if not self.output_buffer:
+                need_prompt_nudge = True
+            else:
+                data = "".join(self.output_buffer)
+                start_idx = data.rfind(CMD_OUTPUT_PS1_BEGIN)
+                end_idx = data.rfind(CMD_OUTPUT_PS1_END)
+                if start_idx != -1 and end_idx != -1 and end_idx >= start_idx:
+                    tail = data[start_idx:]
+                    self.output_buffer.clear()
+                    self.output_buffer.append(tail)
+                else:
+                    self.output_buffer.clear()
+                    need_prompt_nudge = True
 
-        # 2) Ask bash to repaint the prompt like tmux does
-        try:
-            # Ctrl+L to clear and redraw
-            self._write_pty(b"\x0c")
-        except Exception:
-            pass
-
-        # 3) Wait a moment for bash to render the prompt
-        #    (reuse the existing helper that checks for CMD_OUTPUT_PS1_END)
-        self._wait_for_prompt(timeout=2.0)
+        if need_prompt_nudge:
+            try:
+                self._write_pty(ENTER)  # ask bash to render a prompt, no screen clear
+            except Exception:
+                pass
 
     def interrupt(self) -> bool:
         """Send SIGINT to the PTY process group (fallback to signal-based interrupt)."""

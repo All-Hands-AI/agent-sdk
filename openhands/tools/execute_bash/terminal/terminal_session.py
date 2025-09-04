@@ -79,8 +79,6 @@ class TerminalSession(TerminalSessionBase):
         self.terminal.initialize()
         self._initialized = True
         logger.debug(f"Unified session initialized with {type(self.terminal).__name__}")
-        initial_terminal_output = self.terminal.read_screen()
-        logger.debug(f"INITIAL TERMINAL OUTPUT: {initial_terminal_output!r}")
 
     def close(self) -> None:
         """Clean up the terminal backend."""
@@ -341,6 +339,7 @@ class TerminalSession(TerminalSessionBase):
         )
         initial_ps1_count = len(initial_ps1_matches)
         logger.debug(f"Initial PS1 count: {initial_ps1_count}")
+        logger.debug(f"INITIAL TERMINAL OUTPUT: {initial_terminal_output!r}")
 
         start_time = time.time()
         last_change_time = start_time
@@ -381,11 +380,13 @@ class TerminalSession(TerminalSessionBase):
                 metadata,
                 continue_prefix="[Below is the output of the previous command.]\n",
             )
-            return ExecuteBashObservation(
+            obs = ExecuteBashObservation(
                 output=command_output,
                 command=command,
                 metadata=metadata,
             )
+            logger.debug(f"RETURNING OBSERVATION (previous-command): {obs}")
+            return obs
 
         # Send actual command/inputs to the terminal
         if command != "":
@@ -438,11 +439,13 @@ class TerminalSession(TerminalSessionBase):
                 current_ps1_count > initial_ps1_count
                 or cur_terminal_output.rstrip().endswith(CMD_OUTPUT_PS1_END.rstrip())
             ):
-                return self._handle_completed_command(
+                obs = self._handle_completed_command(
                     command,
                     terminal_content=cur_terminal_output,
                     ps1_matches=ps1_matches,
                 )
+                logger.debug(f"RETURNING OBSERVATION (completed): {obs}")
+                return obs
 
             # Timeout checks should only trigger if a new prompt hasn't appeared yet.
 
@@ -459,11 +462,13 @@ class TerminalSession(TerminalSessionBase):
                 not is_blocking
                 and time_since_last_change >= self.no_change_timeout_seconds
             ):
-                return self._handle_nochange_timeout_command(
+                obs = self._handle_nochange_timeout_command(
                     command,
                     terminal_content=cur_terminal_output,
                     ps1_matches=ps1_matches,
                 )
+                logger.debug(f"RETURNING OBSERVATION (nochange-timeout): {obs}")
+                return obs
 
             # 3) Execution timed out since the command has been running for too long
             # (hard timeout)
@@ -474,12 +479,14 @@ class TerminalSession(TerminalSessionBase):
             if action.timeout is not None:
                 time_since_start = time.time() - start_time
                 if time_since_start >= action.timeout:
-                    return self._handle_hard_timeout_command(
+                    obs = self._handle_hard_timeout_command(
                         command,
                         terminal_content=cur_terminal_output,
                         ps1_matches=ps1_matches,
                         timeout=action.timeout,
                     )
+                    logger.debug(f"RETURNING OBSERVATION (hard-timeout): {obs}")
+                    return obs
 
             # Sleep before next check
             time.sleep(POLL_INTERVAL)
