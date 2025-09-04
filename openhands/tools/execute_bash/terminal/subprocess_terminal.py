@@ -1,7 +1,6 @@
-"""PowerShell-based terminal backend implementation."""
+"""Subprocess-based terminal backend implementation."""
 
 import os
-import platform
 import signal
 import subprocess
 import threading
@@ -10,28 +9,27 @@ from collections import deque
 from typing import Deque
 
 from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.sessions.terminal_interface import TerminalInterface
+from openhands.tools.execute_bash.metadata import CmdOutputMetadata
+from openhands.tools.execute_bash.terminal import TerminalInterface
 
 
 logger = get_logger(__name__)
 
 
-class PowershellTerminal(TerminalInterface):
-    """PowerShell-based terminal backend.
+class SubprocessTerminal(TerminalInterface):
+    """Subprocess-based terminal backend.
 
-    This backend uses PowerShell to provide a terminal session
-    that can work on both Windows and Unix systems (with PowerShell Core).
+    This backend uses subprocess.Popen to create a persistent bash session
+    that mimics tmux behavior for environments where tmux is not available.
     """
 
     def __init__(
         self,
         work_dir: str,
         username: str | None = None,
-        max_memory_mb: int | None = None,
     ):
-        super().__init__(work_dir, username, max_memory_mb)
-        # Use a PowerShell-compatible prompt
-        self.PS1 = "PS OpenHands> "
+        super().__init__(work_dir, username)
+        self.PS1 = CmdOutputMetadata.to_ps1_prompt()
         self.process: subprocess.Popen | None = None
         self.output_buffer: Deque[str] = deque(maxlen=10000)  # Circular buffer
         self.output_lock = threading.Lock()
@@ -39,58 +37,33 @@ class PowershellTerminal(TerminalInterface):
         self._current_command_running = False
 
     def initialize(self) -> None:
-        """Initialize the PowerShell terminal session."""
+        """Initialize the subprocess terminal session."""
         if self._initialized:
             return
 
-        # Determine PowerShell command based on platform
-        if platform.system() == "Windows":
-            # On Windows, try PowerShell Core first, then Windows PowerShell
-            powershell_commands = ["pwsh", "powershell"]
-        else:
-            # On Unix systems, use PowerShell Core
-            powershell_commands = ["pwsh"]
-
-        powershell_cmd = None
-        for cmd in powershell_commands:
-            try:
-                # Test if the command exists
-                subprocess.run([cmd, "-Version"], capture_output=True, timeout=5)
-                powershell_cmd = [cmd, "-NoLogo", "-NoExit", "-Command", "-"]
-                break
-            except (
-                subprocess.TimeoutExpired,
-                subprocess.CalledProcessError,
-                FileNotFoundError,
-            ):
-                continue
-
-        if not powershell_cmd:
-            raise RuntimeError(
-                "PowerShell not found. Please install PowerShell Core (pwsh)."
-            )
-
-        logger.debug(f"Initializing PowerShell terminal with command: {powershell_cmd}")
+        # Create bash command with proper user switching if needed
+        bash_cmd = ["/bin/bash", "-i"]  # Interactive bash
 
         # Set up environment
         env = os.environ.copy()
+        env["PS1"] = self.PS1
+        env["PS2"] = ""
+        env["TERM"] = "xterm-256color"
+
+        logger.debug(f"Initializing subprocess terminal with command: {bash_cmd}")
 
         # Start the subprocess
-        kwargs = {
-            "stdin": subprocess.PIPE,
-            "stdout": subprocess.PIPE,
-            "stderr": subprocess.STDOUT,
-            "cwd": self.work_dir,
-            "env": env,
-            "text": True,
-            "bufsize": 0,  # Unbuffered
-        }
-
-        # On Unix systems, create new process group for signal handling
-        if platform.system() != "Windows":
-            kwargs["preexec_fn"] = os.setsid
-
-        self.process = subprocess.Popen(powershell_cmd, **kwargs)
+        self.process = subprocess.Popen(
+            bash_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            cwd=self.work_dir,
+            env=env,
+            text=True,
+            bufsize=0,  # Unbuffered
+            preexec_fn=os.setsid,  # Create new process group for signal handling
+        )
 
         # Start output reader thread
         self.reader_thread = threading.Thread(
@@ -98,31 +71,21 @@ class PowershellTerminal(TerminalInterface):
         )
         self.reader_thread.start()
 
-        # Configure PowerShell
-        time.sleep(0.2)  # Let PowerShell start up
+        # Configure the shell
+        time.sleep(0.1)  # Let bash start up
+        self._send_command_internal(f'export PS1="{self.PS1}"')
+        self._send_command_internal('export PS2=""')
+        self._send_command_internal('export PROMPT_COMMAND=""')
 
-        # Set up custom prompt and basic configuration
-        setup_commands = [
-            # Set custom prompt
-            f'function prompt {{ return "{self.PS1}" }}',
-            # Set location to work directory
-            f'Set-Location "{self.work_dir}"',
-            # Configure output formatting
-            "$OutputEncoding = [System.Text.Encoding]::UTF8",
-            # Disable progress bars that can interfere with output
-            '$ProgressPreference = "SilentlyContinue"',
-        ]
+        # Wait for initial setup to complete
+        time.sleep(0.2)
 
-        for cmd in setup_commands:
-            self._send_command_internal(cmd)
-            time.sleep(0.1)
-
-        logger.debug(f"PowerShell terminal initialized with work dir: {self.work_dir}")
+        logger.debug(f"Subprocess terminal initialized with work dir: {self.work_dir}")
         self._initialized = True
         self.clear_screen()
 
     def _read_output_continuously(self) -> None:
-        """Continuously read output from the PowerShell process in a separate thread."""
+        """Continuously read output from the subprocess in a separate thread."""
         if not self.process or not self.process.stdout:
             return
 
@@ -146,13 +109,13 @@ class PowershellTerminal(TerminalInterface):
                                     for line in lines[1:]:
                                         self.output_buffer.append(line)
                 except Exception as e:
-                    logger.debug(f"Error reading PowerShell output: {e}")
+                    logger.debug(f"Error reading subprocess output: {e}")
                     break
         except Exception as e:
             logger.error(f"Output reader thread error: {e}")
 
     def close(self) -> None:
-        """Clean up the PowerShell terminal."""
+        """Clean up the subprocess terminal."""
         if self._closed:
             return
 
@@ -169,19 +132,13 @@ class PowershellTerminal(TerminalInterface):
                 except subprocess.TimeoutExpired:
                     # Force kill if needed
                     if self.process.poll() is None:
-                        if platform.system() == "Windows":
-                            self.process.terminate()
-                        else:
-                            os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                        os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
                         try:
                             self.process.wait(timeout=1)
                         except subprocess.TimeoutExpired:
-                            if platform.system() == "Windows":
-                                self.process.kill()
-                            else:
-                                os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                            os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
             except Exception as e:
-                logger.error(f"Error closing PowerShell terminal: {e}")
+                logger.error(f"Error closing subprocess terminal: {e}")
             finally:
                 self.process = None
 
@@ -193,24 +150,24 @@ class PowershellTerminal(TerminalInterface):
     def _send_command_internal(self, command: str) -> None:
         """Internal method to send command without logging."""
         if not self.process or not self.process.stdin:
-            raise RuntimeError("PowerShell terminal is not initialized")
+            raise RuntimeError("Subprocess terminal is not initialized")
 
         try:
             self.process.stdin.write(command + "\n")
             self.process.stdin.flush()
         except Exception as e:
-            logger.error(f"Failed to send command to PowerShell: {e}")
+            logger.error(f"Failed to send command to subprocess: {e}")
             raise
 
     def send_keys(self, text: str, enter: bool = True) -> None:
-        """Send text/keys to the PowerShell process.
+        """Send text/keys to the subprocess.
 
         Args:
             text: Text or key sequence to send
             enter: Whether to send Enter key after the text
         """
         if not self._initialized:
-            raise RuntimeError("PowerShell terminal is not initialized")
+            raise RuntimeError("Subprocess terminal is not initialized")
 
         # Handle special key sequences
         if text.startswith("C-") and len(text) == 3:
@@ -221,7 +178,7 @@ class PowershellTerminal(TerminalInterface):
                 return
             elif key == "l":
                 # Clear screen
-                text = "Clear-Host"
+                text = "clear"
             # For other Ctrl sequences, just send the text as-is for now
 
         if enter:
@@ -240,7 +197,7 @@ class PowershellTerminal(TerminalInterface):
             Current visible content of the terminal screen
         """
         if not self._initialized:
-            raise RuntimeError("PowerShell terminal is not initialized")
+            raise RuntimeError("Subprocess terminal is not initialized")
 
         with self.output_lock:
             # Join all buffer content
@@ -258,16 +215,15 @@ class PowershellTerminal(TerminalInterface):
         if not self._initialized:
             return
 
-        # Clear the output buffer
+        # Clear the output buffer - this is sufficient for subprocess terminal
         with self.output_lock:
             self.output_buffer.clear()
 
-        # Send clear command
-        self._send_command_internal("Clear-Host")
-        time.sleep(0.1)
+        # Don't send clear command as it interferes with output capture
+        # The buffer clearing is sufficient for our purposes
 
     def interrupt(self) -> bool:
-        """Send interrupt signal (Ctrl+C) to the PowerShell process.
+        """Send interrupt signal (Ctrl+C) to the subprocess.
 
         Returns:
             True if interrupt was sent successfully, False otherwise
@@ -276,19 +232,12 @@ class PowershellTerminal(TerminalInterface):
             return False
 
         try:
-            if platform.system() == "Windows":
-                # On Windows, send Ctrl+C via stdin
-                if self.process.stdin:
-                    self.process.stdin.write("\x03")  # Ctrl+C character
-                    self.process.stdin.flush()
-            else:
-                # On Unix systems, send SIGINT to the process group
-                os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
-
+            # Send SIGINT to the process group
+            os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
             self._current_command_running = False
             return True
         except Exception as e:
-            logger.error(f"Failed to interrupt PowerShell process: {e}")
+            logger.error(f"Failed to interrupt subprocess: {e}")
             return False
 
     def is_running(self) -> bool:
@@ -308,15 +257,9 @@ class PowershellTerminal(TerminalInterface):
         # by looking at the current screen content
         try:
             content = self.read_screen()
-            # If screen ends with our PowerShell prompt, no command is running
-            return not content.rstrip().endswith(self.PS1.rstrip())
+            from openhands.tools.execute_bash.constants import CMD_OUTPUT_PS1_END
+
+            # If screen ends with prompt, no command is running
+            return not content.rstrip().endswith(CMD_OUTPUT_PS1_END.rstrip())
         except Exception:
             return self._current_command_running
-
-    def is_powershell(self) -> bool:
-        """Check if this is a PowerShell terminal.
-
-        Returns:
-            True since this is a PowerShell terminal
-        """
-        return True

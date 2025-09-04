@@ -129,7 +129,6 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         self,
         working_dir: str,
         username: str | None = None,
-        max_memory_mb: int | None = None,
         no_change_timeout_seconds: int | None = None,
         session_type: str | None = None,
     ):
@@ -138,7 +137,6 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         Args:
             working_dir: The working directory for bash commands
             username: Optional username for the bash session
-            max_memory_mb: Optional memory limit in MB
             no_change_timeout_seconds: Timeout for no output change
             session_type: Force a specific session type:
                          ('tmux', 'subprocess', 'powershell').
@@ -153,7 +151,6 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         executor = BashExecutor(
             working_dir=working_dir,
             username=username,
-            max_memory_mb=max_memory_mb,
             no_change_timeout_seconds=no_change_timeout_seconds,
             session_type=session_type,
         )

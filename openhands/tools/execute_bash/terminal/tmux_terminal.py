@@ -8,7 +8,7 @@ import libtmux
 from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.constants import HISTORY_LIMIT
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
-from openhands.tools.execute_bash.sessions.terminal_interface import TerminalInterface
+from openhands.tools.execute_bash.terminal import TerminalInterface
 
 
 logger = get_logger(__name__)
@@ -25,9 +25,8 @@ class TmuxTerminal(TerminalInterface):
         self,
         work_dir: str,
         username: str | None = None,
-        max_memory_mb: int | None = None,
     ):
-        super().__init__(work_dir, username, max_memory_mb)
+        super().__init__(work_dir, username)
         self.PS1 = CmdOutputMetadata.to_ps1_prompt()
 
     def initialize(self) -> None:

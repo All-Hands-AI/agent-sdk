@@ -19,15 +19,15 @@ import pytest
 
 from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.sessions import (
+from openhands.tools.execute_bash.terminal import (
     TerminalCommandStatus,
+    TerminalSession,
     create_terminal_session,
 )
-from openhands.tools.execute_bash.sessions.factory import (
+from openhands.tools.execute_bash.terminal.factory import (
     _is_powershell_available,
     _is_tmux_available,
 )
-from openhands.tools.execute_bash.sessions.unified_session import UnifiedBashSession
 
 from .conftest import get_no_change_timeout_suffix
 
@@ -35,9 +35,9 @@ from .conftest import get_no_change_timeout_suffix
 logger = get_logger(__name__)
 
 
-def _get_unified_session(session) -> UnifiedBashSession:
-    """Helper to cast session to UnifiedBashSession for accessing internal attributes."""  # noqa: E501
-    return cast(UnifiedBashSession, session)
+def _get_unified_session(session) -> TerminalSession:
+    """Helper to cast session to TerminalSession for accessing internal attributes."""  # noqa: E501
+    return cast(TerminalSession, session)
 
 
 def _get_available_terminal_types():

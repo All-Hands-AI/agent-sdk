@@ -8,10 +8,9 @@ from openhands.tools.execute_bash.definition import (
 from openhands.tools.execute_bash.impl import BashExecutor
 
 # Terminal session architecture - import from sessions package
-from openhands.tools.execute_bash.sessions import (
+from openhands.tools.execute_bash.terminal import (
     TerminalCommandStatus,
     TerminalSession,
-    UnifiedBashSession,
     create_terminal_session,
 )
 
@@ -26,6 +25,6 @@ __all__ = [
     # === Terminal Session Architecture ===
     "TerminalSession",
     "TerminalCommandStatus",
-    "UnifiedBashSession",
+    "TerminalSession",
     "create_terminal_session",
 ]

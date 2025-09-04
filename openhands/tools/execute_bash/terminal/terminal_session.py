@@ -1,9 +1,7 @@
 """Unified terminal session using TerminalInterface backends."""
 
-import os
 import re
 import time
-from abc import ABC, abstractmethod
 from enum import Enum
 
 from openhands.sdk.logger import get_logger
@@ -18,7 +16,10 @@ from openhands.tools.execute_bash.definition import (
     ExecuteBashObservation,
 )
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
-from openhands.tools.execute_bash.sessions.terminal_interface import TerminalInterface
+from openhands.tools.execute_bash.terminal.interface import (
+    TerminalInterface,
+    TerminalSessionBase,
+)
 from openhands.tools.execute_bash.utils.command import (
     escape_bash_special_chars,
     split_bash_commands,
@@ -38,91 +39,11 @@ class TerminalCommandStatus(Enum):
     HARD_TIMEOUT = "hard_timeout"
 
 
-class TerminalSession(ABC):
-    """Abstract base class for terminal sessions.
-
-    This class defines the common interface for all terminal session implementations,
-    including tmux-based, subprocess-based, and PowerShell-based sessions.
-    """
-
-    def __init__(
-        self,
-        work_dir: str,
-        username: str | None = None,
-        max_memory_mb: int | None = None,
-        no_change_timeout_seconds: int | None = None,
-    ):
-        """Initialize the terminal session.
-
-        Args:
-            work_dir: Working directory for the session
-            username: Optional username for the session
-            max_memory_mb: Optional memory limit in MB
-            no_change_timeout_seconds: Timeout for no output change
-        """
-        self.work_dir = work_dir
-        self.username = username
-        self.max_memory_mb = max_memory_mb
-        self.no_change_timeout_seconds = no_change_timeout_seconds
-        self._initialized = False
-        self._closed = False
-        self._cwd = os.path.abspath(work_dir)
-
-    @abstractmethod
-    def initialize(self) -> None:
-        """Initialize the terminal session."""
-        pass
-
-    @abstractmethod
-    def execute(self, action: ExecuteBashAction) -> ExecuteBashObservation:
-        """Execute a command in the terminal session.
-
-        Args:
-            action: The bash action to execute
-
-        Returns:
-            ExecuteBashObservation with the command result
-        """
-        pass
-
-    @abstractmethod
-    def close(self) -> None:
-        """Clean up the terminal session."""
-        pass
-
-    @abstractmethod
-    def interrupt(self) -> bool:
-        """Interrupt the currently running command (equivalent to Ctrl+C).
-
-        Returns:
-            True if interrupt was successful, False otherwise
-        """
-        pass
-
-    @abstractmethod
-    def is_running(self) -> bool:
-        """Check if a command is currently running.
-
-        Returns:
-            True if a command is running, False otherwise
-        """
-        pass
-
-    @property
-    def cwd(self) -> str:
-        """Get the current working directory."""
-        return self._cwd
-
-    def __del__(self) -> None:
-        """Ensure the session is closed when the object is destroyed."""
-        self.close()
-
-
 def _remove_command_prefix(command_output: str, command: str) -> str:
     return command_output.lstrip().removeprefix(command.lstrip()).lstrip()
 
 
-class UnifiedBashSession(TerminalSession):
+class TerminalSession(TerminalSessionBase):
     """Unified bash session that works with any TerminalInterface backend.
 
     This class contains all the session controller logic (timeouts, command parsing,
@@ -143,7 +64,6 @@ class UnifiedBashSession(TerminalSession):
         super().__init__(
             terminal.work_dir,
             terminal.username,
-            terminal.max_memory_mb,
             no_change_timeout_seconds,
         )
         self.terminal = terminal
@@ -433,6 +353,9 @@ class UnifiedBashSession(TerminalSession):
             and command != ""
         ):
             _ps1_matches = CmdOutputMetadata.matches_ps1_metadata(last_terminal_output)
+            # Use initial_ps1_matches if _ps1_matches is empty,
+            # otherwise use _ps1_matches. This handles the case where
+            # the prompt might be scrolled off screen but existed before
             current_matches_for_output = (
                 _ps1_matches if _ps1_matches else initial_ps1_matches
             )
@@ -539,6 +462,10 @@ class UnifiedBashSession(TerminalSession):
 
             # 3) Execution timed out since the command has been running for too long
             # (hard timeout)
+            elapsed_time = time.time() - start_time
+            logger.debug(
+                f"CHECKING HARD TIMEOUT ({action.timeout}s): elapsed {elapsed_time:.2f}"
+            )
             if action.timeout is not None:
                 time_since_start = time.time() - start_time
                 if time_since_start >= action.timeout:

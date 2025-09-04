@@ -5,10 +5,12 @@ from unittest.mock import patch
 
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.sessions.powershell_terminal import PowershellTerminal
-from openhands.tools.execute_bash.sessions.subprocess_terminal import SubprocessTerminal
-from openhands.tools.execute_bash.sessions.tmux_terminal import TmuxTerminal
-from openhands.tools.execute_bash.sessions.unified_session import UnifiedBashSession
+from openhands.tools.execute_bash.terminal import (
+    PowershellTerminal,
+    SubprocessTerminal,
+    TerminalSession,
+    TmuxTerminal,
+)
 
 
 class TestBashToolAutoDetection:
@@ -19,8 +21,8 @@ class TestBashToolAutoDetection:
         with tempfile.TemporaryDirectory() as temp_dir:
             tool = BashTool(working_dir=temp_dir)
 
-            # Should always use UnifiedBashSession now
-            assert isinstance(tool.executor.session, UnifiedBashSession)
+            # Should always use TerminalSession now
+            assert isinstance(tool.executor.session, TerminalSession)
 
             # Check that the terminal backend is appropriate
             terminal_type = type(tool.executor.session.terminal).__name__
@@ -42,7 +44,7 @@ class TestBashToolAutoDetection:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Test forced subprocess session
             tool = BashTool(working_dir=temp_dir, session_type="subprocess")
-            assert isinstance(tool.executor.session, UnifiedBashSession)
+            assert isinstance(tool.executor.session, TerminalSession)
             assert isinstance(tool.executor.session.terminal, SubprocessTerminal)
 
             # Test basic functionality
@@ -79,7 +81,7 @@ class TestBashToolAutoDetection:
                 # Skip actual initialization by mocking the terminal
                 with patch.object(PowershellTerminal, "initialize"):
                     tool = BashTool(working_dir=temp_dir)
-                    assert isinstance(tool.executor.session, UnifiedBashSession)
+                    assert isinstance(tool.executor.session, TerminalSession)
                     assert isinstance(
                         tool.executor.session.terminal, PowershellTerminal
                     )
@@ -90,7 +92,7 @@ class TestBashToolAutoDetection:
                 return_value=False,
             ):
                 tool = BashTool(working_dir=temp_dir)
-                assert isinstance(tool.executor.session, UnifiedBashSession)
+                assert isinstance(tool.executor.session, TerminalSession)
                 assert isinstance(tool.executor.session.terminal, SubprocessTerminal)
 
     @patch("platform.system")
@@ -105,7 +107,7 @@ class TestBashToolAutoDetection:
                 return_value=True,
             ):
                 tool = BashTool(working_dir=temp_dir)
-                assert isinstance(tool.executor.session, UnifiedBashSession)
+                assert isinstance(tool.executor.session, TerminalSession)
                 assert isinstance(tool.executor.session.terminal, TmuxTerminal)
 
             # Mock tmux as unavailable
@@ -114,7 +116,7 @@ class TestBashToolAutoDetection:
                 return_value=False,
             ):
                 tool = BashTool(working_dir=temp_dir)
-                assert isinstance(tool.executor.session, UnifiedBashSession)
+                assert isinstance(tool.executor.session, TerminalSession)
                 assert isinstance(tool.executor.session.terminal, SubprocessTerminal)
 
     def test_session_parameters(self):
@@ -123,7 +125,6 @@ class TestBashToolAutoDetection:
             tool = BashTool(
                 working_dir=temp_dir,
                 username="testuser",
-                max_memory_mb=1024,
                 no_change_timeout_seconds=60,
                 session_type="subprocess",
             )
@@ -131,7 +132,6 @@ class TestBashToolAutoDetection:
             session = tool.executor.session
             assert session.work_dir == temp_dir
             assert session.username == "testuser"
-            assert session.max_memory_mb == 1024
             assert session.no_change_timeout_seconds == 60
 
     def test_backward_compatibility(self):

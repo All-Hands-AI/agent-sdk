@@ -1,4 +1,4 @@
-"""Tests for UnifiedBashSession."""
+"""Tests for TerminalSession."""
 
 import os
 import tempfile
@@ -7,7 +7,7 @@ import time
 import pytest
 
 from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.sessions import create_terminal_session
+from openhands.tools.execute_bash.terminal import create_terminal_session
 
 
 class TestTerminalSession:
