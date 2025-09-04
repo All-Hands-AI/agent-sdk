@@ -322,6 +322,10 @@ class SubprocessTerminal(TerminalInterface):
         if not self._initialized:
             raise RuntimeError("PTY terminal is not initialized")
 
+        # Give the reader thread a moment to capture any pending output
+        # This is especially important after sending a command
+        time.sleep(0.01)
+
         with self.output_lock:
             content = "".join(self.output_buffer)
             lines = content.split("\n")
