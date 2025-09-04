@@ -1,8 +1,10 @@
 """Tests for LLM completion functionality, configuration, and metrics tracking."""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from litellm.types.utils import Choices, Message, ModelResponse, Usage
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM
@@ -10,33 +12,28 @@ from openhands.sdk.llm import LLM
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
     """Helper function to create properly structured mock responses."""
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = content
-
-    # Create usage mock
-    mock_usage = MagicMock()
-    mock_usage.get.side_effect = lambda key, default=None: {
-        "prompt_tokens": 10,
-        "completion_tokens": 5,
-        "model_extra": {},
-    }.get(key, default)
-    mock_usage.prompt_tokens_details = None
-
-    # Response data mapping
-    response_data = {
-        "choices": mock_response.choices,
-        "usage": mock_usage,
-        "id": response_id,
-    }
-
-    # Mock both .get() and dict-like access (LLM code uses both patterns inconsistently)
-    mock_response.get.side_effect = lambda key, default=None: response_data.get(
-        key, default
+    return ModelResponse(
+        id=response_id,
+        choices=[
+            Choices(
+                finish_reason="stop",
+                index=0,
+                message=Message(
+                    content=content,
+                    role="assistant",
+                ),
+            )
+        ],
+        created=1234567890,
+        model="gpt-4o",
+        object="chat.completion",
+        system_fingerprint="test",
+        usage=Usage(
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+        ),
     )
-    mock_response.__getitem__ = lambda self, key: response_data[key]
-
-    return mock_response
 
 
 @pytest.fixture
@@ -88,7 +85,7 @@ def test_llm_streaming_not_supported(default_config):
 def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
-    mock_response.choices[0].message.tool_calls = [
+    mock_response.choices[0].message.tool_calls = [  # type: ignore
         MagicMock(
             id="call_123",
             type="function",
@@ -108,7 +105,7 @@ def test_llm_completion_with_tools(mock_completion):
 
     # Test completion with tools
     messages = [{"role": "user", "content": "Use the test tool"}]
-    tools = [
+    tools: list[Any] = [
         {
             "type": "function",
             "function": {
@@ -171,7 +168,7 @@ def test_llm_model_info_initialization(default_config):
     llm = default_config
 
     # Model info initialization should complete without errors
-    llm.init_model_info()
+    llm._init_model_info_and_caps()
 
     # Model info might be None for unknown models, which is fine
     assert llm.model_info is None or isinstance(llm.model_info, dict)

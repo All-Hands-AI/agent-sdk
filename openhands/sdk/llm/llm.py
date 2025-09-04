@@ -94,19 +94,19 @@ class RetryMixin:
                 attempt = 0
                 wait = retry_min_wait
                 last_exc = None
-                while attempt <= num_retries:
+                while attempt < num_retries:
                     try:
                         return fn()
                     except retry_exceptions as e:
                         last_exc = e
-                        if attempt == num_retries:
+                        if attempt == num_retries - 1:
                             break
                         # jittered exponential backoff
                         sleep_for = min(
                             retry_max_wait, int(wait + random.uniform(0, 1))
                         )
                         if retry_listener:
-                            retry_listener(attempt + 1, sleep_for)
+                            retry_listener(attempt + 1, num_retries)
                         time.sleep(sleep_for)
                         wait = max(retry_min_wait, int(wait * retry_multiplier))
                         attempt += 1
@@ -327,6 +327,10 @@ class LLM(BaseModel, RetryMixin):
 
         Normalize → (maybe) mock tools → transport → postprocess.
         """
+        # Check if streaming is requested
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported")
+
         # 1) serialize messages
         if messages and isinstance(messages[0], Message):
             messages = self.format_messages_for_llm(cast(list[Message], messages))
@@ -671,6 +675,11 @@ class LLM(BaseModel, RetryMixin):
         and enabled for this LLM instance.
         """
         return bool(self._function_calling_active)
+
+    @property
+    def model_info(self) -> dict | None:
+        """Returns the model info dictionary."""
+        return self._model_info
 
     # =========================================================================
     # Utilities preserved from previous class

@@ -1,7 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from litellm.exceptions import APIConnectionError
+from litellm.types.utils import Choices, Message, ModelResponse, Usage
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM
@@ -9,42 +10,28 @@ from openhands.sdk.llm import LLM
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
     """Helper function to create properly structured mock responses."""
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = content
-
-    # Create a more complete usage mock
-    mock_usage = MagicMock()
-    mock_usage.get.side_effect = lambda key, default=None: {
-        "prompt_tokens": 10,
-        "completion_tokens": 5,
-        "model_extra": {},
-    }.get(key, default)
-    mock_usage.prompt_tokens_details = None
-
-    # Mock the response.get() method
-    def mock_get(key, default=None):
-        if key == "choices":
-            return mock_response.choices
-        elif key == "usage":
-            return mock_usage
-        elif key == "id":
-            return response_id
-        return default
-
-    mock_response.get = mock_get
-
-    # Also support dict-like access
-    def mock_getitem(self, key):
-        return {
-            "choices": mock_response.choices,
-            "usage": mock_usage,
-            "id": response_id,
-        }[key]
-
-    mock_response.__getitem__ = mock_getitem
-
-    return mock_response
+    return ModelResponse(
+        id=response_id,
+        choices=[
+            Choices(
+                finish_reason="stop",
+                index=0,
+                message=Message(
+                    content=content,
+                    role="assistant",
+                ),
+            )
+        ],
+        created=1234567890,
+        model="gpt-4o",
+        object="chat.completion",
+        system_fingerprint="test",
+        usage=Usage(
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+        ),
+    )
 
 
 @pytest.fixture
