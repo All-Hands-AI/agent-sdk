@@ -3,7 +3,7 @@ import sys
 from abc import ABC, abstractmethod
 from types import MappingProxyType
 
-from openhands.sdk.context.env_context import EnvContext
+from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
@@ -18,16 +18,16 @@ class AgentBase(ABC):
         self,
         llm: LLM,
         tools: list[Tool],
-        env_context: EnvContext | None = None,
+        agent_context: AgentContext | None = None,
     ) -> None:
         """Initializes a new instance of the Agent class.
 
         Agent should be Stateless: every step only relies on:
         1. input ConversationState
-        2. LLM/tools/env_context that were given in __init__
+        2. LLM/tools/agent_context that were given in __init__
         """
         self._llm = llm
-        self._env_context = env_context
+        self._agent_context = agent_context
 
         # Load tools into an immutable dict
         _tools_map = {}
@@ -63,9 +63,9 @@ class AgentBase(ABC):
         return self._tools
 
     @property
-    def env_context(self) -> EnvContext | None:
-        """Returns the environment context used by the Agent."""
-        return self._env_context
+    def agent_context(self) -> AgentContext | None:
+        """Returns the agent context used by the Agent."""
+        return self._agent_context
 
     @abstractmethod
     def init_state(

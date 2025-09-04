@@ -10,7 +10,7 @@ from litellm.types.utils import (
 from pydantic import ValidationError
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.context import EnvContext, render_system_message
+from openhands.sdk.context import AgentContext, render_template
 from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
@@ -42,7 +42,7 @@ class Agent(AgentBase):
         self,
         llm: LLM,
         tools: list[Tool],
-        env_context: EnvContext | None = None,
+        agent_context: AgentContext | None = None,
         system_prompt_filename: str = "system_prompt.j2",
         condenser: Condenser | None = None,
         cli_mode: bool = True,
@@ -51,17 +51,20 @@ class Agent(AgentBase):
             assert tool not in tools, (
                 f"{tool} is automatically included and should not be provided."
             )
-        super().__init__(llm=llm, tools=tools + BUILT_IN_TOOLS, env_context=env_context)
-
-        self.system_message: TextContent = TextContent(
-            text=render_system_message(
-                prompt_dir=self.prompt_dir,
-                system_prompt_filename=system_prompt_filename,
-                cli_mode=cli_mode,
-            )
+        super().__init__(
+            llm=llm, tools=tools + BUILT_IN_TOOLS, agent_context=agent_context
         )
 
-        self.max_iterations: int = 10
+        self.system_message: str = render_template(
+            prompt_dir=self.prompt_dir,
+            template_name=system_prompt_filename,
+            cli_mode=cli_mode,
+        )
+        if agent_context:
+            _system_message_suffix = agent_context.get_system_message_suffix()
+            if _system_message_suffix:
+                self.system_message += "\n\n" + _system_message_suffix
+
         self.condenser = condenser
 
     def init_state(
@@ -78,7 +81,7 @@ class Agent(AgentBase):
             # Prepare system message
             event = SystemPromptEvent(
                 source="agent",
-                system_prompt=self.system_message,
+                system_prompt=TextContent(text=self.system_message),
                 tools=[t.to_openai_tool() for t in self.tools.values()],
             )
             on_event(event)

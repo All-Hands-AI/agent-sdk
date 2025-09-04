@@ -1,4 +1,5 @@
 from openhands.tools.execute_bash.definition import (
+    BashTool,
     ExecuteBashAction,
     ExecuteBashObservation,
     execute_bash_tool,
@@ -11,4 +12,5 @@ __all__ = [
     "ExecuteBashAction",
     "ExecuteBashObservation",
     "BashExecutor",
+    "BashTool",
 ]

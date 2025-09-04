@@ -138,3 +138,25 @@ str_replace_editor_tool = Tool(
         openWorldHint=False,
     ),
 )
+
+
+class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
+    """A Tool subclass that automatically initializes a FileEditorExecutor."""
+
+    def __init__(self):
+        """Initialize FileEditorTool with a FileEditorExecutor."""
+        # Import here to avoid circular imports
+        from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+
+        # Initialize the executor
+        executor = FileEditorExecutor()
+
+        # Initialize the parent Tool with the executor
+        super().__init__(
+            name=str_replace_editor_tool.name,
+            description=TOOL_DESCRIPTION,
+            input_schema=StrReplaceEditorAction,
+            output_schema=StrReplaceEditorObservation,
+            annotations=str_replace_editor_tool.annotations,
+            executor=executor,
+        )

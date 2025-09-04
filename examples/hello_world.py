@@ -14,10 +14,8 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.tools import (
-    BashExecutor,
-    FileEditorExecutor,
-    execute_bash_tool,
-    str_replace_editor_tool,
+    BashTool,
+    FileEditorTool,
 )
 
 
@@ -34,11 +32,9 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-bash = BashExecutor(working_dir=cwd)
-file_editor = FileEditorExecutor()
 tools: list[Tool] = [
-    execute_bash_tool.set_executor(executor=bash),
-    str_replace_editor_tool.set_executor(executor=file_editor),
+    BashTool(working_dir=cwd),
+    FileEditorTool(),
 ]
 
 # Agent
@@ -61,8 +57,8 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py that "
-                    "prints 'Hello, World!'?"
+                    "Hello! Can you create a new Python file named hello.py"
+                    " that prints 'Hello, World!'?"
                 )
             )
         ],

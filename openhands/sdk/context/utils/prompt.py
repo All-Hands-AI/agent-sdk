@@ -50,22 +50,3 @@ def _get_template(prompt_dir: str, template_name: str) -> Template:
 def render_template(prompt_dir: str, template_name: str, **ctx) -> str:
     tpl = _get_template(prompt_dir, template_name)
     return refine(tpl.render(**ctx).strip())
-
-
-# Convenience wrappers keeping old names/semantics
-def render_system_message(
-    prompt_dir: str, system_prompt_filename: str = "system_prompt.j2", **ctx
-) -> str:
-    return render_template(prompt_dir, system_prompt_filename, **ctx)
-
-
-def render_initial_user_message(prompt_dir: str, **ctx) -> str:
-    return render_template(prompt_dir, "user_prompt.j2", **ctx)
-
-
-def render_additional_info(prompt_dir: str, **ctx) -> str:
-    return render_template(prompt_dir, "additional_info.j2", **ctx)
-
-
-def render_microagent_info(prompt_dir: str, **ctx) -> str:
-    return render_template(prompt_dir, "microagent_info.j2", **ctx)

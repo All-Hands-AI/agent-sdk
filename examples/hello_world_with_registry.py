@@ -15,10 +15,8 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.tools import (
-    BashExecutor,
-    FileEditorExecutor,
-    execute_bash_tool,
-    str_replace_editor_tool,
+    BashTool,
+    FileEditorTool,
 )
 
 
@@ -41,11 +39,9 @@ llm = llm_registry.get_llm(service_id="main_agent", config=llm_config)
 
 # Tools
 cwd = os.getcwd()
-bash = BashExecutor(working_dir=cwd)
-file_editor = FileEditorExecutor()
 tools: list[Tool] = [
-    execute_bash_tool.set_executor(executor=bash),
-    str_replace_editor_tool.set_executor(executor=file_editor),
+    BashTool(working_dir=cwd),
+    FileEditorTool(),
 ]
 
 # Agent

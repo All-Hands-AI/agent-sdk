@@ -1,4 +1,5 @@
 from openhands.tools.str_replace_editor.definition import (
+    FileEditorTool,
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
     str_replace_editor_tool,
@@ -12,4 +13,5 @@ __all__ = [
     "StrReplaceEditorObservation",
     "file_editor",
     "FileEditorExecutor",
+    "FileEditorTool",
 ]
