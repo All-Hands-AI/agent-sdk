@@ -1,6 +1,6 @@
 {% if repo_microagents %}
 <REPO_CONTEXT>
-The following information has been included based on serveral files defined in user's repository.
+The following information has been included based on several files defined in user's repository.
 Please follow them while working.
 
 {% for agent_info in repo_microagents %}
@@ -10,5 +10,7 @@ Please follow them while working.
 {% endfor %}
 </REPO_CONTEXT>
 {% endif %}
+{% if system_prompt_suffix %}
 
 {{ system_prompt_suffix }}
+{% endif %}
