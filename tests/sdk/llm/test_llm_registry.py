@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
@@ -166,3 +166,86 @@ class TestLLMRegistry(unittest.TestCase):
         self.assertNotEqual(self.registry.registry_id, registry2.registry_id)
         self.assertTrue(len(self.registry.registry_id) > 0)
         self.assertTrue(len(registry2.registry_id) > 0)
+
+
+def test_llm_registry_create_without_listener():
+    """Test LLM registry creates LLM without retry listener."""
+    registry = LLMRegistry()
+
+    # Create a mock LLM config object
+    mock_llm_config = Mock(spec=LLM)
+    mock_llm_config.model_dump.return_value = {"model": "test-model"}
+
+    # Mock the LLM constructor and RegistryEvent to avoid actual initialization
+    with (
+        patch("openhands.sdk.llm.llm_registry.LLM") as mock_llm_class,
+        patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event,
+    ):
+        mock_llm = Mock()
+        mock_llm_class.return_value = mock_llm
+        mock_registry_event.return_value = Mock()
+
+        # Create LLM without listener (line 56)
+        result = registry._create_new_llm(
+            "test-service", mock_llm_config, with_listener=False
+        )
+
+        # Should create LLM without retry_listener parameter
+        mock_llm_class.assert_called_once_with(
+            service_id="test-service", model="test-model"
+        )
+        assert result == mock_llm
+
+
+def test_llm_registry_notify_exception_handling():
+    """Test LLM registry handles exceptions in subscriber notification."""
+
+    # Create a subscriber that raises an exception
+    def failing_subscriber(event):
+        raise ValueError("Subscriber failed")
+
+    registry = LLMRegistry()
+    registry.subscribe(failing_subscriber)
+
+    # Mock the logger to capture warning messages
+    with patch("openhands.sdk.llm.llm_registry.logger") as mock_logger:
+        # Create a mock event
+        mock_event = Mock()
+
+        # This should handle the exception and log a warning (lines 146-147)
+        registry.notify(mock_event)
+
+        # Should have logged the warning
+        mock_logger.warning.assert_called_once()
+        assert "Failed to emit event:" in str(mock_logger.warning.call_args)
+
+
+def test_llm_registry_list_services():
+    """Test LLM registry list_services method."""
+
+    registry = LLMRegistry()
+
+    # Create mock LLM config objects
+    mock_llm_config1 = Mock(spec=LLM)
+    mock_llm_config1.model_dump.return_value = {"model": "model1"}
+    mock_llm_config2 = Mock(spec=LLM)
+    mock_llm_config2.model_dump.return_value = {"model": "model2"}
+
+    # Mock the LLM constructor and RegistryEvent
+    with (
+        patch("openhands.sdk.llm.llm_registry.LLM") as mock_llm_class,
+        patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event,
+    ):
+        mock_llm_class.return_value = Mock()
+        mock_registry_event.return_value = Mock()
+
+        # Create some LLMs
+        registry._create_new_llm("service1", mock_llm_config1)
+        registry._create_new_llm("service2", mock_llm_config2)
+
+        # Test list_services (line 155)
+        services = registry.list_services()
+
+        assert "service1" in services
+        assert "service2" in services
+        assert len(services) == 2

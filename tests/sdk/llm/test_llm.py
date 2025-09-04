@@ -492,3 +492,42 @@ def test_token_usage_context_window():
     assert combined.context_window == 8192  # Should take the max
     assert combined.prompt_tokens == 300
     assert combined.completion_tokens == 125
+
+
+# Telemetry Tests
+
+
+def test_telemetry_cost_calculation_header_exception():
+    """Test telemetry cost calculation handles header parsing exceptions."""
+    from unittest.mock import Mock, patch
+
+    from openhands.sdk.llm.utils.metrics import Metrics
+    from openhands.sdk.llm.utils.telemetry import Telemetry
+
+    # Create a mock response with headers that will cause an exception
+    mock_response = Mock()
+    mock_response.headers = {"x-litellm-cost": "invalid-float"}
+
+    metrics = Metrics()
+    telemetry = Telemetry(model_name="test-model", metrics=metrics)
+
+    # Mock the logger to capture debug messages
+    with patch("openhands.sdk.llm.utils.telemetry.logger") as mock_logger:
+        # Mock litellm_completion_cost to return a valid cost
+        with patch(
+            "openhands.sdk.llm.utils.telemetry.litellm_completion_cost",
+            return_value=0.001,
+        ):
+            cost = telemetry._compute_cost(mock_response)
+
+            # Should fall back to litellm cost calculator
+            assert cost == 0.001
+
+            # Should have logged the debug message for header parsing failure (line 139)
+            mock_logger.debug.assert_called_once()
+            assert "Failed to get cost from LiteLLM headers:" in str(
+                mock_logger.debug.call_args
+            )
+
+
+# LLM Registry Tests
