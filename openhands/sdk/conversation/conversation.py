@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Iterable
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentBase
 
+from openhands.sdk.conversation.persistence import ConversationPersistence
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
@@ -35,6 +36,7 @@ class Conversation:
     ):
         """Initialize the conversation."""
         self._visualizer = ConversationVisualizer()
+        self._persistence = ConversationPersistence()
         self.agent = agent
         self.state = ConversationState()
 
@@ -113,3 +115,27 @@ class Conversation:
             iteration += 1
             if iteration >= self.max_iteration_per_run:
                 break
+
+    def save(self, dir_path: str) -> None:
+        """Save current conversation state + messages to disk."""
+        self._persistence.save(self, dir_path)
+
+    @classmethod
+    def load(
+        cls,
+        dir_path: str,
+        agent: "AgentBase",
+        persistence: ConversationPersistence | None = None,
+        **kwargs,
+    ) -> "Conversation":
+        """Load conversation state + messages from disk.
+
+        Args:
+            agent: The agent associated with the conversation.
+            dir_path: The directory path to load the conversation from.
+            persistence: The persistence layer to use (optional).
+            kwargs: Additional keyword arguments to pass to the conversation
+                constructor.
+        """
+        persistence = persistence or ConversationPersistence()
+        return persistence.load(dir_path=dir_path, agent=agent, **(kwargs or {}))

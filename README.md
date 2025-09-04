@@ -4,7 +4,7 @@ A clean, modular SDK for building AI agents with OpenHands. This project represe
 
 ## Repository Structure
 
-```
+```plain
 agent-sdk/
 ├── .github/
 │   └── workflows/           # CI/CD workflows
@@ -91,7 +91,7 @@ This project follows principles of simplicity, pragmatism, and maintainability:
 
 The SDK is built around two core packages:
 
-- **`openhands.sdk.**: Core SDK functionality (agents, LLM, context, conversation)
+- **`openhands.sdk`**: Core SDK functionality (agents, LLM, context, conversation)
 - **`openhands/tools`**: Tool implementations (bash execution, file editing)
 
 Each package is independently testable and deployable, with clear separation of concerns.
@@ -130,19 +130,21 @@ uv run pre-commit run --all-files
 #### 4. Testing Strategy
 
 **Unit Tests**: Located in package-specific test directories
-- `openhands.sdk.tests/` - Tests for core functionality
-- `openhands/tools/tests/` - Tests for tool implementations
+- `tests/sdk/` - Tests for core functionality
+- `tests/tools/` - Tests for tool implementations
 
 **Integration Tests**: Located in root `tests/` directory
+
 - Tests that involve both core and tools packages
 
 **Running Tests**:
+
 ```bash
 # Run all tests
 uv run pytest
 
 # Run specific test file
-uv run pytest openhands.sdk.tests/tool/test_tool.py
+uv run pytest tests/sdk/tool/test_tool.py
 
 # Run with coverage
 uv run pytest --cov=openhands

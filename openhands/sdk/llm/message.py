@@ -3,7 +3,7 @@ from typing import Any, Literal, cast
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
-from pydantic import BaseModel, Field, model_serializer
+from pydantic import BaseModel, Field, field_validator, model_serializer
 
 
 class ContentType(Enum):
@@ -71,6 +71,17 @@ class Message(BaseModel):
     @property
     def contains_image(self) -> bool:
         return any(isinstance(content, ImageContent) for content in self.content)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def _coerce_content(cls, v: Any) -> list[TextContent | ImageContent] | Any:
+        # Accept None → []
+        if v is None:
+            return []
+        # Accept a single string → [TextContent(...)]
+        if isinstance(v, str):
+            return [TextContent(text=v)]
+        return v
 
     @model_serializer(mode="plain")
     def serialize_model(self) -> dict[str, Any]:
