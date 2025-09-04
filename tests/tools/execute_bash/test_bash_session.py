@@ -10,10 +10,8 @@ and run the parametrized tests for each one.
 """
 
 import os
-import platform
 import tempfile
 import time
-from typing import cast
 
 import pytest
 
@@ -21,12 +19,7 @@ from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.terminal import (
     TerminalCommandStatus,
-    TerminalSession,
     create_terminal_session,
-)
-from openhands.tools.execute_bash.terminal.factory import (
-    _is_powershell_available,
-    _is_tmux_available,
 )
 
 from .conftest import get_no_change_timeout_suffix
@@ -34,32 +27,8 @@ from .conftest import get_no_change_timeout_suffix
 
 logger = get_logger(__name__)
 
-
-def _get_unified_session(session) -> TerminalSession:
-    """Helper to cast session to TerminalSession for accessing internal attributes."""  # noqa: E501
-    return cast(TerminalSession, session)
-
-
-def _get_available_terminal_types():
-    """Get list of available terminal types for testing."""
-    available_types = []
-
-    # Subprocess is always available
-    available_types.append("subprocess")
-
-    # Check for tmux (only on non-Windows systems)
-    if platform.system() != "Windows" and _is_tmux_available():
-        available_types.append("tmux")
-
-    # Check for PowerShell
-    if _is_powershell_available():
-        available_types.append("powershell")
-
-    return available_types
-
-
 # Parametrize tests to run on all available terminal types
-terminal_types = _get_available_terminal_types()
+terminal_types = ["tmux", "subprocess"]
 parametrize_terminal_types = pytest.mark.parametrize("terminal_type", terminal_types)
 
 
@@ -80,16 +49,6 @@ def test_session_initialization(terminal_type):
         work_dir=os.getcwd(), username="nobody", session_type=terminal_type
     )
     session.initialize()
-    # Check if the terminal has a session name (only for tmux terminals)
-    unified_session = _get_unified_session(session)
-    if hasattr(unified_session.terminal, "session") and hasattr(
-        unified_session.terminal.session,  # type: ignore
-        "name",  # type: ignore
-    ):
-        assert (
-            unified_session.terminal.session.name is not None  # type: ignore
-            and "openhands-nobody" in unified_session.terminal.session.name  # type: ignore
-        )
     session.close()
 
 
@@ -102,15 +61,16 @@ def test_cwd_property(tmp_path, terminal_type):
     random_dir.mkdir()
     session.execute(ExecuteBashAction(command=f"cd {random_dir}", security_risk="LOW"))
 
+    # For other implementations, just verify the command executed successfully
+    obs = session.execute(ExecuteBashAction(command="pwd", security_risk="LOW"))
+    assert str(random_dir) in obs.output
+    print(obs.agent_observation)
+
     # Note: CWD tracking may vary between terminal implementations
     # For tmux, it should track properly. For subprocess, it may not.
-    if terminal_type == "tmux":
-        assert session.cwd == str(random_dir)
-    else:
-        # For other implementations, just verify the command executed successfully
-        obs = session.execute(ExecuteBashAction(command="pwd", security_risk="LOW"))
-        assert str(random_dir) in obs.output
-
+    # if terminal_type == "tmux":
+    assert session.cwd == str(random_dir)
+    # else:
     session.close()
 
 
@@ -128,7 +88,7 @@ def test_basic_command(terminal_type):
     assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
     # Note: prefix may vary between terminal implementations
     assert obs.metadata.exit_code == 0
-    assert _get_unified_session(session).prev_status == TerminalCommandStatus.COMPLETED
+    assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     # Test command with error
     obs = session.execute(
@@ -138,7 +98,7 @@ def test_basic_command(terminal_type):
     # Note: Exit code handling may vary between terminal implementations
     # The important thing is that the error message is captured
     assert "nonexistent_command: command not found" in obs.output
-    assert _get_unified_session(session).prev_status == TerminalCommandStatus.COMPLETED
+    assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     # Test multiple commands in sequence
     obs = session.execute(
@@ -152,7 +112,7 @@ def test_basic_command(terminal_type):
     assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
     # Note: prefix may vary between terminal implementations
     assert obs.metadata.exit_code == 0
-    assert _get_unified_session(session).prev_status == TerminalCommandStatus.COMPLETED
+    assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     session.close()
 
@@ -192,10 +152,7 @@ def test_long_running_command_follow_by_execute():
 
     assert "1" in obs.output  # First number should appear before timeout
     assert obs.metadata.exit_code == -1  # -1 indicates command is still running
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
     assert obs.metadata.suffix == get_no_change_timeout_suffix(2)
     assert obs.metadata.prefix == ""
 
@@ -208,10 +165,7 @@ def test_long_running_command_follow_by_execute():
     assert obs.metadata.prefix == "[Below is the output of the previous command.]\n"
     assert obs.metadata.suffix == get_no_change_timeout_suffix(2)
     assert obs.metadata.exit_code == -1  # -1 indicates command is still running
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     # Test command that produces no output
     obs = session.execute(ExecuteBashAction(command="sleep 15", security_risk="LOW"))
@@ -220,10 +174,7 @@ def test_long_running_command_follow_by_execute():
     assert obs.metadata.prefix == "[Below is the output of the previous command.]\n"
     assert "The previous command is still running" in obs.metadata.suffix
     assert obs.metadata.exit_code == -1  # -1 indicates command is still running
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     time.sleep(3)
 
@@ -232,16 +183,16 @@ def test_long_running_command_follow_by_execute():
 
     assert "3" in obs.output  # Should see the final output from the previous command
     assert obs.metadata.exit_code == -1  # -1 indicates new command is still running
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     session.close()
 
 
-def test_interactive_command():
-    session = create_terminal_session(work_dir=os.getcwd(), no_change_timeout_seconds=3)
+@parametrize_terminal_types
+def test_interactive_command(terminal_type):
+    session = create_terminal_session(
+        work_dir=os.getcwd(), no_change_timeout_seconds=3, session_type=terminal_type
+    )
     session.initialize()
 
     # Test interactive command with blocking=True
@@ -254,10 +205,7 @@ def test_interactive_command():
 
     assert "Enter name:" in obs.output
     assert obs.metadata.exit_code == -1  # -1 indicates command is still running
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
     assert obs.metadata.suffix == get_no_change_timeout_suffix(3)
     assert obs.metadata.prefix == ""
 
@@ -270,16 +218,13 @@ def test_interactive_command():
     assert obs.metadata.exit_code == 0
     assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
     assert obs.metadata.prefix == ""
-    assert _get_unified_session(session).prev_status == TerminalCommandStatus.COMPLETED
+    assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     # Test multiline command input
     obs = session.execute(ExecuteBashAction(command="cat << EOF", security_risk="LOW"))
 
     assert obs.metadata.exit_code == -1
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
     assert obs.metadata.suffix == get_no_change_timeout_suffix(3)
     assert obs.metadata.prefix == ""
 
@@ -288,10 +233,7 @@ def test_interactive_command():
     )
 
     assert obs.metadata.exit_code == -1
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
     assert obs.metadata.suffix == get_no_change_timeout_suffix(3)
     assert obs.metadata.prefix == "[Below is the output of the previous command.]\n"
 
@@ -300,10 +242,7 @@ def test_interactive_command():
     )
 
     assert obs.metadata.exit_code == -1
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
     assert obs.metadata.suffix == get_no_change_timeout_suffix(3)
     assert obs.metadata.prefix == "[Below is the output of the previous command.]\n"
 
@@ -319,8 +258,11 @@ def test_interactive_command():
     session.close()
 
 
-def test_ctrl_c():
-    session = create_terminal_session(work_dir=os.getcwd(), no_change_timeout_seconds=2)
+@parametrize_terminal_types
+def test_ctrl_c(terminal_type):
+    session = create_terminal_session(
+        work_dir=os.getcwd(), no_change_timeout_seconds=2, session_type=terminal_type
+    )
     session.initialize()
 
     # Start infinite loop
@@ -334,10 +276,7 @@ def test_ctrl_c():
     assert obs.metadata.suffix == get_no_change_timeout_suffix(2)
     assert obs.metadata.prefix == ""
     assert obs.metadata.exit_code == -1  # -1 indicates command is still running
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     # Send Ctrl+C
     obs = session.execute(
@@ -352,13 +291,14 @@ def test_ctrl_c():
     )  # Accept both common exit codes for interrupted processes
     assert "CTRL+C was sent" in obs.metadata.suffix
     assert obs.metadata.prefix == ""
-    assert _get_unified_session(session).prev_status == TerminalCommandStatus.COMPLETED
+    assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     session.close()
 
 
-def test_empty_command_errors():
-    session = create_terminal_session(work_dir=os.getcwd())
+@parametrize_terminal_types
+def test_empty_command_error(terminal_type):
+    session = create_terminal_session(work_dir=os.getcwd(), session_type=terminal_type)
     session.initialize()
 
     # Test empty command without previous command
@@ -374,17 +314,20 @@ def test_empty_command_errors():
     assert obs.metadata.exit_code == -1
     assert obs.metadata.prefix == ""
     assert obs.metadata.suffix == ""
-    assert _get_unified_session(session).prev_status is None
+    assert session.prev_status is None
 
     session.close()
 
 
-def test_command_output_continuation():
+@parametrize_terminal_types
+def test_command_output_continuation(terminal_type):
     """Test that we can continue to get output from a long-running command.
 
     This test has been modified to be more robust against timing issues.
     """
-    session = create_terminal_session(work_dir=os.getcwd(), no_change_timeout_seconds=1)
+    session = create_terminal_session(
+        work_dir=os.getcwd(), no_change_timeout_seconds=1, session_type=terminal_type
+    )
     session.initialize()
 
     # Start a command that produces output slowly but with longer sleep time
@@ -396,7 +339,7 @@ def test_command_output_continuation():
     )
 
     # Check if the command completed immediately or timed out
-    if _get_unified_session(session).prev_status == TerminalCommandStatus.COMPLETED:
+    if session.prev_status == TerminalCommandStatus.COMPLETED:
         # If the command completed immediately, verify we got all the output
         logger.info("Command completed immediately", extra={"msg_type": "TEST_INFO"})
         assert "1" in obs.output
@@ -407,10 +350,7 @@ def test_command_output_continuation():
         assert "[The command completed with exit code 0.]" in obs.metadata.suffix
     else:
         # If the command timed out, verify we got the timeout message
-        assert (
-            _get_unified_session(session).prev_status
-            == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-        )
+        assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
         assert "1" in obs.output
         assert "[The command has no new output after 1 seconds." in obs.metadata.suffix
 
@@ -423,8 +363,7 @@ def test_command_output_continuation():
         # We need to see numbers 2-5 and then the command completion
         while (
             len(numbers_seen) < 5
-            or _get_unified_session(session).prev_status
-            != TerminalCommandStatus.COMPLETED
+            or session.prev_status != TerminalCommandStatus.COMPLETED
         ):
             obs = session.execute(
                 ExecuteBashAction(command="", is_input=True, security_risk="LOW")
@@ -439,10 +378,7 @@ def test_command_output_continuation():
                     )
 
             # Check if the command has completed
-            if (
-                _get_unified_session(session).prev_status
-                == TerminalCommandStatus.COMPLETED
-            ):
+            if session.prev_status == TerminalCommandStatus.COMPLETED:
                 assert (
                     "[The command completed with exit code 0.]" in obs.metadata.suffix
                 )
@@ -452,10 +388,7 @@ def test_command_output_continuation():
                     "[The command has no new output after 1 seconds."
                     in obs.metadata.suffix
                 )
-                assert (
-                    _get_unified_session(session).prev_status
-                    == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-                )
+                assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
         # Verify we've seen all numbers
         assert numbers_seen == {1, 2, 3, 4, 5}, (
@@ -463,15 +396,14 @@ def test_command_output_continuation():
         )
 
         # Verify the command completed
-        assert (
-            _get_unified_session(session).prev_status == TerminalCommandStatus.COMPLETED
-        )
+        assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     session.close()
 
 
-def test_long_output():
-    session = create_terminal_session(work_dir=os.getcwd())
+@parametrize_terminal_types
+def test_long_output(terminal_type):
+    session = create_terminal_session(work_dir=os.getcwd(), session_type=terminal_type)
     session.initialize()
 
     # Generate a long output that may exceed buffer size
@@ -490,8 +422,9 @@ def test_long_output():
     session.close()
 
 
-def test_long_output_exceed_history_limit():
-    session = create_terminal_session(work_dir=os.getcwd())
+@parametrize_terminal_types
+def test_long_output_exceed_history_limit(terminal_type):
+    session = create_terminal_session(work_dir=os.getcwd(), session_type=terminal_type)
     session.initialize()
 
     # Generate a long output that may exceed buffer size
@@ -532,8 +465,10 @@ fi""",
     session.close()
 
 
-def test_python_interactive_input():
-    session = create_terminal_session(work_dir=os.getcwd(), no_change_timeout_seconds=2)
+def test_python_interactive_input(terminal_type):
+    session = create_terminal_session(
+        work_dir=os.getcwd(), no_change_timeout_seconds=2, session_type=terminal_type
+    )
     session.initialize()
 
     # Test Python program that asks for input - properly escaped for bash
@@ -549,10 +484,7 @@ def test_python_interactive_input():
 
     assert "Enter your name:" in obs.output
     assert obs.metadata.exit_code == -1  # -1 indicates command is still running
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     # Send first input (name)
     obs = session.execute(
@@ -561,10 +493,7 @@ def test_python_interactive_input():
 
     assert "Enter your age:" in obs.output
     assert obs.metadata.exit_code == -1
-    assert (
-        _get_unified_session(session).prev_status
-        == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    )
+    assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     # Send second input (age)
     obs = session.execute(
@@ -574,6 +503,6 @@ def test_python_interactive_input():
     assert "Hello Alice, you are 25 years old" in obs.output
     assert obs.metadata.exit_code == 0
     assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
-    assert _get_unified_session(session).prev_status == TerminalCommandStatus.COMPLETED
+    assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     session.close()

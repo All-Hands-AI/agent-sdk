@@ -79,6 +79,8 @@ class TerminalSession(TerminalSessionBase):
         self.terminal.initialize()
         self._initialized = True
         logger.debug(f"Unified session initialized with {type(self.terminal).__name__}")
+        initial_terminal_output = self.terminal.read_screen()
+        logger.debug(f"INITIAL TERMINAL OUTPUT: {initial_terminal_output!r}")
 
     def close(self) -> None:
         """Clean up the terminal backend."""
@@ -147,7 +149,10 @@ class TerminalSession(TerminalSessionBase):
         if metadata.working_dir != self._cwd and metadata.working_dir:
             self._cwd = metadata.working_dir
 
-        logger.debug(f"COMMAND OUTPUT: {terminal_content}")
+        logger.debug(
+            f"[Prev PS1 not matched: {get_content_before_last_match}] "
+            f"COMMAND OUTPUT: {terminal_content}"
+        )
         # Extract the command output between the two PS1 prompts
         raw_command_output = self._combine_outputs_between_matches(
             terminal_content,
