@@ -4,7 +4,7 @@ import os
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, TypeGuard, cast
+from typing import Any, Callable, Literal, TypeGuard, cast
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
@@ -73,86 +73,131 @@ class LLM(BaseModel, RetryMixin):
     This class combines both configuration and functionality, eliminating the need
     for a separate LLMConfig class. It can be instantiated directly with configuration
     parameters and provides serialization/deserialization capabilities.
+    """
 
-    Attributes:
-        model: The model to use.
-        api_key: The API key to use.
-        base_url: The base URL for the API. This is necessary for local LLMs.
-        api_version: The version of the API.
-        aws_access_key_id: The AWS access key ID.
-        aws_secret_access_key: The AWS secret access key.
-        aws_region_name: The AWS region name.
-        num_retries: The number of retries to attempt.
-        retry_multiplier: The multiplier for the exponential backoff.
-        retry_min_wait: The minimum time to wait between retries, in seconds. This is exponential backoff minimum. For models with very low limits, this can be set to 15-20.
-        retry_max_wait: The maximum time to wait between retries, in seconds. This is exponential backoff maximum.
-        timeout: The timeout for the API.
-        max_message_chars: The approximate max number of characters in the content of an event included in the prompt to the LLM. Larger observations are truncated.
-        temperature: The temperature for the API.
-        top_p: The top p for the API.
-        top_k: The top k for the API.
-        custom_llm_provider: The custom LLM provider to use. This is undocumented in openhands, and normally not used. It is documented on the litellm side.
-        max_input_tokens: The maximum number of input tokens. Note that this is currently unused, and the value at runtime is actually the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).
-        max_output_tokens: The maximum number of output tokens. This is sent to the LLM.
-        input_cost_per_token: The cost per input token. This will available in logs for the user to check.
-        output_cost_per_token: The cost per output token. This will available in logs for the user to check.
-        ollama_base_url: The base URL for the OLLAMA API.
-        drop_params: Drop any unmapped (unsupported) params without causing an exception.
-        modify_params: Modify params allows litellm to do transformations like adding a default message, when a message is empty.
-        disable_vision: If model is vision capable, this option allows to disable image processing (useful for cost reduction).
-        caching_prompt: Use the prompt caching feature if provided by the LLM and supported by the provider.
-        log_completions: Whether to log LLM completions to the state.
-        log_completions_folder: The folder to log LLM completions to. Required if log_completions is True.
-        custom_tokenizer: A custom tokenizer to use for token counting.
-        native_tool_calling: Whether to use native tool calling if supported by the model. Can be True, False, or not set.
-        reasoning_effort: The effort to put into reasoning. This is a string that can be one of 'low', 'medium', 'high', or 'none'. Can apply to all reasoning models.
-        seed: The seed to use for the LLM.
-        safety_settings: Safety settings for models that support them (like Mistral AI and Gemini).
-    """  # noqa: E501
-
-    # Configuration fields (moved from LLMConfig)
-    model: str = Field(default="claude-sonnet-4-20250514")
-    api_key: SecretStr | None = Field(default=None)
-    base_url: str | None = Field(default=None)
-    api_version: str | None = Field(default=None)
-    aws_access_key_id: SecretStr | None = Field(default=None)
-    aws_secret_access_key: SecretStr | None = Field(default=None)
-    aws_region_name: str | None = Field(default=None)
+    model: str = Field(
+        default="claude-sonnet-4-20250514", description="The model to use."
+    )
+    api_key: SecretStr | None = Field(default=None, description="The API key to use.")
+    base_url: str | None = Field(
+        default=None,
+        description="The base URL for the API. This is necessary for local LLMs.",
+    )
+    api_version: str | None = Field(default=None, description="The version of the API.")
+    aws_access_key_id: SecretStr | None = Field(
+        default=None, description="The AWS access key ID."
+    )
+    aws_secret_access_key: SecretStr | None = Field(
+        default=None, description="The AWS secret access key."
+    )
+    aws_region_name: str | None = Field(
+        default=None, description="The AWS region name."
+    )
     openrouter_site_url: str = Field(default="https://docs.all-hands.dev/")
     openrouter_app_name: str = Field(default="OpenHands")
     # total wait time: 8 + 16 + 32 + 64 = 120 seconds
-    num_retries: int = Field(default=5)
-    retry_multiplier: float = Field(default=8)
-    retry_min_wait: int = Field(default=8)
-    retry_max_wait: int = Field(default=64)
-    timeout: int | None = Field(default=None)
-    max_message_chars: int = Field(
-        default=30_000
-    )  # maximum number of characters in an observation's content when sent to the llm
-    temperature: float = Field(default=0.0)
-    top_p: float = Field(default=1.0)
-    top_k: float | None = Field(default=None)
-    custom_llm_provider: str | None = Field(default=None)
-    max_input_tokens: int | None = Field(default=None)
-    max_output_tokens: int | None = Field(default=None)
-    input_cost_per_token: float | None = Field(default=None)
-    output_cost_per_token: float | None = Field(default=None)
-    ollama_base_url: str | None = Field(default=None)
-    # This setting can be sent in each call to litellm
-    drop_params: bool = Field(default=True)
-    # Note: this setting is actually global, unlike drop_params
-    modify_params: bool = Field(default=True)
-    disable_vision: bool | None = Field(default=None)
-    disable_stop_word: bool | None = Field(default=False)
-    caching_prompt: bool = Field(default=True)
-    log_completions: bool = Field(default=False)
-    log_completions_folder: str = Field(
-        default=os.path.join(ENV_LOG_DIR, "completions")
+    num_retries: int = Field(default=5, description="The number of retries to attempt.")
+    retry_multiplier: float = Field(
+        default=8, description="The multiplier for the retry wait time."
     )
-    custom_tokenizer: str | None = Field(default=None)
-    native_tool_calling: bool | None = Field(default=None)
-    reasoning_effort: str | None = Field(default=None)
-    seed: int | None = Field(default=None)
+    retry_min_wait: int = Field(
+        default=8,
+        description="The minimum time to wait between retries, in seconds. "
+        "This is exponential backoff minimum. For models with very low limits, "
+        "this can be set to 15-20.",
+    )
+    retry_max_wait: int = Field(
+        default=64,
+        description="The maximum time to wait between retries, in seconds. "
+        "This is exponential backoff maximum.",
+    )
+    timeout: int | None = Field(
+        default=None, description="The timeout for the API request."
+    )
+    max_message_chars: int = Field(
+        default=30_000,
+        description="The approximate max number of characters in the content of an"
+        " event included in the prompt to the LLM. Larger observations are truncated.",
+    )  # maximum number of characters in an observation's content when sent to the llm
+    temperature: float = Field(default=0.0, description="The temperature for the API.")
+    top_p: float = Field(
+        default=1.0, description="The top-p (nucleus) sampling parameter for the API."
+    )
+    top_k: float | None = Field(
+        default=None, description="The top-k sampling parameter for the API."
+    )
+    custom_llm_provider: str | None = Field(
+        default=None,
+        description="The custom LLM provider to use. "
+        "This is undocumented in openhands, and normally not used. "
+        "It is documented on the litellm side.",
+    )  # noqa: E501
+    max_input_tokens: int | None = Field(
+        default=None,
+        description="The maximum number of input tokens. "
+        "Note that this is currently unused, and the value at runtime is actually"
+        " the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).",
+    )
+    max_output_tokens: int | None = Field(
+        default=None,
+        description="The maximum number of output tokens. This is sent to the LLM.",
+    )
+    input_cost_per_token: float | None = Field(
+        default=None,
+        description="The cost per input token. This will available in logs for user.",
+    )
+    output_cost_per_token: float | None = Field(
+        default=None,
+        description="The cost per output token. This will available in logs for user.",
+    )
+    ollama_base_url: str | None = Field(
+        default=None, description="The base URL for the OLLAMA API."
+    )
+    drop_params: bool = Field(
+        default=True,
+        description="Drop any unmapped (unsupported) params "
+        "without causing an exception.",
+    )
+    # Note: this setting is actually global, unlike drop_params
+    modify_params: bool = Field(
+        default=True,
+        description="Modify params allows litellm to do transformations like adding"
+        " a default message, when a message is empty.",
+    )
+    disable_vision: bool | None = Field(
+        default=None,
+        description="If model is vision capable, this option allows to disable image "
+        "processing (useful for cost reduction).",
+    )
+    disable_stop_word: bool | None = Field(
+        default=False, description="Disable using of stop word."
+    )
+    caching_prompt: bool = Field(default=True, description="Enable caching of prompts.")
+    log_completions: bool = Field(
+        default=False, description="Enable logging of completions."
+    )
+    log_completions_folder: str = Field(
+        default=os.path.join(ENV_LOG_DIR, "completions"),
+        description="The folder to log LLM completions to. "
+        "Required if log_completions is True.",
+    )
+    custom_tokenizer: str | None = Field(
+        default=None, description="A custom tokenizer to use for token counting."
+    )
+    native_tool_calling: bool | None = Field(
+        default=None,
+        description="Whether to use native tool calling "
+        "if supported by the model. Can be True, False, or not set.",
+    )
+    reasoning_effort: Literal["low", "medium", "high", "none"] | None = Field(
+        default=None,
+        description="The effort to put into reasoning. "
+        "This is a string that can be one of 'low', 'medium', 'high', or 'none'. "
+        "Can apply to all reasoning models.",
+    )
+    seed: int | None = Field(
+        default=None, description="The seed to use for random number generation."
+    )
     safety_settings: list[dict[str, str]] | None = Field(
         default=None,
         description=(
