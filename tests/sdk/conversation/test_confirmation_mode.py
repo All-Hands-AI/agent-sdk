@@ -30,7 +30,6 @@ class TestConfirmationMode:
 
     def setup_method(self):
         """Set up test fixtures."""
-        
 
         self.mock_llm = MagicMock()
 
@@ -77,20 +76,14 @@ class TestConfirmationMode:
         self.conversation.set_confirmation_mode(True)
         self._mock_action_once()
         self.conversation.send_message(
-            Message(
-                role="user", 
-                content=[TextContent(text="execute a command")]
-            )
+            Message(role="user", content=[TextContent(text="execute a command")])
         )
         self.conversation.run()
         assert self.conversation.state.confirmation_mode is True
         assert self.conversation.state.waiting_for_confirmation is True
 
-
     def _mock_action_once(
-        self, 
-        call_id: str = "call_1", 
-        command: str = "test_command"
+        self, call_id: str = "call_1", command: str = "test_command"
     ) -> None:
         """Configure LLM to return one tool call (action)."""
         tool_call = self._create_test_action(call_id=call_id, command=command).tool_call
@@ -216,17 +209,12 @@ class TestConfirmationMode:
         assert isinstance(llm_message.content[0], TextContent)
         assert "Action rejected: Test rejection" in llm_message.content[0].text
 
-
-
     def test_message_only_in_confirmation_mode_does_not_wait(self):
         """Don't confirm agent messages."""
         self.conversation.set_confirmation_mode(True)
         self._mock_message_only("Hello, how can I help you?")
         self.conversation.send_message(
-            Message(
-                role="user", 
-                content=[TextContent(text="some prompt")]
-            )
+            Message(role="user", content=[TextContent(text="some prompt")])
         )
         self.conversation.run()
 
@@ -234,13 +222,13 @@ class TestConfirmationMode:
         assert self.conversation.state.agent_finished is True
 
         msg_events = [
-            e for e in self.conversation.state.events
+            e
+            for e in self.conversation.state.events
             if isinstance(e, MessageEvent) and e.source == "agent"
         ]
         assert len(msg_events) == 1
         assert isinstance(msg_events[0].llm_message.content[0], TextContent)
         assert msg_events[0].llm_message.content[0].text == "Hello, how can I help you?"
-
 
     @pytest.mark.parametrize("should_reject", [True, False])
     def test_action_then_confirm_or_reject(self, should_reject: bool):
@@ -259,13 +247,15 @@ class TestConfirmationMode:
 
             # Expect an observation (tool executed) and no rejection
             obs_events = [
-                e for e in self.conversation.state.events 
+                e
+                for e in self.conversation.state.events
                 if isinstance(e, ObservationEvent)
             ]
             assert len(obs_events) == 1
             assert obs_events[0].observation.result == "Executed: test_command"  # type: ignore[attr-defined]
             rejection_events = [
-                e for e in self.conversation.state.events 
+                e
+                for e in self.conversation.state.events
                 if isinstance(e, UserRejectsObservation)
             ]
             assert len(rejection_events) == 0
@@ -275,12 +265,110 @@ class TestConfirmationMode:
 
             # Expect a rejection event and no observation
             rejection_events = [
-                e for e in self.conversation.state.events 
+                e
+                for e in self.conversation.state.events
                 if isinstance(e, UserRejectsObservation)
             ]
             assert len(rejection_events) == 1
             obs_events = [
-                e for e in self.conversation.state.events 
+                e
+                for e in self.conversation.state.events
                 if isinstance(e, ObservationEvent)
             ]
             assert len(obs_events) == 0
+
+    def test_finish_action_executes_immediately_in_confirmation_mode(self):
+        """Test that FinishAction executes immediately even in confirmation mode."""
+        # Enable confirmation mode
+        self.conversation.set_confirmation_mode(True)
+
+        # Mock LLM to return a FinishAction
+        self._mock_finish_action("Task completed successfully!")
+
+        # Send a message that should trigger the finish action
+        self.conversation.send_message(
+            Message(role="user", content=[TextContent(text="Please finish the task")])
+        )
+
+        # Run the conversation
+        self.conversation.run()
+
+        # FinishAction should execute immediately despite confirmation mode
+        assert (
+            self.conversation.state.confirmation_mode is True
+        )  # Still in confirmation mode
+        assert (
+            self.conversation.state.waiting_for_confirmation is False
+        )  # But not waiting
+        assert (
+            self.conversation.state.agent_finished is True
+        )  # Agent should be finished
+
+        # Should have no pending actions (FinishAction was executed)
+        pending_actions = self.conversation.get_pending_actions()
+        assert len(pending_actions) == 0
+
+        # Should have an observation event (action was executed)
+        obs_events = [
+            e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
+        ]
+        assert len(obs_events) == 1
+        assert obs_events[0].observation.message == "Task completed successfully!"  # type: ignore[attr-defined]
+
+    def _mock_finish_action(self, message: str = "Task completed") -> None:
+        """Configure LLM to return a FinishAction tool call."""
+        tool_call = ChatCompletionMessageToolCall(
+            id="finish_call_1",
+            type="function",
+            function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
+        )
+
+        self.mock_llm.completion.return_value = ModelResponse(
+            id="response_finish",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content=f"I'll finish with: {message}",
+                        tool_calls=[tool_call],
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
+
+    def test_regular_actions_still_require_confirmation(self):
+        """Test that regular actions (non-FinishAction) still require confirmation."""
+        # Enable confirmation mode
+        self.conversation.set_confirmation_mode(True)
+
+        # Mock LLM to return a regular action (not FinishAction)
+        self._mock_action_once("call_1", "test_command")
+
+        # Send a message that should trigger the action
+        self.conversation.send_message(
+            Message(role="user", content=[TextContent(text="execute a command")])
+        )
+
+        # Run the conversation
+        self.conversation.run()
+
+        # Regular actions should still be blocked by confirmation mode
+        assert self.conversation.state.confirmation_mode is True
+        assert self.conversation.state.waiting_for_confirmation is True
+        assert (
+            self.conversation.state.agent_finished is False
+        )  # Should be False because action wasn't executed
+
+        # Should have pending actions
+        pending_actions = self.conversation.get_pending_actions()
+        assert len(pending_actions) == 1
+        assert pending_actions[0].tool_name == "test_tool"
+
+        # Should have no observation events yet (action wasn't executed)
+        obs_events = [
+            e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
+        ]
+        assert len(obs_events) == 0

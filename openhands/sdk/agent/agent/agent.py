@@ -32,6 +32,7 @@ from openhands.sdk.tool import (
     ObservationBase,
     Tool,
 )
+from openhands.sdk.tool.builtins import FinishAction
 
 
 logger = get_logger(__name__)
@@ -191,14 +192,28 @@ class Agent(AgentBase):
 
             # Handle confirmation mode stored on state
             if state.confirmation_mode and action_events:
-                # In confirmation mode, actions are created but not executed
-                # They will be found and executed on the next run() call
-                logger.info(
-                    f"Confirmation mode: Created {len(action_events)} action(s), "
-                    "waiting for confirmation"
-                )
-                state.waiting_for_confirmation = True
-                return
+                # Separate FinishActions from other actions
+                finish_actions = []
+                other_actions = []
+
+                for action_event in action_events:
+                    if isinstance(action_event.action, FinishAction):
+                        finish_actions.append(action_event)
+                    else:
+                        other_actions.append(action_event)
+
+                # Execute FinishActions immediately (they don't require confirmation)
+                for action_event in finish_actions:
+                    self._execute_action_events(state, action_event, on_event=on_event)
+
+                # Other actions wait for confirmation
+                if other_actions:
+                    logger.info(
+                        f"Confirmation mode: Created {len(other_actions)} action(s), "
+                        "waiting for confirmation"
+                    )
+                    state.waiting_for_confirmation = True
+                    return
             elif not state.confirmation_mode:
                 # Not in confirmation mode, execute actions immediately
                 for action_event in action_events:
