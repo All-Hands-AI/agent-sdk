@@ -51,10 +51,6 @@ def signal_handler(signum, frame):
     running = False
 
 
-def run_agent():
-    conversation.run()
-
-
 # Set up signal handler for Ctrl+C
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -66,19 +62,18 @@ conversation.send_message(
 )
 
 # Start the agent in a background thread
-thread = threading.Thread(target=run_agent, daemon=True)
+thread = threading.Thread(target=conversation.run, daemon=True)
 thread.start()
 
 # Main loop - similar to the user's sample script
 while running and not conversation.state.agent_finished:
     # Send encouraging messages periodically
-    if not conversation.state.agent_finished:
-        conversation.send_message(
-            Message(
-                role="user",
-                content=[TextContent(text="keep going! you can do it!")],
-            )
+    conversation.send_message(
+        Message(
+            role="user",
+            content=[TextContent(text="keep going! you can do it!")],
         )
+    )
     time.sleep(1)
 
 # Wait for the thread to finish
@@ -92,7 +87,7 @@ if not running:
         running = True
 
         # Resume by calling run() again
-        thread = threading.Thread(target=run_agent, daemon=True)
+        thread = threading.Thread(target=conversation.run, daemon=True)
         thread.start()
         thread.join()
 

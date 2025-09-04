@@ -51,10 +51,6 @@ def signal_handler(signum, frame):
     should_continue = False
 
 
-def run_agent():
-    conversation.run()
-
-
 # Set up signal handler for Ctrl+C
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -73,7 +69,7 @@ conversation.send_message(
 )
 
 # Start agent in background thread
-thread = threading.Thread(target=run_agent, daemon=True)
+thread = threading.Thread(target=conversation.run, daemon=True)
 thread.start()
 
 # Monitor the conversation
@@ -92,7 +88,7 @@ if not should_continue:
         should_continue = True
 
         # Resume by calling run() again
-        thread = threading.Thread(target=run_agent, daemon=True)
+        thread = threading.Thread(target=conversation.run, daemon=True)
         thread.start()
         thread.join()
 
