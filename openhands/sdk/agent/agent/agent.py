@@ -209,6 +209,14 @@ class Agent(AgentBase):
         state: ConversationState,
         action_events: list[ActionEvent]
     ) -> bool:
+        """
+        Decide whether user confirmation is needed to proceed.
+
+        Rules:
+            1. Confirmation mode is enabled
+            2. Every action requires confirmation
+            3. A single `FinishAction` never requires confirmation
+        """
         if len(action_events) == 0:
             return
 

@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """
-OpenHands Agent SDK — Confirmation Mode Example (Modular)
-
-What this shows:
-1) Turning on confirmation mode for an Agent
-2) Running conversation.run() in a loop until the agent finishes
-3) Prompting the user to approve/reject pending actions (in a separate function)
+OpenHands Agent SDK — Confirmation Mode Example
 """
 
 from __future__ import annotations
