@@ -89,16 +89,6 @@ class Agent(AgentBase):
             )
             on_event(event)
 
-    def _should_skip_confirmation(self, action_events: list[ActionEvent]) -> bool:
-        """
-        Determine if confirmation should be skipped.
-
-        Returns True if there's exactly one action and it's a FinishAction.
-        """
-        return len(action_events) == 1 and isinstance(
-            action_events[0].action, FinishAction
-        )
-
     def step(
         self,
         state: ConversationState,
@@ -202,40 +192,27 @@ class Agent(AgentBase):
 
             # Handle confirmation mode stored on state
             if state.confirmation_mode and action_events:
-                # Skip confirmation if exactly one FinishAction
-                if self._should_skip_confirmation(action_events):
-                    # Execute the single FinishAction immediately
-                    for action_event in action_events:
-                        self._execute_action_events(
-                            state, action_event, on_event=on_event
-                        )
-                else:
-                    # Separate FinishActions from other actions
-                    finish_actions = []
-                    other_actions = []
+                # Exit early if more than one action
+                if len(action_events) > 1:
+                    logger.info(
+                        f"Confirmation mode: Created {len(action_events)} "
+                        "action(s), waiting for confirmation"
+                    )
+                    state.waiting_for_confirmation = True
+                    return
 
-                    for action_event in action_events:
-                        if isinstance(action_event.action, FinishAction):
-                            finish_actions.append(action_event)
-                        else:
-                            other_actions.append(action_event)
-
-                    # Execute FinishActions immediately (no confirmation needed)
-                    for action_event in finish_actions:
-                        self._execute_action_events(
-                            state, action_event, on_event=on_event
-                        )
-
-                    # Other actions wait for confirmation
-                    if other_actions:
+                # If exactly one action, only skip confirmation for FinishAction
+                if len(action_events) == 1:
+                    if not isinstance(action_events[0].action, FinishAction):
                         logger.info(
-                            f"Confirmation mode: Created {len(other_actions)} "
-                            "action(s), waiting for confirmation"
+                            "Confirmation mode: Created 1 action, "
+                            "waiting for confirmation"
                         )
                         state.waiting_for_confirmation = True
                         return
-            elif not state.confirmation_mode:
-                # Not in confirmation mode, execute actions immediately
+
+            # Execute all actions (not in confirmation mode or single FinishAction)
+            if action_events:
                 for action_event in action_events:
                     self._execute_action_events(state, action_event, on_event=on_event)
 

@@ -333,22 +333,25 @@ class TestConfirmationMode:
         # Run the conversation
         self.conversation.run()
 
-        # Multiple actions should still require confirmation for non-finish actions
+        # Multiple actions should all wait for confirmation (including FinishAction)
         assert self.conversation.state.confirmation_mode is True
         assert self.conversation.state.waiting_for_confirmation is True
-        assert self.conversation.state.agent_finished is True  # FinishAction executed
+        assert (
+            self.conversation.state.agent_finished is False
+        )  # No actions executed yet
 
-        # Should have pending actions (the regular action)
+        # Should have pending actions (both actions)
         pending_actions = self.conversation.get_pending_actions()
-        assert len(pending_actions) == 1
-        assert pending_actions[0].tool_name == "test_tool"
+        assert len(pending_actions) == 2
+        action_tools = [action.tool_name for action in pending_actions]
+        assert "test_tool" in action_tools
+        assert "finish" in action_tools
 
-        # Should have one observation event (only FinishAction was executed)
+        # Should have no observation events (no actions executed yet)
         obs_events = [
             e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
         ]
-        assert len(obs_events) == 1
-        assert obs_events[0].observation.message == "Task completed!"  # type: ignore[attr-defined]
+        assert len(obs_events) == 0
 
     def _mock_finish_action(self, message: str = "Task completed") -> None:
         """Configure LLM to return a FinishAction tool call."""
