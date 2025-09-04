@@ -1,13 +1,3 @@
-"""Example demonstrating MCP (Model Context Protocol) integration with agent-sdk.
-
-This example shows how to configure MCP servers and use MCP tools with agents.
-
-Prerequisites:
-- Install fastmcp: pip install fastmcp
-- Install mcp: pip install mcp
-- Have an MCP server running (e.g., `fetch` server)
-"""
-
 import asyncio
 import os
 
