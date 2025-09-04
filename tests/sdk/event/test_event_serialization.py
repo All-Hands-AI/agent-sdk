@@ -122,13 +122,7 @@ def test_message_event_serialization() -> None:
 
     json_data = event.model_dump_json()
     deserialized = MessageEvent.model_validate_json(json_data)
-
-    # Check that the core fields are preserved
-    assert deserialized.id == event.id
-    assert deserialized.timestamp == event.timestamp
-    assert deserialized.source == event.source
-    assert deserialized.llm_message.role == event.llm_message.role
-    assert deserialized.llm_message.content == event.llm_message.content
+    assert deserialized == event
 
 
 def test_agent_error_event_serialization() -> None:
