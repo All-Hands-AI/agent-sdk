@@ -25,7 +25,7 @@ from openhands.tools.execute_bash.terminal import TerminalInterface
 
 logger = get_logger(__name__)
 
-ENTER = b"\r"
+ENTER = b"\n"
 
 
 def _normalize_eols(raw: bytes) -> bytes:
@@ -325,7 +325,9 @@ class SubprocessTerminal(TerminalInterface):
         with self.output_lock:
             content = "".join(self.output_buffer)
             lines = content.split("\n")
-            return "\n".join(lines).replace("\r", "")
+            content = "\n".join(lines).replace("\r", "")
+            logger.debug(f"Read from subprocess PTY: {content!r}")
+            return content
 
     def clear_screen(self) -> None:
         """Drop buffered output up to the most recent PS1 block; do not emit ^L."""
