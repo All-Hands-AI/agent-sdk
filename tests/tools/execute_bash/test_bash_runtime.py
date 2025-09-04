@@ -959,9 +959,6 @@ def test_bash_remove_prefix():
             session.close()
 
 
-# Additional tests from test_bash_session.py that are unique or provide better coverage
-
-
 def test_session_initialization():
     """Test BashSession initialization with various parameters."""
     # Test with custom working directory
@@ -1290,6 +1287,46 @@ def test_bash_session_command_output_continuation():
 
         # Verify the command completed
         assert session.prev_status == BashCommandStatus.COMPLETED
+
+    session.close()
+
+
+def test_bash_long_output():
+    session = BashSession(work_dir=os.getcwd())
+    session.initialize()
+
+    # Generate a long output that may exceed buffer size
+    obs = session.execute(
+        ExecuteBashAction(
+            command='for i in {1..5000}; do echo "Line $i"; done', security_risk="LOW"
+        )
+    )
+
+    assert "Line 1" in obs.output
+    assert "Line 5000" in obs.output
+    assert obs.metadata.exit_code == 0
+    assert obs.metadata.prefix == ""
+    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
+
+    session.close()
+
+
+def test_bash_long_output_exceed_history_limit():
+    session = BashSession(work_dir=os.getcwd())
+    session.initialize()
+
+    # Generate a long output that may exceed buffer size
+    obs = session.execute(
+        ExecuteBashAction(
+            command='for i in {1..50000}; do echo "Line $i"; done', security_risk="LOW"
+        )
+    )
+
+    assert "Previous command outputs are truncated" in obs.metadata.prefix
+    assert "Line 40000" in obs.output
+    assert "Line 50000" in obs.output
+    assert obs.metadata.exit_code == 0
+    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
 
     session.close()
 
