@@ -344,6 +344,7 @@ class LLM(BaseModel, RetryMixin):
             messages, kwargs = self._pre_request_prompt_mock(messages, tools, kwargs)
 
         # 3) normalize provider params
+        kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
         call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=bool(tools))
 
         # 4) optional request logging context (kept small)
@@ -624,6 +625,7 @@ class LLM(BaseModel, RetryMixin):
 
         # Function-calling capabilities
         feats = get_features(self.model)
+        logger.info(f"Model features for {self.model}: {feats}")
         self._function_calling_active = (
             self.native_tool_calling
             if self.native_tool_calling is not None
