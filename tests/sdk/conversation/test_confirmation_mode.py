@@ -81,7 +81,7 @@ class TestConfirmationMode:
         )
         self.conversation.run()
         assert self.conversation.state.confirmation_mode is True
-        assert self.conversation.state.waiting_for_confirmation is True
+        assert self.conversation.state.agent_waiting_for_confirmation is True
 
     def _mock_action_once(
         self, call_id: str = "call_1", command: str = "test_command"
@@ -192,7 +192,7 @@ class TestConfirmationMode:
         """Test basic confirmation mode operations."""
         # Test initial state
         assert self.conversation.state.confirmation_mode is False
-        assert self.conversation.state.waiting_for_confirmation is False
+        assert self.conversation.state.agent_waiting_for_confirmation is False
         assert self.conversation.get_pending_actions() == []
 
         # Enable confirmation mode
@@ -277,7 +277,7 @@ class TestConfirmationMode:
         )
         self.conversation.run()
 
-        assert self.conversation.state.waiting_for_confirmation is False
+        assert self.conversation.state.agent_waiting_for_confirmation is False
         assert self.conversation.state.agent_finished is True
 
         msg_events = [
@@ -318,7 +318,7 @@ class TestConfirmationMode:
                 if isinstance(e, UserRejectsObservation)
             ]
             assert len(rejection_events) == 0
-            assert self.conversation.state.waiting_for_confirmation is False
+            assert self.conversation.state.agent_waiting_for_confirmation is False
         else:
             self.conversation.reject_pending_actions("Not safe to run")
 
@@ -357,7 +357,7 @@ class TestConfirmationMode:
             self.conversation.state.confirmation_mode is True
         )  # Still in confirmation mode
         assert (
-            self.conversation.state.waiting_for_confirmation is False
+            self.conversation.state.agent_waiting_for_confirmation is False
         )  # But not waiting
         assert (
             self.conversation.state.agent_finished is True
@@ -394,7 +394,7 @@ class TestConfirmationMode:
 
         # Multiple actions should all wait for confirmation (including FinishAction)
         assert self.conversation.state.confirmation_mode is True
-        assert self.conversation.state.waiting_for_confirmation is True
+        assert self.conversation.state.agent_waiting_for_confirmation is True
         assert (
             self.conversation.state.agent_finished is False
         )  # No actions executed yet

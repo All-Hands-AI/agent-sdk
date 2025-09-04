@@ -121,14 +121,14 @@ class Conversation:
             # BEFORE the .run loop finishes?
             with self.state:
                 # clear the flag before calling agent.step() (user approved)
-                if self.state.waiting_for_confirmation:
-                    self.state.waiting_for_confirmation = False
+                if self.state.agent_waiting_for_confirmation:
+                    self.state.agent_waiting_for_confirmation = False
 
                 # step must mutate the SAME state object
                 self.agent.step(self.state, on_event=self._on_event)
 
             # In confirmation mode, stop after one iteration if waiting for confirmation
-            if self.state.waiting_for_confirmation:
+            if self.state.agent_waiting_for_confirmation:
                 break
 
             iteration += 1
@@ -149,13 +149,13 @@ class Conversation:
         """Reject all pending actions from the agent.
 
         This is a non-invasive method to reject actions between run() calls.
-        Also clears the waiting_for_confirmation flag.
+        Also clears the agent_waiting_for_confirmation flag.
         """
         pending_actions = self.agent.get_pending_actions(self.state)
 
         with self.state:
-            # Always clear the waiting_for_confirmation flag
-            self.state.waiting_for_confirmation = False
+            # Always clear the agent_waiting_for_confirmation flag
+            self.state.agent_waiting_for_confirmation = False
 
             if not pending_actions:
                 logger.warning("No pending actions to reject")

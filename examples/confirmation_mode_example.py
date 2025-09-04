@@ -108,7 +108,7 @@ def run_until_done(conversation: Conversation) -> None:
 
     while not conversation.state.agent_finished:
         # If agent is waiting for confirmation, preview actions and ask user
-        if conversation.state.waiting_for_confirmation:
+        if conversation.state.agent_waiting_for_confirmation:
             pending_actions = conversation.get_pending_actions()
 
             if pending_actions:
@@ -131,7 +131,7 @@ def run_until_done(conversation: Conversation) -> None:
                     "⚠️ Agent is waiting for confirmation but no pending actions "
                     "were found."
                 )
-                conversation.state.waiting_for_confirmation = False
+                conversation.state.agent_waiting_for_confirmation = False
 
         print("▶️  Running conversation.run()…")
         conversation.run()
@@ -177,7 +177,7 @@ def main() -> None:
     print("Key points:")
     print(
         "- conversation.run() creates actions; confirmation mode sets "
-        "waiting_for_confirmation=True"
+        "agent_waiting_for_confirmation=True"
     )
     print("- ask_user_confirmation() centralizes the yes/no prompt")
     print(

@@ -114,7 +114,8 @@ class Agent(AgentBase):
                     "Confirmation mode: Executing %d pending action(s)",
                     len(pending_actions),
                 )
-                # Note: waiting_for_confirmation flag is cleared by Conversation class
+                # Note: agent_waiting_for_confirmation flag is cleared by
+                # Conversation class
                 self._execute_actions(state, pending_actions, on_event)
                 return
 
@@ -234,7 +235,7 @@ class Agent(AgentBase):
         if not state.confirmation_mode:
             return False
 
-        state.waiting_for_confirmation = True
+        state.agent_waiting_for_confirmation = True
         return True
 
     def _get_action_events(
