@@ -139,7 +139,12 @@ class Telemetry(BaseModel):
             logger.debug(f"Failed to get cost from LiteLLM headers: {e}")
 
         # move on to litellm cost calculator
-        extra_kwargs["model"] = "/".join(self.model_name.split("/")[1:])
+        # Handle model name properly - if it doesn't contain "/", use as-is
+        model_parts = self.model_name.split("/")
+        if len(model_parts) > 1:
+            extra_kwargs["model"] = "/".join(model_parts[1:])
+        else:
+            extra_kwargs["model"] = self.model_name
         try:
             return float(
                 litellm_completion_cost(completion_response=resp, **extra_kwargs)
