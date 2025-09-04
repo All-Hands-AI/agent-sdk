@@ -184,6 +184,7 @@ The simplified pattern eliminates the need for manual executor instantiation and
 - We use pre-commit hooks `.pre-commit-config.yaml` that includes:
   - type check through pyright
   - linting and formatter with `uv ruff`
+- NEVER USE `mypy`!
 - Do NOT commit ALL the file, just commit the relavant file you've changed!
 - in every commit message, you should add "Co-authored-by: openhands <openhands@all-hands.dev>"
 - You can run pytest with `uv run pytest`
