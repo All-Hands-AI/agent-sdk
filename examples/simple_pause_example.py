@@ -61,7 +61,7 @@ thread = threading.Thread(target=conversation.run, daemon=True)
 thread.start()
 
 # Main loop - similar to the user's sample script
-while not conversation.state.agent_finished:
+while not conversation.state.agent_finished and not conversation.state.agent_paused:
     # Send encouraging messages periodically
     conversation.send_message(
         Message(
