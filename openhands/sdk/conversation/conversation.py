@@ -9,6 +9,7 @@ from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
 from openhands.sdk.event import (
     MessageEvent,
+    PauseEvent,
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
@@ -110,6 +111,8 @@ class Conversation:
 
         In normal mode:
         - Creates and executes actions immediately
+
+        Can be paused by calling pause() from another thread.
         """
         iteration = 0
         while not self.state.agent_finished:
@@ -120,6 +123,12 @@ class Conversation:
             # and check will we be able to execute .send_message
             # BEFORE the .run loop finishes?
             with self.state:
+                # Check for pause request (can be called from another thread)
+                if self.state.agent_paused:
+                    self.state.agent_paused = False  # Reset for next run
+                    logger.info("Agent execution paused")
+                    break
+
                 # clear the flag before calling agent.step() (user approved)
                 if self.state.agent_waiting_for_confirmation:
                     self.state.agent_waiting_for_confirmation = False
@@ -167,3 +176,19 @@ class Conversation:
                 )
                 self._on_event(rejection_event)
                 logger.info(f"Rejected pending action: {action_event} - {reason}")
+
+    def pause(self) -> None:
+        """Pause agent execution.
+
+        This method can be called from any thread to request that the agent
+        pause execution. The pause will take effect at the next iteration
+        of the run loop (between agent steps).
+
+        Note: If called during an LLM completion, the pause will not take
+        effect until the current LLM call completes.
+        """
+        with self.state:
+            self.state.agent_paused = True
+            pause_event = PauseEvent()
+            self._on_event(pause_event)
+        logger.info("Agent execution pause requested")
