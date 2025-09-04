@@ -279,3 +279,49 @@ class TestConfirmationMode:
         assert len(observation_events) == 1
         assert observation_events[0].observation.result == "Executed: test_command"  # type: ignore[attr-defined]
         assert self.conversation.state.waiting_for_confirmation is False
+
+
+        
+
+        action_response = ModelResponse(
+            id="response_2",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content="I'll execute a test command",
+                        tool_calls=[self._create_test_action().tool_call],
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
+        self.mock_llm.completion.return_value = action_response
+
+        self.conversation.send_message(
+            Message(role="user", content=[TextContent(text="another prompt for rejecting action")])
+        )
+        self.conversation.run()
+
+        
+        assert self.conversation.state.agent_finished is False
+        assert self.conversation.state.waiting_for_confirmation is True
+
+        observation_events = [
+            event
+            for event in self.conversation.state.events
+            if isinstance(event, ObservationEvent)
+        ]
+        assert len(observation_events) == 1
+
+        self.conversation.reject_pending_actions()
+
+        rejection_events = [
+            event
+            for event in self.conversation.state.events
+            if isinstance(event, UserRejectsObservation)
+        ]
+        assert len(rejection_events) == 1
+        assert isinstance(rejection_events[0], UserRejectsObservation)
