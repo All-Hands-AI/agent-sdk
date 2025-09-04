@@ -142,6 +142,7 @@ def copy_log_files(output_dir: Path):
             if dst_path.exists():
                 shutil.rmtree(dst_path)
             shutil.copytree(src_path, dst_path)
+            shutil.rmtree(src_path)
             logger.info(f"Copied {src_name} logs to {dst_path}")
 
 
