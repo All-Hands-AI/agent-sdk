@@ -23,6 +23,7 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.event.condenser import Condensation
+from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
@@ -32,6 +33,7 @@ from openhands.sdk.tool import (
     ObservationBase,
     Tool,
 )
+from openhands.sdk.tool.builtins import FinishAction
 
 
 logger = get_logger(__name__)
@@ -52,7 +54,9 @@ class Agent(AgentBase):
                 f"{tool} is automatically included and should not be provided."
             )
         super().__init__(
-            llm=llm, tools=tools + BUILT_IN_TOOLS, agent_context=agent_context
+            llm=llm,
+            tools=tools + BUILT_IN_TOOLS,
+            agent_context=agent_context,
         )
 
         self.system_message: str = render_template(
@@ -86,11 +90,35 @@ class Agent(AgentBase):
             )
             on_event(event)
 
+    def _execute_actions(
+        self,
+        state: ConversationState,
+        action_events: list[ActionEvent],
+        on_event: ConversationCallbackType,
+    ):
+        for action_event in action_events:
+            self._execute_action_events(state, action_event, on_event=on_event)
+
     def step(
         self,
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        # If in confirmation mode stored on state, first check if there are any
+        # pending actions (implicit confirmation) and execute them before sampling
+        # a new action.
+        if state.confirmation_mode:
+            pending_actions = get_unmatched_actions(state.events)
+            if pending_actions:
+                logger.info(
+                    "Confirmation mode: Executing %d pending action(s)",
+                    len(pending_actions),
+                )
+                # Note: agent_waiting_for_confirmation flag is cleared by
+                # Conversation class
+                self._execute_actions(state, pending_actions, on_event)
+                return
+
         # If a condenser is registered with the agent, we need to give it an
         # opportunity to transform the events. This will either produce a list
         # of events, exactly as expected, or a new condensation that needs to be
@@ -172,13 +200,43 @@ class Agent(AgentBase):
                     continue
                 action_events.append(action_event)
 
-            for action_event in action_events:
-                self._execute_action_events(state, action_event, on_event=on_event)
+            # Handle confirmation mode - exit early if actions need confirmation
+            if self._requires_user_confirmation(state, action_events):
+                return
+
+            if action_events:
+                self._execute_actions(state, action_events, on_event)
+
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
             msg_event = MessageEvent(source="agent", llm_message=message)
             on_event(msg_event)
+
+    def _requires_user_confirmation(
+        self, state: ConversationState, action_events: list[ActionEvent]
+    ) -> bool:
+        """
+        Decide whether user confirmation is needed to proceed.
+
+        Rules:
+            1. Confirmation mode is enabled
+            2. Every action requires confirmation
+            3. A single `FinishAction` never requires confirmation
+        """
+        if len(action_events) == 0:
+            return False
+
+        if len(action_events) == 1 and isinstance(
+            action_events[0].action, FinishAction
+        ):
+            return False
+
+        if not state.confirmation_mode:
+            return False
+
+        state.agent_waiting_for_confirmation = True
+        return True
 
     def _get_action_events(
         self,
