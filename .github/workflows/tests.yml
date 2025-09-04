@@ -188,7 +188,7 @@ jobs:
         run: uv sync --frozen --group dev
 
       - name: Download coverage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: ./cov
         continue-on-error: true
