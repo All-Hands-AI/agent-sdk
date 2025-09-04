@@ -7,16 +7,16 @@ repos:
         args: [run, ruff, format]
         language: system
         types: [python]
-        pass_filenames: false
-        always_run: true
+        pass_filenames: true
+        always_run: false
       - id: ruff-check
         name: Ruff lint
         entry: uv
         args: [run, ruff, check, --fix, --exit-non-zero-on-fix]
         language: system
         types: [python]
-        pass_filenames: false
-        always_run: true
+        pass_filenames: true
+        always_run: false
       - id: pycodestyle
         name: PEP8 style check (pycodestyle)
         entry: uv
@@ -31,5 +31,5 @@ repos:
         args: [run, pyright]
         language: system
         types: [python]
-        pass_filenames: false
-        always_run: true
+        pass_filenames: true
+        always_run: false
