@@ -20,7 +20,7 @@ jobs:
 
       - name: Detect sdk changes
         id: changed
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v46
         with:
           files: |
             openhands/sdk/**
@@ -72,7 +72,7 @@ jobs:
 
       - name: Detect tools changes
         id: changed
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v46
         with:
           files: |
             openhands/tools/**
@@ -124,7 +124,7 @@ jobs:
 
       - name: Detect integration changes
         id: changed
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v46
         with:
           files: |
             tests/**
@@ -188,7 +188,7 @@ jobs:
         run: uv sync --frozen --group dev
 
       - name: Download coverage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: ./cov
         continue-on-error: true
