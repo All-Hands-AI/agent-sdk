@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, TypeVar, Union, cast
+from typing import Any, TypeVar, Union, cast, Annotated
 
-from pydantic import BaseModel, computed_field
-from pydantic.annotated_handlers import GetCoreSchemaHandler
-from pydantic_core import core_schema
+from pydantic import BaseModel, computed_field, field_validator, BeforeValidator
 
 
 # Global registry to track subclasses for each DiscriminatedUnionMixin subclass
@@ -31,6 +29,8 @@ class DiscriminatedUnionMixin(BaseModel):
     def kind(self) -> str:
         """Property to create kind field from class name when serializing."""
         return self.__class__.__name__
+
+
 
     def __init_subclass__(cls, **kwargs):
         """Register subclasses automatically when they are defined."""
@@ -73,6 +73,56 @@ class DiscriminatedUnionMixin(BaseModel):
             union_classes.append(cls)  # Add base class as fallback
 
         return Union[tuple(union_classes)]
+
+    @classmethod
+    def get_discriminated_union_validator(cls):
+        """Get a validator function for discriminated union deserialization."""
+        def validate_discriminated_union(value: Any) -> Any:
+            if isinstance(value, cls):
+                return value
+            
+            if isinstance(value, dict) and 'kind' in value:
+                registry = _DISCRIMINATED_UNION_REGISTRY.get(cls, {})
+                kind = value['kind']
+                if kind in registry:
+                    subclass = registry[kind]
+                    return subclass.model_validate(value)
+            
+            # Fallback to base class
+            return cls.model_validate(value)
+        
+        return validate_discriminated_union
+
+    @classmethod
+    def as_discriminated_union(cls):
+        """Return an Annotated type that handles discriminated union validation."""
+        return Annotated[cls, BeforeValidator(cls.get_discriminated_union_validator())]
+
+    @classmethod
+    def get_discriminated_union_validator(cls):
+        """Get a validator function for discriminated union deserialization."""
+        def validate_discriminated_union(value: Any) -> Any:
+            if isinstance(value, cls):
+                return value
+            
+            if isinstance(value, dict) and 'kind' in value:
+                registry = _DISCRIMINATED_UNION_REGISTRY.get(cls, {})
+                kind = value['kind']
+                if kind in registry:
+                    subclass = registry[kind]
+                    return subclass.model_validate(value)
+            
+            # Fallback to base class
+            return cls.model_validate(value)
+        
+        return validate_discriminated_union
+
+    @classmethod
+    def as_discriminated_union(cls):
+        """Return an Annotated type that handles discriminated union validation."""
+        return Annotated[cls, BeforeValidator(cls.get_discriminated_union_validator())]
+
+
 
     @classmethod
     def model_validate(
@@ -134,7 +184,7 @@ class DiscriminatedUnionMixin(BaseModel):
         import json
 
         # Parse JSON to dict first
-        if isinstance(json_data, bytes):
+        if isinstance(json_data, (bytes, bytearray)):
             json_data = json_data.decode("utf-8")
 
         obj = json.loads(json_data)
@@ -146,46 +196,3 @@ class DiscriminatedUnionMixin(BaseModel):
             context=context,
             **kwargs,
         )
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ) -> core_schema.CoreSchema:
-        """Generate core schema for discriminated union when used as type annotation."""
-        # Only apply discriminated union behavior for root classes with subclasses
-        if cls in _DISCRIMINATED_UNION_REGISTRY:
-            registry = _DISCRIMINATED_UNION_REGISTRY[cls]
-            if registry:  # Only if there are registered subclasses
-                # Create a discriminated union schema using the registered subclasses
-                choices = []
-                for subclass in registry.values():
-                    # Use the handler to generate schema for each subclass
-                    subclass_schema = handler(subclass)
-                    choices.append(subclass_schema)
-
-                # Create the discriminated union schema
-                union_schema = core_schema.tagged_union_schema(
-                    choices=dict(zip(registry.keys(), choices)),
-                    discriminator="kind",
-                )
-
-                # Create a fallback schema for the base class (without union)
-                # Temporarily remove registry to avoid infinite recursion
-                temp_registry = _DISCRIMINATED_UNION_REGISTRY.pop(cls, None)
-                try:
-                    base_schema = handler(source_type)
-                finally:
-                    # Restore the registry
-                    if temp_registry is not None:
-                        _DISCRIMINATED_UNION_REGISTRY[cls] = temp_registry
-
-                # Use union_schema: tries discriminated union first, then base class
-                return core_schema.union_schema(
-                    [
-                        union_schema,
-                        base_schema,
-                    ]
-                )
-
-        # Fallback to default schema generation
-        return handler(source_type)
