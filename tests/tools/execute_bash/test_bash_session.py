@@ -3,11 +3,11 @@ import tempfile
 import time
 
 from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.bash_session import (
+from openhands.tools.execute_bash.definition import ExecuteBashAction
+from openhands.tools.execute_bash.sessions.bash import (
     BashCommandStatus,
     BashSession,
 )
-from openhands.tools.execute_bash.definition import ExecuteBashAction
 
 from .conftest import get_no_change_timeout_suffix
 

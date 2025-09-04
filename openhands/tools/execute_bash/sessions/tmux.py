@@ -7,10 +7,6 @@ import uuid
 import libtmux
 
 from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.base_terminal import (
-    TerminalCommandStatus,
-    TerminalSession,
-)
 from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_PS1_END,
     HISTORY_LIMIT,
@@ -23,6 +19,10 @@ from openhands.tools.execute_bash.definition import (
     ExecuteBashObservation,
 )
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
+from openhands.tools.execute_bash.sessions.base import (
+    TerminalCommandStatus,
+    TerminalSession,
+)
 from openhands.tools.execute_bash.utils.command import (
     escape_bash_special_chars,
     split_bash_commands,

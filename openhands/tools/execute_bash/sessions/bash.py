@@ -4,8 +4,8 @@ This module maintains backward compatibility by providing the original BashSessi
 class that now delegates to TmuxBashSession.
 """
 
-from openhands.tools.execute_bash.base_terminal import TerminalCommandStatus
-from openhands.tools.execute_bash.tmux_session import TmuxBashSession
+from openhands.tools.execute_bash.sessions.base import TerminalCommandStatus
+from openhands.tools.execute_bash.sessions.tmux import TmuxBashSession
 
 
 # Backward compatibility alias - just use the same enum

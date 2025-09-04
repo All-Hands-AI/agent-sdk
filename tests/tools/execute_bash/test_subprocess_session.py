@@ -7,7 +7,7 @@ import time
 import pytest
 
 from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.subprocess_session import SubprocessBashSession
+from openhands.tools.execute_bash.sessions.subprocess import SubprocessBashSession
 
 
 class TestSubprocessBashSession:

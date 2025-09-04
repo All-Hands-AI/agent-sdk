@@ -4,10 +4,10 @@ import platform
 import subprocess
 
 from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.base_terminal import TerminalSession
-from openhands.tools.execute_bash.powershell_session import PowershellSession
-from openhands.tools.execute_bash.subprocess_session import SubprocessBashSession
-from openhands.tools.execute_bash.tmux_session import TmuxBashSession
+from openhands.tools.execute_bash.sessions.base import TerminalSession
+from openhands.tools.execute_bash.sessions.powershell import PowershellSession
+from openhands.tools.execute_bash.sessions.subprocess import SubprocessBashSession
+from openhands.tools.execute_bash.sessions.tmux import TmuxBashSession
 
 
 logger = get_logger(__name__)

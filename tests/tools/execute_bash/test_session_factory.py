@@ -5,14 +5,14 @@ from unittest.mock import patch
 
 import pytest
 
-from openhands.tools.execute_bash.powershell_session import PowershellSession
-from openhands.tools.execute_bash.session_factory import (
+from openhands.tools.execute_bash.sessions.factory import (
     _is_powershell_available,
     _is_tmux_available,
     create_terminal_session,
 )
-from openhands.tools.execute_bash.subprocess_session import SubprocessBashSession
-from openhands.tools.execute_bash.tmux_session import TmuxBashSession
+from openhands.tools.execute_bash.sessions.powershell import PowershellSession
+from openhands.tools.execute_bash.sessions.subprocess import SubprocessBashSession
+from openhands.tools.execute_bash.sessions.tmux import TmuxBashSession
 
 
 class TestSessionFactory:
@@ -66,7 +66,7 @@ class TestSessionFactory:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Mock tmux as unavailable
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_tmux_available",
+                "openhands.tools.execute_bash.sessions.factory._is_tmux_available",
                 return_value=False,
             ):
                 with pytest.raises(RuntimeError, match="Tmux is not available"):
@@ -74,7 +74,7 @@ class TestSessionFactory:
 
             # Mock PowerShell as unavailable
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_powershell_available",
+                "openhands.tools.execute_bash.sessions.factory._is_powershell_available",
                 return_value=False,
             ):
                 with pytest.raises(RuntimeError, match="PowerShell is not available"):
@@ -90,7 +90,7 @@ class TestSessionFactory:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Mock PowerShell as available
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_powershell_available",
+                "openhands.tools.execute_bash.sessions.factory._is_powershell_available",
                 return_value=True,
             ):
                 session = create_terminal_session(work_dir=temp_dir)
@@ -99,7 +99,7 @@ class TestSessionFactory:
 
             # Mock PowerShell as unavailable
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_powershell_available",
+                "openhands.tools.execute_bash.sessions.factory._is_powershell_available",
                 return_value=False,
             ):
                 session = create_terminal_session(work_dir=temp_dir)
@@ -114,7 +114,7 @@ class TestSessionFactory:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Mock tmux as available
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_tmux_available",
+                "openhands.tools.execute_bash.sessions.factory._is_tmux_available",
                 return_value=True,
             ):
                 session = create_terminal_session(work_dir=temp_dir)
@@ -123,7 +123,7 @@ class TestSessionFactory:
 
             # Mock tmux as unavailable
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_tmux_available",
+                "openhands.tools.execute_bash.sessions.factory._is_tmux_available",
                 return_value=False,
             ):
                 session = create_terminal_session(work_dir=temp_dir)

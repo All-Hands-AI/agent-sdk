@@ -9,10 +9,6 @@ import time
 from threading import Lock
 
 from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.base_terminal import (
-    TerminalCommandStatus,
-    TerminalSession,
-)
 from openhands.tools.execute_bash.constants import (
     NO_CHANGE_TIMEOUT_SECONDS,
     POLL_INTERVAL,
@@ -23,6 +19,10 @@ from openhands.tools.execute_bash.definition import (
     ExecuteBashObservation,
 )
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
+from openhands.tools.execute_bash.sessions.base import (
+    TerminalCommandStatus,
+    TerminalSession,
+)
 from openhands.tools.execute_bash.utils.command import split_bash_commands
 
 

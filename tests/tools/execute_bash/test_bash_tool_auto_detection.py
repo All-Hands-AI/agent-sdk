@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.powershell_session import PowershellSession
-from openhands.tools.execute_bash.subprocess_session import SubprocessBashSession
-from openhands.tools.execute_bash.tmux_session import TmuxBashSession
+from openhands.tools.execute_bash.sessions.powershell import PowershellSession
+from openhands.tools.execute_bash.sessions.subprocess import SubprocessBashSession
+from openhands.tools.execute_bash.sessions.tmux import TmuxBashSession
 
 
 class TestBashToolAutoDetection:
@@ -56,7 +56,7 @@ class TestBashToolAutoDetection:
             # Mock PowerShell as available
             with (
                 patch(
-                    "openhands.tools.execute_bash.session_factory._is_powershell_available",
+                    "openhands.tools.execute_bash.sessions.factory._is_powershell_available",
                     return_value=True,
                 ),
                 patch("subprocess.run") as mock_run,
@@ -68,7 +68,7 @@ class TestBashToolAutoDetection:
 
             # Mock PowerShell as unavailable
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_powershell_available",
+                "openhands.tools.execute_bash.sessions.factory._is_powershell_available",
                 return_value=False,
             ):
                 tool = BashTool(working_dir=temp_dir)
@@ -82,7 +82,7 @@ class TestBashToolAutoDetection:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Mock tmux as available
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_tmux_available",
+                "openhands.tools.execute_bash.sessions.factory._is_tmux_available",
                 return_value=True,
             ):
                 tool = BashTool(working_dir=temp_dir)
@@ -90,7 +90,7 @@ class TestBashToolAutoDetection:
 
             # Mock tmux as unavailable
             with patch(
-                "openhands.tools.execute_bash.session_factory._is_tmux_available",
+                "openhands.tools.execute_bash.sessions.factory._is_tmux_available",
                 return_value=False,
             ):
                 tool = BashTool(working_dir=temp_dir)

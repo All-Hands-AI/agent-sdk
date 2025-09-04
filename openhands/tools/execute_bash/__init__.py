@@ -1,12 +1,4 @@
 # Core tool interface
-# Terminal session architecture
-from openhands.tools.execute_bash.base_terminal import (
-    TerminalCommandStatus,
-    TerminalSession,
-)
-
-# Backward compatibility
-from openhands.tools.execute_bash.bash_session import BashCommandStatus, BashSession
 from openhands.tools.execute_bash.definition import (
     BashTool,
     ExecuteBashAction,
@@ -15,11 +7,17 @@ from openhands.tools.execute_bash.definition import (
 )
 from openhands.tools.execute_bash.impl import BashExecutor
 
-# Session implementations
-from openhands.tools.execute_bash.powershell_session import PowershellSession
-from openhands.tools.execute_bash.session_factory import create_terminal_session
-from openhands.tools.execute_bash.subprocess_session import SubprocessBashSession
-from openhands.tools.execute_bash.tmux_session import TmuxBashSession
+# Terminal session architecture - import from sessions package
+from openhands.tools.execute_bash.sessions import (
+    BashCommandStatus,
+    BashSession,
+    PowershellSession,
+    SubprocessBashSession,
+    TerminalCommandStatus,
+    TerminalSession,
+    TmuxBashSession,
+    create_terminal_session,
+)
 
 
 __all__ = [

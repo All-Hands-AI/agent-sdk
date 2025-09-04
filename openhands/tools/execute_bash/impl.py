@@ -3,7 +3,7 @@ from openhands.tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,
 )
-from openhands.tools.execute_bash.session_factory import create_terminal_session
+from openhands.tools.execute_bash.sessions.factory import create_terminal_session
 
 
 class BashExecutor(ToolExecutor):
