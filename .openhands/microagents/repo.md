@@ -207,4 +207,6 @@ The simplified pattern eliminates the need for manual executor instantiation and
 - Don't write TOO MUCH test, you should write just enough to cover edge cases.
 - Check how we perform tests in .github/workflows/tests.yml
 - You should put unit tests in the corresponding test folder. For example, to test `openhands.sdk.tool/tool.py`, you should put tests under `openhands.sdk.tests/tool/test_tool.py`.
+- DON'T write TEST CLASSES unless absolutely necessary!
+- If you find yourself duplicating logics in preparing mocks, loading data etc, these logic should be fixtures in conftest.py!
 </TESTING>
