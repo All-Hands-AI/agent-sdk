@@ -4,7 +4,7 @@ import platform
 import subprocess
 
 from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.sessions.base import TerminalSession
+from openhands.tools.execute_bash.sessions.unified_session import TerminalSession
 
 
 logger = get_logger(__name__)

@@ -1,4 +1,4 @@
-"""Tests for SubprocessBashSession."""
+"""Tests for UnifiedBashSession."""
 
 import os
 import tempfile
@@ -7,16 +7,16 @@ import time
 import pytest
 
 from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.sessions.subprocess import SubprocessBashSession
+from openhands.tools.execute_bash.sessions import create_terminal_session
 
 
-class TestSubprocessBashSession:
-    """Test SubprocessBashSession functionality."""
+class TestTerminalSession:
+    """Test terminal session functionality."""
 
     def test_session_initialization(self):
         """Test session initialization."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
             assert session._initialized
             assert session.work_dir == temp_dir
@@ -26,7 +26,7 @@ class TestSubprocessBashSession:
     def test_basic_command_execution(self):
         """Test basic command execution."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Test simple command
@@ -43,7 +43,7 @@ class TestSubprocessBashSession:
     def test_working_directory_persistence(self):
         """Test that working directory changes persist."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Create a subdirectory
@@ -64,7 +64,7 @@ class TestSubprocessBashSession:
     def test_environment_variable_persistence(self):
         """Test that environment variables persist between commands."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Set environment variable
@@ -84,7 +84,7 @@ class TestSubprocessBashSession:
     def test_command_timeout(self):
         """Test command timeout functionality."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Test hard timeout
@@ -103,7 +103,7 @@ class TestSubprocessBashSession:
     def test_soft_timeout(self):
         """Test soft timeout (no output change) functionality."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(
+            session = create_terminal_session(
                 work_dir=temp_dir, no_change_timeout_seconds=2
             )
             session.initialize()
@@ -125,7 +125,7 @@ class TestSubprocessBashSession:
     def test_interrupt_functionality(self):
         """Test interrupt functionality."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Start a long-running command in a separate thread
@@ -158,7 +158,7 @@ class TestSubprocessBashSession:
     def test_error_handling(self):
         """Test error handling for invalid commands."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Test command that doesn't exist
@@ -177,7 +177,7 @@ class TestSubprocessBashSession:
     def test_multiple_commands_rejection(self):
         """Test that multiple commands are rejected."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Test multiple commands separated by newline
@@ -193,7 +193,7 @@ class TestSubprocessBashSession:
     def test_empty_command_handling(self):
         """Test handling of empty commands."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Test empty command when no process is running
@@ -207,7 +207,7 @@ class TestSubprocessBashSession:
     def test_input_handling(self):
         """Test handling of input to running processes."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Test input when no process is running
@@ -223,7 +223,7 @@ class TestSubprocessBashSession:
     def test_session_cleanup(self):
         """Test proper session cleanup."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            session = SubprocessBashSession(work_dir=temp_dir)
+            session = create_terminal_session(work_dir=temp_dir)
             session.initialize()
 
             # Start a command

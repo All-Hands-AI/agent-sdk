@@ -9,13 +9,9 @@ from openhands.tools.execute_bash.impl import BashExecutor
 
 # Terminal session architecture - import from sessions package
 from openhands.tools.execute_bash.sessions import (
-    BashCommandStatus,
-    BashSession,
-    PowershellSession,
-    SubprocessBashSession,
     TerminalCommandStatus,
     TerminalSession,
-    TmuxBashSession,
+    UnifiedBashSession,
     create_terminal_session,
 )
 
@@ -30,12 +26,6 @@ __all__ = [
     # === Terminal Session Architecture ===
     "TerminalSession",
     "TerminalCommandStatus",
+    "UnifiedBashSession",
     "create_terminal_session",
-    # === Session Implementations ===
-    "TmuxBashSession",
-    "SubprocessBashSession",
-    "PowershellSession",
-    # === Backward Compatibility ===
-    "BashSession",
-    "BashCommandStatus",
 ]
