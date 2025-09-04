@@ -213,9 +213,7 @@ class Agent(AgentBase):
             on_event(msg_event)
 
     def _requires_user_confirmation(
-        self,
-        state: ConversationState,
-        action_events: list[ActionEvent]
+        self, state: ConversationState, action_events: list[ActionEvent]
     ) -> bool:
         """
         Decide whether user confirmation is needed to proceed.
@@ -226,14 +224,13 @@ class Agent(AgentBase):
             3. A single `FinishAction` never requires confirmation
         """
         if len(action_events) == 0:
-            return
+            return False
 
-        if (
-            len(action_events) == 1 and 
-            isinstance(action_events[0].action, FinishAction)
+        if len(action_events) == 1 and isinstance(
+            action_events[0].action, FinishAction
         ):
             return False
-        
+
         if not state.confirmation_mode:
             return False
 
