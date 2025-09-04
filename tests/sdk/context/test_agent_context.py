@@ -74,7 +74,7 @@ class TestAgentContext:
 
         expected_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -108,7 +108,7 @@ defined in user's repository.\n"
 
         expected_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -118,6 +118,7 @@ defined in user's repository.\n"
             "[END Context]\n"
             "\n"
             "</REPO_CONTEXT>\n"
+            "\n"
             "\n"
             "\n"
             "Additional custom instructions for the system."
@@ -316,7 +317,7 @@ attacks.",
         system_result = context.get_system_message_suffix()
         expected_system_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -398,7 +399,7 @@ templates.",
 
         expected_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -424,7 +425,7 @@ templates.\n"
 
         expected_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
