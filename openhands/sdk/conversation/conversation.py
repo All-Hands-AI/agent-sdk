@@ -120,12 +120,8 @@ class Conversation:
             # and check will we be able to execute .send_message
             # BEFORE the .run loop finishes?
             with self.state:
-                # Check for implicit confirmation: if waiting and pending actions exist,
                 # clear the flag before calling agent.step() (user approved)
-                if self.state.waiting_for_confirmation and self.get_pending_actions():
-                    logger.debug(
-                        "Implicit confirmation detected - clearing waiting flag"
-                    )
+                if self.state.waiting_for_confirmation:
                     self.state.waiting_for_confirmation = False
 
                 # step must mutate the SAME state object
@@ -133,7 +129,6 @@ class Conversation:
 
             # In confirmation mode, stop after one iteration if waiting for confirmation
             if self.state.waiting_for_confirmation:
-                logger.debug("Stopping run() - agent is waiting for user confirmation")
                 break
 
             iteration += 1
@@ -175,6 +170,4 @@ class Conversation:
                     rejection_reason=reason,
                 )
                 self._on_event(rejection_event)
-                logger.info(
-                    f"Rejected pending action: {action_event.tool_name} - {reason}"
-                )
+                logger.info(f"Rejected pending action: {action_event} - {reason}")
