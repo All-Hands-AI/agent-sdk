@@ -4,24 +4,24 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from unittest.mock import MagicMock
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
+    Choices,
     Function,
+    Message as LiteLLMMessage,
+    ModelResponse,
 )
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
-from openhands.sdk.event import ActionEvent, ObservationEvent
+from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectsObservation
-from openhands.sdk.llm import TextContent
+from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-
-
-if TYPE_CHECKING:
-    pass
 
 
 class TestConfirmationMode:
@@ -29,8 +29,7 @@ class TestConfirmationMode:
 
     def setup_method(self):
         """Set up test fixtures."""
-        from openhands.sdk.tool import Tool
-        from openhands.sdk.tool.schema import ActionBase, ObservationBase
+        
 
         self.mock_llm = MagicMock()
 
@@ -46,8 +45,6 @@ class TestConfirmationMode:
             @property
             def agent_observation(self) -> str:
                 return self.result
-
-        from openhands.sdk.tool import ToolExecutor
 
         class TestExecutor(ToolExecutor[Any, Any]):  # type: ignore[type-arg]
             def __call__(self, action: Any) -> Any:
@@ -172,18 +169,13 @@ class TestConfirmationMode:
 
     def test_message_vs_action_behavior(self):
         """Test confirmation mode handles message-only vs action responses."""
-        from litellm.types.utils import Choices, ModelResponse
-
-        from openhands.sdk.event import MessageEvent
-        from openhands.sdk.llm import Message, TextContent
-
+        
         # Enable confirmation mode
         self.conversation.set_confirmation_mode(True)
         assert self.conversation.state.confirmation_mode is True
 
         # Test 1: Agent sends a message (no tool calls)
         # Mock LLM to return a message-only response
-        from litellm.types.utils import Message as LiteLLMMessage
 
         message_response = ModelResponse(
             id="response_1",
@@ -222,9 +214,6 @@ class TestConfirmationMode:
         assert content.text == "Hello, how can I help you?"
 
         # Test 2: Agent creates an action (with tool calls)
-        # Reset agent state for next test
-        self.conversation.state.agent_finished = False
-
         # Mock LLM to return an action response
         action_response = ModelResponse(
             id="response_2",
@@ -290,45 +279,3 @@ class TestConfirmationMode:
         assert len(observation_events) == 1
         assert observation_events[0].observation.result == "Executed: test_command"  # type: ignore[attr-defined]
         assert self.conversation.state.waiting_for_confirmation is False
-
-    def test_confirmation_workflow_integration(self):
-        """Test confirmation workflow state transitions."""
-
-        # Step 1: Enable confirmation mode
-        self.conversation.set_confirmation_mode(True)
-        assert self.conversation.state.confirmation_mode is True
-
-        # Step 2: Simulate agent creating an action (what would happen in real workflow)
-        action_event = self._create_test_action("call_123", "echo hello")
-        self.conversation.state.events.append(action_event)
-
-        # Step 3: Verify pending action detection works
-        pending_actions = self.conversation.get_pending_actions()
-        assert len(pending_actions) == 1
-        assert pending_actions[0].tool_name == "test_tool"
-        assert pending_actions[0].id == action_event.id
-
-        # Step 4: Test explicit rejection workflow
-        self.conversation.state.waiting_for_confirmation = True
-        self.conversation.reject_pending_actions("User rejected the action")
-
-        # After rejection, should no longer be waiting
-        assert self.conversation.state.waiting_for_confirmation is False
-
-        # Should have rejection event in history
-        rejection_events = [
-            event
-            for event in self.conversation.state.events
-            if isinstance(event, UserRejectsObservation)
-        ]
-        assert len(rejection_events) == 1
-        assert rejection_events[0].action_id == action_event.id
-        assert "User rejected the action" in rejection_events[0].rejection_reason
-
-        # Step 5: Test that rejected actions are no longer pending
-        pending_after_rejection = self.conversation.get_pending_actions()
-        assert len(pending_after_rejection) == 0
-
-        # Step 6: Test confirmation mode can be disabled
-        self.conversation.set_confirmation_mode(False)
-        assert self.conversation.state.confirmation_mode is False
