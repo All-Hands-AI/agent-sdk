@@ -54,10 +54,15 @@ class TestBashToolAutoDetection:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             # Mock PowerShell as available
-            with patch(
-                "openhands.tools.execute_bash.session_factory._is_powershell_available",
-                return_value=True,
+            with (
+                patch(
+                    "openhands.tools.execute_bash.session_factory._is_powershell_available",
+                    return_value=True,
+                ),
+                patch("subprocess.run") as mock_run,
             ):
+                # Mock successful PowerShell initialization
+                mock_run.return_value.returncode = 0
                 tool = BashTool(working_dir=temp_dir)
                 assert isinstance(tool.executor.session, PowershellSession)
 
@@ -128,7 +133,7 @@ class TestBashToolAutoDetection:
 
             assert tool.name == "execute_bash"
             assert tool.description is not None
-            assert tool.input_schema == ExecuteBashAction
+            assert tool.action_type == ExecuteBashAction
             assert hasattr(tool, "annotations")
 
     def test_session_lifecycle(self):

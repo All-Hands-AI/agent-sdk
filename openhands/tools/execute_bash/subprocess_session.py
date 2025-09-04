@@ -53,6 +53,7 @@ class SubprocessBashSession(TerminalSession):
         self._process_lock = Lock()
         self._env_file: str | None = None
         self._env_vars: dict[str, str] = {}
+        self._closed = False
         self.prev_status: TerminalCommandStatus | None = None
 
     def initialize(self) -> None:
@@ -195,10 +196,11 @@ class SubprocessBashSession(TerminalSession):
         # Check if command contains cd
         if "cd " in command:
             try:
-                # Get the current working directory from the environment
+                # Get the current working directory by executing the same command
+                # sequence and then running pwd
+                full_command = f"cd '{self._cwd}' && {command} && pwd"
                 result = subprocess.run(
-                    ["bash", "-c", "pwd"],
-                    cwd=self._cwd,
+                    ["bash", "-c", full_command],
                     env=self._env_vars,
                     capture_output=True,
                     text=True,
@@ -216,6 +218,8 @@ class SubprocessBashSession(TerminalSession):
         """Execute a command in the subprocess bash session."""
         if not self._initialized:
             raise RuntimeError("Subprocess bash session is not initialized")
+        if self._closed:
+            raise RuntimeError("Subprocess bash session has been closed")
 
         command = action.command.strip()
         is_input = action.is_input

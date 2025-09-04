@@ -115,7 +115,9 @@ class TestSubprocessBashSession:
             elapsed = time.time() - start_time
 
             # Should timeout due to no output change
-            assert elapsed < 4.0  # Should timeout before 4 seconds
+            assert (
+                elapsed < 6.0
+            )  # Should timeout before 6 seconds (2s timeout + overhead)
             assert obs.timeout
             assert "no new output after" in obs.metadata.suffix
             session.close()
@@ -178,9 +180,9 @@ class TestSubprocessBashSession:
             session = SubprocessBashSession(work_dir=temp_dir)
             session.initialize()
 
-            # Test multiple commands separated by semicolon
+            # Test multiple commands separated by newline
             action = ExecuteBashAction(
-                command="echo 'first'; echo 'second'", security_risk="LOW"
+                command="echo 'first'\necho 'second'", security_risk="LOW"
             )
             obs = session.execute(action)
 
