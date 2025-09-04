@@ -90,12 +90,11 @@ class Agent(AgentBase):
             on_event(event)
 
     def _execute_actions(
-        self, 
-        state: ConversationState, 
-        action_events: list[ActionEvent], 
-        on_event: ConversationCallbackType
+        self,
+        state: ConversationState,
+        action_events: list[ActionEvent],
+        on_event: ConversationCallbackType,
     ):
-        
         for action_event in action_events:
             self._execute_action_events(state, action_event, on_event=on_event)
 
