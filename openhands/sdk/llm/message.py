@@ -89,16 +89,6 @@ class Message(BaseModel):
             # single string
             message_dict = self._string_serializer()
 
-        # Add all the other fields that should be preserved during serialization
-        message_dict.update(
-            {
-                "cache_enabled": self.cache_enabled,
-                "vision_enabled": self.vision_enabled,
-                "function_calling_enabled": self.function_calling_enabled,
-                "force_string_serializer": self.force_string_serializer,
-            }
-        )
-
         return message_dict
 
     def _string_serializer(self) -> dict[str, Any]:
