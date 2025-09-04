@@ -193,7 +193,7 @@ class TestConfirmationMode:
         # Test initial state
         assert self.conversation.state.confirmation_mode is False
         assert self.conversation.state.agent_waiting_for_confirmation is False
-        assert self.conversation.get_pending_actions() == []
+        assert get_unmatched_actions(self.conversation.state.events) == []
 
         # Enable confirmation mode
         self.conversation.set_confirmation_mode(True)
@@ -364,7 +364,7 @@ class TestConfirmationMode:
         )  # Agent should be finished
 
         # Should have no pending actions (FinishAction was executed immediately)
-        pending_actions = self.conversation.get_pending_actions()
+        pending_actions = get_unmatched_actions(self.conversation.state.events)
         assert len(pending_actions) == 0
 
         # Should have an observation event (action was executed)
@@ -400,7 +400,7 @@ class TestConfirmationMode:
         )  # No actions executed yet
 
         # Should have pending actions (both actions)
-        pending_actions = self.conversation.get_pending_actions()
+        pending_actions = get_unmatched_actions(self.conversation.state.events)
         assert len(pending_actions) == 2
         action_tools = [action.tool_name for action in pending_actions]
         assert "test_tool" in action_tools

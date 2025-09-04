@@ -20,6 +20,7 @@ from openhands.sdk import (
     TextContent,
     Tool,
 )
+from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.tools import BashExecutor, execute_bash_tool
 
 
@@ -109,7 +110,7 @@ def run_until_done(conversation: Conversation) -> None:
     while not conversation.state.agent_finished:
         # If agent is waiting for confirmation, preview actions and ask user
         if conversation.state.agent_waiting_for_confirmation:
-            pending_actions = conversation.get_pending_actions()
+            pending_actions = get_unmatched_actions(conversation.state.events)
 
             if pending_actions:
                 # Build short previews for display

@@ -8,10 +8,10 @@ from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
 from openhands.sdk.event import (
-    ActionEvent,
     MessageEvent,
     UserRejectsObservation,
 )
+from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
@@ -135,10 +135,6 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
-    def get_pending_actions(self) -> list[ActionEvent]:
-        """Get all actions that are waiting for confirmation from the agent."""
-        return self.agent.get_pending_actions(self.state)
-
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode and store it in conversation state."""
         with self.state:
@@ -151,7 +147,7 @@ class Conversation:
         This is a non-invasive method to reject actions between run() calls.
         Also clears the agent_waiting_for_confirmation flag.
         """
-        pending_actions = self.agent.get_pending_actions(self.state)
+        pending_actions = get_unmatched_actions(self.state.events)
 
         with self.state:
             # Always clear the agent_waiting_for_confirmation flag

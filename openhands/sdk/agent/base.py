@@ -5,7 +5,6 @@ from types import MappingProxyType
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
-from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool
@@ -67,17 +66,6 @@ class AgentBase(ABC):
     def agent_context(self) -> AgentContext | None:
         """Returns the agent context used by the Agent."""
         return self._agent_context
-
-    def get_pending_actions(self, state: ConversationState =None) -> list[ActionEvent]:
-        """Get list of pending actions awaiting confirmation.
-
-        Args:
-            state: ConversationState to scan for unmatched actions.
-                   If None, returns empty list (for backward compatibility).
-        """
-        if state is None:
-            return []
-        return get_unmatched_actions(state.events)
 
     @abstractmethod
     def init_state(
