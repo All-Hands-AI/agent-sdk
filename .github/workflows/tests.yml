@@ -196,7 +196,8 @@ jobs:
       - name: Combine coverage data
         run: |
           shopt -s nullglob
-          
+          # For some reason, the github action won't properly upload the original
+          # .converage* files
           # Convert uploaded .dat files back to .coverage format for coverage tool
           for dat_file in cov/**/coverage-*.dat; do
             if [[ "$dat_file" == *coverage-sdk.dat ]]; then
