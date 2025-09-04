@@ -4,12 +4,12 @@ from unittest.mock import patch
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from openhands.sdk.config import LLMConfig
+from openhands.sdk.llm import LLM
 
 
 def test_llm_config_defaults():
-    """Test LLMConfig with default values."""
-    config = LLMConfig(model="gpt-4")
+    """Test LLM with default values."""
+    config = LLM(model="gpt-4")
     assert config.model == "gpt-4"
     assert config.api_key is None
     assert config.base_url is None
@@ -24,8 +24,8 @@ def test_llm_config_defaults():
     assert config.top_p == 1.0
     assert config.top_k is None
     assert config.custom_llm_provider is None
-    assert config.max_input_tokens is None
-    assert config.max_output_tokens is None
+    assert config.max_input_tokens == 8192  # Auto-populated from model info
+    assert config.max_output_tokens == 4096  # Auto-populated from model info
     assert config.input_cost_per_token is None
     assert config.output_cost_per_token is None
     assert config.ollama_base_url is None
@@ -43,8 +43,8 @@ def test_llm_config_defaults():
 
 
 def test_llm_config_custom_values():
-    """Test LLMConfig with custom values."""
-    config = LLMConfig(
+    """Test LLM with custom values."""
+    config = LLM(
         model="gpt-4",
         api_key=SecretStr("test-key"),
         base_url="https://api.example.com",
@@ -70,7 +70,7 @@ def test_llm_config_custom_values():
         disable_stop_word=True,
         caching_prompt=False,
         log_completions=True,
-        custom_tokenizer="custom_tokenizer",
+        custom_tokenizer=None,  # Changed from "custom_tokenizer" to avoid HF API call
         native_tool_calling=True,
         reasoning_effort="high",
         seed=42,
@@ -109,7 +109,7 @@ def test_llm_config_custom_values():
     assert config.disable_stop_word is True
     assert config.caching_prompt is False
     assert config.log_completions is True
-    assert config.custom_tokenizer == "custom_tokenizer"
+    assert config.custom_tokenizer is None
     assert config.native_tool_calling is True
     assert config.reasoning_effort == "high"
     assert config.seed == 42
@@ -120,7 +120,7 @@ def test_llm_config_custom_values():
 
 def test_llm_config_secret_str():
     """Test that api_key is properly handled as SecretStr."""
-    config = LLMConfig(model="gpt-4", api_key=SecretStr("secret-key"))
+    config = LLM(model="gpt-4", api_key=SecretStr("secret-key"))
     assert (
         config.api_key is not None and config.api_key.get_secret_value() == "secret-key"
     )
@@ -130,7 +130,7 @@ def test_llm_config_secret_str():
 
 def test_llm_config_aws_credentials():
     """Test AWS credentials handling."""
-    config = LLMConfig(
+    config = LLM(
         model="gpt-4",
         aws_access_key_id=SecretStr("test-access-key"),
         aws_secret_access_key=SecretStr("test-secret-key"),
@@ -149,7 +149,7 @@ def test_llm_config_aws_credentials():
 
 def test_llm_config_openrouter_defaults():
     """Test OpenRouter default values."""
-    config = LLMConfig(model="gpt-4")
+    config = LLM(model="gpt-4")
     assert config.openrouter_site_url == "https://docs.all-hands.dev/"
     assert config.openrouter_app_name == "OpenHands"
 
@@ -157,7 +157,7 @@ def test_llm_config_openrouter_defaults():
 def test_llm_config_post_init_openrouter_env_vars():
     """Test that OpenRouter environment variables are set in post_init."""
     with patch.dict(os.environ, {}, clear=True):
-        LLMConfig(
+        LLM(
             model="gpt-4",
             openrouter_site_url="https://custom.site.com",
             openrouter_app_name="CustomApp",
@@ -168,32 +168,32 @@ def test_llm_config_post_init_openrouter_env_vars():
 
 def test_llm_config_post_init_reasoning_effort_default():
     """Test that reasoning_effort is set to 'high' by default for non-Gemini models."""
-    config = LLMConfig(model="gpt-4")
+    config = LLM(model="gpt-4")
     assert config.reasoning_effort == "high"
 
     # Test that Gemini models don't get default reasoning_effort
-    config = LLMConfig(model="gemini-2.5-pro-experimental")
+    config = LLM(model="gemini-2.5-pro-experimental")
     assert config.reasoning_effort is None
 
 
 def test_llm_config_post_init_azure_api_version():
     """Test that Azure models get default API version."""
-    config = LLMConfig(model="azure/gpt-4")
+    config = LLM(model="azure/gpt-4")
     assert config.api_version == "2024-12-01-preview"
 
     # Test that non-Azure models don't get default API version
-    config = LLMConfig(model="gpt-4")
+    config = LLM(model="gpt-4")
     assert config.api_version is None
 
     # Test that explicit API version is preserved
-    config = LLMConfig(model="azure/gpt-4", api_version="custom-version")
+    config = LLM(model="azure/gpt-4", api_version="custom-version")
     assert config.api_version == "custom-version"
 
 
 def test_llm_config_post_init_aws_env_vars():
     """Test that AWS credentials are set as environment variables."""
     with patch.dict(os.environ, {}, clear=True):
-        LLMConfig(
+        LLM(
             model="gpt-4",
             aws_access_key_id=SecretStr("test-access-key"),
             aws_secret_access_key=SecretStr("test-secret-key"),
@@ -206,7 +206,7 @@ def test_llm_config_post_init_aws_env_vars():
 
 def test_llm_config_log_completions_folder_default():
     """Test that log_completions_folder has a default value."""
-    config = LLMConfig(model="gpt-4")
+    config = LLM(model="gpt-4")
     assert config.log_completions_folder is not None
     assert "completions" in config.log_completions_folder
 
@@ -214,14 +214,14 @@ def test_llm_config_log_completions_folder_default():
 def test_llm_config_extra_fields_forbidden():
     """Test that extra fields are forbidden."""
     with pytest.raises(ValidationError) as exc_info:
-        LLMConfig(model="gpt-4", invalid_field="should_not_work")  # type: ignore
+        LLM(model="gpt-4", invalid_field="should_not_work")  # type: ignore
     assert "Extra inputs are not permitted" in str(exc_info.value)
 
 
 def test_llm_config_validation():
-    """Test basic validation of LLMConfig fields."""
+    """Test basic validation of LLM fields."""
     # Test that negative values are handled appropriately
-    config = LLMConfig(
+    config = LLM(
         model="gpt-4",
         num_retries=-1,  # Should be allowed (might be used to disable retries)
         retry_multiplier=-1,  # Should be allowed
@@ -254,13 +254,13 @@ def test_llm_config_model_variants():
     ]
 
     for model in models:
-        config = LLMConfig(model=model)
+        config = LLM(model=model)
         assert config.model == model
 
 
 def test_llm_config_boolean_fields():
     """Test boolean field handling."""
-    config = LLMConfig(
+    config = LLM(
         model="gpt-4",
         drop_params=True,
         modify_params=False,
@@ -282,7 +282,7 @@ def test_llm_config_boolean_fields():
 
 def test_llm_config_optional_fields():
     """Test that optional fields can be None."""
-    config = LLMConfig(
+    config = LLM(
         model="gpt-4",
         api_key=None,
         base_url=None,
@@ -316,8 +316,12 @@ def test_llm_config_optional_fields():
     assert config.timeout is None
     assert config.top_k is None
     assert config.custom_llm_provider is None
-    assert config.max_input_tokens is None
-    assert config.max_output_tokens is None
+    assert (
+        config.max_input_tokens == 8192
+    )  # Auto-populated from model info even when set to None
+    assert (
+        config.max_output_tokens == 4096
+    )  # Auto-populated from model info even when set to None
     assert config.input_cost_per_token is None
     assert config.output_cost_per_token is None
     assert config.ollama_base_url is None
