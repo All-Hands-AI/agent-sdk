@@ -353,16 +353,16 @@ class LLM(BaseModel, RetryMixin):
 
         # 4) optional request logging context (kept small)
         assert self._telemetry is not None
-        log_ctx = (
-            {
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
                 "messages": messages[:],  # already simple dicts
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
             }
-            if self._telemetry.log_enabled
-            else None
-        )
+            if tools and not use_native_fc:
+                log_ctx["raw_messages"] = original_fncall_msgs
         self._telemetry.on_request(log_ctx=log_ctx)
 
         # 5) do the call with retries
@@ -381,7 +381,7 @@ class LLM(BaseModel, RetryMixin):
             if tools and not use_native_fc:
                 raw_resp = copy.deepcopy(resp)
                 resp = self._post_response_prompt_mock(
-                    resp, nonfncall_msgs=original_fncall_msgs, tools=tools
+                    resp, nonfncall_msgs=messages, tools=tools
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
