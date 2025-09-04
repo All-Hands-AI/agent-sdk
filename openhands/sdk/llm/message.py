@@ -83,10 +83,23 @@ class Message(BaseModel):
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
-            return self._list_serializer()
-        # some providers, like HF and Groq/llama, don't support a list here, but a
-        # single string
-        return self._string_serializer()
+            message_dict = self._list_serializer()
+        else:
+            # some providers, like HF and Groq/llama, don't support a list here, but a
+            # single string
+            message_dict = self._string_serializer()
+
+        # Add all the other fields that should be preserved during serialization
+        message_dict.update(
+            {
+                "cache_enabled": self.cache_enabled,
+                "vision_enabled": self.vision_enabled,
+                "function_calling_enabled": self.function_calling_enabled,
+                "force_string_serializer": self.force_string_serializer,
+            }
+        )
+
+        return message_dict
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
