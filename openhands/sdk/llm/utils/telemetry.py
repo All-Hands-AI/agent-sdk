@@ -163,13 +163,16 @@ class Telemetry(BaseModel):
                 f"{self.model_name.replace('/', '__')}-{time.time():.3f}.json",
             )
             data = self._req_ctx.copy()
-            data["response"] = resp
+            data["response"] = resp.model_dump()
             data["cost"] = float(cost or 0.0)
             data["timestamp"] = time.time()
             data["latency_sec"] = self._last_latency
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
                 data["raw_response"] = raw_resp
+            # pop duplicated tools
+            if "tool" in data and "tool" in data.get("kwargs", {}):
+                data["kwargs"].pop("tool")
             with open(fname, "w") as f:
                 f.write(json.dumps(data, default=_safe_json))
         except Exception as e:
