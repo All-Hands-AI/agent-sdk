@@ -89,6 +89,16 @@ class Agent(AgentBase):
             )
             on_event(event)
 
+    def _execute_actions(
+        self, 
+        state: ConversationState, 
+        action_events: list[ActionEvent], 
+        on_event: ConversationCallbackType
+    ):
+        
+        for action_event in action_events:
+            self._execute_action_events(state, action_event, on_event=on_event)
+
     def step(
         self,
         state: ConversationState,
@@ -105,8 +115,7 @@ class Agent(AgentBase):
                     len(pending_actions),
                 )
                 # Note: waiting_for_confirmation flag is cleared by Conversation class
-                for action_event in pending_actions:
-                    self._execute_action_events(state, action_event, on_event=on_event)
+                self._execute_actions(state, pending_actions, on_event)
                 return
 
         # If a condenser is registered with the agent, we need to give it an
@@ -195,8 +204,7 @@ class Agent(AgentBase):
                 return
 
             if action_events:
-                for action_event in action_events:
-                    self._execute_action_events(state, action_event, on_event=on_event)
+                self._execute_actions(state, action_events, on_event)
 
         else:
             logger.info("LLM produced a message response - awaits user input")
