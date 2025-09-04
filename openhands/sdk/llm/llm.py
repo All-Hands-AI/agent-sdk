@@ -339,8 +339,12 @@ class LLM(BaseModel, RetryMixin):
 
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
-        original_msgs = copy.deepcopy(messages)
+        original_fncall_msgs = copy.deepcopy(messages)
         if tools and not use_native_fc:
+            logger.debug(
+                "LLM.completion: mocking function-calling via prompt "
+                f"for model {self.model}"
+            )
             messages, kwargs = self._pre_request_prompt_mock(messages, tools, kwargs)
 
         # 3) normalize provider params
@@ -377,7 +381,7 @@ class LLM(BaseModel, RetryMixin):
             if tools and not use_native_fc:
                 raw_resp = copy.deepcopy(resp)
                 resp = self._post_response_prompt_mock(
-                    raw_resp, original_msgs=original_msgs, tools=tools
+                    resp, nonfncall_msgs=original_fncall_msgs, tools=tools
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
@@ -507,7 +511,6 @@ class LLM(BaseModel, RetryMixin):
         messages = convert_fncall_messages_to_non_fncall_messages(
             messages, tools, add_in_context_learning_example=add_iclex
         )
-
         if get_features(self.model).supports_stop_words and not self.disable_stop_word:
             kwargs = dict(kwargs)
             kwargs["stop"] = STOP_WORDS
@@ -519,8 +522,7 @@ class LLM(BaseModel, RetryMixin):
     def _post_response_prompt_mock(
         self,
         resp: ModelResponse,
-        *,
-        original_msgs: list[dict],
+        nonfncall_msgs: list[dict],
         tools: list[ChatCompletionToolParam],
     ) -> ModelResponse:
         if len(resp.choices) < 1:
@@ -541,7 +543,7 @@ class LLM(BaseModel, RetryMixin):
 
         non_fn_message: dict = resp.choices[0].message.model_dump()
         fn_msgs = convert_non_fncall_messages_to_fncall_messages(
-            original_msgs + [non_fn_message], tools
+            nonfncall_msgs + [non_fn_message], tools
         )
         last = fn_msgs[-1]
         if not isinstance(last, LiteLLMMessage):
