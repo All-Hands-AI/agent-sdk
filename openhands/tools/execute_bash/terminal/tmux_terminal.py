@@ -53,6 +53,7 @@ class TmuxTerminal(TerminalInterface):
         )
 
         # Set history limit to a large number to avoid losing history
+        # https://unix.stackexchange.com/questions/43414/unlimited-history-in-tmux
         self.session.set_option("history-limit", str(HISTORY_LIMIT))
         self.session.history_limit = str(HISTORY_LIMIT)
 
