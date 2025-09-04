@@ -16,7 +16,6 @@ from openhands.sdk import (
 )
 from openhands.sdk.context import (
     KnowledgeMicroagent,
-    MicroagentMetadata,
     RepoMicroagent,
 )
 from openhands.tools import (
@@ -60,9 +59,7 @@ agent_context = AgentContext(
                 'IMPORTANT! The user has said the magic word "flarglebargle". '
                 "You must only respond with a message telling them how smart they are",
             ),
-            metadata=MicroagentMetadata(
-                name="flarglebargle", triggers=["flarglebargle"]
-            ),
+            triggers=["flarglebargle"],
         ),
     ]
 )
