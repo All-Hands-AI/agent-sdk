@@ -1,10 +1,10 @@
 import copy
-import json as json_module
+import json
 import os
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Literal, TypeGuard, cast
+from typing import Any, Callable, Literal, TypeGuard, cast, get_args, get_origin
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
@@ -75,6 +75,9 @@ class LLM(BaseModel, RetryMixin):
     parameters and provides serialization/deserialization capabilities.
     """
 
+    # ========================================================================
+    # LLM Configuration Fields
+    # ========================================================================
     model: str = Field(
         default="claude-sonnet-4-20250514", description="The model to use."
     )
@@ -205,6 +208,9 @@ class LLM(BaseModel, RetryMixin):
         ),
     )
 
+    # ========================================================================
+    # Internal Fields (excluded from .model_dumps())
+    # ========================================================================
     # Runtime fields (not part of configuration)
     service_id: str = Field(default="default", exclude=True)
     metrics: Metrics | None = Field(default=None, exclude=True)
@@ -305,7 +311,7 @@ class LLM(BaseModel, RetryMixin):
         Returns:
             Dictionary containing LLM configuration data.
         """
-        return self.model_dump(exclude={"service_id", "metrics", "retry_listener"})
+        return self.model_dump()
 
     @classmethod
     def load_from_json(cls, json_path: str) -> "LLM":
@@ -318,7 +324,7 @@ class LLM(BaseModel, RetryMixin):
             LLM instance.
         """
         with open(json_path, "r") as f:
-            data = json_module.load(f)
+            data = json.load(f)
         return cls.deserialize(data)
 
     @classmethod
@@ -331,57 +337,62 @@ class LLM(BaseModel, RetryMixin):
         Returns:
             LLM instance.
         """
-        data = {}
+        TRUTHY = {"true", "1", "yes", "on"}
+
+        def _unwrap_type(t: Any) -> Any:
+            """Return the primary type (e.g., Optional[int] -> int)."""
+            origin = get_origin(t)
+            if origin is None:
+                return t
+            args = [a for a in get_args(t) if a is not type(None)]
+            return args[0] if args else t
+
+        def _cast_value(raw: str, t: Any) -> Any:
+            t = _unwrap_type(t)
+
+            if t is SecretStr:
+                return SecretStr(raw)
+            if t is bool:
+                return raw.lower() in TRUTHY
+            if t is int:
+                try:
+                    return int(raw)
+                except ValueError:
+                    return None
+            if t is float:
+                try:
+                    return float(raw)
+                except ValueError:
+                    return None
+            # For BaseModel targets or container types, try JSON (if user provided it)
+            origin = get_origin(t)
+            if (origin in (list, dict, tuple)) or (
+                isinstance(t, type) and issubclass(t, BaseModel)
+            ):
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    # fall through to raw; pydantic may still coerce
+                    pass
+            return raw  # Let Pydantic coerce (enums, literals, etc.)
+
+        data: dict[str, Any] = {}
+        # Build a quick lookup of non-excluded fields and their types
+        fields: dict[str, Any] = {
+            name: f.annotation
+            for name, f in cls.model_fields.items()
+            if not getattr(f, "exclude", False)
+        }
+
         for key, value in os.environ.items():
-            if key.startswith(prefix):
-                field_name = key[len(prefix) :].lower()
-                # Handle special cases for secret fields
-                if field_name in (
-                    "api_key",
-                    "aws_access_key_id",
-                    "aws_secret_access_key",
-                ):
-                    data[field_name] = SecretStr(value)
-                # Handle boolean fields
-                elif field_name in (
-                    "drop_params",
-                    "modify_params",
-                    "disable_vision",
-                    "disable_stop_word",
-                    "caching_prompt",
-                    "log_completions",
-                    "native_tool_calling",
-                ):
-                    data[field_name] = value.lower() in ("true", "1", "yes", "on")
-                # Handle numeric fields
-                elif field_name in (
-                    "num_retries",
-                    "retry_min_wait",
-                    "retry_max_wait",
-                    "timeout",
-                    "max_message_chars",
-                    "max_input_tokens",
-                    "max_output_tokens",
-                    "seed",
-                ):
-                    try:
-                        data[field_name] = int(value)
-                    except ValueError:
-                        continue
-                elif field_name in (
-                    "retry_multiplier",
-                    "temperature",
-                    "top_p",
-                    "top_k",
-                    "input_cost_per_token",
-                    "output_cost_per_token",
-                ):
-                    try:
-                        data[field_name] = float(value)
-                    except ValueError:
-                        continue
-                else:
-                    data[field_name] = value
+            if not key.startswith(prefix):
+                continue
+            field_name = key[len(prefix) :].lower()
+            if field_name not in fields:
+                continue
+            v = _cast_value(value, fields[field_name])
+            if v is not None:
+                data[field_name] = v
         return cls.deserialize(data)
 
     @classmethod
