@@ -49,7 +49,6 @@ class TestConfirmationMode:
 
         self.mock_llm = MagicMock()
 
-        # Create a test tool for the agent
 
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:

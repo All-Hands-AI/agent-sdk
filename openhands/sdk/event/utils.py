@@ -1,16 +1,9 @@
 """Utility functions for event processing."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from openhands.sdk.event import ActionEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectsObservation
-
-
-if TYPE_CHECKING:
-    pass
-
 
 def get_unmatched_actions(events: list) -> list[ActionEvent]:
     """Find actions in the event history that don't have matching observations.
