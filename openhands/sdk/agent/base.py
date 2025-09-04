@@ -5,6 +5,8 @@ from types import MappingProxyType
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
+from openhands.sdk.event import ActionEvent, ObservationEvent
+from openhands.sdk.event.llm_convertible import UserRejectsObservation
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool
@@ -84,8 +86,6 @@ class AgentBase(ABC):
         Optimized to search in reverse chronological order since recent actions
         are more likely to be unmatched (pending confirmation).
         """
-        from openhands.sdk.event import ActionEvent, ObservationEvent
-        from openhands.sdk.event.llm_convertible import UserRejectsObservation
 
         observed_action_ids = set()
         unmatched_actions = []
