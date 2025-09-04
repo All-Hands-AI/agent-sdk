@@ -31,7 +31,7 @@ logger = get_logger(__name__)
 
 def get_output_dir(output_dir: Optional[Path] = None) -> Path:
     """Get output directory, creating if needed."""
-    dir_path = output_dir or Path(__file__).parent.parent / "fixtures" / "llm_data"
+    dir_path = Path(__file__).parent
     dir_path.mkdir(parents=True, exist_ok=True)
     return dir_path
 
