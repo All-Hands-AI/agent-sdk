@@ -7,6 +7,7 @@ Tests the core behavior: pause action execution for user confirmation.
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
     Choices,
@@ -22,7 +23,7 @@ from openhands.sdk.event.llm_convertible import UserRejectsObservation
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-import pytest
+
 
 class TestConfirmationMode:
     """Test suite for confirmation mode functionality."""
@@ -75,13 +76,22 @@ class TestConfirmationMode:
         """Enable confirmation mode and produce a single pending action."""
         self.conversation.set_confirmation_mode(True)
         self._mock_action_once()
-        self.conversation.send_message(Message(role="user", content=[TextContent(text="execute a command")]))
+        self.conversation.send_message(
+            Message(
+                role="user", 
+                content=[TextContent(text="execute a command")]
+            )
+        )
         self.conversation.run()
         assert self.conversation.state.confirmation_mode is True
         assert self.conversation.state.waiting_for_confirmation is True
 
 
-    def _mock_action_once(self, call_id: str = "call_1", command: str = "test_command") -> None:
+    def _mock_action_once(
+        self, 
+        call_id: str = "call_1", 
+        command: str = "test_command"
+    ) -> None:
         """Configure LLM to return one tool call (action)."""
         tool_call = self._create_test_action(call_id=call_id, command=command).tool_call
         self.mock_llm.completion.return_value = ModelResponse(
@@ -209,10 +219,15 @@ class TestConfirmationMode:
 
 
     def test_message_only_in_confirmation_mode_does_not_wait(self):
-        """When the agent replies with a message only, we shouldn't wait for confirmation."""
+        """Don't confirm agent messages."""
         self.conversation.set_confirmation_mode(True)
         self._mock_message_only("Hello, how can I help you?")
-        self.conversation.send_message(Message(role="user", content=[TextContent(text="some prompt")]))
+        self.conversation.send_message(
+            Message(
+                role="user", 
+                content=[TextContent(text="some prompt")]
+            )
+        )
         self.conversation.run()
 
         assert self.conversation.state.waiting_for_confirmation is False
@@ -232,10 +247,10 @@ class TestConfirmationMode:
         """
         Start in confirmation mode, get a pending action, then:
         - if should_reject is False: confirm by calling conversation.run()
-        - if should_reject is True: reject via conversation.reject_pending_action (or reject_pending_actions)
+        - if should_reject is True: reject via conversation.reject_pending_action
         """
         # Create a single pending action
-        self._make_pending_action()  # sets confirmation mode, sends message, runs once -> waiting_for_confirmation == True
+        self._make_pending_action()
 
         if not should_reject:
             # Confirm path per your instruction: call run() to execute pending action
@@ -243,17 +258,29 @@ class TestConfirmationMode:
             self.conversation.run()
 
             # Expect an observation (tool executed) and no rejection
-            obs_events = [e for e in self.conversation.state.events if isinstance(e, ObservationEvent)]
+            obs_events = [
+                e for e in self.conversation.state.events 
+                if isinstance(e, ObservationEvent)
+            ]
             assert len(obs_events) == 1
             assert obs_events[0].observation.result == "Executed: test_command"  # type: ignore[attr-defined]
-            rejection_events = [e for e in self.conversation.state.events if isinstance(e, UserRejectsObservation)]
+            rejection_events = [
+                e for e in self.conversation.state.events 
+                if isinstance(e, UserRejectsObservation)
+            ]
             assert len(rejection_events) == 0
             assert self.conversation.state.waiting_for_confirmation is False
         else:
             self.conversation.reject_pending_actions("Not safe to run")
 
             # Expect a rejection event and no observation
-            rejection_events = [e for e in self.conversation.state.events if isinstance(e, UserRejectsObservation)]
+            rejection_events = [
+                e for e in self.conversation.state.events 
+                if isinstance(e, UserRejectsObservation)
+            ]
             assert len(rejection_events) == 1
-            obs_events = [e for e in self.conversation.state.events if isinstance(e, ObservationEvent)]
+            obs_events = [
+                e for e in self.conversation.state.events 
+                if isinstance(e, ObservationEvent)
+            ]
             assert len(obs_events) == 0
