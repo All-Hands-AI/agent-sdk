@@ -277,12 +277,12 @@ class TestConfirmationMode:
             ]
             assert len(obs_events) == 0
 
-    def test_finish_action_executes_immediately_in_confirmation_mode(self):
-        """Test that FinishAction executes immediately even in confirmation mode."""
+    def test_single_finish_action_skips_confirmation_entirely(self):
+        """Test that a single FinishAction skips confirmation entirely."""
         # Enable confirmation mode
         self.conversation.set_confirmation_mode(True)
 
-        # Mock LLM to return a FinishAction
+        # Mock LLM to return a single FinishAction
         self._mock_finish_action("Task completed successfully!")
 
         # Send a message that should trigger the finish action
@@ -293,7 +293,7 @@ class TestConfirmationMode:
         # Run the conversation
         self.conversation.run()
 
-        # FinishAction should execute immediately despite confirmation mode
+        # Single FinishAction should skip confirmation entirely
         assert (
             self.conversation.state.confirmation_mode is True
         )  # Still in confirmation mode
@@ -304,7 +304,7 @@ class TestConfirmationMode:
             self.conversation.state.agent_finished is True
         )  # Agent should be finished
 
-        # Should have no pending actions (FinishAction was executed)
+        # Should have no pending actions (FinishAction was executed immediately)
         pending_actions = self.conversation.get_pending_actions()
         assert len(pending_actions) == 0
 
@@ -314,6 +314,41 @@ class TestConfirmationMode:
         ]
         assert len(obs_events) == 1
         assert obs_events[0].observation.message == "Task completed successfully!"  # type: ignore[attr-defined]
+
+    def test_multiple_actions_with_finish_still_require_confirmation(self):
+        """Test that multiple actions (including FinishAction) still require confirmation."""  # noqa: E501
+        # Enable confirmation mode
+        self.conversation.set_confirmation_mode(True)
+
+        # Mock LLM to return both a regular action and a FinishAction
+        self._mock_multiple_actions_with_finish()
+
+        # Send a message that should trigger both actions
+        self.conversation.send_message(
+            Message(
+                role="user", content=[TextContent(text="Execute command then finish")]
+            )
+        )
+
+        # Run the conversation
+        self.conversation.run()
+
+        # Multiple actions should still require confirmation for non-finish actions
+        assert self.conversation.state.confirmation_mode is True
+        assert self.conversation.state.waiting_for_confirmation is True
+        assert self.conversation.state.agent_finished is True  # FinishAction executed
+
+        # Should have pending actions (the regular action)
+        pending_actions = self.conversation.get_pending_actions()
+        assert len(pending_actions) == 1
+        assert pending_actions[0].tool_name == "test_tool"
+
+        # Should have one observation event (only FinishAction was executed)
+        obs_events = [
+            e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
+        ]
+        assert len(obs_events) == 1
+        assert obs_events[0].observation.message == "Task completed!"  # type: ignore[attr-defined]
 
     def _mock_finish_action(self, message: str = "Task completed") -> None:
         """Configure LLM to return a FinishAction tool call."""
@@ -331,6 +366,40 @@ class TestConfirmationMode:
                         role="assistant",
                         content=f"I'll finish with: {message}",
                         tool_calls=[tool_call],
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
+
+    def _mock_multiple_actions_with_finish(self) -> None:
+        """Configure LLM to return both a regular action and a FinishAction."""
+        regular_tool_call = ChatCompletionMessageToolCall(
+            id="call_1",
+            type="function",
+            function=Function(
+                name="test_tool", arguments='{"command": "test_command"}'
+            ),
+        )
+
+        finish_tool_call = ChatCompletionMessageToolCall(
+            id="finish_call_1",
+            type="function",
+            function=Function(
+                name="finish", arguments='{"message": "Task completed!"}'
+            ),
+        )
+
+        self.mock_llm.completion.return_value = ModelResponse(
+            id="response_multiple",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content="I'll execute the command and then finish",
+                        tool_calls=[regular_tool_call, finish_tool_call],
                     )
                 )
             ],
