@@ -36,7 +36,9 @@ parametrize_terminal_types = pytest.mark.parametrize("terminal_type", terminal_t
 def test_session_initialization(terminal_type):
     # Test with custom working directory
     with tempfile.TemporaryDirectory() as temp_dir:
-        session = create_terminal_session(work_dir=temp_dir, session_type=terminal_type)
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
         session.initialize()
         obs = session.execute(ExecuteBashAction(command="pwd", security_risk="LOW"))
 
@@ -46,7 +48,7 @@ def test_session_initialization(terminal_type):
 
     # Test with custom username
     session = create_terminal_session(
-        work_dir=os.getcwd(), username="nobody", session_type=terminal_type
+        work_dir=os.getcwd(), username="nobody", terminal_type=terminal_type
     )
     session.initialize()
     session.close()
@@ -54,7 +56,7 @@ def test_session_initialization(terminal_type):
 
 @parametrize_terminal_types
 def test_cwd_property(tmp_path, terminal_type):
-    session = create_terminal_session(work_dir=tmp_path, session_type=terminal_type)
+    session = create_terminal_session(work_dir=tmp_path, terminal_type=terminal_type)
     session.initialize()
     # Change directory and verify pwd updates
     random_dir = tmp_path / "random"
@@ -76,7 +78,7 @@ def test_cwd_property(tmp_path, terminal_type):
 
 @parametrize_terminal_types
 def test_basic_command(terminal_type):
-    session = create_terminal_session(work_dir=os.getcwd(), session_type=terminal_type)
+    session = create_terminal_session(work_dir=os.getcwd(), terminal_type=terminal_type)
     session.initialize()
 
     # Test simple command
@@ -120,7 +122,7 @@ def test_basic_command(terminal_type):
 @parametrize_terminal_types
 def test_environment_variable_persistence(terminal_type):
     """Test that environment variables persist across commands (stateful terminal)."""
-    session = create_terminal_session(work_dir=os.getcwd(), session_type=terminal_type)
+    session = create_terminal_session(work_dir=os.getcwd(), terminal_type=terminal_type)
     session.initialize()
 
     # Set an environment variable
@@ -191,7 +193,7 @@ def test_long_running_command_follow_by_execute():
 @parametrize_terminal_types
 def test_interactive_command(terminal_type):
     session = create_terminal_session(
-        work_dir=os.getcwd(), no_change_timeout_seconds=3, session_type=terminal_type
+        work_dir=os.getcwd(), no_change_timeout_seconds=3, terminal_type=terminal_type
     )
     session.initialize()
 
@@ -261,7 +263,7 @@ def test_interactive_command(terminal_type):
 @parametrize_terminal_types
 def test_ctrl_c(terminal_type):
     session = create_terminal_session(
-        work_dir=os.getcwd(), no_change_timeout_seconds=2, session_type=terminal_type
+        work_dir=os.getcwd(), no_change_timeout_seconds=2, terminal_type=terminal_type
     )
     session.initialize()
 
@@ -298,7 +300,7 @@ def test_ctrl_c(terminal_type):
 
 @parametrize_terminal_types
 def test_empty_command_error(terminal_type):
-    session = create_terminal_session(work_dir=os.getcwd(), session_type=terminal_type)
+    session = create_terminal_session(work_dir=os.getcwd(), terminal_type=terminal_type)
     session.initialize()
 
     # Test empty command without previous command
@@ -326,7 +328,7 @@ def test_command_output_continuation(terminal_type):
     This test has been modified to be more robust against timing issues.
     """
     session = create_terminal_session(
-        work_dir=os.getcwd(), no_change_timeout_seconds=1, session_type=terminal_type
+        work_dir=os.getcwd(), no_change_timeout_seconds=1, terminal_type=terminal_type
     )
     session.initialize()
 
@@ -403,7 +405,7 @@ def test_command_output_continuation(terminal_type):
 
 @parametrize_terminal_types
 def test_long_output(terminal_type):
-    session = create_terminal_session(work_dir=os.getcwd(), session_type=terminal_type)
+    session = create_terminal_session(work_dir=os.getcwd(), terminal_type=terminal_type)
     session.initialize()
 
     # Generate a long output that may exceed buffer size
@@ -424,7 +426,7 @@ def test_long_output(terminal_type):
 
 @parametrize_terminal_types
 def test_long_output_exceed_history_limit(terminal_type):
-    session = create_terminal_session(work_dir=os.getcwd(), session_type=terminal_type)
+    session = create_terminal_session(work_dir=os.getcwd(), terminal_type=terminal_type)
     session.initialize()
 
     # Generate a long output that may exceed buffer size
@@ -468,7 +470,7 @@ fi""",
 @parametrize_terminal_types
 def test_python_interactive_input(terminal_type):
     session = create_terminal_session(
-        work_dir=os.getcwd(), no_change_timeout_seconds=2, session_type=terminal_type
+        work_dir=os.getcwd(), no_change_timeout_seconds=2, terminal_type=terminal_type
     )
     session.initialize()
 

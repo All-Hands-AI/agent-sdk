@@ -32,11 +32,11 @@ def test_default_auto_detection():
         assert "Auto-detection test" in obs.output
 
 
-def test_forced_session_types():
+def test_forced_terminal_types():
     """Test forcing specific session types."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Test forced subprocess session
-        tool = BashTool(working_dir=temp_dir, session_type="subprocess")
+        tool = BashTool(working_dir=temp_dir, terminal_type="subprocess")
         assert isinstance(tool.executor.session, TerminalSession)
         assert isinstance(tool.executor.session.terminal, SubprocessTerminal)
 
@@ -80,7 +80,7 @@ def test_session_parameters():
             working_dir=temp_dir,
             username="testuser",
             no_change_timeout_seconds=60,
-            session_type="subprocess",
+            terminal_type="subprocess",
         )
 
         session = tool.executor.session
@@ -117,7 +117,7 @@ def test_tool_metadata():
 def test_session_lifecycle():
     """Test session lifecycle management."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tool = BashTool(working_dir=temp_dir, session_type="subprocess")
+        tool = BashTool(working_dir=temp_dir, terminal_type="subprocess")
 
         # Session should be initialized
         assert tool.executor.session._initialized

@@ -12,7 +12,7 @@ class BashExecutor(ToolExecutor):
         working_dir: str,
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
-        session_type: str | None = None,
+        terminal_type: str | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
 
@@ -20,15 +20,15 @@ class BashExecutor(ToolExecutor):
             working_dir: Working directory for bash commands
             username: Optional username for the bash session
             no_change_timeout_seconds: Timeout for no output change
-            session_type: Force a specific session type:
-                         ('tmux', 'subprocess', 'powershell').
+            terminal_type: Force a specific session type:
+                         ('tmux', 'subprocess').
                          If None, auto-detect based on system capabilities
         """
         self.session = create_terminal_session(
             work_dir=working_dir,
             username=username,
             no_change_timeout_seconds=no_change_timeout_seconds,
-            session_type=session_type,
+            terminal_type=terminal_type,
         )
         self.session.initialize()
 

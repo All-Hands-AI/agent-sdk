@@ -130,7 +130,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         working_dir: str,
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
-        session_type: str | None = None,
+        terminal_type: str | None = None,
     ):
         """Initialize BashTool with executor parameters.
 
@@ -138,7 +138,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
             working_dir: The working directory for bash commands
             username: Optional username for the bash session
             no_change_timeout_seconds: Timeout for no output change
-            session_type: Force a specific session type:
+            terminal_type: Force a specific session type:
                          ('tmux', 'subprocess', 'powershell').
                          If None, auto-detect based on system capabilities:
                          - On Windows: PowerShell if available, otherwise subprocess
@@ -152,7 +152,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
             working_dir=working_dir,
             username=username,
             no_change_timeout_seconds=no_change_timeout_seconds,
-            session_type=session_type,
+            terminal_type=terminal_type,
         )
 
         # Initialize the parent Tool with the executor

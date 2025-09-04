@@ -23,31 +23,31 @@ def test_tmux_detection():
     assert isinstance(result, bool)
 
 
-def test_forced_session_types():
+def test_forced_terminal_types():
     """Test forcing specific session types."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Test forced subprocess session
-        session = create_terminal_session(work_dir=temp_dir, session_type="subprocess")
+        session = create_terminal_session(work_dir=temp_dir, terminal_type="subprocess")
         assert isinstance(session, TerminalSession)
         assert isinstance(session.terminal, SubprocessTerminal)
         session.close()
 
         # Test forced tmux session (if available)
         if _is_tmux_available():
-            session = create_terminal_session(work_dir=temp_dir, session_type="tmux")
+            session = create_terminal_session(work_dir=temp_dir, terminal_type="tmux")
             assert isinstance(session, TerminalSession)
             assert isinstance(session.terminal, TmuxTerminal)
             session.close()
 
 
-def test_invalid_session_type():
+def test_invalid_terminal_type():
     """Test error handling for invalid session types."""
     with tempfile.TemporaryDirectory() as temp_dir:
         with pytest.raises(ValueError, match="Unknown session type"):
-            create_terminal_session(work_dir=temp_dir, session_type="invalid")
+            create_terminal_session(work_dir=temp_dir, terminal_type="invalid")
 
 
-def test_unavailable_session_type():
+def test_unavailable_terminal_type():
     """Test error handling when requested session type is unavailable."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Mock tmux as unavailable
@@ -56,7 +56,7 @@ def test_unavailable_session_type():
             return_value=False,
         ):
             with pytest.raises(RuntimeError, match="Tmux is not available"):
-                create_terminal_session(work_dir=temp_dir, session_type="tmux")
+                create_terminal_session(work_dir=temp_dir, terminal_type="tmux")
 
 
 @patch("platform.system")
@@ -93,7 +93,7 @@ def test_session_parameters_passed():
             work_dir=temp_dir,
             username="testuser",
             no_change_timeout_seconds=60,
-            session_type="subprocess",
+            terminal_type="subprocess",
         )
 
         assert isinstance(session, TerminalSession)

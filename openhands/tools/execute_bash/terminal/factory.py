@@ -49,7 +49,7 @@ def create_terminal_session(
     work_dir: str,
     username: str | None = None,
     no_change_timeout_seconds: int | None = None,
-    session_type: str | None = None,
+    terminal_type: str | None = None,
 ) -> TerminalSession:
     """Create an appropriate terminal session based on system capabilities.
 
@@ -57,7 +57,7 @@ def create_terminal_session(
         work_dir: Working directory for the session
         username: Optional username for the session
         no_change_timeout_seconds: Timeout for no output change
-        session_type: Force a specific session type ('tmux', 'subprocess', 'powershell')
+        terminal_type: Force a specific session type ('tmux', 'subprocess')
                      If None, auto-detect based on system capabilities
 
     Returns:
@@ -68,9 +68,9 @@ def create_terminal_session(
     """
     from openhands.tools.execute_bash.terminal.terminal_session import TerminalSession
 
-    if session_type:
+    if terminal_type:
         # Force specific session type
-        if session_type == "tmux":
+        if terminal_type == "tmux":
             if not _is_tmux_available():
                 raise RuntimeError("Tmux is not available on this system")
             from openhands.tools.execute_bash.terminal.tmux_terminal import TmuxTerminal
@@ -78,7 +78,7 @@ def create_terminal_session(
             logger.info("Using forced TmuxTerminal")
             terminal = TmuxTerminal(work_dir, username)
             return TerminalSession(terminal, no_change_timeout_seconds)
-        elif session_type == "subprocess":
+        elif terminal_type == "subprocess":
             from openhands.tools.execute_bash.terminal.subprocess_terminal import (
                 SubprocessTerminal,
             )
@@ -87,7 +87,7 @@ def create_terminal_session(
             terminal = SubprocessTerminal(work_dir, username)
             return TerminalSession(terminal, no_change_timeout_seconds)
         else:
-            raise ValueError(f"Unknown session type: {session_type}")
+            raise ValueError(f"Unknown session type: {terminal_type}")
 
     # Auto-detect based on system capabilities
     system = platform.system()
