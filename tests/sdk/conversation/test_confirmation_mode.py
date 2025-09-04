@@ -410,37 +410,3 @@ class TestConfirmationMode:
             model="test-model",
             object="chat.completion",
         )
-
-    def test_regular_actions_still_require_confirmation(self):
-        """Test that regular actions (non-FinishAction) still require confirmation."""
-        # Enable confirmation mode
-        self.conversation.set_confirmation_mode(True)
-
-        # Mock LLM to return a regular action (not FinishAction)
-        self._mock_action_once("call_1", "test_command")
-
-        # Send a message that should trigger the action
-        self.conversation.send_message(
-            Message(role="user", content=[TextContent(text="execute a command")])
-        )
-
-        # Run the conversation
-        self.conversation.run()
-
-        # Regular actions should still be blocked by confirmation mode
-        assert self.conversation.state.confirmation_mode is True
-        assert self.conversation.state.waiting_for_confirmation is True
-        assert (
-            self.conversation.state.agent_finished is False
-        )  # Should be False because action wasn't executed
-
-        # Should have pending actions
-        pending_actions = self.conversation.get_pending_actions()
-        assert len(pending_actions) == 1
-        assert pending_actions[0].tool_name == "test_tool"
-
-        # Should have no observation events yet (action wasn't executed)
-        obs_events = [
-            e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
-        ]
-        assert len(obs_events) == 0

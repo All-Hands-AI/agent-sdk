@@ -191,25 +191,9 @@ class Agent(AgentBase):
                 action_events.append(action_event)
 
             # Handle confirmation mode - exit early if actions need confirmation
-            if state.confirmation_mode and action_events and len(action_events) > 1:
-                logger.info(
-                    f"Confirmation mode: Created {len(action_events)} "
-                    "action(s), waiting for confirmation"
-                )
-                state.waiting_for_confirmation = True
-                return
-            elif (
-                state.confirmation_mode
-                and len(action_events) == 1
-                and not isinstance(action_events[0].action, FinishAction)
-            ):
-                logger.info(
-                    "Confirmation mode: Created 1 action, waiting for confirmation"
-                )
-                state.waiting_for_confirmation = True
+            if self._requires_user_confirmation(state, action_events):
                 return
 
-            # Execute all actions (not in confirmation mode or single FinishAction)
             if action_events:
                 for action_event in action_events:
                     self._execute_action_events(state, action_event, on_event=on_event)
@@ -219,6 +203,26 @@ class Agent(AgentBase):
             state.agent_finished = True
             msg_event = MessageEvent(source="agent", llm_message=message)
             on_event(msg_event)
+
+    def _requires_user_confirmation(
+        self,
+        state: ConversationState,
+        action_events: list[ActionEvent]
+    ) -> bool:
+        if len(action_events) == 0:
+            return
+
+        if (
+            len(action_events) == 1 and 
+            isinstance(action_events[0].action, FinishAction)
+        ):
+            return False
+        
+        if not state.confirmation_mode:
+            return False
+
+        state.waiting_for_confirmation = True
+        return True
 
     def _get_action_events(
         self,
