@@ -5,8 +5,7 @@ from types import MappingProxyType
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
-from openhands.sdk.event import ActionEvent, ObservationEvent
-from openhands.sdk.event.llm_convertible import UserRejectsObservation
+from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool
@@ -78,28 +77,7 @@ class AgentBase(ABC):
         """
         if state is None:
             return []
-        return self._get_unmatched_actions(state.events)
-
-    def _get_unmatched_actions(self, events) -> list:
-        """Find actions in the event history that don't have matching observations.
-
-        Optimized to search in reverse chronological order since recent actions
-        are more likely to be unmatched (pending confirmation).
-        """
-
-        observed_action_ids = set()
-        unmatched_actions = []
-
-        # Search in reverse - recent events are more likely to be unmatched
-        for event in reversed(events):
-            if isinstance(event, (ObservationEvent, UserRejectsObservation)):
-                observed_action_ids.add(event.action_id)
-            elif isinstance(event, ActionEvent):
-                if event.id not in observed_action_ids:
-                    # Insert at beginning to maintain chronological order in result
-                    unmatched_actions.insert(0, event)
-
-        return unmatched_actions
+        return get_unmatched_actions(state.events)
 
     @abstractmethod
     def init_state(

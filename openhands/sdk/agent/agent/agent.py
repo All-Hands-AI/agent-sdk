@@ -23,6 +23,7 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.event.condenser import Condensation
+from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
@@ -107,7 +108,7 @@ class Agent(AgentBase):
         # pending actions (implicit confirmation) and execute them before sampling
         # a new action.
         if state.confirmation_mode:
-            pending_actions = self._get_unmatched_actions(state.events)
+            pending_actions = get_unmatched_actions(state.events)
             if pending_actions:
                 logger.info(
                     "Confirmation mode: Executing %d pending action(s)",

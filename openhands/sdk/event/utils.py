@@ -1,0 +1,39 @@
+"""Utility functions for event processing."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.event import ActionEvent
+
+
+def get_unmatched_actions(events: list) -> list[ActionEvent]:
+    """Find actions in the event history that don't have matching observations.
+
+    Optimized to search in reverse chronological order since recent actions
+    are more likely to be unmatched (pending confirmation).
+
+    Args:
+        events: List of events to search through
+
+    Returns:
+        List of ActionEvent objects that don't have corresponding observations
+    """
+    from openhands.sdk.event import ActionEvent, ObservationEvent
+    from openhands.sdk.event.llm_convertible import UserRejectsObservation
+
+    observed_action_ids = set()
+    unmatched_actions = []
+
+    # Search in reverse - recent events are more likely to be unmatched
+    for event in reversed(events):
+        if isinstance(event, (ObservationEvent, UserRejectsObservation)):
+            observed_action_ids.add(event.action_id)
+        elif isinstance(event, ActionEvent):
+            if event.id not in observed_action_ids:
+                # Insert at beginning to maintain chronological order in result
+                unmatched_actions.insert(0, event)
+
+    return unmatched_actions
