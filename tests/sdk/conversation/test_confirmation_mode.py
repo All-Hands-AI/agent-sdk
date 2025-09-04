@@ -4,6 +4,7 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 from litellm import ChatCompletionMessageToolCall
@@ -19,13 +20,48 @@ from openhands.sdk.llm import TextContent
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
+if TYPE_CHECKING:
+    pass
+
+
 class TestConfirmationMode:
     """Test suite for confirmation mode functionality."""
 
     def setup_method(self):
         """Set up test fixtures."""
+        from openhands.sdk.tool import Tool
+        from openhands.sdk.tool.schema import ActionBase, ObservationBase
+
         self.mock_llm = MagicMock()
-        self.agent = Agent(llm=self.mock_llm, tools=[])
+
+        # Create a test tool for the agent
+        TestAction = ActionBase.from_mcp_schema(
+            "TestAction",
+            {"type": "object", "properties": {"command": {"type": "string"}}},
+        )
+
+        class TestObservation(ObservationBase):
+            result: str
+
+            @property
+            def agent_observation(self) -> str:
+                return self.result
+
+        from openhands.sdk.tool import ToolExecutor
+
+        class TestExecutor(ToolExecutor[Any, Any]):  # type: ignore[type-arg]
+            def __call__(self, action: Any) -> Any:
+                return TestObservation(result=f"Executed: {action.command}")  # type: ignore[call-arg]
+
+        test_tool = Tool(
+            name="test_tool",
+            description="A test tool",
+            input_schema=TestAction,
+            output_schema=TestObservation,
+            executor=TestExecutor(),
+        )
+
+        self.agent = Agent(llm=self.mock_llm, tools=[test_tool])
         self.conversation = Conversation(agent=self.agent)
 
     def _create_test_action(self, call_id="call_1", command="test_command"):
@@ -78,8 +114,8 @@ class TestConfirmationMode:
         ]
         assert len(rejection_events) == 0
 
-    def test_action_interception_and_pending_management(self):
-        """Test action interception and pending action management."""
+    def test_getting_unmatched_events(self):
+        """Test getting unmatched events (actions without observations)."""
         # Create test action
         action_event = self._create_test_action()
         events: list = [action_event]
@@ -136,25 +172,124 @@ class TestConfirmationMode:
 
     def test_message_vs_action_behavior(self):
         """Test confirmation mode handles message-only vs action responses."""
+        from litellm.types.utils import Choices, ModelResponse
+
+        from openhands.sdk.event import MessageEvent
+        from openhands.sdk.llm import Message, TextContent
+
         # Enable confirmation mode
         self.conversation.set_confirmation_mode(True)
         assert self.conversation.state.confirmation_mode is True
 
-        # When no actions are created, no pending actions exist
-        pending_actions = self.conversation.get_pending_actions()
-        assert len(pending_actions) == 0
+        # Test 1: Agent sends a message (no tool calls)
+        # Mock LLM to return a message-only response
+        from litellm.types.utils import Message as LiteLLMMessage
 
-        # Agent should not finish prematurely when no actions created
-        assert self.conversation.state.agent_finished is False
+        message_response = ModelResponse(
+            id="response_1",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant", content="Hello, how can I help you?"
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
+        self.mock_llm.completion.return_value = message_response
 
-        # Rejecting when no actions exist should not cause errors
-        self.conversation.reject_pending_actions("No actions to reject")
-        rejection_events = [
+        # Send a message and run the conversation
+        self.conversation.send_message(
+            Message(role="user", content=[TextContent(text="some prompt")])
+        )
+        self.conversation.run()
+
+        # Verify: message response doesn't ask for confirmation
+        assert self.conversation.state.waiting_for_confirmation is False
+        assert self.conversation.state.agent_finished is True
+
+        # Verify a MessageEvent was generated
+        message_events = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, UserRejectsObservation)
+            if isinstance(event, MessageEvent) and event.source == "agent"
         ]
-        assert len(rejection_events) == 0
+        assert len(message_events) == 1
+        content = message_events[0].llm_message.content[0]
+        assert isinstance(content, TextContent)
+        assert content.text == "Hello, how can I help you?"
+
+        # Test 2: Agent creates an action (with tool calls)
+        # Reset agent state for next test
+        self.conversation.state.agent_finished = False
+
+        # Mock LLM to return an action response
+        action_response = ModelResponse(
+            id="response_2",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content="I'll execute a test command",
+                        tool_calls=[self._create_test_action().tool_call],
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
+        self.mock_llm.completion.return_value = action_response
+
+        # Send another message and run
+        self.conversation.send_message(
+            Message(role="user", content=[TextContent(text="execute a command")])
+        )
+        self.conversation.run()
+
+        # Verify: action response asks for confirmation
+        assert self.conversation.state.agent_finished is False
+        assert self.conversation.state.waiting_for_confirmation is True
+
+        # Verify no observation has been generated yet (action not executed)
+        observation_events = [
+            event
+            for event in self.conversation.state.events
+            if isinstance(event, ObservationEvent)
+        ]
+        assert len(observation_events) == 0
+
+        # Test 3: Call run() again to execute the pending action
+        # Mock LLM to return a finish response (no more actions)
+        finish_response = ModelResponse(
+            id="response_3",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant", content="Task completed successfully!"
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
+        self.mock_llm.completion.return_value = finish_response
+
+        # Run again - this should execute the pending action
+        self.conversation.run()
+
+        # Verify: observation was generated from running the action
+        observation_events = [
+            event
+            for event in self.conversation.state.events
+            if isinstance(event, ObservationEvent)
+        ]
+        assert len(observation_events) == 1
+        assert observation_events[0].observation.result == "Executed: test_command"  # type: ignore[attr-defined]
+        assert self.conversation.state.waiting_for_confirmation is False
 
     def test_confirmation_workflow_integration(self):
         """Test confirmation workflow state transitions."""
