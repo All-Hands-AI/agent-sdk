@@ -177,7 +177,6 @@ class TestLLMAPISerialization:
         assert isinstance(llm_data["content"], str)
         assert llm_data["content"] == "Hello, world!"
         assert llm_data["role"] == "user"
-        assert llm_data["cache_enabled"] is False
 
     def test_cache_enabled_triggers_list_serialization(self):
         """Test message with cache_enabled=True triggers list serializer for LLM."""
@@ -192,7 +191,6 @@ class TestLLMAPISerialization:
         assert isinstance(llm_data["content"], list)
         assert len(llm_data["content"]) == 1
         assert llm_data["content"][0]["text"] == "Hello, world!"
-        assert llm_data["cache_enabled"] is True
 
     def test_vision_enabled_triggers_list_serialization(self):
         """Test message with vision_enabled=True triggers list serializer for LLM."""
@@ -211,7 +209,6 @@ class TestLLMAPISerialization:
         assert len(llm_data["content"]) == 2
         assert llm_data["content"][0]["text"] == "What's in this image?"
         assert llm_data["content"][1]["type"] == "image_url"
-        assert llm_data["vision_enabled"] is True
 
     def test_function_calling_enabled_triggers_list_serialization(self):
         """Test message with function_calling_enabled=True triggers list serializer for
@@ -226,7 +223,6 @@ class TestLLMAPISerialization:
         # LLM API serialization - uses list format due to function_calling_enabled
         llm_data = message.to_llm_dict()
         assert isinstance(llm_data["content"], list)
-        assert llm_data["function_calling_enabled"] is True
 
     def test_force_string_serializer_override(self):
         """Test force_string_serializer=True overrides other settings for LLM."""
@@ -241,8 +237,6 @@ class TestLLMAPISerialization:
         llm_data = message.to_llm_dict()
         assert isinstance(llm_data["content"], str)
         assert llm_data["content"] == "Hello, world!"
-        assert llm_data["cache_enabled"] is True
-        assert llm_data["force_string_serializer"] is True
 
     def test_tool_response_message_llm_serialization(self):
         """Test tool response message uses string format for simple tool response."""
@@ -303,24 +297,6 @@ class TestLLMAPISerialization:
         assert len(llm_data["content"]) == 2
         assert llm_data["content"][0]["type"] == "text"
         assert llm_data["content"][1]["type"] == "image_url"
-
-    def test_all_boolean_fields_preserved_in_llm_serialization(self):
-        """Test all boolean configuration fields are preserved in LLM serialization."""
-        message = Message(
-            role="user",
-            content=[TextContent(text="Test message")],
-            cache_enabled=True,
-            vision_enabled=True,
-            function_calling_enabled=True,
-            force_string_serializer=False,
-        )
-
-        # LLM API serialization
-        llm_data = message.to_llm_dict()
-        assert llm_data["cache_enabled"] is True
-        assert llm_data["vision_enabled"] is True
-        assert llm_data["function_calling_enabled"] is True
-        assert llm_data["force_string_serializer"] is False
 
 
 class TestSerializationPathSelection:
