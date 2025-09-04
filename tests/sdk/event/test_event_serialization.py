@@ -1,6 +1,8 @@
 """Comprehensive tests for event serialization and deserialization."""
 
 import pytest
+from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import Function
 from pydantic import ValidationError
 
 from openhands.sdk.event import (
@@ -15,6 +17,10 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.llm import TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
+
+
+class MockEvent(EventBase):
+    test_field: str = "test_value"
 
 
 class MockAction(ActionBase):
@@ -32,14 +38,10 @@ class MockObservation(ObservationBase):
 
 def test_event_base_serialization() -> None:
     """Test basic EventBase serialization/deserialization."""
-
-    class TestEvent(EventBase):
-        test_field: str = "test_value"
-
-    event = TestEvent(source="agent", test_field="custom_value")
+    event = MockEvent(source="agent", test_field="custom_value")
 
     json_data = event.model_dump_json()
-    deserialized = TestEvent.model_validate_json(json_data)
+    deserialized = MockEvent.model_validate_json(json_data)
     assert deserialized == event
 
 
@@ -56,9 +58,6 @@ def test_system_prompt_event_serialization() -> None:
 
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
-    from litellm import ChatCompletionMessageToolCall
-    from litellm.types.utils import Function
-
     action = MockAction()
     tool_call = ChatCompletionMessageToolCall(
         id="call_123",
