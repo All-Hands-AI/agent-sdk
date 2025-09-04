@@ -15,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with: { fetch-depth: 0 }
 
       - name: Detect sdk changes
         id: changed
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v46
         with:
           files: |
             openhands/sdk/**
@@ -30,7 +30,7 @@ jobs:
 
       - name: Install uv
         if: steps.changed.outputs.any_changed == 'true'
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
@@ -40,31 +40,39 @@ jobs:
 
       - name: Run sdk tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.sdk
         run: |
-          CI=true uv run python -m pytest -vvxss \
+          # Clean up any existing coverage file
+          rm -f .coverage
+          CI=true uv run python -m pytest -vvs \
             --cov=openhands/sdk \
             --cov-report=term-missing \
+            --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/sdk
+          # Rename coverage file for upload
+          if [ -f .coverage ]; then
+            mv .coverage coverage-sdk.dat
+            echo "SDK coverage file prepared for upload"
+          fi
 
       - name: Upload sdk coverage
         if: steps.changed.outputs.any_changed == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-sdk
-          path: .coverage.sdk
+          path: coverage-sdk.dat
+          if-no-files-found: warn
 
   tools-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with: { fetch-depth: 0 }
 
       - name: Detect tools changes
         id: changed
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v46
         with:
           files: |
             openhands/tools/**
@@ -74,7 +82,7 @@ jobs:
       
       - name: Install uv
         if: steps.changed.outputs.any_changed == 'true'
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
@@ -84,31 +92,39 @@ jobs:
 
       - name: Run tools tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.tools
         run: |
-          CI=true uv run python -m pytest -vvxss \
+          # Clean up any existing coverage file
+          rm -f .coverage
+          CI=true uv run python -m pytest -vvs \
             --cov=openhands/tools \
             --cov-report=term-missing \
+            --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/tools
+          # Rename coverage file for upload
+          if [ -f .coverage ]; then
+            mv .coverage coverage-tools.dat
+            echo "Tools coverage file prepared for upload"
+          fi
 
       - name: Upload tools coverage
         if: steps.changed.outputs.any_changed == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-tools
-          path: .coverage.tools
+          path: coverage-tools.dat
+          if-no-files-found: warn
 
   integration-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with: { fetch-depth: 0 }
 
       - name: Detect integration changes
         id: changed
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v46
         with:
           files: |
             tests/**
@@ -119,7 +135,7 @@ jobs:
       
       - name: Install uv
         if: steps.changed.outputs.any_changed == 'true'
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
@@ -129,23 +145,31 @@ jobs:
 
       - name: Run integration tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
-        env:
-          COVERAGE_FILE: .coverage.integration
         run: |
-          CI=true uv run python -m pytest -vvxss \
+          # Clean up any existing coverage file
+          rm -f .coverage
+          CI=true uv run python -m pytest -vvs \
             --basetemp="${{ runner.temp }}/pytest" \
             -o tmp_path_retention=none \
             -o tmp_path_retention_count=0 \
             --cov=openhands \
             --cov-report=term-missing \
+            --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
             tests/integration
+          # Rename coverage file for upload
+          if [ -f .coverage ]; then
+            mv .coverage coverage-integration.dat
+            echo "Integration coverage file prepared for upload"
+          fi
 
       - name: Upload integration coverage
         if: steps.changed.outputs.any_changed == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-integration
-          path: .coverage.integration
+          path: coverage-integration.dat
+          if-no-files-found: warn
 
   coverage-report:
     runs-on: ubuntu-latest
@@ -153,10 +177,10 @@ jobs:
     if: always() && github.event_name == 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
@@ -164,7 +188,7 @@ jobs:
         run: uv sync --frozen --group dev
 
       - name: Download coverage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: ./cov
         continue-on-error: true
@@ -172,16 +196,30 @@ jobs:
       - name: Combine coverage data
         run: |
           shopt -s nullglob
-          files=(cov/**/.coverage*)
-          if [ ${#files[@]} -eq 0 ]; then
+          # For some reason, the github action won't properly upload the original
+          # .converage* files
+          # Convert uploaded .dat files back to .coverage format for coverage tool
+          for dat_file in cov/**/coverage-*.dat; do
+            if [[ "$dat_file" == *coverage-sdk.dat ]]; then
+              cp "$dat_file" .coverage.sdk
+            elif [[ "$dat_file" == *coverage-tools.dat ]]; then
+              cp "$dat_file" .coverage.tools  
+            elif [[ "$dat_file" == *coverage-integration.dat ]]; then
+              cp "$dat_file" .coverage.integration
+            fi
+          done
+          
+          # Check if we have any coverage files
+          coverage_files=(.coverage.*)
+          if [ ${#coverage_files[@]} -eq 0 ]; then
             echo "No coverage files found; skipping combined report."
             exit 0
           fi
-          # Bring files to cwd so coverage can find them easily
-          cp "${files[@]}" .
+          
+          echo "Found ${#coverage_files[@]} coverage files"
           uv run coverage combine
           uv run coverage xml -i -o coverage.xml
-          uv run coverage report -m || true
+          uv run coverage report -m
 
       - name: Pytest coverage PR comment
         if: always()

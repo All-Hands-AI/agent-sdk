@@ -821,4 +821,4 @@ class LLM(RetryMixin):
                 message.force_string_serializer = True
 
         # let pydantic handle the serialization
-        return [message.model_dump() for message in messages]
+        return [message.to_llm_dict() for message in messages]

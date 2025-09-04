@@ -3,7 +3,7 @@ from typing import Any, Literal, cast
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
-from pydantic import BaseModel, Field, model_serializer
+from pydantic import BaseModel, Field
 
 
 class ContentType(Enum):
@@ -15,10 +15,10 @@ class Content(BaseModel):
     type: str
     cache_prompt: bool = False
 
-    @model_serializer(mode="plain")
-    def serialize_model(
+    def to_llm_dict(
         self,
     ) -> dict[str, str | dict[str, str]] | list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format. Subclasses should implement this method."""
         raise NotImplementedError("Subclasses should implement this method.")
 
 
@@ -26,8 +26,8 @@ class TextContent(Content):
     type: str = ContentType.TEXT.value
     text: str
 
-    @model_serializer(mode="plain")
-    def serialize_model(self) -> dict[str, str | dict[str, str]]:
+    def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
+        """Convert to LLM API format."""
         data: dict[str, str | dict[str, str]] = {
             "type": self.type,
             "text": self.text,
@@ -41,8 +41,8 @@ class ImageContent(Content):
     type: str = ContentType.IMAGE_URL.value
     image_urls: list[str]
 
-    @model_serializer(mode="plain")
-    def serialize_model(self) -> list[dict[str, str | dict[str, str]]]:
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format."""
         images: list[dict[str, str | dict[str, str]]] = []
         for url in self.image_urls:
             images.append({"type": self.type, "image_url": {"url": url}})
@@ -72,21 +72,24 @@ class Message(BaseModel):
     def contains_image(self) -> bool:
         return any(isinstance(content, ImageContent) for content in self.content)
 
-    @model_serializer(mode="plain")
-    def serialize_model(self) -> dict[str, Any]:
-        # We need two kinds of serializations:
-        # - into a single string: for providers that don't support list of content
-        #   items (e.g. no vision, no tool calls)
-        # - into a list of content items: the new APIs of providers with
-        #   vision/prompt caching/tool calls
-        # NOTE: remove this when litellm or providers support the new API
+    def to_llm_dict(self) -> dict[str, Any]:
+        """Serialize message for LLM API consumption.
+
+        This method chooses the appropriate serialization format based on the message
+        configuration and provider capabilities:
+        - String format: for providers that don't support list of content items
+        - List format: for providers with vision/prompt caching/tool calls support
+        """
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
-            return self._list_serializer()
-        # some providers, like HF and Groq/llama, don't support a list here, but a
-        # single string
-        return self._string_serializer()
+            message_dict = self._list_serializer()
+        else:
+            # some providers, like HF and Groq/llama, don't support a list here, but a
+            # single string
+            message_dict = self._string_serializer()
+
+        return message_dict
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
@@ -104,7 +107,7 @@ class Message(BaseModel):
 
         for item in self.content:
             # Serialize with the subclass-specific return type
-            raw = item.model_dump()
+            raw = item.to_llm_dict()
             # We have to remove cache_prompt for tool content and move it up to the
             # message level
             # See discussion here for details: https://github.com/BerriAI/litellm/issues/6422#issuecomment-2438765472
