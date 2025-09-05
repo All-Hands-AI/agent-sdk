@@ -32,17 +32,11 @@ def maybe_truncate(
     if not truncate_after or len(content) <= truncate_after or truncate_after < 0:
         return content
 
-    # Calculate space for the truncate notice
-    notice_len = len(truncate_notice)
-    if truncate_after <= notice_len:
-        # If truncate_after is too small, just return the notice truncated
-        return truncate_notice[:truncate_after]
-
     # Calculate how much space we have for actual content
-    available_chars = truncate_after - notice_len
+    available_chars = truncate_after - len(truncate_notice)
     half = available_chars // 2
 
-    # Handle odd number of available chars by giving the extra char to the head
+    # Give extra character to head if odd number
     head_chars = half + (available_chars % 2)
     tail_chars = half
 
