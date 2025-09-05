@@ -1,48 +1,44 @@
 """Tests for LLM completion functionality, configuration, and metrics tracking."""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from litellm.types.utils import Choices, Message, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.config import LLMConfig
 from openhands.sdk.llm import LLM
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
     """Helper function to create properly structured mock responses."""
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = content
-
-    # Create usage mock
-    mock_usage = MagicMock()
-    mock_usage.get.side_effect = lambda key, default=None: {
-        "prompt_tokens": 10,
-        "completion_tokens": 5,
-        "model_extra": {},
-    }.get(key, default)
-    mock_usage.prompt_tokens_details = None
-
-    # Response data mapping
-    response_data = {
-        "choices": mock_response.choices,
-        "usage": mock_usage,
-        "id": response_id,
-    }
-
-    # Mock both .get() and dict-like access (LLM code uses both patterns inconsistently)
-    mock_response.get.side_effect = lambda key, default=None: response_data.get(
-        key, default
+    return ModelResponse(
+        id=response_id,
+        choices=[
+            Choices(
+                finish_reason="stop",
+                index=0,
+                message=Message(
+                    content=content,
+                    role="assistant",
+                ),
+            )
+        ],
+        created=1234567890,
+        model="gpt-4o",
+        object="chat.completion",
+        system_fingerprint="test",
+        usage=Usage(
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+        ),
     )
-    mock_response.__getitem__ = lambda self, key: response_data[key]
-
-    return mock_response
 
 
 @pytest.fixture
 def default_config():
-    return LLMConfig(
+    return LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -52,12 +48,19 @@ def default_config():
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_llm_completion_basic(mock_completion, default_config):
+def test_llm_completion_basic(mock_completion):
     """Test basic LLM completion functionality."""
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
 
-    llm = LLM(config=default_config)
+    # Create LLM after the patch is applied
+    llm = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        num_retries=2,
+        retry_min_wait=1,
+        retry_max_wait=2,
+    )
 
     # Test completion
     messages = [{"role": "user", "content": "Hello"}]
@@ -69,7 +72,7 @@ def test_llm_completion_basic(mock_completion, default_config):
 
 def test_llm_streaming_not_supported(default_config):
     """Test that streaming is not supported in the basic LLM class."""
-    llm = LLM(config=default_config)
+    llm = default_config
 
     messages = [{"role": "user", "content": "Hello"}]
 
@@ -79,10 +82,10 @@ def test_llm_streaming_not_supported(default_config):
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_llm_completion_with_tools(mock_completion, default_config):
+def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
-    mock_response.choices[0].message.tool_calls = [
+    mock_response.choices[0].message.tool_calls = [  # type: ignore
         MagicMock(
             id="call_123",
             type="function",
@@ -91,11 +94,18 @@ def test_llm_completion_with_tools(mock_completion, default_config):
     ]
     mock_completion.return_value = mock_response
 
-    llm = LLM(config=default_config)
+    # Create LLM after the patch is applied
+    llm = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        num_retries=2,
+        retry_min_wait=1,
+        retry_max_wait=2,
+    )
 
     # Test completion with tools
     messages = [{"role": "user", "content": "Use the test tool"}]
-    tools = [
+    tools: list[Any] = [
         {
             "type": "function",
             "function": {
@@ -116,12 +126,19 @@ def test_llm_completion_with_tools(mock_completion, default_config):
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_llm_completion_error_handling(mock_completion, default_config):
+def test_llm_completion_error_handling(mock_completion):
     """Test LLM completion error handling."""
     # Mock an exception
     mock_completion.side_effect = Exception("Test error")
 
-    llm = LLM(config=default_config)
+    # Create LLM after the patch is applied
+    llm = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        num_retries=2,
+        retry_min_wait=1,
+        retry_max_wait=2,
+    )
 
     messages = [{"role": "user", "content": "Hello"}]
 
@@ -132,7 +149,7 @@ def test_llm_completion_error_handling(mock_completion, default_config):
 
 def test_llm_token_counting_basic(default_config):
     """Test basic token counting functionality."""
-    llm = LLM(config=default_config)
+    llm = default_config
 
     # Test with simple messages
     messages = [
@@ -148,10 +165,10 @@ def test_llm_token_counting_basic(default_config):
 
 def test_llm_model_info_initialization(default_config):
     """Test model info initialization."""
-    llm = LLM(config=default_config)
+    llm = default_config
 
     # Model info initialization should complete without errors
-    llm.init_model_info()
+    llm._init_model_info_and_caps()
 
     # Model info might be None for unknown models, which is fine
     assert llm.model_info is None or isinstance(llm.model_info, dict)
@@ -159,7 +176,7 @@ def test_llm_model_info_initialization(default_config):
 
 def test_llm_feature_detection(default_config):
     """Test various feature detection methods."""
-    llm = LLM(config=default_config)
+    llm = default_config
 
     # All feature detection methods should return booleans
     assert isinstance(llm.vision_is_active(), bool)
@@ -169,7 +186,7 @@ def test_llm_feature_detection(default_config):
 
 def test_llm_cost_tracking(default_config):
     """Test cost tracking functionality."""
-    llm = LLM(config=default_config)
+    llm = default_config
 
     initial_cost = llm.metrics.accumulated_cost
 
@@ -182,7 +199,7 @@ def test_llm_cost_tracking(default_config):
 
 def test_llm_latency_tracking(default_config):
     """Test latency tracking functionality."""
-    llm = LLM(config=default_config)
+    llm = default_config
 
     initial_count = len(llm.metrics.response_latencies)
 
@@ -195,7 +212,7 @@ def test_llm_latency_tracking(default_config):
 
 def test_llm_token_usage_tracking(default_config):
     """Test token usage tracking functionality."""
-    llm = LLM(config=default_config)
+    llm = default_config
 
     initial_count = len(llm.metrics.token_usages)
 
@@ -224,7 +241,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     mock_completion.return_value = mock_response
 
     # Create config with custom parameters
-    custom_config = LLMConfig(
+    custom_config = LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         temperature=0.8,
@@ -232,7 +249,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
         top_p=0.9,
     )
 
-    llm = LLM(config=custom_config)
+    llm = custom_config
 
     messages = [{"role": "user", "content": "Hello with custom params"}]
     response = llm.completion(messages=messages)

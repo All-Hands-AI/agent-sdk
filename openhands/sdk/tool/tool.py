@@ -1,8 +1,7 @@
 import re
 from typing import Any, Generic, TypeVar
 
-from openai.types.chat import ChatCompletionToolParam
-from openai.types.shared_params.function_definition import FunctionDefinition
+from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import BaseModel, Field
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase, Schema
@@ -174,10 +173,9 @@ class Tool(Generic[ActionT, ObservationT]):
         """Convert an MCP tool to an OpenAI tool."""
         return ChatCompletionToolParam(
             type="function",
-            function=FunctionDefinition(
+            function=ChatCompletionToolParamFunctionChunk(
                 name=self.name,
                 description=self.description,
                 parameters=self.input_schema,
-                strict=False,
             ),
         )

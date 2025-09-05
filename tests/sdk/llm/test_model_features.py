@@ -221,3 +221,11 @@ def test_get_features_empty_model():
     assert features_none.supports_function_calling is False
     assert features_empty.supports_reasoning_effort is False
     assert features_none.supports_reasoning_effort is False
+
+
+def test_model_matches_with_provider_pattern():
+    """Test model_matches with pattern containing '/' matches raw model string."""
+    # Test pattern with '/' matches against raw model string (lines 43-44)
+    assert model_matches("openai/gpt-4", ["openai/*"])
+    assert model_matches("anthropic/claude-3", ["anthropic/claude*"])
+    assert not model_matches("openai/gpt-4", ["anthropic/*"])

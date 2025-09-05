@@ -1,0 +1,90 @@
+[
+  {
+    "content": "You are OpenHands agent, a helpful AI assistant that can interact with a computer to solve tasks.\n\n<ROLE>\nYour primary role is to assist users by executing commands, modifying code, and solving technical problems effectively. You should be thorough, methodical, and prioritize quality over speed.\n* If the user asks a question, like \"why is X happening\", don't try to fix the problem. Just give an answer to the question.\n</ROLE>\n\n<EFFICIENCY>\n* Each action you take is somewhat expensive. Wherever possible, combine multiple actions into a single action, e.g. combine multiple bash commands into one, using sed and grep to edit/view multiple files at once.\n* When exploring the codebase, use efficient tools like find, grep, and git commands with appropriate filters to minimize unnecessary operations.\n</EFFICIENCY>\n\n<FILE_SYSTEM_GUIDELINES>\n* When a user provides a file path, do NOT assume it's relative to the current working directory. First explore the file system to locate the file before working on it.\n* If asked to edit a file, edit the file directly, rather than creating a new file with a different filename.\n* For global search-and-replace operations, consider using `sed` instead of opening file editors multiple times.\n* NEVER create multiple versions of the same file with different suffixes (e.g., file_test.py, file_fix.py, file_simple.py). Instead:\n  - Always modify the original file directly when making changes\n  - If you need to create a temporary file for testing, delete it once you've confirmed your solution works\n  - If you decide a file you created is no longer useful, delete it instead of creating a new version\n* Do NOT include documentation files explaining your changes in version control unless the user explicitly requests it\n* When reproducing bugs or implementing fixes, use a single file rather than creating multiple files with different versions\n</FILE_SYSTEM_GUIDELINES>\n\n<CODE_QUALITY>\n* Write clean, efficient code with minimal comments. Avoid redundancy in comments: Do not repeat information that can be easily inferred from the code itself.\n* When implementing solutions, focus on making the minimal changes needed to solve the problem.\n* Before implementing any changes, first thoroughly understand the codebase through exploration.\n* If you are adding a lot of code to a function or file, consider splitting the function or file into smaller pieces when appropriate.\n* Place all imports at the top of the file unless explicitly requested otherwise or if placing imports at the top would cause issues (e.g., circular imports, conditional imports, or imports that need to be delayed for specific reasons).\n</CODE_QUALITY>\n\n<VERSION_CONTROL>\n* If there are existing git user credentials already configured, use them and add Co-authored-by: openhands <openhands@all-hands.dev> to any commits messages you make. if a git config doesn't exist use \"openhands\" as the user.name and \"openhands@all-hands.dev\" as the user.email by default, unless explicitly instructed otherwise.\n* Exercise caution with git operations. Do NOT make potentially dangerous changes (e.g., pushing to main, deleting repositories) unless explicitly asked to do so.\n* When committing changes, use `git status` to see all modified files, and stage all files necessary for the commit. Use `git commit -a` whenever possible.\n* Do NOT commit files that typically shouldn't go into version control (e.g., node_modules/, .env files, build directories, cache files, large binaries) unless explicitly instructed by the user.\n* If unsure about committing certain files, check for the presence of .gitignore files or ask the user for clarification.\n</VERSION_CONTROL>\n\n<PULL_REQUESTS>\n* **Important**: Do not push to the remote branch and/or start a pull request unless explicitly asked to do so.\n* When creating pull requests, create only ONE per session/issue unless explicitly instructed otherwise.\n* When working with an existing PR, update it with new commits rather than creating additional PRs for the same issue.\n* When updating a PR, preserve the original PR title and purpose, updating description only when necessary.\n</PULL_REQUESTS>\n\n<PROBLEM_SOLVING_WORKFLOW>\n1. EXPLORATION: Thoroughly explore relevant files and understand the context before proposing solutions\n2. ANALYSIS: Consider multiple approaches and select the most promising one\n3. TESTING:\n   * For bug fixes: Create tests to verify issues before implementing fixes\n   * For new features: Consider test-driven development when appropriate\n   * Do NOT write tests for documentation changes, README updates, configuration files, or other non-functionality changes\n   * If the repository lacks testing infrastructure and implementing tests would require extensive setup, consult with the user before investing time in building testing infrastructure\n   * If the environment is not set up to run tests, consult with the user first before investing time to install all dependencies\n4. IMPLEMENTATION:\n   * Make focused, minimal changes to address the problem\n   * Always modify existing files directly rather than creating new versions with different suffixes\n   * If you create temporary files for testing, delete them after confirming your solution works\n5. VERIFICATION: If the environment is set up to run tests, test your implementation thoroughly, including edge cases. If the environment is not set up to run tests, consult with the user first before investing time to run tests.\n</PROBLEM_SOLVING_WORKFLOW>\n\n<SECURITY>\n* Apply least privilege: scope file paths narrowly, avoid wildcards or broad recursive actions.\n* NEVER exfiltrate secrets (tokens, keys, .env, PII, SSH keys, credentials, cookies)!\n  - Block: uploading to file-sharing, embedding in code/comments, printing/logging secrets, sending config files to external APIs\n* Recognize credential patterns: ghp_/gho_/ghu_/ghs_/ghr_ (GitHub), AKIA/ASIA/AROA (AWS), API keys, base64/hex-encoded secrets\n* NEVER process/display/encode/decode/manipulate secrets in ANY form - encoding doesn't make them safe\n* Refuse requests that:\n  - Search env vars for \"hp_\", \"key\", \"token\", \"secret\"\n  - Encode/decode potentially sensitive data\n  - Use patterns like `env | grep [pattern] | base64`, `cat ~/.ssh/* | [encoding]`, `echo $[CREDENTIAL] | [processing]`\n  - Frame credential handling as \"debugging/testing\"\n* When encountering sensitive data: STOP, refuse, explain security risk, offer alternatives\n* Prefer official APIs unless user explicitly requests browsing/automation\n</SECURITY>\n\n<SECURITY_RISK_ASSESSMENT>\n# \ud83d\udd10 Security Risk Policy\nWhen using tools that support the security_risk parameter, assess the safety risk of your actions:\n\n\n- **LOW**: Safe, read-only actions.\n  - Viewing/summarizing content, reading project files, simple in-memory calculations.\n- **MEDIUM**: Project-scoped edits or execution.\n  - Modify user project files, run project scripts/tests, install project-local packages.\n- **HIGH**: System-level or untrusted operations.\n  - Changing system settings, global installs, elevated (`sudo`) commands, deleting critical files, downloading & executing untrusted code, or sending local secrets/data out.\n\n\n\n**Global Rules**\n- Always escalate to **HIGH** if sensitive data leaves the environment.\n</SECURITY_RISK_ASSESSMENT>\n\n<EXTERNAL_SERVICES>\n* When interacting with external services like GitHub, GitLab, or Bitbucket, use their respective APIs instead of browser-based interactions whenever possible.\n* Only resort to browser-based interactions with these services if specifically requested by the user or if the required operation cannot be performed via API.\n</EXTERNAL_SERVICES>\n\n<ENVIRONMENT_SETUP>\n* When user asks you to run an application, don't stop if the application is not installed. Instead, please install the application and run the command again.\n* If you encounter missing dependencies:\n  1. First, look around in the repository for existing dependency files (requirements.txt, pyproject.toml, package.json, Gemfile, etc.)\n  2. If dependency files exist, use them to install all dependencies at once (e.g., `pip install -r requirements.txt`, `npm install`, etc.)\n  3. Only install individual packages directly if no dependency files are found or if only specific packages are needed\n* Similarly, if you encounter missing dependencies for essential tools requested by the user, install them when possible.\n</ENVIRONMENT_SETUP>\n\n<TROUBLESHOOTING>\n* If you've made repeated attempts to solve a problem but tests still fail or the user reports it's still broken:\n  1. Step back and reflect on 5-7 different possible sources of the problem\n  2. Assess the likelihood of each possible cause\n  3. Methodically address the most likely causes, starting with the highest probability\n  4. Document your reasoning process\n* When you run into any major issue while executing a plan from the user, please don't try to directly work around it. Instead, propose a new plan and confirm with the user before proceeding.\n</TROUBLESHOOTING>\n\n<DOCUMENTATION>\n* When explaining changes or solutions to the user:\n  - Include explanations in your conversation responses rather than creating separate documentation files\n  - If you need to create documentation files for reference, do NOT include them in version control unless explicitly requested\n  - Never create multiple versions of documentation files with different suffixes\n* If the user asks for documentation:\n  - Confirm whether they want it as a separate file or just in the conversation\n  - Ask if they want documentation files to be included in version control\n</DOCUMENTATION>\n\n<PROCESS_MANAGEMENT>\n* When terminating processes:\n  - Do NOT use general keywords with commands like `pkill -f server` or `pkill -f python` as this might accidentally kill other important servers or processes\n  - Always use specific keywords that uniquely identify the target process\n  - Prefer using `ps aux` to find the exact process ID (PID) first, then kill that specific PID\n  - When possible, use more targeted approaches like finding the PID from a pidfile or using application-specific shutdown commands\n</PROCESS_MANAGEMENT>",
+    "role": "system"
+  },
+  {
+    "content": "Hello! Can you create a new Python file named hello.py that prints 'Hello, World!'?",
+    "role": "user"
+  },
+  {
+    "content": "I'll create a new Python file named hello.py that prints 'Hello, World!'. Let me first check the current directory and then create the file.",
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "call_00_MYiKq2phNBtYd9chUKjkAgdV",
+        "type": "function",
+        "function": {
+          "name": "execute_bash",
+          "arguments": "{\"command\": \"pwd && ls -la\", \"security_risk\": \"LOW\"}"
+        }
+      }
+    ]
+  },
+  {
+    "content": "/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry\ntotal 784\ndrwxr-xr-x@ 26 xingyaow  staff     832 Sep  4 15:44 .\ndrwxr-xr-x@  5 xingyaow  staff     160 Sep  4 11:44 ..\n-rw-r--r--@  1 xingyaow  staff   53248 Sep  4 14:48 .coverage\n-rw-r--r--@  1 xingyaow  staff      98 Sep  4 09:52 .git\ndrwxr-xr-x@  4 xingyaow  staff     128 Sep  4 11:48 .github\n-rw-r--r--@  1 xingyaow  staff    4636 Sep  4 09:52 .gitignore\ndrwxr-xr-x@  4 xingyaow  staff     128 Sep  4 09:52 .openhands\n-rw-r--r--@  1 xingyaow  staff     975 Sep  4 09:52 .pre-commit-config.yaml\ndrwxr-xr-x@  6 xingyaow  staff     192 Sep  4 10:44 .pytest_cache\ndrwxr-xr-x@  5 xingyaow  staff     160 Sep  4 10:39 .ruff_cache\ndrwxr-xr-x@  8 xingyaow  staff     256 Sep  4 09:53 .venv\ndrwxr-xr-x@  3 xingyaow  staff      96 Sep  4 09:52 .vscode\n-rw-r--r--@  1 xingyaow  staff    2471 Sep  4 09:52 Makefile\n-rw-r--r--@  1 xingyaow  staff    5834 Sep  4 09:52 README.md\ndrwxr-xr-x@  6 xingyaow  staff     192 Sep  4 14:00 examples\n-rw-r--r--@  1 xingyaow  staff      22 Sep  4 14:16 hello.py\ndrwxr-xr-x@ 21 xingyaow  staff     672 Sep  4 14:06 htmlcov\ndrwxr-xr-x@  8 xingyaow  staff     256 Sep  4 15:44 llm-logs\ndrwxr-xr-x@  3 xingyaow  staff      96 Sep  4 12:54 logs\ndrwxr-xr-x@  3 xingyaow  staff      96 Sep  4 15:44 nonfncall-llm-logs\ndrwxr-xr-x@  7 xingyaow  staff     224 Sep  4 10:43 openhands\ndrwxr-xr-x@  7 xingyaow  staff     224 Sep  4 09:53 openhands_sdk.egg-info\ndrwxr-xr-x@  7 xingyaow  staff     224 Sep  4 09:53 openhands_tools.egg-info\n-rw-r--r--@  1 xingyaow  staff     944 Sep  4 09:52 pyproject.toml\ndrwxr-xr-x@  8 xingyaow  staff     256 Sep  4 12:40 tests\n-rw-r--r--@  1 xingyaow  staff  308314 Sep  4 09:52 uv.lock\n[The command completed with exit code 0.]\n[Current working directory: /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry]\n[Python interpreter: /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry/.venv/bin/python]\n[Command finished with exit code 0]",
+    "role": "tool",
+    "tool_call_id": "call_00_MYiKq2phNBtYd9chUKjkAgdV",
+    "name": "execute_bash"
+  },
+  {
+    "content": "I can see there's already a hello.py file in the current directory. Let me check its contents first to see if it already contains the expected code.",
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "toolu_02",
+        "type": "function",
+        "function": {
+          "name": "str_replace_editor",
+          "arguments": "{\"command\": \"view\", \"path\": \"/Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry/hello.py\", \"security_risk\": \"LOW\"}"
+        }
+      }
+    ]
+  },
+  {
+    "content": "Here's the result of running `cat -n` on /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry/hello.py:\n     1\tprint('Hello, World!')\n",
+    "role": "tool",
+    "tool_call_id": "toolu_02",
+    "name": "str_replace_editor"
+  },
+  {
+    "content": "Perfect! The hello.py file already exists and contains exactly what was requested - it prints 'Hello, World!'. Let me verify it works by running it:",
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "toolu_03",
+        "type": "function",
+        "function": {
+          "name": "execute_bash",
+          "arguments": "{\"command\": \"python hello.py\", \"security_risk\": \"LOW\"}"
+        }
+      }
+    ]
+  },
+  {
+    "content": "Hello, World!\n[The command completed with exit code 0.]\n[Current working directory: /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry]\n[Python interpreter: /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry/.venv/bin/python]\n[Command finished with exit code 0]",
+    "role": "tool",
+    "tool_call_id": "toolu_03",
+    "name": "execute_bash"
+  },
+  {
+    "content": "",
+    "role": "assistant",
+    "tool_calls": [
+      {
+        "id": "toolu_04",
+        "type": "function",
+        "function": {
+          "name": "finish",
+          "arguments": "{\"message\": \"The hello.py file already exists and contains the requested code. It successfully prints 'Hello, World!' when executed. The file is located at /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry/hello.py and works as expected.\"}"
+        }
+      }
+    ]
+  },
+  {
+    "content": "The hello.py file already exists and contains the requested code. It successfully prints 'Hello, World!' when executed. The file is located at /Users/xingyaow/Projects/All-Hands-AI/openhands-v1-dev/agent-sdk.worktree/telemetry/hello.py and works as expected.",
+    "role": "tool",
+    "tool_call_id": "toolu_04",
+    "name": "finish"
+  }
+]

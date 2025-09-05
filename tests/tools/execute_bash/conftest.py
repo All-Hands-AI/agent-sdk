@@ -3,8 +3,8 @@
 import tempfile
 
 from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.bash_session import BashSession
 from openhands.tools.execute_bash.constants import TIMEOUT_MESSAGE_TEMPLATE
+from openhands.tools.execute_bash.terminal import create_terminal_session
 
 
 logger = get_logger(__name__)
@@ -19,13 +19,13 @@ def get_no_change_timeout_suffix(timeout_seconds):
 
 
 def create_test_bash_session(work_dir=None):
-    """Create a BashSession for testing purposes."""
+    """Create a terminal session for testing purposes."""
     if work_dir is None:
         work_dir = tempfile.mkdtemp()
-    return BashSession(work_dir=work_dir)
+    return create_terminal_session(work_dir=work_dir)
 
 
 def cleanup_bash_session(session):
-    """Clean up a BashSession after testing."""
+    """Clean up a terminal session after testing."""
     if hasattr(session, "close"):
         session.close()
