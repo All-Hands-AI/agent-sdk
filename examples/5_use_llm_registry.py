@@ -85,10 +85,13 @@ print(f"LLM Registry services: {llm_registry.list_services()}")
 same_llm = llm_registry.get("main_agent")
 print(f"Same LLM instance: {llm is same_llm}")
 
-# Demonstrate requesting a completion directly from registry
-completion_response = llm_registry.request_extraneous_completion(
-    service_id="completion_service",
-    llm_config=main_llm,
-    messages=[{"role": "user", "content": "Say hello in one word."}],
+# Demonstrate requesting a completion directly from an LLM
+completion_response = llm.completion(
+    messages=[{"role": "user", "content": "Say hello in one word."}]
 )
-print(f"Direct completion response: {completion_response}")
+# Access the response content
+if completion_response.choices and completion_response.choices[0].message:  # type: ignore
+    content = completion_response.choices[0].message.content  # type: ignore
+    print(f"Direct completion response: {content}")
+else:
+    print("No response content available")
