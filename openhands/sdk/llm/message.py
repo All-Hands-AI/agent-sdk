@@ -1,18 +1,12 @@
-from enum import Enum
 from typing import Any, Literal, cast
 
+import mcp.types
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, Field
 
 
-class ContentType(Enum):
-    TEXT = "text"
-    IMAGE_URL = "image_url"
-
-
-class Content(BaseModel):
-    type: str
+class BaseContent(BaseModel):
     cache_prompt: bool = False
 
     def to_llm_dict(
@@ -22,8 +16,8 @@ class Content(BaseModel):
         raise NotImplementedError("Subclasses should implement this method.")
 
 
-class TextContent(Content):
-    type: str = ContentType.TEXT.value
+class TextContent(mcp.types.TextContent, BaseContent):
+    type: Literal["text"] = "text"
     text: str
 
     def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
@@ -37,8 +31,8 @@ class TextContent(Content):
         return data
 
 
-class ImageContent(Content):
-    type: str = ContentType.IMAGE_URL.value
+class ImageContent(mcp.types.ImageContent, BaseContent):
+    type: Literal["image"] = "image"
     image_urls: list[str]
 
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
