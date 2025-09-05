@@ -108,7 +108,11 @@ class Schema(BaseModel):
     def from_mcp_schema(
         cls: type[S], model_name: str, schema: dict[str, Any]
     ) -> type["S"]:
-        """Create a Schema subclass from an MCP/JSON Schema object."""
+        """Create a Schema subclass from an MCP/JSON Schema object.
+
+        For non-required fields, we annotate as `T | None`
+        so explicit nulls are allowed.
+        """
         assert isinstance(schema, dict), "Schema must be a dict"
         assert schema.get("type") == "object", "Only object schemas are supported"
 
@@ -117,17 +121,28 @@ class Schema(BaseModel):
 
         fields: dict[str, tuple] = {}
         for fname, spec in props.items():
-            tp = py_type(spec if isinstance(spec, dict) else {})
-            default = ... if fname in required else None
-            desc: str | None = (
-                spec.get("description") if isinstance(spec, dict) else None
-            )
+            spec = spec if isinstance(spec, dict) else {}
+            tp = py_type(spec)
+
+            # Add description if present
+            desc: str | None = spec.get("description")
+
+            # Required → bare type, ellipsis sentinel
+            # Optional → make nullable via `| None`, default None
+            if fname in required:
+                anno = tp
+                default = ...
+            else:
+                anno = tp | None  # allow explicit null in addition to omission
+                default = None
+
             fields[fname] = (
-                tp,
+                anno,
                 Field(default=default, description=desc)
                 if desc
                 else Field(default=default),
             )
+
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 

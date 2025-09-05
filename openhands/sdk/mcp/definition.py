@@ -65,5 +65,5 @@ class MCPToolObservation(ObservationBase):
         """Format the observation for agent display."""
         initial_message = f"[Tool '{self.tool_name}' executed.]\n"
         if self.is_error:
-            initial_message += "[An error occurred during execution.]"
+            initial_message += "[An error occurred during execution.]\n"
         return [TextContent(text=initial_message)] + self.content
