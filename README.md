@@ -2,166 +2,332 @@
 
 A clean, modular SDK for building AI agents with OpenHands. This project represents a complete architectural refactor from OpenHands V0, emphasizing simplicity, maintainability, and developer experience.
 
+## Project Overview
+
+The OpenHands Agent SDK provides a streamlined framework for creating AI agents that can interact with tools, manage conversations, and integrate with various LLM providers. Built with modern Python practices and designed for extensibility, it offers:
+
+- **Clean Architecture**: Modular design with clear separation between core SDK and runtime tools
+- **Type Safety**: Full type annotations with `pyright` validation
+- **Developer Experience**: Simple APIs with comprehensive examples and documentation
+- **Extensibility**: Easy-to-implement custom tools and agent behaviors
+- **Production Ready**: Robust error handling, logging, and testing infrastructure
+
+### Key Design Principles
+
+1. **Simplicity First**: Eliminate complexity through proper data structure design
+2. **No Special Cases**: Good code has no edge cases, only normal cases
+3. **Pragmatic Solutions**: Solve real problems, not theoretical ones
+4. **Never Break Userspace**: Backward compatibility is sacred
+
 ## Repository Structure
 
 ```
 agent-sdk/
-├── .github/
-│   └── workflows/           # CI/CD workflows
-│       ├── precommit.yml   # Pre-commit hook validation
-│       └── tests.yml       # Test execution pipeline
-├── .pre-commit-config.yaml # Pre-commit hooks configuration
 ├── Makefile                # Build and development commands
-├── README.md               # This file
-├── pyproject.toml          # Root project configuration
+├── pyproject.toml          # Workspace configuration
 ├── uv.lock                 # Dependency lock file
-├── examples/
-│   └── hello_world.py      # Getting started example
+├── examples/               # Usage examples
+│   ├── 1_hello_world.py    # Basic agent setup
+│   ├── 2_custom_tools.py   # Custom tool implementation
+│   ├── 3_activate_microagent.py  # Microagent usage
+│   ├── 4_confirmation_mode_example.py  # Interactive mode
+│   ├── 5_use_llm_registry.py  # LLM registry usage
+│   └── 6_interactive_terminal.py  # Terminal interaction
 ├── openhands/              # Main SDK packages
-│   ├── core/               # Core SDK functionality
+│   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
-│   │   │   ├── base.py     # Base agent interface
-│   │   │   └── agent/      # Agent implementation
 │   │   ├── config/         # Configuration management
-│   │   │   ├── llm_config.py   # LLM configuration
-│   │   │   └── mcp_config.py   # MCP configuration
 │   │   ├── context/        # Context management system
-│   │   │   ├── env_context.py      # Environment context
-│   │   │   ├── message_context.py  # Message context
-│   │   │   ├── history.py          # Conversation history
-│   │   │   ├── manager.py          # Context manager
-│   │   │   ├── prompt.py           # Prompt management
-│   │   │   └── microagents/        # Microagent system
 │   │   ├── conversation/   # Conversation management
-│   │   │   ├── conversation.py # Core conversation logic
-│   │   │   ├── serializer.py   # Conversation serialization
-│   │   │   ├── state.py        # Conversation state
-│   │   │   ├── types.py        # Type definitions
-│   │   │   └── visualizer.py   # Conversation visualization
+│   │   ├── event/          # Event system
 │   │   ├── llm/            # LLM integration layer
-│   │   │   ├── llm.py      # Main LLM interface
-│   │   │   ├── message.py  # Message handling
-│   │   │   ├── metadata.py # LLM metadata
-│   │   │   └── utils/      # LLM utilities
 │   │   ├── tool/           # Tool system
-│   │   │   ├── tool.py     # Core tool interface
-│   │   │   ├── schema.py   # Tool schema definitions
-│   │   │   └── builtins/   # Built-in tools
 │   │   ├── utils/          # Core utilities
 │   │   ├── logger.py       # Logging configuration
-│   │   ├── pyproject.toml  # Core package configuration
-│   │   └── tests/          # Unit tests for core
-│   └── tools/              # Tool implementations
+│   │   └── pyproject.toml  # SDK package configuration
+│   └── tools/              # Runtime tool implementations
 │       ├── execute_bash/   # Bash execution tool
-│       ├── str_replace_editor/  # String replacement editor
+│       ├── str_replace_editor/  # File editing tool
 │       ├── utils/          # Tool utilities
-│       ├── pyproject.toml  # Tools package configuration
-│       └── tests/          # Unit tests for tools
-└── tests/                  # Integration tests
+│       └── pyproject.toml  # Tools package configuration
+└── tests/                  # Test suites
+    ├── integration/        # Cross-package integration tests
+    ├── sdk/                # SDK unit tests
+    └── tools/              # Tools unit tests
 ```
 
-## Quick Start
+## Installation & Quickstart
+
+### Prerequisites
+
+- Python 3.12+
+- `uv` package manager (version 0.8.13+)
+
+### Setup
 
 ```bash
-# Install dependencies
+# Clone the repository
+git clone https://github.com/All-Hands-AI/agent-sdk.git
+cd agent-sdk
+
+# Install dependencies and setup development environment
 make build
 
-# Run hello world example
-uv run python examples/hello_world.py
-
-# Run tests
-uv run pytest
-
-# Run pre-commit hooks
-uv run pre-commit run --all-files
+# Verify installation
+uv run python examples/1_hello_world.py
 ```
 
-## Development Guidelines
+### Hello World Example
 
-### Core Principles
+```python
+import os
+from pydantic import SecretStr
+from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
+from openhands.tools import BashTool, FileEditorTool
 
-This project follows principles of simplicity, pragmatism, and maintainability:
+# Configure LLM
+llm = LLM(
+    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(os.getenv("LITELLM_API_KEY")),
+)
 
-1. **Simplicity First**: If it needs more than 3 levels of indentation, redesign it
-2. **No Special Cases**: Good code eliminates edge cases through proper data structure design
-3. **Pragmatic Solutions**: Solve real problems, not imaginary ones
-4. **Never Break Userspace**: Backward compatibility is sacred
+# Setup tools
+tools = [
+    BashTool(working_dir=os.getcwd()),
+    FileEditorTool(),
+]
 
-### Architecture Overview
+# Create agent and conversation
+agent = Agent(llm=llm, tools=tools)
+conversation = Conversation(agent=agent)
 
-The SDK is built around two core packages:
+# Send message and run
+conversation.send_message(
+    Message(
+        role="user",
+        content=[TextContent(text="Create a Python file that prints 'Hello, World!'")]
+    )
+)
+conversation.run()
+```
 
-- **`openhands.sdk.**: Core SDK functionality (agents, LLM, context, conversation)
-- **`openhands/tools`**: Tool implementations (bash execution, file editing)
+## Core Concepts
 
-Each package is independently testable and deployable, with clear separation of concerns.
+### Agents
 
-### Development Workflow
+Agents are the central orchestrators that coordinate between LLMs, tools, and conversations:
 
-#### 1. Environment Setup
+```python
+from openhands.sdk import Agent, LLM
+from openhands.tools import BashTool, FileEditorTool
+
+agent = Agent(
+    llm=llm,
+    tools=[BashTool(), FileEditorTool()],
+    # Optional: custom context, microagents, etc.
+)
+```
+
+### LLM Integration
+
+The SDK supports multiple LLM providers through a unified interface:
+
+```python
+from openhands.sdk import LLM, LLMRegistry
+from pydantic import SecretStr
+
+# Direct LLM configuration
+llm = LLM(
+    model="gpt-4",
+    api_key=SecretStr("your-api-key"),
+    base_url="https://api.openai.com/v1"
+)
+
+# Using LLM registry for shared configurations
+registry = LLMRegistry()
+llm = registry.get_llm("default")
+```
+
+### Tools
+
+Tools provide agents with capabilities to interact with the environment:
+
+#### Simplified Pattern (Recommended)
+```python
+from openhands.tools import BashTool, FileEditorTool
+
+# Direct instantiation with simplified API
+tools = [
+    BashTool(working_dir=os.getcwd()),
+    FileEditorTool(),
+]
+```
+
+#### Advanced Pattern (For Custom Tools)
+```python
+from openhands.tools import BashExecutor, execute_bash_tool
+
+# Explicit executor creation for reuse or customization
+bash_executor = BashExecutor(working_dir=os.getcwd())
+bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
+```
+
+### Conversations
+
+Conversations manage the interaction flow between users and agents:
+
+```python
+from openhands.sdk import Conversation, Message, TextContent
+
+conversation = Conversation(agent=agent)
+
+# Send messages
+conversation.send_message(
+    Message(role="user", content=[TextContent(text="Your request here")])
+)
+
+# Execute the conversation
+conversation.run()
+```
+
+### Context Management
+
+The context system manages agent state, environment, and conversation history:
+
+```python
+from openhands.sdk import AgentContext
+
+# Context is automatically managed but can be customized
+context = AgentContext(
+    # Custom environment variables, working directory, etc.
+)
+```
+
+## Development Workflow
+
+### Environment Setup
 
 ```bash
 # Initial setup
 make build
 
-# Activate virtual environment (if needed)
-source .venv/bin/activate
+# Install additional dependencies
+uv add package-name
+
+# Update dependencies
+uv sync
 ```
 
-#### 2. Code Quality Standards
+### Code Quality
 
-- **Type Checking**: All code must pass `pyright` type checking
-- **Linting**: Code must pass `ruff` linting and formatting
-- **Testing**: Maintain test coverage for new functionality
-- **Documentation**: Code should be self-documenting; avoid redundant comments
-
-#### 3. Pre-commit Workflow
-
-Before every commit:
+The project enforces strict code quality standards:
 
 ```bash
-# Run pre-commit hooks on changed files
-uv run pre-commit run --files <filepath>
+# Format code
+make format
 
-# Or run on all files
+# Lint code
+make lint
+
+# Run pre-commit hooks
 uv run pre-commit run --all-files
+
+# Type checking (automatic via pre-commit)
+uv run pyright
 ```
 
-#### 4. Testing Strategy
+### Testing
 
-**Unit Tests**: Located in package-specific test directories
-- `openhands.sdk.tests/` - Tests for core functionality
-- `openhands/tools/tests/` - Tests for tool implementations
-
-**Integration Tests**: Located in root `tests/` directory
-- Tests that involve both core and tools packages
-
-**Running Tests**:
 ```bash
 # Run all tests
 uv run pytest
 
-# Run specific test file
-uv run pytest openhands.sdk.tests/tool/test_tool.py
+# Run specific test suite
+uv run pytest tests/sdk/
+uv run pytest tests/tools/
+uv run pytest tests/integration/
 
 # Run with coverage
-uv run pytest --cov=openhands
+uv run pytest --cov=openhands --cov-report=html
 ```
 
-#### 5. Package Management
+### Pre-commit Workflow
 
-This project uses `uv` for dependency management:
+Before every commit:
 
 ```bash
-# Add a new dependency
+# Run on specific files
+uv run pre-commit run --files path/to/file.py
+
+# Run on all files
+uv run pre-commit run --all-files
+```
+
+## Contributing
+
+### Adding New Tools
+
+1. Create a new directory under `openhands/tools/`
+2. Implement the tool following the existing patterns:
+
+```python
+from openhands.sdk.tool import Tool, ActionBase, ObservationBase
+
+class MyCustomAction(ActionBase):
+    # Define action parameters
+    pass
+
+class MyCustomObservation(ObservationBase):
+    # Define observation data
+    pass
+
+class MyCustomTool(Tool):
+    def execute(self, action: MyCustomAction) -> MyCustomObservation:
+        # Implement tool logic
+        pass
+```
+
+3. Add tests in the corresponding test directory
+4. Update `__init__.py` to export your tool
+5. Add examples demonstrating usage
+
+### Code Standards
+
+- **Type Annotations**: All functions must have complete type annotations
+- **Documentation**: Use docstrings for public APIs, avoid redundant comments
+- **Error Handling**: Implement proper error handling with meaningful messages
+- **Testing**: Write tests for new functionality, aim for good coverage
+- **Formatting**: Code must pass `ruff` formatting and linting
+
+### Commit Guidelines
+
+- Use conventional commit messages
+- Include `Co-authored-by: openhands <openhands@all-hands.dev>` in commit messages
+- Run pre-commit hooks before committing
+- Keep commits focused and atomic
+
+## Package Management
+
+This project uses `uv` for fast, reliable dependency management:
+
+```bash
+# Add runtime dependency
 uv add package-name
 
-# Add a development dependency
+# Add development dependency
 uv add --dev package-name
 
-# Update dependencies
+# Update all dependencies
 uv lock --upgrade
 
 # Install from lock file
 uv sync
+
+# Install development dependencies
+uv sync --dev
 ```
+
+## License
+
+This project is part of the OpenHands ecosystem. Please refer to the main OpenHands repository for licensing information.
