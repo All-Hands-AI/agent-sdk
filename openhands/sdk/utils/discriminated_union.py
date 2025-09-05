@@ -126,14 +126,23 @@ class DiscriminatedUnionMixin(BaseModel):
         **kwargs,
     ) -> T:
         """Custom model validation using registered subclasses for deserialization."""
-        # Only apply custom validation if called on a root class with a registry
-        if (
-            cls in _DISCRIMINATED_UNION_REGISTRY
-            and isinstance(obj, dict)
-            and "kind" in obj
-        ):
+        # Find the root class for this cls
+        root_class = None
+        if cls in _DISCRIMINATED_UNION_REGISTRY:
+            # cls is itself a root class
+            root_class = cls
+        else:
+            # Check if cls is a subclass of any root class
+            for registered_root in _DISCRIMINATED_UNION_REGISTRY:
+                if issubclass(cls, registered_root):
+                    root_class = registered_root
+                    break
+
+        # Apply custom validation if we have a root class and the object has a 'kind'
+        # field
+        if root_class is not None and isinstance(obj, dict) and "kind" in obj:
             kind_name = obj["kind"]
-            registry = _DISCRIMINATED_UNION_REGISTRY[cls]
+            registry = _DISCRIMINATED_UNION_REGISTRY[root_class]
             if kind_name in registry:
                 target_class = registry[kind_name]
                 # Remove the 'kind' field since it's computed
@@ -149,6 +158,21 @@ class DiscriminatedUnionMixin(BaseModel):
                         **kwargs,
                     ),
                 )
+
+        # If we have a 'kind' field but no discriminated union handling,
+        # we still need to remove it to avoid extra field errors
+        if isinstance(obj, dict) and "kind" in obj:
+            obj_without_kind = {k: v for k, v in obj.items() if k != "kind"}
+            return cast(
+                T,
+                super().model_validate(
+                    obj_without_kind,
+                    strict=strict,
+                    from_attributes=from_attributes,
+                    context=context,
+                    **kwargs,
+                ),
+            )
 
         # Fallback to default validation
         return cast(

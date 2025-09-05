@@ -8,7 +8,7 @@ from pydantic import Field
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import AnyAction, AnyObservation
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
@@ -42,7 +42,7 @@ class ActionEvent(LLMConvertibleEvent):
     thought: list[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
-    action: ActionBase = Field(
+    action: AnyAction = Field(
         ..., description="Single action (tool call) returned by LLM"
     )
     tool_name: str = Field(..., description="The name of the tool being called")
@@ -87,7 +87,7 @@ class ActionEvent(LLMConvertibleEvent):
 
 class ObservationEvent(LLMConvertibleEvent):
     source: SourceType = "environment"
-    observation: ObservationBase = Field(
+    observation: AnyObservation = Field(
         ..., description="The observation (tool call) sent to LLM"
     )
 
