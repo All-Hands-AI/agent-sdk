@@ -44,7 +44,7 @@ class AgentContext(BaseModel):
         default_factory=list,
         description="List of available microagents that can extend the user's input.",
     )
-    system_prompt_suffix: str | None = Field(
+    system_message_suffix: str | None = Field(
         default=None, description="Optional suffix to append to the system prompt."
     )
     user_message_suffix: str | None = Field(
@@ -85,13 +85,13 @@ class AgentContext(BaseModel):
             # TODO(test): add a test for this rendering to make sure they work
             formatted_text = render_template(
                 prompt_dir=str(PROMPT_DIR),
-                template_name="system_prompt_suffix.j2",
+                template_name="system_message_suffix.j2",
                 repo_microagents=repo_microagents,
-                system_prompt_suffix=self.system_prompt_suffix or "",
+                system_message_suffix=self.system_message_suffix or "",
             ).strip()
             return formatted_text
-        elif self.system_prompt_suffix and self.system_prompt_suffix.strip():
-            return self.system_prompt_suffix.strip()
+        elif self.system_message_suffix and self.system_message_suffix.strip():
+            return self.system_message_suffix.strip()
         return None
 
     def get_user_message_suffix(

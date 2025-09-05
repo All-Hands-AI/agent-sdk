@@ -18,16 +18,16 @@ class TestAgentContext:
         """Test creating an empty AgentContext."""
         context = AgentContext()
         assert context.microagents == []
-        assert context.system_prompt_suffix is None
+        assert context.system_message_suffix is None
         assert context.user_message_suffix is None
 
     def test_agent_context_creation_with_suffix(self):
         """Test creating AgentContext with custom suffixes."""
         context = AgentContext(
-            system_prompt_suffix="Custom system suffix",
+            system_message_suffix="Custom system suffix",
             user_message_suffix="Custom user suffix",
         )
-        assert context.system_prompt_suffix == "Custom system suffix"
+        assert context.system_message_suffix == "Custom system suffix"
         assert context.user_message_suffix == "Custom user suffix"
 
     def test_microagent_validation_duplicate_names(self):
@@ -102,7 +102,7 @@ defined in user's repository.\n"
 
         context = AgentContext(
             microagents=[repo_agent],
-            system_prompt_suffix="Additional custom instructions for the system.",
+            system_message_suffix="Additional custom instructions for the system.",
         )
         result = context.get_system_message_suffix()
 
@@ -443,11 +443,11 @@ defined in user's repository.\n"
         """Test system message suffix with custom suffix but no repo microagents.
 
         This test exposes a bug where get_system_message_suffix() returns None
-        when there are no repo microagents, even if system_prompt_suffix is set.
+        when there are no repo microagents, even if system_message_suffix is set.
         The method should return the custom suffix in this case.
         """
         # Create context with only knowledge microagents (no repo microagents)
-        # but with a custom system_prompt_suffix
+        # but with a custom system_message_suffix
         knowledge_agent = KnowledgeMicroagent(
             name="test_knowledge",
             content="Some knowledge content",
@@ -456,7 +456,7 @@ defined in user's repository.\n"
         )
         context = AgentContext(
             microagents=[knowledge_agent],
-            system_prompt_suffix="Custom system instructions without repo context.",
+            system_message_suffix="Custom system instructions without repo context.",
         )
 
         result = context.get_system_message_suffix()
