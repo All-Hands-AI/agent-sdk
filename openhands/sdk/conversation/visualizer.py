@@ -8,6 +8,7 @@ from openhands.sdk.event.llm_convertible import (
     AgentErrorEvent,
     MessageEvent,
     ObservationEvent,
+    PauseEvent,
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, TextContent
@@ -40,6 +41,8 @@ class ConversationVisualizer:
             return self._create_message_panel(event)
         elif isinstance(event, AgentErrorEvent):
             return self._create_error_panel(event)
+        elif isinstance(event, PauseEvent):
+            return self._create_pause_panel(event)
         else:
             # Fallback panel for unknown event types
             content = Text(f"Unknown event type: {event.__class__.__name__}")
@@ -195,5 +198,18 @@ class ConversationVisualizer:
             title="[bold red]Agent Error[/bold red]",
             subtitle=f"[dim]({event.source})[/dim]",
             border_style="red",
+            expand=True,
+        )
+
+    def _create_pause_panel(self, event: PauseEvent) -> Panel:
+        """Create a Rich Panel for PauseEvent with complete content."""
+        content = Text()
+        content.append("Conversation Paused", style="bold yellow")
+
+        return Panel(
+            content,
+            title="[bold yellow]Pause Event[/bold yellow]",
+            subtitle=f"[dim]({event.source})[/dim]",
+            border_style="yellow",
             expand=True,
         )

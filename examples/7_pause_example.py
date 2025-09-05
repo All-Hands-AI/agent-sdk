@@ -50,25 +50,30 @@ print("Simple pause example - Press Ctrl+C to pause")
 
 # Send a message to get the conversation started
 conversation.send_message(
-    Message(role="user", content=[TextContent(text="Say hello to 'world'")])
+    Message(
+        role="user",
+        content=[TextContent(text="repeatedly say hello world and don't stop")],
+    )
 )
 
 # Start the agent in a background thread
-thread = threading.Thread(target=conversation.run, daemon=True)
+thread = threading.Thread(target=conversation.run)
 thread.start()
 
-# Main loop - similar to the user's sample script
-while not conversation.state.agent_finished and not conversation.state.agent_paused:
-    # Send encouraging messages periodically
-    conversation.send_message(
-        Message(
-            role="user",
-            content=[TextContent(text="keep going! you can do it!")],
+try:
+    # Main loop - similar to the user's sample script
+    while not conversation.state.agent_finished and not conversation.state.agent_paused:
+        # Send encouraging messages periodically
+        conversation.send_message(
+            Message(
+                role="user",
+                content=[TextContent(text="keep going! you can do it!")],
+            )
         )
-    )
-    time.sleep(1)
+        time.sleep(1)
+except KeyboardInterrupt:
+    print("interrupt")
 
-# Wait for the thread to finish
 thread.join()
 
 print(f"Agent paused: {conversation.state.agent_paused}")
