@@ -39,7 +39,7 @@ class MockObservation(ObservationBase):
 
     result: str
 
-    @property  # type: ignore[override]
+    @property  # pyright: ignore[reportIncompatibleMethodOverride]
     def agent_observation(self) -> str:
         return self.result
 
