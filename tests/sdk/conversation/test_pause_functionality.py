@@ -25,8 +25,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import Message, TextContent
-from openhands.sdk.tool import Tool, ToolExecutor
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
 
 
 class MockAction(ActionBase):
@@ -40,10 +39,9 @@ class MockObservation(ObservationBase):
 
     result: str
 
-    @property # type: ignore[override]
+    @property  # type: ignore[override]
     def agent_observation(self) -> str:
         return self.result
-
 
 
 class BlockingExecutor(ToolExecutor[MockAction, MockObservation]):
