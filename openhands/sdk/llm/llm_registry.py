@@ -1,6 +1,7 @@
 from typing import Callable
 from uuid import uuid4
 
+from litellm import Choices
 from pydantic import BaseModel, ConfigDict
 
 from openhands.sdk.llm.llm import LLM
@@ -79,7 +80,13 @@ class LLMRegistry:
 
         llm = self.service_to_llm[service_id]
         response = llm.completion(messages=messages)
-        return response.choices[0].message.content.strip()
+        choice = response.choices[0]
+        assert isinstance(choice, Choices)
+        if choice.message.content is None:
+            raise RuntimeError(
+                "LLM returned no content for request_extraneous_completion"
+            )
+        return choice.message.content.strip()
 
     def get_llm(
         self,

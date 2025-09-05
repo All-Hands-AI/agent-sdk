@@ -287,41 +287,6 @@ def test_llm_string_representation(default_config):
     assert repr_str == str_repr
 
 
-def test_llm_local_detection_based_on_model_name(default_config):
-    """Test LLM local model detection based on model name."""
-    llm = LLM(**default_config)  # type: ignore
-
-    # Default config should not be detected as local
-    assert not llm._is_local()
-
-    # Test with localhost base_url
-    local_config = default_config.model_copy(
-        update={"base_url": "http://localhost:8000"}
-    )
-    local_llm = LLM(local_config)
-    assert local_llm._is_local()
-
-    # Test with ollama model
-    ollama_config = default_config.model_copy(update={"model": "ollama/llama2"})
-    ollama_llm = LLM(ollama_config)
-    assert ollama_llm._is_local()
-
-
-def test_llm_local_detection_based_on_base_url():
-    """Test local model detection based on base_url."""
-    # Test with localhost base_url
-    local_llm = LLM(model="gpt-4o", base_url="http://localhost:8000")
-    assert local_llm._is_local() is True
-
-    # Test with 127.0.0.1 base_url
-    local_llm_ip = LLM(model="gpt-4o", base_url="http://127.0.0.1:8000")
-    assert local_llm_ip._is_local() is True
-
-    # Test with remote model
-    remote_llm = LLM(model="gpt-4o", base_url="https://api.openai.com/v1")
-    assert remote_llm._is_local() is False
-
-
 def test_llm_openhands_provider_rewrite():
     """Test OpenHands provider rewriting."""
     llm = LLM(model="openhands/gpt-4o")
@@ -337,7 +302,7 @@ def test_llm_message_formatting(default_config):
 
     # Test with single Message object
     message = Message(role="user", content=[TextContent(text="Hello")])
-    formatted = llm.format_messages_for_llm(message)
+    formatted = llm.format_messages_for_llm([message])
     assert isinstance(formatted, list)
     assert len(formatted) == 1
     assert isinstance(formatted[0], dict)

@@ -1,8 +1,7 @@
 import copy
 from typing import cast
 
-from litellm import ChatCompletionMessageToolCall
-from openai.types.chat import ChatCompletionToolParam
+from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import Field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
