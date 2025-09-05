@@ -1,6 +1,6 @@
 """Tests for MCP tool functionality."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from openhands.sdk.mcp.tool import (
     MCPTool,
@@ -81,22 +81,23 @@ class TestMCPToolExecutor:
             "isError": False,
         }
 
-        # Mock asyncio.run to return the mock result
-        with patch("asyncio.run", return_value=mock_result):
-            action = MCPToolAction(
-                tool_name="test_tool",
-                arguments={"param": "value"},
-            )
+        # Mock the client's call_tool method directly
+        self.mock_client.call_tool.return_value = mock_result
 
-            observation = self.executor(action)
+        action = MCPToolAction(
+            tool_name="test_tool",
+            arguments={"param": "value"},
+        )
 
-            assert isinstance(observation, MCPToolObservation)
-            assert observation.tool_name == "test_tool"
-            assert (
-                observation.content
-                == '{"content": [{"text": "Success result"}], "isError": false}'
-            )
-            assert observation.is_error is False
+        observation = self.executor(action)
+
+        assert isinstance(observation, MCPToolObservation)
+        assert observation.tool_name == "test_tool"
+        assert (
+            observation.content
+            == '{"content": [{"text": "Success result"}], "isError": false}'
+        )
+        assert observation.is_error is False
 
     def test_execute_error(self):
         """Test tool execution with error."""
@@ -109,41 +110,44 @@ class TestMCPToolExecutor:
             "isError": True,
         }
 
-        with patch("asyncio.run", return_value=mock_result):
-            action = MCPToolAction(
-                tool_name="test_tool",
-                arguments={"param": "value"},
-            )
+        # Mock the client's call_tool method directly
+        self.mock_client.call_tool.return_value = mock_result
 
-            observation = self.executor(action)
+        action = MCPToolAction(
+            tool_name="test_tool",
+            arguments={"param": "value"},
+        )
 
-            assert isinstance(observation, MCPToolObservation)
-            assert observation.tool_name == "test_tool"
-            assert (
-                observation.content
-                == '{"content": [{"text": "Error occurred"}], "isError": true}'
-            )
-            assert observation.is_error is True
+        observation = self.executor(action)
+
+        assert isinstance(observation, MCPToolObservation)
+        assert observation.tool_name == "test_tool"
+        assert (
+            observation.content
+            == '{"content": [{"text": "Error occurred"}], "isError": true}'
+        )
+        assert observation.is_error is True
 
     def test_execute_exception(self):
         """Test tool execution with exception."""
         # Mock exception during execution
-        with patch("asyncio.run", side_effect=Exception("Connection failed")):
-            action = MCPToolAction(
-                tool_name="test_tool",
-                arguments={"param": "value"},
-            )
+        self.mock_client.call_tool.side_effect = Exception("Connection failed")
 
-            observation = self.executor(action)
+        action = MCPToolAction(
+            tool_name="test_tool",
+            arguments={"param": "value"},
+        )
 
-            assert isinstance(observation, MCPToolObservation)
-            assert observation.tool_name == "test_tool"
-            assert observation.content == ""
-            assert observation.is_error is True
-            assert (
-                observation.error_message
-                and "Connection failed" in observation.error_message
-            )
+        observation = self.executor(action)
+
+        assert isinstance(observation, MCPToolObservation)
+        assert observation.tool_name == "test_tool"
+        assert observation.content == ""
+        assert observation.is_error is True
+        assert (
+            observation.error_message
+            and "Connection failed" in observation.error_message
+        )
 
     def test_execute_empty_content(self):
         """Test tool execution with empty content."""
@@ -153,18 +157,20 @@ class TestMCPToolExecutor:
         mock_result.isError = False
         mock_result.model_dump.return_value = {"content": [], "isError": False}
 
-        with patch("asyncio.run", return_value=mock_result):
-            action = MCPToolAction(
-                tool_name="test_tool",
-                arguments={"param": "value"},
-            )
+        # Mock the client's call_tool method directly
+        self.mock_client.call_tool.return_value = mock_result
 
-            observation = self.executor(action)
+        action = MCPToolAction(
+            tool_name="test_tool",
+            arguments={"param": "value"},
+        )
 
-            assert isinstance(observation, MCPToolObservation)
-            assert observation.tool_name == "test_tool"
-            assert observation.content == '{"content": [], "isError": false}'
-            assert observation.is_error is False
+        observation = self.executor(action)
+
+        assert isinstance(observation, MCPToolObservation)
+        assert observation.tool_name == "test_tool"
+        assert observation.content == '{"content": [], "isError": false}'
+        assert observation.is_error is False
 
 
 class TestMCPTool:
@@ -209,14 +215,16 @@ class TestMCPTool:
             "isError": False,
         }
 
-        with patch("asyncio.run", return_value=mock_result):
-            action = MCPToolAction(tool_name="test_tool", arguments={"param": "value"})
+        # Mock the client's call_tool method directly
+        self.mock_client.call_tool.return_value = mock_result
 
-            observation = self.tool.call(action)
+        action = MCPToolAction(tool_name="test_tool", arguments={"param": "value"})
 
-            assert isinstance(observation, MCPToolObservation)
-            assert observation.tool_name == "test_tool"
-            assert observation.is_error is False
+        observation = self.tool.call(action)
+
+        assert isinstance(observation, MCPToolObservation)
+        assert observation.tool_name == "test_tool"
+        assert observation.is_error is False
 
     def test_to_openai_tool(self):
         """Test converting to OpenAI tool format."""

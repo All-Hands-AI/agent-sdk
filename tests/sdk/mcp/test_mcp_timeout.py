@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -11,29 +11,25 @@ from openhands.sdk.config.mcp_config import (
 from openhands.sdk.mcp.utils import create_mcp_client, create_mcp_tools_from_config
 
 
-@pytest.mark.asyncio
-async def test_create_mcp_client_sse_connection_timeout():
+def test_create_mcp_client_sse_connection_timeout():
     """Test SSE connection with timeout."""
     server_config = MCPSSEServerConfig(url="http://unreachable-server:8080")
 
     with patch("openhands.sdk.mcp.utils.MCPClient") as mock_mcp_client:
-        mock_client_instance = AsyncMock()
+        mock_client_instance = MagicMock()
         mock_mcp_client.return_value = mock_client_instance
 
         # Mock connect_http to timeout
-        async def mock_connect_timeout(*args, **kwargs):
-            await asyncio.sleep(0.1)  # Small delay to simulate timeout
-            raise asyncio.TimeoutError("Connection timeout")
-
-        mock_client_instance.connect_http = AsyncMock(side_effect=mock_connect_timeout)
+        mock_client_instance.connect_http.side_effect = asyncio.TimeoutError(
+            "Connection timeout"
+        )
 
         # Should raise timeout error
         with pytest.raises(asyncio.TimeoutError):
-            await create_mcp_client(server_config)
+            create_mcp_client(server_config)
 
 
-@pytest.mark.asyncio
-async def test_create_mcp_client_stdio_connection_timeout():
+def test_create_mcp_client_stdio_connection_timeout():
     """Test stdio connection with timeout."""
     server_config = MCPStdioServerConfig(
         name="timeout_server",
@@ -42,23 +38,20 @@ async def test_create_mcp_client_stdio_connection_timeout():
     )
 
     with patch("openhands.sdk.mcp.utils.MCPClient") as mock_mcp_client:
-        mock_client_instance = AsyncMock()
+        mock_client_instance = MagicMock()
         mock_mcp_client.return_value = mock_client_instance
 
         # Mock connect_stdio to timeout
-        async def mock_connect_timeout(*args, **kwargs):
-            await asyncio.sleep(0.1)  # Small delay to simulate timeout
-            raise asyncio.TimeoutError("Stdio connection timeout")
-
-        mock_client_instance.connect_stdio = AsyncMock(side_effect=mock_connect_timeout)
+        mock_client_instance.connect_stdio.side_effect = asyncio.TimeoutError(
+            "Stdio connection timeout"
+        )
 
         # Should raise timeout error
         with pytest.raises(asyncio.TimeoutError):
-            await create_mcp_client(server_config)
+            create_mcp_client(server_config)
 
 
-@pytest.mark.asyncio
-async def test_create_mcp_tools_from_config_with_timeout_errors():
+def test_create_mcp_tools_from_config_with_timeout_errors():
     """Test creating MCP tools from configuration with timeout errors."""
     config = MCPConfig(
         sse_servers=[
@@ -68,7 +61,7 @@ async def test_create_mcp_tools_from_config_with_timeout_errors():
     )
 
     # Mock one successful client and one that times out
-    mock_good_client = AsyncMock()
+    mock_good_client = MagicMock()
     mock_tool = MagicMock()
     mock_tool.name = "tool1"
 
@@ -86,7 +79,7 @@ async def test_create_mcp_tools_from_config_with_timeout_errors():
             mock_registry_class.return_value = mock_registry
             mock_registry.get_all_tools.return_value = [mock_tool]
 
-            tools = await create_mcp_tools_from_config(config)
+            tools = create_mcp_tools_from_config(config)
 
             # Should get tools from the good server only
             assert len(tools) == 1
@@ -97,8 +90,7 @@ async def test_create_mcp_tools_from_config_with_timeout_errors():
             )
 
 
-@pytest.mark.asyncio
-async def test_create_mcp_tools_from_config_mixed_timeout_success():
+def test_create_mcp_tools_from_config_mixed_timeout_success():
     """Test creating MCP tools with mixed timeout and success results."""
     config = MCPConfig(
         sse_servers=[
@@ -114,7 +106,7 @@ async def test_create_mcp_tools_from_config_mixed_timeout_success():
     )
 
     # Mock clients - some succeed, some timeout
-    mock_client = AsyncMock()
+    mock_client = MagicMock()
     mock_tool = MagicMock()
     mock_tool.name = "tool1"
 
@@ -137,7 +129,7 @@ async def test_create_mcp_tools_from_config_mixed_timeout_success():
             mock_registry_class.return_value = mock_registry
             mock_registry.get_all_tools.return_value = [mock_tool]
 
-            tools = await create_mcp_tools_from_config(config)
+            tools = create_mcp_tools_from_config(config)
 
             # Should get tools from successful servers only (2 out of 4)
             assert len(tools) == 1
@@ -146,18 +138,17 @@ async def test_create_mcp_tools_from_config_mixed_timeout_success():
             )  # Only successful connections
 
 
-@pytest.mark.asyncio
-async def test_create_mcp_client_with_custom_timeout():
+def test_create_mcp_client_with_custom_timeout():
     """Test creating MCP client with custom timeout value."""
     server_config = MCPSSEServerConfig(url="http://server:8080")
 
     with patch("openhands.sdk.mcp.utils.MCPClient") as mock_mcp_client:
-        mock_client_instance = AsyncMock()
+        mock_client_instance = MagicMock()
         mock_mcp_client.return_value = mock_client_instance
-        mock_client_instance.connect_http = AsyncMock()
+        mock_client_instance.connect_http = MagicMock()
 
         # Test with custom timeout
-        await create_mcp_client(server_config, timeout=5.0)
+        create_mcp_client(server_config, timeout=5.0)
 
         # Verify timeout was passed correctly
         mock_client_instance.connect_http.assert_called_once_with(
@@ -165,12 +156,11 @@ async def test_create_mcp_client_with_custom_timeout():
         )
 
 
-@pytest.mark.asyncio
-async def test_create_mcp_tools_from_config_with_custom_timeout():
+def test_create_mcp_tools_from_config_with_custom_timeout():
     """Test creating MCP tools with custom timeout value."""
     config = MCPConfig(sse_servers=[MCPSSEServerConfig(url="http://server:8080")])
 
-    mock_client = AsyncMock()
+    mock_client = MagicMock()
     mock_tool = MagicMock()
 
     with patch(
@@ -182,31 +172,28 @@ async def test_create_mcp_tools_from_config_with_custom_timeout():
             mock_registry.get_all_tools.return_value = [mock_tool]
 
             # Test with custom timeout
-            await create_mcp_tools_from_config(config, timeout=10.0)
+            create_mcp_tools_from_config(config, timeout=10.0)
 
             # Verify timeout was passed to create_mcp_client
             mock_create.assert_called_with(config.sse_servers[0], None, 10.0)
 
 
-@pytest.mark.asyncio
-async def test_create_mcp_client_connection_error_vs_timeout():
+def test_create_mcp_client_connection_error_vs_timeout():
     """Test distinguishing between connection errors and timeouts."""
     server_config = MCPSSEServerConfig(url="http://server:8080")
 
     with patch("openhands.sdk.mcp.utils.MCPClient") as mock_mcp_client:
-        mock_client_instance = AsyncMock()
+        mock_client_instance = MagicMock()
         mock_mcp_client.return_value = mock_client_instance
 
         # Test timeout error
-        mock_client_instance.connect_http = AsyncMock(
-            side_effect=asyncio.TimeoutError("Timeout")
-        )
+        mock_client_instance.connect_http.side_effect = asyncio.TimeoutError("Timeout")
         with pytest.raises(asyncio.TimeoutError):
-            await create_mcp_client(server_config)
+            create_mcp_client(server_config)
 
         # Test connection error
-        mock_client_instance.connect_http = AsyncMock(
-            side_effect=ConnectionError("Connection failed")
+        mock_client_instance.connect_http.side_effect = ConnectionError(
+            "Connection failed"
         )
         with pytest.raises(ConnectionError):
-            await create_mcp_client(server_config)
+            create_mcp_client(server_config)
