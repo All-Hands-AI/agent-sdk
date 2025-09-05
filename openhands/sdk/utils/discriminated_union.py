@@ -61,6 +61,7 @@ Example usage:
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any, Generic, TypeVar, cast
 
 from pydantic import BaseModel, computed_field
@@ -73,6 +74,41 @@ _DISCRIMINATED_UNION_REGISTRY: dict[
 ] = {}
 
 T = TypeVar("T", bound="DiscriminatedUnionMixin")
+
+
+class DiscriminatedUnionRegistry:
+    def __init__(self) -> None:
+        self.registry: dict[
+            type[DiscriminatedUnionMixin], dict[str, type[DiscriminatedUnionMixin]]
+        ] = defaultdict(dict)
+
+    def find_root_class(
+        self, cls: type[DiscriminatedUnionMixin]
+    ) -> type[DiscriminatedUnionMixin] | None:
+        """Find the root DiscriminatedUnionMixin superclass for a given class."""
+        if DiscriminatedUnionMixin in cls.__bases__:
+            return cls
+
+        for base in cls.__bases__:
+            result = self.find_root_class(base)
+            if result is not None:
+                return result
+
+        return None
+
+    def register(self, cls: type[DiscriminatedUnionMixin]) -> None:
+        """Register a class in the registry."""
+        root_class = self.find_root_class(cls)
+        if root_class is None:
+            raise ValueError(
+                f"Class {cls.__name__} is not a subclass of DiscriminatedUnionMixin"
+            )
+
+        self.registry[root_class][cls.__name__] = cls
+
+    def is_root_class(self, cls: type[DiscriminatedUnionMixin]) -> bool:
+        """Check if a class is a root DiscriminatedUnionMixin subclass."""
+        return cls in self.registry
 
 
 class DiscriminatedUnionMixin(BaseModel):

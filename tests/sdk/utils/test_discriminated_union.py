@@ -5,8 +5,111 @@ from pydantic import BaseModel, ValidationError, field_validator, model_validato
 
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
+    DiscriminatedUnionRegistry,
     DiscriminatedUnionType,
 )
+
+
+class TestDiscriminatedUnionRegistry:
+    """Test cases for the DiscriminatedUnionRegistry class, which is responsible for
+    building and maintaining the inheritance hierarchy of discriminated union classes.
+    """
+
+    def test_root_class_registration(self) -> None:
+        """Test that root classes (direct subclasses of DiscriminatedUnionMixin) can be
+        registered and retrieved correctly.
+        """
+        registry = DiscriminatedUnionRegistry()
+
+        class Animal(DiscriminatedUnionMixin):
+            name: str
+
+        registry.register(Animal)
+
+        assert registry.is_root_class(Animal)
+        assert registry.find_root_class(Animal) == Animal
+
+    def test_subclass_registration(self) -> None:
+        """Test that subclasses of root classes are registered correctly."""
+        registry = DiscriminatedUnionRegistry()
+
+        class Animal(DiscriminatedUnionMixin):
+            name: str
+
+        class Dog(Animal):
+            breed: str
+
+        registry.register(Dog)
+
+        assert not registry.is_root_class(Dog)
+        assert registry.find_root_class(Dog) == Animal
+
+    def test_registry_computes_lowest_possible_root(self) -> None:
+        """Tests that the registry computes the lowest possible root class for a given
+        subclass.
+        """
+        registry = DiscriminatedUnionRegistry()
+
+        class Animal(DiscriminatedUnionMixin):
+            name: str
+
+        class Dog(Animal, DiscriminatedUnionMixin):
+            breed: str
+
+        class Poodle(Dog):
+            size: str
+
+        registry.register(Poodle)
+
+        assert not registry.is_root_class(Poodle)
+        assert registry.is_root_class(Dog)
+        assert registry.find_root_class(Poodle) == Dog
+
+    def test_registry_handles_multiple_roots(self) -> None:
+        """Test that the registry can handle multiple root classes."""
+        registry = DiscriminatedUnionRegistry()
+
+        class Animal(DiscriminatedUnionMixin):
+            name: str
+
+        class Vehicle(DiscriminatedUnionMixin):
+            make: str
+
+        class Dog(Animal):
+            breed: str
+
+        class Car(Vehicle):
+            model: str
+
+        registry.register(Dog)
+        registry.register(Car)
+
+        assert registry.is_root_class(Animal)
+        assert registry.is_root_class(Vehicle)
+
+        assert not registry.is_root_class(Dog)
+        assert not registry.is_root_class(Car)
+
+        assert registry.find_root_class(Dog) == Animal
+        assert registry.find_root_class(Car) == Vehicle
+
+    def test_all_roots_registered(self) -> None:
+        """Test that all root classes are registered correctly."""
+        registry = DiscriminatedUnionRegistry()
+
+        class Animal(DiscriminatedUnionMixin):
+            name: str
+
+        class Dog(Animal, DiscriminatedUnionMixin):
+            breed: str
+
+        class Poodle(Dog):
+            size: str
+
+        registry.register(Poodle)
+
+        assert registry.is_root_class(Dog)
+        assert registry.is_root_class(Animal)
 
 
 def test_discriminated_union_supports_polymorphic_serialization() -> None:
