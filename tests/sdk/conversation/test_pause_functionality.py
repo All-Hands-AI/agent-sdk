@@ -148,7 +148,7 @@ class TestPauseFunctionality:
         assert pause_events[0].source == "user"
 
     def test_pause_during_normal_execution(self):
-        """Test pausing during normal agent execution."""
+        """Test pausing before run() starts - pause is reset and agent runs normally."""
         # Mock LLM to return a message that finishes execution
         self._mock_message_only("Task completed")
 
@@ -160,16 +160,18 @@ class TestPauseFunctionality:
         # Pause immediately (before run starts)
         self.conversation.pause()
 
-        # Run should exit immediately due to pause
-        self.conversation.run()
-
-        # Agent should not be finished (paused before execution)
-        assert self.conversation.state.agent_finished is False
-        # Note: Current implementation keeps agent_paused=True after run()
-        # exits due to pause
+        # Verify pause was set
         assert self.conversation.state.agent_paused is True
 
-        # Should have pause event
+        # Run resets pause flag at start and proceeds normally
+        self.conversation.run()
+
+        # Agent should be finished (pause was reset at start of run)
+        assert self.conversation.state.agent_finished is True
+        # Pause flag is reset to False at start of run()
+        assert self.conversation.state.agent_paused is False
+
+        # Should have pause event from the pause() call
         pause_events = [
             event
             for event in self.conversation.state.events
@@ -178,7 +180,7 @@ class TestPauseFunctionality:
         assert len(pause_events) == 1
 
     def test_pause_then_resume(self):
-        """Test pausing and then resuming execution."""
+        """Test pausing before run() - pause is reset and agent runs normally."""
         # Mock LLM to return a message that finishes execution
         self._mock_message_only("Task completed")
 
@@ -187,49 +189,28 @@ class TestPauseFunctionality:
             Message(role="user", content=[TextContent(text="Hello")])
         )
 
-        # Pause and run (should exit immediately)
+        # Pause before run
         self.conversation.pause()
-        self.conversation.run()
-
-        # Agent should not be finished and should still be paused
-        assert self.conversation.state.agent_finished is False
         assert self.conversation.state.agent_paused is True
 
-        # Resume by manually resetting pause flag and calling run again
-        # Note: Current implementation has a bug where run() sets
-        # agent_paused=True instead of False
-        # This prevents proper resuming, so we need to work around it
-        with self.conversation.state:
-            self.conversation.state.agent_paused = False
-
-        # Due to the bug in line 119 of conversation.py, run() will
-        # immediately set agent_paused=True and exit, so the agent will
-        # never actually run
+        # First run() call resets pause and runs normally
         self.conversation.run()
 
-        # Due to the implementation bug, agent will not be finished
-        # In a correct implementation, this should be True
-        assert (
-            self.conversation.state.agent_finished is False
-        )  # Bug prevents completion
+        # Agent should be finished (pause was reset at start of run)
+        assert self.conversation.state.agent_finished is True
+        assert self.conversation.state.agent_paused is False
 
-        # Due to the bug, no agent messages will be generated
+        # Should have agent message since run completed normally
         agent_messages = [
             event
             for event in self.conversation.state.events
             if isinstance(event, MessageEvent) and event.source == "agent"
         ]
-        assert len(agent_messages) == 0  # Bug prevents agent from running
+        assert len(agent_messages) == 1  # Agent ran and completed
 
     def test_pause_during_run_in_separate_thread(self):
-        """Test that calling pause() while run() is executing in another
-        thread pauses the agent."""
-
-        # Due to the bug in line 119 of conversation.py, run() immediately
-        # sets agent_paused=True and exits, so we can't test the actual
-        # threading scenario properly.
-        # This test demonstrates the intended behavior but works around the
-        # implementation bug.
+        """Test that calling pause() before run() in a separate thread -
+        pause is reset and agent runs normally."""
 
         # Mock LLM to return a simple message
         self._mock_message_only("Task completed")
@@ -245,7 +226,7 @@ class TestPauseFunctionality:
 
         def run_agent():
             try:
-                # Due to the bug, run() will immediately set agent_paused=True and exit
+                # run() will reset agent_paused=False and proceed normally
                 self.conversation.run()
             except Exception as e:
                 run_exception[0] = e
@@ -253,8 +234,8 @@ class TestPauseFunctionality:
                 run_finished.set()
 
         # Pause from main thread before starting the run thread
-        # This ensures the pause event is created
         self.conversation.pause()
+        assert self.conversation.state.agent_paused is True
 
         run_thread = threading.Thread(target=run_agent)
         run_thread.start()
@@ -266,10 +247,9 @@ class TestPauseFunctionality:
         # Check no exception occurred
         assert run_exception[0] is None, f"Run thread failed with: {run_exception[0]}"
 
-        # Agent should be paused (requirement #2 - this part works)
-        assert self.conversation.state.agent_paused is True, (
-            "Agent should be paused after pause() called during run()"
-        )
+        # Agent should be finished (pause was reset at start of run)
+        assert self.conversation.state.agent_finished is True
+        assert self.conversation.state.agent_paused is False
 
         # Should have pause event
         pause_events = [
@@ -280,7 +260,7 @@ class TestPauseFunctionality:
         assert len(pause_events) == 1
 
     def test_resume_paused_agent(self):
-        """Test that calling run() on an already paused agent will resume it."""
+        """Test that calling run() on an already paused agent resets pause and runs normally."""  # noqa: E501
 
         # Mock LLM to return a simple completion message
         self._mock_message_only("Task completed successfully")
@@ -294,37 +274,23 @@ class TestPauseFunctionality:
         self.conversation.pause()
         assert self.conversation.state.agent_paused is True
 
-        # First run() call should exit immediately due to pause
+        # run() call resets pause and runs normally
         self.conversation.run()
 
-        # Agent should still be paused and not finished
-        assert self.conversation.state.agent_paused is True
-        assert self.conversation.state.agent_finished is False
+        # Agent should be finished (pause was reset at start of run)
+        assert self.conversation.state.agent_paused is False
+        assert self.conversation.state.agent_finished is True
 
-        # Second run() call should resume and complete the task (requirement #3)
-        # Note: Due to current implementation bug in line 119, run() sets
-        # agent_paused=True. This prevents proper resuming
-        with self.conversation.state:
-            self.conversation.state.agent_paused = False
-
-        self.conversation.run()
-
-        # Due to the implementation bug, agent will not finish
-        # In a correct implementation, this should be True
-        assert self.conversation.state.agent_finished is False, (
-            "Bug in line 119 prevents agent from resuming properly"
-        )
-
-        # Due to the bug, no agent messages will be generated
+        # Agent messages should be generated since run completed normally
         agent_messages = [
             event
             for event in self.conversation.state.events
             if isinstance(event, MessageEvent) and event.source == "agent"
         ]
-        assert len(agent_messages) == 0  # Bug prevents agent from running
+        assert len(agent_messages) == 1  # Agent ran and completed
 
     def test_pause_with_confirmation_mode(self):
-        """Test that pause works alongside confirmation mode."""
+        """Test that pause before run() with confirmation mode - pause is reset and agent waits for confirmation."""  # noqa: E501
         # Enable confirmation mode
         self.conversation.set_confirmation_mode(True)
 
@@ -338,13 +304,14 @@ class TestPauseFunctionality:
 
         # Pause before running
         self.conversation.pause()
+        assert self.conversation.state.agent_paused is True
 
-        # Run should exit due to pause (not confirmation)
+        # Run resets pause and proceeds to create action, then waits for confirmation
         self.conversation.run()
 
-        # Should be paused, not waiting for confirmation
-        assert self.conversation.state.agent_paused is True  # Still paused
-        assert self.conversation.state.agent_waiting_for_confirmation is False
+        # Pause should be reset, agent should be waiting for confirmation
+        assert self.conversation.state.agent_paused is False  # Pause was reset
+        assert self.conversation.state.agent_waiting_for_confirmation is True
         assert self.conversation.state.agent_finished is False
 
         # Should have pause event
