@@ -44,7 +44,7 @@ def test_invalid_terminal_type():
     """Test error handling for invalid session types."""
     with tempfile.TemporaryDirectory() as temp_dir:
         with pytest.raises(ValueError, match="Unknown session type"):
-            create_terminal_session(work_dir=temp_dir, terminal_type="invalid")
+            create_terminal_session(work_dir=temp_dir, terminal_type="invalid")  # type: ignore
 
 
 def test_unavailable_terminal_type():
