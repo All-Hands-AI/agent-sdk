@@ -1,6 +1,5 @@
 """Utility functions for MCP integration."""
 
-import traceback
 from typing import TYPE_CHECKING
 
 import mcp.types
@@ -45,12 +44,8 @@ class MCPToolExecutor(ToolExecutor):
                     tool_name=self.tool_name, result=result
                 )
             except Exception as e:
-                traceback_str = traceback.format_exc()
-                error_msg = (
-                    f"Error calling MCP tool {self.tool_name}"
-                    f": {str(e)}\n{traceback_str}"
-                )
-                logger.error(error_msg)
+                error_msg = f"Error calling MCP tool {self.tool_name}: {str(e)}"
+                logger.error(error_msg, exc_info=True)
                 return MCPToolObservation(
                     content=[TextContent(text=error_msg)],
                     is_error=True,
@@ -94,6 +89,7 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
         except ValidationError as e:
             logger.error(
                 f"Validation error creating MCPTool for {mcp_tool.name}: "
-                f"{e.json(indent=2)}"
+                f"{e.json(indent=2)}",
+                exc_info=True,
             )
             raise e

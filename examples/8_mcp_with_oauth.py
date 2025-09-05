@@ -65,7 +65,9 @@ conversation = Conversation(
 # Example message that can use MCP tools if available
 message = Message(
     role="user",
-    content=[TextContent(text="Summarize my notion workspace.")],
+    content=[
+        TextContent(text="Can you search about OpenHands V1 in my notion workspace.")
+    ],
 )
 
 logger.info("Starting conversation with MCP integration...")
