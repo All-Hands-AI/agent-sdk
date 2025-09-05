@@ -57,8 +57,8 @@ def test_bash_server():
 
             # Send Ctrl+C to interrupt
             obs = _run_bash_action(session, "C-c", is_input=True)
-            assert obs.metadata.exit_code in (1, 130)  # Common interrupt exit codes
             assert "CTRL+C was sent" in obs.metadata.suffix
+            assert "Keyboard interrupt received, exiting." in obs.output
 
             # Verify we can run commands after interrupt
             obs = _run_bash_action(session, "ls")
