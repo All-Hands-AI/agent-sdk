@@ -3,6 +3,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
+from litellm.types.utils import Choices, Message, ModelResponse
+
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 
@@ -103,9 +105,12 @@ class TestLLMRegistry(unittest.TestCase):
         # Mock the _create_new_llm method to avoid actual LLM initialization
         with patch.object(self.registry, "_create_new_llm") as mock_create:
             mock_llm = MagicMock()
-            mock_response = MagicMock()
-            mock_response.choices = [MagicMock()]
-            mock_response.choices[0].message.content = "  Hello from the LLM!  "
+            mock_response = ModelResponse()
+            mock_response.choices = [
+                Choices(
+                    message=Message(content="  Hello from the LLM!  ", role="assistant")
+                )
+            ]
             mock_llm.completion.return_value = mock_response
             mock_create.return_value = mock_llm
 
