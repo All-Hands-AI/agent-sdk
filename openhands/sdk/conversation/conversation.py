@@ -115,6 +115,9 @@ class Conversation:
         Can be paused between steps
         """
 
+        with self.state:
+            self.state.agent_paused = True
+
         iteration = 0
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
