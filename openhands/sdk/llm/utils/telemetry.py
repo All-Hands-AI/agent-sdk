@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.logger import get_logger
@@ -41,9 +41,7 @@ class Telemetry(BaseModel):
     _req_ctx: dict[str, Any] = PrivateAttr(default_factory=dict)
     _last_latency: float = PrivateAttr(default=0.0)
 
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     # ---------- Lifecycle ----------
     def on_request(self, log_ctx: dict | None) -> None:
