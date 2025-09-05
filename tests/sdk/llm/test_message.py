@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 
 
@@ -158,3 +160,58 @@ def test_message_from_litellm_message_with_non_string_content():
     result = Message.from_litellm_message(litellm_message)
     assert result.role == "assistant"
     assert result.content == []  # Empty list for non-string content
+
+
+def test_text_content_truncation_under_limit():
+    """Test TextContent doesn't truncate when under limit."""
+    from openhands.sdk.llm.message import TextContent
+
+    content = TextContent(text="Short text")
+    result = content.to_llm_dict()
+
+    assert result["text"] == "Short text"
+
+
+def test_text_content_truncation_over_limit():
+    """Test TextContent truncates when over limit."""
+    from openhands.sdk.llm.message import TextContent
+    from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT
+
+    # Create text that exceeds the limit
+    long_text = "A" * (DEFAULT_TEXT_CONTENT_LIMIT + 1000)
+
+    with patch("openhands.sdk.llm.message.logger") as mock_logger:
+        content = TextContent(text=long_text)
+        result = content.to_llm_dict()
+
+        # Check that warning was logged
+        mock_logger.warning.assert_called_once()
+        warning_call = mock_logger.warning.call_args[0][0]
+        assert "exceeds limit" in warning_call
+        assert str(DEFAULT_TEXT_CONTENT_LIMIT + 1000) in warning_call
+        assert str(DEFAULT_TEXT_CONTENT_LIMIT) in warning_call
+
+        # Check that text was truncated
+        text_result = result["text"]
+        assert isinstance(text_result, str)
+        assert len(text_result) < len(long_text)
+        assert text_result.endswith("</NOTE>")  # Should end with truncation notice
+
+
+def test_text_content_truncation_exact_limit():
+    """Test TextContent doesn't truncate when exactly at limit."""
+    from openhands.sdk.llm.message import TextContent
+    from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT
+
+    # Create text that is exactly at the limit
+    exact_text = "A" * DEFAULT_TEXT_CONTENT_LIMIT
+
+    with patch("openhands.sdk.llm.message.logger") as mock_logger:
+        content = TextContent(text=exact_text)
+        result = content.to_llm_dict()
+
+        # Check that no warning was logged
+        mock_logger.warning.assert_not_called()
+
+        # Check that text was not truncated
+        assert result["text"] == exact_text

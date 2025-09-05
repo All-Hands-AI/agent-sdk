@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import Field
 
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.utils import DEFAULT_BASH_TRUNCATE_LIMIT, maybe_truncate
 from openhands.tools.execute_bash.constants import NO_CHANGE_TIMEOUT_SECONDS
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 from openhands.tools.utils.security_prompt import (
@@ -75,7 +76,7 @@ class ExecuteBashObservation(ObservationBase):
             ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
         if self.error:
             ret = f"[There was an error during command execution.]\n{ret}"
-        return ret
+        return maybe_truncate(ret, DEFAULT_BASH_TRUNCATE_LIMIT)
 
 
 TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent shell session.

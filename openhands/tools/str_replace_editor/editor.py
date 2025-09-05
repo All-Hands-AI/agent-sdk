@@ -7,6 +7,7 @@ from typing import get_args
 
 from binaryornot.check import is_binary
 
+from openhands.sdk.utils import maybe_truncate
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
     StrReplaceEditorObservation,
@@ -29,7 +30,6 @@ from openhands.tools.str_replace_editor.utils.prompts import (
     TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
 )
 from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
-from openhands.tools.str_replace_editor.utils.truncate import maybe_truncate
 
 
 class FileEditor:

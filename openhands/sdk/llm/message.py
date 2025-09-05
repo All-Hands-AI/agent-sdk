@@ -5,6 +5,12 @@ from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, Field
 
+from openhands.sdk.logger import get_logger
+from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
+
+
+logger = get_logger(__name__)
+
 
 class ContentType(Enum):
     TEXT = "text"
@@ -28,9 +34,17 @@ class TextContent(Content):
 
     def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
         """Convert to LLM API format."""
+        text = self.text
+        if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
+            logger.warning(
+                f"TextContent text length ({len(text)}) exceeds limit "
+                f"({DEFAULT_TEXT_CONTENT_LIMIT}), truncating"
+            )
+            text = maybe_truncate(text, DEFAULT_TEXT_CONTENT_LIMIT)
+
         data: dict[str, str | dict[str, str]] = {
             "type": self.type,
-            "text": self.text,
+            "text": text,
         }
         if self.cache_prompt:
             data["cache_control"] = {"type": "ephemeral"}
