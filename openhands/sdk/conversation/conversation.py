@@ -116,7 +116,7 @@ class Conversation:
         """
 
         with self.state:
-            self.state.agent_paused = True
+            self.state.agent_paused = False
 
         iteration = 0
         while True:
