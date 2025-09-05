@@ -173,7 +173,7 @@ conversation.send_message(
     Message(role="user", content=[TextContent(text="Your request here")])
 )
 
-# Execute the conversation
+# Execute the conversation until the agent enters "await user input" state
 conversation.run()
 ```
 
