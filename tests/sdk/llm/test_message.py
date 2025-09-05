@@ -2,10 +2,10 @@ import pytest
 
 
 def test_content_base_class_not_implemented():
-    """Test that BaseContent base class raises NotImplementedError."""
-    from openhands.sdk.llm.message import BaseContent
+    """Test that Content base class raises NotImplementedError."""
+    from openhands.sdk.llm.message import Content
 
-    content = BaseContent()
+    content = Content(type="test")
     with pytest.raises(
         NotImplementedError, match="Subclasses should implement this method"
     ):
@@ -31,8 +31,6 @@ def test_image_content_with_cache_prompt():
     content = ImageContent(
         image_urls=["data:image/png;base64,abc123", "data:image/jpeg;base64,def456"],
         cache_prompt=True,
-        data="abc123",  # Required by MCP base class
-        mimeType="image/png",  # Required by MCP base class
     )
     result = content.to_llm_dict()
 
@@ -59,11 +57,7 @@ def test_message_contains_image_property():
         role="user",
         content=[
             TextContent(text="Look at this:"),
-            ImageContent(
-                image_urls=["data:image/png;base64,abc123"],
-                data="abc123",
-                mimeType="image/png",
-            ),
+            ImageContent(image_urls=["data:image/png;base64,abc123"]),
         ],
     )
     assert image_message.contains_image
@@ -96,12 +90,7 @@ def test_message_tool_role_with_image_cache_prompt():
     message = Message(
         role="tool",
         content=[
-            ImageContent(
-                image_urls=["data:image/png;base64,abc123"],
-                cache_prompt=True,
-                data="abc123",
-                mimeType="image/png",
-            )
+            ImageContent(image_urls=["data:image/png;base64,abc123"], cache_prompt=True)
         ],
         tool_call_id="call_123",
         name="test_tool",
