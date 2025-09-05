@@ -936,9 +936,15 @@ def test_command_backslash(terminal_type):
             obs = _run_bash_action(session, cmd)
             assert obs.metadata.exit_code == 0
 
-            # Test correct escaping of \;
+            # Different escaping for different terminal types
+            if terminal_type == "subprocess":
+                semicolon = '";"'  # No escaping needed for subprocess
+            else:
+                semicolon = "\\;"  # Escape for tmux
+
             cmd = (
-                'find /tmp/test_dir -type f -exec grep -l "implemented_function" {} \\;'
+                "find /tmp/test_dir -type f -exec grep"
+                + f' -l "implemented_function" {{}} {semicolon}'
             )
             obs = _run_bash_action(session, cmd)
             assert obs.metadata.exit_code == 0
