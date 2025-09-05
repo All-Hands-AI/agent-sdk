@@ -85,16 +85,7 @@ class DiscriminatedUnionMixin(BaseModel):
     @property
     def kind(self) -> str:
         """Property to create kind field from class name when serializing."""
-        return self.__class__.__name__
-
-    @classmethod
-    def subclass_kind_map(cls) -> dict[str, type[DiscriminatedUnionMixin]]:
-        """Get a mapping of kind names to subclasses for this root class."""
-        result: dict[str, type[DiscriminatedUnionMixin]] = {}
-        for subclass in cls.__subclasses__():
-            result[subclass.__name__] = subclass
-            result.update(subclass.subclass_kind_map())
-        return result
+        return f"{self.__class__.__module__}.{self.__class__.__name__}"
 
     @classmethod
     def target_subclass(cls, kind: str) -> type[DiscriminatedUnionMixin] | None:
@@ -102,7 +93,7 @@ class DiscriminatedUnionMixin(BaseModel):
         worklist = [cls]
         while worklist:
             current = worklist.pop()
-            if current.__name__ == kind:
+            if f"{current.__module__}.{current.__name__}" == kind:
                 return current
             worklist.extend(current.__subclasses__())
         return None

@@ -159,7 +159,11 @@ def test_discriminated_union_with_pydantic_validators() -> None:
     assert dog.breed == "Labrador"
 
     # Test model_validate with validators
-    dog_data = {"name": "rex", "breed": "german shepherd", "kind": "Dog"}
+    dog_data = {
+        "name": "rex",
+        "breed": "german shepherd",
+        "kind": "test_discriminated_union.Dog",
+    }
     dog_from_dict = Animal.model_validate(dog_data)
     assert isinstance(dog_from_dict, Dog)
     assert dog_from_dict.name == "Rex"
@@ -193,13 +197,21 @@ def test_discriminated_union_model_validate_dict() -> None:
         color: str
 
     # Test with valid kind
-    dog_data = {"name": "Buddy", "breed": "Golden Retriever", "kind": "Dog"}
+    dog_data = {
+        "name": "Buddy",
+        "breed": "Golden Retriever",
+        "kind": "test_discriminated_union.Dog",
+    }
     result = Animal.model_validate(dog_data)
     assert isinstance(result, Dog)
     assert result.name == "Buddy"
     assert result.breed == "Golden Retriever"
 
-    cat_data = {"name": "Whiskers", "color": "Orange", "kind": "Cat"}
+    cat_data = {
+        "name": "Whiskers",
+        "color": "Orange",
+        "kind": "test_discriminated_union.Cat",
+    }
     result = Animal.model_validate(cat_data)
     assert isinstance(result, Cat)
     assert result.name == "Whiskers"
@@ -238,7 +250,11 @@ def test_discriminated_union_preserves_pydantic_parameters() -> None:
         breed: str
 
     # Test with strict mode
-    dog_data = {"name": "Buddy", "breed": "Golden Retriever", "kind": "Dog"}
+    dog_data = {
+        "name": "Buddy",
+        "breed": "Golden Retriever",
+        "kind": "test_discriminated_union.Dog",
+    }
     result = Animal.model_validate(dog_data, strict=True)
     assert isinstance(result, Dog)
 
