@@ -1,7 +1,6 @@
 """Utility functions for truncating text content."""
 
 # Default truncation limits
-DEFAULT_BASH_TRUNCATE_LIMIT = 30_000
 DEFAULT_TEXT_CONTENT_LIMIT = 50_000
 
 # Default truncation notice

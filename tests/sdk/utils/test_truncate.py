@@ -1,7 +1,6 @@
 """Tests for truncate utility functions."""
 
 from openhands.sdk.utils import (
-    DEFAULT_BASH_TRUNCATE_LIMIT,
     DEFAULT_TEXT_CONTENT_LIMIT,
     DEFAULT_TRUNCATE_NOTICE,
     maybe_truncate,
@@ -71,7 +70,6 @@ def test_maybe_truncate_exact_limit():
 
 def test_default_limits():
     """Test that default limits are reasonable values."""
-    assert DEFAULT_BASH_TRUNCATE_LIMIT == 30_000
     assert DEFAULT_TEXT_CONTENT_LIMIT == 50_000
     assert isinstance(DEFAULT_TRUNCATE_NOTICE, str)
     assert len(DEFAULT_TRUNCATE_NOTICE) > 0

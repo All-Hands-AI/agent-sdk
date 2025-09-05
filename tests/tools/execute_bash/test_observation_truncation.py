@@ -1,6 +1,6 @@
 """Tests for ExecuteBashObservation truncation functionality."""
 
-from openhands.sdk.utils import DEFAULT_BASH_TRUNCATE_LIMIT
+from openhands.tools.execute_bash.constants import MAX_CMD_OUTPUT_SIZE
 from openhands.tools.execute_bash.definition import ExecuteBashObservation
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 
@@ -44,7 +44,7 @@ def test_execute_bash_observation_truncation_over_limit():
     )
 
     # Create output that exceeds the limit
-    long_output = "A" * (DEFAULT_BASH_TRUNCATE_LIMIT + 1000)
+    long_output = "A" * (MAX_CMD_OUTPUT_SIZE + 1000)
 
     observation = ExecuteBashObservation(
         output=long_output,
@@ -78,7 +78,7 @@ def test_execute_bash_observation_truncation_with_error():
     )
 
     # Create output that exceeds the limit
-    long_output = "B" * (DEFAULT_BASH_TRUNCATE_LIMIT + 500)
+    long_output = "B" * (MAX_CMD_OUTPUT_SIZE + 500)
 
     observation = ExecuteBashObservation(
         output=long_output,
@@ -117,7 +117,7 @@ def test_execute_bash_observation_truncation_exact_limit():
         "[Python interpreter: /usr/bin/python]\n"
         "[Command finished with exit code 0]"
     )
-    exact_output_size = DEFAULT_BASH_TRUNCATE_LIMIT - len(metadata_text)
+    exact_output_size = MAX_CMD_OUTPUT_SIZE - len(metadata_text)
     exact_output = "C" * exact_output_size
 
     observation = ExecuteBashObservation(
@@ -129,7 +129,7 @@ def test_execute_bash_observation_truncation_exact_limit():
     result = observation.agent_observation
 
     # Should not be truncated
-    assert len(result) == DEFAULT_BASH_TRUNCATE_LIMIT
+    assert len(result) == MAX_CMD_OUTPUT_SIZE
     assert not result.endswith("</NOTE>")
 
 
@@ -145,7 +145,7 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
     )
 
     # Create output that exceeds the limit
-    long_output = "D" * (DEFAULT_BASH_TRUNCATE_LIMIT + 200)
+    long_output = "D" * (MAX_CMD_OUTPUT_SIZE + 200)
 
     observation = ExecuteBashObservation(
         output=long_output,
