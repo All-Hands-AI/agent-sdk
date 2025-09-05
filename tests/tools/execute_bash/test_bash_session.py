@@ -15,6 +15,7 @@ import time
 
 import pytest
 
+from openhands.sdk import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.terminal import (
@@ -66,7 +67,6 @@ def test_cwd_property(tmp_path, terminal_type):
     # For other implementations, just verify the command executed successfully
     obs = session.execute(ExecuteBashAction(command="pwd", security_risk="LOW"))
     assert str(random_dir) in obs.output
-    print(obs.agent_observation)
 
     # Note: CWD tracking may vary between terminal implementations
     # For tmux, it should track properly. For subprocess, it may not.
@@ -308,10 +308,14 @@ def test_empty_command_error(terminal_type):
 
     assert obs.error is True
     assert obs.output == "ERROR: No previous running command to retrieve logs from."
-    assert "There was an error during command execution." in obs.agent_observation
+    assert len(obs.agent_observation) == 1
+    assert isinstance(obs.agent_observation[0], TextContent)
+    assert (
+        "There was an error during command execution." in obs.agent_observation[0].text
+    )
     assert (
         "ERROR: No previous running command to retrieve logs from."
-        in obs.agent_observation
+        in obs.agent_observation[0].text
     )
     assert obs.metadata.exit_code == -1
     assert obs.metadata.prefix == ""
