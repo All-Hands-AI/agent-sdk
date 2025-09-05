@@ -112,7 +112,7 @@ class Conversation:
         In normal mode:
         - Creates and executes actions immediately
 
-        Can be paused by calling pause() from another thread.
+        Can be paused between steps
         """
 
         with self.state:
