@@ -27,6 +27,7 @@ from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
 from openhands.tools.str_replace_editor.utils.truncate import (
     BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
     DIRECTORY_CONTENT_TRUNCATED_NOTICE,
+    MAX_RESPONSE_LEN_CHAR,
     TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
     maybe_truncate,
 )
@@ -654,7 +655,9 @@ class FileEditor:
         # If the content is converted from Markdown, we don't need line numbers
         if is_converted_markdown:
             snippet_content = maybe_truncate(
-                snippet_content, truncate_notice=BINARY_FILE_CONTENT_TRUNCATED_NOTICE
+                snippet_content,
+                truncate_after=MAX_RESPONSE_LEN_CHAR,
+                truncate_notice=BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
             )
             return (
                 f"Here's the content of the file {snippet_description} displayed in "
@@ -662,7 +665,9 @@ class FileEditor:
             )
 
         snippet_content = maybe_truncate(
-            snippet_content, truncate_notice=TEXT_FILE_CONTENT_TRUNCATED_NOTICE
+            snippet_content,
+            truncate_after=MAX_RESPONSE_LEN_CHAR,
+            truncate_notice=TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
         )
 
         snippet_content = "\n".join(
