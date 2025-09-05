@@ -7,7 +7,6 @@ from openhands.sdk import (
     Agent,
     Conversation,
     EventType,
-    LLMConfig,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -16,7 +15,6 @@ from openhands.sdk import (
 )
 from openhands.tools import (
     BashTool,
-    FileEditorTool,
 )
 
 
@@ -26,18 +24,15 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    config=LLMConfig(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-        base_url="https://llm-proxy.eval.all-hands.dev",
-        api_key=SecretStr(api_key),
-    )
+    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
 )
 
 # Tools
 cwd = os.getcwd()
 tools: list[Tool] = [
-    BashTool(working_dir=cwd),
-    FileEditorTool(),
+    BashTool(working_dir=cwd, no_change_timeout_seconds=3),
 ]
 
 # Agent
@@ -47,7 +42,6 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: EventType):
-    logger.info(f"Found a conversation message: {str(event)[:200]}...")
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -60,8 +54,8 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py"
-                    " that prints 'Hello, World!'?"
+                    "Enter python interactive mode by directly running `python3`, "
+                    "then tell me the current time, and exit python interactive mode."
                 )
             )
         ],

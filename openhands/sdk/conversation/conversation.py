@@ -7,7 +7,11 @@ if TYPE_CHECKING:
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
-from openhands.sdk.event import MessageEvent
+from openhands.sdk.event import (
+    MessageEvent,
+    UserRejectObservation,
+)
+from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
@@ -98,7 +102,15 @@ class Conversation:
             self._on_event(user_msg_event)
 
     def run(self) -> None:
-        """Runs the conversation until the agent finishes."""
+        """Runs the conversation until the agent finishes.
+
+        In confirmation mode:
+        - First call: creates actions but doesn't execute them, stops and waits
+        - Second call: executes pending actions (implicit confirmation)
+
+        In normal mode:
+        - Creates and executes actions immediately
+        """
         iteration = 0
         while not self.state.agent_finished:
             logger.debug(f"Conversation run iteration {iteration}")
@@ -108,8 +120,50 @@ class Conversation:
             # and check will we be able to execute .send_message
             # BEFORE the .run loop finishes?
             with self.state:
+                # clear the flag before calling agent.step() (user approved)
+                if self.state.agent_waiting_for_confirmation:
+                    self.state.agent_waiting_for_confirmation = False
+
                 # step must mutate the SAME state object
                 self.agent.step(self.state, on_event=self._on_event)
+
+            # In confirmation mode, stop after one iteration if waiting for confirmation
+            if self.state.agent_waiting_for_confirmation:
+                break
+
             iteration += 1
             if iteration >= self.max_iteration_per_run:
                 break
+
+    def set_confirmation_mode(self, enabled: bool) -> None:
+        """Enable or disable confirmation mode and store it in conversation state."""
+        with self.state:
+            self.state.confirmation_mode = enabled
+        logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
+
+    def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
+        """Reject all pending actions from the agent.
+
+        This is a non-invasive method to reject actions between run() calls.
+        Also clears the agent_waiting_for_confirmation flag.
+        """
+        pending_actions = get_unmatched_actions(self.state.events)
+
+        with self.state:
+            # Always clear the agent_waiting_for_confirmation flag
+            self.state.agent_waiting_for_confirmation = False
+
+            if not pending_actions:
+                logger.warning("No pending actions to reject")
+                return
+
+            for action_event in pending_actions:
+                # Create rejection observation
+                rejection_event = UserRejectObservation(
+                    action_id=action_event.id,
+                    tool_name=action_event.tool_name,
+                    tool_call_id=action_event.tool_call_id,
+                    rejection_reason=reason,
+                )
+                self._on_event(rejection_event)
+                logger.info(f"Rejected pending action: {action_event} - {reason}")

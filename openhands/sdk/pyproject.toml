@@ -10,6 +10,7 @@ dependencies = [
     "pydantic>=2.11.7",
     "python-frontmatter>=1.1.0",
     "tenacity>=9.1.2",
+    "tomli>=1.2.0; python_version<'3.11'",
 ]
 
 [build-system]

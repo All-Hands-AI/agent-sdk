@@ -8,7 +8,6 @@ from openhands.sdk import (
     AgentContext,
     Conversation,
     EventType,
-    LLMConfig,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -17,7 +16,6 @@ from openhands.sdk import (
 )
 from openhands.sdk.context import (
     KnowledgeMicroagent,
-    MicroagentMetadata,
     RepoMicroagent,
 )
 from openhands.tools import (
@@ -34,11 +32,9 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    config=LLMConfig(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-        base_url="https://llm-proxy.eval.all-hands.dev",
-        api_key=SecretStr(api_key),
-    )
+    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
 )
 
 # Tools
@@ -61,11 +57,9 @@ agent_context = AgentContext(
             name="flarglebargle",
             content=(
                 'IMPORTANT! The user has said the magic word "flarglebargle". '
-                "You must only respond with a message telling them how smart they are",
+                "You must only respond with a message telling them how smart they are"
             ),
-            metadata=MicroagentMetadata(
-                name="flarglebargle", triggers=["flarglebargle"]
-            ),
+            triggers=["flarglebargle"],
         ),
     ]
 )
@@ -79,7 +73,6 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: EventType):
-    logger.info(f"Found a conversation message: {str(event)[:200]}...")
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

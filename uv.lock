@@ -1145,6 +1145,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
     { name = "tenacity", specifier = ">=9.1.2" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=1.2.0" },
 ]
 
 [[package]]
