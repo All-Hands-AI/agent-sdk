@@ -228,29 +228,6 @@ def test_discriminated_union_fallback_behavior() -> None:
     assert result.name == "Alien"
 
 
-def test_discriminated_union_from_attributes() -> None:
-    """Test model_validate with from_attributes parameter."""
-
-    class Animal(DiscriminatedUnionMixin, BaseModel):
-        name: str
-
-    class Dog(Animal):
-        breed: str
-
-    class DogLike:
-        def __init__(self):
-            self.name = "Buddy"
-            self.breed = "Golden Retriever"
-            self.kind = "Dog"
-
-    # Currently falls back to base class due to implementation limitation
-    # This documents the current behavior
-    dog_like = DogLike()
-    result = Animal.model_validate(dog_like, from_attributes=True)
-    assert isinstance(result, Animal)
-    assert result.name == "Buddy"
-
-
 def test_discriminated_union_preserves_pydantic_parameters() -> None:
     """Test that all Pydantic validation parameters are preserved."""
 

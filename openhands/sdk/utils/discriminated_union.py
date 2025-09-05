@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar, Union, cast
+from typing import Any, Generic, TypeVar, cast
 
 from pydantic import BaseModel, computed_field
 from pydantic_core import core_schema
@@ -53,25 +53,6 @@ class DiscriminatedUnionMixin(BaseModel):
 
         # Register this class
         _DISCRIMINATED_UNION_REGISTRY[root_class][cls.__name__] = cls
-
-    @classmethod
-    def get_discriminated_union(cls):
-        """Create a union of all registered subclasses for this DiscriminatedUnionMixin
-        hierarchy.
-        """
-        # Get the registry for this class hierarchy
-        registry = _DISCRIMINATED_UNION_REGISTRY.get(cls, {})
-
-        if not registry:
-            # If no subclasses registered yet, return just the base class
-            return cls
-
-        # Create simple union with all registered subclasses
-        union_classes = list(registry.values())
-        if cls not in union_classes:
-            union_classes.append(cls)  # Add base class as fallback
-
-        return Union[tuple(union_classes)]
 
     @classmethod
     def model_validate(
