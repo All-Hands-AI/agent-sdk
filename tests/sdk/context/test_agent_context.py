@@ -482,7 +482,6 @@ defined in user's repository.\n"
 
         result = context.get_user_message_suffix(empty_message, [])
 
-        # BUG: This currently returns None, but should return the custom suffix
         expected_content = TextContent(
             text="Custom user instructions for empty messages."
         )
