@@ -221,6 +221,10 @@ class TestMCPTool:
         """Test creating an MCP tool."""
         assert self.tool.name == "test_tool"
         assert self.tool.description == "A test tool"
+
+        assert len(self.tool.input_schema["properties"]) == 2
+        assert "security_risk" in self.tool.input_schema["properties"]
+        self.tool.input_schema["properties"].pop("security_risk")
         assert self.tool.input_schema == {
             "type": "object",
             "properties": {"param": {"type": "string"}},

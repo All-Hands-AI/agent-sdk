@@ -156,6 +156,23 @@ class ActionBase(Schema):
         default="UNKNOWN", description=SECURITY_RISK_DESC
     )
 
+    @classmethod
+    def to_mcp_schema(cls) -> dict[str, Any]:
+        """Convert to JSON schema format compatible with MCP."""
+        schema = super().to_mcp_schema()
+
+        # We need to move the fields from ActionBase to the END of the properties
+        # We use these properties to generate the llm schema for tool calling
+        # and we want the ActionBase fields to be at the end
+        # e.g. LLM should already outputs the argument for tools
+        # BEFORE it predicts security_risk
+        assert "properties" in schema, "Schema must have properties"
+        for field_name in ActionBase.model_fields.keys():
+            if field_name in schema["properties"]:
+                v = schema["properties"].pop(field_name)
+                schema["properties"][field_name] = v
+        return schema
+
 
 class MCPActionBase(ActionBase):
     """Base schema for MCP input action."""

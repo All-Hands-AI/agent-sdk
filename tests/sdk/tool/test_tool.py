@@ -496,6 +496,9 @@ class TestTool:
         )
 
         assert tool.name == "dict_tool"
+        assert tool.input_schema != input_schema
+        # this supposed to be added by the ActionBase
+        tool.input_schema["properties"].pop("security_risk")
         assert tool.input_schema == input_schema
         assert tool.output_schema == output_schema
 

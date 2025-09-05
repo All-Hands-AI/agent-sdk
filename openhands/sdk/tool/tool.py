@@ -101,6 +101,8 @@ class Tool(Generic[ActionT, ObservationT]):
             self.action_type = ActionBase.from_mcp_schema(
                 f"{to_camel_case(self.name)}Action", input_schema
             )
+            # Update mcp schema in case we have additional fields in ActionBase
+            self.input_schema = self.action_type.to_mcp_schema()
         else:
             raise TypeError(
                 "input_schema must be ActionBase subclass or dict JSON schema"

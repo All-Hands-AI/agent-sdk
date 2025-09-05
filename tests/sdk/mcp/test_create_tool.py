@@ -2,10 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
-from openhands.sdk.mcp.utils import create_mcp_tools
+from openhands.sdk.mcp import create_mcp_tools
 
 
-def test_create_mcp_tools_empty_config():
+def test_mock_create_mcp_tools_empty_config():
     """Test creating MCP tools with empty configuration."""
     config = {}
 
@@ -22,7 +22,7 @@ def test_create_mcp_tools_empty_config():
         assert len(tools) == 0
 
 
-def test_create_mcp_tools_stdio_server():
+def test_mock_create_mcp_tools_stdio_server():
     """Test creating MCP tools with stdio server configuration."""
     config = {
         "mcpServers": {
@@ -54,7 +54,7 @@ def test_create_mcp_tools_stdio_server():
         assert tools[0] == mock_tool
 
 
-def test_create_mcp_tools_http_server():
+def test_mock_create_mcp_tools_http_server():
     """Test creating MCP tools with HTTP server configuration."""
     config = {
         "mcpServers": {
@@ -85,7 +85,7 @@ def test_create_mcp_tools_http_server():
         assert tools[0] == mock_tool
 
 
-def test_create_mcp_tools_mixed_servers():
+def test_mock_create_mcp_tools_mixed_servers():
     """Test creating MCP tools with mixed server configurations."""
     config = {
         "mcpServers": {
@@ -122,7 +122,7 @@ def test_create_mcp_tools_mixed_servers():
         assert tools[1] == mock_tool2
 
 
-def test_create_mcp_tools_with_timeout():
+def test_mock_create_mcp_tools_with_timeout():
     """Test creating MCP tools with custom timeout."""
     config = {
         "mcpServers": {
@@ -152,7 +152,7 @@ def test_create_mcp_tools_with_timeout():
         assert len(tools) == 0
 
 
-def test_create_mcp_tools_connection_error():
+def test_mock_create_mcp_tools_connection_error():
     """Test creating MCP tools with connection error."""
     config = {
         "mcpServers": {
@@ -178,7 +178,7 @@ def test_create_mcp_tools_connection_error():
         assert len(tools) == 0
 
 
-def test_create_mcp_tools_dict_config():
+def test_mock_create_mcp_tools_dict_config():
     """Test creating MCP tools with dict configuration (not MCPConfig object)."""
     config = {
         "mcpServers": {
@@ -206,3 +206,48 @@ def test_create_mcp_tools_dict_config():
 
         assert len(tools) == 1
         assert tools[0] == mock_tool
+
+
+def test_real_create_mcp_tools_dict_config():
+    """Test creating MCP tools with dict configuration (not MCPConfig object)."""
+    mcp_config = {
+        "mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}}
+    }
+
+    tools = create_mcp_tools(mcp_config)
+    assert len(tools) == 1
+    assert tools[0].name == "fetch"
+    input_schema = tools[0].input_schema
+
+    assert "type" in input_schema
+    assert input_schema["type"] == "object"
+    assert "properties" in input_schema
+    assert "url" in input_schema["properties"]
+    assert input_schema["properties"]["url"]["type"] == "string"
+    assert "required" in input_schema
+    assert "url" in input_schema["required"]
+
+    # attribute from ActionBase is added to the MCP input schema
+    assert "security_risk" not in input_schema["required"]
+    assert "security_risk" in input_schema["properties"]
+    assert list(input_schema["properties"].keys())[-1] == "security_risk"
+
+    mcp_tool = tools[0].to_mcp_tool()
+    assert mcp_tool["inputSchema"] == input_schema
+
+    openai_tool = tools[0].to_openai_tool()
+    assert openai_tool["type"] == "function"
+    assert "parameters" in openai_tool["function"]
+    parameters = openai_tool["function"]["parameters"]
+    assert "url" in parameters["properties"]
+    assert parameters["properties"]["url"]["type"] == "string"
+    assert "required" in parameters
+    assert "url" in parameters["required"]
+    assert openai_tool["function"]["name"] == "fetch"
+
+    assert "security_risk" not in parameters["required"]
+    assert "security_risk" in parameters["properties"]
+    # The security_risk should be added to the end of the properties
+    assert list(parameters["properties"].keys())[-1] == "security_risk"
+
+    assert tools[0].executor is not None
