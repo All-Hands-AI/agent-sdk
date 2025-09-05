@@ -1,3 +1,4 @@
+import json
 from typing import cast
 
 from rich.console import Console
@@ -58,7 +59,28 @@ class ConversationVisualizer:
         content = Text()
         content.append("System Prompt:\n", style="bold cyan")
         content.append(event.system_prompt.text, style="white")
-        content.append(f"\n\nTools Available: {len(event.tools)}", style="dim cyan")
+        content.append(f"\n\nTools Available: {len(event.tools)}", style="cyan")
+        for tool in event.tools:
+            tool_fn = tool.get("function", None)
+            # make each field short
+            for k, v in tool.items():
+                if isinstance(v, str) and len(v) > 30:
+                    tool[k] = v[:27] + "..."
+            if tool_fn:
+                assert "name" in tool_fn
+                assert "description" in tool_fn
+                assert "parameters" in tool_fn
+                params_str = json.dumps(tool_fn["parameters"])
+                content.append(
+                    f"\n  - {tool_fn['name']}: "
+                    f"{tool_fn['description'].split('\n')[0][:100]}...\n",
+                    style="dim cyan",
+                )
+                content.append(f"  Parameters: {params_str}", style="dim white")
+            else:
+                content.append(
+                    f"\n  - Cannot access .function for {tool}", style="dim cyan"
+                )
 
         return Panel(
             content,
