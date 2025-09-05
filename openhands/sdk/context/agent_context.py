@@ -90,6 +90,9 @@ class AgentContext(BaseModel):
                 system_prompt_suffix=self.system_prompt_suffix or "",
             ).strip()
             return formatted_text
+        elif self.system_prompt_suffix and self.system_prompt_suffix.strip():
+            return self.system_prompt_suffix.strip()
+        return None
 
     def get_user_message_suffix(
         self, user_message: Message, skip_microagent_names: list[str]
@@ -110,8 +113,10 @@ class AgentContext(BaseModel):
             (c.text for c in user_message.content if isinstance(c, TextContent))
         ).strip()
         recalled_knowledge: list[MicroagentKnowledge] = []
-        # skip empty queries
+        # skip empty queries, but still return user_message_suffix if it exists
         if not query:
+            if user_message_suffix:
+                return TextContent(text=user_message_suffix), []
             return None
         # Search for microagent triggers in the query
         for microagent in self.microagents:
