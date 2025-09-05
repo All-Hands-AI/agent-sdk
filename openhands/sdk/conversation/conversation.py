@@ -185,6 +185,10 @@ class Conversation:
         Note: If called during an LLM completion, the pause will not take
         effect until the current LLM call completes.
         """
+
+        if self.state.agent_paused:
+            return
+
         with self.state:
             self.state.agent_paused = True
             pause_event = PauseEvent()
