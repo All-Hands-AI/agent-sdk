@@ -1,7 +1,12 @@
+from typing import Annotated
+
 import pytest
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
 
-from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
+from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
+)
 
 
 def test_discriminated_union_supports_polymorphic_serialization() -> None:
@@ -44,7 +49,7 @@ def test_discriminated_union_supports_polymorphic_field_serialization() -> None:
         color: str
 
     class Carrier(BaseModel):
-        animal: Animal
+        animal: Annotated[Animal, DiscriminatedUnionType[Animal]]
 
     cat = Cat(name="Whiskers", color="Tabby")
     dog = Dog(name="Fido", breed="Labrador")
@@ -77,7 +82,7 @@ def test_discriminated_union_supports_nested_polymorphic_serialization() -> None
         color: str
 
     class Zoo(BaseModel):
-        residents: list[Animal]
+        residents: list[Annotated[Animal, DiscriminatedUnionType[Animal]]]
 
     dog = Dog(name="Fido", breed="Labrador")
     cat = Cat(name="Whiskers", color="Tabby")
@@ -100,7 +105,7 @@ def test_containers_support_out_of_order_definitions() -> None:
         breed: str
 
     class Container(BaseModel):
-        animal: Animal
+        animal: Annotated[Animal, DiscriminatedUnionType[Animal]]
 
     class Cat(Animal):
         color: str

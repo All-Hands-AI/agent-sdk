@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, TypeVar, Union, cast
+from typing import Any, Generic, TypeVar, Union, cast
 
 from pydantic import BaseModel, computed_field
-from pydantic.annotated_handlers import GetCoreSchemaHandler
 from pydantic_core import core_schema
 
 
 # Global registry to track subclasses for each DiscriminatedUnionMixin subclass
 _DISCRIMINATED_UNION_REGISTRY: dict[
-    type["DiscriminatedUnionMixin"], dict[str, type["DiscriminatedUnionMixin"]]
+    type[DiscriminatedUnionMixin], dict[str, type[DiscriminatedUnionMixin]]
 ] = {}
 
 T = TypeVar("T", bound="DiscriminatedUnionMixin")
@@ -147,45 +146,58 @@ class DiscriminatedUnionMixin(BaseModel):
             **kwargs,
         )
 
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ) -> core_schema.CoreSchema:
-        """Generate core schema for discriminated union when used as type annotation."""
-        # Only apply discriminated union behavior for root classes with subclasses
-        if cls in _DISCRIMINATED_UNION_REGISTRY:
-            registry = _DISCRIMINATED_UNION_REGISTRY[cls]
-            if registry:  # Only if there are registered subclasses
-                # Create a discriminated union schema using the registered subclasses
-                choices = []
-                for subclass in registry.values():
-                    # Use the handler to generate schema for each subclass
-                    subclass_schema = handler(subclass)
-                    choices.append(subclass_schema)
 
-                # Create the discriminated union schema
-                union_schema = core_schema.tagged_union_schema(
-                    choices=dict(zip(registry.keys(), choices)),
-                    discriminator="kind",
-                )
+class DiscriminatedUnionType(Generic[T]):
+    """A type wrapper that enables discriminated union validation for Pydantic
+    fields.
+    """
 
-                # Create a fallback schema for the base class (without union)
-                # Temporarily remove registry to avoid infinite recursion
-                temp_registry = _DISCRIMINATED_UNION_REGISTRY.pop(cls, None)
-                try:
-                    base_schema = handler(source_type)
-                finally:
-                    # Restore the registry
-                    if temp_registry is not None:
-                        _DISCRIMINATED_UNION_REGISTRY[cls] = temp_registry
+    def __init__(self, base_class: type[T]):
+        self.base_class = base_class
+        self.__origin__ = base_class  # For get_origin compatibility
+        self.__args__ = ()  # For get_args compatibility
 
-                # Use union_schema: tries discriminated union first, then base class
-                return core_schema.union_schema(
-                    [
-                        union_schema,
-                        base_schema,
-                    ]
-                )
+    @property
+    def registered_types(self) -> dict[str, type[T]]:
+        """Get all currently registered types for this union."""
+        return cast(
+            dict[str, type[T]],
+            _DISCRIMINATED_UNION_REGISTRY.get(self.base_class, {}).copy(),
+        )
 
-        # Fallback to default schema generation
-        return handler(source_type)
+    @property
+    def discriminator_field(self) -> str:
+        """The field used for discrimination."""
+        return "kind"
+
+    def get_type_for_discriminator(self, kind: str) -> type[T] | None:
+        """Get the type associated with a discriminator value."""
+        return self.registered_types.get(kind)
+
+    def __get_pydantic_core_schema__(self, source_type, handler):
+        """Hook into Pydantic's validation system."""
+
+        def validate(v):
+            if isinstance(v, self.base_class):
+                return v
+            if isinstance(v, dict) and "kind" in v:
+                return self.base_class.model_validate(v)
+            return self.base_class(**v)
+
+        return core_schema.no_info_plain_validator_function(validate)
+
+    def __repr__(self):
+        types = list(self.registered_types.keys())
+        if types:
+            return f"DiscriminatedUnion[{self.base_class.__name__}: {', '.join(types)}]"
+        return f"DiscriminatedUnion[{self.base_class.__name__}]"
+
+    def __class_getitem__(cls, params):
+        """Support subscript syntax like DiscriminatedUnion[Animal]."""
+        return cls(params)
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, self.base_class)
+
+    def __subclasscheck__(self, subclass):
+        return issubclass(subclass, self.base_class)
