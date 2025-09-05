@@ -4,21 +4,7 @@ A clean, modular SDK for building AI agents with OpenHands. This project represe
 
 ## Project Overview
 
-The OpenHands Agent SDK provides a streamlined framework for creating AI agents that can interact with tools, manage conversations, and integrate with various LLM providers. Built with modern Python practices and designed for extensibility, it offers:
-
-- **Clean Architecture**: Modular design with clear separation between core SDK and runtime tools
-- **Type Safety**: Full type annotations with `pyright` validation
-- **Developer Experience**: Simple APIs with comprehensive examples and documentation
-- **Extensibility**: Easy-to-implement custom tools and agent behaviors
-- **Production Ready**: Robust error handling, logging, and testing infrastructure
-
-### Key Design Principles
-
-1. **Simplicity First**: Eliminate complexity through proper data structure design
-2. **No Special Cases**: Good code has no edge cases, only normal cases
-3. **Pragmatic Solutions**: Solve real problems, not theoretical ones
-4. **Never Break Userspace**: Backward compatibility is sacred
-
+The OpenHands Agent SDK provides a streamlined framework for creating AI agents that can interact with tools, manage conversations, and integrate with various LLM providers.
 ## Repository Structure
 
 ```
