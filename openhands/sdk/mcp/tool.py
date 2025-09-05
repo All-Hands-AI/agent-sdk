@@ -4,6 +4,7 @@ import traceback
 from typing import TYPE_CHECKING
 
 import mcp.types
+from pydantic import ValidationError
 
 from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
@@ -73,14 +74,26 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
     ):
         self.mcp_client = mcp_client
         self.mcp_tool = mcp_tool
-        super().__init__(
-            name=mcp_tool.name,
-            description=mcp_tool.description or "No description provided",
-            input_schema=mcp_tool.inputSchema,
-            output_schema=MCPToolObservation,
-            annotations=ToolAnnotations.model_validate(mcp_tool.annotations)
-            if mcp_tool.annotations
-            else None,
-            _meta=mcp_tool.meta,
-            executor=MCPToolExecutor(tool_name=mcp_tool.name, client=mcp_client),
-        )
+
+        try:
+            if mcp_tool.annotations:
+                anno_dict = mcp_tool.annotations.model_dump(exclude_none=True)
+                annotations = ToolAnnotations.model_validate(anno_dict)
+            else:
+                annotations = None
+
+            super().__init__(
+                name=mcp_tool.name,
+                description=mcp_tool.description or "No description provided",
+                input_schema=mcp_tool.inputSchema,
+                output_schema=MCPToolObservation,
+                annotations=annotations,
+                _meta=mcp_tool.meta,
+                executor=MCPToolExecutor(tool_name=mcp_tool.name, client=mcp_client),
+            )
+        except ValidationError as e:
+            logger.error(
+                f"Validation error creating MCPTool for {mcp_tool.name}: "
+                f"{e.json(indent=2)}"
+            )
+            raise e
