@@ -12,6 +12,7 @@ Key requirements:
 import threading
 from unittest.mock import MagicMock
 
+import pytest
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
     Choices,
@@ -26,7 +27,7 @@ from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-import pytest
+
 
 class MockAction(ActionBase):
     """Mock action schema for testing."""
@@ -45,27 +46,13 @@ class MockObservation(ObservationBase):
 
 
 class BlockingExecutor(ToolExecutor[MockAction, MockObservation]):
-    """
-    Blocks on `release_step` each time it's called.
-    Signals `step_entered` when a tool execution starts so the test knows
-    the agent is in-flight and it's safe to call pause().
-    """
-
-    def __init__(self, step_entered: threading.Event, release_step: threading.Event):
+    def __init__(self, step_entered: threading.Event):
         self.step_entered = step_entered
-        self.release_step = release_step
 
     def __call__(self, action: MockAction) -> MockObservation:
         # Signal we've entered tool execution for this step
         self.step_entered.set()
-        # Block here until the test releases this step
-        # (Short timeout to avoid deadlocks in case of test failure.)
-        assert self.release_step.wait(timeout=3.0), "Tool was never released"
-        # Reset the gate for the next iteration
-        self.release_step.clear()
-        # Return a normal observation so the loop can iterate again
         return MockObservation(result=f"Executed: {action.command}")
-
 
 
 class TestPauseFunctionality:
@@ -113,20 +100,20 @@ class TestPauseFunctionality:
             ),
         )
         response = ModelResponse(
-                id="response_action",
-                choices=[
-                    Choices(
-                        message=LiteLLMMessage(
-                            role="assistant",
-                            content=f"I'll execute {command}",
-                            tool_calls=[tool_call],
-                        )
+            id="response_action",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant",
+                        content=f"I'll execute {command}",
+                        tool_calls=[tool_call],
                     )
-                ],
-                created=0,
-                model="test-model",
-                object="chat.completion",
-            )   
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
         if once:
             self.mock_llm.completion.return_value = response
         else:
@@ -291,10 +278,13 @@ class TestPauseFunctionality:
         tool_call = ChatCompletionMessageToolCall(
             id="call_loop",
             type="function",
-            function=Function(name="test_tool", arguments=f'{{"command": "{command}"}}'),
+            function=Function(
+                name="test_tool", arguments=f'{{"command": "{command}"}}'
+            ),
         )
 
         import time
+
         def side_effect(*_args, **_kwargs):
             return ModelResponse(
                 id="response_action_loop",
@@ -314,18 +304,15 @@ class TestPauseFunctionality:
 
         self.mock_llm.completion.side_effect = side_effect
 
-
-
     @pytest.mark.timeout(3)
     def test_pause_while_running_continuous_actions(self):
         step_entered = threading.Event()
-        release_step = threading.Event()
         blocking_tool = Tool(
             name="test_tool",
             description="Blocking tool for pause test",
             input_schema=MockAction,
             output_schema=MockObservation,
-            executor=BlockingExecutor(step_entered, release_step),
+            executor=BlockingExecutor(step_entered),
         )
         agent = Agent(llm=self.mock_llm, tools=[blocking_tool])
         conversation = Conversation(agent=agent)
@@ -339,7 +326,9 @@ class TestPauseFunctionality:
 
         # Seed a user message
         self.conversation.send_message(
-            Message(role="user", content=[TextContent(text="Loop actions until paused")])
+            Message(
+                role="user", content=[TextContent(text="Loop actions until paused")]
+            )
         )
 
         run_exc = [None]
@@ -356,26 +345,19 @@ class TestPauseFunctionality:
         t = threading.Thread(target=run_agent, daemon=True)
         t.start()
 
-        try:
-            # Wait until we're *inside* tool execution of the current iteration
-            assert step_entered.wait(timeout=3.0), "Agent never reached tool execution"
+        # Wait until we're *inside* tool execution of the current iteration
+        assert step_entered.wait(timeout=3.0), "Agent never reached tool execution"
+        self.conversation.pause()
+        assert self.conversation.state.agent_paused is True
 
-            # Pause while the agent is running
-            self.conversation.pause()
-            assert self.conversation.state.agent_paused is True
+        assert finished.wait(timeout=3.0), "run() did not exit after pause"
+        t.join(timeout=0.1)
+        assert run_exc[0] is None, f"Run thread failed with: {run_exc[0]}"
 
-            # Allow current tool execution to complete so run() can observe pause and return
-            release_step.set()
-
-            assert finished.wait(timeout=3.0), "run() did not exit after pause"
-            t.join(timeout=0.1)
-            assert run_exc[0] is None, f"Run thread failed with: {run_exc[0]}"
-
-            # paused, not finished, exactly one PauseEvent
-            assert self.conversation.state.agent_paused is True
-            assert self.conversation.state.agent_finished is False
-            pause_events = [e for e in self.conversation.state.events if isinstance(e, PauseEvent)]
-            assert len(pause_events) == 1, f"Expected 1 PauseEvent, got {len(pause_events)}"
-        finally:
-            # Safety: don't leave the thread blocked if a prior assert fails
-            release_step.set()
+        # paused, not finished, exactly one PauseEvent
+        assert self.conversation.state.agent_paused is True
+        assert self.conversation.state.agent_finished is False
+        pause_events = [
+            e for e in self.conversation.state.events if isinstance(e, PauseEvent)
+        ]
+        assert len(pause_events) == 1, f"Expected 1 PauseEvent, got {len(pause_events)}"

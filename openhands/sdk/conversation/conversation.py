@@ -148,6 +148,10 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
+            with self.state:
+                if self.state.agent_paused:
+                    break
+
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode and store it in conversation state."""
         with self.state:
@@ -192,6 +196,7 @@ class Conversation:
         effect until the current LLM call completes.
         """
 
+        print("pausing right now")
         if self.state.agent_paused:
             return
 
