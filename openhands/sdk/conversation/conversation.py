@@ -124,6 +124,9 @@ class Conversation:
             # and check will we be able to execute .send_message
             # BEFORE the .run loop finishes?
             with self.state:
+                # Pause attempts to acquire the state lock
+                # Before value can be modified step can be taken
+                # Ensure step conditions are checked when lock is already acquired
                 if self.state.agent_finished or self.state.agent_paused:
                     break
 
