@@ -44,7 +44,7 @@ def _run_bash_action(session: BashSession, command: str, **kwargs):
 def test_bash_server():
     """Test running a server with timeout and interrupt."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        session = BashSession(work_dir=temp_dir, no_change_timeout_seconds=1)
+        session = BashSession(work_dir=temp_dir)
         session.initialize()
         try:
             # Use python -u for unbuffered output, potentially helping
