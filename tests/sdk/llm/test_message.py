@@ -3,9 +3,9 @@ import pytest
 
 def test_content_base_class_not_implemented():
     """Test that Content base class raises NotImplementedError."""
-    from openhands.sdk.llm.message import Content
+    from openhands.sdk.llm.message import BaseContent
 
-    content = Content(type="test")
+    content = BaseContent()
     with pytest.raises(
         NotImplementedError, match="Subclasses should implement this method"
     ):
@@ -30,6 +30,8 @@ def test_image_content_with_cache_prompt():
 
     content = ImageContent(
         image_urls=["data:image/png;base64,abc123", "data:image/jpeg;base64,def456"],
+        data="fake_image_data",
+        mimeType="image/jpeg",
         cache_prompt=True,
     )
     result = content.to_llm_dict()
@@ -57,7 +59,11 @@ def test_message_contains_image_property():
         role="user",
         content=[
             TextContent(text="Look at this:"),
-            ImageContent(image_urls=["data:image/png;base64,abc123"]),
+            ImageContent(
+                image_urls=["data:image/png;base64,abc123"],
+                data="fake_image_data",
+                mimeType="image/jpeg",
+            ),
         ],
     )
     assert image_message.contains_image
@@ -90,7 +96,12 @@ def test_message_tool_role_with_image_cache_prompt():
     message = Message(
         role="tool",
         content=[
-            ImageContent(image_urls=["data:image/png;base64,abc123"], cache_prompt=True)
+            ImageContent(
+                image_urls=["data:image/png;base64,abc123"],
+                data="fake_image_data",
+                mimeType="image/jpeg",
+                cache_prompt=True,
+            )
         ],
         tool_call_id="call_123",
         name="test_tool",

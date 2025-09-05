@@ -149,8 +149,11 @@ class Schema(BaseModel):
 class ActionBase(Schema):
     """Base schema for input action."""
 
+    # NOTE: We make it optional since some weaker
+    # LLMs may not be able to fill it out correctly.
+    # https://github.com/All-Hands-AI/OpenHands/issues/10797
     security_risk: SECURITY_RISK_LITERAL = Field(
-        default="UNKNOWN", description=SECURITY_RISK_DESC, exclude=True
+        default="UNKNOWN", description=SECURITY_RISK_DESC
     )
 
 

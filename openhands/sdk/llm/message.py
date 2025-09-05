@@ -3,7 +3,7 @@ from typing import Any, Literal, cast
 import mcp.types
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BaseContent(BaseModel):
@@ -19,6 +19,9 @@ class BaseContent(BaseModel):
 class TextContent(mcp.types.TextContent, BaseContent):
     type: Literal["text"] = "text"
     text: str
+    # We use populate_by_name since mcp.types.TextContent
+    # alias meta -> _meta, but .model_dumps() will output "meta"
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
         """Convert to LLM API format."""
@@ -34,12 +37,15 @@ class TextContent(mcp.types.TextContent, BaseContent):
 class ImageContent(mcp.types.ImageContent, BaseContent):
     type: Literal["image"] = "image"
     image_urls: list[str]
+    # We use populate_by_name since mcp.types.ImageContent
+    # alias meta -> _meta, but .model_dumps() will output "meta"
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""
         images: list[dict[str, str | dict[str, str]]] = []
         for url in self.image_urls:
-            images.append({"type": self.type, "image_url": {"url": url}})
+            images.append({"type": "image_url", "image_url": {"url": url}})
         if self.cache_prompt and images:
             images[-1]["cache_control"] = {"type": "ephemeral"}
         return images

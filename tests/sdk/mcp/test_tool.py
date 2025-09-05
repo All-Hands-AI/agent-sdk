@@ -7,6 +7,7 @@ import mcp.types
 from openhands.sdk.llm import TextContent
 from openhands.sdk.mcp.definition import MCPToolObservation
 from openhands.sdk.mcp.tool import MCPTool, MCPToolExecutor
+from openhands.sdk.tool import ToolAnnotations
 
 
 class TestMCPToolObservation:
@@ -232,7 +233,7 @@ class TestMCPTool:
         mock_tool_with_annotations.name = "annotated_tool"
         mock_tool_with_annotations.description = "Tool with annotations"
         mock_tool_with_annotations.inputSchema = {"type": "object"}
-        mock_tool_with_annotations.annotations = {"category": "utility"}
+        mock_tool_with_annotations.annotations = ToolAnnotations(title="Annotated Tool")
         mock_tool_with_annotations.meta = {"version": "1.0"}
 
         tool = MCPTool(mcp_tool=mock_tool_with_annotations, mcp_client=self.mock_client)
