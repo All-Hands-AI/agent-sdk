@@ -1,5 +1,8 @@
 """Execute bash tool implementation."""
 
+# Import for type annotation
+from typing import TYPE_CHECKING, Literal
+
 from pydantic import Field
 
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
@@ -9,6 +12,10 @@ from openhands.tools.utils.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
 )
+
+
+if TYPE_CHECKING:
+    from .impl import BashExecutor
 
 
 class ExecuteBashAction(ActionBase):
@@ -114,24 +121,39 @@ execute_bash_tool = Tool(
 
 
 class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
-    """A Tool subclass that automatically initializes a BashExecutor."""
+    """A Tool subclass that automatically initializes a BashExecutor with auto-detection."""  # noqa: E501
+
+    executor: "BashExecutor"
 
     def __init__(
         self,
         working_dir: str,
         username: str | None = None,
+        no_change_timeout_seconds: int | None = None,
+        terminal_type: Literal["tmux", "subprocess"] | None = None,
     ):
         """Initialize BashTool with executor parameters.
 
         Args:
             working_dir: The working directory for bash commands
             username: Optional username for the bash session
+            no_change_timeout_seconds: Timeout for no output change
+            terminal_type: Force a specific session type:
+                         ('tmux', 'subprocess').
+                         If None, auto-detect based on system capabilities:
+                         - On Windows: PowerShell if available, otherwise subprocess
+                         - On Unix-like: tmux if available, otherwise subprocess
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
 
         # Initialize the executor
-        executor = BashExecutor(working_dir=working_dir, username=username)
+        executor = BashExecutor(
+            working_dir=working_dir,
+            username=username,
+            no_change_timeout_seconds=no_change_timeout_seconds,
+            terminal_type=terminal_type,
+        )
 
         # Initialize the parent Tool with the executor
         super().__init__(

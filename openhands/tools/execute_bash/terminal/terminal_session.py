@@ -1,15 +1,12 @@
-import os
+"""Unified terminal session using TerminalInterface backends."""
+
 import re
 import time
-import uuid
 from enum import Enum
-
-import libtmux
 
 from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_PS1_END,
-    HISTORY_LIMIT,
     NO_CHANGE_TIMEOUT_SECONDS,
     POLL_INTERVAL,
     TIMEOUT_MESSAGE_TEMPLATE,
@@ -19,6 +16,10 @@ from openhands.tools.execute_bash.definition import (
     ExecuteBashObservation,
 )
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
+from openhands.tools.execute_bash.terminal.interface import (
+    TerminalInterface,
+    TerminalSessionBase,
+)
 from openhands.tools.execute_bash.utils.command import (
     escape_bash_special_chars,
     split_bash_commands,
@@ -28,9 +29,12 @@ from openhands.tools.execute_bash.utils.command import (
 logger = get_logger(__name__)
 
 
-class BashCommandStatus(Enum):
+class TerminalCommandStatus(Enum):
+    """Status of a terminal command execution."""
+
     CONTINUE = "continue"
     COMPLETED = "completed"
+    INTERRUPTED = "interrupted"
     NO_CHANGE_TIMEOUT = "no_change_timeout"
     HARD_TIMEOUT = "hard_timeout"
 
@@ -39,120 +43,69 @@ def _remove_command_prefix(command_output: str, command: str) -> str:
     return command_output.lstrip().removeprefix(command.lstrip()).lstrip()
 
 
-class BashSession:
-    PS1 = CmdOutputMetadata.to_ps1_prompt()
+class TerminalSession(TerminalSessionBase):
+    """Unified bash session that works with any TerminalInterface backend.
+
+    This class contains all the session controller logic (timeouts, command parsing,
+    output processing) while delegating terminal operations to the TerminalInterface.
+    """
 
     def __init__(
         self,
-        work_dir: str,
-        username: str | None = None,
-        max_memory_mb: int | None = None,
+        terminal: TerminalInterface,
         no_change_timeout_seconds: int | None = None,
     ):
-        self.work_dir = work_dir
-        self.username = username
-        self._initialized = False
-        self.max_memory_mb = max_memory_mb
+        """Initialize the unified session with a terminal backend.
+
+        Args:
+            terminal: The terminal backend to use
+            no_change_timeout_seconds: Timeout for no output change
+        """
+        super().__init__(
+            terminal.work_dir,
+            terminal.username,
+            no_change_timeout_seconds,
+        )
+        self.terminal = terminal
         self.no_change_timeout_seconds = (
             no_change_timeout_seconds or NO_CHANGE_TIMEOUT_SECONDS
         )
-        self._closed = False
+        # Store the last command for interactive input handling
+        self.prev_status: TerminalCommandStatus | None = None
+        self.prev_output: str = ""
 
     def initialize(self) -> None:
-        self.server = libtmux.Server()
-        _shell_command = "/bin/bash"
-        if self.username in ["root", "openhands"]:
-            # This starts a non-login (new) shell for the given user
-            _shell_command = f"su {self.username} -"
-
-        window_command = _shell_command
-
-        logger.debug(f"Initializing bash session with command: {window_command}")
-        session_name = f"openhands-{self.username}-{uuid.uuid4()}"
-        self.session = self.server.new_session(
-            session_name=session_name,
-            start_directory=self.work_dir,  # This parameter is supported by libtmux
-            kill_session=True,
-            x=1000,
-            y=1000,
-        )
-
-        # Set history limit to a large number to avoid losing history
-        # https://unix.stackexchange.com/questions/43414/unlimited-history-in-tmux
-        self.session.set_option("history-limit", str(HISTORY_LIMIT))
-        self.session.history_limit = str(HISTORY_LIMIT)
-        # We need to create a new pane because the initial
-        # pane's history limit is (default) 2000
-        _initial_window = self.session.active_window
-        self.window = self.session.new_window(
-            window_name="bash",
-            window_shell=window_command,
-            start_directory=self.work_dir,  # This parameter is supported by libtmux
-        )
-        self.pane = self.window.active_pane
-        assert isinstance(self.pane, libtmux.Pane)
-        logger.debug(f"pane: {self.pane}; history_limit: {self.session.history_limit}")
-        _initial_window.kill()
-
-        # Configure bash to use simple PS1 and disable PS2
-        self.pane.send_keys(
-            f'export PROMPT_COMMAND=\'export PS1="{self.PS1}"\'; export PS2=""'
-        )
-        time.sleep(0.1)  # Wait for command to take effect
-
-        # Store the last command for interactive input handling
-        self.prev_status: BashCommandStatus | None = None
-        self.prev_output: str = ""
-        logger.debug(f"Bash session initialized with work dir: {self.work_dir}")
-
-        # Maintain the current working directory
-        self._cwd = os.path.abspath(self.work_dir)
+        """Initialize the terminal backend."""
+        self.terminal.initialize()
         self._initialized = True
-
-        self._clear_screen()
-
-    def __del__(self) -> None:
-        """Ensure the session is closed when the object is destroyed."""
-        self.close()
-
-    def _get_pane_content(self) -> str:
-        """Capture the current pane content and update the buffer."""
-        assert self._initialized, "Bash session is not initialized"
-        assert isinstance(self.pane, libtmux.Pane)
-        content = "\n".join(
-            map(
-                # avoid double newlines
-                lambda line: line.rstrip(),
-                self.pane.cmd("capture-pane", "-J", "-pS", "-").stdout,
-            )
-        )
-        return content
+        logger.debug(f"Unified session initialized with {type(self.terminal).__name__}")
 
     def close(self) -> None:
-        """Clean up the session."""
+        """Clean up the terminal backend."""
         if self._closed:
             return
-        if hasattr(self, "session"):
-            self.session.kill()
+        self.terminal.close()
         self._closed = True
 
-    @property
-    def cwd(self) -> str:
-        return self._cwd
+    def interrupt(self) -> bool:
+        """Interrupt the currently running command (equivalent to Ctrl+C)."""
+        return self.terminal.interrupt()
+
+    def is_running(self) -> bool:
+        """Check if a command is currently running."""
+        if not self._initialized:
+            return False
+        return self.prev_status in {
+            TerminalCommandStatus.CONTINUE,
+            TerminalCommandStatus.NO_CHANGE_TIMEOUT,
+            TerminalCommandStatus.HARD_TIMEOUT,
+        }
 
     def _is_special_key(self, command: str) -> bool:
         """Check if the command is a special key."""
         # Special keys are of the form C-<key>
         _command = command.strip()
         return _command.startswith("C-") and len(_command) == 3
-
-    def _clear_screen(self) -> None:
-        """Clear the tmux pane screen and history."""
-        assert self._initialized, "Bash session is not initialized"
-        assert isinstance(self.pane, libtmux.Pane)
-        self.pane.send_keys("C-l", enter=False)
-        time.sleep(0.1)
-        self.pane.cmd("clear-history")
 
     def _get_command_output(
         self,
@@ -161,15 +114,7 @@ class BashSession:
         metadata: CmdOutputMetadata,
         continue_prefix: str = "",
     ) -> str:
-        """Get the command output with the previous command output removed.
-
-        Args:
-            command: The command that was executed.
-            raw_command_output: The raw output from the command.
-            metadata: The metadata object to store prefix/suffix in.
-            continue_prefix: The prefix to add to the command output if it's a
-                continuation of the previous command.
-        """
+        """Get the command output with the previous command output removed."""
         # remove the previous command output from the new output if any
         if self.prev_output:
             command_output = raw_command_output.removeprefix(self.prev_output)
@@ -183,28 +128,32 @@ class BashSession:
     def _handle_completed_command(
         self,
         command: str,
-        pane_content: str,
+        terminal_content: str,
         ps1_matches: list[re.Match],
     ) -> ExecuteBashObservation:
+        """Handle a completed command."""
         is_special_key = self._is_special_key(command)
         assert len(ps1_matches) >= 1, (
-            f"Expected at least one PS1 metadata block, but got {len(ps1_matches)}.\n---FULL OUTPUT---\n{pane_content!r}\n---END OF OUTPUT---"  # noqa: E501
+            f"Expected at least one PS1 metadata block, but got {len(ps1_matches)}.\n"
+            f"---FULL OUTPUT---\n{terminal_content!r}\n---END OF OUTPUT---"
         )
         metadata = CmdOutputMetadata.from_ps1_match(ps1_matches[-1])
 
         # Special case where the previous command output is truncated
         # due to history limit
-        # We should get the content BEFORE the last PS1 prompt
         get_content_before_last_match = bool(len(ps1_matches) == 1)
 
         # Update the current working directory if it has changed
         if metadata.working_dir != self._cwd and metadata.working_dir:
             self._cwd = metadata.working_dir
 
-        logger.debug(f"COMMAND OUTPUT: {pane_content}")
+        logger.debug(
+            f"[Prev PS1 not matched: {get_content_before_last_match}] "
+            f"COMMAND OUTPUT: {terminal_content}"
+        )
         # Extract the command output between the two PS1 prompts
         raw_command_output = self._combine_outputs_between_matches(
-            pane_content,
+            terminal_content,
             ps1_matches,
             get_content_before_last_match=get_content_before_last_match,
         )
@@ -212,19 +161,25 @@ class BashSession:
         if get_content_before_last_match:
             # Count the number of lines in the truncated output
             num_lines = len(raw_command_output.splitlines())
-            metadata.prefix = f"[Previous command outputs are truncated. Showing the last {num_lines} lines of the output below.]\n"  # noqa: E501
+            metadata.prefix = (
+                f"[Previous command outputs are truncated. "
+                f"Showing the last {num_lines} lines of the output below.]\n"
+            )
 
         metadata.suffix = (
             f"\n[The command completed with exit code {metadata.exit_code}.]"
             if not is_special_key
-            else f"\n[The command completed with exit code {metadata.exit_code}. CTRL+{command[-1].upper()} was sent.]"  # noqa: E501
+            else (
+                f"\n[The command completed with exit code {metadata.exit_code}. "
+                f"CTRL+{command[-1].upper()} was sent.]"
+            )
         )
         command_output = self._get_command_output(
             command,
             raw_command_output,
             metadata,
         )
-        self.prev_status = BashCommandStatus.COMPLETED
+        self.prev_status = TerminalCommandStatus.COMPLETED
         self.prev_output = ""  # Reset previous command output
         self._ready_for_next_command()
         return ExecuteBashObservation(
@@ -236,19 +191,25 @@ class BashSession:
     def _handle_nochange_timeout_command(
         self,
         command: str,
-        pane_content: str,
+        terminal_content: str,
         ps1_matches: list[re.Match],
     ) -> ExecuteBashObservation:
-        self.prev_status = BashCommandStatus.NO_CHANGE_TIMEOUT
+        """Handle a command that timed out due to no output change."""
+        self.prev_status = TerminalCommandStatus.NO_CHANGE_TIMEOUT
         if len(ps1_matches) != 1:
             logger.warning(
-                f"Expected exactly one PS1 metadata block BEFORE the execution of a command, but got {len(ps1_matches)} PS1 metadata blocks:\n---\n{pane_content!r}\n---"  # noqa: E501
+                f"Expected exactly one PS1 metadata block BEFORE the execution of a "
+                f"command, but got {len(ps1_matches)} PS1 metadata blocks:\n"
+                f"---\n{terminal_content!r}\n---"
             )
         raw_command_output = self._combine_outputs_between_matches(
-            pane_content, ps1_matches
+            terminal_content, ps1_matches
         )
         metadata = CmdOutputMetadata()  # No metadata available
-        metadata.suffix = f"\n[The command has no new output after {self.no_change_timeout_seconds} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"  # noqa: E501
+        metadata.suffix = (
+            f"\n[The command has no new output after "
+            f"{self.no_change_timeout_seconds} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"
+        )
         command_output = self._get_command_output(
             command,
             raw_command_output,
@@ -264,20 +225,26 @@ class BashSession:
     def _handle_hard_timeout_command(
         self,
         command: str,
-        pane_content: str,
+        terminal_content: str,
         ps1_matches: list[re.Match],
         timeout: float,
     ) -> ExecuteBashObservation:
-        self.prev_status = BashCommandStatus.HARD_TIMEOUT
+        """Handle a command that timed out due to hard timeout."""
+        self.prev_status = TerminalCommandStatus.HARD_TIMEOUT
         if len(ps1_matches) != 1:
             logger.warning(
-                f"Expected exactly one PS1 metadata block BEFORE the execution of a command, but got {len(ps1_matches)} PS1 metadata blocks:\n---\n{pane_content!r}\n---"  # noqa: E501
+                f"Expected exactly one PS1 metadata block BEFORE the execution of a "
+                f"command, but got {len(ps1_matches)} PS1 metadata blocks:\n"
+                f"---\n{terminal_content!r}\n---"
             )
         raw_command_output = self._combine_outputs_between_matches(
-            pane_content, ps1_matches
+            terminal_content, ps1_matches
         )
         metadata = CmdOutputMetadata()  # No metadata available
-        metadata.suffix = f"\n[The command timed out after {timeout} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"  # noqa: E501
+        metadata.suffix = (
+            f"\n[The command timed out after {timeout} seconds. "
+            f"{TIMEOUT_MESSAGE_TEMPLATE}]"
+        )
         command_output = self._get_command_output(
             command,
             raw_command_output,
@@ -294,52 +261,40 @@ class BashSession:
     def _ready_for_next_command(self) -> None:
         """Reset the content buffer for a new command."""
         # Clear the current content
-        self._clear_screen()
+        self.terminal.clear_screen()
 
     def _combine_outputs_between_matches(
         self,
-        pane_content: str,
+        terminal_content: str,
         ps1_matches: list[re.Match],
         get_content_before_last_match: bool = False,
     ) -> str:
-        """Combine all outputs between PS1 matches.
-
-        Args:
-            pane_content: The full pane content containing PS1 prompts and command
-                outputs
-            ps1_matches: List of regex matches for PS1 prompts
-            get_content_before_last_match: when there's only one PS1 match, whether
-                to get the content before the last PS1 prompt (True) or after the
-                last PS1 prompt (False)
-
-        Returns:
-            Combined string of all outputs between matches
-        """
+        """Combine all outputs between PS1 matches."""
         if len(ps1_matches) == 1:
             if get_content_before_last_match:
                 # The command output is the content before the last PS1 prompt
-                return pane_content[: ps1_matches[0].start()]
+                return terminal_content[: ps1_matches[0].start()]
             else:
                 # The command output is the content after the last PS1 prompt
-                return pane_content[ps1_matches[0].end() + 1 :]
+                return terminal_content[ps1_matches[0].end() + 1 :]
         elif len(ps1_matches) == 0:
-            return pane_content
+            return terminal_content
         combined_output = ""
         for i in range(len(ps1_matches) - 1):
             # Extract content between current and next PS1 prompt
-            output_segment = pane_content[
+            output_segment = terminal_content[
                 ps1_matches[i].end() + 1 : ps1_matches[i + 1].start()
             ]
             combined_output += output_segment + "\n"
         # Add the content after the last PS1 prompt
-        combined_output += pane_content[ps1_matches[-1].end() + 1 :]
+        combined_output += terminal_content[ps1_matches[-1].end() + 1 :]
         logger.debug(f"COMBINED OUTPUT: {combined_output}")
         return combined_output
 
     def execute(self, action: ExecuteBashAction) -> ExecuteBashObservation:
-        """Execute a command in the bash session."""
-        if not self._initialized or not isinstance(self.pane, libtmux.Pane):
-            raise RuntimeError("Bash session is not initialized")
+        """Execute a command using the terminal backend."""
+        if not self._initialized:
+            raise RuntimeError("Unified session is not initialized")
 
         # Strip the command of any leading/trailing whitespace
         logger.debug(f"RECEIVED ACTION: {action}")
@@ -349,9 +304,9 @@ class BashSession:
         # If the previous command is not completed,
         # we need to check if the command is empty
         if self.prev_status not in {
-            BashCommandStatus.CONTINUE,
-            BashCommandStatus.NO_CHANGE_TIMEOUT,
-            BashCommandStatus.HARD_TIMEOUT,
+            TerminalCommandStatus.CONTINUE,
+            TerminalCommandStatus.NO_CHANGE_TIMEOUT,
+            TerminalCommandStatus.HARD_TIMEOUT,
         }:
             if command == "":
                 return ExecuteBashObservation(
@@ -369,39 +324,39 @@ class BashSession:
         if len(splited_commands) > 1:
             return ExecuteBashObservation(
                 output=(
-                    f"ERROR: Cannot execute multiple commands at once.\nPlease run each command separately OR chain them into a single command via && or ;\nProvided commands:\n{'\n'.join(f'({i + 1}) {cmd}' for i, cmd in enumerate(splited_commands))}"  # noqa: E501
+                    f"ERROR: Cannot execute multiple commands at once.\n"
+                    f"Please run each command separately OR chain them into a single "
+                    f"command via && or ;\nProvided commands:\n"
+                    f"{'\n'.join(f'({i + 1}) {cmd}' for i, cmd in enumerate(splited_commands))}"  # noqa: E501
                 ),
                 error=True,
             )
 
         # Get initial state before sending command
-        initial_pane_output = self._get_pane_content()
+        initial_terminal_output = self.terminal.read_screen()
         initial_ps1_matches = CmdOutputMetadata.matches_ps1_metadata(
-            initial_pane_output
+            initial_terminal_output
         )
         initial_ps1_count = len(initial_ps1_matches)
         logger.debug(f"Initial PS1 count: {initial_ps1_count}")
+        logger.debug(f"INITIAL TERMINAL OUTPUT: {initial_terminal_output!r}")
 
         start_time = time.time()
         last_change_time = start_time
-        last_pane_output = (
-            initial_pane_output  # Use initial output as the starting point
-        )
+        last_terminal_output = initial_terminal_output
 
         # When prev command is still running, and we are trying to send a new command
         if (
             self.prev_status
             in {
-                BashCommandStatus.HARD_TIMEOUT,
-                BashCommandStatus.NO_CHANGE_TIMEOUT,
+                TerminalCommandStatus.HARD_TIMEOUT,
+                TerminalCommandStatus.NO_CHANGE_TIMEOUT,
             }
-            and not last_pane_output.rstrip().endswith(
-                CMD_OUTPUT_PS1_END.rstrip()
-            )  # prev command is not completed
+            and not last_terminal_output.rstrip().endswith(CMD_OUTPUT_PS1_END.rstrip())
             and not is_input
-            and command != ""  # not input and not empty command
+            and command != ""
         ):
-            _ps1_matches = CmdOutputMetadata.matches_ps1_metadata(last_pane_output)
+            _ps1_matches = CmdOutputMetadata.matches_ps1_metadata(last_terminal_output)
             # Use initial_ps1_matches if _ps1_matches is empty,
             # otherwise use _ps1_matches. This handles the case where
             # the prompt might be scrolled off screen but existed before
@@ -409,10 +364,15 @@ class BashSession:
                 _ps1_matches if _ps1_matches else initial_ps1_matches
             )
             raw_command_output = self._combine_outputs_between_matches(
-                last_pane_output, current_matches_for_output
+                last_terminal_output, current_matches_for_output
             )
             metadata = CmdOutputMetadata()  # No metadata available
-            metadata.suffix = f'\n[Your command "{command}" is NOT executed. The previous command is still running - You CANNOT send new commands until the previous command is completed. By setting `is_input` to `true`, you can interact with the current process: {TIMEOUT_MESSAGE_TEMPLATE}]'  # noqa: E501
+            metadata.suffix = (
+                f'\n[Your command "{command}" is NOT executed. The previous command '
+                f"is still running - You CANNOT send new commands until the previous "
+                f"command is completed. By setting `is_input` to `true`, you can "
+                f"interact with the current process: {TIMEOUT_MESSAGE_TEMPLATE}]"
+            )
             logger.debug(f"PREVIOUS COMMAND OUTPUT: {raw_command_output}")
             command_output = self._get_command_output(
                 command,
@@ -420,26 +380,30 @@ class BashSession:
                 metadata,
                 continue_prefix="[Below is the output of the previous command.]\n",
             )
-            return ExecuteBashObservation(
+            obs = ExecuteBashObservation(
                 output=command_output,
                 command=command,
                 metadata=metadata,
             )
+            logger.debug(f"RETURNING OBSERVATION (previous-command): {obs}")
+            return obs
 
-        # Send actual command/inputs to the pane
+        # Send actual command/inputs to the terminal
         if command != "":
             is_special_key = self._is_special_key(command)
             if is_input:
                 logger.debug(f"SENDING INPUT TO RUNNING PROCESS: {command!r}")
-                self.pane.send_keys(
+                self.terminal.send_keys(
                     command,
                     enter=not is_special_key,
                 )
             else:
-                # convert command to raw string
-                command = escape_bash_special_chars(command)
+                # convert command to raw string (for bash terminals)
+                if not self.terminal.is_powershell():
+                    # Only escape for bash terminals, not PowerShell
+                    command = escape_bash_special_chars(command)
                 logger.debug(f"SENDING COMMAND: {command!r}")
-                self.pane.send_keys(
+                self.terminal.send_keys(
                     command,
                     enter=not is_special_key,
                 )
@@ -447,35 +411,41 @@ class BashSession:
         # Loop until the command completes or times out
         while True:
             _start_time = time.time()
-            logger.debug(f"GETTING PANE CONTENT at {_start_time}")
-            cur_pane_output = self._get_pane_content()
+            logger.debug(f"GETTING TERMINAL CONTENT at {_start_time}")
+            cur_terminal_output = self.terminal.read_screen()
             logger.debug(
-                f"PANE CONTENT GOT after {time.time() - _start_time:.2f} seconds"
+                f"TERMINAL CONTENT GOT after {time.time() - _start_time:.2f} seconds"
             )
-            logger.debug(f"BEGIN OF PANE CONTENT: {cur_pane_output.split('\n')[:10]}")
-            logger.debug(f"END OF PANE CONTENT: {cur_pane_output.split('\n')[-10:]}")
-            ps1_matches = CmdOutputMetadata.matches_ps1_metadata(cur_pane_output)
+            logger.debug(
+                f"BEGIN OF TERMINAL CONTENT: {cur_terminal_output.split('\n')[:10]}"
+            )
+            logger.debug(
+                f"END OF TERMINAL CONTENT: {cur_terminal_output.split('\n')[-10:]}"
+            )
+            ps1_matches = CmdOutputMetadata.matches_ps1_metadata(cur_terminal_output)
             current_ps1_count = len(ps1_matches)
 
-            if cur_pane_output != last_pane_output:
-                last_pane_output = cur_pane_output
+            if cur_terminal_output != last_terminal_output:
+                last_terminal_output = cur_terminal_output
                 last_change_time = time.time()
                 logger.debug(f"CONTENT UPDATED DETECTED at {last_change_time}")
 
             # 1) Execution completed:
             # Condition 1: A new prompt has appeared since the command started.
             # Condition 2: The prompt count hasn't increased (potentially because the
-            # initial one scrolled off),
-            # BUT the *current* visible pane ends with a prompt, indicating completion.
+            # initial one scrolled off), BUT the *current* visible terminal ends with a
+            # prompt, indicating completion.
             if (
                 current_ps1_count > initial_ps1_count
-                or cur_pane_output.rstrip().endswith(CMD_OUTPUT_PS1_END.rstrip())
+                or cur_terminal_output.rstrip().endswith(CMD_OUTPUT_PS1_END.rstrip())
             ):
-                return self._handle_completed_command(
+                obs = self._handle_completed_command(
                     command,
-                    pane_content=cur_pane_output,
+                    terminal_content=cur_terminal_output,
                     ps1_matches=ps1_matches,
                 )
+                logger.debug(f"RETURNING OBSERVATION (completed): {obs}")
+                return obs
 
             # Timeout checks should only trigger if a new prompt hasn't appeared yet.
 
@@ -492,26 +462,31 @@ class BashSession:
                 not is_blocking
                 and time_since_last_change >= self.no_change_timeout_seconds
             ):
-                return self._handle_nochange_timeout_command(
+                obs = self._handle_nochange_timeout_command(
                     command,
-                    pane_content=cur_pane_output,
+                    terminal_content=cur_terminal_output,
                     ps1_matches=ps1_matches,
                 )
+                logger.debug(f"RETURNING OBSERVATION (nochange-timeout): {obs}")
+                return obs
 
-            # 3) Execution timed out due to hard timeout
+            # 3) Execution timed out since the command has been running for too long
+            # (hard timeout)
             elapsed_time = time.time() - start_time
             logger.debug(
                 f"CHECKING HARD TIMEOUT ({action.timeout}s): elapsed {elapsed_time:.2f}"
             )
-            if action.timeout and elapsed_time >= action.timeout:
-                logger.debug("Hard timeout triggered.")
-                return self._handle_hard_timeout_command(
-                    command,
-                    pane_content=cur_pane_output,
-                    ps1_matches=ps1_matches,
-                    timeout=action.timeout,
-                )
+            if action.timeout is not None:
+                time_since_start = time.time() - start_time
+                if time_since_start >= action.timeout:
+                    obs = self._handle_hard_timeout_command(
+                        command,
+                        terminal_content=cur_terminal_output,
+                        ps1_matches=ps1_matches,
+                        timeout=action.timeout,
+                    )
+                    logger.debug(f"RETURNING OBSERVATION (hard-timeout): {obs}")
+                    return obs
 
-            logger.debug(f"SLEEPING for {POLL_INTERVAL} seconds for next poll")
+            # Sleep before next check
             time.sleep(POLL_INTERVAL)
-        raise RuntimeError("Bash session was likely interrupted...")
