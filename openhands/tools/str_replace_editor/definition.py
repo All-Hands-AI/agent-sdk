@@ -6,10 +6,6 @@ from pydantic import Field
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
-from openhands.tools.utils.security_prompt import (
-    SECURITY_RISK_DESC,
-    SECURITY_RISK_LITERAL,
-)
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
@@ -55,7 +51,6 @@ class StrReplaceEditorAction(ActionBase):
         "show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, "
         "-1]` shows all lines from `start_line` to the end of the file.",
     )
-    security_risk: SECURITY_RISK_LITERAL = Field(description=SECURITY_RISK_DESC)
 
 
 class StrReplaceEditorObservation(ObservationBase):

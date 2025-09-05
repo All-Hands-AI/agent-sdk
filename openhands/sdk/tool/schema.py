@@ -1,10 +1,13 @@
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
+from openhands.sdk.llm import ImageContent, TextContent
+from openhands.sdk.tool.security_prompt import (
+    SECURITY_RISK_DESC,
+    SECURITY_RISK_LITERAL,
+)
 
-if TYPE_CHECKING:
-    from openhands.sdk.llm import ImageContent, TextContent
 
 S = TypeVar("S", bound="Schema")
 
@@ -131,7 +134,9 @@ class Schema(BaseModel):
 class ActionBase(Schema):
     """Base schema for input action."""
 
-    pass
+    security_risk: SECURITY_RISK_LITERAL = Field(
+        default="UNKNOWN", description=SECURITY_RISK_DESC, exclude=True
+    )
 
 
 class ObservationBase(Schema):

@@ -10,6 +10,7 @@ from openhands.sdk import (
     Agent,
     Conversation,
     EventType,
+    ImageContent,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -47,17 +48,18 @@ class GrepObservation(ObservationBase):
     count: int = 0
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         if not self.count:
-            return "No matches found."
+            return [TextContent(text="No matches found.")]
         files_list = "\n".join(f"- {f}" for f in self.files[:20])
         sample = "\n".join(self.matches[:10])
         more = "\n..." if self.count > 10 else ""
-        return (
+        ret = (
             f"Found {self.count} matching lines.\n"
             f"Files:\n{files_list}\n"
             f"Sample:\n{sample}{more}"
         )
+        return [TextContent(text=ret)]
 
 
 # --- Executor ---
@@ -79,7 +81,7 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
         else:
             cmd = f"grep -rHnE {pat} {root_q} 2>/dev/null | head -100"
 
-        result = self.bash(ExecuteBashAction(command=cmd, security_risk="LOW"))
+        result = self.bash(ExecuteBashAction(command=cmd))
 
         matches: list[str] = []
         files: set[str] = set()
