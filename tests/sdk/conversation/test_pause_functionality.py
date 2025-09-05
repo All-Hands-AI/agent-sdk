@@ -331,7 +331,7 @@ class TestPauseFunctionality:
             )
         )
 
-        run_exc = [None]
+        run_exc: list[Exception | None] = [None]
         finished = threading.Event()
 
         def run_agent():
