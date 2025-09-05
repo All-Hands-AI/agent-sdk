@@ -115,11 +115,8 @@ class Conversation:
         Can be paused between steps
         """
 
-        with self.state:
-            self.state.agent_paused = False
-
         iteration = 0
-        while not self.state.agent_finished and not self.state.agent_paused:
+        while True:
             logger.debug(f"Conversation run iteration {iteration}")
             # TODO(openhands): we should add a testcase that test IF:
             # 1. a loop is running
@@ -127,6 +124,9 @@ class Conversation:
             # and check will we be able to execute .send_message
             # BEFORE the .run loop finishes?
             with self.state:
+                if self.state.agent_finished or self.state.agent_paused:
+                    break
+
                 # clear the flag before calling agent.step() (user approved)
                 if self.state.agent_waiting_for_confirmation:
                     self.state.agent_waiting_for_confirmation = False

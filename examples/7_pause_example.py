@@ -1,5 +1,4 @@
 import os
-import signal
 import threading
 import time
 
@@ -38,14 +37,6 @@ agent = Agent(llm=llm, tools=tools)
 conversation = Conversation(agent)
 
 
-def signal_handler(signum, frame):
-    print("\n🛑 Pausing conversation...")
-    conversation.pause()
-
-
-# Set up signal handler for Ctrl+C
-signal.signal(signal.SIGINT, signal_handler)
-
 print("Simple pause example - Press Ctrl+C to pause")
 
 # Send a message to get the conversation started
@@ -72,7 +63,7 @@ try:
         )
         time.sleep(1)
 except KeyboardInterrupt:
-    print("interrupt")
+    conversation.pause()
 
 thread.join()
 
