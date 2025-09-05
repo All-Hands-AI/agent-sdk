@@ -5,6 +5,12 @@ from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
 
 
 def test_discriminated_union_supports_polymorphic_serialization() -> None:
+    """Test that discriminated union supports polymorphic serialization/deserialization.
+
+    That is, we should be able to serialize things in the union and deserialize them
+    using the base class.
+    """
+
     class Animal(DiscriminatedUnionMixin):
         name: str
 
@@ -24,6 +30,10 @@ def test_discriminated_union_supports_polymorphic_serialization() -> None:
 
 
 def test_discriminated_union_supports_polymorphic_field_serialization() -> None:
+    """Test that discriminated union supports polymorphic serialization/deserialization
+    when used as a field in another model.
+    """
+
     class Animal(DiscriminatedUnionMixin):
         name: str
 
@@ -53,6 +63,10 @@ def test_discriminated_union_supports_polymorphic_field_serialization() -> None:
 
 
 def test_discriminated_union_supports_nested_polymorphic_serialization() -> None:
+    """Test that discriminated union supports polymorphic serialization/deserialization
+    when nested in a field in another model.
+    """
+
     class Animal(DiscriminatedUnionMixin):
         name: str
 
@@ -72,6 +86,33 @@ def test_discriminated_union_supports_nested_polymorphic_serialization() -> None
     serialized_zoo = zoo.model_dump_json()
     deserialized_zoo = Zoo.model_validate_json(serialized_zoo)
     assert zoo == deserialized_zoo
+
+
+def test_containers_support_out_of_order_definitions() -> None:
+    """Test that discriminated union works even if subclasses are defined after
+    containers.
+    """
+
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        breed: str
+
+    class Container(BaseModel):
+        animal: Animal
+
+    class Cat(Animal):
+        color: str
+
+    dog = Dog(name="Fido", breed="Labrador")
+    cat = Cat(name="Whiskers", color="Tabby")
+
+    for animal in [dog, cat]:
+        container = Container(animal=animal)
+        serialized_container = container.model_dump_json()
+        deserialized_container = Container.model_validate_json(serialized_container)
+        assert container == deserialized_container
 
 
 def test_discriminated_union_with_pydantic_validators() -> None:
