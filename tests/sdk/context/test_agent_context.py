@@ -461,7 +461,6 @@ defined in user's repository.\n"
 
         result = context.get_system_message_suffix()
 
-        # BUG: This currently returns None, but should return the custom suffix
         assert result == "Custom system instructions without repo context."
 
     def test_get_user_message_suffix_empty_query_with_suffix(self):
