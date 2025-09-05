@@ -114,6 +114,10 @@ class Conversation:
 
         Can be paused by calling pause() from another thread.
         """
+
+        with self.state:
+            self.state.agent_paused = False
+
         iteration = 0
         while not self.state.agent_finished and not self.state.agent_paused:
             logger.debug(f"Conversation run iteration {iteration}")
@@ -137,12 +141,6 @@ class Conversation:
             iteration += 1
             if iteration >= self.max_iteration_per_run:
                 break
-
-        # Reset pause flag if loop exited due to pause
-        if self.state.agent_paused:
-            with self.state:
-                self.state.agent_paused = False
-            logger.info("Agent execution paused")
 
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode and store it in conversation state."""
