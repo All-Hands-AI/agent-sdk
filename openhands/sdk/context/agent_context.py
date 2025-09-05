@@ -101,6 +101,11 @@ class AgentContext(BaseModel):
         - Matching microagent triggers against the query
         - Returning formatted knowledge and triggered microagent names if relevant microagents were triggered
         """  # noqa: E501
+
+        user_message_suffix = None
+        if self.user_message_suffix and self.user_message_suffix.strip():
+            user_message_suffix = self.user_message_suffix.strip()
+
         query = "\n".join(
             (c.text for c in user_message.content if isinstance(c, TextContent))
         ).strip()
@@ -132,6 +137,12 @@ class AgentContext(BaseModel):
                 template_name="microagent_knowledge_info.j2",
                 triggered_agents=recalled_knowledge,
             )
+            if user_message_suffix:
+                formatted_microagent_text += "\n" + user_message_suffix
             return TextContent(text=formatted_microagent_text), [
                 k.name for k in recalled_knowledge
             ]
+
+        if user_message_suffix:
+            return TextContent(text=user_message_suffix), []
+        return None
