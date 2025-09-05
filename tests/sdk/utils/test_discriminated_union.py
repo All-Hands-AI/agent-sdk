@@ -23,6 +23,57 @@ def test_discriminated_union_supports_polymorphic_serialization() -> None:
         assert animal == deserialized_animal
 
 
+def test_discriminated_union_supports_polymorphic_field_serialization() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        breed: str
+
+    class Cat(Animal):
+        color: str
+
+    class Carrier(BaseModel):
+        animal: Animal
+
+    cat = Cat(name="Whiskers", color="Tabby")
+    dog = Dog(name="Fido", breed="Labrador")
+
+    for animal in [cat, dog]:
+        carrier = Carrier(animal=animal)
+        serialized_carrier = carrier.model_dump_json()
+        deserialized_carrier = Carrier.model_validate_json(serialized_carrier)
+        assert carrier == deserialized_carrier
+
+    carrier = Carrier(animal=dog)
+
+    serialized_carrier = carrier.model_dump_json()
+    deserialized_carrier = Carrier.model_validate_json(serialized_carrier)
+    assert carrier == deserialized_carrier
+
+
+def test_discriminated_union_supports_nested_polymorphic_serialization() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        breed: str
+
+    class Cat(Animal):
+        color: str
+
+    class Zoo(BaseModel):
+        residents: list[Animal]
+
+    dog = Dog(name="Fido", breed="Labrador")
+    cat = Cat(name="Whiskers", color="Tabby")
+    zoo = Zoo(residents=[dog, cat])
+
+    serialized_zoo = zoo.model_dump_json()
+    deserialized_zoo = Zoo.model_validate_json(serialized_zoo)
+    assert zoo == deserialized_zoo
+
+
 def test_discriminated_union_with_pydantic_validators() -> None:
     """Test that Pydantic validators work correctly with discriminated unions."""
 
@@ -172,24 +223,3 @@ def test_discriminated_union_preserves_pydantic_parameters() -> None:
     context = {"test": "value"}
     result = Animal.model_validate(dog_data, context=context)
     assert isinstance(result, Dog)
-
-
-def test_polymorphic_field_serialization() -> None:
-    class Animal(DiscriminatedUnionMixin, BaseModel):
-        name: str
-
-    class Dog(Animal):
-        breed: str
-
-    class Cat(Animal):
-        color: str
-
-    class Zoo(BaseModel):
-        resident: Animal
-
-    dog = Dog(name="Fido", breed="Labrador")
-    zoo = Zoo(resident=dog)
-
-    serialized_zoo = zoo.model_dump_json()
-    deserialized_zoo = Zoo.model_validate_json(serialized_zoo)
-    assert zoo == deserialized_zoo
