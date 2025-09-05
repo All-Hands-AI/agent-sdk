@@ -16,6 +16,7 @@ until validation time, meaning that new subclasses can be defined and registered
 at any time before validation occurs.
 
 Example usage:
+
     from typing import Annotated
     from pydantic import BaseModel
 
