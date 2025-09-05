@@ -12,7 +12,7 @@ from fastmcp.client.transports import (
 )
 from mcp import McpError
 from mcp.types import CallToolResult, Tool as MCPTool
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from openhands.sdk.config.mcp_config import (
     MCPSHTTPServerConfig,
@@ -36,21 +36,20 @@ class MCPClient(BaseModel):
 
     tools: list[MCPTool] = Field(default_factory=list)
     tool_map: dict[str, MCPTool] = Field(default_factory=dict)
-    server_config: (
-        MCPSSEServerConfig | MCPSHTTPServerConfig | MCPStdioServerConfig | None
-    ) = None
+    server_config: Optional[
+        MCPSSEServerConfig | MCPSHTTPServerConfig | MCPStdioServerConfig
+    ] = Field(default=None)
 
-    # Internal async management
-    def __init__(self, **data):
-        super().__init__(**data)
+    # Connection parameters for recreating clients
+    _timeout: float = Field(default=30.0, exclude=True)
+    _conversation_id: Optional[str] = Field(default=None, exclude=True)
 
-        # Connection parameters for recreating clients
-        self._timeout: float = 30.0
-        self._conversation_id: Optional[str] = None
-
-        # Event loop and thread for async operations
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._thread: Optional[threading.Thread] = None
+    # Private attributes - these don't get serialized
+    _timeout: float = PrivateAttr(default=30.0)
+    _conversation_id: Optional[str] = PrivateAttr(default=None)
+    _loop: Optional[asyncio.AbstractEventLoop] = PrivateAttr(default=None)
+    _thread: Optional[threading.Thread] = PrivateAttr(default=None)
+    _loop_lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
 
     def _create_stdio_client(self) -> Client:
         """Create a new stdio client using stored server config."""
@@ -214,18 +213,43 @@ class MCPClient(BaseModel):
 
     def _stop_event_loop(self) -> None:
         """Stop the background event loop."""
-        if self._loop is not None:
-            self._loop.call_soon_threadsafe(self._loop.stop)
-            if self._thread is not None:
-                self._thread.join(timeout=1.0)
-            self._loop = None
-            self._thread = None
+        if self._loop is not None and not self._loop.is_closed():
+            try:
+                self._loop.call_soon_threadsafe(self._loop.stop)
+            except RuntimeError:
+                # Loop might already be stopped/closed
+                pass
+
+        if self._thread is not None and self._thread.is_alive():
+            self._thread.join(timeout=1.0)
+
+        self._loop = None
+        self._thread = None
 
     def _run_async(self, coro):
         """Run an async coroutine in the managed event loop."""
-        if self._loop is None:
-            self._start_event_loop()
+        with self._loop_lock:
+            if self._loop is None:
+                self._start_event_loop()
+            loop = self._loop
 
-        assert self._loop is not None
-        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return future.result()
+        assert loop is not None
+        try:
+            future = asyncio.run_coroutine_threadsafe(coro, loop)
+            return future.result()
+        except Exception as e:
+            # Add context about which operation failed
+            raise RuntimeError(f"MCP async operation failed: {e}") from e
+
+    def __del__(self):
+        """Ensure cleanup on garbage collection."""
+        try:
+            if hasattr(self, "_loop") and self._loop is not None:
+                self._stop_event_loop()
+        except Exception:
+            # Ignore errors during cleanup in __del__
+            pass
+
+    def close(self):
+        """Explicit cleanup method for proper resource management."""
+        self._stop_event_loop()
