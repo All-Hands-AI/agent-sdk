@@ -8,7 +8,7 @@ import mcp.types
 from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import MCPToolObservation
-from openhands.sdk.tool import ActionBase, Tool, ToolAnnotations, ToolExecutor
+from openhands.sdk.tool import MCPActionBase, Tool, ToolAnnotations, ToolExecutor
 
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ class MCPToolExecutor(ToolExecutor):
         self.tool_name = tool_name
         self.client = client
 
-    async def call_tool(self, action: ActionBase) -> MCPToolObservation:
+    async def call_tool(self, action: MCPActionBase) -> MCPToolObservation:
         async with self.client:
             assert self.client.is_connected(), "MCP client is not connected."
             try:
@@ -56,14 +56,14 @@ class MCPToolExecutor(ToolExecutor):
                     tool_name=self.tool_name,
                 )
 
-    def __call__(self, action: ActionBase) -> MCPToolObservation:
+    def __call__(self, action: MCPActionBase) -> MCPToolObservation:
         """Execute an MCP tool call."""
         return self.client.call_async_from_sync(
             self.call_tool, action=action, timeout=60.0
         )
 
 
-class MCPTool(Tool[ActionBase, MCPToolObservation]):
+class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
     def __init__(

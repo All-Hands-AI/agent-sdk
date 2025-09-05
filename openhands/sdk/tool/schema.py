@@ -154,6 +154,12 @@ class ActionBase(Schema):
     )
 
 
+class MCPActionBase(ActionBase):
+    """Base schema for MCP input action."""
+
+    model_config = ConfigDict(extra="allow")
+
+
 class ObservationBase(Schema):
     """Base schema for output observation."""
 
