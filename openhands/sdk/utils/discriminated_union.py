@@ -61,69 +61,13 @@ Example usage:
 
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Any, Generic, TypeVar, cast
 
 from pydantic import BaseModel, computed_field
 from pydantic_core import core_schema
 
 
-# Global registry to track subclasses for each DiscriminatedUnionMixin subclass
-_DISCRIMINATED_UNION_REGISTRY: dict[
-    type[DiscriminatedUnionMixin], dict[str, type[DiscriminatedUnionMixin]]
-] = {}
-
 T = TypeVar("T", bound="DiscriminatedUnionMixin")
-
-
-class DiscriminatedUnionRegistry:
-    """A registry to track DiscriminatedUnionMixin subclasses.
-
-    Beyond tracking subclasses and their kinds, also tracks the tree structure of
-    DiscriminatedUnionMixin subclasses, allowing us to find the possible subclasses
-    for any given root class.
-    """
-
-    def __init__(self) -> None:
-        self.subclass_registry: dict[
-            type[DiscriminatedUnionMixin], dict[str, type[DiscriminatedUnionMixin]]
-        ] = defaultdict(dict)
-
-        self.root_class_tree: dict[
-            type[DiscriminatedUnionMixin], list[type[DiscriminatedUnionMixin]]
-        ] = defaultdict(list)
-
-        self.registry: dict[
-            type[DiscriminatedUnionMixin], dict[str, type[DiscriminatedUnionMixin]]
-        ] = defaultdict(dict)
-
-    def find_root_class(
-        self, cls: type[DiscriminatedUnionMixin]
-    ) -> type[DiscriminatedUnionMixin] | None:
-        """Find the root DiscriminatedUnionMixin superclass for a given class."""
-        if DiscriminatedUnionMixin in cls.__bases__:
-            return cls
-
-        for base in cls.__bases__:
-            result = self.find_root_class(base)
-            if result is not None:
-                return result
-
-        return None
-
-    def register(self, cls: type[DiscriminatedUnionMixin]) -> None:
-        """Register a class in the registry."""
-        root_class = self.find_root_class(cls)
-        if root_class is None:
-            raise ValueError(
-                f"Class {cls.__name__} is not a subclass of DiscriminatedUnionMixin"
-            )
-
-        self.registry[root_class][cls.__name__] = cls
-
-    def is_root_class(self, cls: type[DiscriminatedUnionMixin]) -> bool:
-        """Check if a class is a root DiscriminatedUnionMixin subclass."""
-        return cls in self.registry
 
 
 class DiscriminatedUnionMixin(BaseModel):
@@ -242,14 +186,6 @@ class DiscriminatedUnionType(Generic[T]):
         self.__origin__ = cls
         self.__args__ = ()
 
-    @property
-    def registered_types(self) -> dict[str, type[T]]:
-        """Get all currently registered types for this union."""
-        return cast(
-            dict[str, type[T]],
-            _DISCRIMINATED_UNION_REGISTRY.get(self.base_class, {}).copy(),
-        )
-
     def __get_pydantic_core_schema__(self, source_type, handler):
         """Define custom Pydantic core schema for this type.
 
@@ -270,9 +206,6 @@ class DiscriminatedUnionType(Generic[T]):
         return core_schema.no_info_plain_validator_function(validate)
 
     def __repr__(self):
-        types = list(self.registered_types.keys())
-        if types:
-            return f"DiscriminatedUnion[{self.base_class.__name__}: {', '.join(types)}]"
         return f"DiscriminatedUnion[{self.base_class.__name__}]"
 
     def __class_getitem__(cls, params):
