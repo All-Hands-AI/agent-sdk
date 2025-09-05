@@ -582,34 +582,34 @@ class TestTelemetryEdgeCases:
         basic_telemetry.on_response(response_no_id)
 
         # Test with non-ModelResponse object
-        mock_response = MagicMock()
-        basic_telemetry.on_request({})
-        basic_telemetry.on_response(mock_response)
+        with pytest.raises(ValidationError):
+            mock_response = MagicMock()
+            basic_telemetry.on_request({})
+            basic_telemetry.on_response(mock_response)
 
         # Should have recorded latencies for all cases
-        assert len(basic_telemetry.metrics.response_latencies) == 3
+        assert len(basic_telemetry.metrics.response_latencies) == 2
 
     def test_usage_extraction_edge_cases(self, basic_telemetry):
         """Test usage extraction from various response formats."""
         # Test with dict response containing usage
-        dict_response = {
-            "id": "test-id",
-            "usage": {
+        response = ModelResponse(
+            id="test-id",
+            usage={
                 "prompt_tokens": 100,
                 "completion_tokens": 50,
                 "total_tokens": 150,
             },
-        }
+        )
 
         basic_telemetry.on_request({"context_window": 4096})
-        basic_telemetry.on_response(dict_response)
-
+        basic_telemetry.on_response(response)
         assert len(basic_telemetry.metrics.token_usages) == 1
 
         # Test with dict response without usage
-        dict_response_no_usage = {"id": "test-id"}
+        response_no_usage = ModelResponse(id="no-usage-id", usage=None)
         basic_telemetry.on_request({})
-        basic_telemetry.on_response(dict_response_no_usage)
+        basic_telemetry.on_response(response_no_usage)
 
         # Should still have only one token usage record
         assert len(basic_telemetry.metrics.token_usages) == 1
