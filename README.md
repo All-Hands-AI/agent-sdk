@@ -140,6 +140,7 @@ llm = registry.get_llm("default")
 Tools provide agents with capabilities to interact with the environment:
 
 #### Simplified Pattern (Recommended)
+
 ```python
 from openhands.tools import BashTool, FileEditorTool
 
@@ -151,12 +152,58 @@ tools = [
 ```
 
 #### Advanced Pattern (For explicitly maintained tool executor)
+
+We explicitly define a `BashExecutor` in this example:
+
 ```python
 from openhands.tools import BashExecutor, execute_bash_tool
 
 # Explicit executor creation for reuse or customization
 bash_executor = BashExecutor(working_dir=os.getcwd())
 bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
+```
+
+And we can later re-use this bash terminal instance to define a custom tool:
+
+```python
+from openhands.sdk.tool import ActionBase, ObservationBase, ToolExecutor
+
+class GrepAction(ActionBase):
+    pattern: str = Field(description="Regex to search for")
+    path: str = Field(
+        default=".", description="Directory to search (absolute or relative)"
+    )
+    include: str | None = Field(
+        default=None, description="Optional glob to filter files (e.g. '*.py')"
+    )
+
+
+class GrepObservation(ObservationBase):
+    output: str = Field(default='')
+
+    @property
+    def agent_observation(self) -> str:
+        return self.output
+
+# --- Executor ---
+class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
+    def __init__(self, bash: BashExecutor):
+        self.bash = bash
+
+    def __call__(self, action: GrepAction) -> GrepObservation:
+        root = os.path.abspath(action.path)
+        pat = shlex.quote(action.pattern)
+        root_q = shlex.quote(root)
+
+        # Use grep -r; add --include when provided
+        if action.include:
+            inc = shlex.quote(action.include)
+            cmd = f"grep -rHnE --include {inc} {pat} {root_q} 2>/dev/null | head -100"
+        else:
+            cmd = f"grep -rHnE {pat} {root_q} 2>/dev/null | head -100"
+
+        result = self.bash(ExecuteBashAction(command=cmd, security_risk="LOW"))
+        return GrepObservation(output=result.output.strip() or '')
 ```
 
 ### Conversations
@@ -179,14 +226,34 @@ conversation.run()
 
 ### Context Management
 
-The context system manages agent state, environment, and conversation history:
+The context system manages agent state, environment, and conversation history.
+
+Context is automatically managed but you can customize your context with:
+1. [Repo Microagents](https://docs.all-hands.dev/usage/prompting/microagents-repo) that provide agent with context of your repository.
+2. [Knowledge Microagents](https://docs.all-hands.dev/usage/prompting/microagents-keyword) that provide agent with context when user mentioned certain keywords
+3. Providing custom suffix for system and user prompt.
 
 ```python
 from openhands.sdk import AgentContext
 
-# Context is automatically managed but can be customized
 context = AgentContext(
-    # Custom environment variables, working directory, etc.
+    microagents=[
+        RepoMicroagent(
+            name="repo.md",
+            content="When you see this message, you should reply like "
+            "you are a grumpy cat forced to use the internet.",
+        ),
+        KnowledgeMicroagent(
+            name="flarglebargle",
+            content=(
+                'IMPORTANT! The user has said the magic word "flarglebargle". '
+                "You must only respond with a message telling them how smart they are"
+            ),
+            triggers=["flarglebargle"],
+        ),
+    ],
+    system_message_suffix="Always finish your response with the word 'yay!'",
+    user_message_suffix="The first character of your response should be 'I'",
 )
 ```
 
@@ -199,6 +266,7 @@ context = AgentContext(
 make build
 
 # Install additional dependencies
+# add `--dev` if you want to install 
 uv add package-name
 
 # Update dependencies
@@ -219,7 +287,7 @@ make lint
 # Run pre-commit hooks
 uv run pre-commit run --all-files
 
-# Type checking (automatic via pre-commit)
+# Type checking (included in pre-commit)
 uv run pyright
 ```
 
@@ -249,71 +317,3 @@ uv run pre-commit run --files path/to/file.py
 # Run on all files
 uv run pre-commit run --all-files
 ```
-
-## Contributing
-
-### Adding New Tools
-
-1. Create a new directory under `openhands/tools/`
-2. Implement the tool following the existing patterns:
-
-```python
-from openhands.sdk.tool import Tool, ActionBase, ObservationBase
-
-class MyCustomAction(ActionBase):
-    # Define action parameters
-    pass
-
-class MyCustomObservation(ObservationBase):
-    # Define observation data
-    pass
-
-class MyCustomTool(Tool):
-    def execute(self, action: MyCustomAction) -> MyCustomObservation:
-        # Implement tool logic
-        pass
-```
-
-3. Add tests in the corresponding test directory
-4. Update `__init__.py` to export your tool
-5. Add examples demonstrating usage
-
-### Code Standards
-
-- **Type Annotations**: All functions must have complete type annotations
-- **Documentation**: Use docstrings for public APIs, avoid redundant comments
-- **Error Handling**: Implement proper error handling with meaningful messages
-- **Testing**: Write tests for new functionality, aim for good coverage
-- **Formatting**: Code must pass `ruff` formatting and linting
-
-### Commit Guidelines
-
-- Use conventional commit messages
-- Include `Co-authored-by: openhands <openhands@all-hands.dev>` in commit messages
-- Run pre-commit hooks before committing
-- Keep commits focused and atomic
-
-## Package Management
-
-This project uses `uv` for fast, reliable dependency management:
-
-```bash
-# Add runtime dependency
-uv add package-name
-
-# Add development dependency
-uv add --dev package-name
-
-# Update all dependencies
-uv lock --upgrade
-
-# Install from lock file
-uv sync
-
-# Install development dependencies
-uv sync --dev
-```
-
-## License
-
-This project is part of the OpenHands ecosystem. Please refer to the main OpenHands repository for licensing information.
