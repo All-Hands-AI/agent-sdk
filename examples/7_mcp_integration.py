@@ -8,7 +8,6 @@ from openhands.sdk import (
     Agent,
     Conversation,
     EventType,
-    LLMConfig,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -26,11 +25,9 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    config=LLMConfig(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-        base_url="https://llm-proxy.eval.all-hands.dev",
-        api_key=SecretStr(api_key),
-    )
+    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
 )
 
 # Configure MCP servers
