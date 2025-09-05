@@ -150,7 +150,7 @@ tools = [
 ]
 ```
 
-#### Advanced Pattern (For Custom Tools)
+#### Advanced Pattern (For explicitly maintained tool executor)
 ```python
 from openhands.tools import BashExecutor, execute_bash_tool
 
