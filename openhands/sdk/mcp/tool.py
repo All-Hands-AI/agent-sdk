@@ -1,6 +1,5 @@
 """MCPTool definition and implementation."""
 
-import json
 from typing import Any
 
 from pydantic import Field
@@ -31,7 +30,9 @@ class MCPToolAction(ActionBase):
 class MCPToolObservation(ObservationBase):
     """Observation from MCP tool execution."""
 
-    content: str = Field(default="", description="Content returned from the MCP tool")
+    content: dict[str, Any] = Field(
+        default_factory=dict, description="Content returned from the MCP tool"
+    )
     is_error: bool = Field(
         default=False, description="Whether the call resulted in an error"
     )
@@ -46,9 +47,12 @@ class MCPToolObservation(ObservationBase):
         if self.is_error:
             return f"Error calling tool {self.tool_name}: {self.error_message}"
         else:
-            return (
-                f"Tool {self.tool_name} returned: {json.dumps(self.content, indent=2)}"
-            )
+            ret = f"[Tool {self.tool_name} returned]\n"
+            for k, v in self.content.items():
+                ret += f"<parameter={k}>\n"
+                ret += str(v) + "\n"
+                ret += "</parameter>\n"
+            return ret
 
 
 class MCPToolExecutor(ToolExecutor):
@@ -63,7 +67,7 @@ class MCPToolExecutor(ToolExecutor):
             result = self.mcp_client.call_tool(action.tool_name, action.arguments)
 
             return MCPToolObservation(
-                content=json.dumps(result.model_dump(mode="json")),
+                content=result.model_dump(mode="json"),
                 is_error=result.isError,
                 tool_name=action.tool_name,
             )
