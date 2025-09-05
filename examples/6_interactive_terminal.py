@@ -32,7 +32,7 @@ llm = LLM(
 # Tools
 cwd = os.getcwd()
 tools: list[Tool] = [
-    BashTool(working_dir=cwd),
+    BashTool(working_dir=cwd, no_change_timeout_seconds=3),
 ]
 
 # Agent
@@ -62,15 +62,6 @@ conversation.send_message(
     )
 )
 conversation.run()
-
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
-conversation.run()
-
 
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
