@@ -130,17 +130,17 @@ class TestTelemetryLifecycle:
         """Test on_response with usage information."""
         basic_telemetry.on_request({"context_window": 4096})
 
-        # Create a dict response with usage data (telemetry expects dict format)
-        dict_response = {
-            "id": "test-response-id",
-            "usage": {
-                "prompt_tokens": 100,
-                "completion_tokens": 50,
-                "total_tokens": 150,
-            },
-        }
+        # Create a ModelResponse with usage data
+        response = ModelResponse(
+            id="test-response-id",
+            usage=Usage(
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+            ),
+        )
 
-        basic_telemetry.on_response(dict_response)
+        basic_telemetry.on_response(response)
 
         # Should record token usage
         assert len(basic_telemetry.metrics.token_usages) == 1
@@ -458,15 +458,15 @@ class TestTelemetryIntegration:
             log_ctx = {"user_id": "test-user", "context_window": 4096}
             telemetry.on_request(log_ctx)
 
-            # Create response with usage (dict format for telemetry)
-            response = {
-                "id": "test-response-id",
-                "usage": {
-                    "prompt_tokens": 100,
-                    "completion_tokens": 50,
-                    "total_tokens": 150,
-                },
-            }
+            # Create response with usage (ModelResponse format)
+            response = ModelResponse(
+                id="test-response-id",
+                usage=Usage(
+                    prompt_tokens=100,
+                    completion_tokens=50,
+                    total_tokens=150,
+                ),
+            )
 
             with patch(
                 "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
@@ -491,14 +491,14 @@ class TestTelemetryIntegration:
         for i in range(3):
             basic_telemetry.on_request({"request_id": i})
 
-            response = {
-                "id": f"response-{i}",
-                "usage": {
-                    "prompt_tokens": 100 + i * 10,
-                    "completion_tokens": 50 + i * 5,
-                    "total_tokens": 150 + i * 15,
-                },
-            }
+            response = ModelResponse(
+                id=f"response-{i}",
+                usage=Usage(
+                    prompt_tokens=100 + i * 10,
+                    completion_tokens=50 + i * 5,
+                    total_tokens=150 + i * 15,
+                ),
+            )
 
             with patch(
                 "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
@@ -571,17 +571,17 @@ class TestTelemetryEdgeCases:
 
     def test_response_id_extraction_edge_cases(self, basic_telemetry):
         """Test response ID extraction from various response formats."""
-        # Test with dict response
-        dict_response = {"id": "dict-id", "usage": None}
+        # Test with ModelResponse with ID
+        response_with_id = ModelResponse(id="model-response-id", usage=None)
         basic_telemetry.on_request({})
-        basic_telemetry.on_response(dict_response)
+        basic_telemetry.on_response(response_with_id)
 
-        # Test with response missing ID
-        dict_response_no_id = {"usage": None}
+        # Test with ModelResponse missing ID
+        response_no_id = ModelResponse(usage=None)
         basic_telemetry.on_request({})
-        basic_telemetry.on_response(dict_response_no_id)
+        basic_telemetry.on_response(response_no_id)
 
-        # Test with non-dict response
+        # Test with non-ModelResponse object
         mock_response = MagicMock()
         basic_telemetry.on_request({})
         basic_telemetry.on_response(mock_response)

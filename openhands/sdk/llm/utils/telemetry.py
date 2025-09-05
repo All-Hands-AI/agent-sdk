@@ -61,9 +61,7 @@ class Telemetry(BaseModel):
         """
         # 1) latency
         self._last_latency = time.time() - (self._req_start or time.time())
-        response_id = (
-            (resp.get("id") or "unknown") if isinstance(resp, dict) else "unknown"
-        )
+        response_id = resp.id
         self.metrics.add_response_latency(self._last_latency, response_id)
 
         # 2) cost
@@ -71,9 +69,13 @@ class Telemetry(BaseModel):
         if cost:
             self.metrics.add_cost(cost)
 
-        # 3) tokens
-        usage: Usage | None = resp.get("usage") if isinstance(resp, dict) else None
-        if usage:
+        # 3) tokens - handle both dict and ModelResponse objects
+        if isinstance(resp, dict):
+            usage = resp.get("usage")
+        else:
+            usage = getattr(resp, "usage", None)
+
+        if usage and self._has_meaningful_usage(usage):
             self._record_usage(
                 usage, response_id, self._req_ctx.get("context_window", 0)
             )
@@ -89,11 +91,40 @@ class Telemetry(BaseModel):
         return
 
     # ---------- Helpers ----------
+    def _has_meaningful_usage(self, usage) -> bool:
+        """Check if usage has meaningful (non-zero) token counts."""
+        if not usage:
+            return False
+
+        # Handle MagicMock objects safely
+        try:
+            if isinstance(usage, dict):
+                prompt_tokens = usage.get("prompt_tokens", 0) or 0
+                completion_tokens = usage.get("completion_tokens", 0) or 0
+            else:
+                prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+                completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+
+            # Convert to int safely (handles MagicMock objects)
+            prompt_tokens = int(prompt_tokens) if str(prompt_tokens).isdigit() else 0
+            completion_tokens = (
+                int(completion_tokens) if str(completion_tokens).isdigit() else 0
+            )
+
+            return prompt_tokens > 0 or completion_tokens > 0
+        except (ValueError, TypeError, AttributeError):
+            return False
+
     def _record_usage(
         self, usage: Usage, response_id: str, context_window: int
     ) -> None:
-        prompt_tokens = usage.get("prompt_tokens", 0) or 0
-        completion_tokens = usage.get("completion_tokens", 0) or 0
+        # Handle both dict and Usage objects
+        if isinstance(usage, dict):
+            prompt_tokens = usage.get("prompt_tokens", 0) or 0
+            completion_tokens = usage.get("completion_tokens", 0) or 0
+        else:
+            prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+            completion_tokens = getattr(usage, "completion_tokens", 0) or 0
 
         cache_read = 0
         details = getattr(usage, "prompt_tokens_details", None)
