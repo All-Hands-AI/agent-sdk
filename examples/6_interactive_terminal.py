@@ -15,7 +15,6 @@ from openhands.sdk import (
 )
 from openhands.tools import (
     BashTool,
-    FileEditorTool,
 )
 
 
@@ -34,7 +33,6 @@ llm = LLM(
 cwd = os.getcwd()
 tools: list[Tool] = [
     BashTool(working_dir=cwd),
-    FileEditorTool(),
 ]
 
 # Agent
@@ -44,7 +42,6 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: EventType):
-    logger.info(f"Found a conversation message: {str(event)[:200]}...")
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -57,14 +54,23 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py"
-                    " that prints 'Hello, World!'?"
+                    "Enter python interactive mode by directly running `python3`, "
+                    "then tell me the current time, and exit python interactive mode."
                 )
             )
         ],
     )
 )
 conversation.run()
+
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[TextContent(text=("Great! Now delete that file."))],
+    )
+)
+conversation.run()
+
 
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")

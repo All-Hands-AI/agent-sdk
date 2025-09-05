@@ -81,6 +81,28 @@ class ConversationVisualizer:
         action_name = event.action.__class__.__name__
         content.append("Action: ", style="bold green")
         content.append(action_name, style="yellow")
+        content.append("\n\n")
+
+        # Display all action fields systematically
+        content.append("Action Fields:\n", style="bold green")
+        action_fields = event.action.model_dump()
+        for field_name, field_value in action_fields.items():
+            content.append(f"  {field_name}: ", style="cyan")
+            if field_value is None:
+                content.append("None", style="dim white")
+            elif isinstance(field_value, str):
+                # Handle multiline strings with proper indentation
+                if "\n" in field_value:
+                    content.append("\n", style="white")
+                    for line in field_value.split("\n"):
+                        content.append(f"    {line}\n", style="white")
+                else:
+                    content.append(f'"{field_value}"', style="white")
+            elif isinstance(field_value, (list, dict)):
+                content.append(str(field_value), style="white")
+            else:
+                content.append(str(field_value), style="white")
+            content.append("\n")
 
         return Panel(
             content,

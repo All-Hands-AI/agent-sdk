@@ -1,6 +1,7 @@
 """Advanced example showing explicit executor usage and custom grep tool."""
 
 import os
+import shlex
 
 from pydantic import Field, SecretStr
 
@@ -27,89 +28,72 @@ from openhands.tools import (
 logger = get_logger(__name__)
 
 
-# Define the Grep tool action and observation schemas
-class GrepAction(ActionBase):
-    """Schema for content search using grep."""
+# --- Action / Observation ---
 
-    pattern: str = Field(description="The regex pattern to search for in file contents")
+
+class GrepAction(ActionBase):
+    pattern: str = Field(description="Regex to search for")
     path: str = Field(
-        default=".",
-        description=(
-            "The directory (absolute path) to search in. "
-            "Defaults to the current working directory."
-        ),
+        default=".", description="Directory to search (absolute or relative)"
     )
     include: str | None = Field(
-        default=None,
-        description=(
-            "Optional file pattern to filter which files to search "
-            "(e.g., '*.js', '*.{ts,tsx}')"
-        ),
+        default=None, description="Optional glob to filter files (e.g. '*.py')"
     )
 
 
 class GrepObservation(ObservationBase):
-    """Schema for grep search results."""
+    matches: list[str] = Field(default_factory=list)
+    files: list[str] = Field(default_factory=list)
+    count: int = 0
 
-    matches: list[str] = Field(description="List of matching lines with file paths")
-    files: list[str] = Field(description="List of files that had matches")
-    count: int = Field(description="Number of matching lines found")
-    pattern: str = Field(description="The pattern that was searched")
-    search_path: str = Field(description="The path that was searched")
+    @property
+    def agent_observation(self) -> str:
+        if not self.count:
+            return "No matches found."
+        files_list = "\n".join(f"- {f}" for f in self.files[:20])
+        sample = "\n".join(self.matches[:10])
+        more = "\n..." if self.count > 10 else ""
+        return (
+            f"Found {self.count} matching lines.\n"
+            f"Files:\n{files_list}\n"
+            f"Sample:\n{sample}{more}"
+        )
 
 
-# Define the Grep tool executor
+# --- Executor ---
+
+
 class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
-    """Executor for content search using bash grep commands."""
-
-    def __init__(self, bash_executor: BashExecutor):
-        """Initialize with a bash executor."""
-        self.bash_executor = bash_executor
+    def __init__(self, bash: BashExecutor):
+        self.bash = bash
 
     def __call__(self, action: GrepAction) -> GrepObservation:
-        """Execute content search using bash grep commands."""
-        search_path = os.path.abspath(action.path)
+        root = os.path.abspath(action.path)
+        pat = shlex.quote(action.pattern)
+        root_q = shlex.quote(root)
 
-        # Build the grep command
-        grep_cmd = f"cd '{search_path}' && "
-
+        # Use grep -r; add --include when provided
         if action.include:
-            # Use find with file pattern and pipe to grep
-            grep_cmd += (
-                f"find . -name '{action.include}' -type f 2>/dev/null | "
-                f"head -1000 | "
-                f"xargs grep -H -n -E '{action.pattern}' 2>/dev/null | "
-                f"head -100"
-            )
+            inc = shlex.quote(action.include)
+            cmd = f"grep -rHnE --include {inc} {pat} {root_q} 2>/dev/null | head -100"
         else:
-            # Search all files recursively
-            grep_cmd += f"grep -r -H -n -E '{action.pattern}' . 2>/dev/null | head -100"
+            cmd = f"grep -rHnE {pat} {root_q} 2>/dev/null | head -100"
 
-        bash_action = ExecuteBashAction(command=grep_cmd, security_risk="LOW")
+        result = self.bash(ExecuteBashAction(command=cmd, security_risk="LOW"))
 
-        result = self.bash_executor(bash_action)
+        matches: list[str] = []
+        files: set[str] = set()
 
-        # Parse the output
-        matches = []
-        files = set()
+        # grep returns exit code 1 when no matches; treat as empty
+        if result.output.strip():
+            for line in result.output.strip().splitlines():
+                matches.append(line)
+                # Expect "path:line:content" — take the file part before first ":"
+                file_path = line.split(":", 1)[0]
+                if file_path:
+                    files.add(os.path.abspath(file_path))
 
-        if result.exit_code == 0 and result.output.strip():
-            for line in result.output.strip().split("\n"):
-                if line.strip():
-                    matches.append(line)
-                    # Extract filename from grep output (format: ./path/file:line:content)  # noqa: E501
-                    if ":" in line:
-                        file_path = line.split(":", 1)[0].lstrip("./")
-                        if file_path:
-                            files.add(os.path.join(search_path, file_path))
-
-        return GrepObservation(
-            matches=matches,
-            files=list(files),
-            count=len(matches),
-            pattern=action.pattern,
-            search_path=search_path,
-        )
+        return GrepObservation(matches=matches, files=sorted(files), count=len(matches))
 
 
 # Tool description
@@ -165,7 +149,6 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: EventType):
-    logger.info(f"Found a conversation message: {str(event)[:200]}...")
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
