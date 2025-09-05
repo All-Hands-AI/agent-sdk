@@ -51,7 +51,11 @@ class TestStorageSerialization:
             role="user",
             content=[
                 TextContent(text="What's in this image?"),
-                ImageContent(image_urls=["https://example.com/image.jpg"]),
+                ImageContent(
+                    image_urls=["https://example.com/image.jpg"],
+                    data="dummy_data",
+                    mimeType="image/jpeg",
+                ),
             ],
             vision_enabled=True,
         )
@@ -198,7 +202,11 @@ class TestLLMAPISerialization:
             role="user",
             content=[
                 TextContent(text="What's in this image?"),
-                ImageContent(image_urls=["https://example.com/image.jpg"]),
+                ImageContent(
+                    image_urls=["https://example.com/image.jpg"],
+                    data="dummy_data",
+                    mimeType="image/jpeg",
+                ),
             ],
             vision_enabled=True,
         )
@@ -286,7 +294,11 @@ class TestLLMAPISerialization:
             role="user",
             content=[
                 TextContent(text="Describe this image"),
-                ImageContent(image_urls=["https://example.com/image.jpg"]),
+                ImageContent(
+                    image_urls=["https://example.com/image.jpg"],
+                    data="dummy_data",
+                    mimeType="image/jpeg",
+                ),
             ],
             vision_enabled=True,  # Forces list serializer
         )

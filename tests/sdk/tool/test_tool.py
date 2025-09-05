@@ -64,7 +64,7 @@ class TestTool:
         )
 
         assert tool.executor is not None
-        action = MockAction(command="test")
+        action = MockAction(command="test", security_risk="LOW")
         result = tool.call(action)
         assert isinstance(result, MockObservation)
         assert result.result == "Executed: test"
@@ -147,7 +147,7 @@ class TestTool:
             output_schema=MockObservation,
         )
 
-        action = MockAction(command="test")
+        action = MockAction(command="test", security_risk="LOW")
         with pytest.raises(
             NotImplementedError, match="Tool 'test_tool' has no executor"
         ):
@@ -168,7 +168,7 @@ class TestTool:
             executor=MockExecutor(),
         )
 
-        action = MockAction(command="test_command")
+        action = MockAction(command="test_command", security_risk="LOW")
         result = tool.call(action)
 
         assert isinstance(result, MockObservation)
@@ -218,7 +218,7 @@ class TestTool:
             executor=MockExecutor(),
         )
 
-        action = MockAction(command="test")
+        action = MockAction(command="test", security_risk="LOW")
         result = tool.call(action)
 
         # Should return the correct observation type
@@ -240,7 +240,7 @@ class TestTool:
             executor=MockExecutor(),
         )
 
-        action = MockAction(command="test")
+        action = MockAction(command="test", security_risk="LOW")
         result = tool.call(action)
 
         assert isinstance(result, MockObservation)
@@ -261,6 +261,7 @@ class TestTool:
             "command": "test",
             "nested": {"value": "test"},
             "array_field": [1, 2, 3],
+            "security_risk": "LOW",
         }
         action = tool.action_type.model_validate(action_data)
 
@@ -324,7 +325,7 @@ class TestTool:
         tool.executor = MockExecutor()
 
         # Now it should work
-        action = MockAction(command="test")
+        action = MockAction(command="test", security_risk="LOW")
         result = tool.call(action)
         assert isinstance(result, MockObservation)
         assert result.result == "Attached: test"
@@ -373,7 +374,7 @@ class TestTool:
             executor=MockComplexExecutor(),
         )
 
-        action = MockAction(command="test_command")
+        action = MockAction(command="test_command", security_risk="LOW")
         result = tool.call(action)
 
         assert isinstance(result, ComplexObservation)
@@ -395,7 +396,7 @@ class TestTool:
             executor=FailingExecutor(),
         )
 
-        action = MockAction(command="test")
+        action = MockAction(command="test", security_risk="LOW")
         with pytest.raises(RuntimeError, match="Executor failed"):
             tool.call(action)
 
@@ -418,7 +419,7 @@ class TestTool:
             executor=ValidExecutor(),
         )
 
-        action = MockAction(command="test")
+        action = MockAction(command="test", security_risk="LOW")
         result = tool.call(action)
         assert isinstance(result, StrictObservation)
         assert result.message == "success"
