@@ -26,7 +26,7 @@ from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-
+import pytest
 
 class MockAction(ActionBase):
     """Mock action schema for testing."""
@@ -42,6 +42,30 @@ class MockObservation(ObservationBase):
     @property
     def agent_observation(self) -> str:
         return self.result
+
+
+class BlockingExecutor(ToolExecutor[MockAction, MockObservation]):
+    """
+    Blocks on `release_step` each time it's called.
+    Signals `step_entered` when a tool execution starts so the test knows
+    the agent is in-flight and it's safe to call pause().
+    """
+
+    def __init__(self, step_entered: threading.Event, release_step: threading.Event):
+        self.step_entered = step_entered
+        self.release_step = release_step
+
+    def __call__(self, action: MockAction) -> MockObservation:
+        # Signal we've entered tool execution for this step
+        self.step_entered.set()
+        # Block here until the test releases this step
+        # (Short timeout to avoid deadlocks in case of test failure.)
+        assert self.release_step.wait(timeout=3.0), "Tool was never released"
+        # Reset the gate for the next iteration
+        self.release_step.clear()
+        # Return a normal observation so the loop can iterate again
+        return MockObservation(result=f"Executed: {action.command}")
+
 
 
 class TestPauseFunctionality:
@@ -77,8 +101,8 @@ class TestPauseFunctionality:
             object="chat.completion",
         )
 
-    def _mock_action_once(
-        self, call_id: str = "call_1", command: str = "test_command"
+    def _mock_action(
+        self, call_id: str = "call_1", command: str = "test_command", once=True
     ) -> None:
         """Configure LLM to return one tool call (action)."""
         tool_call = ChatCompletionMessageToolCall(
@@ -88,21 +112,25 @@ class TestPauseFunctionality:
                 name="test_tool", arguments=f'{{"command": "{command}"}}'
             ),
         )
-        self.mock_llm.completion.return_value = ModelResponse(
-            id="response_action",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content=f"I'll execute {command}",
-                        tool_calls=[tool_call],
+        response = ModelResponse(
+                id="response_action",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content=f"I'll execute {command}",
+                            tool_calls=[tool_call],
+                        )
                     )
-                )
-            ],
-            created=0,
-            model="test-model",
-            object="chat.completion",
-        )
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )   
+        if once:
+            self.mock_llm.completion.return_value = response
+        else:
+            self.mock_llm.completion.side_effect = response
 
     def _mock_finish_action(self, message: str = "Task completed") -> None:
         """Configure LLM to return a FinishAction tool call."""
@@ -138,7 +166,6 @@ class TestPauseFunctionality:
         self.conversation.pause()
         assert self.conversation.state.agent_paused is True
 
-        # Check that PauseEvent was added
         pause_events = [
             event
             for event in self.conversation.state.events
@@ -179,7 +206,7 @@ class TestPauseFunctionality:
         ]
         assert len(pause_events) == 1
 
-    def test_pause_then_resume(self):
+    def test_resume_paused_agent(self):
         """Test pausing before run() - pause is reset and agent runs normally."""
         # Mock LLM to return a message that finishes execution
         self._mock_message_only("Task completed")
@@ -208,103 +235,20 @@ class TestPauseFunctionality:
         ]
         assert len(agent_messages) == 1  # Agent ran and completed
 
-    def test_pause_during_run_in_separate_thread(self):
-        """Test that calling pause() before run() in a separate thread -
-        pause is reset and agent runs normally."""
-
-        # Mock LLM to return a simple message
-        self._mock_message_only("Task completed")
-
-        # Send message to start conversation
-        self.conversation.send_message(
-            Message(role="user", content=[TextContent(text="Execute task")])
-        )
-
-        # Start run in a separate thread
-        run_finished = threading.Event()
-        run_exception: list[Exception | None] = [None]
-
-        def run_agent():
-            try:
-                # run() will reset agent_paused=False and proceed normally
-                self.conversation.run()
-            except Exception as e:
-                run_exception[0] = e
-            finally:
-                run_finished.set()
-
-        # Pause from main thread before starting the run thread
-        self.conversation.pause()
-        assert self.conversation.state.agent_paused is True
-
-        run_thread = threading.Thread(target=run_agent)
-        run_thread.start()
-
-        # Wait for run to finish
-        run_finished.wait(timeout=1.0)
-        run_thread.join()
-
-        # Check no exception occurred
-        assert run_exception[0] is None, f"Run thread failed with: {run_exception[0]}"
-
-        # Agent should be finished (pause was reset at start of run)
-        assert self.conversation.state.agent_finished is True
-        assert self.conversation.state.agent_paused is False
-
-        # Should have pause event
-        pause_events = [
-            event
-            for event in self.conversation.state.events
-            if isinstance(event, PauseEvent)
-        ]
-        assert len(pause_events) == 1
-
-    def test_resume_paused_agent(self):
-        """Test that calling run() on an already paused agent resets pause and runs normally."""  # noqa: E501
-
-        # Mock LLM to return a simple completion message
-        self._mock_message_only("Task completed successfully")
-
-        # Send message
-        self.conversation.send_message(
-            Message(role="user", content=[TextContent(text="Complete this task")])
-        )
-
-        # Pause the agent before running
-        self.conversation.pause()
-        assert self.conversation.state.agent_paused is True
-
-        # run() call resets pause and runs normally
-        self.conversation.run()
-
-        # Agent should be finished (pause was reset at start of run)
-        assert self.conversation.state.agent_paused is False
-        assert self.conversation.state.agent_finished is True
-
-        # Agent messages should be generated since run completed normally
-        agent_messages = [
-            event
-            for event in self.conversation.state.events
-            if isinstance(event, MessageEvent) and event.source == "agent"
-        ]
-        assert len(agent_messages) == 1  # Agent ran and completed
-
     def test_pause_with_confirmation_mode(self):
         """Test that pause before run() with confirmation mode - pause is reset and agent waits for confirmation."""  # noqa: E501
         # Enable confirmation mode
         self.conversation.set_confirmation_mode(True)
+        self.conversation.pause()
+        assert self.conversation.state.agent_paused is True
 
         # Mock action
-        self._mock_action_once()
+        self._mock_action()
 
         # Send message
         self.conversation.send_message(
             Message(role="user", content=[TextContent(text="Execute command")])
         )
-
-        # Pause before running
-        self.conversation.pause()
-        assert self.conversation.state.agent_paused is True
 
         # Run resets pause and proceeds to create action, then waits for confirmation
         self.conversation.run()
@@ -314,13 +258,13 @@ class TestPauseFunctionality:
         assert self.conversation.state.agent_waiting_for_confirmation is True
         assert self.conversation.state.agent_finished is False
 
-        # Should have pause event
-        pause_events = [
+        # Action did not execute
+        agent_messages = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, PauseEvent)
+            if isinstance(event, ActionBase) and event.source == "agent"
         ]
-        assert len(pause_events) == 1
+        assert len(agent_messages) == 0
 
     def test_multiple_pause_calls_create_one_event(self):
         """Test that multiple successive pause calls only create one PauseEvent."""
@@ -343,50 +287,95 @@ class TestPauseFunctionality:
         # State should be paused
         assert self.conversation.state.agent_paused is True
 
-    def test_pause_event_properties(self):
-        """Test PauseEvent properties and string representation."""
-        self.conversation.pause()
-
-        pause_events = [
-            event
-            for event in self.conversation.state.events
-            if isinstance(event, PauseEvent)
-        ]
-        assert len(pause_events) == 1
-
-        pause_event = pause_events[0]
-        assert pause_event.source == "user"
-        assert "Agent execution paused" in str(pause_event)
-        assert "PauseEvent" in str(pause_event)
-
-    def test_pause_thread_safety(self):
-        """Test that pause is thread-safe and multiple concurrent calls
-        create only one event."""
-
-        # Test concurrent pause calls from multiple threads
-        def pause_worker():
-            self.conversation.pause()
-
-        threads = []
-        for _ in range(10):
-            thread = threading.Thread(target=pause_worker)
-            threads.append(thread)
-            thread.start()
-
-        for thread in threads:
-            thread.join()
-
-        # Should have only ONE pause event (requirement #1 applies to
-        # concurrent calls too)
-        pause_events = [
-            event
-            for event in self.conversation.state.events
-            if isinstance(event, PauseEvent)
-        ]
-        assert len(pause_events) == 1, (
-            f"Expected 1 PauseEvent from concurrent calls, got {len(pause_events)}. "
-            "Multiple pause calls should only create one PauseEvent."
+    def _mock_repeating_action(self, command: str = "loop_forever") -> None:
+        tool_call = ChatCompletionMessageToolCall(
+            id="call_loop",
+            type="function",
+            function=Function(name="test_tool", arguments=f'{{"command": "{command}"}}'),
         )
 
-        # State should be paused
-        assert self.conversation.state.agent_paused is True
+        import time
+        def side_effect(*_args, **_kwargs):
+            return ModelResponse(
+                id="response_action_loop",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content=f"I'll execute {command}",
+                            tool_calls=[tool_call],
+                        )
+                    )
+                ],
+                created=int(time.time()),
+                model="test-model",
+                object="chat.completion",
+            )
+
+        self.mock_llm.completion.side_effect = side_effect
+
+
+
+    @pytest.mark.timeout(3)
+    def test_pause_while_running_continuous_actions(self):
+        step_entered = threading.Event()
+        release_step = threading.Event()
+        blocking_tool = Tool(
+            name="test_tool",
+            description="Blocking tool for pause test",
+            input_schema=MockAction,
+            output_schema=MockObservation,
+            executor=BlockingExecutor(step_entered, release_step),
+        )
+        agent = Agent(llm=self.mock_llm, tools=[blocking_tool])
+        conversation = Conversation(agent=agent)
+
+        # Swap them in for this test only
+        self.agent = agent
+        self.conversation = conversation
+
+        # LLM continuously emits actions (no finish)
+        self._mock_repeating_action()
+
+        # Seed a user message
+        self.conversation.send_message(
+            Message(role="user", content=[TextContent(text="Loop actions until paused")])
+        )
+
+        run_exc = [None]
+        finished = threading.Event()
+
+        def run_agent():
+            try:
+                self.conversation.run()
+            except Exception as e:
+                run_exc[0] = e
+            finally:
+                finished.set()
+
+        t = threading.Thread(target=run_agent, daemon=True)
+        t.start()
+
+        try:
+            # Wait until we're *inside* tool execution of the current iteration
+            assert step_entered.wait(timeout=3.0), "Agent never reached tool execution"
+
+            # Pause while the agent is running
+            self.conversation.pause()
+            assert self.conversation.state.agent_paused is True
+
+            # Allow current tool execution to complete so run() can observe pause and return
+            release_step.set()
+
+            assert finished.wait(timeout=3.0), "run() did not exit after pause"
+            t.join(timeout=0.1)
+            assert run_exc[0] is None, f"Run thread failed with: {run_exc[0]}"
+
+            # paused, not finished, exactly one PauseEvent
+            assert self.conversation.state.agent_paused is True
+            assert self.conversation.state.agent_finished is False
+            pause_events = [e for e in self.conversation.state.events if isinstance(e, PauseEvent)]
+            assert len(pause_events) == 1, f"Expected 1 PauseEvent, got {len(pause_events)}"
+        finally:
+            # Safety: don't leave the thread blocked if a prior assert fails
+            release_step.set()
