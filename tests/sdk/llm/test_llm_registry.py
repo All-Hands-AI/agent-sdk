@@ -254,3 +254,90 @@ def test_llm_registry_list_services():
         assert "service1" in services
         assert "service2" in services
         assert len(services) == 2
+
+
+def test_llm_registry_add_method():
+    """Test the new add() method for LLMRegistry."""
+    registry = LLMRegistry()
+
+    # Create a mock LLM
+    mock_llm = Mock(spec=LLM)
+    service_id = "test-service"
+
+    # Mock the RegistryEvent to avoid LLM attribute access
+    with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
+        mock_registry_event.return_value = Mock()
+
+        # Test adding an LLM
+        registry.add(service_id, mock_llm)
+
+        # Verify the LLM was added
+        assert service_id in registry.service_to_llm
+        assert registry.service_to_llm[service_id] is mock_llm
+        assert mock_llm.service_id == service_id
+
+        # Verify RegistryEvent was called
+        mock_registry_event.assert_called_once_with(llm=mock_llm, service_id=service_id)
+
+    # Test that adding the same service_id raises ValueError
+    with unittest.TestCase().assertRaises(ValueError) as context:
+        registry.add(service_id, mock_llm)
+
+    assert "already exists in registry" in str(context.exception)
+
+
+def test_llm_registry_get_method():
+    """Test the new get() method for LLMRegistry."""
+    registry = LLMRegistry()
+
+    # Create a mock LLM
+    mock_llm = Mock(spec=LLM)
+    service_id = "test-service"
+
+    # Mock the RegistryEvent to avoid LLM attribute access
+    with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
+        mock_registry_event.return_value = Mock()
+
+        # Add the LLM first
+        registry.add(service_id, mock_llm)
+
+        # Test getting the LLM
+        retrieved_llm = registry.get(service_id)
+        assert retrieved_llm is mock_llm
+
+    # Test getting non-existent service raises KeyError
+    with unittest.TestCase().assertRaises(KeyError) as context:
+        registry.get("non-existent-service")
+
+    assert "not found in registry" in str(context.exception)
+
+
+def test_llm_registry_add_get_workflow():
+    """Test the complete add/get workflow."""
+    registry = LLMRegistry()
+
+    # Create mock LLMs
+    llm1 = Mock(spec=LLM)
+    llm2 = Mock(spec=LLM)
+
+    # Mock the RegistryEvent to avoid LLM attribute access
+    with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
+        mock_registry_event.return_value = Mock()
+
+        # Add multiple LLMs
+        registry.add("service1", llm1)
+        registry.add("service2", llm2)
+
+        # Verify we can retrieve them
+        assert registry.get("service1") is llm1
+        assert registry.get("service2") is llm2
+
+        # Verify list_services works
+        services = registry.list_services()
+        assert "service1" in services
+        assert "service2" in services
+        assert len(services) == 2
+
+        # Verify service_id is set correctly
+        assert llm1.service_id == "service1"
+        assert llm2.service_id == "service2"
