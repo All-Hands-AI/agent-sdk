@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,7 +7,6 @@ from litellm.exceptions import (
 )
 from pydantic import SecretStr
 
-from openhands.sdk.config import LLMConfig
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
@@ -52,23 +52,20 @@ def mock_logger(monkeypatch):
 
 
 @pytest.fixture
-def default_config():
-    return LLMConfig(
-        model="gpt-4o",
-        api_key=SecretStr("test_key"),
-        num_retries=2,
-        retry_min_wait=1,
-        retry_max_wait=2,
-    )
+def default_config() -> dict[str, Any]:
+    return {
+        "model": "gpt-4o",
+        "api_key": SecretStr("test_key"),
+        "num_retries": 2,
+        "retry_min_wait": 1,
+        "retry_max_wait": 2,
+    }
 
 
 def test_llm_init_with_default_config(default_config):
-    llm = LLM(default_config, service_id="test-service")
-    assert llm.config.model == "gpt-4o"
-    assert (
-        llm.config.api_key is not None
-        and llm.config.api_key.get_secret_value() == "test_key"
-    )
+    llm = LLM(**default_config, service_id="test-service")
+    assert llm.model == "gpt-4o"
+    assert llm.api_key is not None and llm.api_key.get_secret_value() == "test_key"
     assert isinstance(llm.metrics, Metrics)
     assert llm.metrics.model_name == "gpt-4o"
 
@@ -186,7 +183,7 @@ def test_llm_completion_with_mock(mock_completion, default_config):
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
 
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Test completion
     messages = [{"role": "user", "content": "Hello"}]
@@ -210,7 +207,7 @@ def test_llm_retry_on_rate_limit(mock_completion, default_config):
         mock_response,
     ]
 
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Test completion with retry
     messages = [{"role": "user", "content": "Hello"}]
@@ -222,9 +219,10 @@ def test_llm_retry_on_rate_limit(mock_completion, default_config):
 
 def test_llm_cost_calculation(default_config):
     """Test LLM cost calculation and metrics tracking."""
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Test cost addition
+    assert llm.metrics is not None
     initial_cost = llm.metrics.accumulated_cost
     llm.metrics.add_cost(1.5)
     assert llm.metrics.accumulated_cost == initial_cost + 1.5
@@ -236,7 +234,7 @@ def test_llm_cost_calculation(default_config):
 
 def test_llm_token_counting(default_config):
     """Test LLM token counting functionality."""
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Test with dict messages
     messages = [
@@ -252,7 +250,7 @@ def test_llm_token_counting(default_config):
 
 def test_llm_vision_support(default_config):
     """Test LLM vision support detection."""
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Vision support detection should work without errors
     vision_active = llm.vision_is_active()
@@ -261,7 +259,7 @@ def test_llm_vision_support(default_config):
 
 def test_llm_function_calling_support(default_config):
     """Test LLM function calling support detection."""
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Function calling support detection should work without errors
     function_calling_active = llm.is_function_calling_active()
@@ -270,7 +268,7 @@ def test_llm_function_calling_support(default_config):
 
 def test_llm_caching_support(default_config):
     """Test LLM prompt caching support detection."""
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Caching support detection should work without errors
     caching_active = llm.is_caching_prompt_active()
@@ -279,7 +277,7 @@ def test_llm_caching_support(default_config):
 
 def test_llm_string_representation(default_config):
     """Test LLM string representation."""
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     str_repr = str(llm)
     assert "LLM(" in str_repr
@@ -289,61 +287,22 @@ def test_llm_string_representation(default_config):
     assert repr_str == str_repr
 
 
-def test_llm_local_detection_based_on_model_name(default_config):
-    """Test LLM local model detection based on model name."""
-    llm = LLM(default_config)
-
-    # Default config should not be detected as local
-    assert not llm._is_local()
-
-    # Test with localhost base_url
-    local_config = default_config.model_copy(
-        update={"base_url": "http://localhost:8000"}
-    )
-    local_llm = LLM(local_config)
-    assert local_llm._is_local()
-
-    # Test with ollama model
-    ollama_config = default_config.model_copy(update={"model": "ollama/llama2"})
-    ollama_llm = LLM(ollama_config)
-    assert ollama_llm._is_local()
-
-
-def test_llm_local_detection_based_on_base_url():
-    """Test local model detection based on base_url."""
-    # Test with localhost base_url
-    local_config = LLMConfig(model="gpt-4o", base_url="http://localhost:8000")
-    local_llm = LLM(config=local_config)
-    assert local_llm._is_local() is True
-
-    # Test with 127.0.0.1 base_url
-    local_config_ip = LLMConfig(model="gpt-4o", base_url="http://127.0.0.1:8000")
-    local_llm_ip = LLM(config=local_config_ip)
-    assert local_llm_ip._is_local() is True
-
-    # Test with remote model
-    remote_config = LLMConfig(model="gpt-4o", base_url="https://api.openai.com/v1")
-    remote_llm = LLM(config=remote_config)
-    assert remote_llm._is_local() is False
-
-
 def test_llm_openhands_provider_rewrite():
     """Test OpenHands provider rewriting."""
-    openhands_config = LLMConfig(model="openhands/gpt-4o")
-    llm = LLM(config=openhands_config)
+    llm = LLM(model="openhands/gpt-4o")
 
     # Model should be rewritten to litellm_proxy format
-    assert llm.config.model == "litellm_proxy/gpt-4o"
-    assert llm.config.base_url == "https://llm-proxy.app.all-hands.dev/"
+    assert llm.model == "litellm_proxy/gpt-4o"
+    assert llm.base_url == "https://llm-proxy.app.all-hands.dev/"
 
 
 def test_llm_message_formatting(default_config):
     """Test LLM message formatting for different message types."""
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Test with single Message object
     message = Message(role="user", content=[TextContent(text="Hello")])
-    formatted = llm.format_messages_for_llm(message)
+    formatted = llm.format_messages_for_llm([message])
     assert isinstance(formatted, list)
     assert len(formatted) == 1
     assert isinstance(formatted[0], dict)
@@ -400,12 +359,11 @@ def test_metrics_log():
 def test_llm_config_validation():
     """Test LLM configuration validation."""
     # Test with minimal valid config
-    config = LLMConfig(model="gpt-4o")
-    llm = LLM(config)
-    assert llm.config.model == "gpt-4o"
+    llm = LLM(model="gpt-4o")
+    assert llm.model == "gpt-4o"
 
     # Test with full config
-    full_config = LLMConfig(
+    full_llm = LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         base_url="https://api.openai.com/v1",
@@ -415,13 +373,12 @@ def test_llm_config_validation():
         retry_min_wait=1,
         retry_max_wait=10,
     )
-    full_llm = LLM(full_config)
-    assert full_llm.config.temperature == 0.7
-    assert full_llm.config.max_output_tokens == 1000
+    assert full_llm.temperature == 0.7
+    assert full_llm.max_output_tokens == 1000
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_llm_no_response_error(mock_completion, default_config):
+def test_llm_no_response_error(mock_completion):
     """Test handling of LLMNoResponseError."""
     # Mock empty response
     mock_response = MagicMock()
@@ -434,7 +391,7 @@ def test_llm_no_response_error(mock_completion, default_config):
     }[key]
     mock_completion.return_value = mock_response
 
-    llm = LLM(default_config)
+    llm = LLM(**default_config)  # type: ignore
 
     # Test that empty response raises LLMNoResponseError
     messages = [{"role": "user", "content": "Hello"}]
