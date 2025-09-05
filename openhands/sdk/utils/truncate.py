@@ -17,18 +17,35 @@ def maybe_truncate(
     truncate_notice: str = DEFAULT_TRUNCATE_NOTICE,
 ) -> str:
     """
-    Truncate content and append a notice if content exceeds the specified length.
+    Truncate the middle of content if it exceeds the specified length.
+
+    Keeps the head and tail of the content to preserve context at both ends.
 
     Args:
         content: The text content to potentially truncate
         truncate_after: Maximum length before truncation. If None, no truncation occurs
-        truncate_notice: Notice to append when content is truncated
+        truncate_notice: Notice to insert in the middle when content is truncated
 
     Returns:
-        Original content if under limit, or truncated content with notice
+        Original content if under limit, or truncated content with head and tail
+        preserved
     """
-    return (
-        content
-        if not truncate_after or len(content) <= truncate_after
-        else content[:truncate_after] + truncate_notice
-    )
+    if not truncate_after or len(content) <= truncate_after or truncate_after < 0:
+        return content
+
+    # Calculate space for the truncate notice
+    notice_len = len(truncate_notice)
+    if truncate_after <= notice_len:
+        # If truncate_after is too small, just return the notice truncated
+        return truncate_notice[:truncate_after]
+
+    # Calculate how much space we have for actual content
+    available_chars = truncate_after - notice_len
+    half = available_chars // 2
+
+    # Handle odd number of available chars by giving the extra char to the head
+    head_chars = half + (available_chars % 2)
+    tail_chars = half
+
+    # Keep head and tail, insert notice in the middle
+    return content[:head_chars] + truncate_notice + content[-tail_chars:]

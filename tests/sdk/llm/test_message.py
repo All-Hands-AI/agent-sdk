@@ -195,7 +195,11 @@ def test_text_content_truncation_over_limit():
         text_result = result["text"]
         assert isinstance(text_result, str)
         assert len(text_result) < len(long_text)
-        assert text_result.endswith("</NOTE>")  # Should end with truncation notice
+        assert len(text_result) == DEFAULT_TEXT_CONTENT_LIMIT
+        # With head-and-tail truncation, should start and end with original content
+        assert text_result.startswith("A")  # Should start with original content
+        assert text_result.endswith("A")  # Should end with original content
+        assert "<response clipped>" in text_result  # Should contain truncation notice
 
 
 def test_text_content_truncation_exact_limit():

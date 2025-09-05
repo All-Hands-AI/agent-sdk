@@ -56,7 +56,14 @@ def test_execute_bash_observation_truncation_over_limit():
 
     # The result should be truncated
     assert len(result) < len(long_output) + 200  # Account for metadata
-    assert result.endswith("</NOTE>")  # Should end with truncation notice
+    # With head-and-tail truncation, should start and end with original content
+    assert result.startswith("A")  # Should start with original content
+    expected_end = (
+        "A\n[Current working directory: /test]\n[Python interpreter: /usr/bin/python]\n"
+        "[Command finished with exit code 0]"
+    )
+    assert result.endswith(expected_end)  # Should end with original content + metadata
+    assert "<response clipped>" in result  # Should contain truncation notice
 
 
 def test_execute_bash_observation_truncation_with_error():
@@ -84,7 +91,13 @@ def test_execute_bash_observation_truncation_with_error():
     # The result should be truncated and have error prefix
     assert result.startswith("[There was an error during command execution.]")
     assert len(result) < len(long_output) + 300  # Account for metadata and error prefix
-    assert result.endswith("</NOTE>")  # Should end with truncation notice
+    # With head-and-tail truncation, should end with original content + metadata
+    expected_end = (
+        "B\n[Current working directory: /test]\n[Python interpreter: /usr/bin/python]\n"
+        "[Command finished with exit code 1]"
+    )
+    assert result.endswith(expected_end)
+    assert "<response clipped>" in result  # Should contain truncation notice
 
 
 def test_execute_bash_observation_truncation_exact_limit():
@@ -147,4 +160,10 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
     assert (
         len(result) < len(long_output) + 300
     )  # Account for metadata and prefix/suffix
-    assert result.endswith("</NOTE>")  # Should end with truncation notice
+    # With head-and-tail truncation, should end with original content + metadata
+    expected_end = (
+        "D [SUFFIX]\n[Current working directory: /test]\n"
+        "[Python interpreter: /usr/bin/python]\n[Command finished with exit code 0]"
+    )
+    assert result.endswith(expected_end)
+    assert "<response clipped>" in result  # Should contain truncation notice
