@@ -1,3 +1,5 @@
+from typing import cast
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -145,13 +147,16 @@ class ConversationVisualizer:
         )
 
         # Extract and display all content
-        text_parts = []
-        for content_item in event.llm_message.content:
-            if isinstance(content_item, TextContent):
-                text_parts.append(content_item.text)
-            elif isinstance(content_item, ImageContent):
-                text_parts.append(f"[Image: {len(content_item.image_urls)} URLs]")
+        def _display_content(contents: list[TextContent | ImageContent]) -> list[str]:
+            text_parts = []
+            for content_item in contents:
+                if isinstance(content_item, TextContent):
+                    text_parts.append(content_item.text)
+                elif isinstance(content_item, ImageContent):
+                    text_parts.append(f"[Image: {len(content_item.image_urls)} URLs]")
+            return text_parts
 
+        text_parts = _display_content(event.llm_message.content)
         if text_parts:
             full_content = " ".join(text_parts)
             content.append(full_content, style="white")
@@ -164,6 +169,17 @@ class ConversationVisualizer:
                 f"\n\nActivated Microagents: {', '.join(event.activated_microagents)}",
                 style="dim yellow",
             )
+
+        # Add extended content if available
+        if event.extended_content:
+            assert not any(
+                isinstance(c, ImageContent) for c in event.extended_content
+            ), "Extended content should not contain images"
+            text_parts = _display_content(
+                cast(list[TextContent | ImageContent], event.extended_content)
+            )
+            content.append("\n\nExtended Content:\n", style="dim yellow")
+            content.append(" ".join(text_parts), style="white")
 
         # Panel styling based on role
         panel_colors = {

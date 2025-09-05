@@ -42,7 +42,7 @@ build: check-uv-version
 # Format code using uv format
 format:
 	@echo "$(YELLOW)Formatting code with uv format...$(RESET)"
-	@uv format
+	@uv run ruff format
 	@echo "$(GREEN)Code formatted successfully.$(RESET)"
 
 # Lint code

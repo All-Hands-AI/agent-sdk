@@ -40,7 +40,7 @@ LLM_BASED_EDIT_TOOL_NAME = "edit_file"
 TASK_TRACKER_TOOL_NAME = "task_tracker"
 
 # Inspired by: https://docs.together.ai/docs/llama-3-function-calling#function-calling-w-llama-31-70b
-SYSTEM_PROMPT_SUFFIX_TEMPLATE = """
+system_message_suffix_TEMPLATE = """
 You have access to the following functions:
 
 {description}
@@ -500,7 +500,7 @@ def convert_fncall_messages_to_non_fncall_messages(
     messages = copy.deepcopy(messages)
 
     formatted_tools = convert_tools_to_description(tools)
-    system_prompt_suffix = SYSTEM_PROMPT_SUFFIX_TEMPLATE.format(
+    system_message_suffix = system_message_suffix_TEMPLATE.format(
         description=formatted_tools
     )
 
@@ -514,12 +514,12 @@ def convert_fncall_messages_to_non_fncall_messages(
         # append system prompt suffix to content
         if role == "system":
             if isinstance(content, str):
-                content += system_prompt_suffix
+                content += system_message_suffix
             elif isinstance(content, list):
                 if content and content[-1]["type"] == "text":
-                    content[-1]["text"] += system_prompt_suffix
+                    content[-1]["text"] += system_message_suffix
                 else:
-                    content.append({"type": "text", "text": system_prompt_suffix})
+                    content.append({"type": "text", "text": system_message_suffix})
             else:
                 raise FunctionCallConversionError(
                     f"Unexpected content type {type(content)}. "
@@ -778,7 +778,7 @@ def convert_non_fncall_messages_to_fncall_messages(
     """Convert non-function calling messages back to function calling messages."""
     messages = copy.deepcopy(messages)
     formatted_tools = convert_tools_to_description(tools)
-    system_prompt_suffix = SYSTEM_PROMPT_SUFFIX_TEMPLATE.format(
+    system_message_suffix = system_message_suffix_TEMPLATE.format(
         description=formatted_tools
     )
 
@@ -793,12 +793,12 @@ def convert_non_fncall_messages_to_fncall_messages(
         if role == "system":
             if isinstance(content, str):
                 # Remove the suffix if present
-                content = content.split(system_prompt_suffix)[0]
+                content = content.split(system_message_suffix)[0]
             elif isinstance(content, list):
                 if content and content[-1]["type"] == "text":
                     # Remove the suffix from the last text item
                     content[-1]["text"] = content[-1]["text"].split(
-                        system_prompt_suffix
+                        system_message_suffix
                     )[0]
             converted_messages.append({"role": "system", "content": content})
         # Skip user messages (no conversion needed)
