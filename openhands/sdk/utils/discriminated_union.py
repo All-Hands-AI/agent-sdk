@@ -77,7 +77,22 @@ T = TypeVar("T", bound="DiscriminatedUnionMixin")
 
 
 class DiscriminatedUnionRegistry:
+    """A registry to track DiscriminatedUnionMixin subclasses.
+
+    Beyond tracking subclasses and their kinds, also tracks the tree structure of
+    DiscriminatedUnionMixin subclasses, allowing us to find the possible subclasses
+    for any given root class.
+    """
+
     def __init__(self) -> None:
+        self.subclass_registry: dict[
+            type[DiscriminatedUnionMixin], dict[str, type[DiscriminatedUnionMixin]]
+        ] = defaultdict(dict)
+
+        self.root_class_tree: dict[
+            type[DiscriminatedUnionMixin], list[type[DiscriminatedUnionMixin]]
+        ] = defaultdict(list)
+
         self.registry: dict[
             type[DiscriminatedUnionMixin], dict[str, type[DiscriminatedUnionMixin]]
         ] = defaultdict(dict)
@@ -128,28 +143,25 @@ class DiscriminatedUnionMixin(BaseModel):
         """Property to create kind field from class name when serializing."""
         return self.__class__.__name__
 
-    def __init_subclass__(cls, **kwargs):
-        """Register subclasses automatically when they are defined."""
-        super().__init_subclass__(**kwargs)
+    @classmethod
+    def subclass_kind_map(cls) -> dict[str, type[DiscriminatedUnionMixin]]:
+        """Get a mapping of kind names to subclasses for this root class."""
+        result: dict[str, type[DiscriminatedUnionMixin]] = {}
+        for subclass in cls.__subclasses__():
+            result[subclass.__name__] = subclass
+            result.update(subclass.subclass_kind_map())
+        return result
 
-        # Find the root DiscriminatedUnionMixin subclass (the direct child of
-        # DiscriminatedUnionMixin) to use as the key in the registry.
-        root_class = cls
-        for base in cls.__mro__[1:]:  # Skip cls itself
-            if base is DiscriminatedUnionMixin:
-                break
-            if (
-                issubclass(base, DiscriminatedUnionMixin)
-                and base is not DiscriminatedUnionMixin
-            ):
-                root_class = base
-
-        # Initialize registry for root class if it doesn't exist
-        if root_class not in _DISCRIMINATED_UNION_REGISTRY:
-            _DISCRIMINATED_UNION_REGISTRY[root_class] = {}
-
-        # Register this class
-        _DISCRIMINATED_UNION_REGISTRY[root_class][cls.__name__] = cls
+    @classmethod
+    def target_subclass(cls, kind: str) -> type[DiscriminatedUnionMixin] | None:
+        """Get the subclass corresponding to a given kind name."""
+        worklist = [cls]
+        while worklist:
+            current = worklist.pop()
+            if current.__name__ == kind:
+                return current
+            worklist.extend(current.__subclasses__())
+        return None
 
     @classmethod
     def model_validate(
@@ -162,28 +174,13 @@ class DiscriminatedUnionMixin(BaseModel):
         **kwargs,
     ) -> T:
         """Custom model validation using registered subclasses for deserialization."""
-        # Find the root class for this cls
-        root_class = None
-        if cls in _DISCRIMINATED_UNION_REGISTRY:
-            # cls is itself a root class
-            root_class = cls
-        else:
-            # Check if cls is a subclass of any root class
-            for registered_root in _DISCRIMINATED_UNION_REGISTRY:
-                if issubclass(cls, registered_root):
-                    root_class = registered_root
-                    break
-
-        # Apply custom validation if we have a root class and the object has a 'kind'
-        # field
-        if root_class is not None and isinstance(obj, dict) and "kind" in obj:
-            kind_name = obj["kind"]
-            registry = _DISCRIMINATED_UNION_REGISTRY[root_class]
-            if kind_name in registry:
-                target_class = registry[kind_name]
-                # Remove the 'kind' field since it's computed
-                obj_without_kind = {k: v for k, v in obj.items() if k != "kind"}
-                # Call the target class's model_validate directly
+        # If we have a 'kind' field but no discriminated union handling,
+        # we still need to remove it to avoid extra field errors
+        if isinstance(obj, dict) and "kind" in obj:
+            kind = obj.get("kind")
+            assert isinstance(kind, str)
+            obj_without_kind = {k: v for k, v in obj.items() if k != "kind"}
+            if (target_class := cls.target_subclass(kind)) is not None:
                 return cast(
                     T,
                     target_class.model_validate(
@@ -194,21 +191,6 @@ class DiscriminatedUnionMixin(BaseModel):
                         **kwargs,
                     ),
                 )
-
-        # If we have a 'kind' field but no discriminated union handling,
-        # we still need to remove it to avoid extra field errors
-        if isinstance(obj, dict) and "kind" in obj:
-            obj_without_kind = {k: v for k, v in obj.items() if k != "kind"}
-            return cast(
-                T,
-                super().model_validate(
-                    obj_without_kind,
-                    strict=strict,
-                    from_attributes=from_attributes,
-                    context=context,
-                    **kwargs,
-                ),
-            )
 
         # Fallback to default validation
         return cast(

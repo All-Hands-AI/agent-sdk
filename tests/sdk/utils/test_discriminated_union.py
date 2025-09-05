@@ -94,7 +94,7 @@ class TestDiscriminatedUnionRegistry:
         assert registry.find_root_class(Car) == Vehicle
 
     def test_all_roots_registered(self) -> None:
-        """Test that all root classes are registered correctly."""
+        """Test that all root classes in a subclasses MRO are registered correctly."""
         registry = DiscriminatedUnionRegistry()
 
         class Animal(DiscriminatedUnionMixin):
