@@ -16,9 +16,11 @@ class BaseContent(BaseModel):
         raise NotImplementedError("Subclasses should implement this method.")
 
 
-class TextContent(mcp.types.TextContent, BaseContent):
+class TextContent(BaseContent):
     type: Literal["text"] = "text"
     text: str
+    annotations: mcp.types.Annotations | None = None
+    meta: dict[str, Any] | None = None
 
     def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
         """Convert to LLM API format."""
@@ -31,15 +33,19 @@ class TextContent(mcp.types.TextContent, BaseContent):
         return data
 
 
-class ImageContent(mcp.types.ImageContent, BaseContent):
-    type: Literal["image"] = "image"
+class ImageContent(BaseContent):
+    type: Literal["image_url"] = "image_url"
     image_urls: list[str]
+    data: str
+    mimeType: str
+    annotations: mcp.types.Annotations | None = None
+    meta: dict[str, Any] | None = None
 
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""
         images: list[dict[str, str | dict[str, str]]] = []
         for url in self.image_urls:
-            images.append({"type": self.type, "image_url": {"url": url}})
+            images.append({"type": "image_url", "image_url": {"url": url}})
         if self.cache_prompt and images:
             images[-1]["cache_control"] = {"type": "ephemeral"}
         return images

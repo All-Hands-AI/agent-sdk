@@ -1,4 +1,4 @@
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
@@ -150,8 +150,39 @@ class ActionBase(Schema):
     """Base schema for input action."""
 
     security_risk: SECURITY_RISK_LITERAL = Field(
-        default="UNKNOWN", description=SECURITY_RISK_DESC, exclude=True
+        default="LOW", description=SECURITY_RISK_DESC
     )
+
+    @classmethod
+    def model_json_schema(
+        cls,
+        by_alias: bool = True,
+        ref_template: str = "#/$defs/{model}",
+        schema_generator: type | None = None,
+        mode: Literal["validation", "serialization"] = "validation",
+    ) -> dict[str, Any]:
+        """Generate JSON schema with security_risk as required field."""
+        # Import here to avoid circular imports
+        from pydantic.json_schema import GenerateJsonSchema
+
+        if schema_generator is None:
+            schema_generator = GenerateJsonSchema
+
+        schema = super().model_json_schema(
+            by_alias=by_alias,
+            ref_template=ref_template,
+            schema_generator=schema_generator,
+            mode=mode,
+        )
+
+        # Force security_risk to be in required fields for MCP compatibility
+        if "properties" in schema and "security_risk" in schema["properties"]:
+            if "required" not in schema:
+                schema["required"] = []
+            if "security_risk" not in schema["required"]:
+                schema["required"].append("security_risk")
+
+        return schema
 
 
 class MCPActionBase(ActionBase):
