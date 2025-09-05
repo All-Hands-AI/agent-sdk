@@ -6,7 +6,7 @@ from openai.types.chat import ChatCompletionToolParam
 from pydantic import Field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
-from openhands.sdk.event.types import EventType, SourceType
+from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
 
@@ -14,7 +14,6 @@ from openhands.sdk.tool import ActionBase, ObservationBase
 class SystemPromptEvent(LLMConvertibleEvent):
     """System prompt added by the agent."""
 
-    kind: EventType = "system_prompt"
     source: SourceType = "agent"
     system_prompt: TextContent = Field(..., description="The system prompt text")
     tools: list[ChatCompletionToolParam] = Field(
@@ -39,7 +38,6 @@ class SystemPromptEvent(LLMConvertibleEvent):
 
 
 class ActionEvent(LLMConvertibleEvent):
-    kind: EventType = "action"
     source: SourceType = "agent"
     thought: list[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
@@ -88,7 +86,6 @@ class ActionEvent(LLMConvertibleEvent):
 
 
 class ObservationEvent(LLMConvertibleEvent):
-    kind: EventType = "observation"
     source: SourceType = "environment"
     observation: ObservationBase = Field(
         ..., description="The observation (tool call) sent to LLM"
@@ -128,7 +125,6 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    kind: EventType = "message"
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
@@ -176,7 +172,6 @@ class MessageEvent(LLMConvertibleEvent):
 class AgentErrorEvent(LLMConvertibleEvent):
     """Error triggered by the agent."""
 
-    kind: EventType = "agent_error"
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
 

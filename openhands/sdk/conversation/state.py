@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from openhands.sdk.event import EventType
+from openhands.sdk.event.base import AnyEvent
 
 
 class ConversationState(BaseModel):
@@ -14,7 +14,7 @@ class ConversationState(BaseModel):
     )
 
     # Public, validated fields
-    events: list[EventType] = Field(default_factory=list)
+    events: list[AnyEvent] = Field(default_factory=list)
     agent_finished: bool = False
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list, description="List of activated knowledge microagents name"
