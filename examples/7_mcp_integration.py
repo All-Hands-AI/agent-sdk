@@ -11,10 +11,9 @@ from openhands.sdk import (
     Message,
     TextContent,
     Tool,
+    create_mcp_tools,
     get_logger,
 )
-from openhands.sdk.config.mcp_config import MCPConfig, MCPStdioServerConfig
-from openhands.sdk.mcp.utils import create_mcp_tools_from_config
 from openhands.tools import BashTool, FileEditorTool
 
 
@@ -29,34 +28,20 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-# Configure MCP servers
-mcp_config = MCPConfig(
-    stdio_servers=[
-        MCPStdioServerConfig(
-            name="fetch",
-            command="uvx",
-            args=["mcp-server-fetch"],
-        )
-    ]
-)
-
-# Tools
 cwd = os.getcwd()
 tools: list[Tool] = [
     BashTool(working_dir=cwd),
     FileEditorTool(),
 ]
 
-# Add MCP tools if available
-try:
-    mcp_tools = create_mcp_tools_from_config(mcp_config, timeout=10.0)
-    tools.extend(mcp_tools)
-    logger.info(f"Added {len(mcp_tools)} MCP tools")
-    for tool in mcp_tools:
-        logger.info(f"  - {tool.name}: {tool.description}")
-except Exception as e:
-    logger.warning(f"Failed to load MCP tools: {e}")
-    logger.info("Continuing with standard tools only")
+# Add MCP Tools
+mcp_config = {"mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}}}
+mcp_tools = create_mcp_tools(mcp_config, timeout=30)
+tools.extend(mcp_tools)
+logger.info(f"Added {len(mcp_tools)} MCP tools")
+for tool in mcp_tools:
+    logger.info(f"  - {tool.name}: {tool.description}")
+
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -65,7 +50,6 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: EventType):
-    logger.info(f"Found a conversation message: {str(event)[:200]}...")
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

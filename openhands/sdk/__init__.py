@@ -13,7 +13,7 @@ from openhands.sdk.llm import (
     TextContent,
 )
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import MCPTool, create_mcp_tools
+from openhands.sdk.mcp import MCPClient, MCPTool, create_mcp_tools
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool
 
 
@@ -34,6 +34,7 @@ __all__ = [
     "Agent",
     "ActionBase",
     "ObservationBase",
+    "MCPClient",
     "MCPTool",
     "create_mcp_tools",
     "get_logger",
