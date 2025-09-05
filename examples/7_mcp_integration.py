@@ -1,4 +1,3 @@
-import asyncio
 import os
 
 from pydantic import SecretStr
@@ -50,7 +49,7 @@ tools: list[Tool] = [
 
 # Add MCP tools if available
 try:
-    mcp_tools = asyncio.run(create_mcp_tools_from_config(mcp_config, timeout=10.0))
+    mcp_tools = create_mcp_tools_from_config(mcp_config, timeout=10.0)
     tools.extend(mcp_tools)
     logger.info(f"Added {len(mcp_tools)} MCP tools")
     for tool in mcp_tools:

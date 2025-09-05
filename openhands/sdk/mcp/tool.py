@@ -1,6 +1,5 @@
 """MCPTool definition and implementation."""
 
-import asyncio
 import json
 from typing import Any
 
@@ -61,9 +60,7 @@ class MCPToolExecutor(ToolExecutor):
     def __call__(self, action: MCPToolAction) -> MCPToolObservation:
         """Execute an MCP tool call."""
         try:
-            result = asyncio.run(
-                self.mcp_client.call_tool(action.tool_name, action.arguments)
-            )
+            result = self.mcp_client.call_tool(action.tool_name, action.arguments)
 
             return MCPToolObservation(
                 content=json.dumps(result.model_dump(mode="json")),

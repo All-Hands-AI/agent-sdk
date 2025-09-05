@@ -15,7 +15,7 @@ from openhands.sdk.tool import Tool
 logger = get_logger(__name__)
 
 
-async def create_mcp_client(
+def create_mcp_client(
     server_config: MCPSSEServerConfig | MCPSHTTPServerConfig | MCPStdioServerConfig,
     conversation_id: str | None = None,
     timeout: float = 30.0,
@@ -36,16 +36,16 @@ async def create_mcp_client(
     client = MCPClient()
 
     if isinstance(server_config, (MCPSSEServerConfig, MCPSHTTPServerConfig)):
-        await client.connect_http(server_config, conversation_id, timeout)
+        client.connect_http(server_config, conversation_id, timeout)
     elif isinstance(server_config, MCPStdioServerConfig):
-        await client.connect_stdio(server_config, timeout)
+        client.connect_stdio(server_config, timeout)
     else:
         raise ValueError(f"Unsupported server config type: {type(server_config)}")
 
     return client
 
 
-async def create_mcp_tools_from_config(
+def create_mcp_tools_from_config(
     mcp_config: MCPConfig,
     conversation_id: str | None = None,
     timeout: float = 30.0,
@@ -69,7 +69,7 @@ async def create_mcp_tools_from_config(
     # Process SSE servers
     for server_config in mcp_config.sse_servers:
         try:
-            client = await create_mcp_client(server_config, conversation_id, timeout)
+            client = create_mcp_client(server_config, conversation_id, timeout)
             server_name = getattr(server_config, "name", server_config.url)
             registry.add_client(server_name, client)
             logger.info(f"Connected to SSE server: {server_name}")
@@ -80,7 +80,7 @@ async def create_mcp_tools_from_config(
     # Process SHTTP servers
     for server_config in mcp_config.shttp_servers:
         try:
-            client = await create_mcp_client(server_config, conversation_id, timeout)
+            client = create_mcp_client(server_config, conversation_id, timeout)
             server_name = getattr(server_config, "name", server_config.url)
             registry.add_client(server_name, client)
             logger.info(f"Connected to SHTTP server: {server_name}")
@@ -91,7 +91,7 @@ async def create_mcp_tools_from_config(
     # Process stdio servers
     for server_config in mcp_config.stdio_servers:
         try:
-            client = await create_mcp_client(server_config, conversation_id, timeout)
+            client = create_mcp_client(server_config, conversation_id, timeout)
             server_name = getattr(server_config, "name", server_config.command)
             registry.add_client(server_name, client)
             logger.info(f"Connected to stdio server: {server_name}")

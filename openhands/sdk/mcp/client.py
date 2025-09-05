@@ -1,5 +1,7 @@
 """MCP Client implementation."""
 
+import asyncio
+import threading
 from typing import Optional
 
 from fastmcp import Client
@@ -24,20 +26,31 @@ logger = get_logger(__name__)
 
 
 class MCPClient(BaseModel):
-    """MCP client that connects to servers and manages available tools."""
+    """MCP client that connects to servers and manages available tools.
+
+    This client provides a synchronous API while managing async operations internally
+    using a dedicated event loop in a background thread.
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    client: Optional[Client] = None
     tools: list[MCPTool] = Field(default_factory=list)
     tool_map: dict[str, MCPTool] = Field(default_factory=dict)
     server_config: (
         MCPSSEServerConfig | MCPSHTTPServerConfig | MCPStdioServerConfig | None
     ) = None
 
-    # Connection parameters for client recreation
-    _timeout: float = 30.0
-    _conversation_id: Optional[str] = None
+    # Internal async management
+    def __init__(self, **data):
+        super().__init__(**data)
+
+        # Connection parameters for recreating clients
+        self._timeout: float = 30.0
+        self._conversation_id: Optional[str] = None
+
+        # Event loop and thread for async operations
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._thread: Optional[threading.Thread] = None
 
     def _create_stdio_client(self) -> Client:
         """Create a new stdio client using stored server config."""
@@ -91,13 +104,68 @@ class MCPClient(BaseModel):
 
         return Client(transport, timeout=self._timeout)
 
-    async def _initialize_and_list_tools(self) -> None:
-        """Initialize session and populate tool map."""
-        if not self.client:
-            raise RuntimeError("Session not initialized.")
+    def connect_http(
+        self,
+        server: MCPSSEServerConfig | MCPSHTTPServerConfig,
+        conversation_id: str | None = None,
+        timeout: float = 30.0,
+    ) -> None:
+        """Connect to MCP server using SHTTP or SSE transport."""
+        server_url = server.url
 
-        async with self.client:
-            tools = await self.client.list_tools()
+        if not server_url:
+            raise ValueError("Server URL is required.")
+
+        try:
+            # Store connection parameters
+            self.server_config = server
+            self._timeout = timeout
+            self._conversation_id = conversation_id
+
+            # Initialize tools using async method
+            self._run_async(self._initialize_and_list_tools_async())
+        except McpError as e:
+            error_msg = f"McpError connecting to {server_url}: {e}"
+            logger.error(error_msg)
+            raise
+        except Exception as e:
+            error_msg = f"Error connecting to {server_url}: {e}"
+            logger.error(error_msg)
+            raise
+
+    def connect_stdio(
+        self, server: MCPStdioServerConfig, timeout: float = 30.0
+    ) -> None:
+        """Connect to MCP server using stdio transport."""
+        try:
+            # Store connection parameters
+            self.server_config = server
+            self._timeout = timeout
+
+            # Initialize tools using async method
+            self._run_async(self._initialize_and_list_tools_async())
+        except Exception as e:
+            server_name = getattr(
+                server, "name", f"{server.command} {' '.join(server.args or [])}"
+            )
+            error_msg = f"Failed to connect to stdio server {server_name}: {e}"
+            logger.error(error_msg)
+            raise
+
+    def call_tool(self, tool_name: str, args: dict) -> CallToolResult:
+        """Call a tool on the MCP server."""
+        return self._run_async(self._call_tool_async(tool_name, args))
+
+    async def _initialize_and_list_tools_async(self) -> None:
+        """Initialize session and populate tool map (async version)."""
+        # Create client for tool listing
+        if isinstance(self.server_config, MCPStdioServerConfig):
+            client = self._create_stdio_client()
+        else:
+            client = self._create_http_client()
+
+        async with client:
+            tools = await client.list_tools()
 
         # Clear existing tools
         self.tools = []
@@ -110,56 +178,8 @@ class MCPClient(BaseModel):
 
         logger.info(f"Connected to server with tools: {[tool.name for tool in tools]}")
 
-    async def connect_http(
-        self,
-        server: MCPSSEServerConfig | MCPSHTTPServerConfig,
-        conversation_id: str | None = None,
-        timeout: float = 30.0,
-    ):
-        """Connect to MCP server using SHTTP or SSE transport."""
-        server_url = server.url
-
-        if not server_url:
-            raise ValueError("Server URL is required.")
-
-        try:
-            # Store connection parameters for recreation
-            self.server_config = server
-            self._timeout = timeout
-            self._conversation_id = conversation_id
-
-            # Create initial client for tool listing
-            self.client = self._create_http_client()
-            await self._initialize_and_list_tools()
-        except McpError as e:
-            error_msg = f"McpError connecting to {server_url}: {e}"
-            logger.error(error_msg)
-            raise
-        except Exception as e:
-            error_msg = f"Error connecting to {server_url}: {e}"
-            logger.error(error_msg)
-            raise
-
-    async def connect_stdio(self, server: MCPStdioServerConfig, timeout: float = 30.0):
-        """Connect to MCP server using stdio transport."""
-        try:
-            # Store connection parameters for recreation
-            self.server_config = server
-            self._timeout = timeout
-
-            # Create initial client for tool listing
-            self.client = self._create_stdio_client()
-            await self._initialize_and_list_tools()
-        except Exception as e:
-            server_name = getattr(
-                server, "name", f"{server.command} {' '.join(server.args or [])}"
-            )
-            error_msg = f"Failed to connect to stdio server {server_name}: {e}"
-            logger.error(error_msg)
-            raise
-
-    async def call_tool(self, tool_name: str, args: dict) -> CallToolResult:
-        """Call a tool on the MCP server."""
+    async def _call_tool_async(self, tool_name: str, args: dict) -> CallToolResult:
+        """Call a tool on the MCP server (async version)."""
         if tool_name not in self.tool_map:
             raise ValueError(f"Tool {tool_name} not found.")
 
@@ -174,3 +194,38 @@ class MCPClient(BaseModel):
 
         async with fresh_client:
             return await fresh_client.call_tool_mcp(name=tool_name, arguments=args)
+
+    def _start_event_loop(self) -> None:
+        """Start the background event loop for async operations."""
+        if self._loop is not None:
+            return  # Already started
+
+        def run_loop():
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+            self._loop.run_forever()
+
+        self._thread = threading.Thread(target=run_loop, daemon=True)
+        self._thread.start()
+
+        # Wait for loop to be ready
+        while self._loop is None:
+            threading.Event().wait(0.01)
+
+    def _stop_event_loop(self) -> None:
+        """Stop the background event loop."""
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+            if self._thread is not None:
+                self._thread.join(timeout=1.0)
+            self._loop = None
+            self._thread = None
+
+    def _run_async(self, coro):
+        """Run an async coroutine in the managed event loop."""
+        if self._loop is None:
+            self._start_event_loop()
+
+        assert self._loop is not None
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return future.result()
