@@ -2,10 +2,10 @@ import os
 import subprocess
 import time
 
-from openhands.tools.str_replace_editor.utils.truncate import (
+from openhands.sdk.utils.truncate import maybe_truncate
+from openhands.tools.str_replace_editor.utils.prompts import (
     CONTENT_TRUNCATED_NOTICE,
     MAX_RESPONSE_LEN_CHAR,
-    maybe_truncate,
 )
 
 

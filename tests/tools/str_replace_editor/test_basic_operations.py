@@ -207,9 +207,9 @@ def test_create_operation(temp_file):
 def test_view_operation_truncation(temp_file):
     """Test that view operation truncates large files correctly."""
     from openhands.tools.str_replace_editor.utils.prompts import (
+        MAX_RESPONSE_LEN_CHAR,
         TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
     )
-    from openhands.tools.str_replace_editor.utils.truncate import MAX_RESPONSE_LEN_CHAR
 
     # Create a large file that exceeds the str_replace_editor's truncation limit
     large_content = "A" * (MAX_RESPONSE_LEN_CHAR + 1000)

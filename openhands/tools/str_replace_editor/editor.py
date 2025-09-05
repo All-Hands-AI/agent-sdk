@@ -7,6 +7,7 @@ from typing import get_args
 
 from binaryornot.check import is_binary
 
+from openhands.sdk.utils.truncate import maybe_truncate
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
     StrReplaceEditorObservation,
@@ -23,14 +24,13 @@ from openhands.tools.str_replace_editor.utils.encoding import (
     with_encoding,
 )
 from openhands.tools.str_replace_editor.utils.history import FileHistoryManager
-from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
-from openhands.tools.str_replace_editor.utils.truncate import (
+from openhands.tools.str_replace_editor.utils.prompts import (
     BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
     DIRECTORY_CONTENT_TRUNCATED_NOTICE,
     MAX_RESPONSE_LEN_CHAR,
     TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
-    maybe_truncate,
 )
+from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
 
 
 class FileEditor:
