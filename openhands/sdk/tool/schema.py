@@ -2,6 +2,12 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
+from openhands.sdk.llm import ImageContent, TextContent
+from openhands.sdk.tool.security_prompt import (
+    SECURITY_RISK_DESC,
+    SECURITY_RISK_LITERAL,
+)
+
 
 S = TypeVar("S", bound="Schema")
 
@@ -102,7 +108,11 @@ class Schema(BaseModel):
     def from_mcp_schema(
         cls: type[S], model_name: str, schema: dict[str, Any]
     ) -> type["S"]:
-        """Create a Schema subclass from an MCP/JSON Schema object."""
+        """Create a Schema subclass from an MCP/JSON Schema object.
+
+        For non-required fields, we annotate as `T | None`
+        so explicit nulls are allowed.
+        """
         assert isinstance(schema, dict), "Schema must be a dict"
         assert schema.get("type") == "object", "Only object schemas are supported"
 
@@ -111,24 +121,63 @@ class Schema(BaseModel):
 
         fields: dict[str, tuple] = {}
         for fname, spec in props.items():
-            tp = py_type(spec if isinstance(spec, dict) else {})
-            default = ... if fname in required else None
-            desc: str | None = (
-                spec.get("description") if isinstance(spec, dict) else None
-            )
+            spec = spec if isinstance(spec, dict) else {}
+            tp = py_type(spec)
+
+            # Add description if present
+            desc: str | None = spec.get("description")
+
+            # Required → bare type, ellipsis sentinel
+            # Optional → make nullable via `| None`, default None
+            if fname in required:
+                anno = tp
+                default = ...
+            else:
+                anno = tp | None  # allow explicit null in addition to omission
+                default = None
+
             fields[fname] = (
-                tp,
+                anno,
                 Field(default=default, description=desc)
                 if desc
                 else Field(default=default),
             )
+
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
 class ActionBase(Schema):
     """Base schema for input action."""
 
-    pass
+    # NOTE: We make it optional since some weaker
+    # LLMs may not be able to fill it out correctly.
+    # https://github.com/All-Hands-AI/OpenHands/issues/10797
+    security_risk: SECURITY_RISK_LITERAL = Field(
+        default="UNKNOWN", description=SECURITY_RISK_DESC
+    )
+
+    @classmethod
+    def to_mcp_schema(cls) -> dict[str, Any]:
+        """Convert to JSON schema format compatible with MCP."""
+        schema = super().to_mcp_schema()
+
+        # We need to move the fields from ActionBase to the END of the properties
+        # We use these properties to generate the llm schema for tool calling
+        # and we want the ActionBase fields to be at the end
+        # e.g. LLM should already outputs the argument for tools
+        # BEFORE it predicts security_risk
+        assert "properties" in schema, "Schema must have properties"
+        for field_name in ActionBase.model_fields.keys():
+            if field_name in schema["properties"]:
+                v = schema["properties"].pop(field_name)
+                schema["properties"][field_name] = v
+        return schema
+
+
+class MCPActionBase(ActionBase):
+    """Base schema for MCP input action."""
+
+    model_config = ConfigDict(extra="allow")
 
 
 class ObservationBase(Schema):
@@ -137,6 +186,6 @@ class ObservationBase(Schema):
     model_config = ConfigDict(extra="allow")
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
         raise NotImplementedError("Subclasses must implement agent_observation")

@@ -1,3 +1,4 @@
+import json
 from typing import cast
 
 from rich.console import Console
@@ -12,7 +13,7 @@ from openhands.sdk.event.llm_convertible import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import ImageContent, TextContent
+from openhands.sdk.llm import ImageContent, TextContent, content_to_str
 
 
 class ConversationVisualizer:
@@ -58,7 +59,28 @@ class ConversationVisualizer:
         content = Text()
         content.append("System Prompt:\n", style="bold cyan")
         content.append(event.system_prompt.text, style="white")
-        content.append(f"\n\nTools Available: {len(event.tools)}", style="dim cyan")
+        content.append(f"\n\nTools Available: {len(event.tools)}", style="cyan")
+        for tool in event.tools:
+            tool_fn = tool.get("function", None)
+            # make each field short
+            for k, v in tool.items():
+                if isinstance(v, str) and len(v) > 30:
+                    tool[k] = v[:27] + "..."
+            if tool_fn:
+                assert "name" in tool_fn
+                assert "description" in tool_fn
+                assert "parameters" in tool_fn
+                params_str = json.dumps(tool_fn["parameters"])
+                content.append(
+                    f"\n  - {tool_fn['name']}: "
+                    f"{tool_fn['description'].split('\n')[0][:100]}...\n",
+                    style="dim cyan",
+                )
+                content.append(f"  Parameters: {params_str}", style="dim white")
+            else:
+                content.append(
+                    f"\n  - Cannot access .function for {tool}", style="dim cyan"
+                )
 
         return Panel(
             content,
@@ -120,7 +142,13 @@ class ConversationVisualizer:
         content.append("Tool: ", style="bold blue")
         content.append(event.tool_name, style="cyan")
         content.append("\n\nResult:\n", style="bold blue")
-        content.append(event.observation.agent_observation, style="white")
+
+        text_parts = content_to_str(event.observation.agent_observation)
+        if text_parts:
+            full_content = " ".join(text_parts)
+            content.append(full_content, style="white")
+        else:
+            content.append("[no text content]", style="dim white")
 
         return Panel(
             content,
@@ -146,17 +174,7 @@ class ConversationVisualizer:
             f"{event.llm_message.role.title()}:\n", style=f"bold {role_color}"
         )
 
-        # Extract and display all content
-        def _display_content(contents: list[TextContent | ImageContent]) -> list[str]:
-            text_parts = []
-            for content_item in contents:
-                if isinstance(content_item, TextContent):
-                    text_parts.append(content_item.text)
-                elif isinstance(content_item, ImageContent):
-                    text_parts.append(f"[Image: {len(content_item.image_urls)} URLs]")
-            return text_parts
-
-        text_parts = _display_content(event.llm_message.content)
+        text_parts = content_to_str(event.llm_message.content)
         if text_parts:
             full_content = " ".join(text_parts)
             content.append(full_content, style="white")
@@ -175,7 +193,7 @@ class ConversationVisualizer:
             assert not any(
                 isinstance(c, ImageContent) for c in event.extended_content
             ), "Extended content should not contain images"
-            text_parts = _display_content(
+            text_parts = content_to_str(
                 cast(list[TextContent | ImageContent], event.extended_content)
             )
             content.append("\n\nExtended Content:\n", style="dim yellow")

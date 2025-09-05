@@ -15,7 +15,7 @@ from openhands.sdk.event.llm_convertible import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -31,8 +31,8 @@ class MockObservation(ObservationBase):
     result: str
 
     @property
-    def agent_observation(self) -> str:
-        return self.result
+    def agent_observation(self) -> list[TextContent | ImageContent]:
+        return [TextContent(text=self.result)]
 
 
 def create_tool_call(

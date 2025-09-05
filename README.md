@@ -5,9 +5,10 @@ A clean, modular SDK for building AI agents with OpenHands. This project represe
 ## Project Overview
 
 The OpenHands Agent SDK provides a streamlined framework for creating AI agents that can interact with tools, manage conversations, and integrate with various LLM providers.
+
 ## Repository Structure
 
-```
+```plain
 agent-sdk/
 ├── Makefile                # Build and development commands
 ├── pyproject.toml          # Workspace configuration
@@ -102,7 +103,7 @@ conversation.run()
 
 ### Agents
 
-Agents are the central orchestrators that coordinate between LLMs, tools, and conversations:
+Agents are the central orchestrators that coordinate between LLMs and tools:
 
 ```python
 from openhands.sdk import Agent, LLM
@@ -142,6 +143,7 @@ Tools provide agents with capabilities to interact with the environment:
 #### Simplified Pattern (Recommended)
 
 ```python
+from openhands.sdk import TextContent, ImageContent
 from openhands.tools import BashTool, FileEditorTool
 
 # Direct instantiation with simplified API
@@ -182,8 +184,8 @@ class GrepObservation(ObservationBase):
     output: str = Field(default='')
 
     @property
-    def agent_observation(self) -> str:
-        return self.output
+    def agent_observation(self) -> list[TextContent | ImageContent]:
+        return TextContent(text=self.output)
 
 # --- Executor ---
 class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
@@ -229,6 +231,7 @@ conversation.run()
 The context system manages agent state, environment, and conversation history.
 
 Context is automatically managed but you can customize your context with:
+
 1. [Repo Microagents](https://docs.all-hands.dev/usage/prompting/microagents-repo) that provide agent with context of your repository.
 2. [Knowledge Microagents](https://docs.all-hands.dev/usage/prompting/microagents-keyword) that provide agent with context when user mentioned certain keywords
 3. Providing custom suffix for system and user prompt.

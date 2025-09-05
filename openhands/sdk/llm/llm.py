@@ -723,7 +723,8 @@ class LLM(BaseModel, RetryMixin):
                     f"\ncustom_tokenizer: {self.custom_tokenizer}"
                     if self.custom_tokenizer
                     else ""
-                )
+                ),
+                exc_info=True,
             )
             return 0
 

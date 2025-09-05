@@ -67,6 +67,7 @@ class Tool(Generic[ActionT, ObservationT]):
         description: str,
         input_schema: type[ActionBase] | dict[str, Any],
         output_schema: type[ObservationBase] | dict[str, Any] | None = None,
+        title: str | None = None,
         annotations: ToolAnnotations | None = None,
         _meta: dict[str, Any] | None = None,
         executor: ToolExecutor | None = None,
@@ -77,6 +78,7 @@ class Tool(Generic[ActionT, ObservationT]):
         self._meta = _meta
         self._set_input_schema(input_schema)
         self._set_output_schema(output_schema)
+        self.title = title or name
 
         self.executor = executor
 
@@ -99,6 +101,8 @@ class Tool(Generic[ActionT, ObservationT]):
             self.action_type = ActionBase.from_mcp_schema(
                 f"{to_camel_case(self.name)}Action", input_schema
             )
+            # Update mcp schema in case we have additional fields in ActionBase
+            self.input_schema = self.action_type.to_mcp_schema()
         else:
             raise TypeError(
                 "input_schema must be ActionBase subclass or dict JSON schema"
