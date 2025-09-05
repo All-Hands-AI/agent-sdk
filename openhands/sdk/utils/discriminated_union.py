@@ -1,3 +1,63 @@
+"""Utility for creating and managing discriminated unions of Pydantic models.
+
+Pydantic provides native support for disciriminated unions via the `Union` type and
+the `discriminator` argument to `Field`. However, this requires that all possible
+types in the union be known at the time the field is defined. This can be limiting
+in scenarios where new types may be defined later.
+
+To address this, we provide a `DiscriminatedUnionMixin` base class that models can
+inherit from to automatically register themselves as part of a discriminated union.
+We also provide a `DiscriminatedUnionType` type wrapper that can be used in Pydantic
+models to indicate that a field should be treated as a discriminated union of all
+subclasses of a given base class.
+
+Importantly, this approach allows us to _delay_ the resolution of the union types
+until validation time, meaning that new subclasses can be defined and registered
+at any time before validation occurs.
+
+Example usage:
+    from typing import Annotated
+    from pydantic import BaseModel
+
+    from openhands.sdk.utils.discriminated_union import (
+        DiscriminatedUnionMixin,
+        DiscriminatedUnionType
+    )
+
+    # The base class for the union is tagged with DiscriminatedUnionMixin
+    class Animal(BaseModel, DiscriminatedUnionMixin):
+        name: str
+
+    # We develop a special type to represent the discriminated union of all Animals.
+    # This acts just like Animal, but the annotation tells Pydantic to treat it as a
+    # discriminated union of all subclasses of Animal (defined so far or in the future).
+    AnyAnimal = Annotated[Animal, DiscriminatedUnionType[Animal]]
+
+    class Dog(Animal):
+        breed: str
+
+    class Cat(Animal):
+        color: str
+
+    class Zoo(BaseModel):
+        residents: list[AnyAnimal]
+
+    # Even animals defined after the Zoo class can be included without issue
+    class Mouse(Animal):
+        size: str
+
+    zoo = Zoo(residents=[
+        Dog(name="Fido", breed="Labrador"),
+        Cat(name="Whiskers", color="Tabby"),
+        Mouse(name="Jerry", size="Small")
+    ])
+
+    serialized_zoo = zoo.model_dump_json()
+    deserialized_zoo = Zoo.model_validate_json(serialized_zoo)
+
+    assert zoo == deserialized_zoo
+"""
+
 from __future__ import annotations
 
 from typing import Any, Generic, TypeVar, cast
@@ -129,14 +189,15 @@ class DiscriminatedUnionMixin(BaseModel):
 
 
 class DiscriminatedUnionType(Generic[T]):
-    """A type wrapper that enables discriminated union validation for Pydantic
-    fields.
+    """A type wrapper that enables discriminated union validation for Pydantic fields.
+
+    The wrapped type must be a subclass of `DiscriminatedUnionMixin`.
     """
 
-    def __init__(self, base_class: type[T]):
-        self.base_class = base_class
-        self.__origin__ = base_class  # For get_origin compatibility
-        self.__args__ = ()  # For get_args compatibility
+    def __init__(self, cls: type[T]):
+        self.base_class = cls
+        self.__origin__ = cls
+        self.__args__ = ()
 
     @property
     def registered_types(self) -> dict[str, type[T]]:
@@ -146,18 +207,16 @@ class DiscriminatedUnionType(Generic[T]):
             _DISCRIMINATED_UNION_REGISTRY.get(self.base_class, {}).copy(),
         )
 
-    @property
-    def discriminator_field(self) -> str:
-        """The field used for discrimination."""
-        return "kind"
-
-    def get_type_for_discriminator(self, kind: str) -> type[T] | None:
-        """Get the type associated with a discriminator value."""
-        return self.registered_types.get(kind)
-
     def __get_pydantic_core_schema__(self, source_type, handler):
-        """Hook into Pydantic's validation system."""
+        """Define custom Pydantic core schema for this type.
 
+        This schema uses a custom validator function to handle discriminated union
+        deserialization based on the 'kind' field.
+        """
+
+        # Importantly, this validation function calls the base class model validation
+        # _at validation time_, meaning that even if new subclasses are registered after
+        # the fact they will still be recognized.
         def validate(v):
             if isinstance(v, self.base_class):
                 return v
@@ -174,7 +233,7 @@ class DiscriminatedUnionType(Generic[T]):
         return f"DiscriminatedUnion[{self.base_class.__name__}]"
 
     def __class_getitem__(cls, params):
-        """Support subscript syntax like DiscriminatedUnion[Animal]."""
+        """Support type-style subscript syntax like DiscriminatedUnionType[cls]."""
         return cls(params)
 
     def __instancecheck__(self, instance):
