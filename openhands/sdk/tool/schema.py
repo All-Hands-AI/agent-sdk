@@ -1,7 +1,10 @@
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
+
+if TYPE_CHECKING:
+    from openhands.sdk.llm import ImageContent, TextContent
 
 S = TypeVar("S", bound="Schema")
 
@@ -137,6 +140,6 @@ class ObservationBase(Schema):
     model_config = ConfigDict(extra="allow")
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
         raise NotImplementedError("Subclasses must implement agent_observation")

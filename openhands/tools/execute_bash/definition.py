@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
+from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
 from openhands.tools.execute_bash.constants import NO_CHANGE_TIMEOUT_SECONDS
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
@@ -65,7 +66,7 @@ class ExecuteBashObservation(ObservationBase):
         return self.metadata.pid
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
@@ -75,7 +76,7 @@ class ExecuteBashObservation(ObservationBase):
             ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
         if self.error:
             ret = f"[There was an error during command execution.]\n{ret}"
-        return ret
+        return [TextContent(text=ret)]
 
 
 TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent shell session.

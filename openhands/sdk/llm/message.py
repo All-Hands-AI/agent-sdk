@@ -167,3 +167,17 @@ class Message(BaseModel):
             else [],
             tool_calls=message.tool_calls,
         )
+
+
+def content_to_str(contents: list[TextContent | ImageContent]) -> list[str]:
+    """Convert a list of TextContent and ImageContent to a list of strings.
+
+    This is primarily used for display purposes.
+    """
+    text_parts = []
+    for content_item in contents:
+        if isinstance(content_item, TextContent):
+            text_parts.append(content_item.text)
+        elif isinstance(content_item, ImageContent):
+            text_parts.append(f"[Image: {len(content_item.image_urls)} URLs]")
+    return text_parts

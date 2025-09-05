@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
 from openhands.tools.utils.security_prompt import (
     SECURITY_RISK_DESC,
@@ -77,10 +78,10 @@ class StrReplaceEditorObservation(ObservationBase):
     error: str | None = Field(default=None, description="Error message if any.")
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         if self.error:
-            return self.error
-        return self.output
+            return [TextContent(text=self.error)]
+        return [TextContent(text=self.output)]
 
 
 Command = Literal[

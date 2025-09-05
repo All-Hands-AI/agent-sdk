@@ -67,6 +67,7 @@ class Tool(Generic[ActionT, ObservationT]):
         description: str,
         input_schema: type[ActionBase] | dict[str, Any],
         output_schema: type[ObservationBase] | dict[str, Any] | None = None,
+        title: str | None = None,
         annotations: ToolAnnotations | None = None,
         _meta: dict[str, Any] | None = None,
         executor: ToolExecutor | None = None,
@@ -77,6 +78,7 @@ class Tool(Generic[ActionT, ObservationT]):
         self._meta = _meta
         self._set_input_schema(input_schema)
         self._set_output_schema(output_schema)
+        self.title = title or name
 
         self.executor = executor
 
