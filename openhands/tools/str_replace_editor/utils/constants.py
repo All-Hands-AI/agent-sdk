@@ -1,4 +1,3 @@
-# str_replace_editor specific constants
 MAX_RESPONSE_LEN_CHAR: int = 16000
 
 CONTENT_TRUNCATED_NOTICE = "<response clipped><NOTE>Due to the max output limit, only part of the full response has been shown to you.</NOTE>"  # noqa: E501
