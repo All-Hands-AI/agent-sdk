@@ -7,7 +7,7 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context import AgentContext, render_template
@@ -40,6 +40,10 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
+    system_prompt_filename: str = Field(default="system_prompt.j2")
+    condenser_instance: Condenser | None = Field(default=None)
+    cli_mode: bool = Field(default=True)
+
     def __init__(
         self,
         llm: LLM,
@@ -53,23 +57,34 @@ class Agent(AgentBase):
             assert tool not in tools, (
                 f"{tool} is automatically included and should not be provided."
             )
+
         super().__init__(
             llm=llm,
             tools=tools + BUILT_IN_TOOLS,
             agent_context=agent_context,
-        )
-
-        self.system_message: str = render_template(
-            prompt_dir=self.prompt_dir,
-            template_name=system_prompt_filename,
+            system_prompt_filename=system_prompt_filename,
+            condenser_instance=condenser,
             cli_mode=cli_mode,
         )
-        if agent_context:
-            _system_message_suffix = agent_context.get_system_message_suffix()
-            if _system_message_suffix:
-                self.system_message += "\n\n" + _system_message_suffix
 
-        self.condenser = condenser
+    @property
+    def system_message(self) -> str:
+        """Compute system message on-demand to maintain statelessness."""
+        system_message = render_template(
+            prompt_dir=self.prompt_dir,
+            template_name=self.system_prompt_filename,
+            cli_mode=self.cli_mode,
+        )
+        if self.agent_context:
+            _system_message_suffix = self.agent_context.get_system_message_suffix()
+            if _system_message_suffix:
+                system_message += "\n\n" + _system_message_suffix
+        return system_message
+
+    @property
+    def condenser(self) -> Condenser | None:
+        """Return the condenser instance."""
+        return self.condenser_instance
 
     def init_state(
         self,
