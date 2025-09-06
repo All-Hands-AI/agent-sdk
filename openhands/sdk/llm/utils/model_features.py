@@ -54,6 +54,7 @@ class ModelFeatures:
     supports_reasoning_effort: bool
     supports_prompt_cache: bool
     supports_stop_words: bool
+    supports_responses_api: bool
 
 
 # Pattern tables capturing current behavior. Keep patterns lowercase.
@@ -87,8 +88,8 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
 REASONING_EFFORT_PATTERNS: list[str] = [
     # Mirror main behavior exactly (no unintended expansion), plus DeepSeek support
     "o1-2024-12-17",
-    "o1",
-    "o3",
+    "o1*",  # Match all o1 variants including o1-preview
+    "o3*",  # Match all o3 variants
     "o3-2025-04-16",
     "o3-mini-2025-01-31",
     "o3-mini",
@@ -124,6 +125,17 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
     "deepseek-r1-0528*",
 ]
 
+RESPONSES_API_PATTERNS: list[str] = [
+    # OpenAI reasoning models (native Responses API support)
+    "o1*",
+    "o3*",
+    "o4-mini*",
+    # OpenAI GPT models with native Responses API support
+    "gpt-4o*",
+    "gpt-4.1*",
+    "gpt-5*",
+]
+
 
 def get_features(model: str) -> ModelFeatures:
     return ModelFeatures(
@@ -133,4 +145,5 @@ def get_features(model: str) -> ModelFeatures:
         supports_stop_words=not model_matches(
             model, SUPPORTS_STOP_WORDS_FALSE_PATTERNS
         ),
+        supports_responses_api=model_matches(model, RESPONSES_API_PATTERNS),
     )

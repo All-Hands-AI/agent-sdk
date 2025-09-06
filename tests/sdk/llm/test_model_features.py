@@ -229,3 +229,100 @@ def test_model_matches_with_provider_pattern():
     assert model_matches("openai/gpt-4", ["openai/*"])
     assert model_matches("anthropic/claude-3", ["anthropic/claude*"])
     assert not model_matches("openai/gpt-4", ["anthropic/*"])
+
+
+@pytest.mark.parametrize(
+    "model,expected_responses_api",
+    [
+        # OpenAI o1 models (native Responses API support)
+        ("o1-preview", True),
+        ("o1-mini", True),
+        ("o1-2024-12-17", True),
+        # OpenAI o3 models (native Responses API support)
+        ("o3-mini", True),
+        ("o3-2024-12-17", True),
+        # OpenAI o4-mini models (native Responses API support)
+        ("o4-mini", True),
+        # OpenAI gpt-4o models (native Responses API support)
+        ("gpt-4o", True),
+        ("gpt-4o-mini", True),
+        ("gpt-4o-2024-11-20", True),
+        # OpenAI gpt-4.1 models (native Responses API support)
+        ("gpt-4.1", True),
+        ("gpt-4.1-mini", True),
+        # OpenAI gpt-5 models (native Responses API support)
+        ("gpt-5", True),
+        ("gpt-5-mini", True),
+        # Claude models (NO native Responses API - only LiteLLM bridge)
+        ("claude-3-5-sonnet-20241022", False),
+        ("claude-3-opus-20240229", False),
+        ("claude-3-haiku-20240307", False),
+        # Gemini models (NO native Responses API - only LiteLLM bridge)
+        ("gemini-2.0-flash-exp", False),
+        ("gemini-1.5-pro", False),
+        ("gemini-2.5-pro", False),
+        # DeepSeek R1 models (NO native Responses API - only LiteLLM bridge)
+        ("deepseek-r1", False),
+        ("deepseek-r1-distill-llama-70b", False),
+        ("deepseek-r1-distill-qwen-1.5b", False),
+        # Models that don't support Responses API
+        ("gpt-3.5-turbo", False),
+        ("gpt-4", False),
+        ("gpt-4-turbo", False),
+        ("claude-2", False),
+        ("llama-2-70b", False),
+        ("unknown-model", False),
+    ],
+)
+def test_responses_api_support(model, expected_responses_api):
+    """Test Responses API support detection."""
+    features = get_features(model)
+    assert features.supports_responses_api == expected_responses_api
+
+
+def test_responses_api_support_with_provider_prefixes():
+    """Test Responses API support with provider prefixes."""
+    # Should support (only OpenAI models with native Responses API)
+    supported_models = [
+        "openai/o1-preview",
+        "openai/o3-mini",
+        "openai/gpt-4o",
+        "openai/gpt-4.1",
+        "openai/gpt-5",
+        "azure/o1-preview",
+        "azure/gpt-4o",
+    ]
+    for model in supported_models:
+        features = get_features(model)
+        assert features.supports_responses_api, (
+            f"Model {model} should support Responses API"
+        )
+
+    # Should not support (non-OpenAI models or older OpenAI models)
+    unsupported_models = [
+        "openai/gpt-3.5-turbo",
+        "openai/gpt-4",
+        "anthropic/claude-3-5-sonnet-20241022",
+        "anthropic/claude-2",
+        "vertex_ai/gemini-2.0-flash-exp",
+        "deepseek/deepseek-r1",
+        "huggingface/llama-2-70b",
+    ]
+    for model in unsupported_models:
+        features = get_features(model)
+        assert not features.supports_responses_api, (
+            f"Model {model} should not support Responses API"
+        )
+
+
+def test_responses_api_backward_compatibility():
+    """Test that adding Responses API support doesn't break existing features."""
+    model = "gpt-4o"
+    features = get_features(model)
+
+    # Should support Responses API
+    assert features.supports_responses_api
+
+    # Should still have other expected features
+    assert features.supports_function_calling
+    assert not features.supports_prompt_cache  # gpt-4o doesn't support caching

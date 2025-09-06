@@ -25,6 +25,7 @@ from litellm import (
     ChatCompletionToolParam,
     Message as LiteLLMMessage,
     completion as litellm_completion,
+    responses as litellm_responses,
 )
 from litellm.exceptions import (
     APIConnectionError,
@@ -55,6 +56,10 @@ from openhands.sdk.llm.utils.fn_call_converter import (
 )
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
+from openhands.sdk.llm.utils.responses_converter import (
+    messages_to_responses_input,
+    responses_to_completion_format,
+)
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
@@ -400,6 +405,97 @@ class LLM(BaseModel, RetryMixin):
             self._telemetry.on_error(e)
             raise
 
+    def responses(
+        self,
+        messages: list[dict[str, Any]] | list[Message] | str | None = None,
+        input: str | None = None,
+        **kwargs,
+    ) -> ModelResponse:
+        """Use OpenAI Responses API for reasoning models.
+
+        The Responses API is designed for reasoning models and provides access
+        to reasoning content. It uses a simpler input format compared to
+        ChatCompletions.
+
+        Args:
+            messages: Messages in ChatCompletions format (will be converted to input)
+            input: Direct string input for Responses API (takes precedence over
+                messages)
+            **kwargs: Additional parameters for the Responses API
+
+        Returns:
+            ModelResponse in ChatCompletions format for compatibility
+
+        Raises:
+            ValueError: If model doesn't support Responses API or if streaming is
+                requested
+        """
+        # Check if model supports Responses API
+        if not self.is_responses_api_supported():
+            raise ValueError(
+                f"Model {self.model} does not support the Responses API. "
+                f"Use completion() method instead."
+            )
+
+        # Check if streaming is requested
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported in responses() method")
+
+        # Determine input string
+        if input is not None:
+            input_str = input
+        elif messages is not None:
+            if isinstance(messages, str):
+                input_str = messages
+            else:
+                input_str = messages_to_responses_input(messages)
+        else:
+            raise ValueError("Either 'messages' or 'input' parameter must be provided")
+
+        # Normalize parameters for Responses API
+        call_kwargs = self._normalize_responses_kwargs(kwargs)
+
+        # Optional request logging context
+        assert self._telemetry is not None
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "input": input_str,
+                "kwargs": {k: v for k, v in call_kwargs.items()},
+                "context_window": self.max_input_tokens,
+            }
+        self._telemetry.on_request(log_ctx=log_ctx)
+
+        # Make the call with retries
+        @self.retry_decorator(
+            num_retries=self.num_retries,
+            retry_exceptions=LLM_RETRY_EXCEPTIONS,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
+            retry_listener=self.retry_listener,
+        )
+        def _one_attempt() -> ModelResponse:
+            assert self._telemetry is not None
+            resp = self._transport_responses_call(input=input_str, **call_kwargs)
+            # Convert to ChatCompletions format for compatibility
+            converted_resp = responses_to_completion_format(resp)
+            self._telemetry.on_response(converted_resp)
+
+            # Ensure at least one choice
+            if not converted_resp.get("choices") or len(converted_resp["choices"]) < 1:
+                raise LLMNoResponseError(
+                    "Response choices is less than 1. Response: " + str(converted_resp)
+                )
+            return converted_resp
+
+        try:
+            resp = _one_attempt()
+            return resp
+        except Exception as e:
+            self._telemetry.on_error(e)
+            raise
+
     # =========================================================================
     # Transport + helpers
     # =========================================================================
@@ -551,6 +647,66 @@ class LLM(BaseModel, RetryMixin):
         resp.choices[0].message = last
         return resp
 
+    def _transport_responses_call(self, *, input: str, **kwargs) -> Any:
+        """Transport call for Responses API using litellm.responses()."""
+        # litellm.modify_params is GLOBAL; guard it for thread-safety
+        with self._litellm_modify_params_ctx(self.modify_params):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", category=DeprecationWarning, module="httpx.*"
+                )
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r".*content=.*upload.*",
+                    category=DeprecationWarning,
+                )
+                ret = litellm_responses(
+                    model=self.model,
+                    api_key=self.api_key.get_secret_value() if self.api_key else None,
+                    base_url=self.base_url,
+                    api_version=self.api_version,
+                    timeout=self.timeout,
+                    input=input,
+                    **kwargs,
+                )
+                return ret
+
+    def _normalize_responses_kwargs(self, opts: dict) -> dict:
+        """Normalize parameters for Responses API calls."""
+        out = dict(opts)
+
+        # Respect configured sampling params unless reasoning models override
+        if self.top_k is not None:
+            out.setdefault("top_k", self.top_k)
+        if self.top_p is not None:
+            out.setdefault("top_p", self.top_p)
+        if self.temperature is not None:
+            out.setdefault("temperature", self.temperature)
+
+        # Max tokens wiring for Responses API
+        if self.max_output_tokens is not None:
+            out.setdefault("max_output_tokens", self.max_output_tokens)
+
+        # Reasoning-model quirks
+        if get_features(self.model).supports_reasoning_effort:
+            # Preferred: use reasoning_effort
+            if self.reasoning_effort is not None:
+                out["reasoning_effort"] = self.reasoning_effort
+            # Reasoning models ignore temp/top_p
+            out.pop("temperature", None)
+            out.pop("top_p", None)
+
+        # Remove parameters not supported by Responses API
+        out.pop("tools", None)
+        out.pop("tool_choice", None)
+        out.pop("stop", None)  # Responses API doesn't support stop words
+
+        # non litellm proxy special-case: keep `extra_body` off unless model requires it
+        if "litellm_proxy" not in self.model:
+            out.pop("extra_body", None)
+
+        return out
+
     # =========================================================================
     # Capabilities, formatting, and info
     # =========================================================================
@@ -679,6 +835,15 @@ class LLM(BaseModel, RetryMixin):
         and enabled for this LLM instance.
         """
         return bool(self._function_calling_active)
+
+    def is_responses_api_supported(self) -> bool:
+        """Returns whether the Responses API is supported for this model.
+
+        The Responses API is OpenAI's newer API that provides reasoning content
+        and is designed for agentic tasks. It's primarily supported by reasoning
+        models like o1, o3, and other advanced models.
+        """
+        return get_features(self.model).supports_responses_api
 
     @property
     def model_info(self) -> dict | None:
