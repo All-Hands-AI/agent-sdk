@@ -1,4 +1,3 @@
-import pytest
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM
@@ -6,13 +5,18 @@ from openhands.sdk.llm import LLM
 
 def test_empty_api_key_string_converted_to_none():
     """Test that empty string API keys are converted to None."""
-    llm = LLM(model="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", api_key=SecretStr(""))
+    llm = LLM(
+        model="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", api_key=SecretStr("")
+    )
     assert llm.api_key is None
 
 
 def test_whitespace_api_key_converted_to_none():
     """Test that whitespace-only API keys are converted to None."""
-    llm = LLM(model="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", api_key=SecretStr("   "))
+    llm = LLM(
+        model="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
+        api_key=SecretStr("   "),
+    )
     assert llm.api_key is None
 
 
@@ -30,14 +34,11 @@ def test_none_api_key_preserved():
 
 
 def test_empty_string_direct_input():
-    """Test that empty string passed directly (not as SecretStr) is converted to None."""
+    """Test that empty string passed directly (not as SecretStr) is converted to None."""  # noqa: E501
     # This tests the case where someone might pass a string directly
-    # Note: This would normally cause a validation error, but we handle it in _coerce_inputs
-    data = {
-        "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
-        "api_key": ""
-    }
-    llm = LLM(**data)
+    # Note: This would normally cause a validation error, but we handle it in field validator  # noqa: E501
+    data = {"model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", "api_key": ""}
+    llm = LLM(**data)  # type: ignore[arg-type]
     assert llm.api_key is None
 
 
@@ -45,9 +46,9 @@ def test_whitespace_string_direct_input():
     """Test that whitespace string passed directly is converted to None."""
     data = {
         "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
-        "api_key": "   \t\n  "
+        "api_key": "   \t\n  ",
     }
-    llm = LLM(**data)
+    llm = LLM(**data)  # type: ignore[arg-type]
     assert llm.api_key is None
 
 
@@ -56,7 +57,7 @@ def test_bedrock_model_with_none_api_key():
     llm = LLM(
         model="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
         api_key=None,
-        aws_region_name="us-east-1"
+        aws_region_name="us-east-1",
     )
     assert llm.api_key is None
     assert llm.aws_region_name == "us-east-1"
@@ -76,7 +77,7 @@ def test_aws_credentials_handling():
         api_key=None,
         aws_access_key_id=SecretStr("test-access-key"),
         aws_secret_access_key=SecretStr("test-secret-key"),
-        aws_region_name="us-west-2"
+        aws_region_name="us-west-2",
     )
     assert llm.api_key is None
     assert llm.aws_access_key_id is not None

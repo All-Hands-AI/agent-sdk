@@ -13,6 +13,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    field_validator,
     model_validator,
 )
 
@@ -242,6 +243,25 @@ class LLM(BaseModel, RetryMixin):
     # =========================================================================
     # Validators
     # =========================================================================
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def _validate_api_key(cls, v):
+        """Convert empty API keys to None to allow boto3 to use alternative auth methods."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Handle both SecretStr and string inputs
+        if hasattr(v, "get_secret_value"):
+            secret_value = v.get_secret_value()
+        else:
+            secret_value = str(v)
+
+        # If the API key is empty or whitespace-only, return None
+        if not secret_value or not secret_value.strip():
+            return None
+
+        return v
+
     @model_validator(mode="before")
     @classmethod
     def _coerce_inputs(cls, data):
@@ -272,19 +292,6 @@ class LLM(BaseModel, RetryMixin):
         if model_val.startswith("huggingface"):
             if d.get("top_p", 1.0) == 1.0:
                 d["top_p"] = 0.9
-
-        # Convert empty API keys to None to allow boto3 to use alternative auth methods
-        api_key = d.get("api_key")
-        if api_key is not None:
-            # Handle both SecretStr and string inputs
-            if hasattr(api_key, "get_secret_value"):
-                secret_value = api_key.get_secret_value()
-            else:
-                secret_value = str(api_key)
-            
-            # If the API key is empty or whitespace-only, set it to None
-            if not secret_value or not secret_value.strip():
-                d["api_key"] = None
 
         return d
 
