@@ -25,8 +25,8 @@ def test_execute_bash_observation_truncation_under_limit():
 
     result = observation.agent_observation
     assert len(result) == 1
-    assert isinstance(result, TextContent)
-    result = result.text
+    assert isinstance(result[0], TextContent)
+    result = result[0].text
 
     expected = (
         "Short output\n"
@@ -59,8 +59,8 @@ def test_execute_bash_observation_truncation_over_limit():
 
     result = observation.agent_observation
     assert len(result) == 1
-    assert isinstance(result, TextContent)
-    result = result.text
+    assert isinstance(result[0], TextContent)
+    result = result[0].text
 
     # The result should be truncated
     assert len(result) < len(long_output) + 200  # Account for metadata
@@ -96,8 +96,8 @@ def test_execute_bash_observation_truncation_with_error():
 
     result = observation.agent_observation
     assert len(result) == 1
-    assert isinstance(result, TextContent)
-    result = result.text
+    assert isinstance(result[0], TextContent)
+    result = result[0].text
 
     # The result should be truncated and have error prefix
     assert result.startswith("[There was an error during command execution.]")
@@ -139,8 +139,8 @@ def test_execute_bash_observation_truncation_exact_limit():
 
     result = observation.agent_observation
     assert len(result) == 1
-    assert isinstance(result, TextContent)
-    result = result.text
+    assert isinstance(result[0], TextContent)
+    result = result[0].text
 
     # Should not be truncated
     assert len(result) == MAX_CMD_OUTPUT_SIZE
@@ -169,8 +169,8 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
 
     result = observation.agent_observation
     assert len(result) == 1
-    assert isinstance(result, TextContent)
-    result = result.text
+    assert isinstance(result[0], TextContent)
+    result = result[0].text
 
     # The result should be truncated and include prefix/suffix
     assert result.startswith("[PREFIX] ")
