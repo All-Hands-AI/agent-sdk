@@ -1,6 +1,7 @@
 # simple_logger.py
 """
-Minimal logger setup that encourages per-module loggers.
+Minimal logger setup that encourages per-module loggers,
+with Rich for humans and JSON for machines.
 
 Usage:
     from openhands.sdk.logger import get_logger
@@ -13,6 +14,9 @@ import os
 from logging.handlers import TimedRotatingFileHandler
 
 import litellm
+from pythonjsonlogger.json import JsonFormatter
+from rich.console import Console
+from rich.logging import RichHandler
 
 
 # ========= ENV (loaded at import) =========
@@ -21,30 +25,33 @@ LEVEL_MAP = (
     if hasattr(logging, "getLevelNamesMapping")
     else logging._nameToLevel
 )
+
 DEBUG = os.environ.get("DEBUG", "false").lower() in {"1", "true", "yes"}
 ENV_LOG_LEVEL_STR = os.getenv("LOG_LEVEL", "INFO").upper()
 ENV_LOG_LEVEL = LEVEL_MAP.get(ENV_LOG_LEVEL_STR, logging.INFO)
 if DEBUG:
     ENV_LOG_LEVEL = logging.DEBUG
+
 ENV_LOG_TO_FILE = os.getenv("LOG_TO_FILE", "false").lower() in {"1", "true", "yes"}
 ENV_LOG_DIR = os.getenv("LOG_DIR", "logs")
 ENV_ROTATE_WHEN = os.getenv("LOG_ROTATE_WHEN", "midnight")
 ENV_BACKUP_COUNT = int(os.getenv("LOG_BACKUP_COUNT", "7"))
-ENV_FORMAT = os.getenv(
-    "LOG_FORMAT",
-    "%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(message)s",
-)
+
+# Rich vs JSON
+ENV_JSON = os.getenv("LOG_JSON", "false").lower() in {"1", "true", "yes"}
+IN_CI = os.getenv("CI", "false").lower() in {"1", "true", "yes"}
+ENV_RICH_TRACEBACKS = os.getenv("LOG_RICH_TRACEBACKS", "true").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+
+
 ENV_AUTO_CONFIG = os.getenv("LOG_AUTO_CONFIG", "true").lower() in {"1", "true", "yes"}
-ENV_DEBUG_LLM = os.getenv("DEBUG_LLM", "False").lower() in ["true", "1", "yes"]
+ENV_DEBUG_LLM = os.getenv("DEBUG_LLM", "false").lower() in {"1", "true", "yes"}
 
 
-def _configure_litellm_logger(level: int) -> None:
-    """Force LiteLLM library loggers to a specific level regardless of root level."""
-    for name in ("LiteLLM", "litellm"):
-        logging.getLogger(name).setLevel(level)
-
-
-# Configure litellm logging based on DEBUG_LLM
+# ========= LiteLLM controls =========
 _ENABLE_LITELLM_DEBUG = False
 if ENV_DEBUG_LLM:
     confirmation = input(
@@ -66,8 +73,19 @@ else:
     litellm.suppress_debug_info = True
     litellm.set_verbose = False  # type: ignore
 
-# By default, suppress LiteLLM INFO/DEBUG logs regardless of root logger level
-_configure_litellm_logger(logging.DEBUG if _ENABLE_LITELLM_DEBUG else logging.WARNING)
+
+def disable_logger(name: str, level: int = logging.CRITICAL) -> None:
+    """Disable or quiet down a specific logger by name."""
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.propagate = False
+
+
+# Quiet chatty third-party loggers
+for name in ["litellm", "LiteLLM", "openai"]:
+    disable_logger(name, logging.DEBUG if _ENABLE_LITELLM_DEBUG else logging.WARNING)
+for name in ["httpcore", "httpx", "libtmux"]:
+    disable_logger(name, logging.WARNING)
 
 
 # ========= SETUP =========
@@ -83,7 +101,6 @@ def setup_logging(
     lvl = ENV_LOG_LEVEL if level is None else level
     to_file = ENV_LOG_TO_FILE if log_to_file is None else log_to_file
     directory = ENV_LOG_DIR if log_dir is None else log_dir
-    format_str = ENV_FORMAT if fmt is None else fmt
     rotate_when = ENV_ROTATE_WHEN if when is None else when
     keep = ENV_BACKUP_COUNT if backup_count is None else backup_count
 
@@ -91,12 +108,28 @@ def setup_logging(
     root.setLevel(lvl)
     root.handlers = []  # reset
 
-    formatter = logging.Formatter(format_str)
-
-    ch = logging.StreamHandler()
-    ch.setLevel(lvl)
-    ch.setFormatter(formatter)
-    root.addHandler(ch)
+    if ENV_JSON or IN_CI:
+        # JSON console handler
+        ch = logging.StreamHandler()
+        ch.setLevel(lvl)
+        ch.setFormatter(
+            JsonFormatter(
+                fmt="%(asctime)s %(levelname)s %(name)s "
+                "%(filename)s %(lineno)d %(message)s"
+            )
+        )
+        root.addHandler(ch)
+    else:
+        # Rich console handler
+        rich_handler = RichHandler(
+            console=Console(stderr=True),
+            log_time_format="[%x %H:%M:%S.%f]",
+            omit_repeated_times=False,
+            rich_tracebacks=ENV_RICH_TRACEBACKS,
+        )
+        rich_handler.setFormatter(logging.Formatter("%(message)s"))
+        rich_handler.setLevel(lvl)
+        root.addHandler(rich_handler)
 
     if to_file:
         os.makedirs(directory, exist_ok=True)
@@ -107,7 +140,20 @@ def setup_logging(
             encoding="utf-8",
         )
         fh.setLevel(lvl)
-        fh.setFormatter(formatter)
+        if ENV_JSON:
+            fh.setFormatter(
+                JsonFormatter(
+                    fmt="%(asctime)s %(levelname)s %(name)s "
+                    "%(filename)s %(lineno)d %(message)s"
+                )
+            )
+        else:
+            log_fmt = (
+                fmt
+                or "%(asctime)s - %(levelname)s - %(name)s "
+                "- %(filename)s:%(lineno)d - %(message)s"
+            )
+            fh.setFormatter(logging.Formatter(log_fmt))
         root.addHandler(fh)
 
 

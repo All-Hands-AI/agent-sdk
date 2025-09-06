@@ -6,7 +6,7 @@ from pydantic import Field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventType, SourceType
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -106,7 +106,7 @@ class ObservationEvent(LLMConvertibleEvent):
     def to_llm_message(self) -> Message:
         return Message(
             role="tool",
-            content=[TextContent(text=self.observation.agent_observation)],
+            content=self.observation.agent_observation,
             name=self.tool_name,
             tool_call_id=self.tool_call_id,
         )
@@ -114,10 +114,11 @@ class ObservationEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for ObservationEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
+        content_str = "".join(content_to_str(self.observation.agent_observation))
         obs_preview = (
-            self.observation.agent_observation[:N_CHAR_PREVIEW] + "..."
-            if len(self.observation.agent_observation) > N_CHAR_PREVIEW
-            else self.observation.agent_observation
+            content_str[:N_CHAR_PREVIEW] + "..."
+            if len(content_str) > N_CHAR_PREVIEW
+            else content_str
         )
         return f"{base_str}\n  Tool: {self.tool_name}\n  Result: {obs_preview}"
 

@@ -1,7 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from openhands.sdk.agent import Agent, AgentBase
-from openhands.sdk.config import MCPConfig
 from openhands.sdk.context import AgentContext
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
 from openhands.sdk.event import EventBase, EventType, LLMConvertibleEvent
@@ -14,6 +13,7 @@ from openhands.sdk.llm import (
     TextContent,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.mcp import MCPClient, MCPTool, create_mcp_tools
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool
 
 
@@ -34,7 +34,9 @@ __all__ = [
     "Agent",
     "ActionBase",
     "ObservationBase",
-    "MCPConfig",
+    "MCPClient",
+    "MCPTool",
+    "create_mcp_tools",
     "get_logger",
     "Conversation",
     "ConversationCallbackType",

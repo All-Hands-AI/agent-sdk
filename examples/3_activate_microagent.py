@@ -61,7 +61,9 @@ agent_context = AgentContext(
             ),
             triggers=["flarglebargle"],
         ),
-    ]
+    ],
+    system_message_suffix="Always finish your response with the word 'yay!'",
+    user_message_suffix="The first character of your response should be 'I'",
 )
 
 

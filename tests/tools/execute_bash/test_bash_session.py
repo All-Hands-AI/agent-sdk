@@ -15,6 +15,7 @@ import time
 
 import pytest
 
+from openhands.sdk import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.terminal import (
@@ -66,7 +67,6 @@ def test_cwd_property(tmp_path, terminal_type):
     # For other implementations, just verify the command executed successfully
     obs = session.execute(ExecuteBashAction(command="pwd", security_risk="LOW"))
     assert str(random_dir) in obs.output
-    print(obs.agent_observation)
 
     # Note: CWD tracking may vary between terminal implementations
     # For tmux, it should track properly. For subprocess, it may not.
@@ -308,10 +308,14 @@ def test_empty_command_error(terminal_type):
 
     assert obs.error is True
     assert obs.output == "ERROR: No previous running command to retrieve logs from."
-    assert "There was an error during command execution." in obs.agent_observation
+    assert len(obs.agent_observation) == 1
+    assert isinstance(obs.agent_observation[0], TextContent)
+    assert (
+        "There was an error during command execution." in obs.agent_observation[0].text
+    )
     assert (
         "ERROR: No previous running command to retrieve logs from."
-        in obs.agent_observation
+        in obs.agent_observation[0].text
     )
     assert obs.metadata.exit_code == -1
     assert obs.metadata.prefix == ""
@@ -509,3 +513,470 @@ def test_python_interactive_input(terminal_type):
     assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     session.close()
+
+
+def _run_bash_action(session, command: str, **kwargs):
+    """Helper function to execute a bash command and return the observation."""
+    action = ExecuteBashAction(command=command, security_risk="LOW", **kwargs)
+    obs = session.execute(action)
+    logger.info(f"Command: {command}")
+    logger.info(f"Output: {obs.output}")
+    logger.info(f"Exit code: {obs.metadata.exit_code}")
+    return obs
+
+
+@parametrize_terminal_types
+def test_bash_server(terminal_type):
+    """Test running a server with timeout and interrupt."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # Use python -u for unbuffered output, potentially helping
+            # capture initial output on Windows
+            obs = _run_bash_action(
+                session, "python -u -m http.server 8081", timeout=1.0
+            )
+            assert obs.metadata.exit_code == -1
+            assert "Serving HTTP on" in obs.output
+
+            # Send Ctrl+C to interrupt
+            obs = _run_bash_action(session, "C-c", is_input=True)
+            assert "CTRL+C was sent" in obs.metadata.suffix
+            assert "Keyboard interrupt received, exiting." in obs.output
+
+            # Verify we can run commands after interrupt
+            obs = _run_bash_action(session, "ls")
+            assert obs.metadata.exit_code == 0
+
+            # Run server again to verify it works
+            obs = _run_bash_action(
+                session, "python -u -m http.server 8081", timeout=1.0
+            )
+            assert obs.metadata.exit_code == -1
+            assert "Serving HTTP on" in obs.output
+
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_bash_background_server(terminal_type):
+    """Test running a server in background."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        server_port = 8081
+        try:
+            # Start the server in background
+            obs = _run_bash_action(session, f"python3 -m http.server {server_port} &")
+            assert obs.metadata.exit_code == 0
+
+            # Give the server a moment to be ready
+            time.sleep(1)
+
+            # Verify the server is running by curling it
+            obs = _run_bash_action(session, f"curl http://localhost:{server_port}")
+            assert obs.metadata.exit_code == 0
+            # Check for content typical of python http.server directory listing
+            assert "Directory listing for" in obs.output
+
+            # Kill the server
+            obs = _run_bash_action(session, 'pkill -f "http.server"')
+            assert obs.metadata.exit_code == 0
+
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_multiline_commands(terminal_type):
+    """Test multiline command execution."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # Original Linux bash version
+            # single multiline command
+            obs = _run_bash_action(session, 'echo \\\n -e "foo"')
+            assert obs.metadata.exit_code == 0
+            assert "foo" in obs.output
+
+            # test multiline echo
+            obs = _run_bash_action(session, 'echo -e "hello\nworld"')
+            assert obs.metadata.exit_code == 0
+            assert "hello\nworld" in obs.output
+
+            # test whitespace
+            obs = _run_bash_action(session, 'echo -e "a\\n\\n\\nz"')
+            assert obs.metadata.exit_code == 0
+            assert "\n\n\n" in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_complex_commands(terminal_type):
+    """Test complex bash command execution."""
+    cmd = (
+        'count=0; tries=0; while [ $count -lt 3 ]; do result=$(echo "Heads"); '
+        'tries=$((tries+1)); echo "Flip $tries: $result"; '
+        'if [ "$result" = "Heads" ]; then count=$((count+1)); else count=0; fi; '
+        'done; echo "Got 3 heads in a row after $tries flips!";'
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            obs = _run_bash_action(session, cmd)
+            assert obs.metadata.exit_code == 0
+            assert "Got 3 heads in a row after 3 flips!" in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_no_ps2_in_output(terminal_type):
+    """Test that the PS2 sign is not added to the output of a multiline command."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            obs = _run_bash_action(session, 'echo -e "hello\nworld"')
+            assert obs.metadata.exit_code == 0
+
+            assert "hello\nworld" in obs.output
+            assert ">" not in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_multiline_command_loop(terminal_type):
+    """Test multiline command with loops."""
+    # https://github.com/All-Hands-AI/OpenHands/issues/3143
+    init_cmd = """mkdir -p _modules && \\
+for month in {01..04}; do
+    for day in {01..05}; do
+        touch "_modules/2024-${month}-${day}-sample.md"
+    done
+done && echo "created files"
+"""
+    follow_up_cmd = """for file in _modules/*.md; do
+    new_date=$(echo $file | sed -E \\
+        's/2024-(01|02|03|04)-/2024-/;s/2024-01/2024-08/;s/2024-02/2024-09/;s/2024-03/2024-10/;s/2024-04/2024-11/')
+    mv "$file" "$new_date"
+done && echo "success"
+"""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            obs = _run_bash_action(session, init_cmd)
+            assert obs.metadata.exit_code == 0
+            assert "created files" in obs.output
+
+            obs = _run_bash_action(session, follow_up_cmd)
+            assert obs.metadata.exit_code == 0
+            assert "success" in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_multiple_multiline_commands(terminal_type):
+    """Test that multiple commands separated by newlines are rejected."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            cmds = [
+                "ls -l",
+                'echo -e "hello\nworld"',
+                """echo -e "hello it's me\"""",
+                """echo \\
+-e 'hello' \\
+world""",
+                """echo -e 'hello\\nworld\\nare\\nyou\\nthere?'""",
+                """echo -e 'hello\nworld\nare\nyou\n\nthere?'""",
+                """echo -e 'hello\nworld "'""",
+            ]
+            joined_cmds = "\n".join(cmds)
+
+            # First test that running multiple commands at once fails
+            obs = _run_bash_action(session, joined_cmds)
+            assert obs.error is True
+            assert "Cannot execute multiple commands at once" in obs.output
+
+            # Now run each command individually and verify they work
+            results = []
+            for cmd in cmds:
+                obs = _run_bash_action(session, cmd)
+                assert obs.metadata.exit_code == 0
+                results.append(obs.output)
+
+            # Verify all expected outputs are present
+            assert "total 0" in results[0]  # ls -l
+            assert "hello\nworld" in results[1]  # echo -e "hello\nworld"
+            assert "hello it's me" in results[2]  # echo -e "hello it\'s me"
+            assert "hello world" in results[3]  # echo -e 'hello' world
+            assert (
+                "hello\nworld\nare\nyou\nthere?" in results[4]
+            )  # echo -e 'hello\nworld\nare\nyou\nthere?'
+            assert (
+                "hello\nworld\nare\nyou\n\nthere?" in results[5]
+            )  # echo -e with literal newlines
+            assert 'hello\nworld "' in results[6]  # echo -e with quote
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_cmd_run(terminal_type):
+    """Test basic command execution."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # Unix version
+            obs = _run_bash_action(session, f"ls -l {temp_dir}")
+            assert obs.metadata.exit_code == 0
+
+            obs = _run_bash_action(session, "ls -l")
+            assert obs.metadata.exit_code == 0
+            assert "total 0" in obs.output
+
+            obs = _run_bash_action(session, "mkdir test")
+            assert obs.metadata.exit_code == 0
+
+            obs = _run_bash_action(session, "ls -l")
+            assert obs.metadata.exit_code == 0
+            assert "test" in obs.output
+
+            obs = _run_bash_action(session, "touch test/foo.txt")
+            assert obs.metadata.exit_code == 0
+
+            obs = _run_bash_action(session, "ls -l test")
+            assert obs.metadata.exit_code == 0
+            assert "foo.txt" in obs.output
+
+            # clean up
+            _run_bash_action(session, "rm -rf test")
+            assert obs.metadata.exit_code == 0
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_run_as_user_correct_home_dir(terminal_type):
+    """Test that home directory is correct."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # Original Linux version
+            obs = _run_bash_action(session, "cd ~ && pwd")
+            assert obs.metadata.exit_code == 0
+            home = os.getenv("HOME")
+            assert home and home in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_multi_cmd_run_in_single_line(terminal_type):
+    """Test multiple commands in a single line."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(work_dir=temp_dir)
+        session.initialize()
+        try:
+            # Original Linux version using &&
+            obs = _run_bash_action(session, "pwd && ls -l")
+            assert obs.metadata.exit_code == 0
+            assert temp_dir in obs.output
+            assert "total 0" in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_stateful_cmd(terminal_type):
+    """Test that commands maintain state across executions."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # Original Linux version
+            obs = _run_bash_action(session, "mkdir -p test")
+            assert obs.metadata.exit_code == 0
+
+            obs = _run_bash_action(session, "cd test")
+            assert obs.metadata.exit_code == 0
+
+            obs = _run_bash_action(session, "pwd")
+            assert obs.metadata.exit_code == 0
+            assert f"{temp_dir}/test" in obs.output.strip()
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_failed_cmd(terminal_type):
+    """Test failed command execution."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            obs = _run_bash_action(session, "non_existing_command")
+            assert obs.metadata.exit_code != 0
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_python_version(terminal_type):
+    """Test Python version command."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            obs = _run_bash_action(session, "python --version")
+            assert obs.metadata.exit_code == 0
+            assert "Python 3" in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_pwd_property(terminal_type):
+    """Test pwd property updates."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # Create a subdirectory and verify pwd updates
+            obs = _run_bash_action(session, "mkdir -p random_dir")
+            assert obs.metadata.exit_code == 0
+
+            obs = _run_bash_action(session, "cd random_dir && pwd")
+            assert obs.metadata.exit_code == 0
+            assert "random_dir" in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_long_output_from_nested_directories(terminal_type):
+    """Test long output from nested directory operations."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # Create nested directories with many files
+            setup_cmd = (
+                "mkdir -p /tmp/test_dir && cd /tmp/test_dir && "
+                'for i in $(seq 1 100); do mkdir -p "folder_$i"; '
+                'for j in $(seq 1 100); do touch "folder_$i/file_$j.txt"; done; done'
+            )
+            obs = _run_bash_action(session, setup_cmd.strip(), timeout=60)
+            assert obs.metadata.exit_code == 0
+
+            # List the directory structure recursively
+            obs = _run_bash_action(session, "ls -R /tmp/test_dir", timeout=60)
+            assert obs.metadata.exit_code == 0
+
+            # Verify output contains expected files
+            assert "folder_1" in obs.output
+            assert "file_1.txt" in obs.output
+            assert "folder_100" in obs.output
+            assert "file_100.txt" in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_command_backslash(terminal_type):
+    """Test command with backslash escaping."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # Create a file with the content "implemented_function"
+            cmd = (
+                "mkdir -p /tmp/test_dir && "
+                'echo "implemented_function" > /tmp/test_dir/file_1.txt'
+            )
+            obs = _run_bash_action(session, cmd)
+            assert obs.metadata.exit_code == 0
+
+            # Different escaping for different terminal types
+            if terminal_type == "subprocess":
+                semicolon = '";"'  # No escaping needed for subprocess
+            else:
+                semicolon = "\\;"  # Escape for tmux
+
+            cmd = (
+                "find /tmp/test_dir -type f -exec grep"
+                + f' -l "implemented_function" {{}} {semicolon}'
+            )
+            obs = _run_bash_action(session, cmd)
+            assert obs.metadata.exit_code == 0
+            assert "/tmp/test_dir/file_1.txt" in obs.output
+        finally:
+            session.close()
+
+
+@parametrize_terminal_types
+def test_bash_remove_prefix(terminal_type):
+    """Test bash command prefix removal."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        session = create_terminal_session(
+            work_dir=temp_dir, terminal_type=terminal_type
+        )
+        session.initialize()
+        try:
+            # create a git repo - same for both platforms
+            obs = _run_bash_action(
+                session,
+                "git init && git remote add origin https://github.com/All-Hands-AI/OpenHands",
+            )
+            assert obs.metadata.exit_code == 0
+
+            # Check git remote - same for both platforms
+            obs = _run_bash_action(session, "git remote -v")
+            assert obs.metadata.exit_code == 0
+            assert "https://github.com/All-Hands-AI/OpenHands" in obs.output
+            assert "git remote -v" not in obs.output
+        finally:
+            session.close()

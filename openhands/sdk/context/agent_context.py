@@ -44,7 +44,7 @@ class AgentContext(BaseModel):
         default_factory=list,
         description="List of available microagents that can extend the user's input.",
     )
-    system_prompt_suffix: str | None = Field(
+    system_message_suffix: str | None = Field(
         default=None, description="Optional suffix to append to the system prompt."
     )
     user_message_suffix: str | None = Field(
@@ -85,11 +85,14 @@ class AgentContext(BaseModel):
             # TODO(test): add a test for this rendering to make sure they work
             formatted_text = render_template(
                 prompt_dir=str(PROMPT_DIR),
-                template_name="system_prompt_suffix.j2",
+                template_name="system_message_suffix.j2",
                 repo_microagents=repo_microagents,
-                system_prompt_suffix=self.system_prompt_suffix or "",
+                system_message_suffix=self.system_message_suffix or "",
             ).strip()
             return formatted_text
+        elif self.system_message_suffix and self.system_message_suffix.strip():
+            return self.system_message_suffix.strip()
+        return None
 
     def get_user_message_suffix(
         self, user_message: Message, skip_microagent_names: list[str]
@@ -101,12 +104,19 @@ class AgentContext(BaseModel):
         - Matching microagent triggers against the query
         - Returning formatted knowledge and triggered microagent names if relevant microagents were triggered
         """  # noqa: E501
+
+        user_message_suffix = None
+        if self.user_message_suffix and self.user_message_suffix.strip():
+            user_message_suffix = self.user_message_suffix.strip()
+
         query = "\n".join(
             (c.text for c in user_message.content if isinstance(c, TextContent))
         ).strip()
         recalled_knowledge: list[MicroagentKnowledge] = []
-        # skip empty queries
+        # skip empty queries, but still return user_message_suffix if it exists
         if not query:
+            if user_message_suffix:
+                return TextContent(text=user_message_suffix), []
             return None
         # Search for microagent triggers in the query
         for microagent in self.microagents:
@@ -132,6 +142,12 @@ class AgentContext(BaseModel):
                 template_name="microagent_knowledge_info.j2",
                 triggered_agents=recalled_knowledge,
             )
+            if user_message_suffix:
+                formatted_microagent_text += "\n" + user_message_suffix
             return TextContent(text=formatted_microagent_text), [
                 k.name for k in recalled_knowledge
             ]
+
+        if user_message_suffix:
+            return TextContent(text=user_message_suffix), []
+        return None
