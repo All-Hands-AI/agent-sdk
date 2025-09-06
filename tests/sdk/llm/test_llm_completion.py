@@ -1,18 +1,18 @@
 """Tests for LLM completion functionality, configuration, and metrics tracking."""
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from litellm.types.utils import Choices, Message, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM
+from openhands.sdk.llm import LLM, Metrics, ModelResponseWithMetrics
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
     """Helper function to create properly structured mock responses."""
-    return ModelResponse(
+    return ModelResponseWithMetrics(
         id=response_id,
         choices=[
             Choices(
@@ -33,7 +33,25 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             completion_tokens=5,
             total_tokens=15,
         ),
+        metrics=Metrics(),
     )
+
+
+def assert_response_matches_mock(actual_response, mock_response):
+    """Helper function to compare responses excluding populated metrics."""
+    # Verify response structure (excluding metrics which will be populated)
+    assert actual_response.id == mock_response.id
+    assert actual_response.choices == mock_response.choices
+    assert actual_response.created == mock_response.created
+    assert actual_response.model == mock_response.model
+    assert actual_response.object == mock_response.object
+    assert actual_response.usage == mock_response.usage
+    assert actual_response.system_fingerprint == mock_response.system_fingerprint
+
+    # Verify metrics are populated (not empty like in mock)
+    assert actual_response.metrics is not None
+    # Note: We don't assert specific metric values as they contain timestamps and
+    # calculated values
 
 
 @pytest.fixture
@@ -66,7 +84,7 @@ def test_llm_completion_basic(mock_completion):
     messages = [{"role": "user", "content": "Hello"}]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    assert_response_matches_mock(response, mock_response)
     mock_completion.assert_called_once()
 
 
@@ -84,14 +102,19 @@ def test_llm_streaming_not_supported(default_config):
 @patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
+    from litellm.types.utils import ChatCompletionMessageToolCall, Function
+
+    # Create tool call properly
+    tool_call = ChatCompletionMessageToolCall(
+        id="call_123",
+        type="function",
+        function=Function(name="test_tool", arguments='{"param": "value"}'),
+    )
+
+    # Create mock response with tool calls
     mock_response = create_mock_response("I'll use the tool")
-    mock_response.choices[0].message.tool_calls = [  # type: ignore
-        MagicMock(
-            id="call_123",
-            type="function",
-            function=MagicMock(name="test_tool", arguments='{"param": "value"}'),
-        )
-    ]
+    # Create a new message with tool calls
+    mock_response.choices[0].message.tool_calls = [tool_call]
     mock_completion.return_value = mock_response
 
     # Create LLM after the patch is applied
@@ -121,7 +144,7 @@ def test_llm_completion_with_tools(mock_completion):
 
     response = llm.completion(messages=messages, tools=tools)
 
-    assert response == mock_response
+    assert_response_matches_mock(response, mock_response)
     mock_completion.assert_called_once()
 
 
@@ -254,7 +277,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     messages = [{"role": "user", "content": "Hello with custom params"}]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    assert_response_matches_mock(response, mock_response)
     mock_completion.assert_called_once()
 
     # Verify that custom parameters were used in the call

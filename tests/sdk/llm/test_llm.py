@@ -6,7 +6,7 @@ from litellm.exceptions import (
 )
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLM, Message, ModelResponseWithMetrics, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
 
@@ -16,7 +16,6 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
     from litellm.types.utils import (
         Choices,
         Message as LiteLLMMessage,
-        ModelResponse,
         Usage,
     )
 
@@ -29,14 +28,15 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
     # Create proper usage
     usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
 
-    # Create proper ModelResponse
-    response = ModelResponse(
+    # Create proper ModelResponseWithMetrics
+    response = ModelResponseWithMetrics(
         id=response_id,
         choices=[choice],
         created=1234567890,
         model="gpt-4o",
         object="chat.completion",
         usage=usage,
+        metrics=Metrics(),
     )
 
     return response
@@ -195,7 +195,19 @@ def test_llm_completion_with_mock(mock_completion):
     messages = [{"role": "user", "content": "Hello"}]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    # Verify response structure (excluding metrics which will be populated)
+    assert response.id == mock_response.id
+    assert response.choices == mock_response.choices
+    assert response.created == mock_response.created
+    assert response.model == mock_response.model
+    assert response.object == mock_response.object
+    assert response.usage == mock_response.usage
+
+    # Verify metrics are populated (not empty like in mock)
+    assert response.metrics is not None
+    assert response.metrics.accumulated_cost > 0  # Should have calculated cost
+    assert len(response.metrics.token_usages) > 0  # Should have token usage
+
     mock_completion.assert_called_once()
 
 
@@ -226,7 +238,19 @@ def test_llm_retry_on_rate_limit(mock_completion):
     messages = [{"role": "user", "content": "Hello"}]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    # Verify response structure (excluding metrics which will be populated)
+    assert response.id == mock_response.id
+    assert response.choices == mock_response.choices
+    assert response.created == mock_response.created
+    assert response.model == mock_response.model
+    assert response.object == mock_response.object
+    assert response.usage == mock_response.usage
+
+    # Verify metrics are populated (not empty like in mock)
+    assert response.metrics is not None
+    assert response.metrics.accumulated_cost > 0  # Should have calculated cost
+    assert len(response.metrics.token_usages) > 0  # Should have token usage
+
     assert mock_completion.call_count == 2  # First call failed, second succeeded
 
 
@@ -418,16 +442,17 @@ def test_llm_config_validation():
 @patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_no_response_error(mock_completion):
     """Test handling of LLMNoResponseError."""
-    from litellm.types.utils import ModelResponse, Usage
+    from litellm.types.utils import Usage
 
-    # Mock empty response using proper ModelResponse
-    mock_response = ModelResponse(
+    # Mock empty response using proper ModelResponseWithMetrics
+    mock_response = ModelResponseWithMetrics(
         id="test-id",
         choices=[],  # Empty choices should trigger LLMNoResponseError
         created=1234567890,
         model="gpt-4o",
         object="chat.completion",
         usage=Usage(prompt_tokens=10, completion_tokens=0, total_tokens=10),
+        metrics=Metrics(),
     )
     mock_completion.return_value = mock_response
 

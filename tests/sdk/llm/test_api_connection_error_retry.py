@@ -2,15 +2,15 @@ from unittest.mock import patch
 
 import pytest
 from litellm.exceptions import APIConnectionError
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from litellm.types.utils import Choices, Message, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM
+from openhands.sdk.llm import LLM, Metrics, ModelResponseWithMetrics
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
     """Helper function to create properly structured mock responses."""
-    return ModelResponse(
+    return ModelResponseWithMetrics(  # type: ignore[call-arg]
         id=response_id,
         choices=[
             Choices(
@@ -26,12 +26,30 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
         model="gpt-4o",
         object="chat.completion",
         system_fingerprint="test",
-        usage=Usage(
+        usage=Usage(  # type: ignore[call-arg]
             prompt_tokens=10,
             completion_tokens=5,
             total_tokens=15,
         ),
+        metrics=Metrics(),
     )
+
+
+def assert_response_matches_mock(actual_response, mock_response):
+    """Helper function to compare responses excluding populated metrics."""
+    # Verify response structure (excluding metrics which will be populated)
+    assert actual_response.id == mock_response.id
+    assert actual_response.choices == mock_response.choices
+    assert actual_response.created == mock_response.created
+    assert actual_response.model == mock_response.model
+    assert actual_response.object == mock_response.object
+    assert actual_response.usage == mock_response.usage
+    assert actual_response.system_fingerprint == mock_response.system_fingerprint
+
+    # Verify metrics are populated (not empty like in mock)
+    assert actual_response.metrics is not None
+    # Note: We don't assert specific metric values as they contain timestamps and
+    # calculated values
 
 
 @pytest.fixture
@@ -77,7 +95,7 @@ def test_completion_retries_api_connection_error(
     )
 
     # Verify that the retry was successful
-    assert response == mock_response
+    assert_response_matches_mock(response, mock_response)
     assert mock_litellm_completion.call_count == 2  # Initial call + 1 retry
 
 
@@ -149,7 +167,7 @@ def test_completion_no_retry_on_success(mock_litellm_completion, default_config)
     )
 
     # Verify that no retries were needed
-    assert response == mock_response
+    assert_response_matches_mock(response, mock_response)
     assert mock_litellm_completion.call_count == 1  # Only the initial call
 
 
@@ -236,7 +254,7 @@ def test_retry_listener_callback(mock_litellm_completion, default_config):
     )
 
     # Verify that the retry listener was called
-    assert response == mock_response
+    assert_response_matches_mock(response, mock_response)
     assert len(retry_calls) >= 1  # At least one retry attempt should be logged
 
     # Check that retry listener received correct parameters

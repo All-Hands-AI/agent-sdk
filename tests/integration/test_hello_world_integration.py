@@ -5,7 +5,7 @@ import tempfile
 from typing import Any, Dict, List
 from unittest.mock import patch
 
-from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
+from litellm.types.utils import Choices, Message as LiteLLMMessage, Usage
 from pydantic import SecretStr
 
 from openhands.sdk import (
@@ -14,6 +14,8 @@ from openhands.sdk import (
     Conversation,
     EventType,
     Message,
+    Metrics,
+    ModelResponseWithMetrics,
     TextContent,
     Tool,
     get_logger,
@@ -88,7 +90,7 @@ class TestHelloWorldIntegration:
         for log_entry in valid_entries:
             response_data = log_entry["response"]
             # Work with raw data - no cleaning
-            model_response = ModelResponse(**response_data)
+            model_response = ModelResponseWithMetrics(**response_data)
             responses.append(model_response)
 
         return responses
@@ -99,7 +101,7 @@ class TestHelloWorldIntegration:
         hello_path = os.path.join(self.temp_dir, "hello.py")
 
         # First response: Agent decides to create the file
-        first_response = ModelResponse(
+        first_response = ModelResponseWithMetrics(
             id="mock-response-1",
             choices=[
                 Choices(
@@ -126,10 +128,11 @@ class TestHelloWorldIntegration:
                 )
             ],
             usage=Usage(prompt_tokens=50, completion_tokens=30, total_tokens=80),
+            metrics=Metrics(),
         )
 
         # Second response: Agent acknowledges the file creation
-        second_response = ModelResponse(
+        second_response = ModelResponseWithMetrics(
             id="mock-response-2",
             choices=[
                 Choices(
@@ -144,6 +147,7 @@ class TestHelloWorldIntegration:
                 )
             ],
             usage=Usage(prompt_tokens=80, completion_tokens=25, total_tokens=105),
+            metrics=Metrics(),
         )
 
         return [first_response, second_response]
@@ -389,14 +393,13 @@ class TestHelloWorldIntegration:
         from litellm.types.utils import (
             Choices,
             Message as LiteLLMMessage,
-            ModelResponse,
         )
 
         from openhands.sdk.llm import LLM
         from openhands.sdk.llm.message import Message, TextContent
 
         # Create a mock response without function calls (pure text response)
-        mock_response = ModelResponse(
+        mock_response = ModelResponseWithMetrics(
             id="test-non-func-call",
             choices=[
                 Choices(
@@ -413,6 +416,7 @@ class TestHelloWorldIntegration:
             object="chat.completion",
             system_fingerprint=None,
             usage=None,
+            metrics=Metrics(),
         )
 
         # Mock the LLM to return our non-function call response
@@ -489,7 +493,7 @@ class TestHelloWorldIntegration:
         print(f"   Message count: {len(logged_data['messages'])}")
 
         # Create a mock response without function calls (pure text response)
-        mock_response = ModelResponse(
+        mock_response = ModelResponseWithMetrics(
             id="test-non-func-call",
             choices=[
                 Choices(
@@ -506,6 +510,7 @@ class TestHelloWorldIntegration:
             object="chat.completion",
             system_fingerprint=None,
             usage=None,
+            metrics=Metrics(),
         )
 
         # Mock the LLM to return our non-function call response

@@ -9,6 +9,8 @@ from openhands.sdk.llm import (
     ImageContent,
     LLMRegistry,
     Message,
+    Metrics,
+    ModelResponseWithMetrics,
     RegistryEvent,
     TextContent,
 )
@@ -29,6 +31,8 @@ __all__ = [
     "Message",
     "TextContent",
     "ImageContent",
+    "ModelResponseWithMetrics",
+    "Metrics",
     "Tool",
     "AgentBase",
     "Agent",
