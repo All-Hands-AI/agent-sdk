@@ -3,6 +3,8 @@ import sys
 from abc import ABC, abstractmethod
 from types import MappingProxyType
 
+from pydantic import BaseModel, Field
+
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 from openhands.sdk.llm import LLM
@@ -13,12 +15,19 @@ from openhands.sdk.tool import Tool
 logger = get_logger(__name__)
 
 
-class AgentBase(ABC):
+class AgentBase(BaseModel, ABC):
+    model_config = {"frozen": True, "arbitrary_types_allowed": True}
+
+    llm_instance: LLM = Field(alias="llm")
+    agent_context: AgentContext | None = Field(default=None)
+    tools_map: MappingProxyType[str, Tool] = Field(alias="tools")
+
     def __init__(
         self,
         llm: LLM,
         tools: list[Tool],
         agent_context: AgentContext | None = None,
+        **kwargs,
     ) -> None:
         """Initializes a new instance of the Agent class.
 
@@ -26,9 +35,6 @@ class AgentBase(ABC):
         1. input ConversationState
         2. LLM/tools/agent_context that were given in __init__
         """
-        self._llm = llm
-        self._agent_context = agent_context
-
         # Load tools into an immutable dict
         _tools_map = {}
         for tool in tools:
@@ -36,7 +42,13 @@ class AgentBase(ABC):
                 raise ValueError(f"Duplicate tool name: {tool.name}")
             logger.debug(f"Registering tool: {tool}")
             _tools_map[tool.name] = tool
-        self._tools = MappingProxyType(_tools_map)
+
+        super().__init__(
+            llm=llm,
+            agent_context=agent_context,
+            tools=MappingProxyType(_tools_map),
+            **kwargs,
+        )
 
     @property
     def prompt_dir(self) -> str:
@@ -55,17 +67,12 @@ class AgentBase(ABC):
     @property
     def llm(self) -> LLM:
         """Returns the LLM instance used by the Agent."""
-        return self._llm
+        return self.llm_instance
 
     @property
     def tools(self) -> MappingProxyType[str, Tool]:
         """Returns an immutable mapping of available tools from name."""
-        return self._tools
-
-    @property
-    def agent_context(self) -> AgentContext | None:
-        """Returns the agent context used by the Agent."""
-        return self._agent_context
+        return self.tools_map
 
     @abstractmethod
     def init_state(
