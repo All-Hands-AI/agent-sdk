@@ -149,6 +149,13 @@ class MessageEvent(LLMConvertibleEvent):
     extended_content: list[TextContent] = Field(
         default_factory=list, description="List of content added by agent context"
     )
+    metrics: Metrics | None = Field(
+        default=None,
+        description=(
+            "LLM metrics (token counts and costs) for this message. Only attached "
+            "to messages from agent."
+        ),
+    )
 
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
@@ -225,6 +232,13 @@ class AgentErrorEvent(LLMConvertibleEvent):
     kind: EventType = "agent_error"
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
+    metrics: Metrics | None = Field(
+        default=None,
+        description=(
+            "LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
+        ),
+    )
 
     def to_llm_message(self) -> Message:
         return Message(role="user", content=[TextContent(text=self.error)])

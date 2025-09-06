@@ -218,7 +218,9 @@ class Agent(AgentBase):
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
-            msg_event = MessageEvent(source="agent", llm_message=message)
+            msg_event = MessageEvent(
+                source="agent", llm_message=message, metrics=response.metrics
+            )
             on_event(msg_event)
 
     def _requires_user_confirmation(
@@ -267,7 +269,7 @@ class Agent(AgentBase):
         if tool is None:
             err = f"Tool '{tool_name}' not found. Available: {list(self.tools.keys())}"
             logger.error(err)
-            event = AgentErrorEvent(error=err)
+            event = AgentErrorEvent(error=err, metrics=metrics)
             on_event(event)
             state.agent_finished = True
             return
@@ -282,7 +284,7 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.function.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
-            event = AgentErrorEvent(error=err)
+            event = AgentErrorEvent(error=err, metrics=metrics)
             on_event(event)
             return
 
