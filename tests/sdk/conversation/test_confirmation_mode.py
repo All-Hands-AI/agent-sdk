@@ -4,7 +4,7 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 from litellm import ChatCompletionMessageToolCall
@@ -14,13 +14,14 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
@@ -47,7 +48,12 @@ class TestConfirmationMode:
     def setup_method(self):
         """Set up test fixtures."""
 
-        self.mock_llm = MagicMock()
+        # Create a real LLM instance
+        self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+
+        # Create a patcher for the completion method at the class level
+        self.completion_patcher = patch.object(LLM, "completion")
+        self.mock_completion = self.completion_patcher.start()
 
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:
@@ -61,12 +67,16 @@ class TestConfirmationMode:
             executor=TestExecutor(),
         )
 
-        self.agent = Agent(llm=self.mock_llm, tools=[test_tool])
+        self.agent = Agent(llm=self.llm, tools=[test_tool])
         self.conversation = Conversation(agent=self.agent)
+
+    def teardown_method(self):
+        """Clean up test fixtures."""
+        self.completion_patcher.stop()
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> None:
         """Configure LLM to return a plain assistant message (no tool calls)."""
-        self.mock_llm.completion.return_value = ModelResponse(
+        self.mock_completion.return_value = ModelResponse(
             id="response_msg",
             choices=[Choices(message=LiteLLMMessage(role="assistant", content=text))],
             created=0,
@@ -90,7 +100,7 @@ class TestConfirmationMode:
     ) -> None:
         """Configure LLM to return one tool call (action)."""
         tool_call = self._create_test_action(call_id=call_id, command=command).tool_call
-        self.mock_llm.completion.return_value = ModelResponse(
+        self.mock_completion.return_value = ModelResponse(
             id="response_action",
             choices=[
                 Choices(
@@ -114,7 +124,7 @@ class TestConfirmationMode:
             function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
         )
 
-        self.mock_llm.completion.return_value = ModelResponse(
+        self.mock_completion.return_value = ModelResponse(
             id="response_finish",
             choices=[
                 Choices(
@@ -148,7 +158,7 @@ class TestConfirmationMode:
             ),
         )
 
-        self.mock_llm.completion.return_value = ModelResponse(
+        self.mock_completion.return_value = ModelResponse(
             id="response_multiple",
             choices=[
                 Choices(

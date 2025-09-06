@@ -1,5 +1,5 @@
 import json
-from typing import Any, cast
+from typing import cast
 
 from litellm.types.utils import (
     ChatCompletionMessageToolCall,
@@ -24,7 +24,7 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import Message, TextContent, get_llm_metadata
+from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
@@ -46,7 +46,7 @@ class Agent(AgentBase):
 
     def __init__(
         self,
-        llm: Any,
+        llm: LLM,
         tools: list[Tool],
         agent_context: AgentContext | None = None,
         system_prompt_filename: str = "system_prompt.j2",
