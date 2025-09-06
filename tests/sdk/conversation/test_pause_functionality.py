@@ -24,7 +24,7 @@ from litellm.types.utils import (
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import MessageEvent, PauseEvent
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
 
 
@@ -39,9 +39,9 @@ class MockObservation(ObservationBase):
 
     result: str
 
-    @property  # pyright: ignore[reportIncompatibleMethodOverride]
-    def agent_observation(self) -> str:
-        return self.result
+    @property
+    def agent_observation(self) -> list[TextContent | ImageContent]:
+        return [TextContent(text=self.result)]
 
 
 class BlockingExecutor(ToolExecutor[MockAction, MockObservation]):

@@ -196,7 +196,6 @@ class Conversation:
         effect until the current LLM call completes.
         """
 
-        print("pausing right now")
         if self.state.agent_paused:
             return
 
