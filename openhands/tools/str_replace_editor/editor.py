@@ -19,17 +19,17 @@ from openhands.tools.str_replace_editor.exceptions import (
     ToolError,
 )
 from openhands.tools.str_replace_editor.utils.config import SNIPPET_CONTEXT_WINDOW
-from openhands.tools.str_replace_editor.utils.encoding import (
-    EncodingManager,
-    with_encoding,
-)
-from openhands.tools.str_replace_editor.utils.history import FileHistoryManager
-from openhands.tools.str_replace_editor.utils.prompts import (
+from openhands.tools.str_replace_editor.utils.constants import (
     BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
     DIRECTORY_CONTENT_TRUNCATED_NOTICE,
     MAX_RESPONSE_LEN_CHAR,
     TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
 )
+from openhands.tools.str_replace_editor.utils.encoding import (
+    EncodingManager,
+    with_encoding,
+)
+from openhands.tools.str_replace_editor.utils.history import FileHistoryManager
 from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
 
 
