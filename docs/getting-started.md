@@ -16,15 +16,15 @@ Hello World agent
 ```python
 import os
 from pydantic import SecretStr
-from openhands.sdk import Agent, Conversation, LLM, LLMConfig, Message, TextContent, Tool
+from openhands.sdk import Agent, Conversation, LLM, Message, TextContent, Tool
 from openhands.tools import BashTool, FileEditorTool
 
 api_key = os.getenv("LITELLM_API_KEY")
-llm = LLM(config=LLMConfig(
+llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
-))
+)
 
 tools: list[Tool] = [BashTool(working_dir=os.getcwd()), FileEditorTool()]
 agent = Agent(llm=llm, tools=tools)
