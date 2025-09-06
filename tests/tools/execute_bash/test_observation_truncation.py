@@ -1,5 +1,6 @@
 """Tests for ExecuteBashObservation truncation functionality."""
 
+from openhands.sdk.llm import TextContent
 from openhands.tools.execute_bash.constants import MAX_CMD_OUTPUT_SIZE
 from openhands.tools.execute_bash.definition import ExecuteBashObservation
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
@@ -23,6 +24,10 @@ def test_execute_bash_observation_truncation_under_limit():
     )
 
     result = observation.agent_observation
+    assert len(result) == 1
+    assert isinstance(result, TextContent)
+    result = result.text
+
     expected = (
         "Short output\n"
         "[Current working directory: /test]\n"
@@ -53,6 +58,9 @@ def test_execute_bash_observation_truncation_over_limit():
     )
 
     result = observation.agent_observation
+    assert len(result) == 1
+    assert isinstance(result, TextContent)
+    result = result.text
 
     # The result should be truncated
     assert len(result) < len(long_output) + 200  # Account for metadata
@@ -87,6 +95,9 @@ def test_execute_bash_observation_truncation_with_error():
     )
 
     result = observation.agent_observation
+    assert len(result) == 1
+    assert isinstance(result, TextContent)
+    result = result.text
 
     # The result should be truncated and have error prefix
     assert result.startswith("[There was an error during command execution.]")
@@ -127,6 +138,9 @@ def test_execute_bash_observation_truncation_exact_limit():
     )
 
     result = observation.agent_observation
+    assert len(result) == 1
+    assert isinstance(result, TextContent)
+    result = result.text
 
     # Should not be truncated
     assert len(result) == MAX_CMD_OUTPUT_SIZE
@@ -154,6 +168,9 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
     )
 
     result = observation.agent_observation
+    assert len(result) == 1
+    assert isinstance(result, TextContent)
+    result = result.text
 
     # The result should be truncated and include prefix/suffix
     assert result.startswith("[PREFIX] ")
