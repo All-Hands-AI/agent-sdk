@@ -20,7 +20,7 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
@@ -37,8 +37,8 @@ class MockObservation(ObservationBase):
     result: str
 
     @property
-    def agent_observation(self) -> str:
-        return self.result
+    def agent_observation(self) -> list[TextContent | ImageContent]:
+        return [TextContent(text=self.result)]
 
 
 class TestConfirmationMode:

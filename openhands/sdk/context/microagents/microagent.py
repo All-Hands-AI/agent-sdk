@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import ClassVar, Union
 
 import frontmatter
+from fastmcp.mcp_config import MCPConfig
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from openhands.sdk.config import MCPConfig
 from openhands.sdk.context.microagents.exceptions import MicroagentValidationError
 from openhands.sdk.context.microagents.types import (
     InputMetadata,
@@ -197,7 +197,7 @@ class RepoMicroagent(BaseMicroagent):
     """
 
     type: MicroagentType = MicroagentType.REPO_KNOWLEDGE
-    mcp_tools: MCPConfig | None = Field(
+    mcp_tools: MCPConfig | dict | None = Field(
         default=None,
         description="MCP tools configuration for the microagent",
     )
@@ -205,27 +205,16 @@ class RepoMicroagent(BaseMicroagent):
     # Field-level validation for mcp_tools
     @field_validator("mcp_tools")
     @classmethod
-    def _validate_mcp_tools(cls, v: MCPConfig | None, info):
+    def _validate_mcp_tools(cls, v: MCPConfig | dict | None, info):
         if v is None:
             return v
-        # Warn on SSE servers
-        if v.sse_servers:
-            logger.warning(
-                f"Microagent {getattr(info, 'data', {}).get('name', '<unknown>')} has SSE servers. "  # noqa: E501
-                "Only stdio servers are currently supported."
-            )
-        # Require stdio servers to be configured (non-empty)
-        stdio = v.stdio_servers
-        if not stdio:
-            # Try to include the agent name if available
-            agent_name = (
-                getattr(info, "data", {}).get("name") if hasattr(info, "data") else None
-            )
-            agent_label = agent_name or "<unknown>"
-            raise MicroagentValidationError(
-                f"Microagent {agent_label} has MCP tools configuration but no stdio servers. "  # noqa: E501
-                "Only stdio servers are currently supported."
-            )
+        if isinstance(v, dict):
+            try:
+                v = MCPConfig.model_validate(v)
+            except Exception as e:
+                raise MicroagentValidationError(
+                    f"Invalid MCPConfig dictionary: {e}"
+                ) from e
         return v
 
     @model_validator(mode="after")

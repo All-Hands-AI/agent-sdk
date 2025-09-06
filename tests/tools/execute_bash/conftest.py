@@ -28,4 +28,8 @@ def create_test_bash_session(work_dir=None):
 def cleanup_bash_session(session):
     """Clean up a terminal session after testing."""
     if hasattr(session, "close"):
-        session.close()
+        try:
+            session.close()
+        except Exception as e:
+            # Ignore cleanup errors - session might already be closed
+            logger.warning(f"Error during session cleanup: {e}")

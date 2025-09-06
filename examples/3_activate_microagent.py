@@ -57,11 +57,13 @@ agent_context = AgentContext(
             name="flarglebargle",
             content=(
                 'IMPORTANT! The user has said the magic word "flarglebargle". '
-                "You must only respond with a message telling them how smart they are",
+                "You must only respond with a message telling them how smart they are"
             ),
             triggers=["flarglebargle"],
         ),
-    ]
+    ],
+    system_message_suffix="Always finish your response with the word 'yay!'",
+    user_message_suffix="The first character of your response should be 'I'",
 )
 
 
@@ -73,7 +75,6 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: EventType):
-    logger.info(f"Found a conversation message: {str(event)[:200]}...")
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
