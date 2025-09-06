@@ -1,3 +1,4 @@
+# Core tool interface
 from openhands.tools.execute_bash.definition import (
     BashTool,
     ExecuteBashAction,
@@ -6,11 +7,24 @@ from openhands.tools.execute_bash.definition import (
 )
 from openhands.tools.execute_bash.impl import BashExecutor
 
+# Terminal session architecture - import from sessions package
+from openhands.tools.execute_bash.terminal import (
+    TerminalCommandStatus,
+    TerminalSession,
+    create_terminal_session,
+)
+
 
 __all__ = [
+    # === Core Tool Interface ===
+    "BashTool",
     "execute_bash_tool",
     "ExecuteBashAction",
     "ExecuteBashObservation",
     "BashExecutor",
-    "BashTool",
+    # === Terminal Session Architecture ===
+    "TerminalSession",
+    "TerminalCommandStatus",
+    "TerminalSession",
+    "create_terminal_session",
 ]

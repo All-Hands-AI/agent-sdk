@@ -1,6 +1,6 @@
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
-from openhands.sdk.llm.message import ImageContent, Message, TextContent
+from openhands.sdk.llm.message import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.metadata import get_llm_metadata
 
 
@@ -11,5 +11,6 @@ __all__ = [
     "Message",
     "TextContent",
     "ImageContent",
+    "content_to_str",
     "get_llm_metadata",
 ]

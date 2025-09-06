@@ -3,7 +3,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
-from openhands.sdk.config import LLMConfig
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
 
@@ -41,82 +40,6 @@ class LLMRegistry:
         self.service_to_llm: dict[str, LLM] = {}
         self.subscriber: Callable[[RegistryEvent], None] | None = None
 
-    def _create_new_llm(
-        self, service_id: str, config: LLMConfig, with_listener: bool = True
-    ) -> LLM:
-        """Create a new LLM instance and register it."""
-        if with_listener:
-            llm = LLM(
-                service_id=service_id, config=config, retry_listener=self.retry_listener
-            )
-        else:
-            llm = LLM(service_id=service_id, config=config)
-        self.service_to_llm[service_id] = llm
-        self.notify(RegistryEvent(llm=llm, service_id=service_id))
-        return llm
-
-    def request_extraneous_completion(
-        self, service_id: str, llm_config: LLMConfig, messages: list[dict[str, str]]
-    ) -> str:
-        """Request a completion from an LLM, creating it if necessary.
-
-        Args:
-            service_id: Unique identifier for the LLM service.
-            llm_config: Configuration for the LLM.
-            messages: Messages to send to the LLM.
-
-        Returns:
-            The completion response as a string.
-        """
-        logger.info(f"Requesting completion from service: {service_id}")
-        if service_id not in self.service_to_llm:
-            self._create_new_llm(
-                config=llm_config, service_id=service_id, with_listener=False
-            )
-
-        llm = self.service_to_llm[service_id]
-        response = llm.completion(messages=messages)
-        return response.choices[0].message.content.strip()
-
-    def get_llm(
-        self,
-        service_id: str,
-        config: LLMConfig | None = None,
-    ) -> LLM:
-        """Get or create an LLM instance for the given service ID.
-
-        Args:
-            service_id: Unique identifier for the LLM service.
-            config: Configuration for the LLM. Required if creating a new LLM.
-
-        Returns:
-            The LLM instance.
-
-        Raises:
-            ValueError: If trying to use the same service_id with different config.
-        """
-        logger.info(
-            f"[LLM registry {self.registry_id}]: Getting LLM for service {service_id}"
-        )
-
-        # Check if we're trying to switch configs for existing LLM
-        if (
-            service_id in self.service_to_llm
-            and self.service_to_llm[service_id].config != config
-        ):
-            raise ValueError(
-                f"Requesting same service ID {service_id} with"
-                " different config, use a new service ID"
-            )
-
-        if service_id in self.service_to_llm:
-            return self.service_to_llm[service_id]
-
-        if not config:
-            raise ValueError("Requesting new LLM without specifying LLM config")
-
-        return self._create_new_llm(config=config, service_id=service_id)
-
     def subscribe(self, callback: Callable[[RegistryEvent], None]) -> None:
         """Subscribe to registry events.
 
@@ -136,6 +59,53 @@ class LLMRegistry:
                 self.subscriber(event)
             except Exception as e:
                 logger.warning(f"Failed to emit event: {e}")
+
+    def add(self, service_id: str, llm: LLM) -> None:
+        """Add an LLM instance to the registry.
+
+        Args:
+            service_id: Unique identifier for the LLM service.
+            llm: The LLM instance to register.
+
+        Raises:
+            ValueError: If service_id already exists in the registry.
+        """
+        if service_id in self.service_to_llm:
+            raise ValueError(
+                f"Service ID '{service_id}' already exists in registry. "
+                "Use a different service_id or call get() to retrieve the existing LLM."
+            )
+
+        # Set the service_id on the LLM instance
+        llm.service_id = service_id
+        self.service_to_llm[service_id] = llm
+        self.notify(RegistryEvent(llm=llm, service_id=service_id))
+        logger.info(
+            f"[LLM registry {self.registry_id}]: Added LLM for service {service_id}"
+        )
+
+    def get(self, service_id: str) -> LLM:
+        """Get an LLM instance from the registry.
+
+        Args:
+            service_id: Unique identifier for the LLM service.
+
+        Returns:
+            The LLM instance.
+
+        Raises:
+            KeyError: If service_id is not found in the registry.
+        """
+        if service_id not in self.service_to_llm:
+            raise KeyError(
+                f"Service ID '{service_id}' not found in registry. "
+                "Use add() to register an LLM first."
+            )
+
+        logger.info(
+            f"[LLM registry {self.registry_id}]: Retrieved LLM for service {service_id}"
+        )
+        return self.service_to_llm[service_id]
 
     def list_services(self) -> list[str]:
         """List all registered service IDs.

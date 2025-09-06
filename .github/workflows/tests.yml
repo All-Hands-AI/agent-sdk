@@ -24,6 +24,7 @@ jobs:
         with:
           files: |
             openhands/sdk/**
+            tests/sdk/**
             pyproject.toml
             uv.lock
             .github/workflows/tests.yml
@@ -76,6 +77,7 @@ jobs:
         with:
           files: |
             openhands/tools/**
+            tests/tools/**
             pyproject.toml
             uv.lock
             .github/workflows/tests.yml

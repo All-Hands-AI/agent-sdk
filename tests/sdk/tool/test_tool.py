@@ -496,6 +496,9 @@ class TestTool:
         )
 
         assert tool.name == "dict_tool"
+        assert tool.input_schema != input_schema
+        # this supposed to be added by the ActionBase
+        tool.input_schema["properties"].pop("security_risk")
         assert tool.input_schema == input_schema
         assert tool.output_schema == output_schema
 
@@ -521,75 +524,6 @@ class TestTool:
         mcp_tool = tool.to_mcp_tool()
         assert "_meta" in mcp_tool
         assert mcp_tool["_meta"] == meta_data
-
-    def test_to_mcp_tool_detailed_type_validation_editor(self):
-        """Test detailed type validation for MCP tool schema generation."""
-        from openhands.tools.str_replace_editor import (
-            str_replace_editor_tool,
-        )
-
-        # Test str_replace_editor tool schema
-        str_editor_mcp = str_replace_editor_tool.to_mcp_tool()
-        str_editor_schema = str_editor_mcp["inputSchema"]
-        str_editor_props = str_editor_schema["properties"]
-
-        assert "command" in str_editor_props
-        assert "path" in str_editor_props
-        assert "file_text" in str_editor_props
-        assert "old_str" in str_editor_props
-        assert "new_str" in str_editor_props
-        assert "insert_line" in str_editor_props
-        assert "view_range" in str_editor_props
-        assert "security_risk" in str_editor_props
-
-        view_range_schema = str_editor_props["view_range"]
-        assert "anyOf" not in view_range_schema
-        assert view_range_schema["type"] == "array"
-        assert view_range_schema["items"]["type"] == "integer"
-
-        assert "description" in view_range_schema
-        assert (
-            "Optional parameter of `view` command" in view_range_schema["description"]
-        )
-
-        command_schema = str_editor_props["command"]
-        assert "enum" in command_schema
-        expected_commands = ["view", "create", "str_replace", "insert", "undo_edit"]
-        assert set(command_schema["enum"]) == set(expected_commands)
-
-        path_schema = str_editor_props["path"]
-        assert path_schema["type"] == "string"
-        assert "path" in str_editor_schema["required"]
-
-    def test_to_mcp_tool_detailed_type_validation_bash(self):
-        """Test detailed type validation for MCP tool schema generation (execute_bash)."""  # noqa: E501
-        from openhands.tools.execute_bash import execute_bash_tool
-
-        # Test execute_bash tool schema
-        bash_mcp = execute_bash_tool.to_mcp_tool()
-        bash_schema = bash_mcp["inputSchema"]
-        bash_props = bash_schema["properties"]
-
-        # Test command field is required string
-        bash_command_schema = bash_props["command"]
-        assert bash_command_schema["type"] == "string"
-        assert "command" in bash_schema["required"]
-
-        # Test is_input field is optional boolean with default
-        is_input_schema = bash_props["is_input"]
-        assert is_input_schema["type"] == "boolean"
-        assert "is_input" not in bash_schema["required"]
-
-        # Test timeout field is optional number
-        timeout_schema = bash_props["timeout"]
-        assert "anyOf" not in timeout_schema
-        assert timeout_schema["type"] == "number"
-
-        # Test security_risk field has enum constraint
-        security_risk_schema = bash_props["security_risk"]
-        assert "enum" in security_risk_schema
-        assert set(security_risk_schema["enum"]) == {"LOW", "MEDIUM", "HIGH"}
-        assert "security_risk" in bash_schema["required"]
 
     def test_to_mcp_tool_complex_nested_types(self):
         """Test MCP tool schema generation with complex nested types."""

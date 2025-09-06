@@ -18,6 +18,7 @@ class ConversationState(BaseModel):
     agent_finished: bool = False
     confirmation_mode: bool = False
     agent_waiting_for_confirmation: bool = False
+    agent_paused: bool = False
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list, description="List of activated knowledge microagents name"
     )
