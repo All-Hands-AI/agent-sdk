@@ -123,18 +123,15 @@ class Telemetry(BaseModel):
     ) -> None:
         # Handle both dict and Usage objects
         if isinstance(usage, dict):
-            prompt_tokens = usage.get("prompt_tokens", 0) or 0
-            completion_tokens = usage.get("completion_tokens", 0) or 0
-        else:
-            prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-            completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+            usage = Usage.model_validate(usage)
 
+        prompt_tokens = usage.prompt_tokens or 0
+        completion_tokens = usage.completion_tokens or 0
+        cache_write = usage._cache_creation_input_tokens or 0
         cache_read = 0
-        details = getattr(usage, "prompt_tokens_details", None)
-        if details and getattr(details, "cached_tokens", 0):
-            cache_read = details.cached_tokens  # type: ignore[attr-defined]
-
-        cache_write = usage.get("cache_creation_input_tokens", 0) or 0
+        details = usage.prompt_tokens_details or None
+        if details and details.cached_tokens:
+            cache_read = details.cached_tokens
 
         self.metrics.add_token_usage(
             prompt_tokens=prompt_tokens,
