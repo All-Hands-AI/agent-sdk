@@ -24,7 +24,7 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata
+from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata, Metrics, ModelResponseWithMetrics
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
@@ -148,7 +148,7 @@ class Agent(AgentBase):
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
         tools = [tool.to_openai_tool() for tool in self.tools.values()]
-        response: ModelResponse = self.llm.completion(
+        response: ModelResponseWithMetrics = self.llm.completion(
             messages=_messages,
             tools=tools,
             extra_body={
@@ -186,7 +186,7 @@ class Agent(AgentBase):
             # Generate unique batch ID for this LLM response
             thought_content = [c for c in message.content if isinstance(c, TextContent)]
 
-            action_events = []
+            action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(tool_calls):
                 action_event = self._get_action_events(
                     state,
@@ -196,10 +196,12 @@ class Agent(AgentBase):
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
+                    metrics=response.metrics if i == len(tool_calls) - 1 else None,
                 )
                 if action_event is None:
                     continue
                 action_events.append(action_event)
+
 
             # Handle confirmation mode - exit early if actions need confirmation
             if self._requires_user_confirmation(state, action_events):
@@ -246,6 +248,7 @@ class Agent(AgentBase):
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
+        metrics: Metrics | None = None,
     ) -> ActionEvent | None:
         """Handle tool calls from the LLM.
 
@@ -286,6 +289,7 @@ class Agent(AgentBase):
             tool_call_id=tool_call.id,
             tool_call=tool_call,
             llm_response_id=llm_response_id,
+            metrics=metrics,
         )
         on_event(action_event)
         return action_event

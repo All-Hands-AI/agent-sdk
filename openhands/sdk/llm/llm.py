@@ -48,6 +48,7 @@ from litellm.utils import (
 # OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
+from openhands.sdk.llm.types import ModelResponseWithMetrics
 from openhands.sdk.llm.utils.fn_call_converter import (
     STOP_WORDS,
     convert_fncall_messages_to_non_fncall_messages,
@@ -322,7 +323,7 @@ class LLM(BaseModel, RetryMixin):
         messages: list[dict[str, Any]] | list[Message],
         tools: list[ChatCompletionToolParam] | None = None,
         **kwargs,
-    ) -> ModelResponse:
+    ) -> ModelResponseWithMetrics:
         """Single entry point for LLM completion.
 
         Normalize → (maybe) mock tools → transport → postprocess.
@@ -384,7 +385,7 @@ class LLM(BaseModel, RetryMixin):
                     resp, nonfncall_msgs=messages, tools=tools
                 )
             # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
+            resp = self._telemetry.on_response(resp, raw_resp=raw_resp)
 
             # Ensure at least one choice
             if not resp.get("choices") or len(resp["choices"]) < 1:
@@ -688,7 +689,28 @@ class LLM(BaseModel, RetryMixin):
     # =========================================================================
     # Utilities preserved from previous class
     # =========================================================================
+    def _apply_prompt_caching(self, messages: list[Message]) -> None:
+        """Applies caching breakpoints to the messages.
+
+        For new Anthropic API, we only need to mark the last user or tool message as cacheable.
+        """
+        if len(messages) > 0 and messages[0].role == 'system':
+            messages[0].content[-1].cache_prompt = True
+        # NOTE: this is only needed for anthropic
+        for message in reversed(messages):
+            if message.role in ('user', 'tool'):
+                message.content[
+                    -1
+                ].cache_prompt = True  # Last item inside the message content
+                break
+
     def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
+        """Formats Message objects for LLM consumption."""
+
+        messages = copy.deepcopy(messages)
+        if self.is_caching_prompt_active():
+            self._apply_prompt_caching(messages)
+
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
@@ -696,8 +718,6 @@ class LLM(BaseModel, RetryMixin):
             if "deepseek" in self.model or (
                 "kimi-k2-instruct" in self.model and "groq" in self.model
             ):
-                message.force_string_serializer = True
-            if "openrouter/anthropic/claude-sonnet-4" in self.model:
                 message.force_string_serializer = True
 
         return [message.to_llm_dict() for message in messages]

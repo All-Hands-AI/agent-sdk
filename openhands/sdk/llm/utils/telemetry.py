@@ -8,6 +8,7 @@ from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
+from openhands.sdk.llm.types import ModelResponseWithMetrics
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.logger import get_logger
 
@@ -50,9 +51,9 @@ class Telemetry(BaseModel):
 
     def on_response(
         self, resp: ModelResponse, raw_resp: ModelResponse | None = None
-    ) -> float:
+    ) -> ModelResponseWithMetrics:
         """
-        Returns: cost (float)
+        Returns: ModelResponseWithMetrics with embedded telemetry data
         Side-effects:
           - records latency, tokens, cost into Metrics
           - optionally writes a JSON log file
@@ -82,7 +83,9 @@ class Telemetry(BaseModel):
         if self.log_enabled:
             self._log_completion(resp, cost, raw_resp=raw_resp)
 
-        return float(cost or 0.0)
+        response_dict = resp.model_dump()
+        response_with_metrics = ModelResponseWithMetrics(**response_dict, metrics=self.metrics.deep_copy())
+        return response_with_metrics
 
     def on_error(self, err: Exception) -> None:
         # Stub for error tracking / counters
@@ -129,10 +132,7 @@ class Telemetry(BaseModel):
         if details and getattr(details, "cached_tokens", 0):
             cache_read = details.cached_tokens  # type: ignore[attr-defined]
 
-        cache_write = 0
-        model_extra = usage.get("model_extra", {}) if isinstance(usage, dict) else {}
-        if model_extra:
-            cache_write = model_extra.get("cache_creation_input_tokens", 0) or 0
+        cache_write = usage.get("cache_creation_input_tokens", 0) or 0
 
         self.metrics.add_token_usage(
             prompt_tokens=prompt_tokens,

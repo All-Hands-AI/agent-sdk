@@ -7,6 +7,7 @@ from pydantic import Field
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventType, SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
+from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -63,6 +64,13 @@ class ActionEvent(LLMConvertibleEvent):
             "Groups related actions from same LLM response. This helps in tracking "
             "and managing results of parallel function calling from the same LLM "
             "response."
+        ),
+    )
+    metrics: Metrics | None = Field(
+        default=None,
+        description=(
+            "LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
         ),
     )
 

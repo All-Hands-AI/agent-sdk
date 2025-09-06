@@ -93,6 +93,42 @@ class ConversationVisualizer:
             expand=True,
         )
 
+    def _format_metrics_subtitle(self, event: ActionEvent) -> str:
+        """Format LLM metrics as a compact subtitle string."""
+        if not event.metrics or not event.metrics.accumulated_token_usage:
+            return f"[dim]({event.source})[/dim]"
+
+        usage = event.metrics.accumulated_token_usage
+        cost = event.metrics.accumulated_cost
+
+        # Format numbers with commas for readability
+        input_tokens = f"{usage.prompt_tokens:,}"
+        cached_tokens = f"{usage.cache_read_tokens:,}"
+        output_tokens = f"{usage.completion_tokens:,}"
+
+        # Calculate cache hit rate percentage
+        total_input = usage.prompt_tokens + usage.cache_read_tokens
+        cache_rate = (
+            f"{(usage.cache_read_tokens / total_input * 100):.1f}%"
+            if total_input > 0
+            else "0.0%"
+        )
+
+        # Format cost with appropriate precision
+        cost_str = f"${cost:.4f}" if cost > 0 else "$0.00"
+
+        # Build the compact metrics string
+        metrics_parts = [f"Accumulated tokens: {input_tokens} (input)"]
+
+        if usage.cache_read_tokens > 0:
+            metrics_parts.append(f"{cached_tokens} (input cached, rate {cache_rate})")
+
+        metrics_parts.extend([f"{output_tokens} (output)", cost_str])
+
+        metrics_str = ", ".join(metrics_parts)
+
+        return f"[dim]{metrics_str}[/dim]"
+
     def _create_action_panel(self, event: ActionEvent) -> Panel:
         """Create a Rich Panel for ActionEvent with complete content."""
         content = Text()
@@ -131,10 +167,13 @@ class ConversationVisualizer:
                 content.append(str(field_value), style="white")
             content.append("\n")
 
+        # Create metrics subtitle if available
+        metrics_subtitle = self._format_metrics_subtitle(event)
+
         return Panel(
             content,
             title="[bold green]Agent Action[/bold green]",
-            subtitle=f"[dim]({event.source})[/dim]",
+            subtitle=metrics_subtitle,
             border_style="green",
             expand=True,
         )
