@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from openhands.sdk.event.base import EventType
+from openhands.sdk.event import EventType
 
 
 class ConversationState(BaseModel):
