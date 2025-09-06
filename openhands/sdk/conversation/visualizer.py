@@ -127,7 +127,7 @@ class ConversationVisualizer:
 
         metrics_str = ", ".join(metrics_parts)
 
-        return f"[dim]{metrics_str}[/dim]"
+        return f"[dim]{metrics_str} • ({event.source})[/dim]"
 
     def _create_action_panel(self, event: ActionEvent) -> Panel:
         """Create a Rich Panel for ActionEvent with complete content."""

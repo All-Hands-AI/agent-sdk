@@ -84,7 +84,9 @@ class Telemetry(BaseModel):
             self._log_completion(resp, cost, raw_resp=raw_resp)
 
         response_dict = resp.model_dump()
-        response_with_metrics = ModelResponseWithMetrics(**response_dict, metrics=self.metrics.deep_copy())
+        response_with_metrics = ModelResponseWithMetrics(
+            **response_dict, metrics=self.metrics.deep_copy()
+        )
         return response_with_metrics
 
     def on_error(self, err: Exception) -> None:

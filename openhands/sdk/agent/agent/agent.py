@@ -5,7 +5,6 @@ from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message as LiteLLMMessage,
-    ModelResponse,
 )
 from pydantic import ValidationError
 
@@ -24,7 +23,14 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata, Metrics, ModelResponseWithMetrics
+from openhands.sdk.llm import (
+    LLM,
+    Message,
+    Metrics,
+    ModelResponseWithMetrics,
+    TextContent,
+    get_llm_metadata,
+)
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
@@ -201,7 +207,6 @@ class Agent(AgentBase):
                 if action_event is None:
                     continue
                 action_events.append(action_event)
-
 
             # Handle confirmation mode - exit early if actions need confirmation
             if self._requires_user_confirmation(state, action_events):

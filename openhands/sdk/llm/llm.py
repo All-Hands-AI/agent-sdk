@@ -375,7 +375,7 @@ class LLM(BaseModel, RetryMixin):
             retry_multiplier=self.retry_multiplier,
             retry_listener=self.retry_listener,
         )
-        def _one_attempt() -> ModelResponse:
+        def _one_attempt() -> ModelResponseWithMetrics:
             assert self._telemetry is not None
             resp = self._transport_call(messages=messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
@@ -692,13 +692,14 @@ class LLM(BaseModel, RetryMixin):
     def _apply_prompt_caching(self, messages: list[Message]) -> None:
         """Applies caching breakpoints to the messages.
 
-        For new Anthropic API, we only need to mark the last user or tool message as cacheable.
+        For new Anthropic API, we only need to mark the last user or
+          tool message as cacheable.
         """
-        if len(messages) > 0 and messages[0].role == 'system':
+        if len(messages) > 0 and messages[0].role == "system":
             messages[0].content[-1].cache_prompt = True
         # NOTE: this is only needed for anthropic
         for message in reversed(messages):
-            if message.role in ('user', 'tool'):
+            if message.role in ("user", "tool"):
                 message.content[
                     -1
                 ].cache_prompt = True  # Last item inside the message content
