@@ -273,6 +273,19 @@ class LLM(BaseModel, RetryMixin):
             if d.get("top_p", 1.0) == 1.0:
                 d["top_p"] = 0.9
 
+        # Convert empty API keys to None to allow boto3 to use alternative auth methods
+        api_key = d.get("api_key")
+        if api_key is not None:
+            # Handle both SecretStr and string inputs
+            if hasattr(api_key, "get_secret_value"):
+                secret_value = api_key.get_secret_value()
+            else:
+                secret_value = str(api_key)
+            
+            # If the API key is empty or whitespace-only, set it to None
+            if not secret_value or not secret_value.strip():
+                d["api_key"] = None
+
         return d
 
     @model_validator(mode="after")
