@@ -1,5 +1,7 @@
-from typing import List
+from typing import Any, List
 from unittest.mock import MagicMock
+
+from pydantic import Field
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation import Conversation
@@ -10,9 +12,10 @@ from openhands.sdk.llm import Message, TextContent
 
 
 class DummyAgent(AgentBase):
+    prompt_manager: Any = Field(default_factory=lambda: MagicMock())
+
     def __init__(self):
         super().__init__(llm=MagicMock(name="LLM"), tools=[])
-        self.prompt_manager = MagicMock()
 
     def init_state(
         self, state: ConversationState, on_event: ConversationCallbackType
