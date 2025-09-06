@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from openhands.sdk.event.base import AnyEvent
+from openhands.sdk.event.base import EventType
 
 
 class ConversationState(BaseModel):
@@ -14,7 +14,7 @@ class ConversationState(BaseModel):
     )
 
     # Public, validated fields
-    events: list[AnyEvent] = Field(default_factory=list)
+    events: list[EventType] = Field(default_factory=list)
     agent_finished: bool = False
     confirmation_mode: bool = False
     agent_waiting_for_confirmation: bool = False

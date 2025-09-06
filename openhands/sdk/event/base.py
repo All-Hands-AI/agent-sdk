@@ -45,7 +45,7 @@ class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
         )
 
 
-AnyEvent = Annotated[EventBase, DiscriminatedUnionType[EventBase]]
+EventType = Annotated[EventBase, DiscriminatedUnionType[EventBase]]
 
 
 class LLMConvertibleEvent(EventBase, ABC):
