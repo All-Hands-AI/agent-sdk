@@ -51,7 +51,11 @@ class TestStorageSerialization:
             role="user",
             content=[
                 TextContent(text="What's in this image?"),
-                ImageContent(image_urls=["https://example.com/image.jpg"]),
+                ImageContent(
+                    image_urls=["https://example.com/image.jpg"],
+                    data="fake_image_data",
+                    mimeType="image/jpeg",
+                ),
             ],
             vision_enabled=True,
         )
@@ -61,7 +65,7 @@ class TestStorageSerialization:
         assert isinstance(storage_data["content"], list)
         assert len(storage_data["content"]) == 2
         assert storage_data["content"][0]["type"] == "text"
-        assert storage_data["content"][1]["type"] == "image_url"
+        assert storage_data["content"][1]["type"] == "image"
         assert storage_data["vision_enabled"] is True
 
         # Round-trip works
@@ -198,7 +202,11 @@ class TestLLMAPISerialization:
             role="user",
             content=[
                 TextContent(text="What's in this image?"),
-                ImageContent(image_urls=["https://example.com/image.jpg"]),
+                ImageContent(
+                    image_urls=["https://example.com/image.jpg"],
+                    data="fake_image_data",
+                    mimeType="image/jpeg",
+                ),
             ],
             vision_enabled=True,
         )
@@ -286,7 +294,11 @@ class TestLLMAPISerialization:
             role="user",
             content=[
                 TextContent(text="Describe this image"),
-                ImageContent(image_urls=["https://example.com/image.jpg"]),
+                ImageContent(
+                    image_urls=["https://example.com/image.jpg"],
+                    data="fake_image_data",
+                    mimeType="image/jpeg",
+                ),
             ],
             vision_enabled=True,  # Forces list serializer
         )

@@ -1,18 +1,18 @@
-from enum import Enum
 from typing import Any, Literal, cast
 
+import mcp.types
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from openhands.sdk.logger import get_logger
+from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 
 
-class ContentType(Enum):
-    TEXT = "text"
-    IMAGE_URL = "image_url"
+logger = get_logger(__name__)
 
 
-class Content(BaseModel):
-    type: str
+class BaseContent(BaseModel):
     cache_prompt: bool = False
 
     def to_llm_dict(
@@ -22,30 +22,44 @@ class Content(BaseModel):
         raise NotImplementedError("Subclasses should implement this method.")
 
 
-class TextContent(Content):
-    type: str = ContentType.TEXT.value
+class TextContent(mcp.types.TextContent, BaseContent):
+    type: Literal["text"] = "text"
     text: str
+    # We use populate_by_name since mcp.types.TextContent
+    # alias meta -> _meta, but .model_dumps() will output "meta"
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
         """Convert to LLM API format."""
+        text = self.text
+        if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
+            logger.warning(
+                f"TextContent text length ({len(text)}) exceeds limit "
+                f"({DEFAULT_TEXT_CONTENT_LIMIT}), truncating"
+            )
+            text = maybe_truncate(text, DEFAULT_TEXT_CONTENT_LIMIT)
+
         data: dict[str, str | dict[str, str]] = {
             "type": self.type,
-            "text": self.text,
+            "text": text,
         }
         if self.cache_prompt:
             data["cache_control"] = {"type": "ephemeral"}
         return data
 
 
-class ImageContent(Content):
-    type: str = ContentType.IMAGE_URL.value
+class ImageContent(mcp.types.ImageContent, BaseContent):
+    type: Literal["image"] = "image"
     image_urls: list[str]
+    # We use populate_by_name since mcp.types.ImageContent
+    # alias meta -> _meta, but .model_dumps() will output "meta"
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""
         images: list[dict[str, str | dict[str, str]]] = []
         for url in self.image_urls:
-            images.append({"type": self.type, "image_url": {"url": url}})
+            images.append({"type": "image_url", "image_url": {"url": url}})
         if self.cache_prompt and images:
             images[-1]["cache_control"] = {"type": "ephemeral"}
         return images
@@ -173,3 +187,17 @@ class Message(BaseModel):
             else [],
             tool_calls=message.tool_calls,
         )
+
+
+def content_to_str(contents: list[TextContent | ImageContent]) -> list[str]:
+    """Convert a list of TextContent and ImageContent to a list of strings.
+
+    This is primarily used for display purposes.
+    """
+    text_parts = []
+    for content_item in contents:
+        if isinstance(content_item, TextContent):
+            text_parts.append(content_item.text)
+        elif isinstance(content_item, ImageContent):
+            text_parts.append(f"[Image: {len(content_item.image_urls)} URLs]")
+    return text_parts

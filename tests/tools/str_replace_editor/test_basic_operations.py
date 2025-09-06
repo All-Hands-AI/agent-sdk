@@ -202,3 +202,37 @@ def test_create_operation(temp_file):
     with open(temp_file, "r") as f:
         file_content = f.read()
     assert file_content == content
+
+
+def test_view_operation_truncation(temp_file):
+    """Test that view operation truncates large files correctly."""
+    from openhands.tools.str_replace_editor.utils.constants import (
+        MAX_RESPONSE_LEN_CHAR,
+        TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
+    )
+
+    # Create a large file that exceeds the str_replace_editor's truncation limit
+    large_content = "A" * (MAX_RESPONSE_LEN_CHAR + 1000)
+    with open(temp_file, "w") as f:
+        f.write(large_content)
+
+    # Test view command
+    result = file_editor(
+        command="view",
+        path=str(temp_file),
+    )
+
+    assert_successful_result(result)
+    assert result.output is not None
+
+    # Check that truncation notice is present
+    assert TEXT_FILE_CONTENT_TRUNCATED_NOTICE in result.output
+
+    # The content should be truncated before line numbers are added
+    # So the final output will be longer than MAX_RESPONSE_LEN_CHAR due to formatting
+    # but the original content was truncated
+    assert "Here's the result of running `cat -n`" in result.output
+
+    # With head-and-tail truncation, should contain both start and end content
+    # The line numbers will show as "     1\tA..." at start and end with "A"
+    assert "\tA" in result.output  # Should have A's with tab formatting
