@@ -81,6 +81,14 @@ class Message(BaseModel):
     name: str | None = None  # name of the tool
     # force string serializer
     force_string_serializer: bool = False
+    # reasoning content (from reasoning models like o1, Claude thinking, DeepSeek R1)
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning/thinking content from reasoning models",
+    )
+    thinking_blocks: list[dict[str, Any]] | None = Field(
+        default=None, description="Structured thinking blocks (Anthropic-specific)"
+    )
 
     @property
     def contains_image(self) -> bool:
@@ -180,12 +188,19 @@ class Message(BaseModel):
     def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
         """Convert a litellm LiteLLMMessage to our Message class."""
         assert message.role != "function", "Function role is not supported"
+
+        # Extract reasoning content if present
+        reasoning_content = getattr(message, "reasoning_content", None)
+        thinking_blocks = getattr(message, "thinking_blocks", None)
+
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
             tool_calls=message.tool_calls,
+            reasoning_content=reasoning_content,
+            thinking_blocks=thinking_blocks,
         )
 
 
