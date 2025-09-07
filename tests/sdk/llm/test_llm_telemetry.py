@@ -188,7 +188,7 @@ class TestTelemetryTokenUsage:
             "prompt_tokens": 100,
             "completion_tokens": 50,
             "total_tokens": 150,
-            "cache_creation_input_tokens": 30,
+            "model_extra": {"cache_creation_input_tokens": 30},
         }
 
         basic_telemetry._record_usage(usage, "test-id", 4096)
