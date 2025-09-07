@@ -2,14 +2,12 @@
 
 Context provides microagents and knowledge the agent can rely on during a conversation.
 
-## Key Components
+Key pieces
+- RepoMicroagent: pulls knowledge from `.openhands/microagents/repo.md` or explicit content
+- KnowledgeMicroagent: embeds structured knowledge with optional triggers
+- AgentContext: composes microagents; pass to Agent to condition behavior
 
-- **AgentContext**: Composes microagents; pass to Agent to condition behavior
-- **RepoMicroagent**: Pulls knowledge from `.openhands/microagents/repo.md` or explicit content
-- **KnowledgeMicroagent**: Embeds structured knowledge with optional triggers
-
-## Quick Example
-
+Quick example
 ```python
 from openhands.sdk.context import AgentContext, KnowledgeMicroagent, MicroagentMetadata
 
@@ -18,7 +16,7 @@ agent_context = AgentContext(
         KnowledgeMicroagent(
             name="flarglebargle",
             content="If the user says flarglebargle, compliment them.",
-            metadata=MicroagentMetadata(name="flarglebargle", triggers=["flarglebargle"]),
+            metadata=MicroagentMetadata(name="flarglebargle", triggers=["flarglebargle"]) ,
         ),
     ]
 )
