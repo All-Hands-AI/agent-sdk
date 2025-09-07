@@ -12,6 +12,7 @@ from litellm.types.utils import (
     Choices,
     Function,
     Message as LiteLLMMessage,
+    ModelResponse,
 )
 
 from openhands.sdk.agent import Agent
@@ -19,13 +20,7 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import (
-    ImageContent,
-    Message,
-    Metrics,
-    ModelResponseWithMetrics,
-    TextContent,
-)
+from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
@@ -71,13 +66,12 @@ class TestConfirmationMode:
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> None:
         """Configure LLM to return a plain assistant message (no tool calls)."""
-        self.mock_llm.completion.return_value = ModelResponseWithMetrics(
+        self.mock_llm.completion.return_value = ModelResponse(
             id="response_msg",
             choices=[Choices(message=LiteLLMMessage(role="assistant", content=text))],
             created=0,
             model="test-model",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
     def _make_pending_action(self) -> None:
@@ -96,7 +90,7 @@ class TestConfirmationMode:
     ) -> None:
         """Configure LLM to return one tool call (action)."""
         tool_call = self._create_test_action(call_id=call_id, command=command).tool_call
-        self.mock_llm.completion.return_value = ModelResponseWithMetrics(
+        self.mock_llm.completion.return_value = ModelResponse(
             id="response_action",
             choices=[
                 Choices(
@@ -110,7 +104,6 @@ class TestConfirmationMode:
             created=0,
             model="test-model",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
     def _mock_finish_action(self, message: str = "Task completed") -> None:
@@ -121,7 +114,7 @@ class TestConfirmationMode:
             function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
         )
 
-        self.mock_llm.completion.return_value = ModelResponseWithMetrics(
+        self.mock_llm.completion.return_value = ModelResponse(
             id="response_finish",
             choices=[
                 Choices(
@@ -135,7 +128,6 @@ class TestConfirmationMode:
             created=0,
             model="test-model",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
     def _mock_multiple_actions_with_finish(self) -> None:
@@ -156,7 +148,7 @@ class TestConfirmationMode:
             ),
         )
 
-        self.mock_llm.completion.return_value = ModelResponseWithMetrics(
+        self.mock_llm.completion.return_value = ModelResponse(
             id="response_multiple",
             choices=[
                 Choices(
@@ -170,7 +162,6 @@ class TestConfirmationMode:
             created=0,
             model="test-model",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
     def _create_test_action(self, call_id="call_1", command="test_command"):

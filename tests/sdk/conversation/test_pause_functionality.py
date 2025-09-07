@@ -18,18 +18,13 @@ from litellm.types.utils import (
     Choices,
     Function,
     Message as LiteLLMMessage,
+    ModelResponse,
 )
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import MessageEvent, PauseEvent
-from openhands.sdk.llm import (
-    ImageContent,
-    Message,
-    Metrics,
-    ModelResponseWithMetrics,
-    TextContent,
-)
+from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
 
 
@@ -84,13 +79,12 @@ class TestPauseFunctionality:
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> None:
         """Configure LLM to return a plain assistant message (no tool calls)."""
-        self.mock_llm.completion.return_value = ModelResponseWithMetrics(
+        self.mock_llm.completion.return_value = ModelResponse(
             id="response_msg",
             choices=[Choices(message=LiteLLMMessage(role="assistant", content=text))],
             created=0,
             model="test-model",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
     def _mock_action(
@@ -104,7 +98,7 @@ class TestPauseFunctionality:
                 name="test_tool", arguments=f'{{"command": "{command}"}}'
             ),
         )
-        response = ModelResponseWithMetrics(
+        response = ModelResponse(
             id="response_action",
             choices=[
                 Choices(
@@ -118,7 +112,6 @@ class TestPauseFunctionality:
             created=0,
             model="test-model",
             object="chat.completion",
-            metrics=Metrics(),
         )
         if once:
             self.mock_llm.completion.return_value = response
@@ -133,7 +126,7 @@ class TestPauseFunctionality:
             function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
         )
 
-        self.mock_llm.completion.return_value = ModelResponseWithMetrics(
+        self.mock_llm.completion.return_value = ModelResponse(
             id="response_finish",
             choices=[
                 Choices(
@@ -147,7 +140,6 @@ class TestPauseFunctionality:
             created=0,
             model="test-model",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
     def test_pause_basic_functionality(self):
@@ -293,7 +285,7 @@ class TestPauseFunctionality:
         import time
 
         def side_effect(*_args, **_kwargs):
-            return ModelResponseWithMetrics(
+            return ModelResponse(
                 id="response_action_loop",
                 choices=[
                     Choices(
@@ -307,7 +299,6 @@ class TestPauseFunctionality:
                 created=int(time.time()),
                 model="test-model",
                 object="chat.completion",
-                metrics=Metrics(),
             )
 
         self.mock_llm.completion.side_effect = side_effect

@@ -6,10 +6,9 @@ import warnings
 from unittest.mock import MagicMock, patch
 
 import pytest
-from litellm.types.utils import Usage
+from litellm.types.utils import ModelResponse, Usage
 from pydantic import ValidationError
 
-from openhands.sdk.llm.types import ModelResponseWithMetrics
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.telemetry import Telemetry, _safe_json
 
@@ -29,14 +28,13 @@ def basic_telemetry(mock_metrics):
 @pytest.fixture
 def mock_response():
     """Create a mock ModelResponse for testing."""
-    return ModelResponseWithMetrics(
+    return ModelResponse(
         id="test-response-id",
         choices=[],
         created=1234567890,
         model="gpt-4o",
         object="chat.completion",
         usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
-        metrics=Metrics(),
     )
 
 
@@ -133,14 +131,13 @@ class TestTelemetryLifecycle:
         basic_telemetry.on_request({"context_window": 4096})
 
         # Create a ModelResponse with usage data
-        response = ModelResponseWithMetrics(
+        response = ModelResponse(
             id="test-response-id",
             usage=Usage(
                 prompt_tokens=100,
                 completion_tokens=50,
                 total_tokens=150,
             ),
-            metrics=Metrics(),
         )
 
         basic_telemetry.on_response(response)
@@ -222,14 +219,13 @@ class TestTelemetryCostCalculation:
             metrics=mock_metrics,
         )
 
-        mock_response = ModelResponseWithMetrics(
+        mock_response = ModelResponse(
             id="test-id",
             choices=[],
             created=1234567890,
             model="gpt-4o",
             object="chat.completion",
             usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
-            metrics=Metrics(),
         )
 
         with patch(
@@ -259,13 +255,12 @@ class TestTelemetryCostCalculation:
 
     def test_compute_cost_litellm_fallback(self, basic_telemetry):
         """Test fallback to litellm cost calculator."""
-        mock_response = ModelResponseWithMetrics(
+        mock_response = ModelResponse(
             id="test-id",
             choices=[],
             created=1234567890,
             model="gpt-4o",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
         with patch(
@@ -279,13 +274,12 @@ class TestTelemetryCostCalculation:
 
     def test_compute_cost_failure_handling(self, basic_telemetry):
         """Test cost calculation failure handling."""
-        mock_response = ModelResponseWithMetrics(
+        mock_response = ModelResponse(
             id="test-id",
             choices=[],
             created=1234567890,
             model="gpt-4o",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
         with patch(
@@ -305,13 +299,12 @@ class TestTelemetryCostCalculation:
         """Test that model name is processed correctly for litellm."""
         telemetry = Telemetry(model_name="provider/gpt-4o-mini", metrics=mock_metrics)
 
-        mock_response = ModelResponseWithMetrics(
+        mock_response = ModelResponse(
             id="test-id",
             choices=[],
             created=1234567890,
             model="gpt-4o-mini",
             object="chat.completion",
-            metrics=Metrics(),
         )
 
         with patch(
@@ -391,13 +384,12 @@ class TestTelemetryLogging:
                 metrics=mock_metrics,
             )
 
-            raw_response = ModelResponseWithMetrics(
+            raw_response = ModelResponse(
                 id="raw-id",
                 choices=[],
                 created=1234567890,
                 model="gpt-4o",
                 object="chat.completion",
-                metrics=Metrics(),
             )
 
             telemetry.on_request({})
@@ -429,27 +421,22 @@ class TestTelemetryLogging:
 
     def test_log_completion_error_handling(self, mock_metrics, mock_response):
         """Test logging error handling."""
-        # Use a path that will definitely fail - a file as a directory
-        import tempfile
+        telemetry = Telemetry(
+            model_name="gpt-4o",
+            log_enabled=True,
+            log_dir="/invalid/path/that/does/not/exist",
+            metrics=mock_metrics,
+        )
 
-        with tempfile.NamedTemporaryFile() as temp_file:
-            invalid_path = temp_file.name + "/subdir"  # Try to create dir inside a file
-            telemetry = Telemetry(
-                model_name="gpt-4o",
-                log_enabled=True,
-                log_dir=invalid_path,
-                metrics=mock_metrics,
-            )
+        telemetry.on_request({})
 
-            telemetry.on_request({})
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            telemetry._log_completion(mock_response, 0.25)
 
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                telemetry._log_completion(mock_response, 0.25)
-
-                # Should issue a warning but not crash
-                assert len(w) == 1
-                assert "Telemetry logging failed" in str(w[0].message)
+            # Should issue a warning but not crash
+            assert len(w) == 1
+            assert "Telemetry logging failed" in str(w[0].message)
 
 
 class TestTelemetryIntegration:
@@ -472,14 +459,13 @@ class TestTelemetryIntegration:
             telemetry.on_request(log_ctx)
 
             # Create response with usage (ModelResponse format)
-            response = ModelResponseWithMetrics(
+            response = ModelResponse(
                 id="test-response-id",
                 usage=Usage(
                     prompt_tokens=100,
                     completion_tokens=50,
                     total_tokens=150,
                 ),
-                metrics=Metrics(),
             )
 
             with patch(
@@ -506,14 +492,13 @@ class TestTelemetryIntegration:
         for i in range(3):
             basic_telemetry.on_request({"request_id": i})
 
-            response = ModelResponseWithMetrics(
+            response = ModelResponse(
                 id=f"response-{i}",
                 usage=Usage(
                     prompt_tokens=100 + i * 10,
                     completion_tokens=50 + i * 5,
                     total_tokens=150 + i * 15,
                 ),
-                metrics=Metrics(),
             )
 
             with patch(
@@ -588,19 +573,12 @@ class TestTelemetryEdgeCases:
     def test_response_id_extraction_edge_cases(self, basic_telemetry):
         """Test response ID extraction from various response formats."""
         # Test with ModelResponse with ID
-        response_with_id = ModelResponseWithMetrics(
-            id="model-response-id",
-            usage=None,
-            metrics=Metrics(),
-        )
+        response_with_id = ModelResponse(id="model-response-id", usage=None)
         basic_telemetry.on_request({})
         basic_telemetry.on_response(response_with_id)
 
         # Test with ModelResponse missing ID
-        response_no_id = ModelResponseWithMetrics(
-            usage=None,
-            metrics=Metrics(),
-        )
+        response_no_id = ModelResponse(usage=None)
         basic_telemetry.on_request({})
         basic_telemetry.on_response(response_no_id)
 
@@ -616,14 +594,13 @@ class TestTelemetryEdgeCases:
     def test_usage_extraction_edge_cases(self, basic_telemetry):
         """Test usage extraction from various response formats."""
         # Test with dict response containing usage
-        response = ModelResponseWithMetrics(
+        response = ModelResponse(
             id="test-id",
             usage={
                 "prompt_tokens": 100,
                 "completion_tokens": 50,
                 "total_tokens": 150,
             },
-            metrics=Metrics(),
         )
 
         basic_telemetry.on_request({"context_window": 4096})
@@ -631,11 +608,7 @@ class TestTelemetryEdgeCases:
         assert len(basic_telemetry.metrics.token_usages) == 1
 
         # Test with dict response without usage
-        response_no_usage = ModelResponseWithMetrics(
-            id="no-usage-id",
-            usage=None,
-            metrics=Metrics(),
-        )
+        response_no_usage = ModelResponse(id="no-usage-id", usage=None)
         basic_telemetry.on_request({})
         basic_telemetry.on_response(response_no_usage)
 
