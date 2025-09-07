@@ -25,7 +25,6 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
 
 
@@ -62,18 +61,6 @@ class TestPauseFunctionality:
         """Set up test fixtures."""
 
         self.mock_llm = MagicMock()
-
-        # Configure mock to handle return_metrics parameter
-        def mock_completion(*args, **kwargs):
-            return_metrics = kwargs.get("return_metrics", False)
-            response = self.mock_llm.completion.return_value
-            if return_metrics:
-                # Return tuple of (ModelResponse, Metrics)
-                metrics = Metrics()
-                return (response, metrics)
-            return response
-
-        self.mock_llm.completion.side_effect = mock_completion
 
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:
@@ -298,8 +285,7 @@ class TestPauseFunctionality:
         import time
 
         def side_effect(*_args, **_kwargs):
-            return_metrics = _kwargs.get("return_metrics", False)
-            response = ModelResponse(
+            return ModelResponse(
                 id="response_action_loop",
                 choices=[
                     Choices(
@@ -314,11 +300,6 @@ class TestPauseFunctionality:
                 model="test-model",
                 object="chat.completion",
             )
-            if return_metrics:
-                # Return tuple of (ModelResponse, Metrics)
-                metrics = Metrics()
-                return (response, metrics)
-            return response
 
         self.mock_llm.completion.side_effect = side_effect
 
