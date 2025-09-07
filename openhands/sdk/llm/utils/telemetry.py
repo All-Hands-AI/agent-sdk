@@ -50,9 +50,8 @@ class Telemetry(BaseModel):
 
     def on_response(
         self, resp: ModelResponse, raw_resp: ModelResponse | None = None
-    ) -> float:
+    ) -> Metrics:
         """
-        Returns: cost (float)
         Side-effects:
           - records latency, tokens, cost into Metrics
           - optionally writes a JSON log file
@@ -82,7 +81,7 @@ class Telemetry(BaseModel):
         if self.log_enabled:
             self._log_completion(resp, cost, raw_resp=raw_resp)
 
-        return float(cost or 0.0)
+        return self.metrics.deep_copy()
 
     def on_error(self, err: Exception) -> None:
         # Stub for error tracking / counters
@@ -118,21 +117,15 @@ class Telemetry(BaseModel):
     ) -> None:
         # Handle both dict and Usage objects
         if isinstance(usage, dict):
-            prompt_tokens = usage.get("prompt_tokens", 0) or 0
-            completion_tokens = usage.get("completion_tokens", 0) or 0
-        else:
-            prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-            completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+            usage = Usage.model_validate(usage)
 
+        prompt_tokens = usage.prompt_tokens or 0
+        completion_tokens = usage.completion_tokens or 0
+        cache_write = usage._cache_creation_input_tokens or 0
         cache_read = 0
-        details = getattr(usage, "prompt_tokens_details", None)
-        if details and getattr(details, "cached_tokens", 0):
-            cache_read = details.cached_tokens  # type: ignore[attr-defined]
-
-        cache_write = 0
-        model_extra = usage.get("model_extra", {}) if isinstance(usage, dict) else {}
-        if model_extra:
-            cache_write = model_extra.get("cache_creation_input_tokens", 0) or 0
+        details = usage.prompt_tokens_details or None
+        if details and details.cached_tokens:
+            cache_read = details.cached_tokens
 
         self.metrics.add_token_usage(
             prompt_tokens=prompt_tokens,

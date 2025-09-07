@@ -5,7 +5,6 @@ from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message as LiteLLMMessage,
-    ModelResponse,
 )
 from pydantic import ValidationError
 
@@ -24,7 +23,13 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata
+from openhands.sdk.llm import (
+    LLM,
+    Message,
+    MetricsSnapshot,
+    TextContent,
+    get_llm_metadata,
+)
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
@@ -148,7 +153,7 @@ class Agent(AgentBase):
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
         tools = [tool.to_openai_tool() for tool in self.tools.values()]
-        response: ModelResponse = self.llm.completion(
+        response = self.llm.completion(
             messages=_messages,
             tools=tools,
             extra_body={
@@ -160,6 +165,9 @@ class Agent(AgentBase):
         assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
         llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
         message = Message.from_litellm_message(llm_message)
+
+        assert self.llm.metrics is not None, "LLM metrics should not be None"
+        metrics = self.llm.metrics.get_snapshot()  # take a snapshot of metrics
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -186,7 +194,7 @@ class Agent(AgentBase):
             # Generate unique batch ID for this LLM response
             thought_content = [c for c in message.content if isinstance(c, TextContent)]
 
-            action_events = []
+            action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(tool_calls):
                 action_event = self._get_action_events(
                     state,
@@ -196,6 +204,7 @@ class Agent(AgentBase):
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
+                    metrics=metrics if i == len(tool_calls) - 1 else None,
                 )
                 if action_event is None:
                     continue
@@ -211,7 +220,9 @@ class Agent(AgentBase):
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
-            msg_event = MessageEvent(source="agent", llm_message=message)
+            msg_event = MessageEvent(
+                source="agent", llm_message=message, metrics=metrics
+            )
             on_event(msg_event)
 
     def _requires_user_confirmation(
@@ -246,6 +257,7 @@ class Agent(AgentBase):
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
+        metrics: MetricsSnapshot | None = None,
     ) -> ActionEvent | None:
         """Handle tool calls from the LLM.
 
@@ -259,7 +271,7 @@ class Agent(AgentBase):
         if tool is None:
             err = f"Tool '{tool_name}' not found. Available: {list(self.tools.keys())}"
             logger.error(err)
-            event = AgentErrorEvent(error=err)
+            event = AgentErrorEvent(error=err, metrics=metrics)
             on_event(event)
             state.agent_finished = True
             return
@@ -274,7 +286,7 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.function.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
-            event = AgentErrorEvent(error=err)
+            event = AgentErrorEvent(error=err, metrics=metrics)
             on_event(event)
             return
 
@@ -286,6 +298,7 @@ class Agent(AgentBase):
             tool_call_id=tool_call.id,
             tool_call=tool_call,
             llm_response_id=llm_response_id,
+            metrics=metrics,
         )
         on_event(action_event)
         return action_event
