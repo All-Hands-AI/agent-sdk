@@ -5,7 +5,6 @@ from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message as LiteLLMMessage,
-    ModelResponse,
 )
 from pydantic import ValidationError
 
@@ -27,7 +26,7 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     LLM,
     Message,
-    Metrics,
+    MetricsSnapshot,
     TextContent,
     get_llm_metadata,
 )
@@ -154,7 +153,7 @@ class Agent(AgentBase):
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
         tools = [tool.to_openai_tool() for tool in self.tools.values()]
-        _ret = self.llm.completion(
+        response = self.llm.completion(
             messages=_messages,
             tools=tools,
             extra_body={
@@ -164,16 +163,12 @@ class Agent(AgentBase):
             },
             return_metrics=True,
         )
-        response: ModelResponse
-        metrics: Metrics
-        assert isinstance(_ret, tuple) and len(_ret) == 2, (
-            "LLM completion with return_metrics=True must return a tuple of "
-            "(ModelResponse, Metrics)"
-        )
-        response, metrics = _ret
         assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
         llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
         message = Message.from_litellm_message(llm_message)
+
+        assert self.llm.metrics is not None, "LLM metrics should not be None"
+        metrics = self.llm.metrics.get_snapshot()  # take a snapshot of metrics
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -263,7 +258,7 @@ class Agent(AgentBase):
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
-        metrics: Metrics | None = None,
+        metrics: MetricsSnapshot | None = None,
     ) -> ActionEvent | None:
         """Handle tool calls from the LLM.
 

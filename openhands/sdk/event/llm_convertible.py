@@ -7,7 +7,7 @@ from pydantic import Field
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventType, SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
-from openhands.sdk.llm.utils.metrics import Metrics
+from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -66,10 +66,10 @@ class ActionEvent(LLMConvertibleEvent):
             "response."
         ),
     )
-    metrics: Metrics | None = Field(
+    metrics: MetricsSnapshot | None = Field(
         default=None,
         description=(
-            "LLM metrics (token counts and costs). Only attached "
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
             "to the last action when multiple actions share the same LLM response."
         ),
     )
@@ -149,11 +149,11 @@ class MessageEvent(LLMConvertibleEvent):
     extended_content: list[TextContent] = Field(
         default_factory=list, description="List of content added by agent context"
     )
-    metrics: Metrics | None = Field(
+    metrics: MetricsSnapshot | None = Field(
         default=None,
         description=(
-            "LLM metrics (token counts and costs) for this message. Only attached "
-            "to messages from agent."
+            "Snapshot of LLM metrics (token counts and costs) for this message. "
+            "Only attached to messages from agent."
         ),
     )
 
@@ -232,10 +232,10 @@ class AgentErrorEvent(LLMConvertibleEvent):
     kind: EventType = "agent_error"
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
-    metrics: Metrics | None = Field(
+    metrics: MetricsSnapshot | None = Field(
         default=None,
         description=(
-            "LLM metrics (token counts and costs). Only attached "
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
             "to the last action when multiple actions share the same LLM response."
         ),
     )
