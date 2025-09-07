@@ -13,6 +13,8 @@ def normalize_model_name(model: str) -> str:
       and treat ':' inside that basename as an Ollama-style variant tag to be removed
     - There is no provider:model form; providers, when present, use 'provider/model'
     - Drop a trailing "-gguf" suffix if present
+    - If basename starts with a known vendor prefix followed by '.', drop that prefix
+      (e.g., 'anthropic.claude-*' -> 'claude-*')
     """
     raw = (model or "").strip().lower()
     if "/" in raw:
@@ -23,6 +25,22 @@ def normalize_model_name(model: str) -> str:
     else:
         # No '/', keep the whole raw name (we do not support provider:model)
         name = raw
+
+    # Drop common vendor prefixes embedded in the basename (bedrock style), once.
+    # Keep this list small and explicit to avoid accidental over-matching.
+    vendor_prefixes = {
+        "anthropic",
+        "meta",
+        "cohere",
+        "mistral",
+        "ai21",
+        "amazon",
+    }
+    if "." in name:
+        vendor, rest = name.split(".", 1)
+        if vendor in vendor_prefixes and rest:
+            name = rest
+
     if name.endswith("-gguf"):
         name = name[: -len("-gguf")]
     return name
@@ -109,8 +127,8 @@ PROMPT_CACHE_PATTERNS: list[str] = [
     "claude-3-5-sonnet*",
     "claude-3-5-haiku*",
     "claude-3.5-haiku*",
-    "claude-3-haiku-20240307",
-    "claude-3-opus-20240229",
+    "claude-3-haiku-20240307*",
+    "claude-3-opus-20240229*",
     "claude-sonnet-4*",
     "claude-opus-4*",
 ]

@@ -5,10 +5,10 @@ from openhands.sdk.event.llm_convertible import (
     AgentErrorEvent,
     MessageEvent,
     ObservationEvent,
-    PauseEvent,
     SystemPromptEvent,
     UserRejectObservation,
 )
+from openhands.sdk.event.user_action import PauseEvent
 
 
 EventType = (

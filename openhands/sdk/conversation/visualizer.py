@@ -5,10 +5,10 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from openhands.sdk.event import EventType
-from openhands.sdk.event.llm_convertible import (
+from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
+    EventType,
     MessageEvent,
     ObservationEvent,
     PauseEvent,
