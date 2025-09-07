@@ -8,7 +8,6 @@ A clean, modular SDK for building AI agents. This repository provides two Python
 Goals:
 - Simple mental model: short, focused modules with clear responsibilities
 - Zero magic: explicit configuration over implicit behavior
-- Stability: never break userspace; additive, backwards-compatible evolution
 
 Quick start
 
