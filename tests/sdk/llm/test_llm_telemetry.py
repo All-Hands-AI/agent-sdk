@@ -121,10 +121,10 @@ class TestTelemetryLifecycle:
         mock_time.side_effect = [1000.0, 1002.5]  # 2.5 second latency
 
         basic_telemetry.on_request(None)
-        metrics = basic_telemetry.on_response(mock_response)
+        cost = basic_telemetry.on_response(mock_response)
 
         assert basic_telemetry._last_latency == 2.5
-        assert isinstance(metrics, Metrics)
+        assert isinstance(cost, float)
 
     def test_on_response_with_usage(self, basic_telemetry):
         """Test on_response with usage information."""
@@ -472,10 +472,10 @@ class TestTelemetryIntegration:
                 "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
             ) as mock_cost:
                 mock_cost.return_value = 0.25
-                metrics = telemetry.on_response(response)  # type: ignore
+                cost = telemetry.on_response(response)  # type: ignore
 
             # Verify all aspects
-            assert metrics.accumulated_cost == 0.25
+            assert cost == 0.25
             assert len(telemetry.metrics.token_usages) == 1
             assert len(telemetry.metrics.costs) == 1
             assert len(telemetry.metrics.response_latencies) == 1
@@ -504,8 +504,8 @@ class TestTelemetryIntegration:
                 "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
             ) as mock_cost:
                 mock_cost.return_value = 0.1 + i * 0.05
-                metrics = basic_telemetry.on_response(response)
-                responses.append((response, metrics))
+                cost = basic_telemetry.on_response(response)
+                responses.append((response, cost))
 
         # Should have recorded all requests
         assert len(basic_telemetry.metrics.token_usages) == 3
@@ -562,9 +562,9 @@ class TestTelemetryEdgeCases:
     def test_on_response_without_on_request(self, basic_telemetry, mock_response):
         """Test on_response called without prior on_request."""
         # Should not crash, should use current time for latency calculation
-        metrics = basic_telemetry.on_response(mock_response)
+        cost = basic_telemetry.on_response(mock_response)
 
-        assert isinstance(metrics, Metrics)
+        assert isinstance(cost, float)
         # Latency might be very small or even negative due to timing precision
         # The important thing is that it doesn't crash
         assert isinstance(basic_telemetry._last_latency, float)
@@ -617,15 +617,15 @@ class TestTelemetryEdgeCases:
     def test_cost_calculation_with_zero_cost(self, basic_telemetry, mock_response):
         """Test cost calculation when cost is zero or None."""
         with patch.object(basic_telemetry, "_compute_cost", return_value=None):
-            metrics = basic_telemetry.on_response(mock_response)
+            cost = basic_telemetry.on_response(mock_response)
 
-            assert metrics.accumulated_cost == 0.0
+            assert cost == 0.0
             # Should not add to costs list when cost is None
             assert len(basic_telemetry.metrics.costs) == 0
 
         with patch.object(basic_telemetry, "_compute_cost", return_value=0.0):
-            metrics = basic_telemetry.on_response(mock_response)
+            cost = basic_telemetry.on_response(mock_response)
 
-            assert metrics.accumulated_cost == 0.0
+            assert cost == 0.0
             # Should NOT add zero cost to costs list (0.0 is falsy)
             assert len(basic_telemetry.metrics.costs) == 0
