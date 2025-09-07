@@ -230,19 +230,3 @@ class AgentErrorEvent(LLMConvertibleEvent):
             else self.error
         )
         return f"{base_str}\n  Error: {error_preview}"
-
-
-class PauseEvent(LLMConvertibleEvent):
-    """Event indicating that the agent execution was paused by user request."""
-
-    source: SourceType = "user"
-
-    def to_llm_message(self) -> Message:
-        return Message(
-            role="user",
-            content=[TextContent(text="Agent execution paused by user request.")],
-        )
-
-    def __str__(self) -> str:
-        """Plain text string representation for PauseEvent."""
-        return f"{self.__class__.__name__} ({self.source}): Agent execution paused"
