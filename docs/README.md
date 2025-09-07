@@ -30,9 +30,6 @@ Core concepts
 - LLM: thin adapter with registry for reuse across services
 - Context: microagents and knowledge that condition the agent
 
-What's next
-- Getting Started: ./getting-started.md
-- Architecture: ./architecture.md
-- Tools: ./tools.md
-- Tools System (deep dive): ./tools-system.md
-- Examples: ./examples.md
+Navigation
+- Use the left sidebar in the docs site to explore Getting Started, Architecture, Tools, and Examples.
+- For a deep dive into tool internals, see Tools System.
