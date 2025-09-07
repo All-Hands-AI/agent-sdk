@@ -48,7 +48,6 @@ from litellm.utils import (
 # OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
-from openhands.sdk.llm.types import ModelResponseWithMetrics
 from openhands.sdk.llm.utils.fn_call_converter import (
     STOP_WORDS,
     convert_fncall_messages_to_non_fncall_messages,
@@ -322,8 +321,9 @@ class LLM(BaseModel, RetryMixin):
         self,
         messages: list[dict[str, Any]] | list[Message],
         tools: list[ChatCompletionToolParam] | None = None,
+        return_metrics: bool = False,
         **kwargs,
-    ) -> ModelResponseWithMetrics:
+    ) -> tuple[ModelResponse, Metrics] | ModelResponse:
         """Single entry point for LLM completion.
 
         Normalize → (maybe) mock tools → transport → postprocess.
@@ -375,7 +375,7 @@ class LLM(BaseModel, RetryMixin):
             retry_multiplier=self.retry_multiplier,
             retry_listener=self.retry_listener,
         )
-        def _one_attempt() -> ModelResponseWithMetrics:
+        def _one_attempt() -> tuple[ModelResponse, Metrics] | ModelResponse:
             assert self._telemetry is not None
             resp = self._transport_call(messages=messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
@@ -385,13 +385,16 @@ class LLM(BaseModel, RetryMixin):
                     resp, nonfncall_msgs=messages, tools=tools
                 )
             # 6) telemetry
-            resp = self._telemetry.on_response(resp, raw_resp=raw_resp)
+            metrics = self._telemetry.on_response(resp, raw_resp=raw_resp)
 
             # Ensure at least one choice
             if not resp.get("choices") or len(resp["choices"]) < 1:
                 raise LLMNoResponseError(
                     "Response choices is less than 1. Response: " + str(resp)
                 )
+
+            if return_metrics:
+                return resp, metrics
             return resp
 
         try:

@@ -8,7 +8,6 @@ from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from openhands.sdk.llm.types import ModelResponseWithMetrics
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.logger import get_logger
 
@@ -51,9 +50,8 @@ class Telemetry(BaseModel):
 
     def on_response(
         self, resp: ModelResponse, raw_resp: ModelResponse | None = None
-    ) -> ModelResponseWithMetrics:
+    ) -> Metrics:
         """
-        Returns: ModelResponseWithMetrics with embedded telemetry data
         Side-effects:
           - records latency, tokens, cost into Metrics
           - optionally writes a JSON log file
@@ -83,11 +81,7 @@ class Telemetry(BaseModel):
         if self.log_enabled:
             self._log_completion(resp, cost, raw_resp=raw_resp)
 
-        response_dict = resp.model_dump()
-        response_with_metrics = ModelResponseWithMetrics(
-            **response_dict, metrics=self.metrics.deep_copy()
-        )
-        return response_with_metrics
+        return self.metrics.deep_copy()
 
     def on_error(self, err: Exception) -> None:
         # Stub for error tracking / counters

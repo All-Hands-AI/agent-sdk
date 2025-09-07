@@ -5,6 +5,7 @@ from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message as LiteLLMMessage,
+    ModelResponse,
 )
 from pydantic import ValidationError
 
@@ -27,7 +28,6 @@ from openhands.sdk.llm import (
     LLM,
     Message,
     Metrics,
-    ModelResponseWithMetrics,
     TextContent,
     get_llm_metadata,
 )
@@ -154,7 +154,7 @@ class Agent(AgentBase):
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
         tools = [tool.to_openai_tool() for tool in self.tools.values()]
-        response: ModelResponseWithMetrics = self.llm.completion(
+        _ret = self.llm.completion(
             messages=_messages,
             tools=tools,
             extra_body={
@@ -162,7 +162,15 @@ class Agent(AgentBase):
                     model_name=self.llm.model, agent_name=self.name
                 )
             },
+            return_metrics=True,
         )
+        response: ModelResponse
+        metrics: Metrics
+        assert isinstance(_ret, tuple) and len(_ret) == 2, (
+            "LLM completion with return_metrics=True must return a tuple of "
+            "(ModelResponse, Metrics)"
+        )
+        response, metrics = _ret
         assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
         llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
         message = Message.from_litellm_message(llm_message)
@@ -202,7 +210,7 @@ class Agent(AgentBase):
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
-                    metrics=response.metrics if i == len(tool_calls) - 1 else None,
+                    metrics=metrics if i == len(tool_calls) - 1 else None,
                 )
                 if action_event is None:
                     continue
@@ -219,7 +227,7 @@ class Agent(AgentBase):
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
             msg_event = MessageEvent(
-                source="agent", llm_message=message, metrics=response.metrics
+                source="agent", llm_message=message, metrics=metrics
             )
             on_event(msg_event)
 
