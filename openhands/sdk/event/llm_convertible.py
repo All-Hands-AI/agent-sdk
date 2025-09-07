@@ -7,6 +7,7 @@ from pydantic import Field
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
+from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool import AnyAction, AnyObservation
 
 
@@ -61,6 +62,13 @@ class ActionEvent(LLMConvertibleEvent):
             "Groups related actions from same LLM response. This helps in tracking "
             "and managing results of parallel function calling from the same LLM "
             "response."
+        ),
+    )
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
         ),
     )
 
@@ -137,6 +145,13 @@ class MessageEvent(LLMConvertibleEvent):
     extended_content: list[TextContent] = Field(
         default_factory=list, description="List of content added by agent context"
     )
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs) for this message. "
+            "Only attached to messages from agent."
+        ),
+    )
 
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
@@ -211,6 +226,13 @@ class AgentErrorEvent(LLMConvertibleEvent):
 
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
+        ),
+    )
 
     def to_llm_message(self) -> Message:
         return Message(role="user", content=[TextContent(text=self.error)])
@@ -224,19 +246,3 @@ class AgentErrorEvent(LLMConvertibleEvent):
             else self.error
         )
         return f"{base_str}\n  Error: {error_preview}"
-
-
-class PauseEvent(LLMConvertibleEvent):
-    """Event indicating that the agent execution was paused by user request."""
-
-    source: SourceType = "user"
-
-    def to_llm_message(self) -> Message:
-        return Message(
-            role="user",
-            content=[TextContent(text="Agent execution paused by user request.")],
-        )
-
-    def __str__(self) -> str:
-        """Plain text string representation for PauseEvent."""
-        return f"{self.__class__.__name__} ({self.source}): Agent execution paused"

@@ -69,13 +69,10 @@ class TokenUsage(BaseModel):
         )
 
 
-class Metrics(BaseModel):
-    """Metrics class can record various metrics during running and evaluation.
-    We track:
-      - accumulated_cost and costs
-      - max_budget_per_task (budget limit)
-      - A list of ResponseLatency
-      - A list of TokenUsage (one per call).
+class MetricsSnapshot(BaseModel):
+    """A snapshot of metrics at a point in time.
+
+    Does not include lists of individual costs, latencies, or token usages.
     """
 
     model_name: str = Field(default="default", description="Name of the model")
@@ -85,6 +82,20 @@ class Metrics(BaseModel):
     max_budget_per_task: Optional[float] = Field(
         default=None, description="Maximum budget per task"
     )
+    accumulated_token_usage: Optional[TokenUsage] = Field(
+        default=None, description="Accumulated token usage across all calls"
+    )
+
+
+class Metrics(MetricsSnapshot):
+    """Metrics class can record various metrics during running and evaluation.
+    We track:
+      - accumulated_cost and costs
+      - max_budget_per_task (budget limit)
+      - A list of ResponseLatency
+      - A list of TokenUsage (one per call).
+    """
+
     costs: list[Cost] = Field(
         default_factory=list, description="List of individual costs"
     )
@@ -93,9 +104,6 @@ class Metrics(BaseModel):
     )
     token_usages: list[TokenUsage] = Field(
         default_factory=list, description="List of token usage records"
-    )
-    accumulated_token_usage: Optional[TokenUsage] = Field(
-        default=None, description="Accumulated token usage across all calls"
     )
 
     @field_validator("accumulated_cost")
@@ -118,6 +126,17 @@ class Metrics(BaseModel):
                 response_id="",
             )
         return self
+
+    def get_snapshot(self) -> MetricsSnapshot:
+        """Get a snapshot of the current metrics without the detailed lists."""
+        return MetricsSnapshot(
+            model_name=self.model_name,
+            accumulated_cost=self.accumulated_cost,
+            max_budget_per_task=self.max_budget_per_task,
+            accumulated_token_usage=copy.deepcopy(self.accumulated_token_usage)
+            if self.accumulated_token_usage
+            else None,
+        )
 
     def add_cost(self, value: float) -> None:
         if value < 0:
