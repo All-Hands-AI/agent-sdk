@@ -1,6 +1,5 @@
 from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
-from openhands.sdk.event.intervention import PauseEvent
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
@@ -9,6 +8,7 @@ from openhands.sdk.event.llm_convertible import (
     SystemPromptEvent,
     UserRejectObservation,
 )
+from openhands.sdk.event.user_action import PauseEvent
 
 
 EventType = (
