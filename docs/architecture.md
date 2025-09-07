@@ -7,7 +7,7 @@ Packages
 Design principles
 - Keep functions short; minimize indentation depth
 - Prefer data-structure design over branching
-- Backward compatibility as a rule: additive changes, no breaking APIs
+- Backward compatibility will not be kept; breakages will be documented
 
 Key modules
 - Agent: composes LLM with tools to decide next actions
