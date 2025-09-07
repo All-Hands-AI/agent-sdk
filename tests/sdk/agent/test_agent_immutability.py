@@ -20,7 +20,7 @@ class TestAgentImmutability:
 
         # Test that we cannot modify any field
         with pytest.raises(ValidationError, match="Instance is frozen"):
-            agent.llm_instance = "new_value"  # type: ignore[assignment]
+            agent.llm = "new_value"  # type: ignore[assignment]
 
         with pytest.raises(ValidationError, match="Instance is frozen"):
             agent.agent_context = None
@@ -105,7 +105,7 @@ class TestAgentImmutability:
         # Verify no computed state is stored
         # The only fields should be the ones we explicitly defined
         expected_fields = {
-            "llm_instance",
+            "llm",
             "agent_context",
             "tools_map",
             "system_prompt_filename",

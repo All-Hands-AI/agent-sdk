@@ -19,10 +19,9 @@ class AgentBase(BaseModel, ABC):
     model_config = {
         "frozen": True,
         "arbitrary_types_allowed": True,
-        "validate_assignment": False,
     }
 
-    llm_instance: LLM = Field(alias="llm")
+    llm: LLM
     agent_context: AgentContext | None = Field(default=None)
     tools_map: MappingProxyType[str, Tool] = Field(alias="tools")
 
@@ -67,11 +66,6 @@ class AgentBase(BaseModel, ABC):
     def name(self) -> str:
         """Returns the name of the Agent."""
         return self.__class__.__name__
-
-    @property
-    def llm(self) -> LLM:
-        """Returns the LLM instance used by the Agent."""
-        return self.llm_instance
 
     @property
     def tools(self) -> MappingProxyType[str, Tool]:
