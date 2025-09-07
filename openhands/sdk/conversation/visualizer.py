@@ -5,12 +5,13 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from openhands.sdk.event import EventType
-from openhands.sdk.event.llm_convertible import (
+from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
+    EventType,
     MessageEvent,
     ObservationEvent,
+    PauseEvent,
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, TextContent, content_to_str
@@ -43,6 +44,8 @@ class ConversationVisualizer:
             return self._create_message_panel(event)
         elif isinstance(event, AgentErrorEvent):
             return self._create_error_panel(event)
+        elif isinstance(event, PauseEvent):
+            return self._create_pause_panel(event)
         else:
             # Fallback panel for unknown event types
             content = Text(f"Unknown event type: {event.__class__.__name__}")
@@ -85,10 +88,53 @@ class ConversationVisualizer:
         return Panel(
             content,
             title="[bold magenta]System Prompt[/bold magenta]",
-            subtitle=f"[dim]({event.source})[/dim]",
             border_style="magenta",
             expand=True,
         )
+
+    def _format_metrics_subtitle(
+        self, event: ActionEvent | MessageEvent | AgentErrorEvent
+    ) -> str | None:
+        """Format LLM metrics as a visually appealing subtitle string with icons,
+        colors, and k/m abbreviations (cache hit rate only)."""
+        if not event.metrics or not event.metrics.accumulated_token_usage:
+            return None
+
+        usage = event.metrics.accumulated_token_usage
+        cost = event.metrics.accumulated_cost or 0.0
+
+        # helper: 1234 -> "1.2K", 1200000 -> "1.2M"
+        def abbr(n: int | float) -> str:
+            n = int(n or 0)
+            if n >= 1_000_000_000:
+                s = f"{n / 1_000_000_000:.2f}B"
+            elif n >= 1_000_000:
+                s = f"{n / 1_000_000:.2f}M"
+            elif n >= 1_000:
+                s = f"{n / 1_000:.2f}K"
+            else:
+                return str(n)
+            return s.replace(".0", "")
+
+        input_tokens = abbr(usage.prompt_tokens or 0)
+        output_tokens = abbr(usage.completion_tokens or 0)
+
+        # Cache hit rate (prompt + cache)
+        prompt = usage.prompt_tokens or 0
+        cache_read = usage.cache_read_tokens or 0
+        cache_rate = f"{(cache_read / prompt * 100):.2f}%" if prompt > 0 else "N/A"
+
+        # Cost
+        cost_str = f"{cost:.4f}" if cost > 0 else "$0.00"
+
+        # Build with fixed color scheme
+        parts: list[str] = []
+        parts.append(f"[cyan]↑ input {input_tokens}[/cyan]")
+        parts.append(f"[magenta]⚡ cache hit {cache_rate}[/magenta]")
+        parts.append(f"[blue]↓ output {output_tokens}[/blue]")
+        parts.append(f"[green]$ {cost_str}[/green]")
+
+        return "Tokens: " + " [dim]•[/dim] ".join(parts)
 
     def _create_action_panel(self, event: ActionEvent) -> Panel:
         """Create a Rich Panel for ActionEvent with complete content."""
@@ -131,7 +177,7 @@ class ConversationVisualizer:
         return Panel(
             content,
             title="[bold green]Agent Action[/bold green]",
-            subtitle=f"[dim]({event.source})[/dim]",
+            subtitle=self._format_metrics_subtitle(event),
             border_style="green",
             expand=True,
         )
@@ -153,7 +199,6 @@ class ConversationVisualizer:
         return Panel(
             content,
             title="[bold blue]Tool Observation[/bold blue]",
-            subtitle=f"[dim]({event.source})[/dim]",
             border_style="blue",
             expand=True,
         )
@@ -208,12 +253,12 @@ class ConversationVisualizer:
         border_color = panel_colors.get(event.llm_message.role, "white")
 
         title_text = (
-            f"[bold {role_color}]Message ({event.llm_message.role})[/bold {role_color}]"
+            f"[bold {role_color}]Message (source={event.source})[/bold {role_color}]"
         )
         return Panel(
             content,
             title=title_text,
-            subtitle=f"[dim]({event.source})[/dim]",
+            subtitle=self._format_metrics_subtitle(event),
             border_style=border_color,
             expand=True,
         )
@@ -227,7 +272,19 @@ class ConversationVisualizer:
         return Panel(
             content,
             title="[bold red]Agent Error[/bold red]",
-            subtitle=f"[dim]({event.source})[/dim]",
+            subtitle=self._format_metrics_subtitle(event),
             border_style="red",
+            expand=True,
+        )
+
+    def _create_pause_panel(self, event: PauseEvent) -> Panel:
+        """Create a Rich Panel for PauseEvent with complete content."""
+        content = Text()
+        content.append("Conversation Paused", style="bold yellow")
+
+        return Panel(
+            content,
+            title="[bold yellow]User Paused[/bold yellow]",
+            border_style="yellow",
             expand=True,
         )

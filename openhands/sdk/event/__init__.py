@@ -8,6 +8,7 @@ from openhands.sdk.event.llm_convertible import (
     SystemPromptEvent,
     UserRejectObservation,
 )
+from openhands.sdk.event.user_action import PauseEvent
 
 
 EventType = (
@@ -18,6 +19,7 @@ EventType = (
     | SystemPromptEvent
     | AgentErrorEvent
     | UserRejectObservation
+    | PauseEvent
     | Condensation
     | CondensationRequest
 )
@@ -32,6 +34,7 @@ __all__ = [
     "MessageEvent",
     "AgentErrorEvent",
     "UserRejectObservation",
+    "PauseEvent",
     "EventType",
     "Condensation",
     "CondensationRequest",

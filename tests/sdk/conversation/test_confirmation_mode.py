@@ -21,7 +21,8 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
+from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
@@ -54,6 +55,31 @@ class TestConfirmationMode:
         # Create a patcher for the completion method at the class level
         self.completion_patcher = patch.object(LLM, "completion")
         self.mock_completion = self.completion_patcher.start()
+
+        # Create a proper MetricsSnapshot mock for the LLM
+        mock_token_usage = TokenUsage(
+            model="test-model",
+            prompt_tokens=100,
+            completion_tokens=50,
+            cache_read_tokens=0,
+            cache_write_tokens=0,
+            context_window=4096,
+            per_turn_token=150,
+            response_id="test-response-id",
+        )
+        mock_metrics_snapshot = MetricsSnapshot(
+            model_name="test-model",
+            accumulated_cost=0.00075,
+            max_budget_per_task=None,
+            accumulated_token_usage=mock_token_usage,
+        )
+
+        # Mock the metrics properly
+        from unittest.mock import Mock
+
+        mock_metrics = Mock()
+        mock_metrics.get_snapshot.return_value = mock_metrics_snapshot
+        self.llm.metrics = mock_metrics
 
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:
