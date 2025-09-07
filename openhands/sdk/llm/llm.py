@@ -251,7 +251,7 @@ class LLM(BaseModel, RetryMixin):
             return None
 
         # Handle both SecretStr and string inputs
-        if hasattr(v, "get_secret_value"):
+        if isinstance(v, SecretStr):
             secret_value = v.get_secret_value()
         else:
             secret_value = str(v)
