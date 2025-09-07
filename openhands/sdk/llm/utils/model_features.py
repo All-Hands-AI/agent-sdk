@@ -67,11 +67,6 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
     "claude-3-5-haiku*",
     "claude-sonnet-4*",
     "claude-opus-4*",
-    # AWS Bedrock Anthropic models
-    "bedrock/anthropic.claude-3-5-sonnet*",
-    "bedrock/anthropic.claude-3-7-sonnet*",
-    "bedrock/anthropic.claude-sonnet-4*",
-    "bedrock/anthropic.claude-opus-4*",
     # OpenAI families
     "gpt-4o*",
     "gpt-4.1",
