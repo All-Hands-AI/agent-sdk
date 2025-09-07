@@ -24,6 +24,3 @@ agent_context = AgentContext(
 )
 ```
 
-## Documentation
-
-For comprehensive documentation, see [docs/context/README.md](../../../docs/context/README.md).
