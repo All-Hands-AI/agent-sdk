@@ -161,7 +161,6 @@ class Agent(AgentBase):
                     model_name=self.llm.model, agent_name=self.name
                 )
             },
-            return_metrics=True,
         )
         assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
         llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
