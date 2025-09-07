@@ -29,7 +29,7 @@ class TestAgentImmutability:
             agent.system_prompt_filename = "new_prompt.j2"
 
         with pytest.raises(ValidationError, match="Instance is frozen"):
-            agent.condenser_instance = None
+            agent.condenser = None
 
         with pytest.raises(ValidationError, match="Instance is frozen"):
             agent.cli_mode = False
@@ -109,7 +109,7 @@ class TestAgentImmutability:
             "agent_context",
             "tools_map",
             "system_prompt_filename",
-            "condenser_instance",
+            "condenser",
             "cli_mode",
         }
 

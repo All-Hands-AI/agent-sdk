@@ -46,7 +46,7 @@ logger = get_logger(__name__)
 
 class Agent(AgentBase):
     system_prompt_filename: str = Field(default="system_prompt.j2")
-    condenser_instance: Condenser | None = Field(default=None)
+    condenser: Condenser | None = Field(default=None)
     cli_mode: bool = Field(default=True)
 
     def __init__(
@@ -58,17 +58,20 @@ class Agent(AgentBase):
         condenser: Condenser | None = None,
         cli_mode: bool = True,
     ) -> None:
+        # Validate that built-in tools are not provided
         for tool in BUILT_IN_TOOLS:
-            assert tool not in tools, (
-                f"{tool} is automatically included and should not be provided."
-            )
+            if tool in tools:
+                raise ValueError(
+                    f"{tool} is automatically included and should not be provided."
+                )
 
+        # Add built-in tools and pass to parent
         super().__init__(
             llm=llm,
             tools=tools + BUILT_IN_TOOLS,
             agent_context=agent_context,
             system_prompt_filename=system_prompt_filename,
-            condenser_instance=condenser,
+            condenser=condenser,
             cli_mode=cli_mode,
         )
 
@@ -85,11 +88,6 @@ class Agent(AgentBase):
             if _system_message_suffix:
                 system_message += "\n\n" + _system_message_suffix
         return system_message
-
-    @property
-    def condenser(self) -> Condenser | None:
-        """Return the condenser instance."""
-        return self.condenser_instance
 
     def init_state(
         self,
