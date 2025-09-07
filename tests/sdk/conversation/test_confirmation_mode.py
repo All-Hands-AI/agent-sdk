@@ -21,6 +21,7 @@ from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
@@ -48,6 +49,18 @@ class TestConfirmationMode:
         """Set up test fixtures."""
 
         self.mock_llm = MagicMock()
+
+        # Configure mock to handle return_metrics parameter
+        def mock_completion(*args, **kwargs):
+            return_metrics = kwargs.get("return_metrics", False)
+            response = self.mock_llm.completion.return_value
+            if return_metrics:
+                # Return tuple of (ModelResponse, Metrics)
+                metrics = Metrics()
+                return (response, metrics)
+            return response
+
+        self.mock_llm.completion.side_effect = mock_completion
 
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:
