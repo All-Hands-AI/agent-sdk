@@ -85,7 +85,7 @@ class DiscriminatedUnionMixin(BaseModel):
     @property
     def kind(self) -> str:
         """Property to create kind field from class name when serializing."""
-        return f"{self.__class__.__module__}.{self.__class__.__name__}"
+        return f"{self.__class__.__module__}.{self.__class__.__qualname__}"
 
     @classmethod
     def target_subclass(cls, kind: str) -> type[DiscriminatedUnionMixin] | None:
@@ -93,7 +93,7 @@ class DiscriminatedUnionMixin(BaseModel):
         worklist = [cls]
         while worklist:
             current = worklist.pop()
-            if f"{current.__module__}.{current.__name__}" == kind:
+            if f"{current.__module__}.{current.__qualname__}" == kind:
                 return current
             worklist.extend(current.__subclasses__())
         return None

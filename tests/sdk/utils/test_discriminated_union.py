@@ -162,7 +162,7 @@ def test_discriminated_union_with_pydantic_validators() -> None:
     dog_data = {
         "name": "rex",
         "breed": "german shepherd",
-        "kind": "test_discriminated_union.Dog",
+        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
     }
     dog_from_dict = Animal.model_validate(dog_data)
     assert isinstance(dog_from_dict, Dog)
@@ -200,7 +200,7 @@ def test_discriminated_union_model_validate_dict() -> None:
     dog_data = {
         "name": "Buddy",
         "breed": "Golden Retriever",
-        "kind": "test_discriminated_union.Dog",
+        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
     }
     result = Animal.model_validate(dog_data)
     assert isinstance(result, Dog)
@@ -210,7 +210,7 @@ def test_discriminated_union_model_validate_dict() -> None:
     cat_data = {
         "name": "Whiskers",
         "color": "Orange",
-        "kind": "test_discriminated_union.Cat",
+        "kind": f"{Cat.__module__}.{Cat.__qualname__}",
     }
     result = Animal.model_validate(cat_data)
     assert isinstance(result, Cat)
@@ -253,7 +253,7 @@ def test_discriminated_union_preserves_pydantic_parameters() -> None:
     dog_data = {
         "name": "Buddy",
         "breed": "Golden Retriever",
-        "kind": "test_discriminated_union.Dog",
+        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
     }
     result = Animal.model_validate(dog_data, strict=True)
     assert isinstance(result, Dog)
