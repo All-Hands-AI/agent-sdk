@@ -86,6 +86,11 @@ class Message(BaseModel):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
+    # Anthropic-specific thinking blocks (when available via provider_specific_fields)
+    thinking_blocks: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Provider thinking blocks (e.g., Anthropic 'thinking_blocks').",
+    )
 
     @property
     def contains_image(self) -> bool:
@@ -183,8 +188,25 @@ class Message(BaseModel):
 
     @classmethod
     def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
-        """Convert a litellm LiteLLMMessage to our Message class."""
+        """Convert a litellm LiteLLMMessage to our Message class.
+
+        Provider-agnostic mapping for reasoning:
+        - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
+        - Additionally capture Anthropic `thinking_blocks` when present via
+          `provider_specific_fields` or direct attribute on the message
+        """
         assert message.role != "function", "Function role is not supported"
+
+        rc = getattr(message, "reasoning_content", None)
+        thinking_blocks = None
+        try:
+            psf = getattr(message, "provider_specific_fields", None)
+            if isinstance(psf, dict) and psf.get("thinking_blocks"):
+                thinking_blocks = psf.get("thinking_blocks")
+        except Exception:
+            pass
+        if thinking_blocks is None:
+            thinking_blocks = getattr(message, "thinking_blocks", None)
 
         return Message(
             role=message.role,
@@ -192,9 +214,8 @@ class Message(BaseModel):
             if isinstance(message.content, str)
             else [],
             tool_calls=message.tool_calls,
-            reasoning_content=message.reasoning_content
-            if hasattr(message, "reasoning_content")
-            else None,
+            reasoning_content=rc,
+            thinking_blocks=thinking_blocks,
         )
 
 

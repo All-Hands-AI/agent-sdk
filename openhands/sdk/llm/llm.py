@@ -370,7 +370,10 @@ class LLM(BaseModel, RetryMixin):
 
         # 3) normalize provider params
         kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=bool(tools))
+        has_tools_flag = (
+            bool(tools) and use_native_fc
+        )  # only keep tools when native FC is active
+        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
         assert self._telemetry is not None
@@ -498,11 +501,11 @@ class LLM(BaseModel, RetryMixin):
             # Anthropic/OpenAI reasoning models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
-            # Gemini 2.5 budget mapping
-            if "gemini-2.5-pro" in self.model:
-                if self.reasoning_effort in {None, "low", "none"}:
-                    out["thinking"] = {"budget_tokens": 128}
-                    out["allowed_openai_params"] = ["thinking"]
+            # Skip explicit Gemini 'thinking' param; rely on provider defaults
+        # DeepSeek does not support OpenAI 'reasoning_effort' param; drop it
+        ml = self.model.lower()
+        if "/deepseek/" in ml or ml.startswith("deepseek/"):
+            out.pop("reasoning_effort", None)
 
         # Anthropic Opus 4.1: prefer temperature when
         # both provided; disable extended thinking
@@ -566,13 +569,54 @@ class LLM(BaseModel, RetryMixin):
                 "Expected non-streaming Choices when post-processing mocked tools"
             )
 
-        non_fn_message: dict = resp.choices[0].message.model_dump()
+        # Preserve provider-specific reasoning fields before conversion
+        orig_msg = resp.choices[0].message
+        non_fn_message: dict = orig_msg.model_dump()
         fn_msgs = convert_non_fncall_messages_to_fncall_messages(
             nonfncall_msgs + [non_fn_message], tools
         )
         last = fn_msgs[-1]
         if not isinstance(last, LiteLLMMessage):
+            # Pass through reasoning/thinking fields when rehydrating message
+            try:
+                rc = getattr(orig_msg, "reasoning_content", None)
+                if rc is not None:
+                    last["reasoning_content"] = rc
+            except Exception:
+                pass
+            try:
+                psf = getattr(orig_msg, "provider_specific_fields", None)
+                if psf:
+                    last["provider_specific_fields"] = psf
+            except Exception:
+                pass
+            try:
+                tb = getattr(orig_msg, "thinking_blocks", None)
+                if tb is not None:
+                    last["thinking_blocks"] = tb
+            except Exception:
+                pass
             last = LiteLLMMessage(**last)
+        else:
+            # If conversion already produced a LiteLLMMessage, attach fields directly
+            try:
+                rc = getattr(orig_msg, "reasoning_content", None)
+                if rc is not None:
+                    setattr(last, "reasoning_content", rc)
+            except Exception:
+                pass
+            try:
+                psf = getattr(orig_msg, "provider_specific_fields", None)
+                if psf:
+                    setattr(last, "provider_specific_fields", psf)
+            except Exception:
+                pass
+            try:
+                tb = getattr(orig_msg, "thinking_blocks", None)
+                if tb is not None:
+                    setattr(last, "thinking_blocks", tb)
+            except Exception:
+                pass
         resp.choices[0].message = last
         return resp
 

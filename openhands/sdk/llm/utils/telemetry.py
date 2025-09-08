@@ -207,6 +207,28 @@ class Telemetry(BaseModel):
             data["cost"] = float(cost or 0.0)
             data["timestamp"] = time.time()
             data["latency_sec"] = self._last_latency
+
+            # Usage summary (prompt, completion, reasoning tokens) for quick inspection
+            try:
+                usage = getattr(resp, "usage", None)
+                if usage:
+                    if isinstance(usage, dict):
+                        usage = Usage.model_validate(usage)
+                    prompt_tokens = int(usage.prompt_tokens or 0)
+                    completion_tokens = int(usage.completion_tokens or 0)
+                    reasoning_tokens = 0
+                    details = usage.completion_tokens_details or None
+                    if details and details.reasoning_tokens:
+                        reasoning_tokens = int(details.reasoning_tokens)
+                    data["usage_summary"] = {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "reasoning_tokens": reasoning_tokens,
+                    }
+            except Exception:
+                # Best-effort only; don't fail logging
+                pass
+
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
                 data["raw_response"] = raw_resp
