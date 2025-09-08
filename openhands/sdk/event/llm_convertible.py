@@ -5,16 +5,15 @@ from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import Field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
-from openhands.sdk.event.types import EventType, SourceType
+from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.tool import Action, Observation
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
     """System prompt added by the agent."""
 
-    kind: EventType = "system_prompt"
     source: SourceType = "agent"
     system_prompt: TextContent = Field(..., description="The system prompt text")
     tools: list[ChatCompletionToolParam] = Field(
@@ -39,14 +38,11 @@ class SystemPromptEvent(LLMConvertibleEvent):
 
 
 class ActionEvent(LLMConvertibleEvent):
-    kind: EventType = "action"
     source: SourceType = "agent"
     thought: list[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
-    action: ActionBase = Field(
-        ..., description="Single action (tool call) returned by LLM"
-    )
+    action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: str = Field(
         ..., description="The unique id returned by LLM API for this tool call"
@@ -95,9 +91,8 @@ class ActionEvent(LLMConvertibleEvent):
 
 
 class ObservationEvent(LLMConvertibleEvent):
-    kind: EventType = "observation"
     source: SourceType = "environment"
-    observation: ObservationBase = Field(
+    observation: Observation = Field(
         ..., description="The observation (tool call) sent to LLM"
     )
 
@@ -136,7 +131,6 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    kind: EventType = "message"
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
@@ -191,7 +185,6 @@ class MessageEvent(LLMConvertibleEvent):
 class UserRejectObservation(LLMConvertibleEvent):
     """Observation when user rejects an action in confirmation mode."""
 
-    kind: EventType = "observation"
     source: SourceType = "user"
     action_id: str = Field(
         ..., description="The action id that this rejection is responding to"
@@ -229,7 +222,6 @@ class UserRejectObservation(LLMConvertibleEvent):
 class AgentErrorEvent(LLMConvertibleEvent):
     """Error triggered by the agent."""
 
-    kind: EventType = "agent_error"
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
     metrics: MetricsSnapshot | None = Field(

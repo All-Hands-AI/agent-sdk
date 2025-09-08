@@ -425,22 +425,37 @@ class TestTelemetryLogging:
 
     def test_log_completion_error_handling(self, mock_metrics, mock_response):
         """Test logging error handling."""
-        telemetry = Telemetry(
-            model_name="gpt-4o",
-            log_enabled=True,
-            log_dir="/invalid/path/that/does/not/exist",
-            metrics=mock_metrics,
-        )
+        # Use a guaranteed-invalid log_dir by pointing at a regular file path
+        # rather than a directory. This avoids reliance on environment-specific
+        # directories that may unexpectedly exist or be writable in CI.
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        try:
+            bogus_path = tmp.name
+            telemetry = Telemetry(
+                model_name="gpt-4o",
+                log_enabled=True,
+                log_dir=bogus_path,
+                metrics=mock_metrics,
+            )
 
-        telemetry.on_request({})
+            telemetry.on_request({})
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            telemetry._log_completion(mock_response, 0.25)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                telemetry._log_completion(mock_response, 0.25)
 
-            # Should issue a warning but not crash
-            assert len(w) == 1
-            assert "Telemetry logging failed" in str(w[0].message)
+                # Should issue a warning but not crash
+                assert len(w) == 1
+                assert "Telemetry logging failed" in str(w[0].message)
+        finally:
+            try:
+                tmp.close()
+            except Exception:
+                pass
+            try:
+                os.unlink(tmp.name)
+            except Exception:
+                pass
 
 
 class TestTelemetryIntegration:

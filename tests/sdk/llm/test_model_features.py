@@ -119,6 +119,14 @@ def test_prompt_cache_support(model, expected_cache):
         ("gemini-1.5-pro", True),
         ("llama-3.1-70b", True),
         ("unknown-model", True),  # Most models support stop words
+        # Models that don't support stop words
+        ("o1", False),
+        ("o1-2024-12-17", False),
+        ("grok-4-0709", False),
+        ("grok-code-fast-1", False),
+        ("xai/grok-4-0709", False),
+        ("xai/grok-code-fast-1", False),
+        ("deepseek-r1-0528", False),
     ],
 )
 def test_stop_words_support(model, expected_stop_words):
@@ -237,3 +245,27 @@ def test_model_matches_with_provider_pattern():
     assert model_matches("openai/gpt-4", ["openai/*"])
     assert model_matches("anthropic/claude-3", ["anthropic/claude*"])
     assert not model_matches("openai/gpt-4", ["anthropic/*"])
+
+
+def test_stop_words_grok_provider_prefixed():
+    """Test that grok models don't support stop words with and without provider prefixes."""  # noqa: E501
+    assert get_features("xai/grok-4-0709").supports_stop_words is False
+    assert get_features("grok-4-0709").supports_stop_words is False
+    assert get_features("xai/grok-code-fast-1").supports_stop_words is False
+    assert get_features("grok-code-fast-1").supports_stop_words is False
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "o1-mini",
+        "o1-2024-12-17",
+        "xai/grok-4-0709",
+        "xai/grok-code-fast-1",
+        "deepseek-r1-0528",
+    ],
+)
+def test_supports_stop_words_false_models(model):
+    """Test models that don't support stop words."""
+    features = get_features(model)
+    assert features.supports_stop_words is False

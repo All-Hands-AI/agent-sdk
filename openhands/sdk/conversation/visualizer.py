@@ -8,7 +8,7 @@ from rich.text import Text
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
-    EventType,
+    Event,
     MessageEvent,
     ObservationEvent,
     PauseEvent,
@@ -26,13 +26,13 @@ class ConversationVisualizer:
     def __init__(self):
         self._console = Console()
 
-    def on_event(self, event: EventType) -> None:
+    def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
         panel = self._create_event_panel(event)
         self._console.print(panel)
         self._console.print()  # Add spacing between events
 
-    def _create_event_panel(self, event: EventType) -> Panel:
+    def _create_event_panel(self, event: Event) -> Panel:
         """Create a Rich Panel for the event with appropriate styling."""
         if isinstance(event, SystemPromptEvent):
             return self._create_system_prompt_panel(event)

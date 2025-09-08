@@ -1,5 +1,6 @@
 """Utility functions for MCP integration."""
 
+import re
 from typing import TYPE_CHECKING
 
 import mcp.types
@@ -22,6 +23,11 @@ logger = get_logger(__name__)
 # It will be available as "tool.action_type".
 
 
+def to_camel_case(s: str) -> str:
+    parts = re.split(r"[_\-\s]+", s)
+    return "".join(word.capitalize() for word in parts if word)
+
+
 class MCPToolExecutor(ToolExecutor):
     """Executor for MCP tools."""
 
@@ -38,7 +44,7 @@ class MCPToolExecutor(ToolExecutor):
                     f"with args: {action.model_dump()}"
                 )
                 result: mcp.types.CallToolResult = await self.client.call_tool_mcp(
-                    name=self.tool_name, arguments=action.model_dump(exclude_none=True)
+                    name=self.tool_name, arguments=action.to_mcp_arguments()
                 )
                 return MCPToolObservation.from_call_tool_result(
                     tool_name=self.tool_name, result=result
@@ -55,7 +61,7 @@ class MCPToolExecutor(ToolExecutor):
     def __call__(self, action: MCPActionBase) -> MCPToolObservation:
         """Execute an MCP tool call."""
         return self.client.call_async_from_sync(
-            self.call_tool, action=action, timeout=60.0
+            self.call_tool, action=action, timeout=300
         )
 
 
@@ -77,10 +83,13 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
             else:
                 annotations = None
 
+            MCPActionType = MCPActionBase.from_mcp_schema(
+                f"{to_camel_case(mcp_tool.name)}Action", mcp_tool.inputSchema
+            )
             super().__init__(
                 name=mcp_tool.name,
                 description=mcp_tool.description or "No description provided",
-                input_schema=mcp_tool.inputSchema,
+                input_schema=MCPActionType,
                 output_schema=MCPToolObservation,
                 annotations=annotations,
                 _meta=mcp_tool.meta,

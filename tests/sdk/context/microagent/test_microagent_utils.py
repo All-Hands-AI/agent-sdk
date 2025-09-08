@@ -359,3 +359,149 @@ def test_load_microagents_with_cursorrules(temp_microagents_dir_with_cursorrules
     assert cursorrules_agent.name == "cursorrules"
     assert "Always use TypeScript for new files" in cursorrules_agent.content
     assert cursorrules_agent.type == MicroagentType.REPO_KNOWLEDGE
+
+
+def test_repo_microagent_with_mcp_tools():
+    """Test loading a repo microagent with mcp_tools configuration."""
+    # Create a repo microagent with mcp_tools in frontmatter
+    microagent_content = """---
+name: default-tools
+type: repo
+version: 1.0.0
+agent: CodeActAgent
+mcp_tools:
+  mcpServers:
+    fetch:
+      command: uvx
+      args: ["mcp-server-fetch"]
+---
+
+# Default Tools
+
+This is a repo microagent that includes MCP tools.
+"""
+
+    test_path = Path("default-tools.md")
+
+    # Load the microagent
+    agent = BaseMicroagent.load(test_path, file_content=microagent_content)
+
+    # Verify it's loaded as a RepoMicroagent
+    assert isinstance(agent, RepoMicroagent)
+    assert agent.name == "default-tools"
+    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.mcp_tools is not None
+
+    # Verify the mcp_tools configuration is correctly loaded
+    from fastmcp.mcp_config import MCPConfig
+
+    assert isinstance(agent.mcp_tools, MCPConfig)
+    assert "fetch" in agent.mcp_tools.mcpServers
+    fetch_server = agent.mcp_tools.mcpServers["fetch"]
+    assert hasattr(fetch_server, "command")
+    assert hasattr(fetch_server, "args")
+    assert getattr(fetch_server, "command") == "uvx"
+    assert getattr(fetch_server, "args") == ["mcp-server-fetch"]
+
+
+def test_repo_microagent_with_mcp_tools_dict_format():
+    """Test loading a repo microagent with mcp_tools as dict (JSON-like format)."""
+    # Create a repo microagent with mcp_tools in JSON-like dict format
+    microagent_content = """---
+name: default-tools-dict
+type: repo
+version: 1.0.0
+agent: CodeActAgent
+mcp_tools: {
+  "mcpServers": {
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    }
+  }
+}
+---
+
+# Default Tools Dict
+
+This is a repo microagent that includes MCP tools in dict format.
+"""
+
+    test_path = Path("default-tools-dict.md")
+
+    # Load the microagent
+    agent = BaseMicroagent.load(test_path, file_content=microagent_content)
+
+    # Verify it's loaded as a RepoMicroagent
+    assert isinstance(agent, RepoMicroagent)
+    assert agent.name == "default-tools-dict"
+    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.mcp_tools is not None
+
+    # Verify the mcp_tools configuration is correctly loaded
+    from fastmcp.mcp_config import MCPConfig
+
+    assert isinstance(agent.mcp_tools, MCPConfig)
+    assert "fetch" in agent.mcp_tools.mcpServers
+    fetch_server = agent.mcp_tools.mcpServers["fetch"]
+    assert hasattr(fetch_server, "command")
+    assert hasattr(fetch_server, "args")
+    assert getattr(fetch_server, "command") == "uvx"
+    assert getattr(fetch_server, "args") == ["mcp-server-fetch"]
+
+
+def test_repo_microagent_without_mcp_tools():
+    """Test loading a repo microagent without mcp_tools (should be None)."""
+    # Create a repo microagent without mcp_tools
+    microagent_content = """---
+name: no-mcp-tools
+type: repo
+version: 1.0.0
+agent: CodeActAgent
+---
+
+# No MCP Tools
+
+This is a repo microagent without MCP tools.
+"""
+
+    test_path = Path("no-mcp-tools.md")
+
+    # Load the microagent
+    agent = BaseMicroagent.load(test_path, file_content=microagent_content)
+
+    # Verify it's loaded as a RepoMicroagent
+    assert isinstance(agent, RepoMicroagent)
+    assert agent.name == "no-mcp-tools"
+    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.mcp_tools is None
+
+
+def test_repo_microagent_with_invalid_mcp_tools():
+    """Test loading a repo microagent with invalid mcp_tools configuration."""
+    # Create a repo microagent with truly invalid mcp_tools (wrong type)
+    microagent_content = """---
+name: invalid-mcp-tools
+type: repo
+version: 1.0.0
+agent: CodeActAgent
+mcp_tools: "this should be a dict or MCPConfig, not a string"
+---
+
+# Invalid MCP Tools
+
+This is a repo microagent with invalid MCP tools configuration.
+"""
+
+    test_path = Path("invalid-mcp-tools.md")
+
+    # Loading should raise an error (either MicroagentValidationError or AttributeError)
+    with pytest.raises((MicroagentValidationError, AttributeError)) as excinfo:
+        BaseMicroagent.load(test_path, file_content=microagent_content)
+
+    # Check that the error message contains helpful information
+    error_msg = str(excinfo.value)
+    assert (
+        "Invalid MCPConfig dictionary" in error_msg
+        or "'str' object has no attribute 'values'" in error_msg
+    )
