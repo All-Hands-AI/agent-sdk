@@ -205,3 +205,20 @@ class Conversation:
             pause_event = PauseEvent()
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
+
+    def close(self) -> None:
+        """Close the conversation and clean up all tool executors."""
+        logger.debug("Closing conversation and cleaning up tool executors")
+        for tool in self.agent.tools.values():
+            if tool.executor is not None:
+                try:
+                    tool.executor.close()
+                except Exception as e:
+                    logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
+
+    def __del__(self) -> None:
+        """Ensure cleanup happens when conversation is destroyed."""
+        try:
+            self.close()
+        except Exception as e:
+            logger.warning(f"Error during conversation cleanup: {e}")

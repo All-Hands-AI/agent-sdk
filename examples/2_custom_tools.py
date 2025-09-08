@@ -121,65 +121,66 @@ llm = LLM(
 # Tools - demonstrating both simplified and advanced patterns
 cwd = os.getcwd()
 
-# Advanced pattern: explicit executor creation and reuse
-bash_executor = BashExecutor(working_dir=cwd)
-bash_tool_advanced = execute_bash_tool.set_executor(executor=bash_executor)
+# Advanced pattern: explicit executor creation and reuse with context manager
+with BashExecutor(working_dir=cwd) as bash_executor:
+    bash_tool_advanced = execute_bash_tool.set_executor(executor=bash_executor)
 
-# Create the grep tool using explicit executor that reuses the bash executor
-grep_executor = GrepExecutor(bash_executor)
-grep_tool = Tool(
-    name="grep",
-    description=_GREP_DESCRIPTION,
-    input_schema=GrepAction,
-    output_schema=GrepObservation,
-    executor=grep_executor,
-)
-
-tools: list[Tool] = [
-    # Simplified pattern
-    FileEditorTool(),
-    # Advanced pattern with explicit executor
-    bash_tool_advanced,
-    # Custom tool with explicit executor
-    grep_tool,
-]
-
-# Agent
-agent = Agent(llm=llm, tools=tools)
-
-llm_messages = []  # collect raw LLM messages
-
-
-def conversation_callback(event: Event):
-    if isinstance(event, LLMConvertibleEvent):
-        llm_messages.append(event.to_llm_message())
-
-
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
-
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Hello! Can you use the grep tool to find all files "
-                    "containing the word 'class' in this project, then create a summary file listing them? "  # noqa: E501
-                    "Use the pattern 'class' to search and include only Python files with '*.py'."  # noqa: E501
-                )
-            )
-        ],
+    # Create the grep tool using explicit executor that reuses the bash executor
+    grep_executor = GrepExecutor(bash_executor)
+    grep_tool = Tool(
+        name="grep",
+        description=_GREP_DESCRIPTION,
+        input_schema=GrepAction,
+        output_schema=GrepObservation,
+        executor=grep_executor,
     )
-)
-conversation.run()
 
-print("=" * 100)
-print("Conversation finished. Got the following LLM messages:")
-for i, message in enumerate(llm_messages):
-    print(f"Message {i}: {str(message)[:200]}")
+    tools: list[Tool] = [
+        # Simplified pattern
+        FileEditorTool(),
+        # Advanced pattern with explicit executor
+        bash_tool_advanced,
+        # Custom tool with explicit executor
+        grep_tool,
+    ]
+
+    # Agent
+    agent = Agent(llm=llm, tools=tools)
+
+    llm_messages = []  # collect raw LLM messages
+
+
+    def conversation_callback(event: Event):
+        if isinstance(event, LLMConvertibleEvent):
+            llm_messages.append(event.to_llm_message())
+
+
+    conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+
+    conversation.send_message(
+        message=Message(
+            role="user",
+            content=[
+                TextContent(
+                    text=(
+                        "Hello! Can you use the grep tool to find all files "
+                        "containing the word 'class' in this project, then create a summary file listing them? "  # noqa: E501
+                        "Use the pattern 'class' to search and include only Python files with '*.py'."  # noqa: E501
+                    )
+                )
+            ],
+        )
+    )
+    conversation.run()
+
+    print("=" * 100)
+    print("Conversation finished. Got the following LLM messages:")
+    for i, message in enumerate(llm_messages):
+        print(f"Message {i}: {str(message)[:200]}")
 
 print("=" * 100)
 print("This example demonstrates:")
 print("1. Simplified pattern: FileEditorTool() - direct instantiation")
-print("2. Advanced pattern: explicit BashExecutor creation and reuse")
-print("3. Custom tool: GlobTool with explicit executor definition")
+print("2. Advanced pattern: explicit BashExecutor creation and reuse with context manager")
+print("3. Custom tool: GrepTool with explicit executor definition")
+print("4. Automatic cleanup: BashExecutor session is automatically closed when exiting context")

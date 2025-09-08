@@ -1,7 +1,6 @@
 """Abstract interface for terminal backends."""
 
 import os
-import sys
 from abc import ABC, abstractmethod
 
 from openhands.tools.execute_bash.definition import (
@@ -187,7 +186,4 @@ class TerminalSessionBase(ABC):
 
     def __del__(self) -> None:
         """Ensure the session is closed when the object is destroyed."""
-        # Check if Python is shutting down to avoid ImportError during cleanup
-        # During shutdown, sys.meta_path becomes None and imports fail
-        if sys.meta_path is not None:
-            self.close()
+        self.close()
