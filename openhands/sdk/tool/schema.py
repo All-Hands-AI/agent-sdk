@@ -183,7 +183,16 @@ class MCPActionBase(ActionBase):
 
     model_config = ConfigDict(extra="allow")
 
-    _parent_fields: frozenset[str] = frozenset(ActionBase.model_fields.keys())
+    # Collect all fields from ActionBase and its parents
+    _parent_fields: frozenset[str] = frozenset(
+        fname
+        for base in ActionBase.__mro__
+        if issubclass(base, BaseModel)
+        for fname in {
+            **base.model_fields,
+            **base.model_computed_fields,
+        }.keys()
+    )
 
     def to_mcp_arguments(self) -> dict:
         """Dump model excluding parent ActionBase fields.
