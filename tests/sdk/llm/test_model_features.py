@@ -248,7 +248,7 @@ def test_model_matches_with_provider_pattern():
 
 
 def test_stop_words_grok_provider_prefixed():
-    """Test that grok models don't support stop words with and without provider prefixes."""
+    """Test that grok models don't support stop words with and without provider prefixes."""  # noqa: E501
     assert get_features("xai/grok-4-0709").supports_stop_words is False
     assert get_features("grok-4-0709").supports_stop_words is False
     assert get_features("xai/grok-code-fast-1").supports_stop_words is False
