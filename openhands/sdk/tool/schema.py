@@ -185,12 +185,13 @@ class MCPActionBase(ActionBase):
 
     # Collect all fields from ActionBase and its parents
     _parent_fields: frozenset[str] = frozenset(
-        {
-            fname
-            for base in ActionBase.__mro__
-            if issubclass(base, BaseModel)
-            for fname in base.model_fields.keys()
-        }
+        fname
+        for base in ActionBase.__mro__
+        if issubclass(base, BaseModel)
+        for fname in {
+            **base.model_fields,
+            **base.model_computed_fields,
+        }.keys()
     )
 
     def to_mcp_arguments(self) -> dict:
