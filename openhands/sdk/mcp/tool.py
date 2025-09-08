@@ -61,7 +61,7 @@ class MCPToolExecutor(ToolExecutor):
     def __call__(self, action: MCPActionBase) -> MCPToolObservation:
         """Execute an MCP tool call."""
         return self.client.call_async_from_sync(
-            self.call_tool, action=action, timeout=60.0
+            self.call_tool, action=action, timeout=300
         )
 
 
