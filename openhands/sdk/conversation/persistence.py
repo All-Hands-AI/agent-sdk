@@ -25,6 +25,8 @@ SHARD_SIZE = 20  # compact after this many trailing deltas
 def _read_text(fs: FileStore, path: str) -> Optional[str]:
     try:
         return fs.read(path)  # str
+    except FileNotFoundError:
+        return None
     except Exception:
         logger.warning(f"Failed to read {path} from filestore", exc_info=True)
         return None
