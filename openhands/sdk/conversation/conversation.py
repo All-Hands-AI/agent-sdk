@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 from openhands.sdk.conversation.persistence import (
     SHARD_SIZE,
     append_delta,
-    compact_tail,
+    compact_runs,
     read_manifest,
     replay_manifest,
     write_base_state,
@@ -230,8 +230,7 @@ class Conversation:
                     fs, manifest, idx, self.state.events[idx], flush_manifest=True
                 )
 
-            # compact trailing deltas (25)
-            if compact_tail(fs, manifest, shard_size=SHARD_SIZE):
+            if compact_runs(fs, manifest, shard_size=SHARD_SIZE):
                 write_manifest(fs, manifest)
 
     @classmethod

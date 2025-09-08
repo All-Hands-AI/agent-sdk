@@ -120,55 +120,90 @@ def append_delta(
         write_manifest(fs, manifest)
 
 
-def compact_tail(
+def compact_runs(
     fs: FileStore, manifest: Manifest, shard_size: int = SHARD_SIZE
 ) -> bool:
     """
-    If there are >= shard_size trailing deltas, replace them with one 'part' entry.
-    Returns True if a compaction happened.
+    Left-to-right compaction:
+      - Find each contiguous run of DeltaSeg.
+      - From the *front* of the run, chunk by shard_size.
+      - Replace each full chunk with a PartSeg.
+      - Leave a remainder (< shard_size) as trailing deltas.
+    Returns True if any compaction happened.
     """
-    # collect trailing deltas
-    tail: List[DeltaSeg] = []
-    for s in reversed(manifest.segments):
-        if not isinstance(s, DeltaSeg):
-            break
-        tail.append(s)
-        if len(tail) >= shard_size:
-            break
-    if len(tail) < shard_size:
-        return False
+    i = 0
+    changed = False
+    while i < len(manifest.segments):
+        # Skip non-delta segments
+        if not isinstance(manifest.segments[i], DeltaSeg):
+            i += 1
+            continue
 
-    # oldest → newest
-    tail.sort(key=lambda s: s.index)
-    start = tail[0].index
+        # Identify contiguous run [i, j) of DeltaSeg
+        j = i
+        while j < len(manifest.segments) and isinstance(manifest.segments[j], DeltaSeg):
+            j += 1
 
-    # read events for the tail
-    events_json = []
-    for s in tail:
-        blob = fs.read(s.file)
-        text = blob.decode("utf-8") if isinstance(blob, (bytes, bytearray)) else blob
-        events_json.append(json.loads(text))
+        run: list[DeltaSeg] = [
+            s for s in manifest.segments[i:j] if isinstance(s, DeltaSeg)
+        ]
+        run_len = len(run)
+        if run_len >= shard_size:
+            # Number of full chunks we can compact from the *front* of the run
+            full_chunks = run_len // shard_size
+            # We'll build a replacement list for [i, j)
+            replacement: list[Segment] = []
+            # Process full chunks
+            for c in range(full_chunks):
+                chunk = run[c * shard_size : (c + 1) * shard_size]
+                # Oldest → newest by index
+                chunk.sort(key=lambda s: s.index)
+                start_idx = chunk[0].index
 
-    # write part file
-    part_no = manifest.next_part_number()
-    part_path = f"{EVENTS_DIR}/part-{part_no:06d}.jsonl"
-    fs.write(
-        part_path,
-        b"".join(
-            (json.dumps(e, separators=(",", ":")) + "\n").encode("utf-8")
-            for e in events_json
-        ),
-    )
+                # Read events
+                events_json = []
+                for s in chunk:
+                    blob = fs.read(s.file)
+                    text = (
+                        blob.decode("utf-8")
+                        if isinstance(blob, (bytes, bytearray))
+                        else blob
+                    )
+                    events_json.append(json.loads(text))
 
-    # replace tail deltas with single part segment
-    # (pop from end; we know tail are the last len(tail) entries)
-    for _ in range(len(tail)):
-        manifest.segments.pop()
-    manifest.segments.append(
-        PartSeg(file=part_path, start=start, count=len(events_json))
-    )
+                # Write part
+                part_no = manifest.next_part_number()
+                part_path = f"{EVENTS_DIR}/part-{part_no:06d}.jsonl"
+                fs.write(
+                    part_path,
+                    b"".join(
+                        [
+                            (json.dumps(e, separators=(",", ":")) + "\n").encode(
+                                "utf-8"
+                            )
+                            for e in events_json
+                        ]
+                    ),
+                )
 
-    return True
+                replacement.append(
+                    PartSeg(file=part_path, start=start_idx, count=len(events_json))
+                )
+
+            # Append leftover (< shard_size) deltas unchanged
+            leftover = run[full_chunks * shard_size :]
+            replacement.extend(leftover)
+
+            # Splice replacement back into manifest
+            manifest.segments[i:j] = replacement
+            changed = True
+            # Advance i to after the replacement we just inserted
+            i = i + len(replacement)
+        else:
+            # Run too small to compact, skip past it
+            i = j
+
+    return changed
 
 
 def replay_manifest(fs: FileStore, manifest: Manifest) -> List[Event]:
