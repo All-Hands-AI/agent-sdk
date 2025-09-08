@@ -43,8 +43,8 @@ class FinishExecutor(ToolExecutor):
 
 FinishTool = Tool(
     name="finish",
-    input_schema=FinishAction,
-    output_schema=FinishObservation,
+    action_type=FinishAction,
+    observation_type=FinishObservation,
     description=TOOL_DESCRIPTION,
     executor=FinishExecutor(),
     annotations=ToolAnnotations(
