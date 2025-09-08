@@ -1,5 +1,6 @@
 """Utility functions for MCP integration."""
 
+import re
 from typing import TYPE_CHECKING
 
 import mcp.types
@@ -20,6 +21,11 @@ logger = get_logger(__name__)
 # NOTE: We don't define MCPToolAction because it
 # will be a pydantic BaseModel dynamically created from the MCP tool schema.
 # It will be available as "tool.action_type".
+
+
+def to_camel_case(s: str) -> str:
+    parts = re.split(r"[_\-\s]+", s)
+    return "".join(word.capitalize() for word in parts if word)
 
 
 class MCPToolExecutor(ToolExecutor):
@@ -77,10 +83,13 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
             else:
                 annotations = None
 
+            MCPActionType = MCPActionBase.from_mcp_schema(
+                f"{to_camel_case(mcp_tool.name)}Action", mcp_tool.inputSchema
+            )
             super().__init__(
                 name=mcp_tool.name,
                 description=mcp_tool.description or "No description provided",
-                input_schema=mcp_tool.inputSchema,
+                input_schema=MCPActionType,
                 output_schema=MCPToolObservation,
                 annotations=annotations,
                 _meta=mcp_tool.meta,
