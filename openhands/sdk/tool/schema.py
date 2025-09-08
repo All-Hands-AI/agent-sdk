@@ -183,6 +183,20 @@ class MCPActionBase(ActionBase):
 
     model_config = ConfigDict(extra="allow")
 
+    _parent_fields: frozenset[str] = frozenset(ActionBase.model_fields.keys())
+
+    def to_mcp_arguments(self) -> dict:
+        """Dump model excluding parent ActionBase fields.
+
+        This is used to convert this action to MCP tool call arguments.
+        The parent fields (e.g., safety_risk, kind) are not part of the MCP tool schema
+        but are only used for our internal processing.
+        """
+        data = self.model_dump(exclude_none=True)
+        for f in self._parent_fields:
+            data.pop(f, None)
+        return data
+
 
 Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
 """Type annotation for values that can be any implementation of ActionBase.

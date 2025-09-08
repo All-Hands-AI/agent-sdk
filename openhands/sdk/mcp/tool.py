@@ -38,7 +38,7 @@ class MCPToolExecutor(ToolExecutor):
                     f"with args: {action.model_dump()}"
                 )
                 result: mcp.types.CallToolResult = await self.client.call_tool_mcp(
-                    name=self.tool_name, arguments=action.model_dump(exclude_none=True)
+                    name=self.tool_name, arguments=action.to_mcp_arguments()
                 )
                 return MCPToolObservation.from_call_tool_result(
                     tool_name=self.tool_name, result=result
