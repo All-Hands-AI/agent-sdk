@@ -1,14 +1,22 @@
 """Execute bash tool implementation."""
 
+# Import for type annotation
+from typing import TYPE_CHECKING, Literal
+
 from pydantic import Field
 
+from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
-from openhands.tools.execute_bash.constants import NO_CHANGE_TIMEOUT_SECONDS
-from openhands.tools.execute_bash.metadata import CmdOutputMetadata
-from openhands.tools.utils.security_prompt import (
-    SECURITY_RISK_DESC,
-    SECURITY_RISK_LITERAL,
+from openhands.sdk.utils import maybe_truncate
+from openhands.tools.execute_bash.constants import (
+    MAX_CMD_OUTPUT_SIZE,
+    NO_CHANGE_TIMEOUT_SECONDS,
 )
+from openhands.tools.execute_bash.metadata import CmdOutputMetadata
+
+
+if TYPE_CHECKING:
+    from .impl import BashExecutor
 
 
 class ExecuteBashAction(ActionBase):
@@ -25,7 +33,6 @@ class ExecuteBashAction(ActionBase):
         default=None,
         description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa
     )
-    security_risk: SECURITY_RISK_LITERAL = Field(description=SECURITY_RISK_DESC)
 
 
 class ExecuteBashObservation(ObservationBase):
@@ -58,7 +65,7 @@ class ExecuteBashObservation(ObservationBase):
         return self.metadata.pid
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
@@ -68,7 +75,7 @@ class ExecuteBashObservation(ObservationBase):
             ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
         if self.error:
             ret = f"[There was an error during command execution.]\n{ret}"
-        return ret
+        return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
 
 
 TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent shell session.
@@ -111,3 +118,49 @@ execute_bash_tool = Tool(
         openWorldHint=True,
     ),
 )
+
+
+class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
+    """A Tool subclass that automatically initializes a BashExecutor with auto-detection."""  # noqa: E501
+
+    executor: "BashExecutor"
+
+    def __init__(
+        self,
+        working_dir: str,
+        username: str | None = None,
+        no_change_timeout_seconds: int | None = None,
+        terminal_type: Literal["tmux", "subprocess"] | None = None,
+    ):
+        """Initialize BashTool with executor parameters.
+
+        Args:
+            working_dir: The working directory for bash commands
+            username: Optional username for the bash session
+            no_change_timeout_seconds: Timeout for no output change
+            terminal_type: Force a specific session type:
+                         ('tmux', 'subprocess').
+                         If None, auto-detect based on system capabilities:
+                         - On Windows: PowerShell if available, otherwise subprocess
+                         - On Unix-like: tmux if available, otherwise subprocess
+        """
+        # Import here to avoid circular imports
+        from openhands.tools.execute_bash.impl import BashExecutor
+
+        # Initialize the executor
+        executor = BashExecutor(
+            working_dir=working_dir,
+            username=username,
+            no_change_timeout_seconds=no_change_timeout_seconds,
+            terminal_type=terminal_type,
+        )
+
+        # Initialize the parent Tool with the executor
+        super().__init__(
+            name=execute_bash_tool.name,
+            description=TOOL_DESCRIPTION,
+            input_schema=ExecuteBashAction,
+            output_schema=ExecuteBashObservation,
+            annotations=execute_bash_tool.annotations,
+            executor=executor,
+        )

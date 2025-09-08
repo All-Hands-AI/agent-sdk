@@ -7,6 +7,7 @@ from typing import get_args
 
 from binaryornot.check import is_binary
 
+from openhands.sdk.utils.truncate import maybe_truncate
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
     StrReplaceEditorObservation,
@@ -18,18 +19,18 @@ from openhands.tools.str_replace_editor.exceptions import (
     ToolError,
 )
 from openhands.tools.str_replace_editor.utils.config import SNIPPET_CONTEXT_WINDOW
+from openhands.tools.str_replace_editor.utils.constants import (
+    BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
+    DIRECTORY_CONTENT_TRUNCATED_NOTICE,
+    MAX_RESPONSE_LEN_CHAR,
+    TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
+)
 from openhands.tools.str_replace_editor.utils.encoding import (
     EncodingManager,
     with_encoding,
 )
 from openhands.tools.str_replace_editor.utils.history import FileHistoryManager
-from openhands.tools.str_replace_editor.utils.prompts import (
-    BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
-    DIRECTORY_CONTENT_TRUNCATED_NOTICE,
-    TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
-)
 from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
-from openhands.tools.str_replace_editor.utils.truncate import maybe_truncate
 
 
 class FileEditor:
@@ -654,7 +655,9 @@ class FileEditor:
         # If the content is converted from Markdown, we don't need line numbers
         if is_converted_markdown:
             snippet_content = maybe_truncate(
-                snippet_content, truncate_notice=BINARY_FILE_CONTENT_TRUNCATED_NOTICE
+                snippet_content,
+                truncate_after=MAX_RESPONSE_LEN_CHAR,
+                truncate_notice=BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
             )
             return (
                 f"Here's the content of the file {snippet_description} displayed in "
@@ -662,7 +665,9 @@ class FileEditor:
             )
 
         snippet_content = maybe_truncate(
-            snippet_content, truncate_notice=TEXT_FILE_CONTENT_TRUNCATED_NOTICE
+            snippet_content,
+            truncate_after=MAX_RESPONSE_LEN_CHAR,
+            truncate_notice=TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
         )
 
         snippet_content = "\n".join(

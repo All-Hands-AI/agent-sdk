@@ -4,11 +4,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
-from openhands.tools.utils.security_prompt import (
-    SECURITY_RISK_DESC,
-    SECURITY_RISK_LITERAL,
-)
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
@@ -54,7 +51,6 @@ class StrReplaceEditorAction(ActionBase):
         "show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, "
         "-1]` shows all lines from `start_line` to the end of the file.",
     )
-    security_risk: SECURITY_RISK_LITERAL = Field(description=SECURITY_RISK_DESC)
 
 
 class StrReplaceEditorObservation(ObservationBase):
@@ -77,10 +73,10 @@ class StrReplaceEditorObservation(ObservationBase):
     error: str | None = Field(default=None, description="Error message if any.")
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         if self.error:
-            return self.error
-        return self.output
+            return [TextContent(text=self.error)]
+        return [TextContent(text=self.output)]
 
 
 Command = Literal[
@@ -138,3 +134,25 @@ str_replace_editor_tool = Tool(
         openWorldHint=False,
     ),
 )
+
+
+class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
+    """A Tool subclass that automatically initializes a FileEditorExecutor."""
+
+    def __init__(self):
+        """Initialize FileEditorTool with a FileEditorExecutor."""
+        # Import here to avoid circular imports
+        from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+
+        # Initialize the executor
+        executor = FileEditorExecutor()
+
+        # Initialize the parent Tool with the executor
+        super().__init__(
+            name=str_replace_editor_tool.name,
+            description=TOOL_DESCRIPTION,
+            input_schema=StrReplaceEditorAction,
+            output_schema=StrReplaceEditorObservation,
+            annotations=str_replace_editor_tool.annotations,
+            executor=executor,
+        )

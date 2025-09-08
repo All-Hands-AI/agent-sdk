@@ -20,7 +20,7 @@ from openhands.sdk.llm.utils.model_features import (
         ("openrouter/gpt-4o-mini", "gpt-4o-mini"),
         (
             "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
-            "anthropic.claude-3-5-sonnet-20241022-v2",
+            "claude-3-5-sonnet-20241022-v2",
         ),
         ("", ""),
         (None, ""),  # type: ignore[arg-type]
@@ -54,6 +54,10 @@ def test_model_matches(name, pattern, expected):
         ("claude-3-5-sonnet", True),
         ("claude-3-7-sonnet", True),
         ("gemini-2.5-pro", True),
+        # AWS Bedrock models
+        ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
+        ("bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0", True),
+        ("bedrock/anthropic.claude-sonnet-4-20250514-v1:0", True),
         (
             "llama-3.1-70b",
             False,
@@ -92,6 +96,10 @@ def test_reasoning_effort_support(model, expected_reasoning):
         ("claude-3-7-sonnet", True),
         ("claude-3-haiku-20240307", True),
         ("claude-3-opus-20240229", True),
+        # AWS Bedrock models
+        ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
+        ("bedrock/anthropic.claude-3-haiku-20240307-v1:0", True),
+        ("bedrock/anthropic.claude-3-opus-20240229-v1:0", True),
         ("gpt-4o", False),  # OpenAI doesn't support explicit prompt caching
         ("gemini-1.5-pro", False),
         ("unknown-model", False),
@@ -111,6 +119,14 @@ def test_prompt_cache_support(model, expected_cache):
         ("gemini-1.5-pro", True),
         ("llama-3.1-70b", True),
         ("unknown-model", True),  # Most models support stop words
+        # Models that don't support stop words
+        ("o1", False),
+        ("o1-2024-12-17", False),
+        ("grok-4-0709", False),
+        ("grok-code-fast-1", False),
+        ("xai/grok-4-0709", False),
+        ("xai/grok-code-fast-1", False),
+        ("deepseek-r1-0528", False),
     ],
 )
 def test_stop_words_support(model, expected_stop_words):
@@ -221,3 +237,35 @@ def test_get_features_empty_model():
     assert features_none.supports_function_calling is False
     assert features_empty.supports_reasoning_effort is False
     assert features_none.supports_reasoning_effort is False
+
+
+def test_model_matches_with_provider_pattern():
+    """Test model_matches with pattern containing '/' matches raw model string."""
+    # Test pattern with '/' matches against raw model string (lines 43-44)
+    assert model_matches("openai/gpt-4", ["openai/*"])
+    assert model_matches("anthropic/claude-3", ["anthropic/claude*"])
+    assert not model_matches("openai/gpt-4", ["anthropic/*"])
+
+
+def test_stop_words_grok_provider_prefixed():
+    """Test that grok models don't support stop words with and without provider prefixes."""  # noqa: E501
+    assert get_features("xai/grok-4-0709").supports_stop_words is False
+    assert get_features("grok-4-0709").supports_stop_words is False
+    assert get_features("xai/grok-code-fast-1").supports_stop_words is False
+    assert get_features("grok-code-fast-1").supports_stop_words is False
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "o1-mini",
+        "o1-2024-12-17",
+        "xai/grok-4-0709",
+        "xai/grok-code-fast-1",
+        "deepseek-r1-0528",
+    ],
+)
+def test_supports_stop_words_false_models(model):
+    """Test models that don't support stop words."""
+    features = get_features(model)
+    assert features.supports_stop_words is False

@@ -1,51 +1,65 @@
-from enum import Enum
 from typing import Any, Literal, cast
 
+import mcp.types
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
-from pydantic import BaseModel, Field, field_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from openhands.sdk.logger import get_logger
+from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 
 
-class ContentType(Enum):
-    TEXT = "text"
-    IMAGE_URL = "image_url"
+logger = get_logger(__name__)
 
 
-class Content(BaseModel):
-    type: str
+class BaseContent(BaseModel):
     cache_prompt: bool = False
 
-    @model_serializer(mode="plain")
-    def serialize_model(
+    def to_llm_dict(
         self,
     ) -> dict[str, str | dict[str, str]] | list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format. Subclasses should implement this method."""
         raise NotImplementedError("Subclasses should implement this method.")
 
 
-class TextContent(Content):
-    type: str = ContentType.TEXT.value
+class TextContent(mcp.types.TextContent, BaseContent):
+    type: Literal["text"] = "text"
     text: str
+    # We use populate_by_name since mcp.types.TextContent
+    # alias meta -> _meta, but .model_dumps() will output "meta"
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    @model_serializer(mode="plain")
-    def serialize_model(self) -> dict[str, str | dict[str, str]]:
+    def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
+        """Convert to LLM API format."""
+        text = self.text
+        if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
+            logger.warning(
+                f"TextContent text length ({len(text)}) exceeds limit "
+                f"({DEFAULT_TEXT_CONTENT_LIMIT}), truncating"
+            )
+            text = maybe_truncate(text, DEFAULT_TEXT_CONTENT_LIMIT)
+
         data: dict[str, str | dict[str, str]] = {
             "type": self.type,
-            "text": self.text,
+            "text": text,
         }
         if self.cache_prompt:
             data["cache_control"] = {"type": "ephemeral"}
         return data
 
 
-class ImageContent(Content):
-    type: str = ContentType.IMAGE_URL.value
+class ImageContent(mcp.types.ImageContent, BaseContent):
+    type: Literal["image"] = "image"
     image_urls: list[str]
+    # We use populate_by_name since mcp.types.ImageContent
+    # alias meta -> _meta, but .model_dumps() will output "meta"
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    @model_serializer(mode="plain")
-    def serialize_model(self) -> list[dict[str, str | dict[str, str]]]:
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format."""
         images: list[dict[str, str | dict[str, str]]] = []
         for url in self.image_urls:
-            images.append({"type": self.type, "image_url": {"url": url}})
+            images.append({"type": "image_url", "image_url": {"url": url}})
         if self.cache_prompt and images:
             images[-1]["cache_control"] = {"type": "ephemeral"}
         return images
@@ -83,21 +97,24 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    @model_serializer(mode="plain")
-    def serialize_model(self) -> dict[str, Any]:
-        # We need two kinds of serializations:
-        # - into a single string: for providers that don't support list of content
-        #   items (e.g. no vision, no tool calls)
-        # - into a list of content items: the new APIs of providers with
-        #   vision/prompt caching/tool calls
-        # NOTE: remove this when litellm or providers support the new API
+    def to_llm_dict(self) -> dict[str, Any]:
+        """Serialize message for LLM API consumption.
+
+        This method chooses the appropriate serialization format based on the message
+        configuration and provider capabilities:
+        - String format: for providers that don't support list of content items
+        - List format: for providers with vision/prompt caching/tool calls support
+        """
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
-            return self._list_serializer()
-        # some providers, like HF and Groq/llama, don't support a list here, but a
-        # single string
-        return self._string_serializer()
+            message_dict = self._list_serializer()
+        else:
+            # some providers, like HF and Groq/llama, don't support a list here, but a
+            # single string
+            message_dict = self._string_serializer()
+
+        return message_dict
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
@@ -115,7 +132,7 @@ class Message(BaseModel):
 
         for item in self.content:
             # Serialize with the subclass-specific return type
-            raw = item.model_dump()
+            raw = item.to_llm_dict()
             # We have to remove cache_prompt for tool content and move it up to the
             # message level
             # See discussion here for details: https://github.com/BerriAI/litellm/issues/6422#issuecomment-2438765472
@@ -181,3 +198,17 @@ class Message(BaseModel):
             else [],
             tool_calls=message.tool_calls,
         )
+
+
+def content_to_str(contents: list[TextContent | ImageContent]) -> list[str]:
+    """Convert a list of TextContent and ImageContent to a list of strings.
+
+    This is primarily used for display purposes.
+    """
+    text_parts = []
+    for content_item in contents:
+        if isinstance(content_item, TextContent):
+            text_parts.append(content_item.text)
+        elif isinstance(content_item, ImageContent):
+            text_parts.append(f"[Image: {len(content_item.image_urls)} URLs]")
+    return text_parts

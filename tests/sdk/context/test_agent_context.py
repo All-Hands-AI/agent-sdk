@@ -18,16 +18,16 @@ class TestAgentContext:
         """Test creating an empty AgentContext."""
         context = AgentContext()
         assert context.microagents == []
-        assert context.system_prompt_suffix is None
+        assert context.system_message_suffix is None
         assert context.user_message_suffix is None
 
     def test_agent_context_creation_with_suffix(self):
         """Test creating AgentContext with custom suffixes."""
         context = AgentContext(
-            system_prompt_suffix="Custom system suffix",
+            system_message_suffix="Custom system suffix",
             user_message_suffix="Custom user suffix",
         )
-        assert context.system_prompt_suffix == "Custom system suffix"
+        assert context.system_message_suffix == "Custom system suffix"
         assert context.user_message_suffix == "Custom user suffix"
 
     def test_microagent_validation_duplicate_names(self):
@@ -74,7 +74,7 @@ class TestAgentContext:
 
         expected_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -102,13 +102,13 @@ defined in user's repository.\n"
 
         context = AgentContext(
             microagents=[repo_agent],
-            system_prompt_suffix="Additional custom instructions for the system.",
+            system_message_suffix="Additional custom instructions for the system.",
         )
         result = context.get_system_message_suffix()
 
         expected_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -118,6 +118,7 @@ defined in user's repository.\n"
             "[END Context]\n"
             "\n"
             "</REPO_CONTEXT>\n"
+            "\n"
             "\n"
             "\n"
             "Additional custom instructions for the system."
@@ -316,7 +317,7 @@ attacks.",
         system_result = context.get_system_message_suffix()
         expected_system_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -398,7 +399,7 @@ templates.",
 
         expected_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -424,7 +425,7 @@ templates.\n"
 
         expected_output = (
             "<REPO_CONTEXT>\n"
-            "The following information has been included based on serveral files \
+            "The following information has been included based on several files \
 defined in user's repository.\n"
             "Please follow them while working.\n"
             "\n"
@@ -437,3 +438,50 @@ defined in user's repository.\n"
         )
 
         assert result == expected_output
+
+    def test_get_system_message_suffix_custom_suffix_only(self):
+        """Test system message suffix with custom suffix but no repo microagents.
+
+        This test exposes a bug where get_system_message_suffix() returns None
+        when there are no repo microagents, even if system_message_suffix is set.
+        The method should return the custom suffix in this case.
+        """
+        # Create context with only knowledge microagents (no repo microagents)
+        # but with a custom system_message_suffix
+        knowledge_agent = KnowledgeMicroagent(
+            name="test_knowledge",
+            content="Some knowledge content",
+            type=MicroagentType.KNOWLEDGE,
+            triggers=["test"],
+        )
+        context = AgentContext(
+            microagents=[knowledge_agent],
+            system_message_suffix="Custom system instructions without repo context.",
+        )
+
+        result = context.get_system_message_suffix()
+
+        assert result == "Custom system instructions without repo context."
+
+    def test_get_user_message_suffix_empty_query_with_suffix(self):
+        """Test user message suffix with empty query but custom user_message_suffix.
+
+        This test exposes a bug where get_user_message_suffix() returns None
+        when the user message has no text content, even if user_message_suffix is set.
+        The method should return the custom suffix in this case.
+        """
+        # Create context with user_message_suffix
+        context = AgentContext(
+            microagents=[],
+            user_message_suffix="Custom user instructions for empty messages.",
+        )
+
+        # Create a message with no text content (empty query)
+        empty_message = Message(role="user", content=[])
+
+        result = context.get_user_message_suffix(empty_message, [])
+
+        expected_content = TextContent(
+            text="Custom user instructions for empty messages."
+        )
+        assert result == (expected_content, [])

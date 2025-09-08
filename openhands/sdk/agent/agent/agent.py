@@ -5,7 +5,6 @@ from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message as LiteLLMMessage,
-    ModelResponse,
 )
 from pydantic import ValidationError
 
@@ -23,7 +22,14 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.event.condenser import Condensation
-from openhands.sdk.llm import LLM, Message, TextContent, get_llm_metadata
+from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.llm import (
+    LLM,
+    Message,
+    MetricsSnapshot,
+    TextContent,
+    get_llm_metadata,
+)
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
@@ -32,6 +38,7 @@ from openhands.sdk.tool import (
     ObservationBase,
     Tool,
 )
+from openhands.sdk.tool.builtins import FinishAction
 
 
 logger = get_logger(__name__)
@@ -52,7 +59,9 @@ class Agent(AgentBase):
                 f"{tool} is automatically included and should not be provided."
             )
         super().__init__(
-            llm=llm, tools=tools + BUILT_IN_TOOLS, agent_context=agent_context
+            llm=llm,
+            tools=tools + BUILT_IN_TOOLS,
+            agent_context=agent_context,
         )
 
         self.system_message: str = render_template(
@@ -86,11 +95,35 @@ class Agent(AgentBase):
             )
             on_event(event)
 
+    def _execute_actions(
+        self,
+        state: ConversationState,
+        action_events: list[ActionEvent],
+        on_event: ConversationCallbackType,
+    ):
+        for action_event in action_events:
+            self._execute_action_events(state, action_event, on_event=on_event)
+
     def step(
         self,
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        # If in confirmation mode stored on state, first check if there are any
+        # pending actions (implicit confirmation) and execute them before sampling
+        # a new action.
+        if state.confirmation_mode:
+            pending_actions = get_unmatched_actions(state.events)
+            if pending_actions:
+                logger.info(
+                    "Confirmation mode: Executing %d pending action(s)",
+                    len(pending_actions),
+                )
+                # Note: agent_waiting_for_confirmation flag is cleared by
+                # Conversation class
+                self._execute_actions(state, pending_actions, on_event)
+                return
+
         # If a condenser is registered with the agent, we need to give it an
         # opportunity to transform the events. This will either produce a list
         # of events, exactly as expected, or a new condensation that needs to be
@@ -119,18 +152,22 @@ class Agent(AgentBase):
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        response: ModelResponse = self.llm.completion(
+        tools = [tool.to_openai_tool() for tool in self.tools.values()]
+        response = self.llm.completion(
             messages=_messages,
-            tools=[tool.to_openai_tool() for tool in self.tools.values()],
+            tools=tools,
             extra_body={
                 "metadata": get_llm_metadata(
-                    model_name=self.llm.config.model, agent_name=self.name
+                    model_name=self.llm.model, agent_name=self.name
                 )
             },
         )
         assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
         llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
         message = Message.from_litellm_message(llm_message)
+
+        assert self.llm.metrics is not None, "LLM metrics should not be None"
+        metrics = self.llm.metrics.get_snapshot()  # take a snapshot of metrics
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -157,7 +194,7 @@ class Agent(AgentBase):
             # Generate unique batch ID for this LLM response
             thought_content = [c for c in message.content if isinstance(c, TextContent)]
 
-            action_events = []
+            action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(tool_calls):
                 action_event = self._get_action_events(
                     state,
@@ -167,18 +204,51 @@ class Agent(AgentBase):
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
+                    metrics=metrics if i == len(tool_calls) - 1 else None,
                 )
                 if action_event is None:
                     continue
                 action_events.append(action_event)
 
-            for action_event in action_events:
-                self._execute_action_events(state, action_event, on_event=on_event)
+            # Handle confirmation mode - exit early if actions need confirmation
+            if self._requires_user_confirmation(state, action_events):
+                return
+
+            if action_events:
+                self._execute_actions(state, action_events, on_event)
+
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
-            msg_event = MessageEvent(source="agent", llm_message=message)
+            msg_event = MessageEvent(
+                source="agent", llm_message=message, metrics=metrics
+            )
             on_event(msg_event)
+
+    def _requires_user_confirmation(
+        self, state: ConversationState, action_events: list[ActionEvent]
+    ) -> bool:
+        """
+        Decide whether user confirmation is needed to proceed.
+
+        Rules:
+            1. Confirmation mode is enabled
+            2. Every action requires confirmation
+            3. A single `FinishAction` never requires confirmation
+        """
+        if len(action_events) == 0:
+            return False
+
+        if len(action_events) == 1 and isinstance(
+            action_events[0].action, FinishAction
+        ):
+            return False
+
+        if not state.confirmation_mode:
+            return False
+
+        state.agent_waiting_for_confirmation = True
+        return True
 
     def _get_action_events(
         self,
@@ -187,6 +257,7 @@ class Agent(AgentBase):
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
+        metrics: MetricsSnapshot | None = None,
     ) -> ActionEvent | None:
         """Handle tool calls from the LLM.
 
@@ -200,7 +271,7 @@ class Agent(AgentBase):
         if tool is None:
             err = f"Tool '{tool_name}' not found. Available: {list(self.tools.keys())}"
             logger.error(err)
-            event = AgentErrorEvent(error=err)
+            event = AgentErrorEvent(error=err, metrics=metrics)
             on_event(event)
             state.agent_finished = True
             return
@@ -215,7 +286,7 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.function.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
-            event = AgentErrorEvent(error=err)
+            event = AgentErrorEvent(error=err, metrics=metrics)
             on_event(event)
             return
 
@@ -227,6 +298,7 @@ class Agent(AgentBase):
             tool_call_id=tool_call.id,
             tool_call=tool_call,
             llm_response_id=llm_response_id,
+            metrics=metrics,
         )
         on_event(action_event)
         return action_event

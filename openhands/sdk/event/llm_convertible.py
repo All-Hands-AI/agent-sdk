@@ -1,13 +1,13 @@
 import copy
 from typing import cast
 
-from litellm import ChatCompletionMessageToolCall
-from openai.types.chat import ChatCompletionToolParam
+from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import Field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventType, SourceType
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
+from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -66,6 +66,13 @@ class ActionEvent(LLMConvertibleEvent):
             "response."
         ),
     )
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
+        ),
+    )
 
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
@@ -107,7 +114,7 @@ class ObservationEvent(LLMConvertibleEvent):
     def to_llm_message(self) -> Message:
         return Message(
             role="tool",
-            content=[TextContent(text=self.observation.agent_observation)],
+            content=self.observation.agent_observation,
             name=self.tool_name,
             tool_call_id=self.tool_call_id,
         )
@@ -115,10 +122,11 @@ class ObservationEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for ObservationEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
+        content_str = "".join(content_to_str(self.observation.agent_observation))
         obs_preview = (
-            self.observation.agent_observation[:N_CHAR_PREVIEW] + "..."
-            if len(self.observation.agent_observation) > N_CHAR_PREVIEW
-            else self.observation.agent_observation
+            content_str[:N_CHAR_PREVIEW] + "..."
+            if len(content_str) > N_CHAR_PREVIEW
+            else content_str
         )
         return f"{base_str}\n  Tool: {self.tool_name}\n  Result: {obs_preview}"
 
@@ -140,6 +148,13 @@ class MessageEvent(LLMConvertibleEvent):
     )
     extended_content: list[TextContent] = Field(
         default_factory=list, description="List of content added by agent context"
+    )
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs) for this message. "
+            "Only attached to messages from agent."
+        ),
     )
 
     def to_llm_message(self) -> Message:
@@ -173,12 +188,57 @@ class MessageEvent(LLMConvertibleEvent):
             return f"{base_str}\n  {message.role}: [no text content]"
 
 
+class UserRejectObservation(LLMConvertibleEvent):
+    """Observation when user rejects an action in confirmation mode."""
+
+    kind: EventType = "observation"
+    source: SourceType = "user"
+    action_id: str = Field(
+        ..., description="The action id that this rejection is responding to"
+    )
+    tool_name: str = Field(
+        ..., description="The tool name that this rejection is responding to"
+    )
+    tool_call_id: str = Field(
+        ..., description="The tool call id that this rejection is responding to"
+    )
+    rejection_reason: str = Field(
+        default="User rejected the action",
+        description="Reason for rejecting the action",
+    )
+
+    def to_llm_message(self) -> Message:
+        return Message(
+            role="tool",
+            content=[TextContent(text=f"Action rejected: {self.rejection_reason}")],
+            name=self.tool_name,
+            tool_call_id=self.tool_call_id,
+        )
+
+    def __str__(self) -> str:
+        """Plain text string representation for UserRejectObservation."""
+        base_str = f"{self.__class__.__name__} ({self.source})"
+        reason_preview = (
+            self.rejection_reason[:N_CHAR_PREVIEW] + "..."
+            if len(self.rejection_reason) > N_CHAR_PREVIEW
+            else self.rejection_reason
+        )
+        return f"{base_str}\n  Tool: {self.tool_name}\n  Reason: {reason_preview}"
+
+
 class AgentErrorEvent(LLMConvertibleEvent):
     """Error triggered by the agent."""
 
     kind: EventType = "agent_error"
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
+        ),
+    )
 
     def to_llm_message(self) -> Message:
         return Message(role="user", content=[TextContent(text=self.error)])

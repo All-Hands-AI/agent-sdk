@@ -1,11 +1,8 @@
 from datetime import datetime, timezone
 from enum import Enum
 
+from fastmcp.mcp_config import MCPConfig
 from pydantic import BaseModel, Field
-
-from openhands.sdk.config.mcp_config import (
-    MCPConfig,
-)
 
 
 class MicroagentType(str, Enum):
