@@ -1,4 +1,3 @@
-import uuid
 from typing import TYPE_CHECKING, Iterable
 
 
@@ -40,7 +39,6 @@ class Conversation:
         max_iteration_per_run: int = 500,
     ):
         """Initialize the conversation."""
-        self.id = str(uuid.uuid4())
         self._visualizer = ConversationVisualizer()
         self.agent = agent
         self.state = ConversationState()
@@ -61,6 +59,11 @@ class Conversation:
 
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
+
+    @property
+    def id(self) -> str:
+        """Get the unique ID of the conversation."""
+        return self.state.id
 
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
