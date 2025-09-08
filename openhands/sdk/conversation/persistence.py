@@ -8,7 +8,7 @@ from typing import List, Literal
 from pydantic import BaseModel, Field, ValidationError
 
 from openhands.sdk.conversation.state import ConversationState
-from openhands.sdk.event import EventBase, EventType
+from openhands.sdk.event import Event, EventBase
 from openhands.sdk.io import FileStore
 
 
@@ -105,7 +105,7 @@ def append_delta(
     fs: FileStore,
     manifest: Manifest,
     idx: int,
-    event: EventType,
+    event: Event,
     flush_manifest: bool = True,
 ) -> None:
     """Per-event durability: write object first, then record it in manifest."""
@@ -171,9 +171,9 @@ def compact_tail(
     return True
 
 
-def replay_manifest(fs: FileStore, manifest: Manifest) -> List[EventType]:
+def replay_manifest(fs: FileStore, manifest: Manifest) -> List[Event]:
     """Materialize events in strict manifest order using Pydantic validation."""
-    out: List[EventType] = []
+    out: List[Event] = []
     for seg in manifest.segments:
         if isinstance(seg, DeltaSeg):
             blob = fs.read(seg.file)
