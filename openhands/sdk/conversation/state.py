@@ -1,4 +1,5 @@
 import json
+import uuid
 from threading import RLock, get_ident
 from typing import Optional
 
@@ -23,6 +24,7 @@ class ConversationState(BaseModel):
     )
 
     # Public, validated fields
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     events: list[Event] = Field(default_factory=list)
     agent_finished: bool = Field(default=False)
     confirmation_mode: bool = Field(default=False)
