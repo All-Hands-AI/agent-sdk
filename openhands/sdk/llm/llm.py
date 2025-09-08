@@ -13,6 +13,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    field_validator,
     model_validator,
 )
 
@@ -242,6 +243,25 @@ class LLM(BaseModel, RetryMixin):
     # =========================================================================
     # Validators
     # =========================================================================
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def _validate_api_key(cls, v):
+        """Convert empty API keys to None to allow boto3 to use alternative auth methods."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Handle both SecretStr and string inputs
+        if isinstance(v, SecretStr):
+            secret_value = v.get_secret_value()
+        else:
+            secret_value = str(v)
+
+        # If the API key is empty or whitespace-only, return None
+        if not secret_value or not secret_value.strip():
+            return None
+
+        return v
+
     @model_validator(mode="before")
     @classmethod
     def _coerce_inputs(cls, data):
@@ -321,6 +341,7 @@ class LLM(BaseModel, RetryMixin):
         self,
         messages: list[dict[str, Any]] | list[Message],
         tools: list[ChatCompletionToolParam] | None = None,
+        return_metrics: bool = False,
         **kwargs,
     ) -> ModelResponse:
         """Single entry point for LLM completion.
@@ -391,6 +412,7 @@ class LLM(BaseModel, RetryMixin):
                 raise LLMNoResponseError(
                     "Response choices is less than 1. Response: " + str(resp)
                 )
+
             return resp
 
         try:
@@ -688,7 +710,29 @@ class LLM(BaseModel, RetryMixin):
     # =========================================================================
     # Utilities preserved from previous class
     # =========================================================================
+    def _apply_prompt_caching(self, messages: list[Message]) -> None:
+        """Applies caching breakpoints to the messages.
+
+        For new Anthropic API, we only need to mark the last user or
+          tool message as cacheable.
+        """
+        if len(messages) > 0 and messages[0].role == "system":
+            messages[0].content[-1].cache_prompt = True
+        # NOTE: this is only needed for anthropic
+        for message in reversed(messages):
+            if message.role in ("user", "tool"):
+                message.content[
+                    -1
+                ].cache_prompt = True  # Last item inside the message content
+                break
+
     def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
+        """Formats Message objects for LLM consumption."""
+
+        messages = copy.deepcopy(messages)
+        if self.is_caching_prompt_active():
+            self._apply_prompt_caching(messages)
+
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
@@ -696,8 +740,6 @@ class LLM(BaseModel, RetryMixin):
             if "deepseek" in self.model or (
                 "kimi-k2-instruct" in self.model and "groq" in self.model
             ):
-                message.force_string_serializer = True
-            if "openrouter/anthropic/claude-sonnet-4" in self.model:
                 message.force_string_serializer = True
 
         return [message.to_llm_dict() for message in messages]

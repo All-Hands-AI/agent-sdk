@@ -1,4 +1,4 @@
-from typing import Any, TypeVar
+from typing import Annotated, Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
@@ -6,6 +6,10 @@ from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
+)
+from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
 )
 
 
@@ -146,7 +150,7 @@ class Schema(BaseModel):
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class ActionBase(Schema):
+class ActionBase(Schema, DiscriminatedUnionMixin):
     """Base schema for input action."""
 
     # NOTE: We make it optional since some weaker
@@ -194,7 +198,16 @@ class MCPActionBase(ActionBase):
         return data
 
 
-class ObservationBase(Schema):
+Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
+"""Type annotation for values that can be any implementation of ActionBase.
+
+In most situations, this is equivalent to ActionBase. However, when used in Pydantic
+BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
+discriminator resolution until runtime.
+"""
+
+
+class ObservationBase(Schema, DiscriminatedUnionMixin):
     """Base schema for output observation."""
 
     model_config = ConfigDict(extra="allow")
@@ -203,3 +216,12 @@ class ObservationBase(Schema):
     def agent_observation(self) -> list[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
         raise NotImplementedError("Subclasses must implement agent_observation")
+
+
+Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
+"""Type annotation for values that can be any implementation of ObservationBase.
+
+In most situations, this is equivalent to ObservationBase. However, when used in
+Pydantic BaseModels as a field annotation, it enables polymorphic deserialization by
+delaying the discriminator resolution until runtime.
+"""

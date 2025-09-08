@@ -364,7 +364,7 @@ def test_metrics_copy():
     original.add_response_latency(0.5, "test-response")
 
     # Create a copy
-    copied = original.copy()
+    copied = original.deep_copy()
 
     # Verify copy has same data
     original_data = original.get()

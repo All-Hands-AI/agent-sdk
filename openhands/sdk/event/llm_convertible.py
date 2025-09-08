@@ -5,15 +5,15 @@ from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import Field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
-from openhands.sdk.event.types import EventType, SourceType
+from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.llm.utils.metrics import MetricsSnapshot
+from openhands.sdk.tool import Action, Observation
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
     """System prompt added by the agent."""
 
-    kind: EventType = "system_prompt"
     source: SourceType = "agent"
     system_prompt: TextContent = Field(..., description="The system prompt text")
     tools: list[ChatCompletionToolParam] = Field(
@@ -38,14 +38,11 @@ class SystemPromptEvent(LLMConvertibleEvent):
 
 
 class ActionEvent(LLMConvertibleEvent):
-    kind: EventType = "action"
     source: SourceType = "agent"
     thought: list[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
-    action: ActionBase = Field(
-        ..., description="Single action (tool call) returned by LLM"
-    )
+    action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: str = Field(
         ..., description="The unique id returned by LLM API for this tool call"
@@ -63,6 +60,13 @@ class ActionEvent(LLMConvertibleEvent):
             "Groups related actions from same LLM response. This helps in tracking "
             "and managing results of parallel function calling from the same LLM "
             "response."
+        ),
+    )
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
         ),
     )
 
@@ -87,9 +91,8 @@ class ActionEvent(LLMConvertibleEvent):
 
 
 class ObservationEvent(LLMConvertibleEvent):
-    kind: EventType = "observation"
     source: SourceType = "environment"
-    observation: ObservationBase = Field(
+    observation: Observation = Field(
         ..., description="The observation (tool call) sent to LLM"
     )
 
@@ -128,7 +131,6 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    kind: EventType = "message"
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
@@ -140,6 +142,13 @@ class MessageEvent(LLMConvertibleEvent):
     )
     extended_content: list[TextContent] = Field(
         default_factory=list, description="List of content added by agent context"
+    )
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs) for this message. "
+            "Only attached to messages from agent."
+        ),
     )
 
     def to_llm_message(self) -> Message:
@@ -176,7 +185,6 @@ class MessageEvent(LLMConvertibleEvent):
 class UserRejectObservation(LLMConvertibleEvent):
     """Observation when user rejects an action in confirmation mode."""
 
-    kind: EventType = "observation"
     source: SourceType = "user"
     action_id: str = Field(
         ..., description="The action id that this rejection is responding to"
@@ -214,9 +222,15 @@ class UserRejectObservation(LLMConvertibleEvent):
 class AgentErrorEvent(LLMConvertibleEvent):
     """Error triggered by the agent."""
 
-    kind: EventType = "agent_error"
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
+        ),
+    )
 
     def to_llm_message(self) -> Message:
         return Message(role="user", content=[TextContent(text=self.error)])
@@ -230,19 +244,3 @@ class AgentErrorEvent(LLMConvertibleEvent):
             else self.error
         )
         return f"{base_str}\n  Error: {error_preview}"
-
-
-class PauseEvent(LLMConvertibleEvent):
-    """Event indicating that the agent execution was paused by user request."""
-
-    source: SourceType = "user"
-
-    def to_llm_message(self) -> Message:
-        return Message(
-            role="user",
-            content=[TextContent(text="Agent execution paused by user request.")],
-        )
-
-    def __str__(self) -> str:
-        """Plain text string representation for PauseEvent."""
-        return f"{self.__class__.__name__} ({self.source}): Agent execution paused"
