@@ -15,7 +15,7 @@ from openhands.sdk.io import FileStore
 BASE_STATE = "base_state.json"
 MANIFEST = "manifest.json"
 EVENTS_DIR = "events"
-SHARD_SIZE = 25  # compact after this many trailing deltas
+SHARD_SIZE = 20  # compact after this many trailing deltas
 
 
 # ---------- Pydantic models ----------

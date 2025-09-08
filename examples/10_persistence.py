@@ -11,6 +11,7 @@ from openhands.sdk import (
     Message,
     TextContent,
     Tool,
+    create_mcp_tools,
     get_logger,
 )
 from openhands.tools import (
@@ -37,6 +38,19 @@ tools: list[Tool] = [
     FileEditorTool(),
 ]
 
+# Add MCP Tools
+mcp_config = {
+    "mcpServers": {
+        "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
+        "Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"},
+    }
+}
+mcp_tools = create_mcp_tools(mcp_config, timeout=30)
+tools.extend(mcp_tools)
+logger.info(f"Added {len(mcp_tools)} MCP tools")
+for tool in mcp_tools:
+    logger.info(f"  - {tool.name}: {tool.description}")
+
 # Agent
 agent = Agent(llm=llm, tools=tools)
 
@@ -56,8 +70,9 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py"
-                    " that prints 'Hello, World!'?"
+                    "Read https://github.com/All-Hands-AI/OpenHands and "
+                    "search about OpenHands V1 in my notion workspace. "
+                    "Then write 3 facts about the project into FACTS.txt."
                 )
             )
         ],
@@ -80,14 +95,14 @@ for i, message in enumerate(llm_messages):
 
 # Conversation persistence
 print("Serializing conversation...")
-conversation.save("./conversation_data")
+conversation.save("./conversations")
 
 del conversation
 
 # Deserialize the conversation
 print("Deserializing conversation...")
 conversation = Conversation.load(
-    dir_path="./conversation_data", agent=agent, callbacks=[conversation_callback]
+    dir_path="./conversations", agent=agent, callbacks=[conversation_callback]
 )
 print("Sending message to deserialized conversation...")
 conversation.send_message(
