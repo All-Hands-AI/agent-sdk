@@ -1,19 +1,13 @@
-import re
 from typing import Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import BaseModel, Field
 
-from openhands.sdk.tool.schema import ActionBase, ObservationBase, Schema
+from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
 ObservationT = TypeVar("ObservationT", bound=ObservationBase)
-
-
-def to_camel_case(s: str) -> str:
-    parts = re.split(r"[_\-\s]+", s)
-    return "".join(word.capitalize() for word in parts if word)
 
 
 class ToolAnnotations(BaseModel):
@@ -65,8 +59,8 @@ class Tool(Generic[ActionT, ObservationT]):
         *,
         name: str,
         description: str,
-        input_schema: type[ActionBase] | dict[str, Any],
-        output_schema: type[ObservationBase] | dict[str, Any] | None = None,
+        input_schema: type[ActionBase],
+        output_schema: type[ObservationBase] | None = None,
         title: str | None = None,
         annotations: ToolAnnotations | None = None,
         _meta: dict[str, Any] | None = None,
@@ -76,9 +70,15 @@ class Tool(Generic[ActionT, ObservationT]):
         self.description = description
         self.annotations = annotations
         self._meta = _meta
-        self._set_input_schema(input_schema)
-        self._set_output_schema(output_schema)
         self.title = title or name
+
+        # Schemas
+        self.action_type: type[ActionBase] = input_schema
+        self.input_schema: dict[str, Any] = input_schema.to_mcp_schema()
+        self.observation_type: type[ObservationBase] | None = output_schema
+        self.output_schema: dict[str, Any] | None = (
+            output_schema.to_mcp_schema() if output_schema else None
+        )
 
         self.executor = executor
 
@@ -86,49 +86,6 @@ class Tool(Generic[ActionT, ObservationT]):
         """Set or replace the executor function."""
         self.executor = executor
         return self
-
-    def _set_input_schema(
-        self, input_schema: dict[str, Any] | type[ActionBase]
-    ) -> None:
-        # ---- INPUT: class or dict -> model + schema
-        self.action_type: type[ActionBase]
-        self.input_schema: dict[str, Any]
-        if isinstance(input_schema, type) and issubclass(input_schema, Schema):
-            self.action_type = input_schema
-            self.input_schema = input_schema.to_mcp_schema()
-        elif isinstance(input_schema, dict):
-            self.input_schema = input_schema
-            self.action_type = ActionBase.from_mcp_schema(
-                f"{to_camel_case(self.name)}Action", input_schema
-            )
-            # Update mcp schema in case we have additional fields in ActionBase
-            self.input_schema = self.action_type.to_mcp_schema()
-        else:
-            raise TypeError(
-                "input_schema must be ActionBase subclass or dict JSON schema"
-            )
-
-    def _set_output_schema(
-        self, output_schema: dict[str, Any] | type[ObservationBase] | None
-    ) -> None:
-        # ---- OUTPUT: optional class or dict -> model + schema
-        self.observation_type: type[ObservationBase] | None
-        self.output_schema: dict[str, Any] | None
-        if output_schema is None:
-            self.observation_type = None
-            self.output_schema = None
-        elif isinstance(output_schema, type) and issubclass(output_schema, Schema):
-            self.observation_type = output_schema
-            self.output_schema = output_schema.to_mcp_schema()
-        elif isinstance(output_schema, dict):
-            self.output_schema = output_schema
-            self.observation_type = ObservationBase.from_mcp_schema(
-                f"{to_camel_case(self.name)}Observation", output_schema
-            )
-        else:
-            raise TypeError(
-                "output_schema must be ObservationBase subclass, dict, or None"
-            )
 
     def call(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
