@@ -43,7 +43,6 @@ tools: list[Tool] = [
 mcp_config = {
     "mcpServers": {
         "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
-        # "Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"},
     }
 }
 mcp_tools = create_mcp_tools(mcp_config, timeout=30)
