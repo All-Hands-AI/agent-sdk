@@ -2,10 +2,10 @@
 
 from openhands.sdk.tool.builtins import BUILT_IN_TOOLS, FinishTool
 from openhands.sdk.tool.schema import (
+    Action,
     ActionBase,
-    AnyAction,
-    AnyObservation,
     MCPActionBase,
+    Observation,
     ObservationBase,
 )
 from openhands.sdk.tool.tool import (
@@ -21,9 +21,9 @@ __all__ = [
     "ToolExecutor",
     "ActionBase",
     "MCPActionBase",
-    "AnyAction",
+    "Action",
     "ObservationBase",
-    "AnyObservation",
+    "Observation",
     "FinishTool",
     "BUILT_IN_TOOLS",
 ]

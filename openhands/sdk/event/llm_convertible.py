@@ -8,7 +8,7 @@ from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-from openhands.sdk.tool import AnyAction, AnyObservation
+from openhands.sdk.tool import Action, Observation
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
@@ -42,9 +42,7 @@ class ActionEvent(LLMConvertibleEvent):
     thought: list[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
-    action: AnyAction = Field(
-        ..., description="Single action (tool call) returned by LLM"
-    )
+    action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: str = Field(
         ..., description="The unique id returned by LLM API for this tool call"
@@ -94,7 +92,7 @@ class ActionEvent(LLMConvertibleEvent):
 
 class ObservationEvent(LLMConvertibleEvent):
     source: SourceType = "environment"
-    observation: AnyObservation = Field(
+    observation: Observation = Field(
         ..., description="The observation (tool call) sent to LLM"
     )
 

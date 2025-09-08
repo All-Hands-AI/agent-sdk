@@ -1,4 +1,4 @@
-from openhands.sdk.event.base import EventBase, EventType, LLMConvertibleEvent
+from openhands.sdk.event.base import Event, EventBase, LLMConvertibleEvent
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
@@ -21,7 +21,7 @@ __all__ = [
     "AgentErrorEvent",
     "UserRejectObservation",
     "PauseEvent",
-    "EventType",
+    "Event",
     "Condensation",
     "CondensationRequest",
 ]

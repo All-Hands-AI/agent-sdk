@@ -184,7 +184,13 @@ class MCPActionBase(ActionBase):
     model_config = ConfigDict(extra="allow")
 
 
-AnyAction = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
+Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
+"""Type annotation for values that can be any implementation of ActionBase.
+
+In most situations, this is equivalent to ActionBase. However, when used in Pydantic
+BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
+discriminator resolution until runtime.
+"""
 
 
 class ObservationBase(Schema, DiscriminatedUnionMixin):
@@ -198,4 +204,10 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
         raise NotImplementedError("Subclasses must implement agent_observation")
 
 
-AnyObservation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
+Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
+"""Type annotation for values that can be any implementation of ObservationBase.
+
+In most situations, this is equivalent to ObservationBase. However, when used in
+Pydantic BaseModels as a field annotation, it enables polymorphic deserialization by
+delaying the discriminator resolution until runtime.
+"""
