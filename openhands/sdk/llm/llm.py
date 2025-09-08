@@ -502,10 +502,6 @@ class LLM(BaseModel, RetryMixin):
             out.pop("temperature", None)
             out.pop("top_p", None)
             # Skip explicit Gemini 'thinking' param; rely on provider defaults
-        # DeepSeek does not support OpenAI 'reasoning_effort' param; drop it
-        ml = self.model.lower()
-        if "/deepseek/" in ml or ml.startswith("deepseek/"):
-            out.pop("reasoning_effort", None)
 
         # Anthropic Opus 4.1: prefer temperature when
         # both provided; disable extended thinking
