@@ -130,8 +130,8 @@ grep_executor = GrepExecutor(bash_executor)
 grep_tool = Tool(
     name="grep",
     description=_GREP_DESCRIPTION,
-    input_schema=GrepAction,
-    output_schema=GrepObservation,
+    action_type=GrepAction,
+    observation_type=GrepObservation,
     executor=grep_executor,
 )
 
