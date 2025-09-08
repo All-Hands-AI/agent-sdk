@@ -424,7 +424,7 @@ class TestTelemetryLogging:
         telemetry = Telemetry(
             model_name="gpt-4o",
             log_enabled=True,
-            log_dir="/invalid/path/that/does/not/exist",
+            log_dir="/dev/null/invalid/path",  # This will definitely fail
             metrics=mock_metrics,
         )
 
