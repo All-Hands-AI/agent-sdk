@@ -1,177 +1,193 @@
+# persistence_helpers.py
+from __future__ import annotations
+
 import json
-import os
-import re
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import TYPE_CHECKING, Type
+from typing import List, Literal
+
+from pydantic import BaseModel, Field, ValidationError
+
+from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.event import EventBase, EventType
+from openhands.sdk.io import FileStore
 
 
-if TYPE_CHECKING:
-    from .conversation import Conversation  # noqa
-
-from openhands.sdk.event import EventType
-from openhands.sdk.io import FileStore, LocalFileStore
-from openhands.sdk.logger import get_logger
+BASE_STATE = "base_state.json"
+MANIFEST = "manifest.json"
+EVENTS_DIR = "events"
+SHARD_SIZE = 25  # compact after this many trailing deltas
 
 
-logger = get_logger(__name__)
-
-INDEX_WIDTH = 4
-EVENTS_DIR_NAME = "events"
-BASE_STATE_NAME = "base_state.json"
+# ---------- Pydantic models ----------
 
 
-class ConversationPersistence:
+class DeltaSeg(BaseModel):
+    type: Literal["delta"] = "delta"
+    file: str
+    index: int = Field(ge=0)
+
+
+class PartSeg(BaseModel):
+    type: Literal["part"] = "part"
+    file: str
+    start: int = Field(ge=0)
+    count: int = Field(ge=1)
+
+
+Segment = DeltaSeg | PartSeg
+
+
+class Manifest(BaseModel):
+    segments: List[Segment] = Field(default_factory=list)
+
+    def next_event_index(self) -> int:
+        if not self.segments:
+            return 0
+        last = -1
+        for s in self.segments:
+            if isinstance(s, DeltaSeg):
+                if s.index > last:
+                    last = s.index
+            else:  # PartSeg
+                assert isinstance(s, PartSeg)
+                end = s.start + s.count - 1
+                if end > last:
+                    last = end
+        return last + 1
+
+    def next_part_number(self) -> int:
+        n = -1
+        for s in self.segments:
+            if isinstance(s, PartSeg):
+                try:
+                    fname = s.file.rsplit("/", 1)[-1]
+                    n = max(n, int(fname.split("-")[1].split(".")[0]))
+                except Exception:
+                    n = max(n, 0)
+        return n + 1
+
+
+# ---------- Tiny helper functions ----------
+
+
+def write_base_state(fs: FileStore, state_model: ConversationState) -> None:
+    """Persist ConversationState WITHOUT events (Pydantic model)."""
+    base = state_model.model_copy()
+    base.events = []
+    fs.write(
+        BASE_STATE,
+        base.model_dump_json(exclude_none=True).encode("utf-8"),
+    )
+
+
+def read_manifest(fs: FileStore) -> Manifest:
+    try:
+        raw = fs.read(MANIFEST)
+    except Exception:
+        return Manifest()
+    try:
+        # fs.read may return bytes or str
+        text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
+        data = json.loads(text)
+        return Manifest.model_validate({"segments": data})
+    except (ValidationError, Exception):
+        # If file existed but malformed, start fresh — simplest behavior.
+        return Manifest()
+
+
+def write_manifest(fs: FileStore, manifest: Manifest) -> None:
+    # store as a *list* (not an object) for easy inspection
+    payload = [s.model_dump(exclude_none=True) for s in manifest.segments]
+    fs.write(MANIFEST, json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+
+
+def append_delta(
+    fs: FileStore,
+    manifest: Manifest,
+    idx: int,
+    event: EventType,
+    flush_manifest: bool = True,
+) -> None:
+    """Per-event durability: write object first, then record it in manifest."""
+    ts_utc = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    delta_path = f"{EVENTS_DIR}/delta-{idx:06d}-{ts_utc}.json"
+    fs.write(
+        delta_path,
+        event.model_dump_json(exclude_none=True).encode("utf-8"),
+    )
+    manifest.segments.append(DeltaSeg(file=delta_path, index=idx))
+    if flush_manifest:
+        write_manifest(fs, manifest)
+
+
+def compact_tail(
+    fs: FileStore, manifest: Manifest, shard_size: int = SHARD_SIZE
+) -> bool:
     """
-    Simple persistence for conversations using raw events.
-
-    Layout under `root/`:
-      - base_state.json                     # state without events
-      - events/<index>-<ts>.jsonl           # raw events, one per file
-
-    Conventions:
-      - <index> is zero-padded to INDEX_WIDTH
-      - <ts> is UTC: YYYYMMDDTHHMMSS
+    If there are >= shard_size trailing deltas, replace them with one 'part' entry.
+    Returns True if a compaction happened.
     """
+    # collect trailing deltas
+    tail: List[DeltaSeg] = []
+    for s in reversed(manifest.segments):
+        if not isinstance(s, DeltaSeg):
+            break
+        tail.append(s)
+        if len(tail) >= shard_size:
+            break
+    if len(tail) < shard_size:
+        return False
 
-    _RE_INDIV = re.compile(r"^(?P<idx>\d+)-(?P<ts>\d{8}T\d{6})\.jsonl$")
+    # oldest → newest
+    tail.sort(key=lambda s: s.index)
+    start = tail[0].index
 
-    def save(
-        self, obj: "Conversation", dir_path: str, filestore: FileStore | None = None
-    ) -> None:
-        """Save conversation state and events."""
-        filestore = filestore or LocalFileStore(root=dir_path)
+    # read events for the tail
+    events_json = []
+    for s in tail:
+        blob = fs.read(s.file)
+        text = blob.decode("utf-8") if isinstance(blob, (bytes, bytearray)) else blob
+        events_json.append(json.loads(text))
 
-        with obj.state:
-            # Save base state without events
-            self._write_base_state(obj, filestore)
+    # write part file
+    part_no = manifest.next_part_number()
+    part_path = f"{EVENTS_DIR}/part-{part_no:06d}.jsonl"
+    fs.write(
+        part_path,
+        b"".join(
+            (json.dumps(e, separators=(",", ":")) + "\n").encode("utf-8")
+            for e in events_json
+        ),
+    )
 
-            # Save only new events
-            saved_indices = self._saved_indices(filestore)
-            for idx, event in enumerate(obj.state.events):
-                if idx not in saved_indices:
-                    self._write_event(idx, event, filestore)
+    # replace tail deltas with single part segment
+    # (pop from end; we know tail are the last len(tail) entries)
+    for _ in range(len(tail)):
+        manifest.segments.pop()
+    manifest.segments.append(
+        PartSeg(file=part_path, start=start, count=len(events_json))
+    )
 
-    def load(
-        self, dir_path: str, agent, file_store: FileStore | None = None, **kwargs
-    ) -> "Conversation":
-        """Load conversation state and events."""
-        from .conversation import Conversation
-        from .state import ConversationState
+    return True
 
-        filestore = file_store or LocalFileStore(root=dir_path)
 
-        # Load base state
-        base_state_dict = json.loads(filestore.read(BASE_STATE_NAME))
-        obj = Conversation(agent=agent, **kwargs)
-
-        with obj.state:
-            obj.state = ConversationState.model_validate(base_state_dict)
-
-            # Load events
-            event_entries = []
-            for path in filestore.list(EVENTS_DIR_NAME):
-                name = os.path.basename(path)
-                match = self._RE_INDIV.match(name)
-                if match:
-                    event_entries.append((int(match.group("idx")), path))
-
-            # Load events in order
-            event_entries.sort(key=lambda t: t[0])
-            for _, path in event_entries:
-                blob = filestore.read(path)
-                for line in blob.splitlines():
-                    if line:
-                        event_dict = json.loads(line)
-                        try:
-                            event = self._deserialize_event(event_dict)
-                            obj.state.events.append(event)  # type: ignore
-                        except Exception as e:
-                            logger.error(
-                                f"Failed to deserialize event from {path}: {e}"
-                            )
-
-        return obj
-
-    def _write_base_state(self, obj: "Conversation", file_store: FileStore) -> None:
-        """Write base state without events."""
-        base = obj.state.model_copy()
-        base.events = []
-        data = json.dumps(
-            base.model_dump(), ensure_ascii=False, separators=(",", ":")
-        ).encode("utf-8")
-        file_store.write(BASE_STATE_NAME, data)
-
-    def _write_event(self, index: int, event: EventType, file_store: FileStore) -> None:
-        """Write a single event to file."""
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-        name = f"{index:0{INDEX_WIDTH}d}-{ts}.jsonl"
-        path = str(Path(EVENTS_DIR_NAME) / name)
-
-        line = (
-            json.dumps(event.model_dump(), ensure_ascii=False, separators=(",", ":"))
-            + "\n"
-        ).encode("utf-8")
-        file_store.write(path, line)
-
-    def _saved_indices(self, file_store: FileStore) -> set[int]:
-        """Get indices of already saved events."""
-        saved = set()
-        for path in file_store.list(EVENTS_DIR_NAME):
-            name = os.path.basename(path)
-            match = self._RE_INDIV.match(name)
-            if match:
-                saved.add(int(match.group("idx")))
-        return saved
-
-    def _deserialize_event(self, event_dict: dict) -> EventType:
-        """Deserialize an event dictionary back to an EventType instance."""
-        kind = event_dict.get("kind")
-        if not kind:
-            logger.warning("Event missing 'kind' field, skipping event")
-            raise ValueError("Event missing 'kind' field")
-
-        event_class = self._get_event_class_by_kind(kind)
-
-        if event_class:
-            return event_class.model_validate(event_dict)
-        else:
-            # For unknown event types, log warning and skip
-            logger.warning(f"Unknown event kind '{kind}', skipping event")
-            raise ValueError(f"Unknown event kind: {kind}")
-
-    def _get_event_class_by_kind(self, kind: str) -> Type[EventType] | None:
-        """Get event class by kind, using automatic discovery of EventBase subclasses."""  # noqa: E501
-        if not hasattr(self, "_event_class_cache"):
-            self._event_class_cache = self._build_event_class_mapping()
-
-        return self._event_class_cache.get(kind)
-
-    def _build_event_class_mapping(self) -> dict[str, Type[EventType]]:
-        """Build mapping of event kinds to event classes by discovering all EventBase subclasses."""  # noqa: E501
-        from openhands.sdk.event import EventBase
-
-        event_classes = {}
-
-        def collect_subclasses(cls):
-            """Recursively collect all subclasses of EventBase."""
-            for subclass in cls.__subclasses__():
-                # Check if the subclass has a 'kind' field defined
-                if (
-                    hasattr(subclass, "model_fields")
-                    and "kind" in subclass.model_fields
-                ):
-                    # Get the default value of the kind field
-                    kind_field = subclass.model_fields["kind"]
-                    if (
-                        hasattr(kind_field, "default")
-                        and kind_field.default is not None
-                    ):
-                        kind = kind_field.default
-                        event_classes[kind] = subclass
-
-                # Recursively collect subclasses
-                collect_subclasses(subclass)
-
-        collect_subclasses(EventBase)
-        return event_classes
+def replay_manifest(fs: FileStore, manifest: Manifest) -> List[EventType]:
+    """Materialize events in strict manifest order using Pydantic validation."""
+    out: List[EventType] = []
+    for seg in manifest.segments:
+        if isinstance(seg, DeltaSeg):
+            blob = fs.read(seg.file)
+            text = (
+                blob.decode("utf-8") if isinstance(blob, (bytes, bytearray)) else blob
+            )
+            out.append(EventBase.model_validate(json.loads(text)))
+        else:  # PartSeg
+            blob = fs.read(seg.file)
+            text = (
+                blob.decode("utf-8") if isinstance(blob, (bytes, bytearray)) else blob
+            )
+            for line in text.splitlines():
+                if not line:
+                    continue
+                out.append(EventBase.model_validate(json.loads(line)))
+    return out

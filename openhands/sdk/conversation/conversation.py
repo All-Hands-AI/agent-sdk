@@ -1,10 +1,19 @@
-from typing import TYPE_CHECKING, Iterable
+import json
+from typing import TYPE_CHECKING, Any, Iterable
 
 
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentBase
 
-from openhands.sdk.conversation.persistence import ConversationPersistence
+from openhands.sdk.conversation.persistence import (
+    SHARD_SIZE,
+    append_delta,
+    compact_tail,
+    read_manifest,
+    replay_manifest,
+    write_base_state,
+    write_manifest,
+)
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
@@ -14,6 +23,7 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.io import FileStore, LocalFileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
@@ -41,7 +51,6 @@ class Conversation:
     ):
         """Initialize the conversation."""
         self._visualizer = ConversationVisualizer()
-        self._persistence = ConversationPersistence()
         self.agent = agent
         self.state = ConversationState()
 
@@ -150,30 +159,6 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
-    def save(self, dir_path: str) -> None:
-        """Save current conversation state + messages to disk."""
-        self._persistence.save(self, dir_path)
-
-    @classmethod
-    def load(
-        cls,
-        dir_path: str,
-        agent: "AgentBase",
-        persistence: ConversationPersistence | None = None,
-        **kwargs,
-    ) -> "Conversation":
-        """Load conversation state + messages from disk.
-
-        Args:
-            agent: The agent associated with the conversation.
-            dir_path: The directory path to load the conversation from.
-            persistence: The persistence layer to use (optional).
-            kwargs: Additional keyword arguments to pass to the conversation
-                constructor.
-        """
-        persistence = persistence or ConversationPersistence()
-        return persistence.load(dir_path=dir_path, agent=agent, **(kwargs or {}))
-
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode and store it in conversation state."""
         with self.state:
@@ -226,3 +211,56 @@ class Conversation:
             pause_event = PauseEvent()
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
+
+    def save(self, dir_path: str, filestore: FileStore | None = None) -> None:
+        """
+        Simple: write base, append new deltas, compact tail, persist manifest.
+        """
+        fs = filestore or LocalFileStore(root=dir_path)
+
+        with self.state:
+            write_base_state(fs, self.state)
+
+            manifest = read_manifest(fs)
+            next_idx = manifest.next_event_index()
+
+            # append per-event durable deltas
+            for idx in range(next_idx, len(self.state.events)):
+                append_delta(
+                    fs, manifest, idx, self.state.events[idx], flush_manifest=True
+                )
+
+            # compact trailing deltas (25)
+            if compact_tail(fs, manifest, shard_size=SHARD_SIZE):
+                write_manifest(fs, manifest)
+
+    @classmethod
+    def load(
+        cls,
+        dir_path: str,
+        agent: "AgentBase",
+        file_store: FileStore | None = None,
+        **kwargs: Any,
+    ) -> "Conversation":
+        """
+        Load base state, then replay manifest. Zero inline imports, Pydantic throughout.
+        """
+        fs = file_store or LocalFileStore(root=dir_path)
+        obj = cls(agent=agent, **kwargs)
+
+        base_raw = fs.read("base_state.json")
+        base_json = (
+            base_raw.decode("utf-8")
+            if isinstance(base_raw, (bytes, bytearray))
+            else base_raw
+        )
+
+        with obj.state:
+            state_type = type(obj.state)  # Pydantic model class
+            obj.state = state_type.model_validate(json.loads(base_json))
+
+            manifest = read_manifest(fs)
+            for ev in replay_manifest(fs, manifest):
+                obj.state.events.append(ev)  # type: ignore
+
+        return obj

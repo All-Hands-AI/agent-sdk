@@ -4,22 +4,18 @@ from pydantic import SecretStr
 
 from openhands.sdk import (
     LLM,
-    ActionBase,
     Agent,
     Conversation,
-    LLMConfig,
+    EventType,
+    LLMConvertibleEvent,
     Message,
-    ObservationBase,
     TextContent,
     Tool,
     get_logger,
 )
-from openhands.sdk.event import EventType
 from openhands.tools import (
-    BashExecutor,
-    FileEditorExecutor,
-    execute_bash_tool,
-    str_replace_editor_tool,
+    BashTool,
+    FileEditorTool,
 )
 
 
@@ -29,20 +25,16 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    config=LLMConfig(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-        base_url="https://llm-proxy.eval.all-hands.dev",
-        api_key=SecretStr(api_key),
-    )
+    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
 )
 
 # Tools
 cwd = os.getcwd()
-bash = BashExecutor(working_dir=cwd)
-file_editor = FileEditorExecutor()
 tools: list[Tool] = [
-    execute_bash_tool.set_executor(executor=bash),
-    str_replace_editor_tool.set_executor(executor=file_editor),
+    BashTool(working_dir=cwd),
+    FileEditorTool(),
 ]
 
 # Agent
@@ -52,14 +44,8 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: EventType):
-    # print all the actions
-    if isinstance(event, ActionBase):
-        logger.info(f"Found a conversation action: {event}")
-    elif isinstance(event, ObservationBase):
-        logger.info(f"Found a conversation observation: {event}")
-    elif isinstance(event, Message):
-        logger.info(f"Found a conversation message: {str(event)[:200]}...")
-        llm_messages.append(event.model_dump())
+    if isinstance(event, LLMConvertibleEvent):
+        llm_messages.append(event.to_llm_message())
 
 
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
@@ -70,11 +56,19 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py "
-                    "that prints 'Hello, World!'?"
+                    "Hello! Can you create a new Python file named hello.py"
+                    " that prints 'Hello, World!'?"
                 )
             )
         ],
+    )
+)
+conversation.run()
+
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[TextContent(text=("Great! Now delete that file."))],
     )
 )
 conversation.run()
