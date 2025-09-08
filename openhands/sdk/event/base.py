@@ -45,7 +45,13 @@ class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
         )
 
 
-EventType = Annotated[EventBase, DiscriminatedUnionType[EventBase]]
+Event = Annotated[EventBase, DiscriminatedUnionType[EventBase]]
+"""Type annotation for values that can be any implementation of EventBase.
+
+In most situations, this is equivalent to EventBase. However, when used in Pydantic
+BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
+discriminator resolution until runtime.
+"""
 
 
 class LLMConvertibleEvent(EventBase, ABC):
