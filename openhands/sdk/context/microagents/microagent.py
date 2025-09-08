@@ -2,7 +2,7 @@ import io
 import re
 from itertools import chain
 from pathlib import Path
-from typing import ClassVar, Union
+from typing import Any, ClassVar, Union, cast
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
@@ -148,7 +148,12 @@ class BaseMicroagent(BaseModel):
             )
         else:
             # No triggers, default to REPO
-            return RepoMicroagent(name=agent_name, content=content, source=str(path))
+            mcp_tools_raw = metadata_dict.get("mcp_tools")
+            # Type cast to satisfy type checker - validation happens in RepoMicroagent
+            mcp_tools = cast(MCPConfig | dict[str, Any] | None, mcp_tools_raw)
+            return RepoMicroagent(
+                name=agent_name, content=content, source=str(path), mcp_tools=mcp_tools
+            )
 
 
 class KnowledgeMicroagent(BaseMicroagent):
