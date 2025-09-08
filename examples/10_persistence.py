@@ -8,6 +8,7 @@ from openhands.sdk import (
     Conversation,
     Event,
     LLMConvertibleEvent,
+    LocalFileStore,
     Message,
     TextContent,
     Tool,
@@ -62,8 +63,11 @@ def conversation_callback(event: Event):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+file_store = LocalFileStore("./.conversations")
 
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+)
 conversation.send_message(
     message=Message(
         role="user",
@@ -95,15 +99,15 @@ for i, message in enumerate(llm_messages):
 
 # Conversation persistence
 print("Serializing conversation...")
-conversation.save("./.conversations")
 
 del conversation
 
 # Deserialize the conversation
 print("Deserializing conversation...")
-conversation = Conversation.load(
-    dir_path="./.conversations", agent=agent, callbacks=[conversation_callback]
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
 )
+
 print("Sending message to deserialized conversation...")
 conversation.send_message(
     message=Message(

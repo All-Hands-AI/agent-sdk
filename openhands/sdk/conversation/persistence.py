@@ -1,26 +1,40 @@
-# persistence_helpers.py
-from __future__ import annotations
-
+# persistence.py
 import json
+import re
 from datetime import datetime, timezone
-from typing import List, Literal
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
-from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event import Event, EventBase
 from openhands.sdk.io import FileStore
+from openhands.sdk.logger import get_logger
 
 
+logger = get_logger(__name__)
+
+# -------- constants --------
 BASE_STATE = "base_state.json"
 MANIFEST = "manifest.json"
 EVENTS_DIR = "events"
 SHARD_SIZE = 20  # compact after this many trailing deltas
 
+# -------- fs helpers (FileStore.read returns str) --------
 
-# ---------- Pydantic models ----------
+
+def _read_text(fs: FileStore, path: str) -> Optional[str]:
+    try:
+        return fs.read(path)  # str
+    except Exception:
+        logger.warning(f"Failed to read {path} from filestore", exc_info=True)
+        return None
 
 
+def _write_text(fs: FileStore, path: str, text: str) -> None:
+    fs.write(path, text)
+
+
+# -------- segments (Pydantic) --------
 class DeltaSeg(BaseModel):
     type: Literal["delta"] = "delta"
     file: str
@@ -36,193 +50,162 @@ class PartSeg(BaseModel):
 
 Segment = DeltaSeg | PartSeg
 
+# -------- Manifest (Pydantic) --------
+_DELTA_NAME_RE = re.compile(r"^delta-(?P<idx>\d{6})-\d{8}T\d{6}\.json$")
+
 
 class Manifest(BaseModel):
-    segments: List[Segment] = Field(default_factory=list)
+    segments: list[Segment] = Field(default_factory=list)
 
+    # ---- index helpers ----
     def next_event_index(self) -> int:
         if not self.segments:
             return 0
         last = -1
         for s in self.segments:
             if isinstance(s, DeltaSeg):
-                if s.index > last:
-                    last = s.index
-            else:  # PartSeg
-                assert isinstance(s, PartSeg)
-                end = s.start + s.count - 1
-                if end > last:
-                    last = end
+                last = max(last, s.index)
+            else:
+                last = max(last, s.start + s.count - 1)
         return last + 1
 
     def next_part_number(self) -> int:
         n = -1
         for s in self.segments:
             if isinstance(s, PartSeg):
+                fname = s.file.rsplit("/", 1)[-1]
                 try:
-                    fname = s.file.rsplit("/", 1)[-1]
                     n = max(n, int(fname.split("-")[1].split(".")[0]))
                 except Exception:
                     n = max(n, 0)
         return n + 1
 
+    # ---- manifest IO ----
+    @classmethod
+    def read(cls, fs: FileStore, path: str = MANIFEST) -> "Manifest":
+        txt = _read_text(fs, path)
+        if not txt:
+            return cls()
+        try:
+            data = json.loads(txt)
+            return cls.model_validate({"segments": data})
+        except Exception:
+            return cls()
 
-# ---------- Tiny helper functions ----------
+    def write(self, fs: FileStore, path: str = MANIFEST) -> None:
+        payload = [s.model_dump(exclude_none=True) for s in self.segments]
+        _write_text(fs, path, json.dumps(payload))
 
+    # ---- discovery/recovery ----
+    def _list_delta_files(self, fs: FileStore) -> list[tuple[int, str]]:
+        """List delta files in EVENTS_DIR, returning (index, path)
+        tuples sorted by index.
+        """
+        try:
+            paths = fs.list(EVENTS_DIR)
+        except Exception:
+            return []
+        out: list[tuple[int, str]] = []
+        for p in paths:
+            name = p.rsplit("/", 1)[-1]
+            m = _DELTA_NAME_RE.match(name)
+            if m:
+                out.append((int(m.group("idx")), p))
+        out.sort(key=lambda t: t[0])
+        return out
 
-def write_base_state(fs: FileStore, state_model: ConversationState) -> None:
-    """Persist ConversationState WITHOUT events (Pydantic model)."""
-    base = state_model.model_copy()
-    base.events = []
-    fs.write(
-        BASE_STATE,
-        base.model_dump_json(exclude_none=True).encode("utf-8"),
-    )
+    def reconcile_with_fs(self, fs: FileStore) -> bool:
+        """Reconcile manifest with files in EVENTS_DIR.
 
+        Returns True if manifest changed and should be written.
+        """
+        known = {s.index for s in self.segments if isinstance(s, DeltaSeg)}
+        changed = False
+        for idx, path in self._list_delta_files(fs):
+            if idx not in known:
+                self.segments.append(DeltaSeg(file=path, index=idx))
+                changed = True
+        if changed:
+            self.write(fs)
+        return changed
 
-def read_manifest(fs: FileStore) -> Manifest:
-    try:
-        raw = fs.read(MANIFEST)
-    except Exception:
-        return Manifest()
-    try:
-        # fs.read may return bytes or str
-        text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
-        data = json.loads(text)
-        return Manifest.model_validate({"segments": data})
-    except (ValidationError, Exception):
-        # If file existed but malformed, start fresh — simplest behavior.
-        return Manifest()
+    # ---- event ops ----
+    def append_delta(
+        self, fs: FileStore, idx: int, event: Event, flush_manifest: bool = True
+    ) -> None:
+        """Append a new delta event, optionally flushing the manifest."""
+        ts_utc = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        path = f"{EVENTS_DIR}/delta-{idx:06d}-{ts_utc}.json"
+        _write_text(fs, path, event.model_dump_json(exclude_none=True))
+        self.segments.append(DeltaSeg(file=path, index=idx))
+        if flush_manifest:
+            self.write(fs)
 
+    def replay(self, fs: FileStore) -> list[Event]:
+        """Replay all events in order."""
+        out: list[Event] = []
+        for seg in self.segments:
+            txt = _read_text(fs, seg.file)
+            if not txt:
+                continue
+            if isinstance(seg, DeltaSeg):
+                out.append(EventBase.model_validate(json.loads(txt)))
+            else:
+                for line in txt.splitlines():
+                    if line:
+                        out.append(EventBase.model_validate(json.loads(line)))
+        return out
 
-def write_manifest(fs: FileStore, manifest: Manifest) -> None:
-    # store as a *list* (not an object) for easy inspection
-    payload = [s.model_dump(exclude_none=True) for s in manifest.segments]
-    fs.write(MANIFEST, json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    # ---- compaction ----
+    def compact(self, fs: FileStore, shard_size: int = SHARD_SIZE) -> bool:
+        i = 0
+        changed = False
+        while i < len(self.segments):
+            if not isinstance(self.segments[i], DeltaSeg):
+                i += 1
+                continue
 
+            j = i
+            while j < len(self.segments) and isinstance(self.segments[j], DeltaSeg):
+                j += 1
 
-def append_delta(
-    fs: FileStore,
-    manifest: Manifest,
-    idx: int,
-    event: Event,
-    flush_manifest: bool = True,
-) -> None:
-    """Per-event durability: write object first, then record it in manifest."""
-    ts_utc = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    delta_path = f"{EVENTS_DIR}/delta-{idx:06d}-{ts_utc}.json"
-    fs.write(
-        delta_path,
-        event.model_dump_json(exclude_none=True).encode("utf-8"),
-    )
-    manifest.segments.append(DeltaSeg(file=delta_path, index=idx))
-    if flush_manifest:
-        write_manifest(fs, manifest)
+            assert all(isinstance(s, DeltaSeg) for s in self.segments[i:j])
+            run: list[DeltaSeg] = [s for s in self.segments[i:j]]  # type: ignore
+            if len(run) < shard_size:
+                i = j
+                continue
 
-
-def compact_runs(
-    fs: FileStore, manifest: Manifest, shard_size: int = SHARD_SIZE
-) -> bool:
-    """
-    Left-to-right compaction:
-      - Find each contiguous run of DeltaSeg.
-      - From the *front* of the run, chunk by shard_size.
-      - Replace each full chunk with a PartSeg.
-      - Leave a remainder (< shard_size) as trailing deltas.
-    Returns True if any compaction happened.
-    """
-    i = 0
-    changed = False
-    while i < len(manifest.segments):
-        # Skip non-delta segments
-        if not isinstance(manifest.segments[i], DeltaSeg):
-            i += 1
-            continue
-
-        # Identify contiguous run [i, j) of DeltaSeg
-        j = i
-        while j < len(manifest.segments) and isinstance(manifest.segments[j], DeltaSeg):
-            j += 1
-
-        run: list[DeltaSeg] = [
-            s for s in manifest.segments[i:j] if isinstance(s, DeltaSeg)
-        ]
-        run_len = len(run)
-        if run_len >= shard_size:
-            # Number of full chunks we can compact from the *front* of the run
-            full_chunks = run_len // shard_size
-            # We'll build a replacement list for [i, j)
+            full_chunks = len(run) // shard_size
             replacement: list[Segment] = []
-            # Process full chunks
             for c in range(full_chunks):
                 chunk = run[c * shard_size : (c + 1) * shard_size]
-                # Oldest → newest by index
                 chunk.sort(key=lambda s: s.index)
                 start_idx = chunk[0].index
 
-                # Read events
-                events_json = []
+                events_json: list[dict[str, Any]] = []
                 for s in chunk:
-                    blob = fs.read(s.file)
-                    text = (
-                        blob.decode("utf-8")
-                        if isinstance(blob, (bytes, bytearray))
-                        else blob
-                    )
-                    events_json.append(json.loads(text))
+                    txt = _read_text(fs, s.file)
+                    if txt:
+                        events_json.append(json.loads(txt))
 
-                # Write part
-                part_no = manifest.next_part_number()
+                part_no = self.next_part_number()
                 part_path = f"{EVENTS_DIR}/part-{part_no:06d}.jsonl"
-                fs.write(
+                _write_text(
+                    fs,
                     part_path,
-                    b"".join(
-                        [
-                            (json.dumps(e, separators=(",", ":")) + "\n").encode(
-                                "utf-8"
-                            )
-                            for e in events_json
-                        ]
+                    "".join(
+                        json.dumps(e, separators=(",", ":")) + "\n" for e in events_json
                     ),
                 )
-
                 replacement.append(
                     PartSeg(file=part_path, start=start_idx, count=len(events_json))
                 )
 
-            # Append leftover (< shard_size) deltas unchanged
             leftover = run[full_chunks * shard_size :]
             replacement.extend(leftover)
 
-            # Splice replacement back into manifest
-            manifest.segments[i:j] = replacement
+            self.segments[i:j] = replacement
             changed = True
-            # Advance i to after the replacement we just inserted
-            i = i + len(replacement)
-        else:
-            # Run too small to compact, skip past it
-            i = j
+            i += len(replacement)
 
-    return changed
-
-
-def replay_manifest(fs: FileStore, manifest: Manifest) -> List[Event]:
-    """Materialize events in strict manifest order using Pydantic validation."""
-    out: List[Event] = []
-    for seg in manifest.segments:
-        if isinstance(seg, DeltaSeg):
-            blob = fs.read(seg.file)
-            text = (
-                blob.decode("utf-8") if isinstance(blob, (bytes, bytearray)) else blob
-            )
-            out.append(EventBase.model_validate(json.loads(text)))
-        else:  # PartSeg
-            blob = fs.read(seg.file)
-            text = (
-                blob.decode("utf-8") if isinstance(blob, (bytes, bytearray)) else blob
-            )
-            for line in text.splitlines():
-                if not line:
-                    continue
-                out.append(EventBase.model_validate(json.loads(line)))
-    return out
+        return changed
