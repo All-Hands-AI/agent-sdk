@@ -43,7 +43,7 @@ tools: list[Tool] = [
 mcp_config = {
     "mcpServers": {
         "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
-        "Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"},
+        # "Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"},
     }
 }
 mcp_tools = create_mcp_tools(mcp_config, timeout=30)
@@ -74,8 +74,7 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Read https://github.com/All-Hands-AI/OpenHands and "
-                    "search about OpenHands V1 in my notion workspace. "
+                    "Read https://github.com/All-Hands-AI/OpenHands. "
                     "Then write 3 facts about the project into FACTS.txt."
                 )
             )
