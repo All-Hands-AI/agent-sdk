@@ -214,7 +214,9 @@ class Conversation:
                 try:
                     tool.executor.close()
                 except Exception as e:
-                    logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
+                    logger.warning(
+                        f"Error closing executor for tool '{tool.name}': {e}"
+                    )
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""

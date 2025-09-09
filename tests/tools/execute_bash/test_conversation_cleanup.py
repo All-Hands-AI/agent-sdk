@@ -6,11 +6,9 @@ when conversations are closed or destroyed.
 """
 
 import tempfile
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
-import pytest
-
-from openhands.sdk import Agent, Conversation, LLM
+from openhands.sdk import LLM, Agent, Conversation
 from openhands.tools import BashExecutor, execute_bash_tool
 
 
@@ -77,7 +75,8 @@ def test_conversation_close_handles_executor_exceptions():
         mock_llm.metrics = Mock()
         mock_llm.metrics.get_snapshot.return_value = Mock()
 
-        # Create a BashExecutor with subprocess terminal and make its close method raise an exception
+        # Create a BashExecutor with subprocess terminal and make its close method
+        # raise an exception
         bash_executor = BashExecutor(working_dir=temp_dir, terminal_type="subprocess")
         bash_executor.close = Mock(side_effect=Exception("Test exception"))
 
@@ -117,7 +116,7 @@ def test_bash_executor_close_calls_session_close():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a BashExecutor with subprocess terminal
         bash_executor = BashExecutor(working_dir=temp_dir, terminal_type="subprocess")
-        
+
         # Mock the session's close method
         bash_executor.session.close = Mock()
 
@@ -133,9 +132,9 @@ def test_bash_executor_close_handles_missing_session():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a BashExecutor with subprocess terminal
         bash_executor = BashExecutor(working_dir=temp_dir, terminal_type="subprocess")
-        
+
         # Remove the session attribute
-        delattr(bash_executor, 'session')
+        delattr(bash_executor, "session")
 
         # This should not raise an exception
         bash_executor.close()

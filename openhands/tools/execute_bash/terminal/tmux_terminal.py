@@ -1,5 +1,6 @@
 """Tmux-based terminal backend implementation."""
 
+import sys
 import time
 import uuid
 
@@ -83,7 +84,8 @@ class TmuxTerminal(TerminalInterface):
         """Clean up the tmux session."""
         if self._closed:
             return
-        if hasattr(self, "session"):
+        # Check if Python is shutting down to avoid ImportError
+        if sys.meta_path is not None and hasattr(self, "session"):
             self.session.kill()
         self._closed = True
 

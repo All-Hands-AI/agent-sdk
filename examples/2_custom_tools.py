@@ -149,11 +149,9 @@ with BashExecutor(working_dir=cwd) as bash_executor:
 
     llm_messages = []  # collect raw LLM messages
 
-
     def conversation_callback(event: Event):
         if isinstance(event, LLMConvertibleEvent):
             llm_messages.append(event.to_llm_message())
-
 
     conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
@@ -181,6 +179,11 @@ with BashExecutor(working_dir=cwd) as bash_executor:
 print("=" * 100)
 print("This example demonstrates:")
 print("1. Simplified pattern: FileEditorTool() - direct instantiation")
-print("2. Advanced pattern: explicit BashExecutor creation and reuse with context manager")
+print(
+    "2. Advanced pattern: explicit BashExecutor creation and reuse with context manager"
+)
 print("3. Custom tool: GrepTool with explicit executor definition")
-print("4. Automatic cleanup: BashExecutor session is automatically closed when exiting context")
+print(
+    "4. Automatic cleanup: BashExecutor session is automatically closed when "
+    "exiting context"
+)

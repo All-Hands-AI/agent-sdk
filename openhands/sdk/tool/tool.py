@@ -46,9 +46,9 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
 
     def close(self) -> None:
         """Close the executor and clean up resources.
-        
+
         Default implementation does nothing. Subclasses should override
-        this method to perform cleanup (e.g., closing connections, 
+        this method to perform cleanup (e.g., closing connections,
         terminating processes, etc.).
         """
         pass

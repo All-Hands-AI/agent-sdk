@@ -39,5 +39,14 @@ class BashExecutor(ToolExecutor):
 
     def close(self) -> None:
         """Close the terminal session and clean up resources."""
-        if hasattr(self, 'session'):
+        if hasattr(self, "session"):
             self.session.close()
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+        return False
