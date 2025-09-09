@@ -4,8 +4,7 @@ This module tests the shutdown handling logic that prevents ImportError
 during Python shutdown when terminal sessions are being cleaned up.
 """
 
-import sys
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from openhands.tools.execute_bash.definition import ExecuteBashObservation
 from openhands.tools.execute_bash.terminal.interface import TerminalSessionBase
@@ -55,16 +54,18 @@ def test_terminal_session_del_normal_operation():
 
 
 def test_terminal_session_del_during_shutdown():
-    """Test that __del__ skips close() during Python shutdown."""
+    """Test that __del__ handles ImportError during Python shutdown."""
     session = MockTerminalSession("/tmp")
     session.initialize()
 
-    # Simulate Python shutdown by setting sys.meta_path to None
-    with patch.object(sys, "meta_path", None):
-        session.__del__()
+    # Simulate Python shutdown by making close() raise ImportError
+    def close_with_import_error():
+        raise ImportError("sys.meta_path is None, Python is likely shutting down")
 
-    # close() should not have been called during shutdown
-    assert not session.close_called
+    session.close = close_with_import_error
+
+    # __del__ should handle the ImportError gracefully
+    session.__del__()  # Should not raise an exception
 
 
 def test_terminal_session_del_multiple_calls():
@@ -100,19 +101,21 @@ def test_tmux_terminal_close_normal_operation():
 
 
 def test_tmux_terminal_close_during_shutdown():
-    """Test that TmuxTerminal.close() skips session.kill() during shutdown."""
+    """Test that TmuxTerminal.close() handles ImportError during shutdown."""
     terminal = TmuxTerminal("/tmp")
 
     # Manually set up a mock session to avoid complex initialization
     mock_session = Mock()
+    mock_session.kill.side_effect = ImportError(
+        "sys.meta_path is None, Python is likely shutting down"
+    )
     terminal.session = mock_session
 
-    # Simulate Python shutdown
-    with patch.object(sys, "meta_path", None):
-        terminal.close()
+    # close() should handle the ImportError gracefully
+    terminal.close()  # Should not raise an exception
 
-    # session.kill() should not have been called during shutdown
-    mock_session.kill.assert_not_called()
+    # session.kill() should have been called but raised ImportError
+    mock_session.kill.assert_called_once()
     assert terminal.closed
 
 
