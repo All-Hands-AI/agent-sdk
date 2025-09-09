@@ -1,8 +1,11 @@
+import json
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import Field
 
 from openhands.sdk import ImageContent, TextContent
+from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     ActionBase,
     ObservationBase,
@@ -10,6 +13,9 @@ from openhands.sdk.tool import (
     ToolAnnotations,
     ToolExecutor,
 )
+
+
+logger = get_logger(__name__)
 
 
 class TaskTrackerAction(ActionBase):
@@ -44,14 +50,28 @@ class TaskTrackerObservation(ObservationBase):
 class TaskTrackerExecutor(ToolExecutor):
     """Executor for the task tracker tool."""
 
-    def __init__(self):
+    def __init__(self, save_dir: str | None = None):
+        """Initialize TaskTrackerExecutor.
+
+        Args:
+            save_dir: Optional directory to save tasks to. If provided, tasks will be
+                     persisted to save_dir/TASKS.md
+        """
+        self.save_dir = Path(save_dir) if save_dir else None
         self._task_list: list[dict[str, Any]] = []
+
+        # Load existing tasks if save_dir is provided and file exists
+        if self.save_dir:
+            self._load_tasks()
 
     def __call__(self, action: TaskTrackerAction) -> TaskTrackerObservation:
         """Execute the task tracker action."""
         if action.command == "plan":
             # Update the task list
             self._task_list = action.task_list
+            # Save to file if save_dir is provided
+            if self.save_dir:
+                self._save_tasks()
             return TaskTrackerObservation(
                 content="Task list has been updated with"
                 + f"{len(self._task_list)} item(s).",
@@ -98,6 +118,41 @@ class TaskTrackerExecutor(ToolExecutor):
             content += "\n"
 
         return content.strip()
+
+    def _load_tasks(self) -> None:
+        """Load tasks from the TASKS.json file if it exists."""
+        if not self.save_dir:
+            return
+
+        tasks_file = self.save_dir / "TASKS.json"
+        if not tasks_file.exists():
+            return
+
+        try:
+            with open(tasks_file, "r", encoding="utf-8") as f:
+                self._task_list = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            logger.warning(
+                f"Failed to load tasks from {tasks_file}: {e}. Starting with "
+                "an empty task list."
+            )
+            self._task_list = []
+
+    def _save_tasks(self) -> None:
+        """Save tasks to the TASKS.json file."""
+        if not self.save_dir:
+            return
+
+        tasks_file = self.save_dir / "TASKS.json"
+        try:
+            # Create the directory if it doesn't exist
+            self.save_dir.mkdir(parents=True, exist_ok=True)
+
+            with open(tasks_file, "w", encoding="utf-8") as f:
+                json.dump(self._task_list, f, indent=2)
+        except OSError as e:
+            logger.error(f"Failed to save tasks to {tasks_file}: {e}")
+            pass
 
 
 # Tool definition with detailed description
@@ -251,9 +306,14 @@ task_tracker_tool = Tool(
 class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
     """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
 
-    def __init__(self):
-        """Initialize TaskTrackerTool with a TaskTrackerExecutor."""
-        executor = TaskTrackerExecutor()
+    def __init__(self, save_dir: str | None = None):
+        """Initialize TaskTrackerTool with a TaskTrackerExecutor.
+
+        Args:
+            save_dir: Optional directory to save tasks to. If provided, tasks will be
+                     persisted to save_dir/TASKS.md
+        """
+        executor = TaskTrackerExecutor(save_dir=save_dir)
 
         # Initialize the parent Tool with the executor
         super().__init__(
