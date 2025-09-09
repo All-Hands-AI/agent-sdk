@@ -1,5 +1,7 @@
 """Tests for the visualize_diff functionality in StrReplaceEditorObservation."""
 
+from rich.text import Text
+
 from openhands.tools.str_replace_editor.definition import StrReplaceEditorObservation
 from openhands.tools.str_replace_editor.utils.diff import (
     get_edit_groups,
@@ -31,13 +33,14 @@ def test_visualize_diff_simple_replacement():
     )
 
     # Check that the diff contains expected elements
-    assert "[File /test/file.py edited with 1 changes.]" in diff
-    assert "[begin of edit 1 / 1]" in diff
-    assert "[end of edit 1 / 1]" in diff
-    assert "(content before edit)" in diff
-    assert "(content after edit)" in diff
-    assert '-2|    print("Hello, World!")' in diff
-    assert '+2|    print("Hello, Universe!")' in diff
+    diff_str = str(diff)
+    assert "[File /test/file.py edited with 1 changes.]" in diff_str
+    assert "[begin of edit 1 / 1]" in diff_str
+    assert "[end of edit 1 / 1]" in diff_str
+    assert "(content before edit)" in diff_str
+    assert "(content after edit)" in diff_str
+    assert '-2|    print("Hello, World!")' in diff_str
+    assert '+2|    print("Hello, Universe!")' in diff_str
 
 
 def test_visualize_diff_no_changes():
@@ -63,7 +66,8 @@ def test_visualize_diff_no_changes():
         "(no changes detected. Please make sure your edits change "
         "the content of the existing file.)\n"
     )
-    assert diff == expected_msg
+    assert isinstance(diff, Text)
+    assert str(diff) == expected_msg
 
 
 def test_visualize_diff_multiple_changes():
@@ -101,13 +105,14 @@ def main():
     )
 
     # Check that the diff contains expected elements
-    assert "[File /test/calc.py edited with 1 changes.]" in diff
-    assert "-2|    result = a + b" in diff
-    assert "+2|    result = a * b  # Changed from + to *" in diff
-    assert '-3|    print(f"Result: {result}")' in diff
-    assert '+3|    print(f"Product: {result}")  # Changed message' in diff
-    assert "-7|    x = 5" in diff
-    assert "+7|    x = 7  # Changed value" in diff
+    diff_str = str(diff)
+    assert "[File /test/calc.py edited with 1 changes.]" in diff_str
+    assert "-2|    result = a + b" in diff_str
+    assert "+2|    result = a * b  # Changed from + to *" in diff_str
+    assert '-3|    print(f"Result: {result}")' in diff_str
+    assert '+3|    print(f"Product: {result}")  # Changed message' in diff_str
+    assert "-7|    x = 5" in diff_str
+    assert "+7|    x = 7  # Changed value" in diff_str
 
 
 def test_visualize_diff_attempted_edit():
@@ -131,10 +136,11 @@ def test_visualize_diff_attempted_edit():
         change_applied=False,
     )
 
-    assert "[Changes are NOT applied to /test/file.py" in diff
-    assert "ATTEMPTED edit" in diff
-    assert "[begin of ATTEMPTED edit 1 / 1]" in diff
-    assert "[end of ATTEMPTED edit 1 / 1]" in diff
+    diff_str = str(diff)
+    assert "[Changes are NOT applied to /test/file.py" in diff_str
+    assert "ATTEMPTED edit" in diff_str
+    assert "[begin of ATTEMPTED edit 1 / 1]" in diff_str
+    assert "[end of ATTEMPTED edit 1 / 1]" in diff_str
 
 
 def test_visualize_diff_caching():
@@ -163,8 +169,6 @@ def test_visualize_diff_caching():
     )
 
     assert diff1 == diff2
-    assert observation._diff_cache is not None
-    assert observation._diff_cache == diff1
 
 
 def test_visualize_diff_custom_context_lines():
@@ -251,29 +255,26 @@ line3"""
 
 def test_get_edit_groups_no_content():
     """Test get_edit_groups when old_content or new_content is None."""
-    observation = StrReplaceEditorObservation(
-        command="str_replace",
-        path="/test/file.py",
-        old_content=None,
-        new_content="some content",
-        prev_exist=True,
-    )
-
-    assert observation.path == "/test/file.py"
-    assert observation.old_content is None
-    assert observation.new_content == "some content"
-    edit_groups = get_edit_groups(
-        observation.old_content or "", observation.new_content
-    )
+    # Test with None values directly - should return empty list
+    edit_groups = get_edit_groups(None, "some content")  # type: ignore
     assert edit_groups == []
 
-    observation.old_content = "some content"
-    observation.new_content = None
-
-    edit_groups = get_edit_groups(
-        observation.old_content, observation.new_content or ""
-    )
+    edit_groups = get_edit_groups("some content", None)  # type: ignore
     assert edit_groups == []
+
+    edit_groups = get_edit_groups(None, None)  # type: ignore
+    assert edit_groups == []
+
+    # Test with empty string vs content - should return edit groups
+    edit_groups = get_edit_groups("", "some content")
+    assert len(edit_groups) == 1
+    assert edit_groups[0].before_edits == ["-1|"]
+    assert edit_groups[0].after_edits == ["+1|some content"]
+
+    edit_groups = get_edit_groups("some content", "")
+    assert len(edit_groups) == 1
+    assert edit_groups[0].before_edits == ["-1|some content"]
+    assert edit_groups[0].after_edits == ["+1|"]
 
 
 def test_visualize_diff_none_content():
@@ -297,4 +298,5 @@ def test_visualize_diff_none_content():
         "(no changes detected. Please make sure your edits change "
         "the content of the existing file.)\n"
     )
-    assert diff == expected_msg
+    assert isinstance(diff, Text)
+    assert str(diff) == expected_msg

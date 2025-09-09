@@ -107,7 +107,6 @@ def visualize_diff(
         header = f"[Changes are NOT applied to {path} - Here's how "
         header += "the file looks like if changes are applied.]\n"
 
-    # result = [header]
     content.append(header, style="bold" if change_applied else "bold yellow")
 
     op_type = "edit" if change_applied else "ATTEMPTED edit"
