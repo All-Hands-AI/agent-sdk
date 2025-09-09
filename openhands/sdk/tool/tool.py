@@ -62,7 +62,7 @@ class Tool(BaseModel, Generic[ActionT, ObservationT]):
     observation_type: type[ObservationBase] | None = Field(default=None, repr=False)
 
     annotations: ToolAnnotations | None = None
-    _meta: dict[str, Any] | None = None
+    meta: dict[str, Any] | None = None
 
     # runtime-only; always hidden on dumps
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
@@ -85,9 +85,8 @@ class Tool(BaseModel, Generic[ActionT, ObservationT]):
         return self.name
 
     def set_executor(self, executor: ToolExecutor) -> "Tool":
-        """Set or replace the executor function."""
-        self.executor = executor
-        return self
+        """Create a new Tool instance with the given executor."""
+        return self.model_copy(update={"executor": executor})
 
     def call(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
@@ -126,8 +125,8 @@ class Tool(BaseModel, Generic[ActionT, ObservationT]):
         }
         if self.annotations:
             out["annotations"] = self.annotations
-        if self._meta is not None:
-            out["_meta"] = self._meta
+        if self.meta is not None:
+            out["_meta"] = self.meta
         if self.output_schema:
             out["outputSchema"] = self.output_schema
         return out

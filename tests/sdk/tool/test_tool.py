@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 import pytest
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from openhands.sdk.tool import (
     ActionBase,
@@ -38,8 +38,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         assert tool.name == "test_tool"
@@ -58,8 +58,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=MockExecutor(),
         )
 
@@ -80,8 +80,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             annotations=annotations,
         )
 
@@ -96,8 +96,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -125,8 +125,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             annotations=annotations,
         )
 
@@ -143,8 +143,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         action = MockAction(command="test")
@@ -163,8 +163,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=MockExecutor(),
         )
 
@@ -189,8 +189,8 @@ class TestTool:
         tool = Tool(
             name="complex_tool",
             description="Tool with complex types",
-            input_schema=ComplexAction,
-            output_schema=MockObservation,
+            action_type=ComplexAction,
+            observation_type=MockObservation,
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -213,8 +213,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=MockExecutor(),
         )
 
@@ -235,8 +235,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=MockExecutor(),
         )
 
@@ -252,8 +252,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         # Create action with nested data
@@ -278,8 +278,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
         tool_schema = tool.to_mcp_tool()["inputSchema"]
 
@@ -294,8 +294,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=None,
+            action_type=MockAction,
+            observation_type=None,
         )
 
         assert tool.observation_type is None
@@ -305,25 +305,27 @@ class TestTool:
         assert mcp_tool["name"] == "test_tool"
 
     def test_executor_function_attachment(self):
-        """Test attaching executor function after tool creation."""
-        tool = Tool(
-            name="test_tool",
-            description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
-        )
+        """Test creating tool with executor."""
 
-        # Initially no executor
-        assert tool.executor is None
-
-        # Attach executor
+        # Create executor first
         class MockExecutor(ToolExecutor):
             def __call__(self, action: MockAction) -> MockObservation:
                 return MockObservation(result=f"Attached: {action.command}")
 
-        tool.executor = MockExecutor()
+        executor = MockExecutor()
 
-        # Now it should work
+        tool = Tool(
+            name="test_tool",
+            description="A test tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+            executor=executor,
+        )
+
+        # Should have executor
+        assert tool.executor is not None
+
+        # Should work
         action = MockAction(command="test")
         result = tool.call(action)
         assert isinstance(result, MockObservation)
@@ -335,8 +337,8 @@ class TestTool:
         tool = Tool(
             name="valid_tool_name",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
         assert tool.name == "valid_tool_name"
 
@@ -344,8 +346,8 @@ class TestTool:
         tool2 = Tool(
             name="",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
         assert tool2.name == ""
 
@@ -368,8 +370,8 @@ class TestTool:
         tool = Tool(
             name="complex_tool",
             description="Tool with complex observation",
-            input_schema=MockAction,
-            output_schema=ComplexObservation,
+            action_type=MockAction,
+            observation_type=ComplexObservation,
             executor=MockComplexExecutor(),
         )
 
@@ -390,8 +392,8 @@ class TestTool:
         tool = Tool(
             name="failing_tool",
             description="Tool that fails",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=FailingExecutor(),
         )
 
@@ -413,8 +415,8 @@ class TestTool:
         tool = Tool(
             name="strict_tool",
             description="Tool with strict observation",
-            input_schema=MockAction,
-            output_schema=StrictObservation,
+            action_type=MockAction,
+            observation_type=StrictObservation,
             executor=ValidExecutor(),
         )
 
@@ -429,15 +431,15 @@ class TestTool:
         tool1 = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         tool2 = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         # Tools with same parameters should be equal
@@ -457,8 +459,8 @@ class TestTool:
         tool = Tool(
             name="required_tool",
             description="Tool with required fields",
-            input_schema=RequiredFieldAction,
-            output_schema=MockObservation,
+            action_type=RequiredFieldAction,
+            observation_type=MockObservation,
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -476,12 +478,12 @@ class TestTool:
         tool = Tool(
             name="meta_tool",
             description="Tool with metadata",
-            input_schema=MockAction,
-            output_schema=MockObservation,
-            _meta=meta_data,
+            action_type=MockAction,
+            observation_type=MockObservation,
+            meta=meta_data,
         )
 
-        assert tool._meta == meta_data
+        assert tool.meta == meta_data
 
         mcp_tool = tool.to_mcp_tool()
         assert "_meta" in mcp_tool
@@ -513,8 +515,8 @@ class TestTool:
         tool = Tool(
             name="complex_nested_tool",
             description="Tool with complex nested types",
-            input_schema=ComplexNestedAction,
-            output_schema=MockObservation,
+            action_type=ComplexNestedAction,
+            observation_type=MockObservation,
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -550,3 +552,152 @@ class TestTool:
         assert "anyOf" not in optional_array_schema
         assert optional_array_schema["type"] == "array"
         assert optional_array_schema["items"]["type"] == "string"
+
+
+class TestToolImmutability:
+    """Test suite for Tool immutability features."""
+
+    def test_tool_is_frozen(self):
+        """Test that Tool instances are frozen and cannot be modified."""
+        tool = Tool(
+            name="test_tool",
+            description="Test tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+        )
+
+        # Test that we cannot modify any field
+        with pytest.raises(
+            Exception
+        ):  # Pydantic raises ValidationError for frozen models
+            tool.name = "modified_name"
+
+        with pytest.raises(Exception):
+            tool.description = "modified_description"
+
+        with pytest.raises(Exception):
+            tool.executor = None
+
+    def test_tool_set_executor_returns_new_instance(self):
+        """Test that set_executor returns a new Tool instance."""
+        tool = Tool(
+            name="test_tool",
+            description="Test tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+        )
+
+        class NewExecutor(ToolExecutor[MockAction, MockObservation]):
+            def __call__(self, action: MockAction) -> MockObservation:
+                return MockObservation(result="new_result")
+
+        new_executor = NewExecutor()
+        new_tool = tool.set_executor(new_executor)
+
+        # Verify that a new instance was created
+        assert new_tool is not tool
+        assert tool.executor is None
+        assert new_tool.executor is new_executor
+        assert new_tool.name == tool.name
+        assert new_tool.description == tool.description
+
+    def test_tool_model_copy_creates_modified_instance(self):
+        """Test that model_copy can create modified versions of Tool instances."""
+        tool = Tool(
+            name="test_tool",
+            description="Test tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+        )
+
+        # Create a copy with modified fields
+        modified_tool = tool.model_copy(
+            update={"name": "modified_tool", "description": "Modified description"}
+        )
+
+        # Verify that a new instance was created with modifications
+        assert modified_tool is not tool
+        assert tool.name == "test_tool"
+        assert tool.description == "Test tool"
+        assert modified_tool.name == "modified_tool"
+        assert modified_tool.description == "Modified description"
+
+    def test_tool_meta_field_immutability(self):
+        """Test that the meta field works correctly and is immutable."""
+        meta_data = {"version": "1.0", "author": "test"}
+        tool = Tool(
+            name="test_tool",
+            description="Test tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+            meta=meta_data,
+        )
+
+        # Verify meta field is accessible
+        assert tool.meta == meta_data
+
+        # Test that meta field cannot be directly modified
+        with pytest.raises(Exception):
+            tool.meta = {"version": "2.0"}
+
+        # Test that meta field can be modified via model_copy
+        new_meta = {"version": "2.0", "author": "new_author"}
+        modified_tool = tool.model_copy(update={"meta": new_meta})
+        assert modified_tool.meta == new_meta
+        assert tool.meta == meta_data  # Original unchanged
+
+    def test_tool_constructor_parameter_validation(self):
+        """Test that Tool constructor validates parameters correctly."""
+        # Test that new parameter names work
+        tool = Tool(
+            name="test_tool",
+            description="Test tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+        )
+        assert tool.action_type == MockAction
+        assert tool.observation_type == MockObservation
+
+        # Test that invalid field types are rejected
+        with pytest.raises(ValidationError):
+            Tool(
+                name="test_tool",
+                description="Test tool",
+                action_type="invalid_type",  # type: ignore[arg-type] # Should be a class, not string
+                observation_type=MockObservation,
+            )
+
+    def test_tool_annotations_immutability(self):
+        """Test that ToolAnnotations are also immutable when part of Tool."""
+        annotations = ToolAnnotations(
+            title="Test Tool",
+            readOnlyHint=True,
+            destructiveHint=False,
+        )
+
+        tool = Tool(
+            name="test_tool",
+            description="Test tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+            annotations=annotations,
+        )
+
+        # Test that annotations field cannot be reassigned (frozen behavior)
+        with pytest.raises(Exception):
+            tool.annotations = ToolAnnotations(title="New Annotations")
+
+        # Test that annotations can be modified via model_copy
+        new_annotations = ToolAnnotations(
+            title="Modified Tool",
+            readOnlyHint=False,
+            destructiveHint=True,
+        )
+        modified_tool = tool.model_copy(update={"annotations": new_annotations})
+        assert (
+            modified_tool.annotations
+            and modified_tool.annotations.title == "Modified Tool"
+        )
+        assert (
+            tool.annotations and tool.annotations.title == "Test Tool"
+        )  # Original unchanged

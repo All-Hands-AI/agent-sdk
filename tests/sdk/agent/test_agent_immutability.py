@@ -107,7 +107,7 @@ class TestAgentImmutability:
         expected_fields = {
             "llm",
             "agent_context",
-            "tools_map",
+            "tools",
             "system_prompt_filename",
             "condenser",
             "cli_mode",
@@ -139,3 +139,18 @@ class TestAgentImmutability:
 
         # And their system messages should be identical (same config)
         assert agent1.system_message == agent2.system_message
+
+    def test_agent_model_copy_creates_new_instance(self):
+        """Test that model_copy creates a new Agent instance with modified fields."""
+        original_agent = Agent(llm=self.llm, tools=[], cli_mode=True)
+
+        # Create a copy with modified fields
+        modified_agent = original_agent.model_copy(update={"cli_mode": False})
+
+        # Verify that a new instance was created
+        assert modified_agent is not original_agent
+        assert original_agent.cli_mode is True
+        assert modified_agent.cli_mode is False
+
+        # Verify that system messages are different due to different configs
+        assert original_agent.system_message != modified_agent.system_message
