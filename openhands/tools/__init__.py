@@ -14,6 +14,13 @@ from openhands.tools.str_replace_editor import (
     StrReplaceEditorObservation,
     str_replace_editor_tool,
 )
+from openhands.tools.task_tracker import (
+    TaskTrackerAction,
+    TaskTrackerExecutor,
+    TaskTrackerObservation,
+    TaskTrackerTool,
+    task_tracker_tool,
+)
 
 
 __all__ = [
@@ -27,6 +34,11 @@ __all__ = [
     "StrReplaceEditorObservation",
     "FileEditorExecutor",
     "FileEditorTool",
+    "task_tracker_tool",
+    "TaskTrackerAction",
+    "TaskTrackerObservation",
+    "TaskTrackerExecutor",
+    "TaskTrackerTool",
 ]
 
 from importlib.metadata import PackageNotFoundError, version
