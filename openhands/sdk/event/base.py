@@ -43,6 +43,7 @@ class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
         """
         content = Text()
         content.append(f"Unknown event type: {self.__class__.__name__}")
+        content.append(f"\n{self.model_dump()}")
         return content
 
     def __str__(self) -> str:

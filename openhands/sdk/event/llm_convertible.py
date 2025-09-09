@@ -178,7 +178,7 @@ class ObservationEvent(LLMConvertibleEvent):
 
         text_parts = content_to_str(self.observation.agent_observation)
         if text_parts:
-            full_content = " ".join(text_parts)
+            full_content = "".join(text_parts)
             content.append(full_content)
         else:
             content.append("[no text content]", style="dim")
@@ -246,7 +246,7 @@ class MessageEvent(LLMConvertibleEvent):
 
         text_parts = content_to_str(self.llm_message.content)
         if text_parts:
-            full_content = " ".join(text_parts)
+            full_content = "".join(text_parts)
             content.append(full_content)
         else:
             content.append("[no text content]", style="dim")
@@ -266,7 +266,9 @@ class MessageEvent(LLMConvertibleEvent):
             text_parts = content_to_str(
                 cast(list[TextContent | ImageContent], self.extended_content)
             )
-            content.append("\n\nExtended Content:\n", style="dim")
+            content.append(
+                "\n\nPrompt Extension based on Agent Context:\n", style="dim"
+            )
             content.append(" ".join(text_parts))
 
         return content
