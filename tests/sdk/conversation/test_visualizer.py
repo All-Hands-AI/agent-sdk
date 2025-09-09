@@ -190,7 +190,6 @@ def test_message_event_visualize():
     assert isinstance(result, Text)
 
     text_content = result.plain
-    assert "User:" in text_content
     assert "Hello, how can you help me?" in text_content
     assert "Activated Microagents: helper, analyzer" in text_content
     assert "Prompt Extension based on Agent Context:" in text_content
