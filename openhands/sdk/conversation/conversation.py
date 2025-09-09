@@ -58,22 +58,14 @@ class Conversation:
         def _append_event(e):
             self.state.events.append(e)
 
-        # Build callback list
-        composed_list = []
-
+        composed_list = (callbacks if callbacks else []) + [_append_event]
         # Add default visualizer if requested
         if visualize:
             self._visualizer = create_default_visualizer()
-            composed_list.append(self._visualizer.on_event)
+            composed_list = [self._visualizer.on_event] + composed_list
+            # visualize should happen first for visibility
         else:
             self._visualizer = None
-
-        # Add user callbacks
-        if callbacks:
-            composed_list.extend(callbacks)
-
-        # Add state persistence (always last)
-        composed_list.append(_append_event)
 
         self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
