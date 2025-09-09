@@ -73,7 +73,7 @@ class TaskTrackerExecutor(ToolExecutor):
             if self.save_dir:
                 self._save_tasks()
             return TaskTrackerObservation(
-                content="Task list has been updated with"
+                content="Task list has been updated with "
                 + f"{len(self._task_list)} item(s).",
                 command=action.command,
                 task_list=self._task_list,
