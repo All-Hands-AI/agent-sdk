@@ -1,23 +1,18 @@
-from typing import Any, List
+from typing import List
 from unittest.mock import MagicMock
-
-from pydantic import Field, SecretStr
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import Message, TextContent
 
 
 class DummyAgent(AgentBase):
-    prompt_manager: Any = Field(default_factory=lambda: MagicMock())
-
     def __init__(self):
-        # Use a real LLM instance for testing instead of mocking
-        test_llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
-        super().__init__(llm=test_llm, tools=[])
+        super().__init__(llm=MagicMock(name="LLM"), tools=[])
+        self.prompt_manager = MagicMock()
 
     def init_state(
         self, state: ConversationState, on_event: ConversationCallbackType
