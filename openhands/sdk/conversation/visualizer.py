@@ -1,5 +1,4 @@
-import re
-from typing import Dict, Pattern
+from typing import Dict
 
 from rich.console import Console
 from rich.panel import Panel
@@ -32,16 +31,7 @@ class ConversationVisualizer:
                            "Thought:": "bold green"}
         """
         self._console = Console()
-        self._highlight_patterns: Dict[Pattern[str], str] = {}
-
-        if highlight_regex:
-            for pattern, style in highlight_regex.items():
-                try:
-                    compiled_pattern = re.compile(pattern)
-                    self._highlight_patterns[compiled_pattern] = style
-                except re.error:
-                    # Skip invalid regex patterns
-                    continue
+        self._highlight_patterns: Dict[str, str] = highlight_regex or {}
 
     def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
@@ -61,16 +51,12 @@ class ConversationVisualizer:
         if not self._highlight_patterns:
             return text
 
-        # Create a new Text object to avoid modifying the original
-        highlighted = Text(text.plain)
+        # Create a copy to avoid modifying the original
+        highlighted = text.copy()
 
-        # Apply each pattern
+        # Apply each pattern using Rich's built-in highlight_regex method
         for pattern, style in self._highlight_patterns.items():
-            # Find all matches for this pattern
-            for match in pattern.finditer(text.plain):
-                start, end = match.span()
-                # Apply the style to the matched text
-                highlighted.stylize(style, start, end)
+            highlighted.highlight_regex(pattern, style)
 
         return highlighted
 
