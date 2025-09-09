@@ -109,20 +109,16 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # If in confirmation mode stored on state, first check if there are any
-        # pending actions (implicit confirmation) and execute them before sampling
-        # a new action.
-        if state.confirmation_mode:
-            pending_actions = get_unmatched_actions(state.events)
-            if pending_actions:
-                logger.info(
-                    "Confirmation mode: Executing %d pending action(s)",
-                    len(pending_actions),
-                )
-                # Note: agent_waiting_for_confirmation flag is cleared by
-                # Conversation class
-                self._execute_actions(state, pending_actions, on_event)
-                return
+        # Check for pending actions (implicit confirmation)
+        # and execute them before sampling new actions.
+        pending_actions = get_unmatched_actions(state.events)
+        if pending_actions:
+            logger.info(
+                "Confirmation mode: Executing %d pending action(s)",
+                len(pending_actions),
+            )
+            self._execute_actions(state, pending_actions, on_event)
+            return
 
         # If a condenser is registered with the agent, we need to give it an
         # opportunity to transform the events. This will either produce a list
