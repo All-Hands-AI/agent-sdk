@@ -1,5 +1,9 @@
+import re
+from typing import Dict, Pattern
+
 from rich.console import Console
 from rich.panel import Panel
+from rich.text import Text
 
 from openhands.sdk.event import (
     ActionEvent,
@@ -18,8 +22,26 @@ class ConversationVisualizer:
     Provides Rich-formatted output with panels and complete content display.
     """
 
-    def __init__(self):
+    def __init__(self, highlight_regex: Dict[str, str] | None = None):
+        """Initialize the visualizer.
+
+        Args:
+            highlight_regex: Dictionary mapping regex patterns to Rich color styles
+                           for highlighting keywords in the visualizer.
+                           For example: {"Reasoning:": "bold blue",
+                           "Thought:": "bold green"}
+        """
         self._console = Console()
+        self._highlight_patterns: Dict[Pattern[str], str] = {}
+
+        if highlight_regex:
+            for pattern, style in highlight_regex.items():
+                try:
+                    compiled_pattern = re.compile(pattern)
+                    self._highlight_patterns[compiled_pattern] = style
+                except re.error:
+                    # Skip invalid regex patterns
+                    continue
 
     def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
@@ -27,10 +49,39 @@ class ConversationVisualizer:
         self._console.print(panel)
         self._console.print()  # Add spacing between events
 
+    def _apply_highlighting(self, text: Text) -> Text:
+        """Apply regex-based highlighting to text content.
+
+        Args:
+            text: The Rich Text object to highlight
+
+        Returns:
+            A new Text object with highlighting applied
+        """
+        if not self._highlight_patterns:
+            return text
+
+        # Create a new Text object to avoid modifying the original
+        highlighted = Text(text.plain)
+
+        # Apply each pattern
+        for pattern, style in self._highlight_patterns.items():
+            # Find all matches for this pattern
+            for match in pattern.finditer(text.plain):
+                start, end = match.span()
+                # Apply the style to the matched text
+                highlighted.stylize(style, start, end)
+
+        return highlighted
+
     def _create_event_panel(self, event: Event) -> Panel:
         """Create a Rich Panel for the event with appropriate styling."""
         # Use the event's visualize property for content
         content = event.visualize
+
+        # Apply highlighting if configured
+        if self._highlight_patterns:
+            content = self._apply_highlighting(content)
 
         # Determine panel styling based on event type
         if isinstance(event, SystemPromptEvent):
@@ -156,6 +207,15 @@ class ConversationVisualizer:
         return "Tokens: " + " [dim]•[/dim] ".join(parts)
 
 
-def create_default_visualizer() -> ConversationVisualizer:
-    """Create a default conversation visualizer instance."""
-    return ConversationVisualizer()
+def create_default_visualizer(
+    highlight_regex: Dict[str, str] | None = None,
+) -> ConversationVisualizer:
+    """Create a default conversation visualizer instance.
+
+    Args:
+        highlight_regex: Dictionary mapping regex patterns to Rich color styles
+                       for highlighting keywords in the visualizer.
+                       For example: {"Reasoning:": "bold blue",
+                       "Thought:": "bold green"}
+    """
+    return ConversationVisualizer(highlight_regex=highlight_regex)

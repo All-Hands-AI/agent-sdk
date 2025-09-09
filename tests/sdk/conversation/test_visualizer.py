@@ -193,7 +193,7 @@ def test_message_event_visualize():
     assert "User:" in text_content
     assert "Hello, how can you help me?" in text_content
     assert "Activated Microagents: helper, analyzer" in text_content
-    assert "Extended Content:" in text_content
+    assert "Prompt Extension based on Agent Context:" in text_content
     assert "Additional context" in text_content
 
 
