@@ -600,6 +600,12 @@ class LLM(BaseModel, RetryMixin):
                 if self.reasoning_effort in {None, "none"}:
                     out["reasoning_effort"] = "low"
 
+        # GPT-5 models only support temperature=1
+        if "gpt-5" in self.model.lower():
+            out["temperature"] = 1.0
+            # Remove top_p as it may conflict
+            out.pop("top_p", None)
+
         # Anthropic Opus 4.1: prefer temperature when
         # both provided; disable extended thinking
         if "claude-opus-4-1" in self.model.lower():
@@ -726,6 +732,12 @@ class LLM(BaseModel, RetryMixin):
                 out["reasoning_effort"] = self.reasoning_effort
             # Reasoning models ignore temp/top_p
             out.pop("temperature", None)
+            out.pop("top_p", None)
+
+        # GPT-5 models only support temperature=1
+        if "gpt-5" in self.model.lower():
+            out["temperature"] = 1.0
+            # Remove top_p as it may conflict
             out.pop("top_p", None)
 
         # Remove parameters not supported by Responses API
