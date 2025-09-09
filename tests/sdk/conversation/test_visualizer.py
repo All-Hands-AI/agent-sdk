@@ -1,7 +1,9 @@
 """Tests for the conversation visualizer and event visualization."""
 
-from unittest.mock import Mock
+import json
 
+from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import Function
 from rich.text import Text
 
 from openhands.sdk.conversation.visualizer import (
@@ -42,6 +44,17 @@ class CustomAction(ActionBase):
         for i, task in enumerate(self.task_list):
             content.append(f"\n  {i + 1}. {task.get('title', 'Untitled')}")
         return content
+
+
+def create_tool_call(
+    call_id: str, function_name: str, arguments: dict
+) -> ChatCompletionMessageToolCall:
+    """Helper to create a ChatCompletionMessageToolCall."""
+    return ChatCompletionMessageToolCall(
+        id=call_id,
+        function=Function(name=function_name, arguments=json.dumps(arguments)),
+        type="function",
+    )
 
 
 def test_action_base_visualize():
@@ -107,17 +120,14 @@ def test_system_prompt_event_visualize():
 def test_action_event_visualize():
     """Test ActionEvent visualization."""
     action = MockAction(command="ls -la", working_dir="/tmp")
+    tool_call = create_tool_call("call_123", "bash", {"command": "ls -la"})
     event = ActionEvent(
         thought=[TextContent(text="I need to list files")],
         reasoning_content="Let me check the directory contents",
         action=action,
         tool_name="bash",
         tool_call_id="call_123",
-        tool_call=Mock(
-            id="call_123",
-            type="function",
-            function=Mock(name="bash", arguments='{"command": "ls -la"}'),
-        ),
+        tool_call=tool_call,
         llm_response_id="response_456",
     )
 
@@ -232,14 +242,13 @@ def test_visualizer_event_panel_creation():
 
     # Test with a simple action event
     action = MockAction(command="test")
+    tool_call = create_tool_call("call_1", "test", {})
     event = ActionEvent(
         thought=[TextContent(text="Testing")],
         action=action,
         tool_name="test",
         tool_call_id="call_1",
-        tool_call=Mock(
-            id="call_1", type="function", function=Mock(name="test", arguments="{}")
-        ),
+        tool_call=tool_call,
         llm_response_id="response_1",
     )
 
@@ -264,14 +273,13 @@ def test_metrics_formatting():
         accumulated_cost=0.0234,
     )
 
+    tool_call = create_tool_call("call_1", "test", {})
     event = ActionEvent(
         thought=[TextContent(text="Testing")],
         action=action,
         tool_name="test",
         tool_call_id="call_1",
-        tool_call=Mock(
-            id="call_1", type="function", function=Mock(name="test", arguments="{}")
-        ),
+        tool_call=tool_call,
         llm_response_id="response_1",
         metrics=metrics,
     )
