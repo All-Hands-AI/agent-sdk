@@ -259,3 +259,6 @@ containers/runtime/code
 test-results
 .sessions
 .eval_sessions
+
+# Local developer-only examples (not tracked)
+examples_local/
