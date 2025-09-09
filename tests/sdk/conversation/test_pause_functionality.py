@@ -63,8 +63,6 @@ class TestPauseFunctionality:
 
         self.llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
 
-        # Note: metrics mocking removed since LLM is now a real instance
-
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:
                 return MockObservation(result=f"Executed: {action.command}")
