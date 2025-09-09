@@ -63,140 +63,138 @@ def mock_llm() -> LLM:
     return mock_llm
 
 
-def test_noop_condenser() -> None:
-    """Test that NoOpCondensers preserve their input events."""
-    events: list[Event] = [
-        message_event("Event 1"),
-        message_event("Event 2"),
-        message_event("Event 3"),
-    ]
-    state = ConversationState(events=events)
+class TestNoOpCondenser:
+    """Tests for NoOpCondenser functionality."""
 
-    condenser = NoOpCondenser()
-    view = View.from_events(state.events)
+    def test_noop_condenser(self) -> None:
+        """Test that NoOpCondensers preserve their input events."""
+        events: list[Event] = [
+            message_event("Event 1"),
+            message_event("Event 2"),
+            message_event("Event 3"),
+        ]
+        state = ConversationState(events=events)
 
-    condensation_result = condenser.condense(view)
-    assert isinstance(condensation_result, View)
-    assert condensation_result.events == events
+        condenser = NoOpCondenser()
+        view = View.from_events(state.events)
 
-
-def test_llm_summarizing_condenser_should_condense(mock_llm: LLM) -> None:
-    """Test that LLMSummarizingCondenser correctly determines when to condense."""
-    max_size = 10
-    condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
-
-    # Create events below the threshold
-    small_events = [message_event(f"Event {i}") for i in range(max_size)]
-    small_view = View.from_events(small_events)
-
-    assert not condenser.should_condense(small_view)
-
-    # Create events above the threshold
-    large_events = [message_event(f"Event {i}") for i in range(max_size + 1)]
-    large_view = View.from_events(large_events)
-
-    assert condenser.should_condense(large_view)
+        condensation_result = condenser.condense(view)
+        assert isinstance(condensation_result, View)
+        assert condensation_result.events == events
 
 
-def test_llm_summarizing_condenser_condense_returns_view_when_no_condensation_needed(
-    mock_llm: LLM,
-) -> None:
-    """Test that condenser returns the original view when no condensation is needed."""
-    max_size = 10
-    condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
+class TestLLMSummarizingCondenser:
+    """Tests for LLMSummarizingCondenser functionality."""
 
-    events = [message_event(f"Event {i}") for i in range(max_size)]
-    view = View.from_events(events)
+    def test_should_condense(self, mock_llm: LLM) -> None:
+        """Test that LLMSummarizingCondenser correctly determines when to condense."""
+        max_size = 10
+        condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
 
-    result = condenser.condense(view)
+        # Create events below the threshold
+        small_events = [message_event(f"Event {i}") for i in range(max_size)]
+        small_view = View.from_events(small_events)
 
-    assert isinstance(result, View)
-    assert result == view
-    # LLM should not be called
-    cast(MagicMock, mock_llm.completion).assert_not_called()
+        assert not condenser.should_condense(small_view)
 
+        # Create events above the threshold
+        large_events = [message_event(f"Event {i}") for i in range(max_size + 1)]
+        large_view = View.from_events(large_events)
 
-def test_llm_summarizing_condenser_condense_returns_condensation_when_needed(
-    mock_llm: LLM,
-) -> None:
-    """Test that condenser returns a Condensation when condensation is needed."""
-    max_size = 10
-    keep_first = 3
-    condenser = LLMSummarizingCondenser(
-        llm=mock_llm, max_size=max_size, keep_first=keep_first
-    )
+        assert condenser.should_condense(large_view)
 
-    # Set up mock response
-    cast(Any, mock_llm).set_mock_response_content("Summary of forgotten events")
+    def test_condense_returns_view_when_no_condensation_needed(
+        self, mock_llm: LLM
+    ) -> None:
+        """Test that condenser returns the original view when no condensation is needed."""  # noqa: E501
+        max_size = 10
+        condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
 
-    events = [message_event(f"Event {i}") for i in range(max_size + 1)]
-    view = View.from_events(events)
+        events = [message_event(f"Event {i}") for i in range(max_size)]
+        view = View.from_events(events)
 
-    result = condenser.condense(view)
+        result = condenser.condense(view)
 
-    assert isinstance(result, Condensation)
-    assert result.summary == "Summary of forgotten events"
-    assert result.summary_offset == keep_first
-    assert len(result.forgotten_event_ids) > 0
+        assert isinstance(result, View)
+        assert result == view
+        # LLM should not be called
+        cast(MagicMock, mock_llm.completion).assert_not_called()
 
-    # LLM should be called once
-    cast(MagicMock, mock_llm.completion).assert_called_once()
+    def test_condense_returns_condensation_when_needed(self, mock_llm: LLM) -> None:
+        """Test that condenser returns a Condensation when condensation is needed."""
+        max_size = 10
+        keep_first = 3
+        condenser = LLMSummarizingCondenser(
+            llm=mock_llm, max_size=max_size, keep_first=keep_first
+        )
 
+        # Set up mock response
+        cast(Any, mock_llm).set_mock_response_content("Summary of forgotten events")
 
-def test_llm_summarizing_condenser_get_condensation_with_previous_summary(
-    mock_llm: LLM,
-) -> None:
-    """Test that condenser properly handles previous summary content."""
-    max_size = 10
-    keep_first = 3
-    condenser = LLMSummarizingCondenser(
-        llm=mock_llm, max_size=max_size, keep_first=keep_first
-    )
+        events = [message_event(f"Event {i}") for i in range(max_size + 1)]
+        view = View.from_events(events)
 
-    # Set up mock response
-    cast(Any, mock_llm).set_mock_response_content("Updated summary")
+        result = condenser.condense(view)
 
-    # Create events with a condensation in the history
-    events = [message_event(f"Event {i}") for i in range(max_size + 1)]
+        assert isinstance(result, Condensation)
+        assert result.summary == "Summary of forgotten events"
+        assert result.summary_offset == keep_first
+        assert len(result.forgotten_event_ids) > 0
 
-    # Add a condensation to simulate previous summarization
-    condensation = Condensation(
-        forgotten_event_ids=[events[3].id, events[4].id],
-        summary="Previous summary content",
-        summary_offset=keep_first,
-    )
-    events_with_condensation = (
-        events[:keep_first] + [condensation] + events[keep_first:]
-    )
+        # LLM should be called once
+        cast(MagicMock, mock_llm.completion).assert_called_once()
 
-    view = View.from_events(events_with_condensation)
+    def test_get_condensation_with_previous_summary(self, mock_llm: LLM) -> None:
+        """Test that condenser properly handles previous summary content."""
+        max_size = 10
+        keep_first = 3
+        condenser = LLMSummarizingCondenser(
+            llm=mock_llm, max_size=max_size, keep_first=keep_first
+        )
 
-    result = condenser.get_condensation(view)
+        # Set up mock response
+        cast(Any, mock_llm).set_mock_response_content("Updated summary")
 
-    assert isinstance(result, Condensation)
-    assert result.summary == "Updated summary"
+        # Create events with a condensation in the history
+        events = [message_event(f"Event {i}") for i in range(max_size + 1)]
 
-    # Verify that the LLM was called with the previous summary
-    completion_mock = cast(MagicMock, mock_llm.completion)
-    completion_mock.assert_called_once()
-    call_args = completion_mock.call_args
-    messages = call_args[1]["messages"]  # Get keyword arguments
-    prompt_text = messages[0].content[0].text
+        # Add a condensation to simulate previous summarization
+        condensation = Condensation(
+            forgotten_event_ids=[events[3].id, events[4].id],
+            summary="Previous summary content",
+            summary_offset=keep_first,
+        )
+        events_with_condensation = (
+            events[:keep_first] + [condensation] + events[keep_first:]
+        )
 
-    # The prompt should contain the previous summary
-    assert "Previous summary content" in prompt_text
+        view = View.from_events(events_with_condensation)
 
+        result = condenser.get_condensation(view)
 
-def test_llm_summarizing_condenser_invalid_config(mock_llm: LLM) -> None:
-    """Test that LLMSummarizingCondenser validates configuration parameters."""
-    # Test max_size must be positive
-    with pytest.raises(ValueError):
-        LLMSummarizingCondenser(llm=mock_llm, max_size=0)
+        assert isinstance(result, Condensation)
+        assert result.summary == "Updated summary"
 
-    # Test keep_first must be non-negative
-    with pytest.raises(ValueError):
-        LLMSummarizingCondenser(llm=mock_llm, keep_first=-1)
+        # Verify that the LLM was called with the previous summary
+        completion_mock = cast(MagicMock, mock_llm.completion)
+        completion_mock.assert_called_once()
+        call_args = completion_mock.call_args
+        messages = call_args[1]["messages"]  # Get keyword arguments
+        prompt_text = messages[0].content[0].text
 
-    # Test keep_first must be less than max_size // 2 to leave room for condensation
-    with pytest.raises(ValueError):
-        LLMSummarizingCondenser(llm=mock_llm, max_size=10, keep_first=8)
+        # The prompt should contain the previous summary
+        assert "Previous summary content" in prompt_text
+
+    def test_invalid_config(self, mock_llm: LLM) -> None:
+        """Test that LLMSummarizingCondenser validates configuration parameters."""
+        # Test max_size must be positive
+        with pytest.raises(ValueError):
+            LLMSummarizingCondenser(llm=mock_llm, max_size=0)
+
+        # Test keep_first must be non-negative
+        with pytest.raises(ValueError):
+            LLMSummarizingCondenser(llm=mock_llm, keep_first=-1)
+
+        # Test keep_first must be less than max_size // 2 to leave room for condensation
+        with pytest.raises(ValueError):
+            LLMSummarizingCondenser(llm=mock_llm, max_size=10, keep_first=8)
