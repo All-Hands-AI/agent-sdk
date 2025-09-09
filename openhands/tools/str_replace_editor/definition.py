@@ -1,12 +1,13 @@
 """String replace editor tool implementation."""
 
-from difflib import SequenceMatcher
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
+from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
@@ -57,6 +58,10 @@ class StrReplaceEditorAction(ActionBase):
 class StrReplaceEditorObservation(ObservationBase):
     """A ToolResult that can be rendered as a CLI output."""
 
+    command: CommandLiteral = Field(
+        description="The commands to run. Allowed options are: `view`, `create`, "
+        "`str_replace`, `insert`, `undo_edit`."
+    )
     output: str = Field(
         default="", description="The output message from the tool for the LLM to see."
     )
@@ -73,6 +78,8 @@ class StrReplaceEditorObservation(ObservationBase):
     )
     error: str | None = Field(default=None, description="Error message if any.")
 
+    _diff_cache: str | None = PrivateAttr(default=None)
+
     def __init__(self, **data):
         super().__init__(**data)
         self._diff_cache: str | None = None
@@ -83,111 +90,57 @@ class StrReplaceEditorObservation(ObservationBase):
             return [TextContent(text=self.error)]
         return [TextContent(text=self.output)]
 
-    def get_edit_groups(self, n_context_lines: int = 2) -> list[dict[str, list[str]]]:
-        """Get the edit groups showing changes between old and new content.
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this observation.
 
-        Args:
-            n_context_lines: Number of context lines to show around each change.
-
-        Returns:
-            A list of edit groups, where each group contains before/after edits.
+        Shows diff visualization for meaningful changes (file creation, successful
+        edits), otherwise falls back to agent observation.
         """
-        if self.old_content is None or self.new_content is None:
-            return []
-        old_lines = self.old_content.split("\n")
-        new_lines = self.new_content.split("\n")
-        # Borrowed from difflib.unified_diff to directly parse into structured format
-        edit_groups: list[dict] = []
-        for group in SequenceMatcher(None, old_lines, new_lines).get_grouped_opcodes(
-            n_context_lines
-        ):
-            # Take the max line number in the group
-            _indent_pad_size = len(str(group[-1][3])) + 1  # +1 for "*" prefix
-            cur_group: dict[str, list[str]] = {
-                "before_edits": [],
-                "after_edits": [],
-            }
-            for tag, i1, i2, j1, j2 in group:
-                if tag == "equal":
-                    for idx, line in enumerate(old_lines[i1:i2]):
-                        line_num = i1 + idx + 1
-                        cur_group["before_edits"].append(
-                            f"{line_num:>{_indent_pad_size}}|{line}"
-                        )
-                    for idx, line in enumerate(new_lines[j1:j2]):
-                        line_num = j1 + idx + 1
-                        cur_group["after_edits"].append(
-                            f"{line_num:>{_indent_pad_size}}|{line}"
-                        )
-                    continue
-                if tag in {"replace", "delete"}:
-                    for idx, line in enumerate(old_lines[i1:i2]):
-                        line_num = i1 + idx + 1
-                        cur_group["before_edits"].append(
-                            f"-{line_num:>{_indent_pad_size - 1}}|{line}"
-                        )
-                if tag in {"replace", "insert"}:
-                    for idx, line in enumerate(new_lines[j1:j2]):
-                        line_num = j1 + idx + 1
-                        cur_group["after_edits"].append(
-                            f"+{line_num:>{_indent_pad_size - 1}}|{line}"
-                        )
-            edit_groups.append(cur_group)
-        return edit_groups
 
-    def visualize_diff(
-        self,
-        n_context_lines: int = 2,
-        change_applied: bool = True,
-    ) -> str:
-        """Visualize the diff of the string replacement edit.
+        if not self._has_meaningful_diff:
+            return super().visualize
 
-        Instead of showing the diff line by line, this function shows each hunk
-        of changes as a separate entity.
+        assert self.path is not None, "path should be set for meaningful diff"
+        # Generate and cache diff visualization
+        if not self._diff_cache:
+            change_applied = self.command != "view" and not self.error
+            self._diff_cache = visualize_diff(
+                self.path,
+                self.old_content,
+                self.new_content,
+                n_context_lines=2,
+                change_applied=change_applied,
+            )
 
-        Args:
-            n_context_lines: Number of context lines to show before/after changes.
-            change_applied: Whether changes are applied. If false, shows as
-                attempted edit.
+        content = Text()
+        content.append(self._diff_cache)
+        return content
 
-        Returns:
-            A string containing the formatted diff visualization.
-        """
-        # Use cached diff if available
-        if self._diff_cache is not None:
-            return self._diff_cache
+    @property
+    def _has_meaningful_diff(self) -> bool:
+        """Check if there's a meaningful diff to display."""
+        if self.error:
+            return False
 
-        # Check if there are any changes
-        if change_applied and self.old_content == self.new_content:
-            msg = "(no changes detected. Please make sure your edits change "
-            msg += "the content of the existing file.)\n"
-            self._diff_cache = msg
-            return self._diff_cache
+        if not self.path:
+            return False
 
-        edit_groups = self.get_edit_groups(n_context_lines=n_context_lines)
+        if self.command not in ("create", "str_replace", "insert", "undo_edit"):
+            return False
 
-        if change_applied:
-            header = f"[File {self.path} edited with "
-            header += f"{len(edit_groups)} changes.]"
-        else:
-            header = f"[Changes are NOT applied to {self.path} - Here's how "
-            header += "the file looks like if changes are applied.]"
-        result = [header]
+        # File creation case
+        if self.command == "create" and self.new_content and not self.prev_exist:
+            return True
 
-        op_type = "edit" if change_applied else "ATTEMPTED edit"
-        for i, cur_edit_group in enumerate(edit_groups):
-            if i != 0:
-                result.append("-------------------------")
-            result.append(f"[begin of {op_type} {i + 1} / {len(edit_groups)}]")
-            result.append(f"(content before {op_type})")
-            result.extend(cur_edit_group["before_edits"])
-            result.append(f"(content after {op_type})")
-            result.extend(cur_edit_group["after_edits"])
-            result.append(f"[end of {op_type} {i + 1} / {len(edit_groups)}]")
+        # File modification cases (str_replace, insert, undo_edit)
+        if self.command in ("str_replace", "insert", "undo_edit"):
+            # Need both old and new content to show meaningful diff
+            if self.old_content is not None and self.new_content is not None:
+                # Only show diff if content actually changed
+                return self.old_content != self.new_content
 
-        # Cache the result
-        self._diff_cache = "\n".join(result)
-        return self._diff_cache
+        return False
 
 
 Command = Literal[

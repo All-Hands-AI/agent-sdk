@@ -175,13 +175,7 @@ class ObservationEvent(LLMConvertibleEvent):
         content.append("Tool: ", style="bold")
         content.append(self.tool_name)
         content.append("\nResult:\n", style="bold")
-
-        text_parts = content_to_str(self.observation.agent_observation)
-        if text_parts:
-            full_content = "".join(text_parts)
-            content.append(full_content)
-        else:
-            content.append("[no text content]", style="dim")
+        content.append(self.observation.visualize)
 
         return content
 

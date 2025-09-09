@@ -1,6 +1,10 @@
 """Tests for the visualize_diff functionality in StrReplaceEditorObservation."""
 
 from openhands.tools.str_replace_editor.definition import StrReplaceEditorObservation
+from openhands.tools.str_replace_editor.utils.diff import (
+    get_edit_groups,
+    visualize_diff,
+)
 
 
 def test_visualize_diff_simple_replacement():
@@ -14,13 +18,17 @@ def test_visualize_diff_simple_replacement():
     return True"""
 
     observation = StrReplaceEditorObservation(
+        command="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
     )
 
-    diff = observation.visualize_diff()
+    assert observation.path == "/test/file.py"
+    diff = visualize_diff(
+        observation.path, observation.old_content, observation.new_content
+    )
 
     # Check that the diff contains expected elements
     assert "[File /test/file.py edited with 1 changes.]" in diff
@@ -39,10 +47,17 @@ def test_visualize_diff_no_changes():
     return True"""
 
     observation = StrReplaceEditorObservation(
-        path="/test/file.py", old_content=content, new_content=content, prev_exist=True
+        command="str_replace",
+        path="/test/file.py",
+        old_content=content,
+        new_content=content,
+        prev_exist=True,
     )
 
-    diff = observation.visualize_diff()
+    assert observation.path == "/test/file.py"
+    diff = visualize_diff(
+        observation.path, observation.old_content, observation.new_content
+    )
 
     expected_msg = (
         "(no changes detected. Please make sure your edits change "
@@ -74,13 +89,16 @@ def main():
     calculate(x, y)"""
 
     observation = StrReplaceEditorObservation(
+        command="str_replace",
         path="/test/calc.py",
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
     )
-
-    diff = observation.visualize_diff()
+    assert observation.path == "/test/calc.py"
+    diff = visualize_diff(
+        observation.path, observation.old_content, observation.new_content
+    )
 
     # Check that the diff contains expected elements
     assert "[File /test/calc.py edited with 1 changes.]" in diff
@@ -98,13 +116,20 @@ def test_visualize_diff_attempted_edit():
     new_content = "new line"
 
     observation = StrReplaceEditorObservation(
+        command="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
     )
 
-    diff = observation.visualize_diff(change_applied=False)
+    assert observation.path == "/test/file.py"
+    diff = visualize_diff(
+        observation.path,
+        observation.old_content,
+        observation.new_content,
+        change_applied=False,
+    )
 
     assert "[Changes are NOT applied to /test/file.py" in diff
     assert "ATTEMPTED edit" in diff
@@ -118,6 +143,7 @@ def test_visualize_diff_caching():
     new_content = "new line"
 
     observation = StrReplaceEditorObservation(
+        command="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
@@ -125,10 +151,16 @@ def test_visualize_diff_caching():
     )
 
     # First call should compute and cache
-    diff1 = observation.visualize_diff()
+    assert observation._diff_cache is None
+    assert observation.path == "/test/file.py"
+    diff1 = visualize_diff(
+        observation.path, observation.old_content, observation.new_content
+    )
 
     # Second call should use cache
-    diff2 = observation.visualize_diff()
+    diff2 = visualize_diff(
+        observation.path, observation.old_content, observation.new_content
+    )
 
     assert diff1 == diff2
     assert observation._diff_cache is not None
@@ -154,6 +186,7 @@ line6
 line7"""
 
     observation = StrReplaceEditorObservation(
+        command="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
@@ -161,13 +194,24 @@ line7"""
     )
 
     # Test with 1 context line
-    diff_1_context = observation.visualize_diff(n_context_lines=1)
+    assert observation.path == "/test/file.py"
+    diff_1_context = visualize_diff(
+        observation.path,
+        observation.old_content,
+        observation.new_content,
+        n_context_lines=1,
+    )
 
     # Reset cache to test different context
     observation._diff_cache = None
 
     # Test with 3 context lines
-    diff_3_context = observation.visualize_diff(n_context_lines=3)
+    diff_3_context = visualize_diff(
+        observation.path,
+        observation.old_content,
+        observation.new_content,
+        n_context_lines=3,
+    )
 
     # The diffs should be different due to different context
     assert diff_1_context != diff_3_context
@@ -184,48 +228,69 @@ new_line2
 line3"""
 
     observation = StrReplaceEditorObservation(
+        command="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
     )
+    assert observation.path == "/test/file.py"
+    assert observation.old_content == old_content
+    assert observation.new_content == new_content
 
-    edit_groups = observation.get_edit_groups()
+    edit_groups = get_edit_groups(
+        observation.old_content, observation.new_content, n_context_lines=1
+    )
 
     assert len(edit_groups) == 1
-    assert "before_edits" in edit_groups[0]
-    assert "after_edits" in edit_groups[0]
-    assert len(edit_groups[0]["before_edits"]) == 3  # 1 context + 1 change + 1 context
-    assert len(edit_groups[0]["after_edits"]) == 3
+    assert edit_groups[0].before_edits
+    assert edit_groups[0].after_edits
+    assert len(edit_groups[0].before_edits) == 3  # 1 context + 1 change + 1 context
+    assert len(edit_groups[0].after_edits) == 3
 
 
 def test_get_edit_groups_no_content():
     """Test get_edit_groups when old_content or new_content is None."""
     observation = StrReplaceEditorObservation(
+        command="str_replace",
         path="/test/file.py",
         old_content=None,
         new_content="some content",
         prev_exist=True,
     )
 
-    edit_groups = observation.get_edit_groups()
+    assert observation.path == "/test/file.py"
+    assert observation.old_content is None
+    assert observation.new_content == "some content"
+    edit_groups = get_edit_groups(
+        observation.old_content or "", observation.new_content
+    )
     assert edit_groups == []
 
     observation.old_content = "some content"
     observation.new_content = None
 
-    edit_groups = observation.get_edit_groups()
+    edit_groups = get_edit_groups(
+        observation.old_content, observation.new_content or ""
+    )
     assert edit_groups == []
 
 
 def test_visualize_diff_none_content():
     """Test visualize_diff when content is None."""
     observation = StrReplaceEditorObservation(
-        path="/test/file.py", old_content=None, new_content=None, prev_exist=True
+        command="str_replace",
+        path="/test/file.py",
+        old_content=None,
+        new_content=None,
+        prev_exist=True,
     )
 
     # Should not crash and should return the "no changes detected" message
-    diff = observation.visualize_diff()
+    assert observation.path == "/test/file.py"
+    diff = visualize_diff(
+        observation.path, observation.old_content, observation.new_content
+    )
 
     # When both contents are None, it's treated as no changes
     expected_msg = (

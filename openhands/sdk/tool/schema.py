@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
+from openhands.sdk.llm.message import content_to_str
 from openhands.sdk.tool.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
@@ -264,6 +265,22 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
     def agent_observation(self) -> list[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
         raise NotImplementedError("Subclasses must implement agent_observation")
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this action.
+
+        This method can be overridden by subclasses to customize visualization.
+        The base implementation displays all action fields systematically.
+        """
+        content = Text()
+        text_parts = content_to_str(self.agent_observation)
+        if text_parts:
+            full_content = "".join(text_parts)
+            content.append(full_content)
+        else:
+            content.append("[no text content]", style="dim")
+        return content
 
 
 Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
