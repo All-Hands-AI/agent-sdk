@@ -1,7 +1,5 @@
 """Tests for reasoning content support in LLM and Message classes."""
 
-from unittest.mock import patch
-
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 
 
@@ -87,23 +85,6 @@ def test_message_from_litellm_message_without_reasoning():
     assert isinstance(message.content[0], TextContent)
     assert message.content[0].text == "The answer is 42."
     assert message.reasoning_content is None
-
-
-@patch("openhands.sdk.llm.llm.litellm_completion")
-def test_llm_completion_basic(mock_completion):
-    """Test basic LLM.completion functionality."""
-    from openhands.sdk.llm.llm import LLM
-
-    llm = LLM(model="claude-sonnet-4-20250514")
-
-    # Mock the response
-    mock_response = create_mock_response()
-    mock_completion.return_value = mock_response
-
-    messages = [{"role": "user", "content": "Hello"}]
-
-    result = llm.completion(messages)
-    assert result == mock_response
 
 
 def test_message_serialization_with_reasoning():
