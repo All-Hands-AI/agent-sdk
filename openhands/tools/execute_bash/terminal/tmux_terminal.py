@@ -138,7 +138,7 @@ class TmuxTerminal(TerminalInterface):
             self.pane.send_keys("C-c", enter=False)
             return True
         except Exception as e:
-            logger.error(f"Failed to interrupt command: {e}")
+            logger.error(f"Failed to interrupt command: {e}", exc_info=True)
             return False
 
     def is_running(self) -> bool:

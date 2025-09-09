@@ -6,17 +6,14 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventType,
+    Event,
     LLMConvertibleEvent,
     Message,
     TextContent,
     Tool,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-    FileEditorTool,
-)
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
 logger = get_logger(__name__)
@@ -35,6 +32,7 @@ cwd = os.getcwd()
 tools: list[Tool] = [
     BashTool(working_dir=cwd),
     FileEditorTool(),
+    TaskTrackerTool(save_dir=cwd),
 ]
 
 # Agent
@@ -43,7 +41,7 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventType):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -57,7 +55,7 @@ conversation.send_message(
             TextContent(
                 text=(
                     "Hello! Can you create a new Python file named hello.py"
-                    " that prints 'Hello, World!'?"
+                    " that prints 'Hello, World!'? Use task tracker to plan your steps."
                 )
             )
         ],

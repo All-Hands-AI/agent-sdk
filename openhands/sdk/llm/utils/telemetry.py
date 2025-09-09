@@ -50,9 +50,8 @@ class Telemetry(BaseModel):
 
     def on_response(
         self, resp: ModelResponse, raw_resp: ModelResponse | None = None
-    ) -> float:
+    ) -> Metrics:
         """
-        Returns: cost (float)
         Side-effects:
           - records latency, tokens, cost into Metrics
           - optionally writes a JSON log file
@@ -82,7 +81,7 @@ class Telemetry(BaseModel):
         if self.log_enabled:
             self._log_completion(resp, cost, raw_resp=raw_resp)
 
-        return float(cost or 0.0)
+        return self.metrics.deep_copy()
 
     def on_error(self, err: Exception) -> None:
         # Stub for error tracking / counters
@@ -118,27 +117,28 @@ class Telemetry(BaseModel):
     ) -> None:
         # Handle both dict and Usage objects
         if isinstance(usage, dict):
-            prompt_tokens = usage.get("prompt_tokens", 0) or 0
-            completion_tokens = usage.get("completion_tokens", 0) or 0
-        else:
-            prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-            completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+            usage = Usage.model_validate(usage)
+
+        prompt_tokens = usage.prompt_tokens or 0
+        completion_tokens = usage.completion_tokens or 0
+        cache_write = usage._cache_creation_input_tokens or 0
 
         cache_read = 0
-        details = getattr(usage, "prompt_tokens_details", None)
-        if details and getattr(details, "cached_tokens", 0):
-            cache_read = details.cached_tokens  # type: ignore[attr-defined]
+        prompt_token_details = usage.prompt_tokens_details or None
+        if prompt_token_details and prompt_token_details.cached_tokens:
+            cache_read = prompt_token_details.cached_tokens
 
-        cache_write = 0
-        model_extra = usage.get("model_extra", {}) if isinstance(usage, dict) else {}
-        if model_extra:
-            cache_write = model_extra.get("cache_creation_input_tokens", 0) or 0
+        reasoning_tokens = 0
+        completion_tokens_details = usage.completion_tokens_details or None
+        if completion_tokens_details and completion_tokens_details.reasoning_tokens:
+            reasoning_tokens = completion_tokens_details.reasoning_tokens
 
         self.metrics.add_token_usage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read,
             cache_write_tokens=cache_write,
+            reasoning_tokens=reasoning_tokens,
             context_window=context_window,
             response_id=response_id,
         )
@@ -191,7 +191,13 @@ class Telemetry(BaseModel):
         if not self.log_dir:
             return
         try:
-            os.makedirs(self.log_dir, exist_ok=True)
+            # Only log if directory exists and is writable.
+            # Do not create directories implicitly.
+            if not os.path.isdir(self.log_dir):
+                raise FileNotFoundError(f"log_dir does not exist: {self.log_dir}")
+            if not os.access(self.log_dir, os.W_OK):
+                raise PermissionError(f"log_dir is not writable: {self.log_dir}")
+
             fname = os.path.join(
                 self.log_dir,
                 f"{self.model_name.replace('/', '__')}-{time.time():.3f}.json",
@@ -201,6 +207,32 @@ class Telemetry(BaseModel):
             data["cost"] = float(cost or 0.0)
             data["timestamp"] = time.time()
             data["latency_sec"] = self._last_latency
+
+            # Usage summary (prompt, completion, reasoning tokens) for quick inspection
+            try:
+                usage = getattr(resp, "usage", None)
+                if usage:
+                    if isinstance(usage, dict):
+                        usage = Usage.model_validate(usage)
+                    prompt_tokens = int(usage.prompt_tokens or 0)
+                    completion_tokens = int(usage.completion_tokens or 0)
+                    reasoning_tokens = 0
+                    details = usage.completion_tokens_details or None
+                    if details and details.reasoning_tokens:
+                        reasoning_tokens = int(details.reasoning_tokens)
+                    data["usage_summary"] = {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "reasoning_tokens": reasoning_tokens,
+                    }
+                    if usage.prompt_tokens_details:
+                        data["usage_summary"]["cache_read_tokens"] = int(
+                            usage.prompt_tokens_details.cached_tokens or 0
+                        )
+            except Exception:
+                # Best-effort only; don't fail logging
+                pass
+
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
                 data["raw_response"] = raw_resp

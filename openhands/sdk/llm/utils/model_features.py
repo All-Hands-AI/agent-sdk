@@ -13,6 +13,8 @@ def normalize_model_name(model: str) -> str:
       and treat ':' inside that basename as an Ollama-style variant tag to be removed
     - There is no provider:model form; providers, when present, use 'provider/model'
     - Drop a trailing "-gguf" suffix if present
+    - If basename starts with a known vendor prefix followed by '.', drop that prefix
+      (e.g., 'anthropic.claude-*' -> 'claude-*')
     """
     raw = (model or "").strip().lower()
     if "/" in raw:
@@ -23,6 +25,22 @@ def normalize_model_name(model: str) -> str:
     else:
         # No '/', keep the whole raw name (we do not support provider:model)
         name = raw
+
+    # Drop common vendor prefixes embedded in the basename (bedrock style), once.
+    # Keep this list small and explicit to avoid accidental over-matching.
+    vendor_prefixes = {
+        "anthropic",
+        "meta",
+        "cohere",
+        "mistral",
+        "ai21",
+        "amazon",
+    }
+    if "." in name:
+        vendor, rest = name.split(".", 1)
+        if vendor in vendor_prefixes and rest:
+            name = rest
+
     if name.endswith("-gguf"):
         name = name[: -len("-gguf")]
     return name
@@ -85,7 +103,7 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
 ]
 
 REASONING_EFFORT_PATTERNS: list[str] = [
-    # Mirror main behavior exactly (no unintended expansion), plus DeepSeek support
+    # Mirror main behavior exactly (no unintended expansion)
     "o1-2024-12-17",
     "o1",
     "o3",
@@ -98,8 +116,6 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "gemini-2.5-pro",
     "gpt-5",
     "gpt-5-2025-08-07",
-    # DeepSeek reasoning family
-    "deepseek-r1-0528*",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
@@ -109,8 +125,8 @@ PROMPT_CACHE_PATTERNS: list[str] = [
     "claude-3-5-sonnet*",
     "claude-3-5-haiku*",
     "claude-3.5-haiku*",
-    "claude-3-haiku-20240307",
-    "claude-3-opus-20240229",
+    "claude-3-haiku-20240307*",
+    "claude-3-opus-20240229*",
     "claude-sonnet-4*",
     "claude-opus-4*",
 ]
@@ -120,6 +136,7 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
     "o1*",
     # grok-4 specific model name (basename)
     "grok-4-0709",
+    "grok-code-fast-1",
     # DeepSeek R1 family
     "deepseek-r1-0528*",
 ]

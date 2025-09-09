@@ -1,16 +1,44 @@
+import re
+from typing import Dict
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from openhands.sdk.event import EventType
-from openhands.sdk.event.llm_convertible import (
+from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
+    Event,
     MessageEvent,
     ObservationEvent,
+    PauseEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import ImageContent, TextContent
+
+
+# These are external inputs
+_OBSERVATION_COLOR = "yellow"
+_MESSAGE_USER_COLOR = "yellow"
+_PAUSE_COLOR = "bright_yellow"
+# These are internal system stuff
+_SYSTEM_COLOR = "magenta"
+_THOUGHT_COLOR = "bright_black"
+_ERROR_COLOR = "red"
+# These are agent actions
+_ACTION_COLOR = "blue"
+_MESSAGE_ASSISTANT_COLOR = _ACTION_COLOR
+
+DEFAULT_HIGHLIGHT_REGEX = {
+    r"^Reasoning:": f"bold {_THOUGHT_COLOR}",
+    r"^Thought:": f"bold {_THOUGHT_COLOR}",
+    r"^Action:": f"bold {_ACTION_COLOR}",
+    r"^Arguments:": f"bold {_ACTION_COLOR}",
+    r"^Tool:": f"bold {_OBSERVATION_COLOR}",
+    r"^Result:": f"bold {_OBSERVATION_COLOR}",
+    # Markdown-style
+    r"\*\*(.*?)\*\*": "bold",
+    r"\*(.*?)\*": "italic",
+}
 
 
 class ConversationVisualizer:
@@ -19,181 +47,201 @@ class ConversationVisualizer:
     Provides Rich-formatted output with panels and complete content display.
     """
 
-    def __init__(self):
-        self._console = Console()
+    def __init__(
+        self,
+        highlight_regex: Dict[str, str] | None = None,
+        skip_user_messages: bool = False,
+    ):
+        """Initialize the visualizer.
 
-    def on_event(self, event: EventType) -> None:
+        Args:
+            highlight_regex: Dictionary mapping regex patterns to Rich color styles
+                           for highlighting keywords in the visualizer.
+                           For example: {"Reasoning:": "bold blue",
+                           "Thought:": "bold green"}
+            skip_user_messages: If True, skip displaying user messages. Useful for
+                                scenarios where user input is not relevant to show.
+        """
+        self._console = Console()
+        self._skip_user_messages = skip_user_messages
+        self._highlight_patterns: Dict[str, str] = highlight_regex or {}
+
+    def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
         panel = self._create_event_panel(event)
-        self._console.print(panel)
-        self._console.print()  # Add spacing between events
+        if panel:
+            self._console.print(panel)
+            self._console.print()  # Add spacing between events
 
-    def _create_event_panel(self, event: EventType) -> Panel:
+    def _apply_highlighting(self, text: Text) -> Text:
+        """Apply regex-based highlighting to text content.
+
+        Args:
+            text: The Rich Text object to highlight
+
+        Returns:
+            A new Text object with highlighting applied
+        """
+        if not self._highlight_patterns:
+            return text
+
+        # Create a copy to avoid modifying the original
+        highlighted = text.copy()
+
+        # Apply each pattern using Rich's built-in highlight_regex method
+        for pattern, style in self._highlight_patterns.items():
+            pattern_compiled = re.compile(pattern, re.MULTILINE)
+            highlighted.highlight_regex(pattern_compiled, style)
+
+        return highlighted
+
+    def _create_event_panel(self, event: Event) -> Panel | None:
         """Create a Rich Panel for the event with appropriate styling."""
+        # Use the event's visualize property for content
+        content = event.visualize
+
+        # Apply highlighting if configured
+        if self._highlight_patterns:
+            content = self._apply_highlighting(content)
+
+        # Determine panel styling based on event type
         if isinstance(event, SystemPromptEvent):
-            return self._create_system_prompt_panel(event)
-        elif isinstance(event, ActionEvent):
-            return self._create_action_panel(event)
-        elif isinstance(event, ObservationEvent):
-            return self._create_observation_panel(event)
-        elif isinstance(event, MessageEvent):
-            return self._create_message_panel(event)
-        elif isinstance(event, AgentErrorEvent):
-            return self._create_error_panel(event)
-        else:
-            # Fallback panel for unknown event types
-            content = Text(f"Unknown event type: {event.__class__.__name__}")
             return Panel(
                 content,
-                title=f"[bold blue]{event.__class__.__name__}[/bold blue]",
+                title=f"[bold {_SYSTEM_COLOR}]System Prompt[/bold {_SYSTEM_COLOR}]",
+                border_style=_SYSTEM_COLOR,
+                expand=True,
+            )
+        elif isinstance(event, ActionEvent):
+            return Panel(
+                content,
+                title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
+                subtitle=self._format_metrics_subtitle(event),
+                border_style=_ACTION_COLOR,
+                expand=True,
+            )
+        elif isinstance(event, ObservationEvent):
+            return Panel(
+                content,
+                title=f"[bold {_OBSERVATION_COLOR}]Observation"
+                f"[/bold {_OBSERVATION_COLOR}]",
+                border_style=_OBSERVATION_COLOR,
+                expand=True,
+            )
+        elif isinstance(event, MessageEvent):
+            if (
+                self._skip_user_messages
+                and event.llm_message
+                and event.llm_message.role == "user"
+            ):
+                return
+            assert event.llm_message is not None
+            # Role-based styling
+            role_colors = {
+                "user": _MESSAGE_USER_COLOR,
+                "assistant": _MESSAGE_ASSISTANT_COLOR,
+            }
+            role_color = role_colors.get(event.llm_message.role, "white")
+
+            title_text = (
+                f"[bold {role_color}]Message from {event.source.capitalize()})"
+                f"[/bold {role_color}]"
+            )
+            return Panel(
+                content,
+                title=title_text,
+                subtitle=self._format_metrics_subtitle(event),
+                border_style=role_color,
+                expand=True,
+            )
+        elif isinstance(event, AgentErrorEvent):
+            return Panel(
+                content,
+                title=f"[bold {_ERROR_COLOR}]Agent Error[/bold {_ERROR_COLOR}]",
+                subtitle=self._format_metrics_subtitle(event),
+                border_style=_ERROR_COLOR,
+                expand=True,
+            )
+        elif isinstance(event, PauseEvent):
+            return Panel(
+                content,
+                title=f"[bold {_PAUSE_COLOR}]User Paused[/bold {_PAUSE_COLOR}]",
+                border_style=_PAUSE_COLOR,
+                expand=True,
+            )
+        else:
+            # Fallback panel for unknown event types
+            return Panel(
+                content,
+                title=f"[bold {_ERROR_COLOR}]UNKNOWN Event: {event.__class__.__name__}"
+                f"[/bold {_ERROR_COLOR}]",
                 subtitle=f"[dim]({event.source})[/dim]",
-                border_style="blue",
+                border_style=_ERROR_COLOR,
                 expand=True,
             )
 
-    def _create_system_prompt_panel(self, event: SystemPromptEvent) -> Panel:
-        """Create a Rich Panel for SystemPromptEvent with complete content."""
-        content = Text()
-        content.append("System Prompt:\n", style="bold cyan")
-        content.append(event.system_prompt.text, style="white")
-        content.append(f"\n\nTools Available: {len(event.tools)}", style="dim cyan")
+    def _format_metrics_subtitle(
+        self, event: ActionEvent | MessageEvent | AgentErrorEvent
+    ) -> str | None:
+        """Format LLM metrics as a visually appealing subtitle string with icons,
+        colors, and k/m abbreviations (cache hit rate only)."""
+        if not event.metrics or not event.metrics.accumulated_token_usage:
+            return None
 
-        return Panel(
-            content,
-            title="[bold magenta]System Prompt[/bold magenta]",
-            subtitle=f"[dim]({event.source})[/dim]",
-            border_style="magenta",
-            expand=True,
-        )
+        usage = event.metrics.accumulated_token_usage
+        cost = event.metrics.accumulated_cost or 0.0
 
-    def _create_action_panel(self, event: ActionEvent) -> Panel:
-        """Create a Rich Panel for ActionEvent with complete content."""
-        content = Text()
-
-        # Display complete thought content
-        thought_text = " ".join([t.text for t in event.thought])
-        if thought_text:
-            content.append("Thought:\n", style="bold green")
-            content.append(thought_text, style="white")
-            content.append("\n\n")
-
-        # Display action information
-        action_name = event.action.__class__.__name__
-        content.append("Action: ", style="bold green")
-        content.append(action_name, style="yellow")
-        content.append("\n\n")
-
-        # Display all action fields systematically
-        content.append("Action Fields:\n", style="bold green")
-        action_fields = event.action.model_dump()
-        for field_name, field_value in action_fields.items():
-            content.append(f"  {field_name}: ", style="cyan")
-            if field_value is None:
-                content.append("None", style="dim white")
-            elif isinstance(field_value, str):
-                # Handle multiline strings with proper indentation
-                if "\n" in field_value:
-                    content.append("\n", style="white")
-                    for line in field_value.split("\n"):
-                        content.append(f"    {line}\n", style="white")
-                else:
-                    content.append(f'"{field_value}"', style="white")
-            elif isinstance(field_value, (list, dict)):
-                content.append(str(field_value), style="white")
+        # helper: 1234 -> "1.2K", 1200000 -> "1.2M"
+        def abbr(n: int | float) -> str:
+            n = int(n or 0)
+            if n >= 1_000_000_000:
+                s = f"{n / 1_000_000_000:.2f}B"
+            elif n >= 1_000_000:
+                s = f"{n / 1_000_000:.2f}M"
+            elif n >= 1_000:
+                s = f"{n / 1_000:.2f}K"
             else:
-                content.append(str(field_value), style="white")
-            content.append("\n")
+                return str(n)
+            return s.replace(".0", "")
 
-        return Panel(
-            content,
-            title="[bold green]Agent Action[/bold green]",
-            subtitle=f"[dim]({event.source})[/dim]",
-            border_style="green",
-            expand=True,
-        )
+        input_tokens = abbr(usage.prompt_tokens or 0)
+        output_tokens = abbr(usage.completion_tokens or 0)
 
-    def _create_observation_panel(self, event: ObservationEvent) -> Panel:
-        """Create a Rich Panel for ObservationEvent with complete content."""
-        content = Text()
-        content.append("Tool: ", style="bold blue")
-        content.append(event.tool_name, style="cyan")
-        content.append("\n\nResult:\n", style="bold blue")
-        content.append(event.observation.agent_observation, style="white")
+        # Cache hit rate (prompt + cache)
+        prompt = usage.prompt_tokens or 0
+        cache_read = usage.cache_read_tokens or 0
+        cache_rate = f"{(cache_read / prompt * 100):.2f}%" if prompt > 0 else "N/A"
+        reasoning_tokens = usage.reasoning_tokens or 0
 
-        return Panel(
-            content,
-            title="[bold blue]Tool Observation[/bold blue]",
-            subtitle=f"[dim]({event.source})[/dim]",
-            border_style="blue",
-            expand=True,
-        )
+        # Cost
+        cost_str = f"{cost:.4f}" if cost > 0 else "$0.00"
 
-    def _create_message_panel(self, event: MessageEvent) -> Panel:
-        """Create a Rich Panel for MessageEvent with complete content."""
-        content = Text()
+        # Build with fixed color scheme
+        parts: list[str] = []
+        parts.append(f"[cyan]↑ input {input_tokens}[/cyan]")
+        parts.append(f"[magenta]cache hit {cache_rate}[/magenta]")
+        if reasoning_tokens > 0:
+            parts.append(f"[yellow] reasoning {abbr(reasoning_tokens)}[/yellow]")
+        parts.append(f"[blue]↓ output {output_tokens}[/blue]")
+        parts.append(f"[green]$ {cost_str}[/green]")
 
-        # Role-based styling
-        role_colors = {
-            "user": "bright_cyan",
-            "assistant": "bright_green",
-            "system": "bright_magenta",
-        }
-        role_color = role_colors.get(event.llm_message.role, "white")
+        return "Tokens: " + " [dim]•[/dim] ".join(parts)
 
-        content.append(
-            f"{event.llm_message.role.title()}:\n", style=f"bold {role_color}"
-        )
 
-        # Extract and display all content
-        text_parts = []
-        for content_item in event.llm_message.content:
-            if isinstance(content_item, TextContent):
-                text_parts.append(content_item.text)
-            elif isinstance(content_item, ImageContent):
-                text_parts.append(f"[Image: {len(content_item.image_urls)} URLs]")
+def create_default_visualizer(
+    highlight_regex: Dict[str, str] | None = None, **kwargs
+) -> ConversationVisualizer:
+    """Create a default conversation visualizer instance.
 
-        if text_parts:
-            full_content = " ".join(text_parts)
-            content.append(full_content, style="white")
-        else:
-            content.append("[no text content]", style="dim white")
-
-        # Add microagent information if present
-        if event.activated_microagents:
-            content.append(
-                f"\n\nActivated Microagents: {', '.join(event.activated_microagents)}",
-                style="dim yellow",
-            )
-
-        # Panel styling based on role
-        panel_colors = {
-            "user": "cyan",
-            "assistant": "green",
-            "system": "magenta",
-        }
-        border_color = panel_colors.get(event.llm_message.role, "white")
-
-        title_text = (
-            f"[bold {role_color}]Message ({event.llm_message.role})[/bold {role_color}]"
-        )
-        return Panel(
-            content,
-            title=title_text,
-            subtitle=f"[dim]({event.source})[/dim]",
-            border_style=border_color,
-            expand=True,
-        )
-
-    def _create_error_panel(self, event: AgentErrorEvent) -> Panel:
-        """Create a Rich Panel for AgentErrorEvent with complete content."""
-        content = Text()
-        content.append("Error Details:\n", style="bold red")
-        content.append(event.error, style="bright_red")
-
-        return Panel(
-            content,
-            title="[bold red]Agent Error[/bold red]",
-            subtitle=f"[dim]({event.source})[/dim]",
-            border_style="red",
-            expand=True,
-        )
+    Args:
+        highlight_regex: Dictionary mapping regex patterns to Rich color styles
+                       for highlighting keywords in the visualizer.
+                       For example: {"Reasoning:": "bold blue",
+                       "Thought:": "bold green"}
+    """
+    return ConversationVisualizer(
+        highlight_regex=DEFAULT_HIGHLIGHT_REGEX
+        if highlight_regex is None
+        else highlight_regex,
+        **kwargs,
+    )

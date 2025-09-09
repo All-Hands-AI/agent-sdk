@@ -1,5 +1,6 @@
 from pydantic import Field
 
+from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
     ActionBase,
     ObservationBase,
@@ -17,8 +18,8 @@ class FinishObservation(ObservationBase):
     message: str = Field(description="Final message sent to the user.")
 
     @property
-    def agent_observation(self) -> str:
-        return self.message
+    def agent_observation(self) -> list[TextContent | ImageContent]:
+        return [TextContent(text=self.message)]
 
 
 TOOL_DESCRIPTION = """Signals the completion of the current task or conversation.
@@ -42,8 +43,8 @@ class FinishExecutor(ToolExecutor):
 
 FinishTool = Tool(
     name="finish",
-    input_schema=FinishAction,
-    output_schema=FinishObservation,
+    action_type=FinishAction,
+    observation_type=FinishObservation,
     description=TOOL_DESCRIPTION,
     executor=FinishExecutor(),
     annotations=ToolAnnotations(

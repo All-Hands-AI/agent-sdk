@@ -5,11 +5,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
-from openhands.tools.utils.security_prompt import (
-    SECURITY_RISK_DESC,
-    SECURITY_RISK_LITERAL,
-)
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
@@ -55,7 +52,6 @@ class StrReplaceEditorAction(ActionBase):
         "show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, "
         "-1]` shows all lines from `start_line` to the end of the file.",
     )
-    security_risk: SECURITY_RISK_LITERAL = Field(description=SECURITY_RISK_DESC)
 
 
 class StrReplaceEditorObservation(ObservationBase):
@@ -82,10 +78,10 @@ class StrReplaceEditorObservation(ObservationBase):
         self._diff_cache: str | None = None
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         if self.error:
-            return self.error
-        return self.output
+            return [TextContent(text=self.error)]
+        return [TextContent(text=self.output)]
 
     def get_edit_groups(self, n_context_lines: int = 2) -> list[dict[str, list[str]]]:
         """Get the edit groups showing changes between old and new content.
@@ -239,7 +235,7 @@ Remember: when making multiple file edits in a row to the same file, you should 
 
 str_replace_editor_tool = Tool(
     name="str_replace_editor",
-    input_schema=StrReplaceEditorAction,
+    action_type=StrReplaceEditorAction,
     description=TOOL_DESCRIPTION,
     annotations=ToolAnnotations(
         title="str_replace_editor",
@@ -266,8 +262,8 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         super().__init__(
             name=str_replace_editor_tool.name,
             description=TOOL_DESCRIPTION,
-            input_schema=StrReplaceEditorAction,
-            output_schema=StrReplaceEditorObservation,
+            action_type=StrReplaceEditorAction,
+            observation_type=StrReplaceEditorObservation,
             annotations=str_replace_editor_tool.annotations,
             executor=executor,
         )

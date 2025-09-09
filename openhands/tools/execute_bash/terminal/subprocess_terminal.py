@@ -154,7 +154,7 @@ class SubprocessTerminal(TerminalInterface):
                     except subprocess.TimeoutExpired:
                         os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
         except Exception as e:
-            logger.error(f"Error closing PTY terminal: {e}")
+            logger.error(f"Error closing PTY terminal: {e}", exc_info=True)
         finally:
             # Reader thread stop: close master FD; thread exits on read error/EOF
             try:
@@ -182,7 +182,7 @@ class SubprocessTerminal(TerminalInterface):
             logger.debug(f"Wrote to subprocess PTY: {data!r}")
             os.write(self._pty_master_fd, data)
         except Exception as e:
-            logger.error(f"Failed to write to PTY: {e}")
+            logger.error(f"Failed to write to PTY: {e}", exc_info=True)
             raise
 
     def _read_output_continuously_pty(self) -> None:
@@ -218,7 +218,7 @@ class SubprocessTerminal(TerminalInterface):
                     logger.debug(f"Error reading PTY output: {e}")
                     break
         except Exception as e:
-            logger.error(f"PTY reader thread error: {e}")
+            logger.error(f"PTY reader thread error: {e}", exc_info=True)
 
     def _add_text_to_buffer(self, text: str) -> None:
         """Add text to buffer, ensuring one line per buffer item."""
@@ -392,7 +392,7 @@ class SubprocessTerminal(TerminalInterface):
             self._current_command_running = False
             return True
         except Exception as e:
-            logger.error(f"Failed to interrupt subprocess: {e}")
+            logger.error(f"Failed to interrupt subprocess: {e}", exc_info=True)
             return False
 
     def is_running(self) -> bool:

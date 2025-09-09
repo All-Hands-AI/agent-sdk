@@ -13,6 +13,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    field_validator,
     model_validator,
 )
 
@@ -242,6 +243,25 @@ class LLM(BaseModel, RetryMixin):
     # =========================================================================
     # Validators
     # =========================================================================
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def _validate_api_key(cls, v):
+        """Convert empty API keys to None to allow boto3 to use alternative auth methods."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Handle both SecretStr and string inputs
+        if isinstance(v, SecretStr):
+            secret_value = v.get_secret_value()
+        else:
+            secret_value = str(v)
+
+        # If the API key is empty or whitespace-only, return None
+        if not secret_value or not secret_value.strip():
+            return None
+
+        return v
+
     @model_validator(mode="before")
     @classmethod
     def _coerce_inputs(cls, data):
@@ -321,6 +341,7 @@ class LLM(BaseModel, RetryMixin):
         self,
         messages: list[dict[str, Any]] | list[Message],
         tools: list[ChatCompletionToolParam] | None = None,
+        return_metrics: bool = False,
         **kwargs,
     ) -> ModelResponse:
         """Single entry point for LLM completion.
@@ -349,7 +370,10 @@ class LLM(BaseModel, RetryMixin):
 
         # 3) normalize provider params
         kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=bool(tools))
+        has_tools_flag = (
+            bool(tools) and use_native_fc
+        )  # only keep tools when native FC is active
+        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
         assert self._telemetry is not None
@@ -391,6 +415,7 @@ class LLM(BaseModel, RetryMixin):
                 raise LLMNoResponseError(
                     "Response choices is less than 1. Response: " + str(resp)
                 )
+
             return resp
 
         try:
@@ -473,11 +498,11 @@ class LLM(BaseModel, RetryMixin):
             # Anthropic/OpenAI reasoning models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
-            # Gemini 2.5 budget mapping
+            # Gemini 2.5-pro default to low if not set
+            # otherwise litellm doesn't send reasoning, even though it happens
             if "gemini-2.5-pro" in self.model:
-                if self.reasoning_effort in {None, "low", "none"}:
-                    out["thinking"] = {"budget_tokens": 128}
-                    out["allowed_openai_params"] = ["thinking"]
+                if self.reasoning_effort in {None, "none"}:
+                    out["reasoning_effort"] = "low"
 
         # Anthropic Opus 4.1: prefer temperature when
         # both provided; disable extended thinking
@@ -541,14 +566,21 @@ class LLM(BaseModel, RetryMixin):
                 "Expected non-streaming Choices when post-processing mocked tools"
             )
 
-        non_fn_message: dict = resp.choices[0].message.model_dump()
-        fn_msgs = convert_non_fncall_messages_to_fncall_messages(
+        # Preserve provider-specific reasoning fields before conversion
+        orig_msg = resp.choices[0].message
+        non_fn_message: dict = orig_msg.model_dump()
+        fn_msgs: list[dict] = convert_non_fncall_messages_to_fncall_messages(
             nonfncall_msgs + [non_fn_message], tools
         )
-        last = fn_msgs[-1]
-        if not isinstance(last, LiteLLMMessage):
-            last = LiteLLMMessage(**last)
-        resp.choices[0].message = last
+        last: dict = fn_msgs[-1]
+
+        for name in ("reasoning_content", "provider_specific_fields"):
+            val = getattr(orig_msg, name, None)
+            if not val:
+                continue
+            last[name] = val
+
+        resp.choices[0].message = LiteLLMMessage.model_validate(last)
         return resp
 
     # =========================================================================
@@ -688,7 +720,29 @@ class LLM(BaseModel, RetryMixin):
     # =========================================================================
     # Utilities preserved from previous class
     # =========================================================================
+    def _apply_prompt_caching(self, messages: list[Message]) -> None:
+        """Applies caching breakpoints to the messages.
+
+        For new Anthropic API, we only need to mark the last user or
+          tool message as cacheable.
+        """
+        if len(messages) > 0 and messages[0].role == "system":
+            messages[0].content[-1].cache_prompt = True
+        # NOTE: this is only needed for anthropic
+        for message in reversed(messages):
+            if message.role in ("user", "tool"):
+                message.content[
+                    -1
+                ].cache_prompt = True  # Last item inside the message content
+                break
+
     def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
+        """Formats Message objects for LLM consumption."""
+
+        messages = copy.deepcopy(messages)
+        if self.is_caching_prompt_active():
+            self._apply_prompt_caching(messages)
+
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
@@ -696,8 +750,6 @@ class LLM(BaseModel, RetryMixin):
             if "deepseek" in self.model or (
                 "kimi-k2-instruct" in self.model and "groq" in self.model
             ):
-                message.force_string_serializer = True
-            if "openrouter/anthropic/claude-sonnet-4" in self.model:
                 message.force_string_serializer = True
 
         return [message.to_llm_dict() for message in messages]
@@ -723,7 +775,8 @@ class LLM(BaseModel, RetryMixin):
                     f"\ncustom_tokenizer: {self.custom_tokenizer}"
                     if self.custom_tokenizer
                     else ""
-                )
+                ),
+                exc_info=True,
             )
             return 0
 

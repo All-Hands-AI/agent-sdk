@@ -6,9 +6,12 @@ if TYPE_CHECKING:
 
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
-from openhands.sdk.conversation.visualizer import ConversationVisualizer
+from openhands.sdk.conversation.visualizer import (
+    create_default_visualizer,
+)
 from openhands.sdk.event import (
     MessageEvent,
+    PauseEvent,
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
@@ -36,9 +39,18 @@ class Conversation:
         agent: "AgentBase",
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
+        visualize: bool = True,
     ):
-        """Initialize the conversation."""
-        self._visualizer = ConversationVisualizer()
+        """Initialize the conversation.
+
+        Args:
+            agent: The agent to use for the conversation
+            callbacks: Optional list of callback functions to handle events
+            max_iteration_per_run: Maximum number of iterations per run
+            visualize: Whether to enable default visualization. If True, adds
+                      a default visualizer callback. If False, relies on
+                      application to provide visualization through callbacks.
+        """
         self.agent = agent
         self.state = ConversationState()
 
@@ -46,18 +58,25 @@ class Conversation:
         def _append_event(e):
             self.state.events.append(e)
 
-        # Compose callbacks; default appender runs last to keep agent-emitted event order (on_event then persist)  # noqa: E501
-        composed_list = (
-            [self._visualizer.on_event]
-            + (callbacks if callbacks else [])
-            + [_append_event]
-        )
-        self._on_event = compose_callbacks(composed_list)
+        composed_list = (callbacks if callbacks else []) + [_append_event]
+        # Add default visualizer if requested
+        if visualize:
+            self._visualizer = create_default_visualizer()
+            composed_list = [self._visualizer.on_event] + composed_list
+            # visualize should happen first for visibility
+        else:
+            self._visualizer = None
 
+        self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
+
+    @property
+    def id(self) -> str:
+        """Get the unique ID of the conversation."""
+        return self.state.id
 
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
@@ -110,9 +129,15 @@ class Conversation:
 
         In normal mode:
         - Creates and executes actions immediately
+
+        Can be paused between steps
         """
+
+        with self.state:
+            self.state.agent_paused = False
+
         iteration = 0
-        while not self.state.agent_finished:
+        while True:
             logger.debug(f"Conversation run iteration {iteration}")
             # TODO(openhands): we should add a testcase that test IF:
             # 1. a loop is running
@@ -120,6 +145,12 @@ class Conversation:
             # and check will we be able to execute .send_message
             # BEFORE the .run loop finishes?
             with self.state:
+                # Pause attempts to acquire the state lock
+                # Before value can be modified step can be taken
+                # Ensure step conditions are checked when lock is already acquired
+                if self.state.agent_finished or self.state.agent_paused:
+                    break
+
                 # clear the flag before calling agent.step() (user approved)
                 if self.state.agent_waiting_for_confirmation:
                     self.state.agent_waiting_for_confirmation = False
@@ -167,3 +198,23 @@ class Conversation:
                 )
                 self._on_event(rejection_event)
                 logger.info(f"Rejected pending action: {action_event} - {reason}")
+
+    def pause(self) -> None:
+        """Pause agent execution.
+
+        This method can be called from any thread to request that the agent
+        pause execution. The pause will take effect at the next iteration
+        of the run loop (between agent steps).
+
+        Note: If called during an LLM completion, the pause will not take
+        effect until the current LLM call completes.
+        """
+
+        if self.state.agent_paused:
+            return
+
+        with self.state:
+            self.state.agent_paused = True
+            pause_event = PauseEvent()
+            self._on_event(pause_event)
+        logger.info("Agent execution pause requested")

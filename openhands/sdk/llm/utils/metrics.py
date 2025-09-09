@@ -47,6 +47,9 @@ class TokenUsage(BaseModel):
     cache_write_tokens: int = Field(
         default=0, ge=0, description="Cache write tokens must be non-negative"
     )
+    reasoning_tokens: int = Field(
+        default=0, ge=0, description="Reasoning tokens must be non-negative"
+    )
     context_window: int = Field(
         default=0, ge=0, description="Context window must be non-negative"
     )
@@ -63,19 +66,17 @@ class TokenUsage(BaseModel):
             completion_tokens=self.completion_tokens + other.completion_tokens,
             cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
             cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
             context_window=max(self.context_window, other.context_window),
             per_turn_token=other.per_turn_token,
             response_id=self.response_id,
         )
 
 
-class Metrics(BaseModel):
-    """Metrics class can record various metrics during running and evaluation.
-    We track:
-      - accumulated_cost and costs
-      - max_budget_per_task (budget limit)
-      - A list of ResponseLatency
-      - A list of TokenUsage (one per call).
+class MetricsSnapshot(BaseModel):
+    """A snapshot of metrics at a point in time.
+
+    Does not include lists of individual costs, latencies, or token usages.
     """
 
     model_name: str = Field(default="default", description="Name of the model")
@@ -85,6 +86,20 @@ class Metrics(BaseModel):
     max_budget_per_task: Optional[float] = Field(
         default=None, description="Maximum budget per task"
     )
+    accumulated_token_usage: Optional[TokenUsage] = Field(
+        default=None, description="Accumulated token usage across all calls"
+    )
+
+
+class Metrics(MetricsSnapshot):
+    """Metrics class can record various metrics during running and evaluation.
+    We track:
+      - accumulated_cost and costs
+      - max_budget_per_task (budget limit)
+      - A list of ResponseLatency
+      - A list of TokenUsage (one per call).
+    """
+
     costs: list[Cost] = Field(
         default_factory=list, description="List of individual costs"
     )
@@ -93,9 +108,6 @@ class Metrics(BaseModel):
     )
     token_usages: list[TokenUsage] = Field(
         default_factory=list, description="List of token usage records"
-    )
-    accumulated_token_usage: Optional[TokenUsage] = Field(
-        default=None, description="Accumulated token usage across all calls"
     )
 
     @field_validator("accumulated_cost")
@@ -114,10 +126,22 @@ class Metrics(BaseModel):
                 completion_tokens=0,
                 cache_read_tokens=0,
                 cache_write_tokens=0,
+                reasoning_tokens=0,
                 context_window=0,
                 response_id="",
             )
         return self
+
+    def get_snapshot(self) -> MetricsSnapshot:
+        """Get a snapshot of the current metrics without the detailed lists."""
+        return MetricsSnapshot(
+            model_name=self.model_name,
+            accumulated_cost=self.accumulated_cost,
+            max_budget_per_task=self.max_budget_per_task,
+            accumulated_token_usage=copy.deepcopy(self.accumulated_token_usage)
+            if self.accumulated_token_usage
+            else None,
+        )
 
     def add_cost(self, value: float) -> None:
         if value < 0:
@@ -140,6 +164,7 @@ class Metrics(BaseModel):
         cache_write_tokens: int,
         context_window: int,
         response_id: str,
+        reasoning_tokens: int = 0,
     ) -> None:
         """Add a single usage record."""
         # Token each turn for calculating context usage.
@@ -151,6 +176,7 @@ class Metrics(BaseModel):
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read_tokens,
             cache_write_tokens=cache_write_tokens,
+            reasoning_tokens=reasoning_tokens,
             context_window=context_window,
             per_turn_token=per_turn_token,
             response_id=response_id,
@@ -164,6 +190,7 @@ class Metrics(BaseModel):
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read_tokens,
             cache_write_tokens=cache_write_tokens,
+            reasoning_tokens=reasoning_tokens,
             context_window=context_window,
             per_turn_token=per_turn_token,
             response_id="",
@@ -267,6 +294,8 @@ class Metrics(BaseModel):
                 - base_usage.cache_read_tokens,
                 cache_write_tokens=current_usage.cache_write_tokens
                 - base_usage.cache_write_tokens,
+                reasoning_tokens=current_usage.reasoning_tokens
+                - base_usage.reasoning_tokens,
                 context_window=current_usage.context_window,
                 per_turn_token=0,
                 response_id="",

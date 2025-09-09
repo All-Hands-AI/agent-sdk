@@ -1,6 +1,17 @@
-from typing import Any, TypeVar
+from typing import Annotated, Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
+from rich.text import Text
+
+from openhands.sdk.llm import ImageContent, TextContent
+from openhands.sdk.tool.security_prompt import (
+    SECURITY_RISK_DESC,
+    SECURITY_RISK_LITERAL,
+)
+from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
+)
 
 
 S = TypeVar("S", bound="Schema")
@@ -102,7 +113,11 @@ class Schema(BaseModel):
     def from_mcp_schema(
         cls: type[S], model_name: str, schema: dict[str, Any]
     ) -> type["S"]:
-        """Create a Schema subclass from an MCP/JSON Schema object."""
+        """Create a Schema subclass from an MCP/JSON Schema object.
+
+        For non-required fields, we annotate as `T | None`
+        so explicit nulls are allowed.
+        """
         assert isinstance(schema, dict), "Schema must be a dict"
         assert schema.get("type") == "object", "Only object schemas are supported"
 
@@ -111,32 +126,150 @@ class Schema(BaseModel):
 
         fields: dict[str, tuple] = {}
         for fname, spec in props.items():
-            tp = py_type(spec if isinstance(spec, dict) else {})
-            default = ... if fname in required else None
-            desc: str | None = (
-                spec.get("description") if isinstance(spec, dict) else None
-            )
+            spec = spec if isinstance(spec, dict) else {}
+            tp = py_type(spec)
+
+            # Add description if present
+            desc: str | None = spec.get("description")
+
+            # Required → bare type, ellipsis sentinel
+            # Optional → make nullable via `| None`, default None
+            if fname in required:
+                anno = tp
+                default = ...
+            else:
+                anno = tp | None  # allow explicit null in addition to omission
+                default = None
+
             fields[fname] = (
-                tp,
+                anno,
                 Field(default=default, description=desc)
                 if desc
                 else Field(default=default),
             )
+
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class ActionBase(Schema):
+class ActionBase(Schema, DiscriminatedUnionMixin):
     """Base schema for input action."""
 
-    pass
+    # NOTE: We make it optional since some weaker
+    # LLMs may not be able to fill it out correctly.
+    # https://github.com/All-Hands-AI/OpenHands/issues/10797
+    security_risk: SECURITY_RISK_LITERAL = Field(
+        default="UNKNOWN", description=SECURITY_RISK_DESC
+    )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this action.
+
+        This method can be overridden by subclasses to customize visualization.
+        The base implementation displays all action fields systematically.
+        """
+        content = Text()
+
+        # Display action name
+        action_name = self.__class__.__name__
+        content.append("Action: ", style="bold")
+        content.append(action_name)
+        content.append("\n\n")
+
+        # Display all action fields systematically
+        content.append("Arguments:\n", style="bold")
+        action_fields = self.model_dump()
+        for field_name, field_value in action_fields.items():
+            if field_value is None:
+                continue  # skip None fields
+            content.append(f"  {field_name}: ", style="bold")
+            if isinstance(field_value, str):
+                # Handle multiline strings with proper indentation
+                if "\n" in field_value:
+                    content.append("\n")
+                    for line in field_value.split("\n"):
+                        content.append(f"    {line}\n")
+                else:
+                    content.append(f'"{field_value}"')
+            elif isinstance(field_value, (list, dict)):
+                content.append(str(field_value))
+            else:
+                content.append(str(field_value))
+            content.append("\n")
+
+        return content
+
+    @classmethod
+    def to_mcp_schema(cls) -> dict[str, Any]:
+        """Convert to JSON schema format compatible with MCP."""
+        schema = super().to_mcp_schema()
+
+        # We need to move the fields from ActionBase to the END of the properties
+        # We use these properties to generate the llm schema for tool calling
+        # and we want the ActionBase fields to be at the end
+        # e.g. LLM should already outputs the argument for tools
+        # BEFORE it predicts security_risk
+        assert "properties" in schema, "Schema must have properties"
+        for field_name in ActionBase.model_fields.keys():
+            if field_name in schema["properties"]:
+                v = schema["properties"].pop(field_name)
+                schema["properties"][field_name] = v
+        return schema
 
 
-class ObservationBase(Schema):
+class MCPActionBase(ActionBase):
+    """Base schema for MCP input action."""
+
+    model_config = ConfigDict(extra="allow")
+
+    # Collect all fields from ActionBase and its parents
+    _parent_fields: frozenset[str] = frozenset(
+        fname
+        for base in ActionBase.__mro__
+        if issubclass(base, BaseModel)
+        for fname in {
+            **base.model_fields,
+            **base.model_computed_fields,
+        }.keys()
+    )
+
+    def to_mcp_arguments(self) -> dict:
+        """Dump model excluding parent ActionBase fields.
+
+        This is used to convert this action to MCP tool call arguments.
+        The parent fields (e.g., safety_risk, kind) are not part of the MCP tool schema
+        but are only used for our internal processing.
+        """
+        data = self.model_dump(exclude_none=True)
+        for f in self._parent_fields:
+            data.pop(f, None)
+        return data
+
+
+Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
+"""Type annotation for values that can be any implementation of ActionBase.
+
+In most situations, this is equivalent to ActionBase. However, when used in Pydantic
+BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
+discriminator resolution until runtime.
+"""
+
+
+class ObservationBase(Schema, DiscriminatedUnionMixin):
     """Base schema for output observation."""
 
     model_config = ConfigDict(extra="allow")
 
     @property
-    def agent_observation(self) -> str:
+    def agent_observation(self) -> list[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
         raise NotImplementedError("Subclasses must implement agent_observation")
+
+
+Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
+"""Type annotation for values that can be any implementation of ObservationBase.
+
+In most situations, this is equivalent to ObservationBase. However, when used in
+Pydantic BaseModels as a field annotation, it enables polymorphic deserialization by
+delaying the discriminator resolution until runtime.
+"""

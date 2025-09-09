@@ -7,7 +7,7 @@ from openhands.sdk import (
     Agent,
     AgentContext,
     Conversation,
-    EventType,
+    Event,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -61,7 +61,9 @@ agent_context = AgentContext(
             ),
             triggers=["flarglebargle"],
         ),
-    ]
+    ],
+    system_message_suffix="Always finish your response with the word 'yay!'",
+    user_message_suffix="The first character of your response should be 'I'",
 )
 
 
@@ -72,7 +74,7 @@ agent = Agent(llm=llm, tools=tools, agent_context=agent_context)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventType):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

@@ -6,7 +6,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventType,
+    Event,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -24,7 +24,8 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    # model="litellm_proxy/gemini/gemini-2.5-pro",
+    model="litellm_proxy/deepseek/deepseek-reasoner",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -41,7 +42,7 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventType):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

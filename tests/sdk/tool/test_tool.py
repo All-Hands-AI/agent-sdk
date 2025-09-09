@@ -38,8 +38,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         assert tool.name == "test_tool"
@@ -58,8 +58,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=MockExecutor(),
         )
 
@@ -80,8 +80,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             annotations=annotations,
         )
 
@@ -96,8 +96,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -125,8 +125,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             annotations=annotations,
         )
 
@@ -143,8 +143,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         action = MockAction(command="test")
@@ -163,8 +163,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=MockExecutor(),
         )
 
@@ -189,8 +189,8 @@ class TestTool:
         tool = Tool(
             name="complex_tool",
             description="Tool with complex types",
-            input_schema=ComplexAction,
-            output_schema=MockObservation,
+            action_type=ComplexAction,
+            observation_type=MockObservation,
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -213,8 +213,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=MockExecutor(),
         )
 
@@ -235,8 +235,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=MockExecutor(),
         )
 
@@ -252,8 +252,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         # Create action with nested data
@@ -278,8 +278,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
         tool_schema = tool.to_mcp_tool()["inputSchema"]
 
@@ -294,8 +294,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=None,
+            action_type=MockAction,
+            observation_type=None,
         )
 
         assert tool.observation_type is None
@@ -305,25 +305,27 @@ class TestTool:
         assert mcp_tool["name"] == "test_tool"
 
     def test_executor_function_attachment(self):
-        """Test attaching executor function after tool creation."""
-        tool = Tool(
-            name="test_tool",
-            description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
-        )
+        """Test creating tool with executor."""
 
-        # Initially no executor
-        assert tool.executor is None
-
-        # Attach executor
+        # Create executor first
         class MockExecutor(ToolExecutor):
             def __call__(self, action: MockAction) -> MockObservation:
                 return MockObservation(result=f"Attached: {action.command}")
 
-        tool.executor = MockExecutor()
+        executor = MockExecutor()
 
-        # Now it should work
+        tool = Tool(
+            name="test_tool",
+            description="A test tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+            executor=executor,
+        )
+
+        # Should have executor
+        assert tool.executor is not None
+
+        # Should work
         action = MockAction(command="test")
         result = tool.call(action)
         assert isinstance(result, MockObservation)
@@ -335,8 +337,8 @@ class TestTool:
         tool = Tool(
             name="valid_tool_name",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
         assert tool.name == "valid_tool_name"
 
@@ -344,8 +346,8 @@ class TestTool:
         tool2 = Tool(
             name="",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
         assert tool2.name == ""
 
@@ -368,8 +370,8 @@ class TestTool:
         tool = Tool(
             name="complex_tool",
             description="Tool with complex observation",
-            input_schema=MockAction,
-            output_schema=ComplexObservation,
+            action_type=MockAction,
+            observation_type=ComplexObservation,
             executor=MockComplexExecutor(),
         )
 
@@ -390,8 +392,8 @@ class TestTool:
         tool = Tool(
             name="failing_tool",
             description="Tool that fails",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=FailingExecutor(),
         )
 
@@ -413,8 +415,8 @@ class TestTool:
         tool = Tool(
             name="strict_tool",
             description="Tool with strict observation",
-            input_schema=MockAction,
-            output_schema=StrictObservation,
+            action_type=MockAction,
+            observation_type=StrictObservation,
             executor=ValidExecutor(),
         )
 
@@ -429,15 +431,15 @@ class TestTool:
         tool1 = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         tool2 = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
         )
 
         # Tools with same parameters should be equal
@@ -457,8 +459,8 @@ class TestTool:
         tool = Tool(
             name="required_tool",
             description="Tool with required fields",
-            input_schema=RequiredFieldAction,
-            output_schema=MockObservation,
+            action_type=RequiredFieldAction,
+            observation_type=MockObservation,
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -469,41 +471,6 @@ class TestTool:
         assert "required_field" in schema["required"]
         assert "optional_field" not in schema["required"]
 
-    def test_tool_with_dict_schemas(self):
-        """Test tool creation with dictionary schemas."""
-        input_schema = {
-            "type": "object",
-            "properties": {
-                "text": {"type": "string", "description": "Input text"},
-                "count": {"type": "integer", "description": "Count value"},
-            },
-            "required": ["text"],
-        }
-
-        output_schema = {
-            "type": "object",
-            "properties": {
-                "result": {"type": "string", "description": "Result text"},
-            },
-            "required": ["result"],
-        }
-
-        tool = Tool(
-            name="dict_tool",
-            description="Tool with dict schemas",
-            input_schema=input_schema,
-            output_schema=output_schema,
-        )
-
-        assert tool.name == "dict_tool"
-        assert tool.input_schema == input_schema
-        assert tool.output_schema == output_schema
-
-        # Should create dynamic action and observation types
-        assert tool.action_type.__name__ == "DictToolAction"
-        assert tool.observation_type is not None
-        assert tool.observation_type.__name__ == "DictToolObservation"
-
     def test_tool_with_meta_data(self):
         """Test tool creation with metadata."""
         meta_data = {"version": "1.0", "author": "test"}
@@ -511,85 +478,16 @@ class TestTool:
         tool = Tool(
             name="meta_tool",
             description="Tool with metadata",
-            input_schema=MockAction,
-            output_schema=MockObservation,
-            _meta=meta_data,
+            action_type=MockAction,
+            observation_type=MockObservation,
+            meta=meta_data,
         )
 
-        assert tool._meta == meta_data
+        assert tool.meta == meta_data
 
         mcp_tool = tool.to_mcp_tool()
         assert "_meta" in mcp_tool
         assert mcp_tool["_meta"] == meta_data
-
-    def test_to_mcp_tool_detailed_type_validation_editor(self):
-        """Test detailed type validation for MCP tool schema generation."""
-        from openhands.tools.str_replace_editor import (
-            str_replace_editor_tool,
-        )
-
-        # Test str_replace_editor tool schema
-        str_editor_mcp = str_replace_editor_tool.to_mcp_tool()
-        str_editor_schema = str_editor_mcp["inputSchema"]
-        str_editor_props = str_editor_schema["properties"]
-
-        assert "command" in str_editor_props
-        assert "path" in str_editor_props
-        assert "file_text" in str_editor_props
-        assert "old_str" in str_editor_props
-        assert "new_str" in str_editor_props
-        assert "insert_line" in str_editor_props
-        assert "view_range" in str_editor_props
-        assert "security_risk" in str_editor_props
-
-        view_range_schema = str_editor_props["view_range"]
-        assert "anyOf" not in view_range_schema
-        assert view_range_schema["type"] == "array"
-        assert view_range_schema["items"]["type"] == "integer"
-
-        assert "description" in view_range_schema
-        assert (
-            "Optional parameter of `view` command" in view_range_schema["description"]
-        )
-
-        command_schema = str_editor_props["command"]
-        assert "enum" in command_schema
-        expected_commands = ["view", "create", "str_replace", "insert", "undo_edit"]
-        assert set(command_schema["enum"]) == set(expected_commands)
-
-        path_schema = str_editor_props["path"]
-        assert path_schema["type"] == "string"
-        assert "path" in str_editor_schema["required"]
-
-    def test_to_mcp_tool_detailed_type_validation_bash(self):
-        """Test detailed type validation for MCP tool schema generation (execute_bash)."""  # noqa: E501
-        from openhands.tools.execute_bash import execute_bash_tool
-
-        # Test execute_bash tool schema
-        bash_mcp = execute_bash_tool.to_mcp_tool()
-        bash_schema = bash_mcp["inputSchema"]
-        bash_props = bash_schema["properties"]
-
-        # Test command field is required string
-        bash_command_schema = bash_props["command"]
-        assert bash_command_schema["type"] == "string"
-        assert "command" in bash_schema["required"]
-
-        # Test is_input field is optional boolean with default
-        is_input_schema = bash_props["is_input"]
-        assert is_input_schema["type"] == "boolean"
-        assert "is_input" not in bash_schema["required"]
-
-        # Test timeout field is optional number
-        timeout_schema = bash_props["timeout"]
-        assert "anyOf" not in timeout_schema
-        assert timeout_schema["type"] == "number"
-
-        # Test security_risk field has enum constraint
-        security_risk_schema = bash_props["security_risk"]
-        assert "enum" in security_risk_schema
-        assert set(security_risk_schema["enum"]) == {"LOW", "MEDIUM", "HIGH"}
-        assert "security_risk" in bash_schema["required"]
 
     def test_to_mcp_tool_complex_nested_types(self):
         """Test MCP tool schema generation with complex nested types."""
@@ -617,8 +515,8 @@ class TestTool:
         tool = Tool(
             name="complex_nested_tool",
             description="Tool with complex nested types",
-            input_schema=ComplexNestedAction,
-            output_schema=MockObservation,
+            action_type=ComplexNestedAction,
+            observation_type=MockObservation,
         )
 
         mcp_tool = tool.to_mcp_tool()

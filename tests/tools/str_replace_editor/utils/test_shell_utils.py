@@ -6,7 +6,7 @@ import pytest
 from openhands.tools.str_replace_editor.utils.config import (
     MAX_RESPONSE_LEN_CHAR,
 )
-from openhands.tools.str_replace_editor.utils.prompts import (
+from openhands.tools.str_replace_editor.utils.constants import (
     CONTENT_TRUNCATED_NOTICE,
 )
 from openhands.tools.str_replace_editor.utils.shell import (

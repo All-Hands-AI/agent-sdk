@@ -1,19 +1,13 @@
-import re
 from typing import Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from openhands.sdk.tool.schema import ActionBase, ObservationBase, Schema
+from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
 ObservationT = TypeVar("ObservationT", bound=ObservationBase)
-
-
-def to_camel_case(s: str) -> str:
-    parts = re.split(r"[_\-\s]+", s)
-    return "".join(word.capitalize() for word in parts if word)
 
 
 class ToolAnnotations(BaseModel):
@@ -51,7 +45,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         raise NotImplementedError
 
 
-class Tool(Generic[ActionT, ObservationT]):
+class Tool(BaseModel, Generic[ActionT, ObservationT]):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -60,71 +54,39 @@ class Tool(Generic[ActionT, ObservationT]):
     - Export MCP tool description.
     """
 
-    def __init__(
-        self,
-        *,
-        name: str,
-        description: str,
-        input_schema: type[ActionBase] | dict[str, Any],
-        output_schema: type[ObservationBase] | dict[str, Any] | None = None,
-        annotations: ToolAnnotations | None = None,
-        _meta: dict[str, Any] | None = None,
-        executor: ToolExecutor | None = None,
-    ):
-        self.name = name
-        self.description = description
-        self.annotations = annotations
-        self._meta = _meta
-        self._set_input_schema(input_schema)
-        self._set_output_schema(output_schema)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-        self.executor = executor
+    name: str
+    description: str
+    action_type: type[ActionBase] = Field(repr=False)
+    observation_type: type[ObservationBase] | None = Field(default=None, repr=False)
+
+    annotations: ToolAnnotations | None = None
+    meta: dict[str, Any] | None = None
+
+    # runtime-only; always hidden on dumps
+    executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
+
+    @computed_field(return_type=dict[str, Any], alias="input_schema")
+    @property
+    def input_schema(self) -> dict[str, Any]:
+        return self.action_type.to_mcp_schema()
+
+    @computed_field(return_type=dict[str, Any] | None, alias="output_schema")
+    @property
+    def output_schema(self) -> dict[str, Any] | None:
+        return self.observation_type.to_mcp_schema() if self.observation_type else None
+
+    @computed_field(return_type=str, alias="title")
+    @property
+    def title(self) -> str:
+        if self.annotations and self.annotations.title:
+            return self.annotations.title
+        return self.name
 
     def set_executor(self, executor: ToolExecutor) -> "Tool":
-        """Set or replace the executor function."""
-        self.executor = executor
-        return self
-
-    def _set_input_schema(
-        self, input_schema: dict[str, Any] | type[ActionBase]
-    ) -> None:
-        # ---- INPUT: class or dict -> model + schema
-        self.action_type: type[ActionBase]
-        self.input_schema: dict[str, Any]
-        if isinstance(input_schema, type) and issubclass(input_schema, Schema):
-            self.action_type = input_schema
-            self.input_schema = input_schema.to_mcp_schema()
-        elif isinstance(input_schema, dict):
-            self.input_schema = input_schema
-            self.action_type = ActionBase.from_mcp_schema(
-                f"{to_camel_case(self.name)}Action", input_schema
-            )
-        else:
-            raise TypeError(
-                "input_schema must be ActionBase subclass or dict JSON schema"
-            )
-
-    def _set_output_schema(
-        self, output_schema: dict[str, Any] | type[ObservationBase] | None
-    ) -> None:
-        # ---- OUTPUT: optional class or dict -> model + schema
-        self.observation_type: type[ObservationBase] | None
-        self.output_schema: dict[str, Any] | None
-        if output_schema is None:
-            self.observation_type = None
-            self.output_schema = None
-        elif isinstance(output_schema, type) and issubclass(output_schema, Schema):
-            self.observation_type = output_schema
-            self.output_schema = output_schema.to_mcp_schema()
-        elif isinstance(output_schema, dict):
-            self.output_schema = output_schema
-            self.observation_type = ObservationBase.from_mcp_schema(
-                f"{to_camel_case(self.name)}Observation", output_schema
-            )
-        else:
-            raise TypeError(
-                "output_schema must be ObservationBase subclass, dict, or None"
-            )
+        """Create a new Tool instance with the given executor."""
+        return self.model_copy(update={"executor": executor})
 
     def call(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
@@ -163,8 +125,8 @@ class Tool(Generic[ActionT, ObservationT]):
         }
         if self.annotations:
             out["annotations"] = self.annotations
-        if self._meta is not None:
-            out["_meta"] = self._meta
+        if self.meta is not None:
+            out["_meta"] = self.meta
         if self.output_schema:
             out["outputSchema"] = self.output_schema
         return out
