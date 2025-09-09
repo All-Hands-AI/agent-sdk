@@ -11,7 +11,7 @@ openhands-tools = { workspace = true }
 dev = [
     "pre-commit>=4.3.0",
     "psutil>=7.0.0",
-    "pyright>=1.1.404",
+    "pyright>=1.1.405",
     "pytest>=8.4.1",
     "pytest-cov>=5.0.0",
     "ruff>=0.12.10",
