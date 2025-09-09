@@ -2,15 +2,18 @@ import os
 import sys
 from abc import ABC, abstractmethod
 from types import MappingProxyType
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool
 
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 
 logger = get_logger(__name__)
 
@@ -27,6 +30,13 @@ class AgentBase(BaseModel, ABC):
         description="Mapping of tool name to Tool instance."
         " If a list is provided, it will be coerced into a mapping."
     )
+
+    @field_serializer("tools")
+    def _serialize_cfg(self, v, _info):
+        assert isinstance(v, MappingProxyType), (
+            "tools should have been coerced to MappingProxyType"
+        )
+        return dict(v)
 
     @field_validator("tools", mode="before")
     @classmethod
@@ -63,8 +73,8 @@ class AgentBase(BaseModel, ABC):
     @abstractmethod
     def init_state(
         self,
-        state: ConversationState,
-        on_event: ConversationCallbackType,
+        state: "ConversationState",
+        on_event: "ConversationCallbackType",
     ) -> None:
         """Initialize the empty conversation state to prepare the agent for user
         messages.
@@ -78,8 +88,8 @@ class AgentBase(BaseModel, ABC):
     @abstractmethod
     def step(
         self,
-        state: ConversationState,
-        on_event: ConversationCallbackType,
+        state: "ConversationState",
+        on_event: "ConversationCallbackType",
     ) -> None:
         """Taking a step in the conversation.
 

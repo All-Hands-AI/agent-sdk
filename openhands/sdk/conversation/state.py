@@ -7,6 +7,7 @@ from typing import Iterable, NamedTuple, Optional
 
 from pydantic import BaseModel, Field, PrivateAttr
 
+from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.event import Event, EventBase
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
@@ -21,6 +22,7 @@ class EventFile(NamedTuple):
 
 
 BASE_STATE = "base_state.json"
+AGENT_STATE = "agent_state.json"
 EVENTS_DIR = "events"
 _EVENT_NAME_RE = re.compile(r"^event-(?P<idx>\d{5})\.json$")
 _EVENT_FILE_PATTERN = "event-{idx:05d}.json"
@@ -30,6 +32,16 @@ class ConversationState(BaseModel):
     # ===== Public, validated fields =====
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     events: list[Event] = Field(default_factory=list)
+
+    agent: AgentBase = Field(
+        ...,
+        description=(
+            "The agent running in the conversation. "
+            "This is persisted to allow resuming conversations and "
+            "check agent configuration to handle e.g., tool changes, "
+            "LLM changes, etc."
+        ),
+    )
 
     # flags
     agent_finished: bool = Field(default=False)
@@ -69,16 +81,6 @@ class ConversationState(BaseModel):
             raise RuntimeError("State not held by current thread")
 
     # ===== Internal FS helpers (intentionally simple) =====
-    @staticmethod
-    def _read_text(fs: FileStore, path: str) -> str | None:
-        try:
-            return fs.read(path)
-        except FileNotFoundError:
-            return None
-
-    @staticmethod
-    def _write_text(fs: FileStore, path: str, text: str) -> None:
-        fs.write(path, text)
 
     @staticmethod
     def _scan_events(fs: FileStore) -> list[EventFile]:
@@ -109,7 +111,7 @@ class ConversationState(BaseModel):
         """
         out: list[Event] = []
         for _, path in files_sorted:
-            txt = ConversationState._read_text(fs, path)
+            txt = fs.read(path)
             if not txt:
                 continue
             try:
@@ -121,13 +123,13 @@ class ConversationState(BaseModel):
 
     def _save_base_state(self, fs: FileStore) -> None:
         """
-        Persist base state snapshot (excluding events).
+        Persist base state snapshot (excluding events).s
         """
         payload = self.model_dump_json(
             exclude_none=True,
             exclude=self._exclude_from_base_state,
         )
-        self._write_text(fs, BASE_STATE, payload)
+        fs.write(BASE_STATE, payload)
 
     # ===== Public Persistence API =====
     @classmethod
@@ -138,12 +140,9 @@ class ConversationState(BaseModel):
         Load base snapshot (if any), then a SINGLE scan of events dir and replay.
         """
         # base
-        base_txt = cls._read_text(file_store, BASE_STATE)
-        if base_txt:
-            state = cls.model_validate(json.loads(base_txt))
-        else:
-            state = cls()
-            state._save_base_state(file_store)
+        base_txt = file_store.read(BASE_STATE)
+        assert base_txt is not None
+        state = cls.model_validate(json.loads(base_txt))
 
         # events (one list op, one pass decode)
         files_sorted = cls._scan_events(file_store)
@@ -170,6 +169,4 @@ class ConversationState(BaseModel):
             for idx in range(next_idx, len(self.events)):
                 event = self.events[idx]
                 path = f"{EVENTS_DIR}/{_EVENT_FILE_PATTERN.format(idx=idx)}"
-                self._write_text(
-                    file_store, path, event.model_dump_json(exclude_none=True)
-                )
+                file_store.write(path, event.model_dump_json(exclude_none=True))
