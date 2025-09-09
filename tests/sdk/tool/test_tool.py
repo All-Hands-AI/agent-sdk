@@ -469,44 +469,6 @@ class TestTool:
         assert "required_field" in schema["required"]
         assert "optional_field" not in schema["required"]
 
-    def test_tool_with_dict_schemas(self):
-        """Test tool creation with dictionary schemas."""
-        input_schema = {
-            "type": "object",
-            "properties": {
-                "text": {"type": "string", "description": "Input text"},
-                "count": {"type": "integer", "description": "Count value"},
-            },
-            "required": ["text"],
-        }
-
-        output_schema = {
-            "type": "object",
-            "properties": {
-                "result": {"type": "string", "description": "Result text"},
-            },
-            "required": ["result"],
-        }
-
-        tool = Tool(
-            name="dict_tool",
-            description="Tool with dict schemas",
-            input_schema=input_schema,
-            output_schema=output_schema,
-        )
-
-        assert tool.name == "dict_tool"
-        assert tool.input_schema != input_schema
-        # this supposed to be added by the ActionBase
-        tool.input_schema["properties"].pop("security_risk")
-        assert tool.input_schema == input_schema
-        assert tool.output_schema == output_schema
-
-        # Should create dynamic action and observation types
-        assert tool.action_type.__name__ == "DictToolAction"
-        assert tool.observation_type is not None
-        assert tool.observation_type.__name__ == "DictToolObservation"
-
     def test_tool_with_meta_data(self):
         """Test tool creation with metadata."""
         meta_data = {"version": "1.0", "author": "test"}

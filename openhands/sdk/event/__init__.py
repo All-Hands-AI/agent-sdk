@@ -1,28 +1,14 @@
-from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
+from openhands.sdk.event.base import Event, EventBase, LLMConvertibleEvent
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
     ObservationEvent,
-    PauseEvent,
     SystemPromptEvent,
     UserRejectObservation,
 )
-
-
-EventType = (
-    LLMConvertibleEvent
-    | ActionEvent
-    | ObservationEvent
-    | MessageEvent
-    | SystemPromptEvent
-    | AgentErrorEvent
-    | UserRejectObservation
-    | PauseEvent
-    | Condensation
-    | CondensationRequest
-)
+from openhands.sdk.event.user_action import PauseEvent
 
 
 __all__ = [
@@ -35,7 +21,7 @@ __all__ = [
     "AgentErrorEvent",
     "UserRejectObservation",
     "PauseEvent",
-    "EventType",
+    "Event",
     "Condensation",
     "CondensationRequest",
 ]

@@ -24,7 +24,8 @@ from litellm.types.utils import (
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import MessageEvent, PauseEvent
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import ImageContent, Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
 
 
@@ -61,6 +62,25 @@ class TestPauseFunctionality:
         """Set up test fixtures."""
 
         self.mock_llm = MagicMock()
+
+        # Create a proper MetricsSnapshot mock for the LLM
+        mock_token_usage = TokenUsage(
+            model="test-model",
+            prompt_tokens=100,
+            completion_tokens=50,
+            cache_read_tokens=0,
+            cache_write_tokens=0,
+            context_window=4096,
+            per_turn_token=150,
+            response_id="test-response-id",
+        )
+        mock_metrics_snapshot = MetricsSnapshot(
+            model_name="test-model",
+            accumulated_cost=0.00075,
+            max_budget_per_task=None,
+            accumulated_token_usage=mock_token_usage,
+        )
+        self.mock_llm.metrics.get_snapshot.return_value = mock_metrics_snapshot
 
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:
