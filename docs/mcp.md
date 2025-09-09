@@ -12,9 +12,8 @@ from openhands.tools import BashTool, FileEditorTool
 
 # Configure LLM
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-    base_url="https://llm-proxy.eval.all-hands.dev",
-    api_key=SecretStr(os.getenv("LITELLM_API_KEY")),
+    model="anthropic/claude-sonnet-4-20250514",
+    api_key=SecretStr(os.getenv("ANTHROPIC_API_KEY")),
 )
 
 # Setup standard tools

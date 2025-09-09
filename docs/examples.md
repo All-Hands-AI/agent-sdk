@@ -18,7 +18,7 @@ uv run python examples/9_pause_example.py
 ### Basic Examples
 - **1_hello_world.py** — minimal agent with Bash + FileEditor tools using simplified tool pattern
 - **5_use_llm_registry.py** — using LLMRegistry for LLM management and reuse
-- **6_interactive_terminal_w_reasoning.py** — agent that can enter Python interactive mode and perform reasoning
+- **6_interactive_terminal_w_reasoning.py** — agent that can enter Python interactive mode and using a reasoning model (e.g., `gemini-2.5-pro`)
 
 ### Advanced Tool Usage
 - **2_custom_tools.py** — advanced example showing explicit executor usage and custom grep tool
