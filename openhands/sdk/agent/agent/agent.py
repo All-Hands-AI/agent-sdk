@@ -104,7 +104,7 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # Check for pending actions (implicit confirmation) 
+        # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = get_unmatched_actions(state.events)
         if pending_actions:
