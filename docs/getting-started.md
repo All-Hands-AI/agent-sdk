@@ -12,17 +12,17 @@ Install
 make build
 ```
 
-Hello World agent
+**Hello World agent**
+
 ```python
 import os
 from pydantic import SecretStr
 from openhands.sdk import Agent, Conversation, LLM, Message, TextContent, Tool
 from openhands.tools import BashTool, FileEditorTool
 
-api_key = os.getenv("LITELLM_API_KEY")
+api_key = os.getenv("ANTHROPIC_API_KEY")
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    model="anthropic/claude-sonnet-4-20250514",
     api_key=SecretStr(api_key),
 )
 
@@ -34,7 +34,7 @@ conv.run()
 ```
 
 Run examples
+
 ```bash
-uv run python examples/hello_world.py
-uv run python examples/confirmation_mode_example.py
+uv run python examples/1_hello_world.py
 ```

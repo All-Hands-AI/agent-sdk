@@ -10,16 +10,19 @@ The OpenHands Agent SDK provides a streamlined framework for creating AI agents 
 
 ```plain
 agent-sdk/
-├── Makefile                # Build and development commands
-├── pyproject.toml          # Workspace configuration
-├── uv.lock                 # Dependency lock file
-├── examples/               # Usage examples
-│   ├── 1_hello_world.py    # Basic agent setup
-│   ├── 2_custom_tools.py   # Custom tool implementation
-│   ├── 3_activate_microagent.py  # Microagent usage
+├── Makefile                            # Build and development commands
+├── pyproject.toml                      # Workspace configuration
+├── uv.lock                             # Dependency lock file
+├── examples/                           # Usage examples
+│   ├── 1_hello_world.py                # Basic agent setup
+│   ├── 2_custom_tools.py               # Custom tool implementation
+│   ├── 3_activate_microagent.py        # Microagent usage
 │   ├── 4_confirmation_mode_example.py  # Interactive mode
-│   ├── 5_use_llm_registry.py  # LLM registry usage
-│   └── 6_interactive_terminal.py  # Terminal interaction
+│   ├── 5_use_llm_registry.py           # LLM registry usage
+│   ├── 6_interactive_terminal.py       # Terminal interaction
+│   ├── 7_mcp_integration.py            # MCP integration
+│   ├── 8_mcp_with_oauth.py             # MCP integration with OAuth
+│   └── 9_pause_example.py              # Pause and resume agent execution
 ├── openhands/              # Main SDK packages
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
