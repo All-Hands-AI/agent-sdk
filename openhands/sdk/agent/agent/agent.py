@@ -104,16 +104,14 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # Check for pending actions (implicit confirmation) and execute them before sampling
-        # new actions.
+        # Check for pending actions (implicit confirmation) 
+        # and execute them before sampling new actions.
         pending_actions = get_unmatched_actions(state.events)
         if pending_actions:
             logger.info(
                 "Confirmation mode: Executing %d pending action(s)",
                 len(pending_actions),
             )
-            # Note: agent_waiting_for_confirmation flag is cleared by
-            # Conversation class
             self._execute_actions(state, pending_actions, on_event)
             return
 
