@@ -225,6 +225,10 @@ class Telemetry(BaseModel):
                         "completion_tokens": completion_tokens,
                         "reasoning_tokens": reasoning_tokens,
                     }
+                    if usage.prompt_tokens_details:
+                        data["usage_summary"]["cache_read_tokens"] = int(
+                            usage.prompt_tokens_details.cached_tokens or 0
+                        )
             except Exception:
                 # Best-effort only; don't fail logging
                 pass
