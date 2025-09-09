@@ -122,16 +122,23 @@ class Telemetry(BaseModel):
         prompt_tokens = usage.prompt_tokens or 0
         completion_tokens = usage.completion_tokens or 0
         cache_write = usage._cache_creation_input_tokens or 0
+
         cache_read = 0
-        details = usage.prompt_tokens_details or None
-        if details and details.cached_tokens:
-            cache_read = details.cached_tokens
+        prompt_token_details = usage.prompt_tokens_details or None
+        if prompt_token_details and prompt_token_details.cached_tokens:
+            cache_read = prompt_token_details.cached_tokens
+
+        reasoning_tokens = 0
+        completion_tokens_details = usage.completion_tokens_details or None
+        if completion_tokens_details and completion_tokens_details.reasoning_tokens:
+            reasoning_tokens = completion_tokens_details.reasoning_tokens
 
         self.metrics.add_token_usage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read,
             cache_write_tokens=cache_write,
+            reasoning_tokens=reasoning_tokens,
             context_window=context_window,
             response_id=response_id,
         )
@@ -200,6 +207,32 @@ class Telemetry(BaseModel):
             data["cost"] = float(cost or 0.0)
             data["timestamp"] = time.time()
             data["latency_sec"] = self._last_latency
+
+            # Usage summary (prompt, completion, reasoning tokens) for quick inspection
+            try:
+                usage = getattr(resp, "usage", None)
+                if usage:
+                    if isinstance(usage, dict):
+                        usage = Usage.model_validate(usage)
+                    prompt_tokens = int(usage.prompt_tokens or 0)
+                    completion_tokens = int(usage.completion_tokens or 0)
+                    reasoning_tokens = 0
+                    details = usage.completion_tokens_details or None
+                    if details and details.reasoning_tokens:
+                        reasoning_tokens = int(details.reasoning_tokens)
+                    data["usage_summary"] = {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "reasoning_tokens": reasoning_tokens,
+                    }
+                    if usage.prompt_tokens_details:
+                        data["usage_summary"]["cache_read_tokens"] = int(
+                            usage.prompt_tokens_details.cached_tokens or 0
+                        )
+            except Exception:
+                # Best-effort only; don't fail logging
+                pass
+
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
                 data["raw_response"] = raw_resp

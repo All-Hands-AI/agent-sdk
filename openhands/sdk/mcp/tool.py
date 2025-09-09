@@ -95,7 +95,7 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
                 action_type=MCPActionType,
                 observation_type=MCPToolObservation,
                 annotations=annotations,
-                _meta=mcp_tool.meta,
+                meta=mcp_tool.meta,
                 executor=MCPToolExecutor(tool_name=mcp_tool.name, client=mcp_client),
                 # pass-through fields (enabled by **extra in Tool.create)
                 mcp_client=mcp_client,

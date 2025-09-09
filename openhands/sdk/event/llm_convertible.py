@@ -2,7 +2,7 @@ import copy
 from typing import cast
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
-from pydantic import Field
+from pydantic import ConfigDict, Field, computed_field
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
@@ -42,6 +42,10 @@ class ActionEvent(LLMConvertibleEvent):
     thought: list[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning/thinking content from reasoning models",
+    )
     action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: str = Field(
@@ -75,7 +79,12 @@ class ActionEvent(LLMConvertibleEvent):
         content: list[TextContent | ImageContent] = cast(
             list[TextContent | ImageContent], self.thought
         )
-        return Message(role="assistant", content=content, tool_calls=[self.tool_call])
+        return Message(
+            role="assistant",
+            content=content,
+            tool_calls=[self.tool_call],
+            reasoning_content=self.reasoning_content,
+        )
 
     def __str__(self) -> str:
         """Plain text string representation for ActionEvent."""
@@ -131,9 +140,18 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
+    model_config = ConfigDict(extra="ignore")
+
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
+    )
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs) for this message. "
+            "Only attached to messages from agent."
+        ),
     )
 
     # context extensions stuff / microagent can go here
@@ -143,13 +161,10 @@ class MessageEvent(LLMConvertibleEvent):
     extended_content: list[TextContent] = Field(
         default_factory=list, description="List of content added by agent context"
     )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs) for this message. "
-            "Only attached to messages from agent."
-        ),
-    )
+
+    @computed_field
+    def reasoning_content(self) -> str:
+        return self.llm_message.reasoning_content or ""
 
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
@@ -220,7 +235,11 @@ class UserRejectObservation(LLMConvertibleEvent):
 
 
 class AgentErrorEvent(LLMConvertibleEvent):
-    """Error triggered by the agent."""
+    """Error triggered by the agent.
+
+    Note: This event should not contain model "thought" or "reasoning_content". It
+    represents an error produced by the agent/scaffold, not model output.
+    """
 
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")

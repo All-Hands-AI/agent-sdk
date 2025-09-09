@@ -26,7 +26,6 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
-from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
 
 
@@ -62,45 +61,7 @@ class TestPauseFunctionality:
     def setup_method(self):
         """Set up test fixtures."""
 
-        # Create a real LLM instance
-        self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
-
-        # Create a patcher for the completion method at the class level
-        self.completion_patcher = patch.object(LLM, "completion")
-        self.mock_completion = self.completion_patcher.start()
-
-        # Create a proper MetricsSnapshot mock for the LLM
-        from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
-
-        mock_token_usage = TokenUsage(
-            model="test-model",
-            prompt_tokens=100,
-            completion_tokens=50,
-            cache_read_tokens=0,
-            cache_write_tokens=0,
-            context_window=4096,
-            per_turn_token=150,
-            response_id="test-response-id",
-        )
-        mock_metrics_snapshot = MetricsSnapshot(
-            model_name="test-model",
-            accumulated_cost=0.00075,
-            max_budget_per_task=None,
-            accumulated_token_usage=mock_token_usage,
-        )
-
-        # Create a custom Metrics subclass that overrides get_snapshot
-        class TestMetrics(Metrics):
-            def get_snapshot(self) -> MetricsSnapshot:
-                return mock_metrics_snapshot
-
-        metrics = TestMetrics(
-            model_name="test-model",
-            accumulated_cost=0.00075,
-            max_budget_per_task=None,
-            accumulated_token_usage=mock_token_usage,
-        )
-        self.llm.metrics = metrics
+        self.llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
 
         class TestExecutor(ToolExecutor[MockAction, MockObservation]):
             def __call__(self, action: MockAction) -> MockObservation:
@@ -109,82 +70,13 @@ class TestPauseFunctionality:
         test_tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=TestExecutor(),
         )
 
         self.agent = Agent(llm=self.llm, tools=[test_tool])
         self.conversation = Conversation(agent=self.agent)
-
-    def teardown_method(self):
-        """Clean up test fixtures."""
-        self.completion_patcher.stop()
-
-    def _mock_message_only(self, text: str = "Hello, how can I help you?") -> None:
-        """Configure LLM to return a plain assistant message (no tool calls)."""
-        self.mock_completion.return_value = ModelResponse(
-            id="response_msg",
-            choices=[Choices(message=LiteLLMMessage(role="assistant", content=text))],
-            created=0,
-            model="test-model",
-            object="chat.completion",
-        )
-
-    def _mock_action(
-        self, call_id: str = "call_1", command: str = "test_command", once=True
-    ) -> None:
-        """Configure LLM to return one tool call (action)."""
-        tool_call = ChatCompletionMessageToolCall(
-            id=call_id,
-            type="function",
-            function=Function(
-                name="test_tool", arguments=f'{{"command": "{command}"}}'
-            ),
-        )
-        response = ModelResponse(
-            id="response_action",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content=f"I'll execute {command}",
-                        tool_calls=[tool_call],
-                    )
-                )
-            ],
-            created=0,
-            model="test-model",
-            object="chat.completion",
-        )
-        if once:
-            self.mock_completion.return_value = response
-        else:
-            self.mock_completion.side_effect = response
-
-    def _mock_finish_action(self, message: str = "Task completed") -> None:
-        """Configure LLM to return a FinishAction tool call."""
-        tool_call = ChatCompletionMessageToolCall(
-            id="finish_call_1",
-            type="function",
-            function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
-        )
-
-        self.mock_completion.return_value = ModelResponse(
-            id="response_finish",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content=f"I'll finish with: {message}",
-                        tool_calls=[tool_call],
-                    )
-                )
-            ],
-            created=0,
-            model="test-model",
-            object="chat.completion",
-        )
 
     def test_pause_basic_functionality(self):
         """Test basic pause operations."""
@@ -204,10 +96,21 @@ class TestPauseFunctionality:
         assert len(pause_events) == 1
         assert pause_events[0].source == "user"
 
-    def test_pause_during_normal_execution(self):
+    @patch("openhands.sdk.llm.llm.litellm_completion")
+    def test_pause_during_normal_execution(self, mock_completion):
         """Test pausing before run() starts - pause is reset and agent runs normally."""
         # Mock LLM to return a message that finishes execution
-        self._mock_message_only("Task completed")
+        mock_completion.return_value = ModelResponse(
+            id="response_msg",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(role="assistant", content="Task completed")
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
 
         # Send message and start execution
         self.conversation.send_message(
@@ -236,10 +139,21 @@ class TestPauseFunctionality:
         ]
         assert len(pause_events) == 1
 
-    def test_resume_paused_agent(self):
+    @patch("openhands.sdk.llm.llm.litellm_completion")
+    def test_resume_paused_agent(self, mock_completion):
         """Test pausing before run() - pause is reset and agent runs normally."""
         # Mock LLM to return a message that finishes execution
-        self._mock_message_only("Task completed")
+        mock_completion.return_value = ModelResponse(
+            id="response_msg",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(role="assistant", content="Task completed")
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
 
         # Send message
         self.conversation.send_message(
@@ -265,7 +179,8 @@ class TestPauseFunctionality:
         ]
         assert len(agent_messages) == 1  # Agent ran and completed
 
-    def test_pause_with_confirmation_mode(self):
+    @patch("openhands.sdk.llm.llm.litellm_completion")
+    def test_pause_with_confirmation_mode(self, mock_completion):
         """Test that pause before run() with confirmation mode - pause is reset and agent waits for confirmation."""  # noqa: E501
         # Enable confirmation mode
         self.conversation.set_confirmation_mode(True)
@@ -273,7 +188,26 @@ class TestPauseFunctionality:
         assert self.conversation.state.agent_paused is True
 
         # Mock action
-        self._mock_action()
+        tool_call = ChatCompletionMessageToolCall(
+            id="call_1",
+            type="function",
+            function=Function(
+                name="test_tool", arguments='{"command": "test_command"}'
+            ),
+        )
+        mock_completion.return_value = ModelResponse(
+            id="response_action",
+            choices=[
+                Choices(
+                    message=LiteLLMMessage(
+                        role="assistant", content="", tool_calls=[tool_call]
+                    )
+                )
+            ],
+            created=0,
+            model="test-model",
+            object="chat.completion",
+        )
 
         # Send message
         self.conversation.send_message(
@@ -317,44 +251,15 @@ class TestPauseFunctionality:
         # State should be paused
         assert self.conversation.state.agent_paused is True
 
-    def _mock_repeating_action(self, command: str = "loop_forever") -> None:
-        tool_call = ChatCompletionMessageToolCall(
-            id="call_loop",
-            type="function",
-            function=Function(
-                name="test_tool", arguments=f'{{"command": "{command}"}}'
-            ),
-        )
-
-        import time
-
-        def side_effect(*_args, **_kwargs):
-            return ModelResponse(
-                id="response_action_loop",
-                choices=[
-                    Choices(
-                        message=LiteLLMMessage(
-                            role="assistant",
-                            content=f"I'll execute {command}",
-                            tool_calls=[tool_call],
-                        )
-                    )
-                ],
-                created=int(time.time()),
-                model="test-model",
-                object="chat.completion",
-            )
-
-        self.mock_completion.side_effect = side_effect
-
     @pytest.mark.timeout(3)
-    def test_pause_while_running_continuous_actions(self):
+    @patch("openhands.sdk.llm.llm.litellm_completion")
+    def test_pause_while_running_continuous_actions(self, mock_completion):
         step_entered = threading.Event()
         blocking_tool = Tool(
             name="test_tool",
             description="Blocking tool for pause test",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=BlockingExecutor(step_entered),
         )
         agent = Agent(llm=self.llm, tools=[blocking_tool])
@@ -365,7 +270,33 @@ class TestPauseFunctionality:
         self.conversation = conversation
 
         # LLM continuously emits actions (no finish)
-        self._mock_repeating_action()
+        tool_call = ChatCompletionMessageToolCall(
+            id="call_loop",
+            type="function",
+            function=Function(
+                name="test_tool", arguments='{"command": "loop_forever"}'
+            ),
+        )
+        import time
+
+        def side_effect(*_args, **_kwargs):
+            return ModelResponse(
+                id="response_action_loop",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content="I'll execute loop_forever",
+                            tool_calls=[tool_call],
+                        )
+                    )
+                ],
+                created=int(time.time()),
+                model="test-model",
+                object="chat.completion",
+            )
+
+        mock_completion.side_effect = side_effect
 
         # Seed a user message
         self.conversation.send_message(

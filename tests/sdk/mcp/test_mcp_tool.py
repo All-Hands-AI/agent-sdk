@@ -5,9 +5,18 @@ from unittest.mock import MagicMock
 import mcp.types
 
 from openhands.sdk.llm import TextContent
+from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolObservation
 from openhands.sdk.mcp.tool import MCPTool, MCPToolExecutor
 from openhands.sdk.tool import ToolAnnotations
+
+
+class MockMCPClient(MCPClient):
+    """Mock MCPClient for testing that bypasses the complex constructor."""
+
+    def __init__(self):
+        # Skip the parent constructor to avoid needing transport
+        pass
 
 
 class TestMCPToolObservation:
@@ -202,7 +211,7 @@ class TestMCPTool:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.mock_client = MagicMock()
+        self.mock_client = MockMCPClient()
 
         # Create mock MCP tool
         self.mock_mcp_tool = MagicMock(spec=mcp.types.Tool)
@@ -215,7 +224,9 @@ class TestMCPTool:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = None
 
-        self.tool = MCPTool(mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client)
+        self.tool = MCPTool.from_mcp(
+            mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
+        )
 
     def test_mcp_tool_creation(self):
         """Test creating an MCP tool."""
@@ -224,8 +235,13 @@ class TestMCPTool:
 
         assert len(self.tool.input_schema["properties"]) == 2
         assert "security_risk" in self.tool.input_schema["properties"]
-        self.tool.input_schema["properties"].pop("security_risk")
-        assert self.tool.input_schema == {
+
+        # Create a copy to avoid modifying the frozen object
+        expected_schema = self.tool.input_schema.copy()
+        expected_schema["properties"] = expected_schema["properties"].copy()
+        expected_schema["properties"].pop("security_risk")
+
+        assert expected_schema == {
             "type": "object",
             "properties": {"param": {"type": "string"}},
         }
@@ -240,7 +256,9 @@ class TestMCPTool:
         mock_tool_with_annotations.annotations = ToolAnnotations(title="Annotated Tool")
         mock_tool_with_annotations.meta = {"version": "1.0"}
 
-        tool = MCPTool(mcp_tool=mock_tool_with_annotations, mcp_client=self.mock_client)
+        tool = MCPTool.from_mcp(
+            mcp_tool=mock_tool_with_annotations, mcp_client=self.mock_client
+        )
 
         assert tool.name == "annotated_tool"
         assert tool.description == "Tool with annotations"
@@ -256,7 +274,7 @@ class TestMCPTool:
         mock_tool_no_desc.annotations = None
         mock_tool_no_desc.meta = None
 
-        tool = MCPTool(mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client)
+        tool = MCPTool.from_mcp(mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client)
 
         assert tool.name == "no_desc_tool"
         assert tool.description == "No description provided"

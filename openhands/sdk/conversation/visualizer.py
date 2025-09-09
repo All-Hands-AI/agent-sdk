@@ -123,6 +123,7 @@ class ConversationVisualizer:
         prompt = usage.prompt_tokens or 0
         cache_read = usage.cache_read_tokens or 0
         cache_rate = f"{(cache_read / prompt * 100):.2f}%" if prompt > 0 else "N/A"
+        reasoning_tokens = usage.reasoning_tokens or 0
 
         # Cost
         cost_str = f"{cost:.4f}" if cost > 0 else "$0.00"
@@ -130,7 +131,9 @@ class ConversationVisualizer:
         # Build with fixed color scheme
         parts: list[str] = []
         parts.append(f"[cyan]↑ input {input_tokens}[/cyan]")
-        parts.append(f"[magenta]⚡ cache hit {cache_rate}[/magenta]")
+        parts.append(f"[magenta]cache hit {cache_rate}[/magenta]")
+        if reasoning_tokens > 0:
+            parts.append(f"[yellow] reasoning {abbr(reasoning_tokens)}[/yellow]")
         parts.append(f"[blue]↓ output {output_tokens}[/blue]")
         parts.append(f"[green]$ {cost_str}[/green]")
 
@@ -139,6 +142,12 @@ class ConversationVisualizer:
     def _create_action_panel(self, event: ActionEvent) -> Panel:
         """Create a Rich Panel for ActionEvent with complete content."""
         content = Text()
+
+        # Display reasoning content first if available (common to all three types)
+        if event.reasoning_content:
+            content.append("Reasoning:\n", style="bold magenta")
+            content.append(event.reasoning_content, style="white")
+            content.append("\n\n")
 
         # Display complete thought content
         thought_text = " ".join([t.text for t in event.thought])
@@ -266,6 +275,7 @@ class ConversationVisualizer:
     def _create_error_panel(self, event: AgentErrorEvent) -> Panel:
         """Create a Rich Panel for AgentErrorEvent with complete content."""
         content = Text()
+
         content.append("Error Details:\n", style="bold red")
         content.append(event.error, style="bright_red")
 
