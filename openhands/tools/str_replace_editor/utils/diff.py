@@ -1,6 +1,7 @@
 from difflib import SequenceMatcher
 
 from pydantic import BaseModel
+from rich.text import Text
 
 
 class EditGroup(BaseModel):
@@ -69,7 +70,7 @@ def visualize_diff(
     new_content: str | None,
     n_context_lines: int = 2,
     change_applied: bool = True,
-) -> str:
+) -> Text:
     """Visualize the diff of the string replacement edit.
 
     Instead of showing the diff line by line, this function shows each hunk
@@ -83,11 +84,13 @@ def visualize_diff(
     Returns:
         A string containing the formatted diff visualization.
     """
+    content = Text()
     # Check if there are any changes
     if change_applied and old_content == new_content:
         msg = "(no changes detected. Please make sure your edits change "
         msg += "the content of the existing file.)\n"
-        return msg
+        content.append(msg, style="bold red")
+        return content
 
     if old_content is None:
         # creation of a new file
@@ -99,21 +102,26 @@ def visualize_diff(
 
     if change_applied:
         header = f"[File {path} edited with "
-        header += f"{len(edit_groups)} changes.]"
+        header += f"{len(edit_groups)} changes.]\n"
     else:
         header = f"[Changes are NOT applied to {path} - Here's how "
-        header += "the file looks like if changes are applied.]"
-    result = [header]
+        header += "the file looks like if changes are applied.]\n"
+
+    # result = [header]
+    content.append(header, style="bold" if change_applied else "bold yellow")
 
     op_type = "edit" if change_applied else "ATTEMPTED edit"
     for i, cur_edit_group in enumerate(edit_groups):
         if i != 0:
-            result.append("-------------------------")
-        result.append(f"[begin of {op_type} {i + 1} / {len(edit_groups)}]")
-        result.append(f"(content before {op_type})")
-        result.extend(cur_edit_group.before_edits)
-        result.append(f"(content after {op_type})")
-        result.extend(cur_edit_group.after_edits)
-        result.append(f"[end of {op_type} {i + 1} / {len(edit_groups)}]")
-
-    return "\n".join(result)
+            content.append("-------------------------", style="dim")
+        content.append(
+            f"[begin of {op_type} {i + 1} / {len(edit_groups)}]\n", style="bold"
+        )
+        content.append(f"(content before {op_type})\n", style="bold red")
+        for line in cur_edit_group.before_edits:
+            content.append(line + "\n", style="red")
+        content.append(f"(content after {op_type})\n", style="bold red")
+        for line in cur_edit_group.after_edits:
+            content.append(line + "\n", style="green")
+        content.append(f"[end of {op_type} {i + 1} / {len(edit_groups)}]", style="bold")
+    return content

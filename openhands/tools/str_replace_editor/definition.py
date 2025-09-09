@@ -78,11 +78,7 @@ class StrReplaceEditorObservation(ObservationBase):
     )
     error: str | None = Field(default=None, description="Error message if any.")
 
-    _diff_cache: str | None = PrivateAttr(default=None)
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        self._diff_cache: str | None = None
+    _diff_cache: Text | None = PrivateAttr(default=None)
 
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
@@ -113,9 +109,7 @@ class StrReplaceEditorObservation(ObservationBase):
                 change_applied=change_applied,
             )
 
-        content = Text()
-        content.append(self._diff_cache)
-        return content
+        return self._diff_cache
 
     @property
     def _has_meaningful_diff(self) -> bool:
