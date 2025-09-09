@@ -1,54 +1,63 @@
+# state.py
 import json
+import re
 import uuid
 from threading import RLock, get_ident
-from typing import Optional
+from typing import Iterable, NamedTuple, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 
-from openhands.sdk.event import Event
+from openhands.sdk.event import Event, EventBase
 from openhands.sdk.io import FileStore
+from openhands.sdk.logger import get_logger
 
-from .persistence import (
-    BASE_STATE,
-    SHARD_SIZE,
-    Manifest,
-    _read_text,
-)
+
+logger = get_logger(__name__)
+
+
+class EventFile(NamedTuple):
+    idx: int
+    path: str
+
+
+BASE_STATE = "base_state.json"
+EVENTS_DIR = "events"
+_EVENT_NAME_RE = re.compile(r"^event-(?P<idx>\d{5})\.json$")
+_EVENT_FILE_PATTERN = "event-{idx:05d}.json"
 
 
 class ConversationState(BaseModel):
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,  # allow RLock in PrivateAttr
-        validate_assignment=True,  # validate on attribute set
-        frozen=False,
-    )
-
-    # Public, validated fields
+    # ===== Public, validated fields =====
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     events: list[Event] = Field(default_factory=list)
+
+    # flags
     agent_finished: bool = Field(default=False)
     confirmation_mode: bool = Field(default=False)
     agent_waiting_for_confirmation: bool = Field(default=False)
     agent_paused: bool = Field(default=False)
+
     activated_knowledge_microagents: list[str] = Field(
-        default_factory=list, description="List of activated knowledge microagents name"
+        default_factory=list,
+        description="List of activated knowledge microagents name",
     )
 
-    # Private attrs (NOT Fields) — allowed to start with underscore
+    # ===== Private attrs (NOT Fields) =====
     _lock: RLock = PrivateAttr(default_factory=RLock)
     _owner_tid: Optional[int] = PrivateAttr(default=None)
     _exclude_from_base_state: set[str] = {"events"}
 
-    # Lock/guard API
+    # ===== Lock/guard API =====
     def acquire(self) -> None:
         self._lock.acquire()
         self._owner_tid = get_ident()
 
     def release(self) -> None:
+        self.assert_locked()
         self._owner_tid = None
         self._lock.release()
 
-    def __enter__(self) -> "ConversationState":
+    def __enter__(self):
         self.acquire()
         return self
 
@@ -59,56 +68,108 @@ class ConversationState(BaseModel):
         if self._owner_tid != get_ident():
             raise RuntimeError("State not held by current thread")
 
-    # ====== Tiny public API requested ======
+    # ===== Internal FS helpers (intentionally simple) =====
+    @staticmethod
+    def _read_text(fs: FileStore, path: str) -> str | None:
+        try:
+            return fs.read(path)
+        except FileNotFoundError:
+            return None
+
+    @staticmethod
+    def _write_text(fs: FileStore, path: str, text: str) -> None:
+        fs.write(path, text)
+
+    @staticmethod
+    def _scan_events(fs: FileStore) -> list[EventFile]:
+        """
+        Single directory listing for events. Returns (index, path) sorted.
+        """
+        try:
+            paths = fs.list(EVENTS_DIR)
+        except Exception:
+            return []
+        out: list[EventFile] = []
+        for p in paths:
+            name = p.rsplit("/", 1)[-1]
+            m = _EVENT_NAME_RE.match(name)
+            if m:
+                out.append(EventFile(idx=int(m.group("idx")), path=p))
+            else:
+                logger.warning(f"Skipping unrecognized event file: {p}")
+        out.sort(key=lambda t: t.idx)
+        return out
+
+    @staticmethod
+    def _replay_from_files(
+        fs: FileStore, files_sorted: Iterable[EventFile]
+    ) -> list[Event]:
+        """
+        One pass: we already have the sorted file list; just read & parse.
+        """
+        out: list[Event] = []
+        for _, path in files_sorted:
+            txt = ConversationState._read_text(fs, path)
+            if not txt:
+                continue
+            try:
+                out.append(EventBase.model_validate(json.loads(txt)))
+            except Exception:
+                # Be strict if you want. Pragmatically, skip bad files.
+                continue
+        return out
 
     def _save_base_state(self, fs: FileStore) -> None:
-        """Persist base state snapshot (excluding events and other excluded fields)."""
+        """
+        Persist base state snapshot (excluding events).
+        """
         payload = self.model_dump_json(
             exclude_none=True,
             exclude=self._exclude_from_base_state,
         )
-        fs.write(BASE_STATE, payload)
+        self._write_text(fs, BASE_STATE, payload)
 
+    # ===== Public Persistence API =====
     @classmethod
     def load(
         cls: type["ConversationState"], file_store: FileStore
     ) -> "ConversationState":
-        """Load ConversationState from persist_dir (base snapshot + replay manifest)."""
-        manifest = Manifest.read(file_store)
-
-        # Fresh init if both missing
-        if not (txt := _read_text(file_store, BASE_STATE)) and not manifest.segments:
+        """
+        Load base snapshot (if any), then a SINGLE scan of events dir and replay.
+        """
+        # base
+        base_txt = cls._read_text(file_store, BASE_STATE)
+        if base_txt:
+            state = cls.model_validate(json.loads(base_txt))
+        else:
             state = cls()
             state._save_base_state(file_store)
-            manifest.write(file_store)
-            return state
 
-        assert isinstance(txt, str)
-        base_dict = json.loads(txt)
-        state = cls.model_validate(base_dict)
-        manifest.reconcile_with_fs(file_store)
-        for ev in manifest.replay(file_store):
+        # events (one list op, one pass decode)
+        files_sorted = cls._scan_events(file_store)
+        for ev in cls._replay_from_files(file_store, files_sorted):
             state.events.append(ev)
         return state
 
     def save(self, file_store: FileStore) -> None:
-        """Persist current state (update base, append deltas,
-        compact opportunistically).
         """
-        manifest = Manifest.read(file_store)
-
-        # keep base snapshot current (crash-safe)
+        Persist current state:
+        - Write base snapshot
+        - Perform a SINGLE scan of events dir to find next index
+        - Append any new events
+        """
+        # keep base snapshot current
         self._save_base_state(file_store)
 
-        # reconcile, then append any missing events
-        manifest.reconcile_with_fs(file_store)
-        next_idx = manifest.next_event_index()
+        # single scan
+        files_sorted = self._scan_events(file_store)
+        next_idx = files_sorted[-1][0] + 1 if files_sorted else 0
+
+        # append new events only
         if next_idx < len(self.events):
             for idx in range(next_idx, len(self.events)):
-                manifest.append_delta(
-                    file_store, idx, self.events[idx], flush_manifest=True
+                event = self.events[idx]
+                path = f"{EVENTS_DIR}/{_EVENT_FILE_PATTERN.format(idx=idx)}"
+                self._write_text(
+                    file_store, path, event.model_dump_json(exclude_none=True)
                 )
-
-        # opportunistic compaction
-        if manifest.compact(file_store, shard_size=SHARD_SIZE):
-            manifest.write(file_store)
