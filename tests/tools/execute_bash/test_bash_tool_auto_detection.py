@@ -22,7 +22,7 @@ def test_default_auto_detection():
         assert tool.executor is not None
         executor = tool.executor
         assert isinstance(executor, BashExecutor)
-        
+
         # Should always use TerminalSession now
         assert isinstance(executor.session, TerminalSession)
 

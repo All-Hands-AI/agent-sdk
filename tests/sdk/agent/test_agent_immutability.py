@@ -48,7 +48,9 @@ class TestAgentImmutability:
         assert "system_message" not in agent.__dict__
 
         # Basic content validation - should look like a system message
-        assert any(keyword in msg1.lower() for keyword in ["assistant", "help", "task", "user"])
+        assert any(
+            keyword in msg1.lower() for keyword in ["assistant", "help", "task", "user"]
+        )
 
     def test_agent_with_different_configs_are_different(self):
         """Test that agents with different configs produce different system messages."""

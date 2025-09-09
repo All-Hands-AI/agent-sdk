@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from litellm.exceptions import (
@@ -9,7 +9,6 @@ from pydantic import SecretStr
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
-
 
 # Import common test utilities
 from tests.conftest import create_mock_litellm_response
@@ -29,7 +28,10 @@ def default_llm():
 def test_llm_init_with_default_config(default_llm):
     """Test LLM initialization with default config using fixture."""
     assert default_llm.model == "gpt-4o"
-    assert default_llm.api_key is not None and default_llm.api_key.get_secret_value() == "test_key"
+    assert (
+        default_llm.api_key is not None
+        and default_llm.api_key.get_secret_value() == "test_key"
+    )
     assert isinstance(default_llm.metrics, Metrics)
     assert default_llm.metrics.model_name == "gpt-4o"
 
