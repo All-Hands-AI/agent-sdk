@@ -180,10 +180,10 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
         content.append("Arguments:\n", style="bold")
         action_fields = self.model_dump()
         for field_name, field_value in action_fields.items():
-            content.append(f"  {field_name}: ", style="bold")
             if field_value is None:
-                content.append("None", style="dim")
-            elif isinstance(field_value, str):
+                continue  # skip None fields
+            content.append(f"  {field_name}: ", style="bold")
+            if isinstance(field_value, str):
                 # Handle multiline strings with proper indentation
                 if "\n" in field_value:
                     content.append("\n")
