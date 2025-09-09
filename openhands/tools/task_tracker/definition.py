@@ -302,8 +302,8 @@ systematic approach and ensures comprehensive requirement fulfillment."""  # noq
 task_tracker_tool = Tool(
     name="task_tracker",
     description=TASK_TRACKER_DESCRIPTION,
-    input_schema=TaskTrackerAction,
-    output_schema=TaskTrackerObservation,
+    action_type=TaskTrackerAction,
+    observation_type=TaskTrackerObservation,
     annotations=ToolAnnotations(
         readOnlyHint=False,
         destructiveHint=False,
@@ -329,8 +329,8 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
         super().__init__(
             name="task_tracker",
             description=TASK_TRACKER_DESCRIPTION,
-            input_schema=TaskTrackerAction,
-            output_schema=TaskTrackerObservation,
+            action_type=TaskTrackerAction,
+            observation_type=TaskTrackerObservation,
             annotations=task_tracker_tool.annotations,
             executor=executor,
         )

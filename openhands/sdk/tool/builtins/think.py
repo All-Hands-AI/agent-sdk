@@ -48,8 +48,8 @@ class ThinkExecutor(ToolExecutor):
 ThinkTool = Tool(
     name="think",
     description=THINK_DESCRIPTION,
-    input_schema=ThinkAction,
-    output_schema=ThinkObservation,
+    action_type=ThinkAction,
+    observation_type=ThinkObservation,
     executor=ThinkExecutor(),
     annotations=ToolAnnotations(
         readOnlyHint=True,
