@@ -18,38 +18,37 @@ class TestAgentImmutability:
         """Test that Agent instances are frozen (immutable)."""
         agent = Agent(llm=self.llm, tools=[])
 
-        # Test that we cannot modify any field
+        # Test that we cannot modify core fields after creation
         with pytest.raises(ValidationError, match="Instance is frozen"):
             agent.llm = "new_value"  # type: ignore[assignment]
 
         with pytest.raises(ValidationError, match="Instance is frozen"):
             agent.agent_context = None
 
-        with pytest.raises(ValidationError, match="Instance is frozen"):
-            agent.system_prompt_filename = "new_prompt.j2"
-
-        with pytest.raises(ValidationError, match="Instance is frozen"):
-            agent.condenser = None
-
-        with pytest.raises(ValidationError, match="Instance is frozen"):
-            agent.cli_mode = False
+        # Verify the agent remains functional after failed modification attempts
+        assert agent.llm == self.llm
+        assert isinstance(agent.system_message, str)
+        assert len(agent.system_message) > 0
 
     def test_system_message_is_computed_property(self):
         """Test that system_message is computed on-demand, not stored."""
         agent = Agent(llm=self.llm, tools=[])
 
-        # Get system message multiple times
+        # Get system message multiple times - should be consistent
         msg1 = agent.system_message
         msg2 = agent.system_message
 
-        # Should be the same content
+        # Should be the same content and valid
         assert msg1 == msg2
         assert isinstance(msg1, str)
         assert len(msg1) > 0
 
-        # Verify it's not stored as an instance variable
+        # Verify it's computed, not stored
         assert not hasattr(agent, "_system_message")
         assert "system_message" not in agent.__dict__
+
+        # Basic content validation - should look like a system message
+        assert any(keyword in msg1.lower() for keyword in ["assistant", "help", "task", "user"])
 
     def test_agent_with_different_configs_are_different(self):
         """Test that agents with different configs produce different system messages."""

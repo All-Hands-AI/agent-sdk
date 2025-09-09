@@ -1,7 +1,6 @@
 """Tests for BashTool auto-detection functionality."""
 
 import tempfile
-from typing import cast
 from unittest.mock import patch
 
 from openhands.tools.execute_bash import BashTool
@@ -21,20 +20,21 @@ def test_default_auto_detection():
 
         # BashTool always has an executor
         assert tool.executor is not None
+        executor = tool.executor
+        assert isinstance(executor, BashExecutor)
+        
         # Should always use TerminalSession now
-        assert isinstance(cast(BashExecutor, tool.executor).session, TerminalSession)
+        assert isinstance(executor.session, TerminalSession)
 
         # Check that the terminal backend is appropriate
-        terminal_type = type(
-            cast(BashExecutor, tool.executor).session.terminal
-        ).__name__
+        terminal_type = type(executor.session.terminal).__name__
         assert terminal_type in ["TmuxTerminal", "SubprocessTerminal"]
 
         # Test that it works
         action = ExecuteBashAction(
             command="echo 'Auto-detection test'", security_risk="LOW"
         )
-        obs = tool.executor(action)
+        obs = executor(action)
         assert "Auto-detection test" in obs.output
 
 
@@ -44,10 +44,10 @@ def test_forced_terminal_types():
         # Test forced subprocess session
         tool = BashTool(working_dir=temp_dir, terminal_type="subprocess")
         assert tool.executor is not None
-        assert isinstance(cast(BashExecutor, tool.executor).session, TerminalSession)
-        assert isinstance(
-            cast(BashExecutor, tool.executor).session.terminal, SubprocessTerminal
-        )
+        executor = tool.executor
+        assert isinstance(executor, BashExecutor)
+        assert isinstance(executor.session, TerminalSession)
+        assert isinstance(executor.session.terminal, SubprocessTerminal)
 
         # Test basic functionality
         action = ExecuteBashAction(
@@ -70,12 +70,10 @@ def test_unix_auto_detection(mock_system):
         ):
             tool = BashTool(working_dir=temp_dir)
             assert tool.executor is not None
-            assert isinstance(
-                cast(BashExecutor, tool.executor).session, TerminalSession
-            )
-            assert isinstance(
-                cast(BashExecutor, tool.executor).session.terminal, TmuxTerminal
-            )
+            executor = tool.executor
+            assert isinstance(executor, BashExecutor)
+            assert isinstance(executor.session, TerminalSession)
+            assert isinstance(executor.session.terminal, TmuxTerminal)
 
         # Mock tmux as unavailable
         with patch(
@@ -84,12 +82,10 @@ def test_unix_auto_detection(mock_system):
         ):
             tool = BashTool(working_dir=temp_dir)
             assert tool.executor is not None
-            assert isinstance(
-                cast(BashExecutor, tool.executor).session, TerminalSession
-            )
-            assert isinstance(
-                cast(BashExecutor, tool.executor).session.terminal, SubprocessTerminal
-            )
+            executor = tool.executor
+            assert isinstance(executor, BashExecutor)
+            assert isinstance(executor.session, TerminalSession)
+            assert isinstance(executor.session.terminal, SubprocessTerminal)
 
 
 def test_session_parameters():
@@ -103,7 +99,9 @@ def test_session_parameters():
         )
 
         assert tool.executor is not None
-        session = cast(BashExecutor, tool.executor).session
+        executor = tool.executor
+        assert isinstance(executor, BashExecutor)
+        session = executor.session
         assert session.work_dir == temp_dir
         assert session.username == "testuser"
         assert session.no_change_timeout_seconds == 60
@@ -142,13 +140,15 @@ def test_session_lifecycle():
 
         # Session should be initialized
         assert tool.executor is not None
-        assert cast(BashExecutor, tool.executor).session._initialized
+        executor = tool.executor
+        assert isinstance(executor, BashExecutor)
+        assert executor.session._initialized
 
         # Should be able to execute commands
         action = ExecuteBashAction(command="echo 'Lifecycle test'", security_risk="LOW")
-        obs = tool.executor(action)
+        obs = executor(action)
         assert obs.metadata.exit_code == 0
 
         # Manual cleanup should work
-        cast(BashExecutor, tool.executor).session.close()
-        assert cast(BashExecutor, tool.executor).session._closed
+        executor.session.close()
+        assert executor.session._closed
