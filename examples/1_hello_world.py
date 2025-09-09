@@ -13,10 +13,7 @@ from openhands.sdk import (
     Tool,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-    FileEditorTool,
-)
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
 logger = get_logger(__name__)
@@ -35,6 +32,7 @@ cwd = os.getcwd()
 tools: list[Tool] = [
     BashTool(working_dir=cwd),
     FileEditorTool(),
+    TaskTrackerTool(save_dir=cwd),
 ]
 
 # Agent
@@ -57,7 +55,7 @@ conversation.send_message(
             TextContent(
                 text=(
                     "Hello! Can you create a new Python file named hello.py"
-                    " that prints 'Hello, World!'?"
+                    " that prints 'Hello, World!'? Use task tracker to plan your steps."
                 )
             )
         ],
