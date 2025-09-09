@@ -569,42 +569,18 @@ class LLM(BaseModel, RetryMixin):
         # Preserve provider-specific reasoning fields before conversion
         orig_msg = resp.choices[0].message
         non_fn_message: dict = orig_msg.model_dump()
-        fn_msgs = convert_non_fncall_messages_to_fncall_messages(
+        fn_msgs: list[dict] = convert_non_fncall_messages_to_fncall_messages(
             nonfncall_msgs + [non_fn_message], tools
         )
-        last = fn_msgs[-1]
-        if not isinstance(last, LiteLLMMessage):
-            # Pass through reasoning/thinking fields when rehydrating message
-            try:
-                rc = getattr(orig_msg, "reasoning_content", None)
-                if rc is not None:
-                    last["reasoning_content"] = rc
-            except Exception:
-                pass
-            try:
-                psf = getattr(orig_msg, "provider_specific_fields", None)
-                if psf:
-                    last["provider_specific_fields"] = psf
-            except Exception:
-                pass
+        last: dict = fn_msgs[-1]
 
-            last = LiteLLMMessage(**last)
-        else:
-            # If conversion already produced a LiteLLMMessage, attach fields directly
-            try:
-                rc = getattr(orig_msg, "reasoning_content", None)
-                if rc is not None:
-                    setattr(last, "reasoning_content", rc)
-            except Exception:
-                pass
-            try:
-                psf = getattr(orig_msg, "provider_specific_fields", None)
-                if psf:
-                    setattr(last, "provider_specific_fields", psf)
-            except Exception:
-                pass
+        for name in ("reasoning_content", "provider_specific_fields"):
+            val = getattr(orig_msg, name, None)
+            if not val:
+                continue
+            last[name] = val
 
-        resp.choices[0].message = last
+        resp.choices[0].message = LiteLLMMessage.model_validate(last)
         return resp
 
     # =========================================================================
