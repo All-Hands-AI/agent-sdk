@@ -16,13 +16,40 @@ from openhands.sdk.event import (
 )
 
 
+# These are external inputs
+_OBSERVATION_COLOR = "yellow"
+_MESSAGE_USER_COLOR = "yellow"
+_PAUSE_COLOR = "bright_yellow"
+# These are internal system stuff
+_SYSTEM_COLOR = "magenta"
+_THOUGHT_COLOR = "bright_black"
+_ERROR_COLOR = "red"
+# These are agent actions
+_ACTION_COLOR = "blue"
+_MESSAGE_ASSISTANT_COLOR = _ACTION_COLOR
+
+DEFAULT_HIGHLIGHT_REGEX = {
+    r"^Reasoning:": f"bold {_THOUGHT_COLOR}",
+    r"^Thought:": f"bold {_THOUGHT_COLOR}",
+    r"^Action:": f"bold {_ACTION_COLOR}",
+    r"^Arguments:": f"bold {_ACTION_COLOR}",
+    r"^Tool:": f"bold {_OBSERVATION_COLOR}",
+    r"^Result:": f"bold {_OBSERVATION_COLOR}",
+    r"**(.*?)**": "bold",
+}
+
+
 class ConversationVisualizer:
     """Handles visualization of conversation events with Rich formatting.
 
     Provides Rich-formatted output with panels and complete content display.
     """
 
-    def __init__(self, highlight_regex: Dict[str, str] | None = None):
+    def __init__(
+        self,
+        highlight_regex: Dict[str, str] | None = None,
+        skip_user_messages: bool = False,
+    ):
         """Initialize the visualizer.
 
         Args:
@@ -30,14 +57,16 @@ class ConversationVisualizer:
                            for highlighting keywords in the visualizer.
                            For example: {"Reasoning:": "bold blue",
                            "Thought:": "bold green"}
+            skip_user_messages: If True, skip displaying user messages. Useful for
+                                scenarios where user input is not relevant to show.
         """
         self._console = Console()
         self._highlight_patterns: Dict[Pattern[str], str] = {}
-
+        self._skip_user_messages = skip_user_messages
         if highlight_regex:
             for pattern, style in highlight_regex.items():
                 try:
-                    compiled_pattern = re.compile(pattern)
+                    compiled_pattern = re.compile(pattern, re.MULTILINE)
                     self._highlight_patterns[compiled_pattern] = style
                 except re.error:
                     # Skip invalid regex patterns
@@ -46,8 +75,9 @@ class ConversationVisualizer:
     def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
         panel = self._create_event_panel(event)
-        self._console.print(panel)
-        self._console.print()  # Add spacing between events
+        if panel:
+            self._console.print(panel)
+            self._console.print()  # Add spacing between events
 
     def _apply_highlighting(self, text: Text) -> Text:
         """Apply regex-based highlighting to text content.
@@ -61,9 +91,7 @@ class ConversationVisualizer:
         if not self._highlight_patterns:
             return text
 
-        # Create a new Text object to avoid modifying the original
-        highlighted = Text(text.plain)
-
+        highlighted = text.copy()
         # Apply each pattern
         for pattern, style in self._highlight_patterns.items():
             # Find all matches for this pattern
@@ -74,7 +102,7 @@ class ConversationVisualizer:
 
         return highlighted
 
-    def _create_event_panel(self, event: Event) -> Panel:
+    def _create_event_panel(self, event: Event) -> Panel | None:
         """Create a Rich Panel for the event with appropriate styling."""
         # Use the event's visualize property for content
         content = event.visualize
@@ -87,41 +115,40 @@ class ConversationVisualizer:
         if isinstance(event, SystemPromptEvent):
             return Panel(
                 content,
-                title="[bold magenta]System Prompt[/bold magenta]",
-                border_style="magenta",
+                title=f"[bold {_SYSTEM_COLOR}]System Prompt[/bold {_SYSTEM_COLOR}]",
+                border_style=_SYSTEM_COLOR,
                 expand=True,
             )
         elif isinstance(event, ActionEvent):
             return Panel(
                 content,
-                title="[bold green]Agent Action[/bold green]",
+                title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
                 subtitle=self._format_metrics_subtitle(event),
-                border_style="green",
+                border_style=_ACTION_COLOR,
                 expand=True,
             )
         elif isinstance(event, ObservationEvent):
             return Panel(
                 content,
-                title="[bold blue]Tool Observation[/bold blue]",
-                border_style="blue",
+                title=f"[bold {_OBSERVATION_COLOR}]Observation"
+                f"[/bold {_OBSERVATION_COLOR}]",
+                border_style=_OBSERVATION_COLOR,
                 expand=True,
             )
         elif isinstance(event, MessageEvent):
+            if (
+                self._skip_user_messages
+                and event.llm_message
+                and event.llm_message.role == "user"
+            ):
+                return
+            assert event.llm_message is not None
             # Role-based styling
             role_colors = {
-                "user": "bright_cyan",
-                "assistant": "bright_green",
-                "system": "bright_magenta",
+                "user": _MESSAGE_USER_COLOR,
+                "assistant": _MESSAGE_ASSISTANT_COLOR,
             }
             role_color = role_colors.get(event.llm_message.role, "white")
-
-            # Panel styling based on role
-            panel_colors = {
-                "user": "cyan",
-                "assistant": "green",
-                "system": "magenta",
-            }
-            border_color = panel_colors.get(event.llm_message.role, "white")
 
             title_text = (
                 f"[bold {role_color}]Message (source={event.source})"
@@ -131,31 +158,32 @@ class ConversationVisualizer:
                 content,
                 title=title_text,
                 subtitle=self._format_metrics_subtitle(event),
-                border_style=border_color,
+                border_style=role_color,
                 expand=True,
             )
         elif isinstance(event, AgentErrorEvent):
             return Panel(
                 content,
-                title="[bold red]Agent Error[/bold red]",
+                title=f"[bold {_ERROR_COLOR}]Agent Error[/bold {_ERROR_COLOR}]",
                 subtitle=self._format_metrics_subtitle(event),
-                border_style="red",
+                border_style=_ERROR_COLOR,
                 expand=True,
             )
         elif isinstance(event, PauseEvent):
             return Panel(
                 content,
-                title="[bold yellow]User Paused[/bold yellow]",
-                border_style="yellow",
+                title=f"[bold {_PAUSE_COLOR}]User Paused[/bold {_PAUSE_COLOR}]",
+                border_style=_PAUSE_COLOR,
                 expand=True,
             )
         else:
             # Fallback panel for unknown event types
             return Panel(
                 content,
-                title=f"[bold blue]{event.__class__.__name__}[/bold blue]",
+                title=f"[bold {_ERROR_COLOR}]UNKNOWN Event: {event.__class__.__name__}"
+                f"[/bold {_ERROR_COLOR}]",
                 subtitle=f"[dim]({event.source})[/dim]",
-                border_style="blue",
+                border_style=_ERROR_COLOR,
                 expand=True,
             )
 
@@ -218,4 +246,8 @@ def create_default_visualizer(
                        For example: {"Reasoning:": "bold blue",
                        "Thought:": "bold green"}
     """
-    return ConversationVisualizer(highlight_regex=highlight_regex)
+    return ConversationVisualizer(
+        highlight_regex=DEFAULT_HIGHLIGHT_REGEX
+        if highlight_regex is None
+        else highlight_regex
+    )

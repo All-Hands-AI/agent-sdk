@@ -140,9 +140,7 @@ class TaskTrackerExecutor(ToolExecutor):
 
         try:
             with open(tasks_file, "r", encoding="utf-8") as f:
-                self._task_list = [
-                    TaskItem.model_validate_json(line) for line in f.readlines()
-                ]
+                self._task_list = [TaskItem.model_validate(d) for d in json.load(f)]
         except (OSError, json.JSONDecodeError) as e:
             logger.warning(
                 f"Failed to load tasks from {tasks_file}: {e}. Starting with "

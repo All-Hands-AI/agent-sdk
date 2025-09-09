@@ -174,7 +174,7 @@ class ObservationEvent(LLMConvertibleEvent):
         content = Text()
         content.append("Tool: ", style="bold")
         content.append(self.tool_name)
-        content.append("\n\nResult:\n", style="bold")
+        content.append("\nResult:\n", style="bold")
 
         text_parts = content_to_str(self.observation.agent_observation)
         if text_parts:
@@ -240,9 +240,6 @@ class MessageEvent(LLMConvertibleEvent):
     def visualize(self) -> Text:
         """Return Rich Text representation of this message event."""
         content = Text()
-
-        # Role-based styling
-        content.append(f"{self.llm_message.role.title()}:\n", style="bold")
 
         text_parts = content_to_str(self.llm_message.content)
         if text_parts:
