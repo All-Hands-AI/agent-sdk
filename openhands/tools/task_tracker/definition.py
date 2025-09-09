@@ -151,7 +151,7 @@ class TaskTrackerExecutor(ToolExecutor):
             with open(tasks_file, "w", encoding="utf-8") as f:
                 json.dump(self._task_list, f, indent=2)
         except OSError as e:
-            logger.error(f"Failed to save tasks to {tasks_file}: {e}")
+            logger.warning(f"Failed to save tasks to {tasks_file}: {e}")
             pass
 
 
