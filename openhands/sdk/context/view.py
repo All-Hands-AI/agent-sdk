@@ -40,6 +40,27 @@ class View(BaseModel):
         """Return the most recent condensation, or None if no condensations exist."""
         return self.condensations[-1] if self.condensations else None
 
+    @property
+    def summary_event_index(self) -> int | None:
+        """Return the index of the summary event, or None if no summary exists."""
+        recent_condensation = self.most_recent_condensation
+        if (
+            recent_condensation is not None
+            and recent_condensation.summary is not None
+            and recent_condensation.summary_offset is not None
+        ):
+            return recent_condensation.summary_offset
+        return None
+
+    @property
+    def summary_event(self) -> MessageEvent | None:
+        """Return the summary event, or None if no summary exists."""
+        if self.summary_event_index is not None:
+            event = self.events[self.summary_event_index]
+            if isinstance(event, MessageEvent):
+                return event
+        return None
+
     # To preserve list-like indexing, we ideally support slicing and position-based
     # indexing. The only challenge with that is switching the return type based on the
     # input type -- we can mark the different signatures for MyPy with `@overload`
