@@ -1,5 +1,4 @@
 from typing import List
-from unittest.mock import MagicMock
 
 from pydantic import SecretStr
 
@@ -15,8 +14,6 @@ class DummyAgent(AgentBase):
     def __init__(self):
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         super().__init__(llm=llm, tools=[])
-        # Use object.__setattr__ to bypass frozen restriction
-        object.__setattr__(self, "prompt_manager", MagicMock())
 
     def init_state(
         self, state: ConversationState, on_event: ConversationCallbackType
