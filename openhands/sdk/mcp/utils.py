@@ -37,7 +37,9 @@ async def _list_tools(client: MCPClient) -> list[Tool]:
     async with client:
         assert client.is_connected(), "MCP client is not connected."
         mcp_type_tools: list[mcp.types.Tool] = await client.list_tools()
-        tools = [MCPTool(mcp_tool=t, mcp_client=client) for t in mcp_type_tools]
+        tools = [
+            MCPTool.from_mcp(mcp_tool=t, mcp_client=client) for t in mcp_type_tools
+        ]
     assert not client.is_connected(), (
         "MCP client should be disconnected after listing tools."
     )

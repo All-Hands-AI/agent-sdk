@@ -185,7 +185,8 @@ The simplified pattern eliminates the need for manual executor instantiation and
 - Use existing packages/libraries instead of implementing yourselves whenever possible.
 - Avoid using # type: ignore. Treat it only as a last resort. In most cases, issues should be resolved by improving type annotations, adding assertions, or adjusting code/tests—rather than silencing the type checker.
   - Please AVOID using # type: ignore[attr-defined] unless absolutely necessary. If the issue can be addressed by adding a few extra assert statements to verify types, prefer that approach instead!
-  - For issue like # type: ignore[call-arg]: if you discover that the argument doesn't actually exist, do not try to mock it again in tests. Instead, simply remove it.
+  - For issue like # type: ignore[call-arg]: if you discover that the argument doesn’t actually exist, do not try to mock it again in tests. Instead, simply remove it.
+- Avoid doing in-line imports unless absolutely necessary (e.g., circular dependency).
 - Avoid getattr/hasattr guards and instead enforce type correctness by relying on explicit type assertions and proper object usage, ensuring functions only receive the expected Pydantic models or typed inputs.
 </CODE>
 

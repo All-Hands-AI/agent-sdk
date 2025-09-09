@@ -124,7 +124,7 @@ Remember: when making multiple file edits in a row to the same file, you should 
 
 str_replace_editor_tool = Tool(
     name="str_replace_editor",
-    input_schema=StrReplaceEditorAction,
+    action_type=StrReplaceEditorAction,
     description=TOOL_DESCRIPTION,
     annotations=ToolAnnotations(
         title="str_replace_editor",
@@ -151,8 +151,8 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         super().__init__(
             name=str_replace_editor_tool.name,
             description=TOOL_DESCRIPTION,
-            input_schema=StrReplaceEditorAction,
-            output_schema=StrReplaceEditorObservation,
+            action_type=StrReplaceEditorAction,
+            observation_type=StrReplaceEditorObservation,
             annotations=str_replace_editor_tool.annotations,
             executor=executor,
         )

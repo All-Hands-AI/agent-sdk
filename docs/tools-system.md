@@ -138,8 +138,8 @@ class MyExecutor(ToolExecutor):
 my_tool = Tool(
     name="my_tool",
     description="Processes text input",
-    input_schema=MyAction,
-    output_schema=MyObservation,
+    action_type=MyAction,
+    observation_type=MyObservation,
     executor=MyExecutor()
 )
 ```

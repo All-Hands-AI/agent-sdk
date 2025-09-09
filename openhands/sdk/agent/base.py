@@ -3,6 +3,8 @@ import sys
 from abc import ABC, abstractmethod
 from types import MappingProxyType
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 from openhands.sdk.llm import LLM
@@ -13,30 +15,36 @@ from openhands.sdk.tool import Tool
 logger = get_logger(__name__)
 
 
-class AgentBase(ABC):
-    def __init__(
-        self,
-        llm: LLM,
-        tools: list[Tool],
-        agent_context: AgentContext | None = None,
-    ) -> None:
-        """Initializes a new instance of the Agent class.
+class AgentBase(BaseModel, ABC):
+    model_config = ConfigDict(
+        frozen=True,
+        arbitrary_types_allowed=True,
+    )
 
-        Agent should be Stateless: every step only relies on:
-        1. input ConversationState
-        2. LLM/tools/agent_context that were given in __init__
-        """
-        self._llm = llm
-        self._agent_context = agent_context
+    llm: LLM
+    agent_context: AgentContext | None = Field(default=None)
+    tools: MappingProxyType[str, Tool] | list[Tool] = Field(
+        description="Mapping of tool name to Tool instance."
+        " If a list is provided, it will be coerced into a mapping."
+    )
 
-        # Load tools into an immutable dict
-        _tools_map = {}
-        for tool in tools:
-            if tool.name in _tools_map:
-                raise ValueError(f"Duplicate tool name: {tool.name}")
-            logger.debug(f"Registering tool: {tool}")
-            _tools_map[tool.name] = tool
-        self._tools = MappingProxyType(_tools_map)
+    @field_validator("tools", mode="before")
+    @classmethod
+    def coerce_tools(cls, v):
+        """Allow passing tools as a list[Tool] and coerce into MappingProxyType."""
+        if isinstance(v, list):
+            _tools_map: dict[str, Tool] = {}
+            for tool in v:
+                if tool.name in _tools_map:
+                    raise ValueError(f"Duplicate tool name: {tool.name}")
+                if not isinstance(tool, Tool):
+                    raise TypeError(f"Expected Tool instance, got {type(tool)}")
+                logger.debug(f"Registering tool: {tool}")
+                _tools_map[tool.name] = tool
+            return MappingProxyType(_tools_map)
+        elif isinstance(v, MappingProxyType):
+            return v
+        raise TypeError("tools must be a list[Tool] or MappingProxyType[str, Tool]")
 
     @property
     def prompt_dir(self) -> str:
@@ -51,21 +59,6 @@ class AgentBase(ABC):
     def name(self) -> str:
         """Returns the name of the Agent."""
         return self.__class__.__name__
-
-    @property
-    def llm(self) -> LLM:
-        """Returns the LLM instance used by the Agent."""
-        return self._llm
-
-    @property
-    def tools(self) -> MappingProxyType[str, Tool]:
-        """Returns an immutable mapping of available tools from name."""
-        return self._tools
-
-    @property
-    def agent_context(self) -> AgentContext | None:
-        """Returns the agent context used by the Agent."""
-        return self._agent_context
 
     @abstractmethod
     def init_state(
