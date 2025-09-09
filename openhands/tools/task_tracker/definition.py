@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from openhands.sdk import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
@@ -18,6 +18,16 @@ from openhands.sdk.tool import (
 logger = get_logger(__name__)
 
 
+class TaskItem(BaseModel):
+    title: str = Field(..., description="A brief title for the task.")
+    notes: str = Field("", description="Additional details or notes about the task.")
+    status: Literal["todo", "in_progress", "done"] = Field(
+        "todo",
+        description="The current status of the task. "
+        "One of 'todo', 'in_progress', or 'done'.",
+    )
+
+
 class TaskTrackerAction(ActionBase):
     """An action where the agent writes or updates a task list for task management."""
 
@@ -25,7 +35,7 @@ class TaskTrackerAction(ActionBase):
         default="view",
         description="The command to execute. `view` shows the current task list. `plan` creates or updates the task list based on provided requirements and progress. Always `view` the current list before making changes.",  # noqa: E501
     )
-    task_list: list[dict[str, Any]] = Field(
+    task_list: list[TaskItem] = Field(
         default_factory=list,
         description="The full task list. Required parameter of `plan` command.",
     )
@@ -38,7 +48,7 @@ class TaskTrackerObservation(ObservationBase):
         default="", description="The formatted task list or status message"
     )
     command: str = Field(default="", description="The command that was executed")
-    task_list: list[dict[str, Any]] = Field(
+    task_list: list[TaskItem] = Field(
         default_factory=list, description="The current task list"
     )
 
@@ -58,7 +68,7 @@ class TaskTrackerExecutor(ToolExecutor):
                      persisted to save_dir/TASKS.md
         """
         self.save_dir = Path(save_dir) if save_dir else None
-        self._task_list: list[dict[str, Any]] = []
+        self._task_list: list[TaskItem] = []
 
         # Load existing tasks if save_dir is provided and file exists
         if self.save_dir:
@@ -98,7 +108,7 @@ class TaskTrackerExecutor(ToolExecutor):
                 task_list=[],
             )
 
-    def _format_task_list(self, task_list: list[dict[str, Any]]) -> str:
+    def _format_task_list(self, task_list: list[TaskItem]) -> str:
         """Format the task list for display."""
         if not task_list:
             return "No tasks in the list."
@@ -106,11 +116,11 @@ class TaskTrackerExecutor(ToolExecutor):
         content = "# Task List\n\n"
         for i, task in enumerate(task_list, 1):
             status_icon = {"todo": "⏳", "in_progress": "🔄", "done": "✅"}.get(
-                task.get("status", "todo"), "⏳"
+                task.status, "⏳"
             )
 
-            title = task.get("title", "")
-            notes = task.get("notes", "")
+            title = task.title
+            notes = task.notes
 
             content += f"{i}. {status_icon} {title}\n"
             if notes:
