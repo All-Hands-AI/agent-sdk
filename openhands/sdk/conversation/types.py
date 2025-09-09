@@ -1,6 +1,6 @@
 from typing import Callable
 
-from openhands.sdk.event import EventType
+from openhands.sdk.event import Event
 
 
-ConversationCallbackType = Callable[[EventType], None]
+ConversationCallbackType = Callable[[Event], None]

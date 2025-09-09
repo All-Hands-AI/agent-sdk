@@ -47,6 +47,9 @@ class TokenUsage(BaseModel):
     cache_write_tokens: int = Field(
         default=0, ge=0, description="Cache write tokens must be non-negative"
     )
+    reasoning_tokens: int = Field(
+        default=0, ge=0, description="Reasoning tokens must be non-negative"
+    )
     context_window: int = Field(
         default=0, ge=0, description="Context window must be non-negative"
     )
@@ -63,6 +66,7 @@ class TokenUsage(BaseModel):
             completion_tokens=self.completion_tokens + other.completion_tokens,
             cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
             cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
             context_window=max(self.context_window, other.context_window),
             per_turn_token=other.per_turn_token,
             response_id=self.response_id,
@@ -122,6 +126,7 @@ class Metrics(MetricsSnapshot):
                 completion_tokens=0,
                 cache_read_tokens=0,
                 cache_write_tokens=0,
+                reasoning_tokens=0,
                 context_window=0,
                 response_id="",
             )
@@ -159,6 +164,7 @@ class Metrics(MetricsSnapshot):
         cache_write_tokens: int,
         context_window: int,
         response_id: str,
+        reasoning_tokens: int = 0,
     ) -> None:
         """Add a single usage record."""
         # Token each turn for calculating context usage.
@@ -170,6 +176,7 @@ class Metrics(MetricsSnapshot):
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read_tokens,
             cache_write_tokens=cache_write_tokens,
+            reasoning_tokens=reasoning_tokens,
             context_window=context_window,
             per_turn_token=per_turn_token,
             response_id=response_id,
@@ -183,6 +190,7 @@ class Metrics(MetricsSnapshot):
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read_tokens,
             cache_write_tokens=cache_write_tokens,
+            reasoning_tokens=reasoning_tokens,
             context_window=context_window,
             per_turn_token=per_turn_token,
             response_id="",
@@ -286,6 +294,8 @@ class Metrics(MetricsSnapshot):
                 - base_usage.cache_read_tokens,
                 cache_write_tokens=current_usage.cache_write_tokens
                 - base_usage.cache_write_tokens,
+                reasoning_tokens=current_usage.reasoning_tokens
+                - base_usage.reasoning_tokens,
                 context_window=current_usage.context_window,
                 per_turn_token=0,
                 response_id="",

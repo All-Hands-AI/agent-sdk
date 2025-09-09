@@ -109,20 +109,16 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # If in confirmation mode stored on state, first check if there are any
-        # pending actions (implicit confirmation) and execute them before sampling
-        # a new action.
-        if state.confirmation_mode:
-            pending_actions = get_unmatched_actions(state.events)
-            if pending_actions:
-                logger.info(
-                    "Confirmation mode: Executing %d pending action(s)",
-                    len(pending_actions),
-                )
-                # Note: agent_waiting_for_confirmation flag is cleared by
-                # Conversation class
-                self._execute_actions(state, pending_actions, on_event)
-                return
+        # Check for pending actions (implicit confirmation)
+        # and execute them before sampling new actions.
+        pending_actions = get_unmatched_actions(state.events)
+        if pending_actions:
+            logger.info(
+                "Confirmation mode: Executing %d pending action(s)",
+                len(pending_actions),
+            )
+            self._execute_actions(state, pending_actions, on_event)
+            return
 
         # If a condenser is registered with the agent, we need to give it an
         # opportunity to transform the events. This will either produce a list
@@ -205,6 +201,8 @@ class Agent(AgentBase):
                     if i == 0
                     else [],  # Only first gets thought
                     metrics=metrics if i == len(tool_calls) - 1 else None,
+                    # Only first gets reasoning content
+                    reasoning_content=message.reasoning_content if i == 0 else None,
                 )
                 if action_event is None:
                     continue
@@ -258,6 +256,7 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
         metrics: MetricsSnapshot | None = None,
+        reasoning_content: str | None = None,
     ) -> ActionEvent | None:
         """Handle tool calls from the LLM.
 
@@ -271,7 +270,10 @@ class Agent(AgentBase):
         if tool is None:
             err = f"Tool '{tool_name}' not found. Available: {list(self.tools.keys())}"
             logger.error(err)
-            event = AgentErrorEvent(error=err, metrics=metrics)
+            event = AgentErrorEvent(
+                error=err,
+                metrics=metrics,
+            )
             on_event(event)
             state.agent_finished = True
             return
@@ -286,7 +288,10 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.function.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
-            event = AgentErrorEvent(error=err, metrics=metrics)
+            event = AgentErrorEvent(
+                error=err,
+                metrics=metrics,
+            )
             on_event(event)
             return
 
@@ -294,6 +299,7 @@ class Agent(AgentBase):
         action_event = ActionEvent(
             action=action,
             thought=thought,
+            reasoning_content=reasoning_content,
             tool_name=tool.name,
             tool_call_id=tool_call.id,
             tool_call=tool_call,
