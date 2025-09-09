@@ -5,7 +5,7 @@ from openhands.sdk.event.types import SourceType
 class Condensation(EventBase):
     """This action indicates a condensation of the conversation history is happening."""
 
-    forgotten_event_ids: list[str] | None = None
+    forgotten_event_ids: list[str]
     """The IDs of the events that are being forgotten (removed from the `View` given to
     the LLM).
     """
@@ -21,18 +21,10 @@ class Condensation(EventBase):
     source: SourceType = "environment"
 
     @property
-    def forgotten(self) -> list[str]:
-        """The list of event IDs that should be forgotten."""
-        if self.forgotten_event_ids is not None:
-            return self.forgotten_event_ids
-        else:
-            return []
-
-    @property
     def message(self) -> str:
         if self.summary:
             return f"Summary: {self.summary}"
-        return f"Condenser is dropping the events: {self.forgotten}."
+        return f"Condenser is dropping the events: {self.forgotten_event_ids}."
 
 
 class CondensationRequest(EventBase):

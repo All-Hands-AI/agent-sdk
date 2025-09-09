@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import overload
+from typing import Sequence, overload
 
 from pydantic import BaseModel
 
@@ -84,7 +84,7 @@ class View(BaseModel):
             raise ValueError(f"Invalid key type: {type(key)}")
 
     @staticmethod
-    def from_events(events: list[Event]) -> "View":
+    def from_events(events: Sequence[Event]) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """
@@ -93,7 +93,7 @@ class View(BaseModel):
         for event in events:
             if isinstance(event, Condensation):
                 condensations.append(event)
-                forgotten_event_ids.update(event.forgotten)
+                forgotten_event_ids.update(event.forgotten_event_ids)
                 # Make sure we also forget the condensation action itself
                 forgotten_event_ids.add(event.id)
             if isinstance(event, CondensationRequest):
