@@ -1,6 +1,6 @@
 """OpenHands runtime package."""
 
-from openhands.sdk.tool.builtins import BUILT_IN_TOOLS, FinishTool
+from openhands.sdk.tool.builtins import BUILT_IN_TOOLS, FinishTool, ThinkTool
 from openhands.sdk.tool.schema import (
     ActionBase,
     MCPActionBase,
@@ -21,5 +21,6 @@ __all__ = [
     "MCPActionBase",
     "ObservationBase",
     "FinishTool",
+    "ThinkTool",
     "BUILT_IN_TOOLS",
 ]

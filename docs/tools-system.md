@@ -21,6 +21,9 @@ graph TB
         FinishTool[FinishTool]
         FinishAction[FinishAction]
         FinishObservation[FinishObservation]
+        ThinkTool[ThinkTool]
+        ThinkAction[ThinkAction]
+        ThinkObservation[ThinkObservation]
     end
     
     subgraph "Runtime Tools (openhands/tools)"
@@ -42,6 +45,7 @@ graph TB
     Tool --> BashTool
     Tool --> FileEditorTool
     Tool --> FinishTool
+    Tool --> ThinkTool
     
     ToolExecutor --> BashExecutor
     ToolExecutor --> FileEditorExecutor

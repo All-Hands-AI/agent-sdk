@@ -21,13 +21,6 @@ from openhands.tools.task_tracker import (
     TaskTrackerTool,
     task_tracker_tool,
 )
-from openhands.tools.think import (
-    ThinkAction,
-    ThinkExecutor,
-    ThinkObservation,
-    ThinkTool,
-    think_tool,
-)
 
 
 __all__ = [
@@ -41,11 +34,6 @@ __all__ = [
     "StrReplaceEditorObservation",
     "FileEditorExecutor",
     "FileEditorTool",
-    "think_tool",
-    "ThinkAction",
-    "ThinkObservation",
-    "ThinkExecutor",
-    "ThinkTool",
     "task_tracker_tool",
     "TaskTrackerAction",
     "TaskTrackerObservation",

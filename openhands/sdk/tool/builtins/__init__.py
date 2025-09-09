@@ -7,16 +7,28 @@ For tools that require interacting with the environment, add them to `openhands/
 
 from openhands.sdk.tool.builtins.finish import (
     FinishAction,
+    FinishExecutor,
     FinishObservation,
     FinishTool,
 )
+from openhands.sdk.tool.builtins.think import (
+    ThinkAction,
+    ThinkExecutor,
+    ThinkObservation,
+    ThinkTool,
+)
 
 
-BUILT_IN_TOOLS = [FinishTool]
+BUILT_IN_TOOLS = [FinishTool, ThinkTool]
 
 __all__ = [
     "BUILT_IN_TOOLS",
     "FinishTool",
     "FinishAction",
     "FinishObservation",
+    "FinishExecutor",
+    "ThinkTool",
+    "ThinkAction",
+    "ThinkObservation",
+    "ThinkExecutor",
 ]

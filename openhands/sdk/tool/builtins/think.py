@@ -1,9 +1,7 @@
-"""Think tool definition for agent-sdk."""
-
 from pydantic import Field
 
-from openhands.sdk import ImageContent, TextContent
-from openhands.sdk.tool import (
+from openhands.sdk.llm.message import ImageContent, TextContent
+from openhands.sdk.tool.tool import (
     ActionBase,
     ObservationBase,
     Tool,
@@ -47,11 +45,12 @@ class ThinkExecutor(ToolExecutor):
         return ThinkObservation()
 
 
-think_tool = Tool(
+ThinkTool = Tool(
     name="think",
     description=THINK_DESCRIPTION,
     input_schema=ThinkAction,
     output_schema=ThinkObservation,
+    executor=ThinkExecutor(),
     annotations=ToolAnnotations(
         readOnlyHint=True,
         destructiveHint=False,
@@ -59,21 +58,3 @@ think_tool = Tool(
         openWorldHint=False,
     ),
 )
-
-
-class ThinkTool(Tool[ThinkAction, ThinkObservation]):
-    """A Tool subclass that automatically initializes a ThinkExecutor."""
-
-    def __init__(self):
-        """Initialize ThinkTool with a ThinkExecutor."""
-        executor = ThinkExecutor()
-
-        # Initialize the parent Tool with the executor
-        super().__init__(
-            name=think_tool.name,
-            description=THINK_DESCRIPTION,
-            input_schema=ThinkAction,
-            output_schema=ThinkObservation,
-            annotations=think_tool.annotations,
-            executor=executor,
-        )
