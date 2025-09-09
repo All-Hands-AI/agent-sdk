@@ -1,3 +1,4 @@
+import re
 from typing import Dict
 
 from rich.console import Console
@@ -34,7 +35,9 @@ DEFAULT_HIGHLIGHT_REGEX = {
     r"^Arguments:": f"bold {_ACTION_COLOR}",
     r"^Tool:": f"bold {_OBSERVATION_COLOR}",
     r"^Result:": f"bold {_OBSERVATION_COLOR}",
-    r"**(.*?)**": "bold",
+    # Markdown-style
+    r"\*\*(.*?)\*\*": "bold",
+    r"\*(.*?)\*": "italic",
 }
 
 
@@ -87,7 +90,8 @@ class ConversationVisualizer:
 
         # Apply each pattern using Rich's built-in highlight_regex method
         for pattern, style in self._highlight_patterns.items():
-            highlighted.highlight_regex(pattern, style)
+            pattern_compiled = re.compile(pattern, re.MULTILINE)
+            highlighted.highlight_regex(pattern_compiled, style)
 
         return highlighted
 
@@ -225,7 +229,7 @@ class ConversationVisualizer:
 
 
 def create_default_visualizer(
-    highlight_regex: Dict[str, str] | None = None,
+    highlight_regex: Dict[str, str] | None = None, **kwargs
 ) -> ConversationVisualizer:
     """Create a default conversation visualizer instance.
 
@@ -238,5 +242,6 @@ def create_default_visualizer(
     return ConversationVisualizer(
         highlight_regex=DEFAULT_HIGHLIGHT_REGEX
         if highlight_regex is None
-        else highlight_regex
+        else highlight_regex,
+        **kwargs,
     )
