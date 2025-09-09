@@ -144,7 +144,7 @@ class ConversationVisualizer:
             role_color = role_colors.get(event.llm_message.role, "white")
 
             title_text = (
-                f"[bold {role_color}]Message (source={event.source})"
+                f"[bold {role_color}]Message from {event.source.capitalize()})"
                 f"[/bold {role_color}]"
             )
             return Panel(
