@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from openhands.sdk.event import (
     Condensation,
     CondensationRequest,
-    EventType,
+    Event,
     LLMConvertibleEvent,
     MessageEvent,
 )
@@ -52,7 +52,7 @@ class View(BaseModel):
             raise ValueError(f"Invalid key type: {type(key)}")
 
     @staticmethod
-    def from_events(events: list[EventType]) -> "View":
+    def from_events(events: list[Event]) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """

@@ -1,9 +1,10 @@
+import uuid
 from threading import RLock, get_ident
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from openhands.sdk.event import EventType
+from openhands.sdk.event import Event
 
 
 class ConversationState(BaseModel):
@@ -14,7 +15,8 @@ class ConversationState(BaseModel):
     )
 
     # Public, validated fields
-    events: list[EventType] = Field(default_factory=list)
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    events: list[Event] = Field(default_factory=list)
     agent_finished: bool = False
     confirmation_mode: bool = False
     agent_waiting_for_confirmation: bool = False

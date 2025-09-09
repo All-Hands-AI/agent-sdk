@@ -370,7 +370,10 @@ class LLM(BaseModel, RetryMixin):
 
         # 3) normalize provider params
         kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=bool(tools))
+        has_tools_flag = (
+            bool(tools) and use_native_fc
+        )  # only keep tools when native FC is active
+        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
         assert self._telemetry is not None
@@ -495,11 +498,11 @@ class LLM(BaseModel, RetryMixin):
             # Anthropic/OpenAI reasoning models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
-            # Gemini 2.5 budget mapping
+            # Gemini 2.5-pro default to low if not set
+            # otherwise litellm doesn't send reasoning, even though it happens
             if "gemini-2.5-pro" in self.model:
-                if self.reasoning_effort in {None, "low", "none"}:
-                    out["thinking"] = {"budget_tokens": 128}
-                    out["allowed_openai_params"] = ["thinking"]
+                if self.reasoning_effort in {None, "none"}:
+                    out["reasoning_effort"] = "low"
 
         # Anthropic Opus 4.1: prefer temperature when
         # both provided; disable extended thinking
@@ -563,14 +566,21 @@ class LLM(BaseModel, RetryMixin):
                 "Expected non-streaming Choices when post-processing mocked tools"
             )
 
-        non_fn_message: dict = resp.choices[0].message.model_dump()
-        fn_msgs = convert_non_fncall_messages_to_fncall_messages(
+        # Preserve provider-specific reasoning fields before conversion
+        orig_msg = resp.choices[0].message
+        non_fn_message: dict = orig_msg.model_dump()
+        fn_msgs: list[dict] = convert_non_fncall_messages_to_fncall_messages(
             nonfncall_msgs + [non_fn_message], tools
         )
-        last = fn_msgs[-1]
-        if not isinstance(last, LiteLLMMessage):
-            last = LiteLLMMessage(**last)
-        resp.choices[0].message = last
+        last: dict = fn_msgs[-1]
+
+        for name in ("reasoning_content", "provider_specific_fields"):
+            val = getattr(orig_msg, name, None)
+            if not val:
+                continue
+            last[name] = val
+
+        resp.choices[0].message = LiteLLMMessage.model_validate(last)
         return resp
 
     # =========================================================================
