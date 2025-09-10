@@ -1,9 +1,9 @@
 """Execute bash tool implementation."""
 
-# Import for type annotation
 from typing import Literal
 
 from pydantic import Field
+from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
@@ -29,6 +29,31 @@ class ExecuteBashAction(ActionBase):
         default=None,
         description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa
     )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation with PS1-style bash prompt."""
+        content = Text()
+
+        # Create PS1-style prompt
+        content.append("$ ", style="bold green")
+
+        # Add command with syntax highlighting
+        if self.command:
+            content.append(self.command, style="white")
+        else:
+            content.append("[empty command]", style="dim italic")
+
+        # Add metadata if present
+        if self.is_input:
+            content.append(" ", style="white")
+            content.append("(input to running process)", style="dim yellow")
+
+        if self.timeout is not None:
+            content.append(" ", style="white")
+            content.append(f"[timeout: {self.timeout}s]", style="dim cyan")
+
+        return content
 
 
 class ExecuteBashObservation(ObservationBase):
@@ -72,6 +97,73 @@ class ExecuteBashObservation(ObservationBase):
         if self.error:
             ret = f"[There was an error during command execution.]\n{ret}"
         return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation with terminal-style output formatting."""
+        content = Text()
+
+        # Add error indicator if present
+        if self.error:
+            content.append("❌ ", style="red bold")
+            content.append("Command execution error\n", style="red")
+
+        # Add command output with proper styling
+        if self.output:
+            # Style the output based on content
+            output_lines = self.output.split("\n")
+            for line in output_lines:
+                if line.strip():
+                    # Color error-like lines differently
+                    if any(
+                        keyword in line.lower()
+                        for keyword in ["error", "failed", "exception", "traceback"]
+                    ):
+                        content.append(line, style="red")
+                    elif any(
+                        keyword in line.lower() for keyword in ["warning", "warn"]
+                    ):
+                        content.append(line, style="yellow")
+                    elif line.startswith("+ "):  # bash -x output
+                        content.append(line, style="dim cyan")
+                    else:
+                        content.append(line, style="white")
+                content.append("\n")
+
+        # Add metadata with styling
+        if hasattr(self, "metadata") and self.metadata:
+            if self.metadata.working_dir:
+                content.append("\n📁 ", style="blue")
+                content.append(
+                    f"Working directory: {self.metadata.working_dir}", style="dim blue"
+                )
+
+            if self.metadata.py_interpreter_path:
+                content.append("\n🐍 ", style="green")
+                content.append(
+                    f"Python interpreter: {self.metadata.py_interpreter_path}",
+                    style="dim green",
+                )
+
+            if (
+                hasattr(self.metadata, "exit_code")
+                and self.metadata.exit_code is not None
+            ):
+                if self.metadata.exit_code == 0:
+                    content.append("\n✅ ", style="green")
+                    content.append(
+                        f"Exit code: {self.metadata.exit_code}", style="green"
+                    )
+                elif self.metadata.exit_code == -1:
+                    content.append("\n⏳ ", style="yellow")
+                    content.append(
+                        "Process still running (soft timeout)", style="yellow"
+                    )
+                else:
+                    content.append("\n❌ ", style="red")
+                    content.append(f"Exit code: {self.metadata.exit_code}", style="red")
+
+        return content
 
 
 TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent shell session.

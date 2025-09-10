@@ -245,7 +245,7 @@ class MessageEvent(LLMConvertibleEvent):
         # Add microagent information if present
         if self.activated_microagents:
             content.append(
-                f"\n\nActivated Microagents: {', '.join(self.activated_microagents)}",
+                f"\nActivated Microagents: {', '.join(self.activated_microagents)}",
                 style="dim",
             )
 
@@ -257,9 +257,7 @@ class MessageEvent(LLMConvertibleEvent):
             text_parts = content_to_str(
                 cast(list[TextContent | ImageContent], self.extended_content)
             )
-            content.append(
-                "\n\nPrompt Extension based on Agent Context:\n", style="dim"
-            )
+            content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
             content.append(" ".join(text_parts))
 
         return content
