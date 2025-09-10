@@ -39,7 +39,8 @@ def test_mcp_tool_json_serialization_deserialization() -> None:
     tool_json = mcp_tool.model_dump_json()
     deserialized_tool = MCPTool.model_validate_json(tool_json)
     assert isinstance(deserialized_tool, MCPTool)
-    assert deserialized_tool == mcp_tool
+    # We use model_dump because tool executor is not serializable and is excluded
+    assert deserialized_tool.model_dump() == mcp_tool.model_dump()
 
 
 def test_mcp_tool_polymorphic_behavior() -> None:
