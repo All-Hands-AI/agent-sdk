@@ -243,6 +243,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             secret_value = v.get_secret_value()
         else:
             secret_value = str(v)
+            v = SecretStr(secret_value)
 
         # If the API key is empty or whitespace-only, return None
         if not secret_value or not secret_value.strip():
