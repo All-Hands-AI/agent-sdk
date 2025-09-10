@@ -49,10 +49,10 @@ class TaskTrackerAction(ActionBase):
         # Add command header with icon
         if self.command == "view":
             content.append("👀 ", style="blue")
-            content.append("View Task List", style="bold blue")
+            content.append("View Task List", style="blue")
         else:  # plan
             content.append("📋 ", style="green")
-            content.append("Update Task List", style="bold green")
+            content.append("Update Task List", style="green")
 
         # Show task count if planning
         if self.command == "plan" and self.task_list:

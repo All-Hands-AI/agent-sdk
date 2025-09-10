@@ -178,7 +178,7 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
         content.append("\n\n")
 
         # Display all action fields systematically
-        content.append("Arguments:\n", style="bold")
+        content.append("Arguments:", style="bold")
         action_fields = self.model_dump()
         for field_name, field_value in action_fields.items():
             if field_value is None:
