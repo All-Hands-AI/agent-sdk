@@ -13,8 +13,8 @@ _GLOBAL_EDITOR: FileEditor | None = None
 
 
 class FileEditorExecutor(ToolExecutor):
-    def __init__(self):
-        self.editor = FileEditor()
+    def __init__(self, workspace_root: str | None = None):
+        self.editor = FileEditor(workspace_root=workspace_root)
 
     def __call__(self, action: StrReplaceEditorAction) -> StrReplaceEditorObservation:
         result: StrReplaceEditorObservation | None = None

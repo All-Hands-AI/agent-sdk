@@ -43,8 +43,8 @@ llm = llm_registry.get("main_agent")
 # Tools
 cwd = os.getcwd()
 tools: list[Tool] = [
-    BashTool(working_dir=cwd),
-    FileEditorTool(),
+    BashTool.create(working_dir=cwd),
+    FileEditorTool.create(),
 ]
 
 # Agent

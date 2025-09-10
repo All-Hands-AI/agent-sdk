@@ -70,6 +70,23 @@ from pydantic_core import core_schema
 T = TypeVar("T", bound="DiscriminatedUnionMixin")
 
 
+def kind_of(t: type) -> str:
+    """Get the kind string for a given class."""
+    return f"{t.__module__}.{t.__qualname__}"
+
+
+def resolve_kind(kind: str) -> type[DiscriminatedUnionMixin]:
+    """Resolve a kind string back to the corresponding class."""
+    t = DiscriminatedUnionMixin.target_subclass(kind)
+    if t is None:
+        raise ValueError(
+            f"Cannot resolve type '{kind}'. "
+            "It isn't registered in the DiscriminatedUnion registry. "
+            "Make sure the module defining this class was imported/loaded."
+        )
+    return t
+
+
 class DiscriminatedUnionMixin(BaseModel):
     """A Base class for members of tagged unions discriminated by the class name.
 
@@ -85,7 +102,7 @@ class DiscriminatedUnionMixin(BaseModel):
     @property
     def kind(self) -> str:
         """Property to create kind field from class name when serializing."""
-        return f"{self.__class__.__module__}.{self.__class__.__qualname__}"
+        return kind_of(self.__class__)
 
     @classmethod
     def target_subclass(cls, kind: str) -> type[DiscriminatedUnionMixin] | None:
@@ -93,7 +110,7 @@ class DiscriminatedUnionMixin(BaseModel):
         worklist = [cls]
         while worklist:
             current = worklist.pop()
-            if f"{current.__module__}.{current.__qualname__}" == kind:
+            if kind_of(current) == kind:
                 return current
             worklist.extend(current.__subclasses__())
         return None

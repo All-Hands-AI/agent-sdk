@@ -1,21 +1,25 @@
 import os
 import sys
 from abc import ABC, abstractmethod
-from types import MappingProxyType
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool
+from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
+)
 
 
 logger = get_logger(__name__)
 
 
-class AgentBase(BaseModel, ABC):
+class AgentBase(DiscriminatedUnionMixin, ABC):
     model_config = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,
@@ -23,28 +27,11 @@ class AgentBase(BaseModel, ABC):
 
     llm: LLM
     agent_context: AgentContext | None = Field(default=None)
-    tools: MappingProxyType[str, Tool] | list[Tool] = Field(
-        description="Mapping of tool name to Tool instance."
-        " If a list is provided, it will be coerced into a mapping."
+    tools: dict[str, Tool] | list[Tool] = Field(
+        default_factory=dict,
+        description="Mapping of tool name to Tool instance that the agent can use."
+        " If a list is provided, it should be converted to a mapping by tool name.",
     )
-
-    @field_validator("tools", mode="before")
-    @classmethod
-    def coerce_tools(cls, v):
-        """Allow passing tools as a list[Tool] and coerce into MappingProxyType."""
-        if isinstance(v, list):
-            _tools_map: dict[str, Tool] = {}
-            for tool in v:
-                if tool.name in _tools_map:
-                    raise ValueError(f"Duplicate tool name: {tool.name}")
-                if not isinstance(tool, Tool):
-                    raise TypeError(f"Expected Tool instance, got {type(tool)}")
-                logger.debug(f"Registering tool: {tool}")
-                _tools_map[tool.name] = tool
-            return MappingProxyType(_tools_map)
-        elif isinstance(v, MappingProxyType):
-            return v
-        raise TypeError("tools must be a list[Tool] or MappingProxyType[str, Tool]")
 
     @property
     def prompt_dir(self) -> str:
@@ -94,3 +81,6 @@ class AgentBase(BaseModel, ABC):
         NOTE: state will be mutated in-place.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+
+AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]

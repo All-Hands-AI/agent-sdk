@@ -137,7 +137,7 @@ grep_tool = Tool(
 
 tools: list[Tool] = [
     # Simplified pattern
-    FileEditorTool(),
+    FileEditorTool.create(),
     # Advanced pattern with explicit executor
     bash_tool_advanced,
     # Custom tool with explicit executor
@@ -177,9 +177,3 @@ print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
 for i, message in enumerate(llm_messages):
     print(f"Message {i}: {str(message)[:200]}")
-
-print("=" * 100)
-print("This example demonstrates:")
-print("1. Simplified pattern: FileEditorTool() - direct instantiation")
-print("2. Advanced pattern: explicit BashExecutor creation and reuse")
-print("3. Custom tool: GlobTool with explicit executor definition")

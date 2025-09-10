@@ -316,7 +316,8 @@ task_tracker_tool = Tool(
 class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
     """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
 
-    def __init__(self, save_dir: str | None = None):
+    @classmethod
+    def create(cls, save_dir: str | None = None):
         """Initialize TaskTrackerTool with a TaskTrackerExecutor.
 
         Args:
@@ -326,7 +327,7 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
         executor = TaskTrackerExecutor(save_dir=save_dir)
 
         # Initialize the parent Tool with the executor
-        super().__init__(
+        return cls(
             name="task_tracker",
             description=TASK_TRACKER_DESCRIPTION,
             action_type=TaskTrackerAction,

@@ -143,10 +143,9 @@ The tools package now provides two patterns for tool usage:
 ```python
 from openhands.tools import BashTool, FileEditorTool
 
-# Direct instantiation with simplified API
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 ```
 
