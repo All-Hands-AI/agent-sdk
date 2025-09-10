@@ -6,11 +6,10 @@ from pydantic import BaseModel
 from openhands.sdk.event import (
     Condensation,
     CondensationRequest,
+    CondensationSummary,
     Event,
     LLMConvertibleEvent,
-    MessageEvent,
 )
-from openhands.sdk.llm import Message, TextContent
 
 
 logger = getLogger(__name__)
@@ -53,11 +52,11 @@ class View(BaseModel):
         return None
 
     @property
-    def summary_event(self) -> MessageEvent | None:
+    def summary_event(self) -> CondensationSummary | None:
         """Return the summary event, or None if no summary exists."""
         if self.summary_event_index is not None:
             event = self.events[self.summary_event_index]
-            if isinstance(event, MessageEvent):
+            if isinstance(event, CondensationSummary):
                 return event
         return None
 
@@ -122,17 +121,7 @@ class View(BaseModel):
         if summary is not None and summary_offset is not None:
             logger.info(f"Inserting summary at offset {summary_offset}")
 
-            kept_events.insert(
-                summary_offset,
-                MessageEvent(
-                    llm_message=Message(
-                        role="system",
-                        content=[TextContent(text=summary)],
-                        name="system",
-                    ),
-                    source="environment",
-                ),
-            )
+            kept_events.insert(summary_offset, CondensationSummary(summary=summary))
 
         # Check for an unhandled condensation request -- these are events closer to the
         # end of the list than any condensation action.
