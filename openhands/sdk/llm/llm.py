@@ -4,7 +4,7 @@ import os
 import time
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, TypeGuard, cast, get_args, get_origin
+from typing import Any, Callable, Literal, cast, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -22,11 +22,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import (
-    ChatCompletionToolParam,
-    Message as LiteLLMMessage,
-    completion as litellm_completion,
-)
+from litellm import ChatCompletionToolParam, completion as litellm_completion
 from litellm.exceptions import (
     APIConnectionError,
     InternalServerError,
@@ -34,11 +30,7 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
 )
-from litellm.types.utils import (
-    Choices,
-    ModelResponse,
-    StreamingChoices,
-)
+from litellm.types.utils import ModelResponse
 from litellm.utils import (
     create_pretrained_tokenizer,
     get_model_info,
@@ -49,11 +41,7 @@ from litellm.utils import (
 # OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
-from openhands.sdk.llm.utils.fn_call_converter import (
-    STOP_WORDS,
-    convert_fncall_messages_to_non_fncall_messages,
-    convert_non_fncall_messages_to_fncall_messages,
-)
+from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -119,7 +107,7 @@ class RetryMixin:
         return decorator
 
 
-class LLM(BaseModel, RetryMixin):
+class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
 
     # =========================================================================
@@ -361,12 +349,15 @@ class LLM(BaseModel, RetryMixin):
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
         original_fncall_msgs = copy.deepcopy(messages)
-        if tools and not use_native_fc:
+        use_mock_tools = self.should_mock_tool_calls(tools)
+        if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
-            messages, kwargs = self._pre_request_prompt_mock(messages, tools, kwargs)
+            messages, kwargs = self.pre_request_prompt_mock(
+                messages, tools or [], kwargs
+            )
 
         # 3) normalize provider params
         kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
@@ -402,10 +393,10 @@ class LLM(BaseModel, RetryMixin):
             assert self._telemetry is not None
             resp = self._transport_call(messages=messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
-            if tools and not use_native_fc:
+            if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
-                resp = self._post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools
+                resp = self.post_response_prompt_mock(
+                    resp, nonfncall_msgs=messages, tools=tools or []
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
@@ -527,61 +518,6 @@ class LLM(BaseModel, RetryMixin):
             out.pop("extra_body", None)
 
         return out
-
-    def _pre_request_prompt_mock(
-        self, messages: list[dict], tools: list[ChatCompletionToolParam], kwargs: dict
-    ) -> tuple[list[dict], dict]:
-        """Convert to non-fncall prompting when native tool-calling is off."""
-        add_iclex = not any(s in self.model for s in ("openhands-lm", "devstral"))
-        messages = convert_fncall_messages_to_non_fncall_messages(
-            messages, tools, add_in_context_learning_example=add_iclex
-        )
-        if get_features(self.model).supports_stop_words and not self.disable_stop_word:
-            kwargs = dict(kwargs)
-            kwargs["stop"] = STOP_WORDS
-
-        # Ensure we don't send tool_choice when mocking
-        kwargs.pop("tool_choice", None)
-        return messages, kwargs
-
-    def _post_response_prompt_mock(
-        self,
-        resp: ModelResponse,
-        nonfncall_msgs: list[dict],
-        tools: list[ChatCompletionToolParam],
-    ) -> ModelResponse:
-        if len(resp.choices) < 1:
-            raise LLMNoResponseError(
-                "Response choices is less than 1 (seen in some providers). Resp: "
-                + str(resp)
-            )
-
-        def _all_choices(
-            items: list[Choices | StreamingChoices],
-        ) -> TypeGuard[list[Choices]]:
-            return all(isinstance(c, Choices) for c in items)
-
-        if not _all_choices(resp.choices):
-            raise AssertionError(
-                "Expected non-streaming Choices when post-processing mocked tools"
-            )
-
-        # Preserve provider-specific reasoning fields before conversion
-        orig_msg = resp.choices[0].message
-        non_fn_message: dict = orig_msg.model_dump()
-        fn_msgs: list[dict] = convert_non_fncall_messages_to_fncall_messages(
-            nonfncall_msgs + [non_fn_message], tools
-        )
-        last: dict = fn_msgs[-1]
-
-        for name in ("reasoning_content", "provider_specific_fields"):
-            val = getattr(orig_msg, name, None)
-            if not val:
-                continue
-            last[name] = val
-
-        resp.choices[0].message = LiteLLMMessage.model_validate(last)
-        return resp
 
     # =========================================================================
     # Capabilities, formatting, and info
