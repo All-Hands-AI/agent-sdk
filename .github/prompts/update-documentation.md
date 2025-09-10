@@ -12,31 +12,35 @@ You are a world-class documentation writer tasked with keeping the OpenHands Age
 ## Tasks to Perform
 
 ### 1. Codebase Analysis
+
+- Scan `examples/` for available examples
 - Scan `openhands/tools/` for all available runtime tools
 - Check `openhands/sdk/tool/builtins/` for built-in tools
 - Identify any new tools or removed tools since last update
-- Verify all tools have `.create()` methods and follow expected patterns
 
 ### 2. Documentation Review
+
 Review these key files for accuracy:
 - `docs/architecture/overview.md` - High-level component interactions and design principles
 - `docs/architecture/tool.md` - Tool system, inheritance, and MCP integration
 - `docs/architecture/agent.md` - Agent architecture and execution flow
 - `docs/architecture/llm.md` - LLM integration and capabilities
 - `docs/architecture/conversation.md` - Conversation interface and persistence
-- `docs/README.md` - Overview and navigation
-- `docs/mcp.md` - MCP integration guide
+- `docs/getting-started.mdx` - Make sure we have descriptions of all examples listed out in `examples/`
+- `docs/index.md` - Overview and navigation
 - `README.md` - Root project documentation
 
 ### 3. Content Updates Required
 
 #### Architecture Diagrams
+
 - Keep mermaid diagrams SIMPLE and READABLE across all docs/architecture/ files
 - Focus on core components and relationships, not every possible class
 - Include all current runtime tools: BashTool, FileEditorTool, TaskTrackerTool, etc.
 - Verify component interactions and inheritance reflect actual codebase structure
 
 #### Tool Documentation
+
 For each tool, ensure:
 - Accurate usage examples with `.create()` method
 - Working code snippets (test them!)
@@ -44,7 +48,9 @@ For each tool, ensure:
 - Clear descriptions of functionality
 
 #### Core Framework Classes
+
 Verify documentation across docs/architecture/ files for:
+
 - `Tool`, `ActionBase`, `ObservationBase`, `ToolExecutor` (docs/architecture/tool.md)
 - `Agent`, `AgentBase`, system prompts (docs/architecture/agent.md)
 - `LLM`, message types, provider support (docs/architecture/llm.md)
@@ -53,12 +59,14 @@ Verify documentation across docs/architecture/ files for:
 - All runtime tools: `BashTool`, `FileEditorTool`, `TaskTrackerTool`
 
 ### 4. Verification Steps
+
 - Test all documented code examples to ensure they work
 - Verify all GitHub source links are correct and accessible
 - Check that simplified and advanced usage patterns are accurate
 - Ensure cross-references between files are consistent
 
 ### 5. Documentation Standards
+
 - **Style**: Direct, lean, technical writing
 - **Structure**: Clear sections answering specific user questions
 - **Examples**: Show working code rather than vague descriptions
@@ -84,6 +92,9 @@ Verify documentation across docs/architecture/ files for:
 - [ ] Cross-references between files are consistent
 
 ## Commit Message Format
+
+If you think there's change required, please create a pull request.
+
 ```
 Update documentation to reflect current codebase
 
