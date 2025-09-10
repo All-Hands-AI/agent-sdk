@@ -1,4 +1,4 @@
-from typing import Any, Generic, TypeVar
+from typing import Annotated, Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -12,6 +12,8 @@ from pydantic import (
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
     kind_of,
     resolve_kind,
 )
@@ -56,7 +58,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         raise NotImplementedError
 
 
-class Tool(BaseModel, Generic[ActionT, ObservationT]):
+class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -77,6 +79,15 @@ class Tool(BaseModel, Generic[ActionT, ObservationT]):
 
     # runtime-only; always hidden on dumps
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
+
+    @classmethod
+    def create(cls, *args, **kwargs) -> "Tool":
+        """Create a Tool instance. Placeholder for subclasses.
+
+        This can be overridden in subclasses to provide custom initialization logic
+            (e.g., typically initializing the executor with parameters).
+        """
+        raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
     @computed_field(return_type=dict[str, Any], alias="input_schema")
     @property
@@ -183,3 +194,6 @@ class Tool(BaseModel, Generic[ActionT, ObservationT]):
                 parameters=self.input_schema,
             ),
         )
+
+
+ToolType = Annotated[Tool, DiscriminatedUnionType[Tool]]

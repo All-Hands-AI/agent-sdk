@@ -18,8 +18,8 @@ llm = LLM(
 
 # Setup standard tools
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 
 # Add MCP tools

@@ -26,7 +26,7 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-tools: list[Tool] = [BashTool(working_dir=os.getcwd()), FileEditorTool()]
+tools: list[Tool] = [BashTool.create(working_dir=os.getcwd()), FileEditorTool.create()]
 agent = Agent(llm=llm, tools=tools)
 conv = Conversation(agent=agent)
 conv.send_message(Message(role="user", content=[TextContent(text="Create hello.py printing Hello")]))

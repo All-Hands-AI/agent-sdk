@@ -12,11 +12,13 @@ from openhands.sdk.tool.tool import (
     Tool,
     ToolAnnotations,
     ToolExecutor,
+    ToolType,
 )
 
 
 __all__ = [
     "Tool",
+    "ToolType",
     "ToolAnnotations",
     "ToolExecutor",
     "ActionBase",

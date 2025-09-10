@@ -49,8 +49,8 @@ class FileEditor:
 
     def __init__(
         self,
-        max_file_size_mb: int | None = None,
         workspace_root: str | None = None,
+        max_file_size_mb: int | None = None,
     ):
         """Initialize the editor.
 

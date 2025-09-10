@@ -33,7 +33,7 @@ llm = LLM(
 # Tools
 cwd = os.getcwd()
 tools: list[Tool] = [
-    BashTool(working_dir=cwd, no_change_timeout_seconds=3),
+    BashTool.create(working_dir=cwd, no_change_timeout_seconds=3),
 ]
 
 # Agent

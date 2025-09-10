@@ -98,10 +98,9 @@ graph TB
 ```python
 from openhands.tools import BashTool, FileEditorTool
 
-# Direct instantiation
 tools = [
-    BashTool(working_dir="/workspace"),
-    FileEditorTool(),
+    BashTool.create(working_dir="/workspace"),
+    FileEditorTool.create(),
 ]
 ```
 
