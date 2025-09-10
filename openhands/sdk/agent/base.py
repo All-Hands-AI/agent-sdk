@@ -4,12 +4,13 @@ from abc import ABC, abstractmethod
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import ConfigDict, Field, field_serializer, field_validator
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool
+from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
 
 
 if TYPE_CHECKING:
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class AgentBase(BaseModel, ABC):
+class AgentBase(DiscriminatedUnionMixin, ABC):
     model_config = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,
@@ -36,7 +37,12 @@ class AgentBase(BaseModel, ABC):
         assert isinstance(v, MappingProxyType), (
             "tools should have been coerced to MappingProxyType"
         )
-        return dict(v)
+        tools_dumped: list[dict] = []
+        for name, tool in v.items():
+            tool: Tool
+            assert isinstance(tool, Tool), f"Expected Tool instance, got {type(tool)}"
+            tools_dumped.append(tool.model_dump())
+        return tools_dumped
 
     @field_validator("tools", mode="before")
     @classmethod
