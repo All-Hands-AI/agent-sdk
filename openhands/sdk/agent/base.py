@@ -1,14 +1,14 @@
 import os
 import sys
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Sequence
 
 from pydantic import ConfigDict, Field
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolType
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -29,10 +29,11 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     llm: LLM
     agent_context: AgentContext | None = Field(default=None)
-    tools: dict[str, Tool] | list[Tool] = Field(
+    tools: dict[str, ToolType] | Sequence[ToolType] = Field(
         default_factory=dict,
         description="Mapping of tool name to Tool instance that the agent can use."
-        " If a list is provided, it should be converted to a mapping by tool name.",
+        " If a list is provided, it should be converted to a mapping by tool name."
+        " We need to define this as ToolType for discriminated union.",
     )
 
     @property

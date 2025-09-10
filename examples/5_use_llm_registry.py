@@ -11,7 +11,6 @@ from openhands.sdk import (
     LLMRegistry,
     Message,
     TextContent,
-    Tool,
     get_logger,
 )
 from openhands.tools import (
@@ -42,7 +41,7 @@ llm = llm_registry.get("main_agent")
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [
+tools = [
     BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
 ]
