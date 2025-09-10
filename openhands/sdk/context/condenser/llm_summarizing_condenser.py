@@ -8,6 +8,7 @@ from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm.metadata import get_llm_metadata
 
 
 class LLMSummarizingCondenser(RollingCondenser):
@@ -78,8 +79,11 @@ class LLMSummarizingCondenser(RollingCondenser):
 
         response = self.llm.completion(
             messages=self.llm.format_messages_for_llm(messages),
-            # TODO: FIX THIS BAD BOY
-            # extra_body={"metadata": self.llm_metadata},
+            extra_body={
+                "metadata": get_llm_metadata(
+                    model_name=self.llm.model, agent_name="condenser"
+                )
+            },
         )
         summary = response.choices[0].message.content  # type: ignore
 
