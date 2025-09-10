@@ -38,9 +38,9 @@ llm = LLM(
 # Tools
 cwd = os.getcwd()
 tools: list[Tool] = [
-    BashTool(working_dir=cwd),
-    FileEditorTool(),
-    TaskTrackerTool(save_dir=cwd),
+    BashTool.create(working_dir=cwd),
+    FileEditorTool.create(),
+    TaskTrackerTool.create(save_dir=cwd),
 ]
 
 # Create LLM Summarizing Condenser
