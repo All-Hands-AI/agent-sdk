@@ -9,49 +9,36 @@ A type-safe tool execution framework with Pydantic schema validation and MCP com
 ```mermaid
 graph TB
     subgraph "Core Framework (openhands/sdk/tool)"
-        Schema[Schema]
+        Tool[Tool]
         ActionBase[ActionBase]
         ObservationBase[ObservationBase]
-        Tool[Tool]
         ToolExecutor[ToolExecutor]
-        ToolAnnotations[ToolAnnotations]
     end
     
     subgraph "Built-in Tools (openhands/sdk/tool/builtins)"
         FinishTool[FinishTool]
-        FinishAction[FinishAction]
-        FinishObservation[FinishObservation]
         ThinkTool[ThinkTool]
-        ThinkAction[ThinkAction]
-        ThinkObservation[ThinkObservation]
     end
     
     subgraph "Runtime Tools (openhands/tools)"
         BashTool[BashTool]
         FileEditorTool[FileEditorTool]
-        BashExecutor[BashExecutor]
-        FileEditorExecutor[FileEditorExecutor]
+        TaskTrackerTool[TaskTrackerTool]
     end
     
-    Schema --> ActionBase
-    Schema --> ObservationBase
-    ActionBase --> FinishAction
-    ActionBase --> ExecuteBashAction
-    ActionBase --> StrReplaceEditorAction
-    ObservationBase --> FinishObservation
-    ObservationBase --> ExecuteBashObservation
-    ObservationBase --> StrReplaceEditorObservation
-    
-    Tool --> BashTool
-    Tool --> FileEditorTool
     Tool --> FinishTool
     Tool --> ThinkTool
+    Tool --> BashTool
+    Tool --> FileEditorTool
+    Tool --> TaskTrackerTool
     
-    ToolExecutor --> BashExecutor
-    ToolExecutor --> FileEditorExecutor
+    ActionBase --> ExecuteBashAction
+    ActionBase --> StrReplaceEditorAction
+    ActionBase --> TaskTrackerAction
     
-    BashTool --> BashExecutor
-    FileEditorTool --> FileEditorExecutor
+    ObservationBase --> ExecuteBashObservation
+    ObservationBase --> StrReplaceEditorObservation
+    ObservationBase --> TaskTrackerObservation
 ```
 
 ## Core Components
@@ -96,11 +83,12 @@ graph TB
 ### Simplified Pattern (Recommended)
 
 ```python
-from openhands.tools import BashTool, FileEditorTool
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 tools = [
     BashTool.create(working_dir="/workspace"),
     FileEditorTool.create(),
+    TaskTrackerTool.create(save_dir="/workspace"),
 ]
 ```
 
@@ -143,37 +131,38 @@ my_tool = Tool(
 )
 ```
 
-## Pydantic Class Inheritance
+## Available Runtime Tools
+
+### BashTool
+Execute bash commands in a persistent shell session.
+```python
+BashTool.create(working_dir="/workspace")
+```
+
+### FileEditorTool  
+Edit files using string replacement, creation, and viewing operations.
+```python
+FileEditorTool.create(workspace_root="/workspace")
+```
+
+### TaskTrackerTool
+Manage development tasks with structured tracking and persistence.
+```python
+TaskTrackerTool.create(save_dir="/workspace")  # Saves to TASKS.json
+```
+
+## Schema Class Inheritance
 
 ```mermaid
 classDiagram
-    class BaseModel {
-        +model_validate()
-        +model_dump()
-    }
-    
-    class Schema {
-        +to_mcp_schema() dict
-        +from_mcp_schema() Schema
-        -_process_schema_node()
-    }
-    
     class ActionBase {
         +security_risk: SECURITY_RISK_LITERAL
         +to_mcp_schema() dict
     }
     
-    class MCPActionBase {
-        +model_config: extra="allow"
-    }
-    
     class ObservationBase {
         +agent_observation: list[TextContent|ImageContent]
         +model_config: extra="allow"
-    }
-    
-    class FinishAction {
-        +message: str
     }
     
     class ExecuteBashAction {
@@ -192,9 +181,9 @@ classDiagram
         +view_range: list[int]|None
     }
     
-    class FinishObservation {
-        +message: str
-        +agent_observation
+    class TaskTrackerAction {
+        +command: Literal["view", "plan"]
+        +task_list: list[TaskItem]
     }
     
     class ExecuteBashObservation {
@@ -217,16 +206,19 @@ classDiagram
         +agent_observation
     }
     
-    BaseModel <|-- Schema
-    Schema <|-- ActionBase
-    Schema <|-- ObservationBase
-    ActionBase <|-- MCPActionBase
-    ActionBase <|-- FinishAction
+    class TaskTrackerObservation {
+        +content: str
+        +command: str
+        +task_list: list[TaskItem]
+        +agent_observation
+    }
+    
     ActionBase <|-- ExecuteBashAction
     ActionBase <|-- StrReplaceEditorAction
-    ObservationBase <|-- FinishObservation
+    ActionBase <|-- TaskTrackerAction
     ObservationBase <|-- ExecuteBashObservation
     ObservationBase <|-- StrReplaceEditorObservation
+    ObservationBase <|-- TaskTrackerObservation
 ```
 
 ## Tool Execution Flow
@@ -253,12 +245,12 @@ sequenceDiagram
 **Built-in Tools** (`openhands/sdk/tool/builtins`)
 - Essential tools required for agent operation
 - No environment interaction
-- Example: FinishTool for task completion
+- Examples: FinishTool, ThinkTool
 
 **Runtime Tools** (`openhands/tools`)
 - Environment-interactive tools
 - Separate package for modularity
-- Examples: BashTool, FileEditorTool
+- Examples: BashTool, FileEditorTool, TaskTrackerTool
 
 ## Security Integration
 
