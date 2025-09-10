@@ -13,6 +13,7 @@ from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
 )
+from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
@@ -84,6 +85,30 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         NOTE: state will be mutated in-place.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+    def resolve_diff_from_deserialized(self, persisted: "AgentType") -> "AgentType":
+        """
+        Return a new AgentBase instance equivalent to `persisted` but with
+        explicitly whitelisted fields (e.g. api_key) taken from `self`.
+        """
+        if persisted.__class__ is not self.__class__:
+            raise ValueError(
+                f"Cannot resolve from deserialized: persisted agent is of type "
+                f"{persisted.__class__.__name__}, but self is of type "
+                f"{self.__class__.__name__}."
+            )
+
+        new_llm = self.llm.resolve_diff_from_deserialized(persisted.llm)
+        reconciled = persisted.model_copy(update={"llm": new_llm})
+
+        if self.model_dump(exclude_none=True) != reconciled.model_dump(
+            exclude_none=True
+        ):
+            raise ValueError(
+                "The Agent provided is different from the one in persisted state.\n"
+                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
+            )
+        return reconciled
 
 
 AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]

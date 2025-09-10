@@ -57,7 +57,9 @@ class ConversationState(BaseModel):
     # ===== Private attrs (NOT Fields) =====
     _lock: RLock = PrivateAttr(default_factory=RLock)
     _owner_tid: Optional[int] = PrivateAttr(default=None)
-    _exclude_from_base_state: set[str] = {"events"}
+
+    # ===== Plain class vars (NOT Fields) =====
+    EXCLUDE_FROM_BASE_STATE: set[str] = {"events"}
 
     # ===== Lock/guard API =====
     def acquire(self) -> None:
@@ -127,7 +129,7 @@ class ConversationState(BaseModel):
         """
         payload = self.model_dump_json(
             exclude_none=True,
-            exclude=self._exclude_from_base_state,
+            exclude=self.EXCLUDE_FROM_BASE_STATE,
         )
         fs.write(BASE_STATE, payload)
 

@@ -11,7 +11,6 @@ from openhands.sdk import (
     LocalFileStore,
     Message,
     TextContent,
-    Tool,
     create_mcp_tools,
     get_logger,
 )
@@ -34,7 +33,7 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [
+tools = [
     BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
 ]
