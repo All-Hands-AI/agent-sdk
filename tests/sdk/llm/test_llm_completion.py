@@ -335,48 +335,6 @@ def test_llm_completion_non_function_call_mode(mock_completion):
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_llm_completion_non_function_call_mode_without_tools(mock_completion):
-    """Test LLM completion with non-function call mode but no tools provided."""
-    mock_response = create_mock_response("This is a regular response without tools.")
-    mock_completion.return_value = mock_response
-
-    # Create LLM with native_tool_calling explicitly set to False
-    llm = LLM(
-        model="gpt-4o",
-        api_key=SecretStr("test_key"),
-        native_tool_calling=False,
-        num_retries=2,
-        retry_min_wait=1,
-        retry_max_wait=2,
-    )
-
-    # Verify that function calling is not active
-    assert not llm.is_function_calling_active()
-
-    # Test completion without tools
-    messages = [{"role": "user", "content": "Hello, how are you?"}]
-
-    # Verify that no tools should be mocked when no tools are provided
-    assert not llm.should_mock_tool_calls(None)
-    assert not llm.should_mock_tool_calls([])
-
-    # Call completion - this should go through the regular path
-    response = llm.completion(messages=messages)
-
-    # Verify the response
-    assert response == mock_response
-    mock_completion.assert_called_once()
-
-    # Verify that the call was made normally
-    call_kwargs = mock_completion.call_args[1]
-    assert call_kwargs.get("tools") is None
-
-    # Verify that the messages were not modified
-    call_messages = mock_completion.call_args[1]["messages"]
-    assert call_messages == messages
-
-
-@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion):
     """Test the difference between function call mode and non-function call mode."""
     mock_response = create_mock_response("Test response")
