@@ -6,7 +6,9 @@ if TYPE_CHECKING:
 
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
-from openhands.sdk.conversation.visualizer import ConversationVisualizer
+from openhands.sdk.conversation.visualizer import (
+    create_default_visualizer,
+)
 from openhands.sdk.event import (
     MessageEvent,
     PauseEvent,
@@ -37,9 +39,18 @@ class Conversation:
         agent: "AgentBase",
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
+        visualize: bool = True,
     ):
-        """Initialize the conversation."""
-        self._visualizer = ConversationVisualizer()
+        """Initialize the conversation.
+
+        Args:
+            agent: The agent to use for the conversation
+            callbacks: Optional list of callback functions to handle events
+            max_iteration_per_run: Maximum number of iterations per run
+            visualize: Whether to enable default visualization. If True, adds
+                      a default visualizer callback. If False, relies on
+                      application to provide visualization through callbacks.
+        """
         self.agent = agent
         self.state = ConversationState()
 
@@ -47,14 +58,16 @@ class Conversation:
         def _append_event(e):
             self.state.events.append(e)
 
-        # Compose callbacks; default appender runs last to keep agent-emitted event order (on_event then persist)  # noqa: E501
-        composed_list = (
-            [self._visualizer.on_event]
-            + (callbacks if callbacks else [])
-            + [_append_event]
-        )
-        self._on_event = compose_callbacks(composed_list)
+        composed_list = (callbacks if callbacks else []) + [_append_event]
+        # Add default visualizer if requested
+        if visualize:
+            self._visualizer = create_default_visualizer()
+            composed_list = [self._visualizer.on_event] + composed_list
+            # visualize should happen first for visibility
+        else:
+            self._visualizer = None
 
+        self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
         with self.state:

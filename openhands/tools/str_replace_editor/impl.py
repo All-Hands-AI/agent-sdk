@@ -29,7 +29,9 @@ class FileEditorExecutor(ToolExecutor):
                 insert_line=action.insert_line,
             )
         except ToolError as e:
-            result = StrReplaceEditorObservation(error=e.message)
+            result = StrReplaceEditorObservation(
+                command=action.command, error=e.message
+            )
         assert result is not None, "file_editor should always return a result"
         return result
 
@@ -61,6 +63,6 @@ def file_editor(
             insert_line=insert_line,
         )
     except ToolError as e:
-        result = StrReplaceEditorObservation(error=e.message)
+        result = StrReplaceEditorObservation(command=command, error=e.message)
     assert result is not None, "file_editor should always return a result"
     return result

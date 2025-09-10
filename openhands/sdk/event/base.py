@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, cast
 
 from pydantic import BaseModel, ConfigDict, Field
+from rich.text import Text
 
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
@@ -32,6 +33,18 @@ class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
         description="Event timestamp",
     )  # consistent with V1
     source: SourceType = Field(..., description="The source of this event")
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this event.
+
+        This is a fallback implementation for unknown event types.
+        Subclasses should override this method to provide specific visualization.
+        """
+        content = Text()
+        content.append(f"Unknown event type: {self.__class__.__name__}")
+        content.append(f"\n{self.model_dump()}")
+        return content
 
     def __str__(self) -> str:
         """Plain text string representation for display."""

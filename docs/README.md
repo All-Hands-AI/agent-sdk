@@ -30,5 +30,5 @@ Core concepts
 - Context: microagents and knowledge that condition the agent
 
 Navigation
-- Use the left sidebar in the docs site to explore Getting Started, Architecture, Tools, and Examples.
+- Use the left sidebar in the docs site to explore Getting Started, Architecture, Tools, MCP Integration, and Examples.
 - For a deep dive into tool internals, see Tools System.

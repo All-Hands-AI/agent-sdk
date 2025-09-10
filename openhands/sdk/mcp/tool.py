@@ -1,19 +1,16 @@
 """Utility functions for MCP integration."""
 
 import re
-from typing import TYPE_CHECKING
 
 import mcp.types
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
 from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import MCPToolObservation
+from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.tool import MCPActionBase, Tool, ToolAnnotations, ToolExecutor
 
-
-if TYPE_CHECKING:
-    from openhands.sdk.mcp.client import MCPClient
 
 logger = get_logger(__name__)
 
@@ -31,7 +28,7 @@ def to_camel_case(s: str) -> str:
 class MCPToolExecutor(ToolExecutor):
     """Executor for MCP tools."""
 
-    def __init__(self, tool_name: str, client: "MCPClient"):
+    def __init__(self, tool_name: str, client: MCPClient):
         self.tool_name = tool_name
         self.client = client
 
@@ -68,32 +65,41 @@ class MCPToolExecutor(ToolExecutor):
 class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
-    def __init__(
-        self,
-        mcp_tool: mcp.types.Tool,
-        mcp_client: "MCPClient",
-    ):
-        self.mcp_client = mcp_client
-        self.mcp_tool = mcp_tool
+    mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
+    # runtime-only fields; keep out of dumps & repr
+    mcp_client: MCPClient = Field(repr=False, exclude=True)
 
+    @classmethod
+    def from_mcp(
+        cls,
+        mcp_tool: mcp.types.Tool,
+        mcp_client: MCPClient,
+    ) -> "MCPTool":
         try:
-            if mcp_tool.annotations:
-                anno_dict = mcp_tool.annotations.model_dump(exclude_none=True)
-                annotations = ToolAnnotations.model_validate(anno_dict)
-            else:
-                annotations = None
+            annotations = (
+                ToolAnnotations.model_validate(
+                    mcp_tool.annotations.model_dump(exclude_none=True)
+                )
+                if mcp_tool.annotations
+                else None
+            )
 
             MCPActionType = MCPActionBase.from_mcp_schema(
-                f"{to_camel_case(mcp_tool.name)}Action", mcp_tool.inputSchema
+                f"{to_camel_case(mcp_tool.name)}Action",
+                mcp_tool.inputSchema,
             )
-            super().__init__(
+
+            return cls(
                 name=mcp_tool.name,
                 description=mcp_tool.description or "No description provided",
-                input_schema=MCPActionType,
-                output_schema=MCPToolObservation,
+                action_type=MCPActionType,
+                observation_type=MCPToolObservation,
                 annotations=annotations,
-                _meta=mcp_tool.meta,
+                meta=mcp_tool.meta,
                 executor=MCPToolExecutor(tool_name=mcp_tool.name, client=mcp_client),
+                # pass-through fields (enabled by **extra in Tool.create)
+                mcp_client=mcp_client,
+                mcp_tool=mcp_tool,
             )
         except ValidationError as e:
             logger.error(

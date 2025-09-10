@@ -4,7 +4,7 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from litellm import ChatCompletionMessageToolCall
@@ -14,13 +14,14 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import ImageContent, Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
@@ -48,6 +49,10 @@ class TestConfirmationMode:
     def setup_method(self):
         """Set up test fixtures."""
 
+        # Create a real LLM instance for Agent validation
+        self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+
+        # Create a MagicMock to override the completion method
         self.mock_llm = MagicMock()
 
         # Create a proper MetricsSnapshot mock for the LLM
@@ -76,57 +81,67 @@ class TestConfirmationMode:
         test_tool = Tool(
             name="test_tool",
             description="A test tool",
-            input_schema=MockAction,
-            output_schema=MockObservation,
+            action_type=MockAction,
+            observation_type=MockObservation,
             executor=TestExecutor(),
         )
 
-        self.agent = Agent(llm=self.mock_llm, tools=[test_tool])
+        self.agent = Agent(llm=self.llm, tools=[test_tool])
         self.conversation = Conversation(agent=self.agent)
 
-    def _mock_message_only(self, text: str = "Hello, how can I help you?") -> None:
+    def _mock_message_only(self, text: str = "Hello, how can I help you?") -> MagicMock:
         """Configure LLM to return a plain assistant message (no tool calls)."""
-        self.mock_llm.completion.return_value = ModelResponse(
-            id="response_msg",
-            choices=[Choices(message=LiteLLMMessage(role="assistant", content=text))],
-            created=0,
-            model="test-model",
-            object="chat.completion",
+        return MagicMock(
+            return_value=ModelResponse(
+                id="response_msg",
+                choices=[
+                    Choices(message=LiteLLMMessage(role="assistant", content=text))
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )
         )
 
     def _make_pending_action(self) -> None:
         """Enable confirmation mode and produce a single pending action."""
         self.conversation.set_confirmation_mode(True)
-        self._mock_action_once()
-        self.conversation.send_message(
-            Message(role="user", content=[TextContent(text="execute a command")])
-        )
-        self.conversation.run()
+        mock_completion = self._mock_action_once()
+        with patch(
+            "openhands.sdk.llm.llm.litellm_completion",
+            return_value=mock_completion.return_value,
+        ):
+            self.conversation.send_message(
+                Message(role="user", content=[TextContent(text="execute a command")])
+            )
+            self.conversation.run()
         assert self.conversation.state.confirmation_mode is True
         assert self.conversation.state.agent_waiting_for_confirmation is True
 
     def _mock_action_once(
         self, call_id: str = "call_1", command: str = "test_command"
-    ) -> None:
+    ) -> MagicMock:
         """Configure LLM to return one tool call (action)."""
         tool_call = self._create_test_action(call_id=call_id, command=command).tool_call
-        self.mock_llm.completion.return_value = ModelResponse(
-            id="response_action",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content=f"I'll execute {command}",
-                        tool_calls=[tool_call],
+        return MagicMock(
+            return_value=ModelResponse(
+                id="response_action",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content=f"I'll execute {command}",
+                            tool_calls=[tool_call],
+                        )
                     )
-                )
-            ],
-            created=0,
-            model="test-model",
-            object="chat.completion",
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )
         )
 
-    def _mock_finish_action(self, message: str = "Task completed") -> None:
+    def _mock_finish_action(self, message: str = "Task completed") -> MagicMock:
         """Configure LLM to return a FinishAction tool call."""
         tool_call = ChatCompletionMessageToolCall(
             id="finish_call_1",
@@ -134,23 +149,25 @@ class TestConfirmationMode:
             function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
         )
 
-        self.mock_llm.completion.return_value = ModelResponse(
-            id="response_finish",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content=f"I'll finish with: {message}",
-                        tool_calls=[tool_call],
+        return MagicMock(
+            return_value=ModelResponse(
+                id="response_finish",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content=f"I'll finish with: {message}",
+                            tool_calls=[tool_call],
+                        )
                     )
-                )
-            ],
-            created=0,
-            model="test-model",
-            object="chat.completion",
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )
         )
 
-    def _mock_multiple_actions_with_finish(self) -> None:
+    def _mock_multiple_actions_with_finish(self) -> MagicMock:
         """Configure LLM to return both a regular action and a FinishAction."""
         regular_tool_call = ChatCompletionMessageToolCall(
             id="call_1",
@@ -168,20 +185,22 @@ class TestConfirmationMode:
             ),
         )
 
-        self.mock_llm.completion.return_value = ModelResponse(
-            id="response_multiple",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content="I'll execute the command and then finish",
-                        tool_calls=[regular_tool_call, finish_tool_call],
+        return MagicMock(
+            return_value=ModelResponse(
+                id="response_multiple",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content="I'll execute the command and then finish",
+                            tool_calls=[regular_tool_call, finish_tool_call],
+                        )
                     )
-                )
-            ],
-            created=0,
-            model="test-model",
-            object="chat.completion",
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )
         )
 
     def _create_test_action(self, call_id="call_1", command="test_command"):
@@ -285,11 +304,15 @@ class TestConfirmationMode:
     def test_message_only_in_confirmation_mode_does_not_wait(self):
         """Don't confirm agent messages."""
         self.conversation.set_confirmation_mode(True)
-        self._mock_message_only("Hello, how can I help you?")
-        self.conversation.send_message(
-            Message(role="user", content=[TextContent(text="some prompt")])
-        )
-        self.conversation.run()
+        mock_completion = self._mock_message_only("Hello, how can I help you?")
+        with patch(
+            "openhands.sdk.llm.llm.litellm_completion",
+            return_value=mock_completion.return_value,
+        ):
+            self.conversation.send_message(
+                Message(role="user", content=[TextContent(text="some prompt")])
+            )
+            self.conversation.run()
 
         assert self.conversation.state.agent_waiting_for_confirmation is False
         assert self.conversation.state.agent_finished is True
@@ -315,8 +338,12 @@ class TestConfirmationMode:
 
         if not should_reject:
             # Confirm path per your instruction: call run() to execute pending action
-            self._mock_message_only("Task completed successfully!")
-            self.conversation.run()
+            mock_completion = self._mock_message_only("Task completed successfully!")
+            with patch(
+                "openhands.sdk.llm.llm.litellm_completion",
+                return_value=mock_completion.return_value,
+            ):
+                self.conversation.run()
 
             # Expect an observation (tool executed) and no rejection
             obs_events = [
@@ -356,15 +383,21 @@ class TestConfirmationMode:
         self.conversation.set_confirmation_mode(True)
 
         # Mock LLM to return a single FinishAction
-        self._mock_finish_action("Task completed successfully!")
+        mock_completion = self._mock_finish_action("Task completed successfully!")
 
         # Send a message that should trigger the finish action
-        self.conversation.send_message(
-            Message(role="user", content=[TextContent(text="Please finish the task")])
-        )
+        with patch(
+            "openhands.sdk.llm.llm.litellm_completion",
+            return_value=mock_completion.return_value,
+        ):
+            self.conversation.send_message(
+                Message(
+                    role="user", content=[TextContent(text="Please finish the task")]
+                )
+            )
 
-        # Run the conversation
-        self.conversation.run()
+            # Run the conversation
+            self.conversation.run()
 
         # Single FinishAction should skip confirmation entirely
         assert (
@@ -394,17 +427,22 @@ class TestConfirmationMode:
         self.conversation.set_confirmation_mode(True)
 
         # Mock LLM to return both a regular action and a FinishAction
-        self._mock_multiple_actions_with_finish()
+        mock_completion = self._mock_multiple_actions_with_finish()
 
         # Send a message that should trigger both actions
-        self.conversation.send_message(
-            Message(
-                role="user", content=[TextContent(text="Execute command then finish")]
+        with patch(
+            "openhands.sdk.llm.llm.litellm_completion",
+            return_value=mock_completion.return_value,
+        ):
+            self.conversation.send_message(
+                Message(
+                    role="user",
+                    content=[TextContent(text="Execute command then finish")],
+                )
             )
-        )
 
-        # Run the conversation
-        self.conversation.run()
+            # Run the conversation
+            self.conversation.run()
 
         # Multiple actions should all wait for confirmation (including FinishAction)
         assert self.conversation.state.confirmation_mode is True
