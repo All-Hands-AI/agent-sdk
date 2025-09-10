@@ -3,7 +3,7 @@
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from openhands.sdk.agent.agent.agent import Agent
+from openhands.sdk.agent.agent import Agent
 from openhands.sdk.llm import LLM
 
 
