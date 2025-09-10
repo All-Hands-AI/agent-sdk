@@ -10,7 +10,6 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Message,
     TextContent,
-    Tool,
     get_logger,
 )
 from openhands.tools import (
@@ -32,7 +31,7 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [
+tools = [
     BashTool.create(working_dir=cwd, no_change_timeout_seconds=3),
 ]
 

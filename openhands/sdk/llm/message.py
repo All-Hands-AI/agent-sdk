@@ -3,7 +3,7 @@ from typing import Any, Literal, cast
 import mcp.types
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
@@ -90,6 +90,17 @@ class Message(BaseModel):
     @property
     def contains_image(self) -> bool:
         return any(isinstance(content, ImageContent) for content in self.content)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def _coerce_content(cls, v: Any) -> list[TextContent | ImageContent] | Any:
+        # Accept None → []
+        if v is None:
+            return []
+        # Accept a single string → [TextContent(...)]
+        if isinstance(v, str):
+            return [TextContent(text=v)]
+        return v
 
     def to_llm_dict(self) -> dict[str, Any]:
         """Serialize message for LLM API consumption.

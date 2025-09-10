@@ -113,13 +113,11 @@ def visualize_diff(
     for i, cur_edit_group in enumerate(edit_groups):
         if i != 0:
             content.append("-------------------------", style="dim")
-        content.append(
-            f"[begin of {op_type} {i + 1} / {len(edit_groups)}]\n", style="bold"
-        )
-        content.append(f"(content before {op_type})\n", style="bold red")
+        content.append(f"[begin of {op_type} {i + 1} / {len(edit_groups)}]\n")
+        content.append(f"(content before {op_type})\n")
         for line in cur_edit_group.before_edits:
             content.append(line + "\n", style="red")
-        content.append(f"(content after {op_type})\n", style="bold red")
+        content.append(f"(content after {op_type})\n")
         for line in cur_edit_group.after_edits:
             content.append(line + "\n", style="green")
         content.append(f"[end of {op_type} {i + 1} / {len(edit_groups)}]", style="bold")

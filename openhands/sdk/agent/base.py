@@ -1,20 +1,23 @@
 import os
 import sys
 from abc import ABC, abstractmethod
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Sequence
 
 from pydantic import ConfigDict, Field
 
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolType
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
 )
+from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 
 logger = get_logger(__name__)
 
@@ -27,10 +30,11 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     llm: LLM
     agent_context: AgentContext | None = Field(default=None)
-    tools: dict[str, Tool] | list[Tool] = Field(
+    tools: dict[str, ToolType] | Sequence[ToolType] = Field(
         default_factory=dict,
         description="Mapping of tool name to Tool instance that the agent can use."
-        " If a list is provided, it should be converted to a mapping by tool name.",
+        " If a list is provided, it should be converted to a mapping by tool name."
+        " We need to define this as ToolType for discriminated union.",
     )
 
     @property
@@ -50,8 +54,8 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @abstractmethod
     def init_state(
         self,
-        state: ConversationState,
-        on_event: ConversationCallbackType,
+        state: "ConversationState",
+        on_event: "ConversationCallbackType",
     ) -> None:
         """Initialize the empty conversation state to prepare the agent for user
         messages.
@@ -65,8 +69,8 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @abstractmethod
     def step(
         self,
-        state: ConversationState,
-        on_event: ConversationCallbackType,
+        state: "ConversationState",
+        on_event: "ConversationCallbackType",
     ) -> None:
         """Taking a step in the conversation.
 
@@ -81,6 +85,30 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         NOTE: state will be mutated in-place.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+    def resolve_diff_from_deserialized(self, persisted: "AgentType") -> "AgentType":
+        """
+        Return a new AgentBase instance equivalent to `persisted` but with
+        explicitly whitelisted fields (e.g. api_key) taken from `self`.
+        """
+        if persisted.__class__ is not self.__class__:
+            raise ValueError(
+                f"Cannot resolve from deserialized: persisted agent is of type "
+                f"{persisted.__class__.__name__}, but self is of type "
+                f"{self.__class__.__name__}."
+            )
+
+        new_llm = self.llm.resolve_diff_from_deserialized(persisted.llm)
+        reconciled = persisted.model_copy(update={"llm": new_llm})
+
+        if self.model_dump(exclude_none=True) != reconciled.model_dump(
+            exclude_none=True
+        ):
+            raise ValueError(
+                "The Agent provided is different from the one in persisted state.\n"
+                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
+            )
+        return reconciled
 
 
 AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]

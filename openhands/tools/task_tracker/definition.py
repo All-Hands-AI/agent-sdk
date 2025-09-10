@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
+from rich.text import Text
 
 from openhands.sdk import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
@@ -40,6 +41,25 @@ class TaskTrackerAction(ActionBase):
         description="The full task list. Required parameter of `plan` command.",
     )
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation with task management styling."""
+        content = Text()
+
+        # Add command header with icon
+        if self.command == "view":
+            content.append("👀 ", style="blue")
+            content.append("View Task List", style="blue")
+        else:  # plan
+            content.append("📋 ", style="green")
+            content.append("Update Task List", style="green")
+
+        # Show task count if planning
+        if self.command == "plan" and self.task_list:
+            content.append(f" ({len(self.task_list)} tasks)", style="dim")
+
+        return content
+
 
 class TaskTrackerObservation(ObservationBase):
     """This data class represents the result of a task tracking operation."""
@@ -55,6 +75,61 @@ class TaskTrackerObservation(ObservationBase):
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
         return [TextContent(text=self.content)]
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation with task list formatting."""
+        content = Text()
+
+        if self.task_list:
+            # Count tasks by status
+            todo_count = sum(1 for task in self.task_list if task.status == "todo")
+            in_progress_count = sum(
+                1 for task in self.task_list if task.status == "in_progress"
+            )
+            done_count = sum(1 for task in self.task_list if task.status == "done")
+
+            # Show status summary
+            if self.command == "plan":
+                content.append("✅ ", style="green")
+                content.append("Task list updated: ", style="green")
+            else:  # view command
+                content.append("📋 ", style="blue")
+                content.append("Current task list: ", style="blue")
+
+            # Status counts
+            status_parts = []
+            if todo_count:
+                status_parts.append(f"{todo_count} todo")
+            if in_progress_count:
+                status_parts.append(f"{in_progress_count} in progress")
+            if done_count:
+                status_parts.append(f"{done_count} done")
+
+            if status_parts:
+                content.append(", ".join(status_parts), style="white")
+                content.append("\n\n")
+
+            # Show the actual task list
+            for i, task in enumerate(self.task_list, 1):
+                # Status icon
+                if task.status == "done":
+                    content.append("✅ ", style="green")
+                elif task.status == "in_progress":
+                    content.append("🔄 ", style="yellow")
+                else:  # todo
+                    content.append("⏳ ", style="blue")
+
+                # Task title
+                content.append(f"{i}. {task.title}", style="white")
+
+                if i < len(self.task_list):
+                    content.append("\n")
+        else:
+            content.append("📝 ", style="blue")
+            content.append("Task list is empty", style="dim")
+
+        return content
 
 
 class TaskTrackerExecutor(ToolExecutor):

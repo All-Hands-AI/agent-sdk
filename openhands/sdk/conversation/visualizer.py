@@ -18,7 +18,7 @@ from openhands.sdk.event import (
 
 # These are external inputs
 _OBSERVATION_COLOR = "yellow"
-_MESSAGE_USER_COLOR = "yellow"
+_MESSAGE_USER_COLOR = "gold3"
 _PAUSE_COLOR = "bright_yellow"
 # These are internal system stuff
 _SYSTEM_COLOR = "magenta"
@@ -39,6 +39,8 @@ DEFAULT_HIGHLIGHT_REGEX = {
     r"\*\*(.*?)\*\*": "bold",
     r"\*(.*?)\*": "italic",
 }
+
+_PANEL_WITH_METRICS_PADDING = (1, 1)
 
 
 class ConversationVisualizer:
@@ -144,7 +146,7 @@ class ConversationVisualizer:
             role_color = role_colors.get(event.llm_message.role, "white")
 
             title_text = (
-                f"[bold {role_color}]Message from {event.source.capitalize()})"
+                f"[bold {role_color}]Message from {event.source.capitalize()}"
                 f"[/bold {role_color}]"
             )
             return Panel(
@@ -152,6 +154,7 @@ class ConversationVisualizer:
                 title=title_text,
                 subtitle=self._format_metrics_subtitle(event),
                 border_style=role_color,
+                padding=_PANEL_WITH_METRICS_PADDING,
                 expand=True,
             )
         elif isinstance(event, AgentErrorEvent):
