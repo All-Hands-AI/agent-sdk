@@ -80,9 +80,8 @@ class TestAgentImmutability:
 
         # Test inherited properties from AgentBase
         assert agent.llm == self.llm
-        from types import MappingProxyType
 
-        assert isinstance(agent.tools, MappingProxyType)  # Should be MappingProxyType
+        assert isinstance(agent.tools, dict)
         assert agent.agent_context is None
         assert agent.name == "Agent"
         assert isinstance(agent.prompt_dir, str)

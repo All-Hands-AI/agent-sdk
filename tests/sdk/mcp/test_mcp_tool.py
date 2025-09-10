@@ -224,7 +224,7 @@ class TestMCPTool:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = None
 
-        self.tool = MCPTool.from_mcp(
+        self.tool = MCPTool.create(
             mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
         )
 
@@ -256,7 +256,7 @@ class TestMCPTool:
         mock_tool_with_annotations.annotations = ToolAnnotations(title="Annotated Tool")
         mock_tool_with_annotations.meta = {"version": "1.0"}
 
-        tool = MCPTool.from_mcp(
+        tool = MCPTool.create(
             mcp_tool=mock_tool_with_annotations, mcp_client=self.mock_client
         )
 
@@ -274,7 +274,7 @@ class TestMCPTool:
         mock_tool_no_desc.annotations = None
         mock_tool_no_desc.meta = None
 
-        tool = MCPTool.from_mcp(mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client)
+        tool = MCPTool.create(mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client)
 
         assert tool.name == "no_desc_tool"
         assert tool.description == "No description provided"
