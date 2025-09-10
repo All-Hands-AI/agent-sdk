@@ -139,7 +139,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
                          - On Windows: PowerShell if available, otherwise subprocess
                          - On Unix-like: tmux if available, otherwise subprocess
         """
-        # Import here to avoi
+        # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
 
         # Initialize the executor
