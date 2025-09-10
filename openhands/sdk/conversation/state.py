@@ -105,7 +105,7 @@ class ConversationState(BaseModel):
         return out
 
     @staticmethod
-    def _replay_from_files(
+    def _restore_from_files(
         fs: FileStore, files_sorted: Iterable[EventFile]
     ) -> list[Event]:
         """
