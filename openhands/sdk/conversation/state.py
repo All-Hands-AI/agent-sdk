@@ -7,7 +7,7 @@ from typing import Iterable, NamedTuple, Optional
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.agent.base import AgentType
 from openhands.sdk.event import Event, EventBase
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
@@ -33,7 +33,7 @@ class ConversationState(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     events: list[Event] = Field(default_factory=list)
 
-    agent: AgentBase = Field(
+    agent: AgentType = Field(
         ...,
         description=(
             "The agent running in the conversation. "
