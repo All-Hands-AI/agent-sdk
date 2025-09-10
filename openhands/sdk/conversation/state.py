@@ -148,7 +148,7 @@ class ConversationState(BaseModel):
 
         # events (one list op, one pass decode)
         files_sorted = cls._scan_events(file_store)
-        for ev in cls._replay_from_files(file_store, files_sorted):
+        for ev in cls._restore_from_files(file_store, files_sorted):
             state.events.append(ev)
         return state
 
