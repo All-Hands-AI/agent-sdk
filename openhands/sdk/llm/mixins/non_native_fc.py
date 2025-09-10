@@ -6,7 +6,7 @@ from litellm import ChatCompletionToolParam, Message as LiteLLMMessage
 from litellm.types.utils import Choices, ModelResponse, StreamingChoices
 
 from openhands.sdk.llm.exceptions import LLMNoResponseError
-from openhands.sdk.llm.utils.fn_call_converter import (
+from openhands.sdk.llm.mixins.fn_call_converter import (
     STOP_WORDS,
     convert_fncall_messages_to_non_fncall_messages,
     convert_non_fncall_messages_to_fncall_messages,
