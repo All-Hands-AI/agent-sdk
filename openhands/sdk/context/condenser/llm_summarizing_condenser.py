@@ -1,6 +1,6 @@
 import os
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, model_validator
 
 from openhands.sdk.context.condenser.base import RollingCondenser
 from openhands.sdk.context.utils import render_template
