@@ -1,8 +1,10 @@
 from typing import Annotated, Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
+from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
+from openhands.sdk.llm.message import content_to_str
 from openhands.sdk.tool.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
@@ -160,6 +162,44 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
         default="UNKNOWN", description=SECURITY_RISK_DESC
     )
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this action.
+
+        This method can be overridden by subclasses to customize visualization.
+        The base implementation displays all action fields systematically.
+        """
+        content = Text()
+
+        # Display action name
+        action_name = self.__class__.__name__
+        content.append("Action: ", style="bold")
+        content.append(action_name)
+        content.append("\n\n")
+
+        # Display all action fields systematically
+        content.append("Arguments:\n", style="bold")
+        action_fields = self.model_dump()
+        for field_name, field_value in action_fields.items():
+            if field_value is None:
+                continue  # skip None fields
+            content.append(f"  {field_name}: ", style="bold")
+            if isinstance(field_value, str):
+                # Handle multiline strings with proper indentation
+                if "\n" in field_value:
+                    content.append("\n")
+                    for line in field_value.split("\n"):
+                        content.append(f"    {line}\n")
+                else:
+                    content.append(f'"{field_value}"')
+            elif isinstance(field_value, (list, dict)):
+                content.append(str(field_value))
+            else:
+                content.append(str(field_value))
+            content.append("\n")
+
+        return content
+
     @classmethod
     def to_mcp_schema(cls) -> dict[str, Any]:
         """Convert to JSON schema format compatible with MCP."""
@@ -225,6 +265,22 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
     def agent_observation(self) -> list[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
         raise NotImplementedError("Subclasses must implement agent_observation")
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this action.
+
+        This method can be overridden by subclasses to customize visualization.
+        The base implementation displays all action fields systematically.
+        """
+        content = Text()
+        text_parts = content_to_str(self.agent_observation)
+        if text_parts:
+            full_content = "".join(text_parts)
+            content.append(full_content)
+        else:
+            content.append("[no text content]", style="dim")
+        return content
 
 
 Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]

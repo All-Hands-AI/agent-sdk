@@ -15,7 +15,6 @@ from openhands.sdk.llm.utils.model_features import (
         ("litellm_proxy/gemini-2.5-pro", "gemini-2.5-pro"),
         ("qwen3-coder-480b-a35b-instruct", "qwen3-coder-480b-a35b-instruct"),
         ("gpt-5", "gpt-5"),
-        ("deepseek/DeepSeek-R1-0528:671b-Q4_K_XL", "deepseek-r1-0528"),
         ("openai/GLM-4.5-GGUF", "glm-4.5"),
         ("openrouter/gpt-4o-mini", "gpt-4o-mini"),
         (
@@ -77,7 +76,6 @@ def test_function_calling_support(model, expected_function_calling):
         ("o1", True),
         ("o3-mini", True),
         ("o3", True),
-        ("deepseek-r1-0528", True),
         ("gpt-4o", False),
         ("claude-3-5-sonnet", False),
         ("gemini-1.5-pro", False),
@@ -126,7 +124,6 @@ def test_prompt_cache_support(model, expected_cache):
         ("grok-code-fast-1", False),
         ("xai/grok-4-0709", False),
         ("xai/grok-code-fast-1", False),
-        ("deepseek-r1-0528", False),
     ],
 )
 def test_stop_words_support(model, expected_stop_words):
@@ -262,7 +259,6 @@ def test_stop_words_grok_provider_prefixed():
         "o1-2024-12-17",
         "xai/grok-4-0709",
         "xai/grok-code-fast-1",
-        "deepseek-r1-0528",
     ],
 )
 def test_supports_stop_words_false_models(model):

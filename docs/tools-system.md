@@ -21,6 +21,9 @@ graph TB
         FinishTool[FinishTool]
         FinishAction[FinishAction]
         FinishObservation[FinishObservation]
+        ThinkTool[ThinkTool]
+        ThinkAction[ThinkAction]
+        ThinkObservation[ThinkObservation]
     end
     
     subgraph "Runtime Tools (openhands/tools)"
@@ -42,6 +45,7 @@ graph TB
     Tool --> BashTool
     Tool --> FileEditorTool
     Tool --> FinishTool
+    Tool --> ThinkTool
     
     ToolExecutor --> BashExecutor
     ToolExecutor --> FileEditorExecutor
@@ -134,8 +138,8 @@ class MyExecutor(ToolExecutor):
 my_tool = Tool(
     name="my_tool",
     description="Processes text input",
-    input_schema=MyAction,
-    output_schema=MyObservation,
+    action_type=MyAction,
+    observation_type=MyObservation,
     executor=MyExecutor()
 )
 ```
