@@ -349,7 +349,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
         original_fncall_msgs = copy.deepcopy(messages)
-        if self.should_mock_tool_calls(tools):
+        use_mock_tools = self.should_mock_tool_calls(tools)
+        if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
@@ -392,7 +393,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             assert self._telemetry is not None
             resp = self._transport_call(messages=messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
-            if self.should_mock_tool_calls(tools):
+            if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
                 resp = self.post_response_prompt_mock(
                     resp, nonfncall_msgs=messages, tools=tools or []
