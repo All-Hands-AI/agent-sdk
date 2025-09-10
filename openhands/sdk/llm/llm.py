@@ -225,11 +225,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # When serializing, these fields (SecretStr) will be dump to "****"
     # When deserializing, these fields will be ignored and we will override
     # them from the LLM instance provided at runtime.
-    OVERRIDE_ON_SERIALIZE: set[str] = {
+    OVERRIDE_ON_SERIALIZE: tuple[str, ...] = (
         "api_key",
         "aws_access_key_id",
         "aws_secret_access_key",
-    }
+    )
 
     # Runtime-only private attrs
     _model_info: Any = PrivateAttr(default=None)

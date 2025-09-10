@@ -16,18 +16,8 @@ from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.tools import BashTool, FileEditorTool
 
 
-def normalize_model_dump(dump):
-    """Normalize model dump to handle set ordering issues in OVERRIDE_ON_SERIALIZE."""
-    import copy
-
-    normalized = copy.deepcopy(dump)
-    if "agent" in normalized and "llm" in normalized["agent"]:
-        if "OVERRIDE_ON_SERIALIZE" in normalized["agent"]["llm"]:
-            # Sort the set to ensure consistent ordering
-            normalized["agent"]["llm"]["OVERRIDE_ON_SERIALIZE"] = sorted(
-                normalized["agent"]["llm"]["OVERRIDE_ON_SERIALIZE"]
-            )
-    return normalized
+# Note: normalize_model_dump function removed since OVERRIDE_ON_SERIALIZE is now a tuple
+# with consistent ordering
 
 
 def test_conversation_state_basic_serialization():
@@ -57,10 +47,8 @@ def test_conversation_state_basic_serialization():
     assert isinstance(deserialized.events[0], SystemPromptEvent)
     assert isinstance(deserialized.events[1], MessageEvent)
 
-    # Test model_dump equality (with normalization for set ordering)
-    original_dump = normalize_model_dump(state.model_dump(mode="json"))
-    deserialized_dump = normalize_model_dump(deserialized.model_dump(mode="json"))
-    assert deserialized_dump == original_dump
+    # Test model_dump equality
+    assert deserialized.model_dump(mode="json") == state.model_dump(mode="json")
     # Also verify key fields are preserved
     assert deserialized.id == state.id
     assert len(deserialized.events) == len(state.events)
@@ -108,10 +96,8 @@ def test_conversation_state_persistence_save_load():
         assert isinstance(loaded_state.events[1], MessageEvent)
         assert loaded_state.agent.llm.model == agent.llm.model
         assert loaded_state.agent.__class__ == agent.__class__
-        # Test model_dump equality (with normalization for set ordering)
-        original_dump = normalize_model_dump(state.model_dump(mode="json"))
-        loaded_dump = normalize_model_dump(loaded_state.model_dump(mode="json"))
-        assert loaded_dump == original_dump
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
         # Also verify key fields are preserved
         assert loaded_state.id == state.id
         assert len(loaded_state.events) == len(state.events)
@@ -151,10 +137,8 @@ def test_conversation_state_incremental_save():
         # Load and verify both events are present
         loaded_state = ConversationState.load(file_store)
         assert len(loaded_state.events) == 2
-        # Test model_dump equality (with normalization for set ordering)
-        original_dump = normalize_model_dump(state.model_dump(mode="json"))
-        loaded_dump = normalize_model_dump(loaded_state.model_dump(mode="json"))
-        assert loaded_dump == original_dump
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
 
 
 def test_conversation_state_event_file_scanning():
@@ -353,11 +337,8 @@ def test_conversation_persistence_lifecycle(mock_completion):
         # When loading from persistence, the state should be exactly the same
         assert len(new_conversation.state.events) == original_event_count
         # Test model_dump equality (excluding events which may have different timestamps)  # noqa: E501
-        new_dump = normalize_model_dump(
-            new_conversation.state.model_dump(mode="json", exclude={"events"})
-        )
-        original_normalized = normalize_model_dump(original_state_dump)
-        assert new_dump == original_normalized
+        new_dump = new_conversation.state.model_dump(mode="json", exclude={"events"})
+        assert new_dump == original_state_dump
 
         # Send another message to verify conversation continues
         new_conversation.send_message(
@@ -477,10 +458,8 @@ def test_agent_resolve_diff_from_deserialized():
 
         # Should resolve successfully
         resolved = runtime_agent.resolve_diff_from_deserialized(deserialized_agent)
-        # Test model_dump equality (with normalization for set ordering)
-        runtime_dump = normalize_model_dump(runtime_agent.model_dump(mode="json"))
-        resolved_dump = normalize_model_dump(resolved.model_dump(mode="json"))
-        assert resolved_dump == runtime_dump
+        # Test model_dump equality
+        assert resolved.model_dump(mode="json") == runtime_agent.model_dump(mode="json")
         assert resolved.llm.model == runtime_agent.llm.model
         assert resolved.__class__ == runtime_agent.__class__
 
@@ -532,10 +511,8 @@ def test_conversation_state_flags_persistence():
         assert loaded_state.agent_waiting_for_confirmation is True
         assert loaded_state.agent_paused is True
         assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
-        # Test model_dump equality (with normalization for set ordering)
-        original_dump = normalize_model_dump(state.model_dump(mode="json"))
-        loaded_dump = normalize_model_dump(loaded_state.model_dump(mode="json"))
-        assert loaded_dump == original_dump
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
         # Also verify key fields are preserved
         assert loaded_state.id == state.id
         assert loaded_state.agent.llm.model == state.agent.llm.model
@@ -577,8 +554,5 @@ def test_conversation_with_agent_different_llm_config():
         assert new_conversation.state.agent.llm.api_key is not None
         assert new_conversation.state.agent.llm.api_key.get_secret_value() == "new-key"
         # Test that the core state structure is preserved (excluding agent differences)
-        new_dump = normalize_model_dump(
-            new_conversation.state.model_dump(mode="json", exclude={"agent"})
-        )
-        original_normalized = normalize_model_dump(original_state_dump)
-        assert new_dump == original_normalized
+        new_dump = new_conversation.state.model_dump(mode="json", exclude={"agent"})
+        assert new_dump == original_state_dump
