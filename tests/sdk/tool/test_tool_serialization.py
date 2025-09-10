@@ -2,7 +2,6 @@
 
 from typing import Annotated
 
-import pytest
 from pydantic import BaseModel, Field
 
 from openhands.sdk.tool import Tool, ToolType
@@ -24,7 +23,7 @@ def test_tool_supports_polymorphic_deserialization() -> None:
     deserialized_tool = Tool.model_validate(tool_data)
 
     # Should deserialize to the correct concrete type
-    assert type(deserialized_tool) == type(tool)
+    assert isinstance(deserialized_tool, type(tool))
     assert deserialized_tool.name == tool.name
     assert deserialized_tool.description == tool.description
     assert deserialized_tool.action_type == tool.action_type
@@ -46,7 +45,7 @@ def test_tool_supports_polymorphic_field_deserialization() -> None:
     deserialized_container = ToolContainer.model_validate(container_data)
 
     # Should deserialize to the correct concrete type
-    assert type(deserialized_container.tool) == type(tool)
+    assert isinstance(deserialized_container.tool, type(tool))
     assert deserialized_container.tool.name == tool.name
     assert deserialized_container.tool.description == tool.description
 
@@ -67,8 +66,8 @@ def test_tool_supports_nested_polymorphic_deserialization() -> None:
 
     # Should deserialize to the correct concrete types
     assert len(deserialized_registry.tools) == 2
-    assert type(deserialized_registry.tools[0]) == type(FinishTool)
-    assert type(deserialized_registry.tools[1]) == type(ThinkTool)
+    assert isinstance(deserialized_registry.tools[0], type(FinishTool))
+    assert isinstance(deserialized_registry.tools[1], type(ThinkTool))
     assert deserialized_registry.tools[0].name == "finish"
     assert deserialized_registry.tools[1].name == "think"
 
@@ -81,7 +80,7 @@ def test_tool_model_validate_dict() -> None:
 
     # Test with valid kind
     result = Tool.model_validate(tool_data)
-    assert type(result) == type(tool)
+    assert isinstance(result, type(tool))
     assert result.name == tool.name
     assert result.description == tool.description
     assert result.action_type == tool.action_type
@@ -124,12 +123,12 @@ def test_tool_preserves_pydantic_parameters() -> None:
 
     # Test with strict mode
     result = Tool.model_validate(tool_data, strict=True)
-    assert type(result) == type(tool)
+    assert isinstance(result, type(tool))
 
     # Test with context (even though we don't use it here, it should be passed through)
     context = {"test": "value"}
     result = Tool.model_validate(tool_data, context=context)
-    assert type(result) == type(tool)
+    assert isinstance(result, type(tool))
 
 
 def test_tool_type_annotation_works() -> None:
@@ -146,7 +145,7 @@ def test_tool_type_annotation_works() -> None:
     deserialized_wrapper = ToolWrapper.model_validate(wrapper_data)
 
     # Should deserialize to the correct concrete type
-    assert type(deserialized_wrapper.tool) == type(tool)
+    assert isinstance(deserialized_wrapper.tool, type(tool))
     assert deserialized_wrapper.tool.name == tool.name
 
 
@@ -179,7 +178,5 @@ def test_tool_with_annotations_deserialization() -> None:
 
     # Should preserve annotations
     assert deserialized_tool.annotations == tool.annotations
-    assert deserialized_tool.annotations.readOnlyHint == tool.annotations.readOnlyHint
-    assert deserialized_tool.annotations.destructiveHint == tool.annotations.destructiveHint
-    assert deserialized_tool.annotations.idempotentHint == tool.annotations.idempotentHint
-    assert deserialized_tool.annotations.openWorldHint == tool.annotations.openWorldHint
+    # Basic check that annotations exist
+    assert deserialized_tool.annotations is not None
