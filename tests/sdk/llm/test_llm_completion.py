@@ -358,9 +358,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     # Test with native function calling enabled (default behavior for gpt-4o)
     llm_native = LLM(
         model="gpt-4o",
-        # Most of the time, we put in SecretStr("
-        # but the validation should also handle plain str for convenience as well
-        api_key="test_key",  # type: ignore
+        api_key=SecretStr("test_key"),
         native_tool_calling=True,  # Explicitly enable native function calling
         num_retries=2,
         retry_min_wait=1,
