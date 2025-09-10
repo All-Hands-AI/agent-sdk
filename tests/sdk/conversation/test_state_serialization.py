@@ -196,7 +196,7 @@ def test_conversation_state_corrupted_event_handling():
 
         # Test replay - should skip corrupted files
         event_files = ConversationState._scan_events(file_store)
-        events = ConversationState._replay_from_files(file_store, event_files)
+        events = ConversationState._restore_from_files(file_store, event_files)
 
         # Should only have valid events
         assert len(events) == 2
