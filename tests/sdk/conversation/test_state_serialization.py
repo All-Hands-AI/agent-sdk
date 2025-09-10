@@ -3,6 +3,7 @@
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
@@ -10,47 +11,15 @@ from pydantic import SecretStr
 from openhands.sdk import Agent, Conversation, LocalFileStore
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.state import ConversationState
-from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.tools import BashTool, FileEditorTool
 
 
-class TestAgent(AgentBase):
-    """Test agent for serialization tests."""
-
-    def __init__(self, llm=None, tools=None, **kwargs):
-        if llm is None:
-            llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
-        super().__init__(llm=llm, tools=tools or [], **kwargs)
-
-    def init_state(
-        self, state: ConversationState, on_event: ConversationCallbackType
-    ) -> None:
-        event = SystemPromptEvent(
-            source="agent",
-            system_prompt=TextContent(text="test system prompt"),
-            tools=[],
-        )
-        on_event(event)
-
-    def step(
-        self, state: ConversationState, on_event: ConversationCallbackType
-    ) -> None:
-        on_event(
-            MessageEvent(
-                source="agent",
-                llm_message=Message(
-                    role="assistant", content=[TextContent(text="test response")]
-                ),
-            )
-        )
-        state.agent_finished = True
-
-
 def test_conversation_state_basic_serialization():
     """Test basic ConversationState serialization and deserialization."""
-    agent = TestAgent()
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    agent = Agent(llm=llm, tools=[])
     state = ConversationState(agent=agent)
 
     # Add some events
@@ -73,8 +42,15 @@ def test_conversation_state_basic_serialization():
     assert len(deserialized.events) == 2
     assert isinstance(deserialized.events[0], SystemPromptEvent)
     assert isinstance(deserialized.events[1], MessageEvent)
-    # Compare key fields instead of full model dump due to minor serialization
-    # differences
+
+    # Test model_dump equality
+    # Verify key fields are preserved (avoiding model_dump() precision issues)
+    assert deserialized.id == state.id
+    assert len(deserialized.events) == len(state.events)
+    assert deserialized.agent.llm.model == state.agent.llm.model
+    assert deserialized.agent.__class__ == state.agent.__class__
+
+    # Verify agent properties
     assert deserialized.agent.llm.model == agent.llm.model
     assert deserialized.agent.__class__ == agent.__class__
 
@@ -83,7 +59,8 @@ def test_conversation_state_persistence_save_load():
     """Test ConversationState save and load with FileStore."""
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
-        agent = TestAgent()
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        agent = Agent(llm=llm, tools=[])
         state = ConversationState(agent=agent)
 
         # Add events
@@ -114,13 +91,17 @@ def test_conversation_state_persistence_save_load():
         assert isinstance(loaded_state.events[1], MessageEvent)
         assert loaded_state.agent.llm.model == agent.llm.model
         assert loaded_state.agent.__class__ == agent.__class__
+        # Verify key fields are preserved (avoiding model_dump() precision issues)
+        assert loaded_state.id == state.id
+        assert len(loaded_state.events) == len(state.events)
 
 
 def test_conversation_state_incremental_save():
     """Test that ConversationState saves only new events incrementally."""
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
-        agent = TestAgent()
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        agent = Agent(llm=llm, tools=[])
         state = ConversationState(agent=agent)
 
         # Add first event and save
@@ -228,7 +209,8 @@ def test_conversation_with_different_agent_tools_raises_error():
             BashTool.create(working_dir=temp_dir),
             FileEditorTool.create(),
         ]
-        original_agent = TestAgent(tools=original_tools)
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        original_agent = Agent(llm=llm, tools=original_tools)
         conversation = Conversation(
             agent=original_agent, persist_filestore=file_store, visualize=False
         )
@@ -245,7 +227,8 @@ def test_conversation_with_different_agent_tools_raises_error():
         different_tools = [
             BashTool.create(working_dir=temp_dir)
         ]  # Missing FileEditorTool
-        different_agent = TestAgent(tools=different_tools)
+        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        different_agent = Agent(llm=llm2, tools=different_tools)
 
         # This should raise ValueError due to tool differences
         with pytest.raises(
@@ -263,7 +246,8 @@ def test_conversation_with_same_agent_succeeds():
 
         # Create and save conversation
         tools = [BashTool.create(working_dir=temp_dir), FileEditorTool.create()]
-        original_agent = TestAgent(tools=tools)
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        original_agent = Agent(llm=llm, tools=tools)
         conversation = Conversation(
             agent=original_agent, persist_filestore=file_store, visualize=False
         )
@@ -278,7 +262,8 @@ def test_conversation_with_same_agent_succeeds():
 
         # Create new conversation with same agent configuration
         same_tools = [BashTool.create(working_dir=temp_dir), FileEditorTool.create()]
-        same_agent = TestAgent(tools=same_tools)
+        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        same_agent = Agent(llm=llm2, tools=same_tools)
 
         # This should succeed
         new_conversation = Conversation(
@@ -289,12 +274,22 @@ def test_conversation_with_same_agent_succeeds():
         assert len(new_conversation.state.events) > 0
 
 
-def test_conversation_persistence_lifecycle():
+@patch("openhands.sdk.llm.llm.litellm_completion")
+def test_conversation_persistence_lifecycle(mock_completion):
     """Test full conversation persistence lifecycle similar to examples/10_persistence.py."""  # noqa: E501
+    from tests.conftest import create_mock_litellm_response
+
+    # Mock the LLM completion call
+    mock_response = create_mock_litellm_response(
+        content="I'll help you with that task.", finish_reason="stop"
+    )
+    mock_completion.return_value = mock_response
+
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
         tools = [BashTool.create(working_dir=temp_dir), FileEditorTool.create()]
-        agent = TestAgent(tools=tools)
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        agent = Agent(llm=llm, tools=tools)
 
         # Create conversation and send messages
         conversation = Conversation(
@@ -327,9 +322,8 @@ def test_conversation_persistence_lifecycle():
 
         # Verify state was restored
         assert new_conversation.id == original_id
-        # Note: When loading from persistence, init_state() is still called which
-        # adds a system prompt. So we expect one additional event
-        assert len(new_conversation.state.events) == original_event_count + 1
+        # When loading from persistence, the state should be exactly the same
+        assert len(new_conversation.state.events) == original_event_count
 
         # Send another message to verify conversation continues
         new_conversation.send_message(
@@ -347,7 +341,8 @@ def test_conversation_state_empty_filestore():
     """Test ConversationState behavior with empty filestore."""
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
-        agent = TestAgent()
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        agent = Agent(llm=llm, tools=[])
 
         # Create conversation with empty filestore
         conversation = Conversation(
@@ -384,7 +379,8 @@ def test_conversation_state_exclude_from_base_state():
     """Test that events are excluded from base state serialization."""
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
-        agent = TestAgent()
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        agent = Agent(llm=llm, tools=[])
         state = ConversationState(agent=agent)
 
         # Add events
@@ -408,7 +404,8 @@ def test_conversation_state_exclude_from_base_state():
 
 def test_conversation_state_thread_safety():
     """Test ConversationState thread safety with lock/unlock."""
-    agent = TestAgent()
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    agent = Agent(llm=llm, tools=[])
     state = ConversationState(agent=agent)
 
     # Test context manager
@@ -433,14 +430,16 @@ def test_agent_resolve_diff_from_deserialized():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create original agent
         tools = [BashTool.create(working_dir=temp_dir)]
-        original_agent = TestAgent(tools=tools)
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        original_agent = Agent(llm=llm, tools=tools)
 
         # Serialize and deserialize to simulate persistence
         serialized = original_agent.model_dump_json()
-        deserialized_agent = TestAgent.model_validate_json(serialized)
+        deserialized_agent = Agent.model_validate_json(serialized)
 
         # Create runtime agent with same configuration
-        runtime_agent = TestAgent(tools=tools)
+        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        runtime_agent = Agent(llm=llm2, tools=tools)
 
         # Should resolve successfully
         resolved = runtime_agent.resolve_diff_from_deserialized(deserialized_agent)
@@ -462,7 +461,8 @@ def test_agent_resolve_diff_different_class_raises_error():
         def step(self, state, on_event):
             pass
 
-    original_agent = TestAgent()
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    original_agent = Agent(llm=llm, tools=[])
     different_agent = DifferentAgent()
 
     with pytest.raises(ValueError, match="Cannot resolve from deserialized"):
@@ -473,7 +473,8 @@ def test_conversation_state_flags_persistence():
     """Test that conversation state flags are properly persisted."""
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
-        agent = TestAgent()
+        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        agent = Agent(llm=llm, tools=[])
         state = ConversationState(agent=agent)
 
         # Set various flags
@@ -493,6 +494,9 @@ def test_conversation_state_flags_persistence():
         assert loaded_state.agent_waiting_for_confirmation is True
         assert loaded_state.agent_paused is True
         assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
+        # Verify key fields are preserved (avoiding model_dump() precision issues)
+        assert loaded_state.id == state.id
+        assert loaded_state.agent.llm.model == state.agent.llm.model
 
 
 def test_conversation_with_agent_different_llm_config():
