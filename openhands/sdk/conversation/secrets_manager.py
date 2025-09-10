@@ -55,43 +55,33 @@ class SecretsManager:
                 found_keys.add(key)
         return found_keys
 
-    def inject_secrets_into_bash_command(self, command: str) -> str:
-        """Inject secrets as environment variables into a bash command.
+    def get_secrets_as_env_vars(self, command: str) -> dict[str, str]:
+        """Get secrets that should be exported as environment variables for a command.
 
         Args:
-            command: The original bash command
+            command: The bash command to check for secret references
 
         Returns:
-            Modified bash command with secret environment variables exported
+            Dictionary of environment variables to export (key -> value)
         """
         found_secrets = self.find_secrets_in_text(command)
 
         if not found_secrets:
-            return command
+            return {}
 
         logger.debug(f"Found secrets in command: {found_secrets}")
 
-        # Build export statements for each found secret
-        export_statements = []
+        env_vars = {}
         for key in found_secrets:
             try:
                 secret_value = self._secrets[key](key)
-                # Escape the secret value for bash
-                escaped_value = secret_value.replace("'", "'\"'\"'")
-                export_statements.append(f"export {key}='{escaped_value}'")
+                env_vars[key] = secret_value
             except Exception as e:
                 logger.error(f"Failed to retrieve secret for key '{key}': {e}")
                 continue
 
-        if not export_statements:
-            return command
-
-        # Combine export statements with the original command
-        exports = " && ".join(export_statements)
-        modified_command = f"{exports} && {command}"
-
-        logger.debug(f"Injected {len(export_statements)} secrets into bash command")
-        return modified_command
+        logger.debug(f"Prepared {len(env_vars)} secrets as environment variables")
+        return env_vars
 
     def clear_secrets(self) -> None:
         """Clear all stored secrets."""
