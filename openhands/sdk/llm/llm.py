@@ -519,7 +519,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         return out
 
-    # moved to NonNativeToolCallingMixin
 
     # =========================================================================
     # Capabilities, formatting, and info
