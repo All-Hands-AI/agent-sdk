@@ -84,7 +84,7 @@ def test_mcp_tool_fallback_behavior() -> None:
         "name": "fallback-tool",
         "description": "A fallback test tool",
         "action_type": "openhands.sdk.tool.schema.ActionBase",  # Use base class
-        "observation_type": "openhands.sdk.mcp.MCPToolObservation",
+        "observation_type": "openhands.sdk.mcp.definition.MCPToolObservation",
         "kind": "openhands.sdk.mcp.tool.MCPTool",
         "mcp_tool": {
             "name": "fallback-tool",
