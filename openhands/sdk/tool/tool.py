@@ -1,12 +1,21 @@
 from typing import Annotated, Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_serializer,
+    field_validator,
+)
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
+    kind_of,
+    resolve_kind,
 )
 
 
@@ -96,6 +105,37 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         if self.annotations and self.annotations.title:
             return self.annotations.title
         return self.name
+
+    @field_serializer("action_type")
+    def _ser_action_type(self, t: type[ActionBase]) -> str:
+        # serialize as a plain kind string
+        return kind_of(t)
+
+    @field_serializer("observation_type")
+    def _ser_observation_type(self, t: type[ObservationBase] | None) -> str | None:
+        return None if t is None else kind_of(t)
+
+    @field_validator("action_type", mode="before")
+    @classmethod
+    def _val_action_type(cls, v):
+        if isinstance(v, str):
+            return resolve_kind(v)
+        assert isinstance(v, type) and issubclass(v, ActionBase), (
+            f"action_type must be a subclass of ActionBase, but got {type(v)}"
+        )
+        return v
+
+    @field_validator("observation_type", mode="before")
+    @classmethod
+    def _val_observation_type(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = resolve_kind(v)
+        assert isinstance(v, type) and issubclass(v, ObservationBase), (
+            f"observation_type must be a subclass of ObservationBase, but got {type(v)}"
+        )
+        return v
 
     def set_executor(self, executor: ToolExecutor) -> "Tool":
         """Create a new Tool instance with the given executor."""

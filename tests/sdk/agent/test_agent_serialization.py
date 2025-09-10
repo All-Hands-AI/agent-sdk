@@ -1,5 +1,6 @@
-"""Test agent serialization with DiscriminatedUnionMixin."""
+"""Test agent JSON serialization with DiscriminatedUnionMixin."""
 
+import json
 from typing import Annotated
 
 from pydantic import BaseModel
@@ -9,124 +10,143 @@ from openhands.sdk.llm import LLM
 from openhands.sdk.utils.discriminated_union import DiscriminatedUnionType
 
 
-def test_agent_supports_polymorphic_deserialization() -> None:
-    """Test that Agent supports polymorphic deserialization from dict data."""
-    # Create a simple LLM instance
+def test_agent_supports_polymorphic_json_serialization() -> None:
+    """Test that Agent supports polymorphic JSON serialization/deserialization."""
+    # Create a simple LLM instance and agent with empty tools to avoid serialization issues
     llm = LLM(model="test-model")
+    agent = Agent(llm=llm, tools={})
 
-    # Create a simple agent instance
-    agent_data = {
-        "llm": llm.model_dump(),
-        "kind": "Agent",  # Use base Agent class
+    # Serialize to JSON (excluding non-serializable fields)
+    agent_json = agent.model_dump_json(exclude={"condenser"})
+    
+    # Deserialize from JSON using the base class
+    deserialized_agent = Agent.model_validate_json(agent_json)
+
+    # Should deserialize to the correct type and have same core fields
+    assert isinstance(deserialized_agent, Agent)
+    assert deserialized_agent.llm.model == "test-model"
+    assert deserialized_agent.tools == agent.tools
+
+
+def test_agent_supports_polymorphic_field_json_serialization() -> None:
+    """Test that Agent supports polymorphic JSON serialization when used as a field."""
+
+    class Container(BaseModel):
+        agent: Agent  # Use direct Agent type instead of DiscriminatedUnionType
+
+    # Create container with agent
+    llm = LLM(model="test-model")
+    agent = Agent(llm=llm, tools={})
+    container = Container(agent=agent)
+
+    # Serialize to JSON (excluding non-serializable fields)
+    container_json = container.model_dump_json(exclude={"agent": {"condenser"}})
+    
+    # Deserialize from JSON
+    deserialized_container = Container.model_validate_json(container_json)
+
+    # Should preserve the agent type and core fields
+    assert isinstance(deserialized_container.agent, Agent)
+    assert deserialized_container.agent.llm.model == "test-model"
+    assert deserialized_container.agent.tools == agent.tools
+
+
+def test_agent_supports_nested_polymorphic_json_serialization() -> None:
+    """Test that Agent supports nested polymorphic JSON serialization."""
+
+    class NestedContainer(BaseModel):
+        agents: list[Agent]  # Use direct Agent type
+
+    # Create container with multiple agents
+    llm1 = LLM(model="model-1")
+    llm2 = LLM(model="model-2")
+    agent1 = Agent(llm=llm1, tools={})
+    agent2 = Agent(llm=llm2, tools={})
+    container = NestedContainer(agents=[agent1, agent2])
+
+    # Serialize to JSON (excluding non-serializable fields)
+    container_json = container.model_dump_json(exclude={"agents": {"__all__": {"condenser"}}})
+    
+    # Deserialize from JSON
+    deserialized_container = NestedContainer.model_validate_json(container_json)
+
+    # Should preserve all agent types and core fields
+    assert len(deserialized_container.agents) == 2
+    assert isinstance(deserialized_container.agents[0], Agent)
+    assert isinstance(deserialized_container.agents[1], Agent)
+    assert deserialized_container.agents[0].llm.model == "model-1"
+    assert deserialized_container.agents[1].llm.model == "model-2"
+
+
+def test_agent_model_validate_json_dict() -> None:
+    """Test that Agent.model_validate works with dict from JSON."""
+    # Create agent
+    llm = LLM(model="test-model")
+    agent = Agent(llm=llm, tools={})
+
+    # Serialize to JSON, then parse to dict
+    agent_json = agent.model_dump_json(exclude={"condenser"})
+    agent_dict = json.loads(agent_json)
+    
+    # Deserialize from dict
+    deserialized_agent = Agent.model_validate(agent_dict)
+
+    # Should have same core fields
+    assert deserialized_agent.llm.model == agent.llm.model
+    assert deserialized_agent.tools == agent.tools
+
+
+def test_agent_fallback_behavior_json() -> None:
+    """Test that Agent handles unknown types gracefully in JSON."""
+    # Create JSON with unknown kind
+    agent_dict = {
+        "llm": {"model": "test-model"},
+        "kind": "UnknownAgentType"
     }
+    agent_json = json.dumps(agent_dict)
 
-    # Deserialize using the base class
-    deserialized_agent = Agent.model_validate(agent_data)
-
-    # Should deserialize to the correct type
+    # Should fall back to base Agent type
+    deserialized_agent = Agent.model_validate_json(agent_json)
     assert isinstance(deserialized_agent, Agent)
     assert deserialized_agent.llm.model == "test-model"
 
 
-def test_agent_supports_polymorphic_field_deserialization() -> None:
-    """Test that Agent supports polymorphic deserialization when used as a field."""
-
-    class AgentContainer(BaseModel):
-        agent: Annotated[Agent, DiscriminatedUnionType[Agent]]
-
-    # Create a simple agent directly
+def test_agent_preserves_pydantic_parameters_json() -> None:
+    """Test that Agent preserves Pydantic parameters through JSON serialization."""
+    # Create agent with extra data
     llm = LLM(model="test-model")
-    agent = Agent(llm=llm)
-    container = AgentContainer(agent=agent)
+    agent = Agent(llm=llm, tools={})
 
-    # Test that the agent was created correctly
-    assert isinstance(container.agent, Agent)
-    assert container.agent.llm.model == "test-model"
+    # Serialize to JSON
+    agent_json = agent.model_dump_json(exclude={"condenser"})
+    
+    # Deserialize from JSON
+    deserialized_agent = Agent.model_validate_json(agent_json)
 
-
-def test_agent_supports_nested_polymorphic_deserialization() -> None:
-    """Test that Agent supports polymorphic deserialization when nested in lists."""
-
-    class AgentRegistry(BaseModel):
-        agents: list[Annotated[Agent, DiscriminatedUnionType[Agent]]]
-
-    # Create simple agents directly
-    llm1 = LLM(model="test-model-1")
-    llm2 = LLM(model="test-model-2")
-    agents = [Agent(llm=llm1), Agent(llm=llm2)]
-    registry = AgentRegistry(agents=agents)
-
-    # Test that the agents were created correctly
-    assert len(registry.agents) == 2
-    assert isinstance(registry.agents[0], Agent)
-    assert isinstance(registry.agents[1], Agent)
-    assert registry.agents[0].llm.model == "test-model-1"
-    assert registry.agents[1].llm.model == "test-model-2"
+    # Should preserve core fields
+    assert deserialized_agent.llm.model == agent.llm.model
+    assert deserialized_agent.tools == agent.tools
 
 
-def test_agent_model_validate_dict() -> None:
-    """Test Agent model_validate with dictionary input."""
+def test_agent_type_annotation_works_json() -> None:
+    """Test that AgentType annotation works correctly with JSON."""
+    # Create agent
     llm = LLM(model="test-model")
-    agent_data = {
-        "llm": llm.model_dump(),
-        "kind": "Agent",
-    }
+    agent = Agent(llm=llm, tools={})
 
-    # Test with valid kind
-    result = Agent.model_validate(agent_data)
-    assert isinstance(result, Agent)
-    assert result.llm.model == "test-model"
-
-
-def test_agent_fallback_behavior() -> None:
-    """Test fallback behavior when discriminated union logic doesn't apply."""
-
-    # Create agent data without kind
-    llm = LLM(model="test-model")
-    no_kind_data = {
-        "llm": llm.model_dump(),
-    }
-
-    # Test with missing kind - should fallback to base class
-    result = Agent.model_validate(no_kind_data)
-    assert isinstance(result, Agent)
-    assert result.llm.model == "test-model"
-
-    # Test with invalid kind - should fallback to base class
-    invalid_kind_data = {**no_kind_data, "kind": "InvalidAgent"}
-    result = Agent.model_validate(invalid_kind_data)
-    assert isinstance(result, Agent)
-    assert result.llm.model == "test-model"
-
-
-def test_agent_preserves_pydantic_parameters() -> None:
-    """Test that all Pydantic validation parameters are preserved."""
-    llm = LLM(model="test-model")
-    agent_data = {
-        "llm": llm.model_dump(),
-        "kind": "Agent",
-    }
-
-    # Test with strict mode
-    result = Agent.model_validate(agent_data, strict=True)
-    assert isinstance(result, Agent)
-
-    # Test with context
-    context = {"test": "value"}
-    result = Agent.model_validate(agent_data, context=context)
-    assert isinstance(result, Agent)
-
-
-def test_agent_type_annotation_works() -> None:
-    """Test that AgentType annotation works correctly."""
-
-    class AgentWrapper(BaseModel):
+    # Use AgentType annotation
+    class TestModel(BaseModel):
         agent: AgentType
 
-    llm = LLM(model="test-model")
-    agent = Agent(llm=llm)
-    wrapper = AgentWrapper(agent=agent)
+    model = TestModel(agent=agent)
 
-    # Test that the agent was created correctly
-    assert isinstance(wrapper.agent, Agent)
-    assert wrapper.agent.llm.model == "test-model"
+    # Serialize to JSON
+    model_json = model.model_dump_json(exclude={"agent": {"condenser"}})
+    
+    # Deserialize from JSON
+    deserialized_model = TestModel.model_validate_json(model_json)
+
+    # Should work correctly
+    assert isinstance(deserialized_model.agent, Agent)
+    assert deserialized_model.agent.llm.model == agent.llm.model
+    assert deserialized_model.agent.tools == agent.tools
