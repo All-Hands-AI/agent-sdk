@@ -326,7 +326,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # (since we're using prompt-based tool calling)
     call_kwargs = mock_completion.call_args[1]
     # In non-function call mode, tools should not be passed to the underlying LLM
-    assert call_kwargs.get("tools") is None or call_kwargs.get("tools") == []
+    assert call_kwargs.get("tools") is None
 
     # Verify that the messages were modified for prompt-based tool calling
     call_messages = mock_completion.call_args[1]["messages"]
@@ -405,10 +405,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     assert native_call_kwargs.get("tools") == tools
 
     # Non-native mode should not pass tools (they're handled via prompts)
-    assert (
-        non_native_call_kwargs.get("tools") is None
-        or non_native_call_kwargs.get("tools") == []
-    )
+    assert non_native_call_kwargs.get("tools") is None
 
 
 # This file focuses on LLM completion functionality, configuration options,
