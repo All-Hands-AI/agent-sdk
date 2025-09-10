@@ -63,41 +63,41 @@ def conversation_callback(event: Event):
 
 file_store = LocalFileStore("./.conversations")
 
-# conversation = Conversation(
-#     agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
-# )
-# conversation.send_message(
-#     message=Message(
-#         role="user",
-#         content=[
-#             TextContent(
-#                 text=(
-#                     "Read https://github.com/All-Hands-AI/OpenHands. "
-#                     "Then write 3 facts about the project into FACTS.txt."
-#                 )
-#             )
-#         ],
-#     )
-# )
-# conversation.run()
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+)
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[
+            TextContent(
+                text=(
+                    "Read https://github.com/All-Hands-AI/OpenHands. "
+                    "Then write 3 facts about the project into FACTS.txt."
+                )
+            )
+        ],
+    )
+)
+conversation.run()
 
-# conversation.send_message(
-#     message=Message(
-#         role="user",
-#         content=[TextContent(text=("Great! Now delete that file."))],
-#     )
-# )
-# conversation.run()
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[TextContent(text=("Great! Now delete that file."))],
+    )
+)
+conversation.run()
 
-# print("=" * 100)
-# print("Conversation finished. Got the following LLM messages:")
-# for i, message in enumerate(llm_messages):
-#     print(f"Message {i}: {str(message)[:200]}")
+print("=" * 100)
+print("Conversation finished. Got the following LLM messages:")
+for i, message in enumerate(llm_messages):
+    print(f"Message {i}: {str(message)[:200]}")
 
-# # Conversation persistence
-# print("Serializing conversation...")
+# Conversation persistence
+print("Serializing conversation...")
 
-# del conversation
+del conversation
 
 # Deserialize the conversation
 print("Deserializing conversation...")
