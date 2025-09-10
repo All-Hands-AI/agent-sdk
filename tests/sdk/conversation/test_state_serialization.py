@@ -44,7 +44,8 @@ def test_conversation_state_basic_serialization():
     assert isinstance(deserialized.events[1], MessageEvent)
 
     # Test model_dump equality
-    # Verify key fields are preserved (avoiding model_dump() precision issues)
+    assert deserialized.model_dump(mode="json") == state.model_dump(mode="json")
+    # Also verify key fields are preserved
     assert deserialized.id == state.id
     assert len(deserialized.events) == len(state.events)
     assert deserialized.agent.llm.model == state.agent.llm.model
@@ -91,7 +92,9 @@ def test_conversation_state_persistence_save_load():
         assert isinstance(loaded_state.events[1], MessageEvent)
         assert loaded_state.agent.llm.model == agent.llm.model
         assert loaded_state.agent.__class__ == agent.__class__
-        # Verify key fields are preserved (avoiding model_dump() precision issues)
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
+        # Also verify key fields are preserved
         assert loaded_state.id == state.id
         assert len(loaded_state.events) == len(state.events)
 
@@ -130,6 +133,8 @@ def test_conversation_state_incremental_save():
         # Load and verify both events are present
         loaded_state = ConversationState.load(file_store)
         assert len(loaded_state.events) == 2
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
 
 
 def test_conversation_state_event_file_scanning():
@@ -311,6 +316,9 @@ def test_conversation_persistence_lifecycle(mock_completion):
         # Store conversation ID and event count
         original_id = conversation.id
         original_event_count = len(conversation.state.events)
+        original_state_dump = conversation.state.model_dump(
+            mode="json", exclude={"events"}
+        )
 
         # Delete conversation to simulate restart
         del conversation
@@ -324,6 +332,9 @@ def test_conversation_persistence_lifecycle(mock_completion):
         assert new_conversation.id == original_id
         # When loading from persistence, the state should be exactly the same
         assert len(new_conversation.state.events) == original_event_count
+        # Test model_dump equality (excluding events which may have different timestamps)  # noqa: E501
+        new_dump = new_conversation.state.model_dump(mode="json", exclude={"events"})
+        assert new_dump == original_state_dump
 
         # Send another message to verify conversation continues
         new_conversation.send_message(
@@ -443,6 +454,7 @@ def test_agent_resolve_diff_from_deserialized():
 
         # Should resolve successfully
         resolved = runtime_agent.resolve_diff_from_deserialized(deserialized_agent)
+        assert resolved.model_dump(mode="json") == runtime_agent.model_dump(mode="json")
         assert resolved.llm.model == runtime_agent.llm.model
         assert resolved.__class__ == runtime_agent.__class__
 
@@ -494,7 +506,9 @@ def test_conversation_state_flags_persistence():
         assert loaded_state.agent_waiting_for_confirmation is True
         assert loaded_state.agent_paused is True
         assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
-        # Verify key fields are preserved (avoiding model_dump() precision issues)
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
+        # Also verify key fields are preserved
         assert loaded_state.id == state.id
         assert loaded_state.agent.llm.model == state.agent.llm.model
 
@@ -516,6 +530,11 @@ def test_conversation_with_agent_different_llm_config():
             Message(role="user", content=[TextContent(text="test")])
         )
 
+        # Store original state dump before deleting
+        original_state_dump = conversation.state.model_dump(
+            mode="json", exclude={"agent"}
+        )
+
         del conversation
 
         # Try with different LLM config (different API key should be resolved)
@@ -529,3 +548,6 @@ def test_conversation_with_agent_different_llm_config():
 
         assert new_conversation.state.agent.llm.api_key is not None
         assert new_conversation.state.agent.llm.api_key.get_secret_value() == "new-key"
+        # Test that the core state structure is preserved (excluding agent differences)
+        new_dump = new_conversation.state.model_dump(mode="json", exclude={"agent"})
+        assert new_dump == original_state_dump
