@@ -16,10 +16,6 @@ from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.tools import BashTool, FileEditorTool
 
 
-# Note: normalize_model_dump function removed since OVERRIDE_ON_SERIALIZE is now a tuple
-# with consistent ordering
-
-
 def test_conversation_state_basic_serialization():
     """Test basic ConversationState serialization and deserialization."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
