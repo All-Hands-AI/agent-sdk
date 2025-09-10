@@ -41,7 +41,8 @@ agent-sdk/
 │       ├── utils/          # Tool utilities
 │       └── pyproject.toml  # Tools package configuration
 └── tests/                  # Test suites
-    ├── integration/        # Cross-package integration tests
+    ├── cross/              # Cross-package tests
+    ├── integration/        # Integration tests
     ├── sdk/                # SDK unit tests
     └── tools/              # Tools unit tests
 ```
@@ -304,9 +305,10 @@ uv run pyright
 uv run pytest
 
 # Run specific test suite
+uv run pytest tests/cross/
+uv run pytest tests/integration/
 uv run pytest tests/sdk/
 uv run pytest tests/tools/
-uv run pytest tests/integration/
 
 # Run with coverage
 uv run pytest --cov=openhands --cov-report=html
