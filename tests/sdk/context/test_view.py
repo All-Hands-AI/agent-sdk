@@ -2,7 +2,11 @@ from typing import cast
 
 from openhands.sdk.context.view import View
 from openhands.sdk.event import Event
-from openhands.sdk.event.condenser import Condensation, CondensationRequest
+from openhands.sdk.event.condenser import (
+    Condensation,
+    CondensationRequest,
+    CondensationSummary,
+)
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import Message, TextContent
 
@@ -79,20 +83,26 @@ def test_view_inserts_summary() -> None:
 
         assert len(view) == 6  # 5 message events + 1 summary observation
         for index, event in enumerate(view.events):
-            assert isinstance(event, MessageEvent)
-            assert isinstance(event.llm_message.content[0], TextContent)
-            content = event.llm_message.content[0].text
             if index == offset:
-                assert content == "My Summary"
+                assert isinstance(event, CondensationSummary)
+                assert event.summary == "My Summary"
 
             # Events before where the summary is inserted will have content
             # matching their index.
             elif index < offset:
+                assert isinstance(event, MessageEvent)
+                assert isinstance(event.llm_message.content[0], TextContent)
+                content = event.llm_message.content[0].text
+
                 assert content == f"Event {index}"
 
             # Events after where the summary is inserted will be offset by one
             # from the original list.
             else:
+                assert isinstance(event, MessageEvent)
+                assert isinstance(event.llm_message.content[0], TextContent)
+                content = event.llm_message.content[0].text
+
                 assert content == f"Event {index - 1}"
 
 
@@ -429,12 +439,7 @@ def test_summary_event_index_and_event_with_summary() -> None:
 
     # Check the summary event properties
     summary_event = view.summary_event
-    assert isinstance(summary_event, MessageEvent)
-    assert summary_event.llm_message.role == "system"
-    assert summary_event.source == "environment"
-    assert len(summary_event.llm_message.content) == 1
-    assert isinstance(summary_event.llm_message.content[0], TextContent)
-    assert summary_event.llm_message.content[0].text == "This is a test summary"
+    assert summary_event.summary == "This is a test summary"
 
     # Verify the view structure
     assert len(view) == 4  # 3 kept events + 1 summary
@@ -474,8 +479,7 @@ def test_summary_event_with_multiple_condensations() -> None:
     # Should use the most recent condensation's summary
     assert view.summary_event_index == 1
     assert view.summary_event is not None
-    assert isinstance(view.summary_event.llm_message.content[0], TextContent)
-    assert view.summary_event.llm_message.content[0].text == "Second summary"
+    assert view.summary_event.summary == "Second summary"
 
     # Should have both condensations
     assert len(view.condensations) == 2
@@ -526,6 +530,5 @@ def test_summary_event_with_zero_offset() -> None:
 
     assert view.summary_event_index == 0
     assert view.summary_event is not None
-    assert isinstance(view.summary_event.llm_message.content[0], TextContent)
-    assert view.summary_event.llm_message.content[0].text == "Summary at beginning"
+    assert view.summary_event.summary == "Summary at beginning"
     assert view[0] == view.summary_event  # Summary is first event
