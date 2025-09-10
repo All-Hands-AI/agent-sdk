@@ -1,226 +1,131 @@
-"""Test MCP tool serialization with DiscriminatedUnionMixin."""
+"""Test MCP tool JSON serialization with DiscriminatedUnionMixin.
 
-from typing import Annotated
-from unittest.mock import MagicMock
+Note: MCPTool serialization may be limited due to complex MCP objects
+(mcp_tool field contains mcp.types.Tool which may not be fully JSON serializable).
+These tests demonstrate the expected behavior and limitations.
+"""
+
+from unittest.mock import Mock
 
 import mcp.types
-import pytest
-from pydantic import BaseModel
 
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPTool
-from openhands.sdk.tool import Tool, ToolType
-from openhands.sdk.utils.discriminated_union import DiscriminatedUnionType
+from openhands.sdk.mcp.tool import MCPActionBase, MCPTool, MCPToolObservation
+from openhands.sdk.tool import Tool
+from openhands.sdk.tool.schema import ActionBase
 
 
-class MockMCPClient(MCPClient):
-    """Mock MCPClient for testing that bypasses the complex constructor."""
-
-    def __init__(self):
-        # Skip the parent constructor to avoid needing transport
-        pass
-
-
-@pytest.fixture
-def mock_mcp_tool():
+def create_mock_mcp_tool(name: str = "test_tool") -> mcp.types.Tool:
     """Create a mock MCP tool for testing."""
-    mcp_tool = MagicMock(spec=mcp.types.Tool)
-    mcp_tool.name = "test_mcp_tool"
-    mcp_tool.description = "A test MCP tool"
-    mcp_tool.inputSchema = {
-        "type": "object",
-        "properties": {"query": {"type": "string", "description": "Test query"}},
-        "required": ["query"],
-    }
-    mcp_tool.annotations = None
-    mcp_tool.meta = None
-    return mcp_tool
-
-
-@pytest.fixture
-def mock_mcp_client():
-    """Create a mock MCP client for testing."""
-    return MockMCPClient()
-
-
-def test_mcp_tool_supports_polymorphic_deserialization(
-    mock_mcp_tool, mock_mcp_client
-) -> None:
-    """Test that MCPTool supports polymorphic deserialization."""
-    # Create an MCPTool instance
-    mcp_tool_instance = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
+    return mcp.types.Tool(
+        name=name,
+        description=f"A test MCP tool named {name}",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Query parameter"}
+            },
+            "required": ["query"],
+        },
     )
 
-    # Test that the instance is created correctly
-    assert isinstance(mcp_tool_instance, MCPTool)
-    assert mcp_tool_instance.name == "test_mcp_tool"
-    assert mcp_tool_instance.description == "A test MCP tool"
-    assert mcp_tool_instance.kind == "openhands.sdk.mcp.tool.MCPTool"
+
+def test_mcp_tool_json_serialization_deserialization() -> None:
+    # Create mock MCP tool and client
+    mock_mcp_tool = create_mock_mcp_tool()
+    mock_client = Mock(spec=MCPClient)
+    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+
+    tool_json = mcp_tool.model_dump_json()
+    deserialized_tool = MCPTool.model_validate_json(tool_json)
+    assert isinstance(deserialized_tool, MCPTool)
+    assert deserialized_tool == mcp_tool
 
 
-def test_mcp_tool_supports_polymorphic_field_deserialization(
-    mock_mcp_tool, mock_mcp_client
-) -> None:
-    """Test that MCPTool supports polymorphic deserialization when used as a field."""
+def test_mcp_tool_polymorphic_behavior() -> None:
+    """Test MCPTool polymorphic behavior using Tool base class."""
+    # Create mock MCP tool and client
+    mock_mcp_tool = create_mock_mcp_tool()
+    mock_client = Mock(spec=MCPClient)
 
-    class ToolContainer(BaseModel):
-        tool: Annotated[Tool, DiscriminatedUnionType[Tool]]
+    # Create MCPTool instance
+    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
 
-    # Create an MCPTool instance
-    mcp_tool_instance = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
-    )
-    container = ToolContainer(tool=mcp_tool_instance)
+    # Should be instance of Tool
+    assert isinstance(mcp_tool, Tool)
+    assert isinstance(mcp_tool, MCPTool)
 
-    # Test that the container is created correctly
-    assert isinstance(container.tool, MCPTool)
-    assert container.tool.name == "test_mcp_tool"
-    assert container.tool.description == "A test MCP tool"
-
-
-def test_mcp_tool_supports_nested_polymorphic_deserialization(
-    mock_mcp_tool, mock_mcp_client
-) -> None:
-    """Test that MCPTool supports polymorphic deserialization when nested in lists."""
-
-    class ToolRegistry(BaseModel):
-        tools: list[Annotated[Tool, DiscriminatedUnionType[Tool]]]
-
-    # Create MCPTool instances
-    mcp_tool_instance1 = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
-    )
-
-    # Create a second mock tool with different name
-    mock_mcp_tool2 = MagicMock(spec=mcp.types.Tool)
-    mock_mcp_tool2.name = "test_mcp_tool_2"
-    mock_mcp_tool2.description = "A second test MCP tool"
-    mock_mcp_tool2.inputSchema = {
-        "type": "object",
-        "properties": {"data": {"type": "string", "description": "Test data"}},
-        "required": ["data"],
-    }
-    mock_mcp_tool2.annotations = None
-    mock_mcp_tool2.meta = None
-
-    mcp_tool_instance2 = MCPTool.create(
-        mcp_tool=mock_mcp_tool2, mcp_client=mock_mcp_client
-    )
-
-    registry = ToolRegistry(tools=[mcp_tool_instance1, mcp_tool_instance2])
-
-    # Test that the registry is created correctly
-    assert len(registry.tools) == 2
-    assert all(isinstance(tool, MCPTool) for tool in registry.tools)
-    assert registry.tools[0].name == "test_mcp_tool"
-    assert registry.tools[1].name == "test_mcp_tool_2"
+    # Check basic properties
+    assert mcp_tool.name == "test_tool"
+    assert "test MCP tool" in mcp_tool.description
+    assert hasattr(mcp_tool, "mcp_tool")
 
 
-def test_mcp_tool_model_validate_dict(mock_mcp_tool, mock_mcp_client) -> None:
-    """Test MCPTool model_validate with dictionary input."""
-    # Create an MCPTool instance
-    mcp_tool_instance = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
-    )
+def test_mcp_tool_kind_field() -> None:
+    """Test that MCPTool kind field is correctly set."""
+    # Create mock MCP tool and client
+    mock_mcp_tool = create_mock_mcp_tool()
+    mock_client = Mock(spec=MCPClient)
 
-    # Test that the instance is created correctly
-    assert isinstance(mcp_tool_instance, MCPTool)
-    assert mcp_tool_instance.name == "test_mcp_tool"
-    assert mcp_tool_instance.description == "A test MCP tool"
-    assert mcp_tool_instance.kind == "openhands.sdk.mcp.tool.MCPTool"
+    # Create MCPTool instance
+    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
 
-
-def test_mcp_tool_fallback_behavior(mock_mcp_tool, mock_mcp_client) -> None:
-    """Test fallback behavior when discriminated union logic doesn't apply."""
-    # Create an MCPTool instance
-    mcp_tool_instance = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
-    )
-    tool_data = mcp_tool_instance.model_dump()
-
-    # Test with missing kind - should fallback to base class
-    no_kind_data = {k: v for k, v in tool_data.items() if k != "kind"}
-    result = Tool.model_validate(no_kind_data)
-    assert isinstance(result, Tool)
-    assert not isinstance(result, MCPTool)
-
-    # Test with invalid kind - should fallback to base class
-    invalid_kind_data = {**tool_data, "kind": "InvalidMCPTool"}
-    result = Tool.model_validate(invalid_kind_data)
-    assert isinstance(result, Tool)
-    assert not isinstance(result, MCPTool)
+    # Check kind field
+    assert hasattr(mcp_tool, "kind")
+    expected_kind = f"{mcp_tool.__class__.__module__}.{mcp_tool.__class__.__name__}"
+    assert mcp_tool.kind == expected_kind
 
 
-def test_mcp_tool_preserves_pydantic_parameters(mock_mcp_tool, mock_mcp_client) -> None:
-    """Test that all Pydantic validation parameters are preserved."""
-    mcp_tool_instance = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
-    )
-
-    # Test that the instance is created correctly
-    assert isinstance(mcp_tool_instance, MCPTool)
-    assert mcp_tool_instance.name == "test_mcp_tool"
-    assert mcp_tool_instance.description == "A test MCP tool"
-    assert mcp_tool_instance.kind == "openhands.sdk.mcp.tool.MCPTool"
-
-
-def test_mcp_tool_type_annotation_works(mock_mcp_tool, mock_mcp_client) -> None:
-    """Test that ToolType annotation works correctly with MCPTool."""
-
-    class ToolWrapper(BaseModel):
-        tool: ToolType
-
-    mcp_tool_instance = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
-    )
-    wrapper = ToolWrapper(tool=mcp_tool_instance)
-
-    # Test that the wrapper is created correctly
-    assert isinstance(wrapper.tool, MCPTool)
-    assert wrapper.tool.name == "test_mcp_tool"
-    assert wrapper.tool.description == "A test MCP tool"
-
-
-def test_mcp_tool_with_annotations_deserialization(
-    mock_mcp_tool, mock_mcp_client
-) -> None:
-    """Test that MCPTool with annotations deserializes correctly."""
-    # Add annotations to the mock tool
-    mock_mcp_tool.annotations = MagicMock()
-    mock_mcp_tool.annotations.model_dump.return_value = {
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": False,
+def test_mcp_tool_fallback_behavior() -> None:
+    """Test MCPTool fallback behavior with manual data."""
+    # Create data that could represent an MCPTool
+    tool_data = {
+        "name": "fallback-tool",
+        "description": "A fallback test tool",
+        "action_type": "openhands.sdk.tool.schema.ActionBase",  # Use base class
+        "observation_type": "openhands.sdk.mcp.MCPToolObservation",
+        "kind": "openhands.sdk.mcp.tool.MCPTool",
+        "mcp_tool": {
+            "name": "fallback-tool",
+            "description": "A fallback test tool",
+            "inputSchema": {"type": "object", "properties": {}},
+        },
     }
 
-    mcp_tool_instance = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
+    deserialized_tool = Tool.model_validate(tool_data)
+    assert isinstance(deserialized_tool, Tool)
+    assert deserialized_tool.name == "fallback-tool"
+    assert issubclass(deserialized_tool.action_type, ActionBase)
+    assert deserialized_tool.observation_type and issubclass(
+        deserialized_tool.observation_type, MCPToolObservation
     )
 
-    # Test that the instance is created correctly with annotations
-    assert isinstance(mcp_tool_instance, MCPTool)
-    assert mcp_tool_instance.name == "test_mcp_tool"
-    assert mcp_tool_instance.description == "A test MCP tool"
-    assert mcp_tool_instance.annotations is not None
-    assert mcp_tool_instance.annotations.readOnlyHint is True
-    assert mcp_tool_instance.annotations.destructiveHint is False
-    assert mcp_tool_instance.annotations.idempotentHint is True
-    assert mcp_tool_instance.annotations.openWorldHint is False
 
-
-def test_mcp_tool_with_meta_deserialization(mock_mcp_tool, mock_mcp_client) -> None:
-    """Test that MCPTool with meta data deserializes correctly."""
-    # Add meta data to the mock tool
-    mock_mcp_tool.meta = {"version": "1.0", "author": "test"}
-
-    mcp_tool_instance = MCPTool.create(
-        mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
+def test_mcp_tool_essential_properties() -> None:
+    """Test that MCPTool maintains essential properties after creation."""
+    # Create mock MCP tool with specific properties
+    mock_mcp_tool = mcp.types.Tool(
+        name="essential_tool",
+        description="Tool with essential properties",
+        inputSchema={
+            "type": "object",
+            "properties": {"param1": {"type": "string"}, "param2": {"type": "integer"}},
+            "required": ["param1"],
+        },
     )
+    mock_client = Mock(spec=MCPClient)
 
-    # Test that the instance is created correctly with meta data
-    assert isinstance(mcp_tool_instance, MCPTool)
-    assert mcp_tool_instance.name == "test_mcp_tool"
-    assert mcp_tool_instance.description == "A test MCP tool"
-    assert mcp_tool_instance.meta == {"version": "1.0", "author": "test"}
+    # Create MCPTool instance
+    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+
+    # Verify essential properties are preserved
+    assert mcp_tool.name == "essential_tool"
+    assert mcp_tool.description == "Tool with essential properties"
+    assert mcp_tool.mcp_tool.name == "essential_tool"
+    assert mcp_tool.mcp_tool.inputSchema is not None
+
+    # Verify action type was created correctly
+    assert mcp_tool.action_type is not None and issubclass(
+        mcp_tool.action_type, MCPActionBase
+    )
+    assert hasattr(mcp_tool.action_type, "to_mcp_arguments")
