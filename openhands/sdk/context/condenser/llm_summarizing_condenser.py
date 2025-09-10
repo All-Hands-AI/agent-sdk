@@ -3,7 +3,7 @@ import os
 from pydantic import Field, model_validator
 
 from openhands.sdk.context.condenser.base import RollingCondenser
-from openhands.sdk.context.utils import render_template
+from openhands.sdk.context.prompts import render_template
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
