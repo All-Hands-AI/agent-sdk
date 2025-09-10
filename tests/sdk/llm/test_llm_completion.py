@@ -400,7 +400,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     # Test with native function calling enabled (default behavior for gpt-4o)
     llm_native = LLM(
         model="gpt-4o",
-        api_key=SecretStr("test_key"),
+        api_key="test_key",
         native_tool_calling=True,  # Explicitly enable native function calling
         num_retries=2,
         retry_min_wait=1,
