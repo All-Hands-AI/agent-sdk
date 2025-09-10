@@ -20,25 +20,14 @@ class View(BaseModel):
     """Linearly ordered view of events.
 
     Produced by a condenser to indicate the included events are ready to process as LLM
-    input. Also contains fields with information from the condensation process to aid
-    in deciding whether further condensation is needed.
+    input.
     """
 
     events: list[LLMConvertibleEvent]
-
     unhandled_condensation_request: bool = False
-    """Whether there is an unhandled condensation request in the view."""
-
-    condensations: list[Condensation] = []
-    """A list of condensations that were processed to produce the view."""
 
     def __len__(self) -> int:
         return len(self.events)
-
-    @property
-    def most_recent_condensation(self) -> Condensation | None:
-        """Return the most recent condensation, or None if no condensations exist."""
-        return self.condensations[-1] if self.condensations else None
 
     # To preserve list-like indexing, we ideally support slicing and position-based
     # indexing. The only challenge with that is switching the return type based on the
@@ -68,10 +57,8 @@ class View(BaseModel):
         condensation events.
         """
         forgotten_event_ids: set[str] = set()
-        condensations: list[Condensation] = []
         for event in events:
             if isinstance(event, Condensation):
-                condensations.append(event)
                 forgotten_event_ids.update(event.forgotten)
                 # Make sure we also forget the condensation action itself
                 forgotten_event_ids.add(event.id)
@@ -126,5 +113,4 @@ class View(BaseModel):
         return View(
             events=kept_events,
             unhandled_condensation_request=unhandled_condensation_request,
-            condensations=condensations,
         )
