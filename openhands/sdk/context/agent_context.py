@@ -8,7 +8,7 @@ from openhands.sdk.context.microagents import (
     MicroagentKnowledge,
     RepoMicroagent,
 )
-from openhands.sdk.context.prompt import render_template
+from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
