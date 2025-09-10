@@ -31,13 +31,13 @@ Core concepts
 
 ## Architecture Documentation
 
-Comprehensive architecture documentation is available in the [`../architecture/`](../architecture/) folder:
+Comprehensive architecture documentation is available in the [`architecture/`](./architecture/) folder:
 
-- **[Overview](../architecture/overview.md)** - High-level component interactions and design principles
-- **[Tool System](../architecture/tool.md)** - Tool framework, built-ins, runtime tools, and MCP integration  
-- **[Agent Architecture](../architecture/agent.md)** - Agent execution flow, system prompts, and context management
-- **[LLM Integration](../architecture/llm.md)** - Provider support, message types, and advanced features
-- **[Conversation System](../architecture/conversation.md)** - State management, event system, and persistence
+- **[Overview](./architecture/overview.md)** - High-level component interactions and design principles
+- **[Tool System](./architecture/tool.md)** - Tool framework, built-ins, runtime tools, and MCP integration  
+- **[Agent Architecture](./architecture/agent.md)** - Agent execution flow, system prompts, and context management
+- **[LLM Integration](./architecture/llm.md)** - Provider support, message types, and advanced features
+- **[Conversation System](./architecture/conversation.md)** - State management, event system, and persistence
 
 ## Additional Documentation
 

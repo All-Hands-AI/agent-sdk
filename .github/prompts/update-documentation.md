@@ -19,11 +19,11 @@ You are a world-class documentation writer tasked with keeping the OpenHands Age
 
 ### 2. Documentation Review
 Review these key files for accuracy:
-- `architecture/overview.md` - High-level component interactions and design principles
-- `architecture/tool.md` - Tool system, inheritance, and MCP integration
-- `architecture/agent.md` - Agent architecture and execution flow
-- `architecture/llm.md` - LLM integration and capabilities
-- `architecture/conversation.md` - Conversation interface and persistence
+- `docs/architecture/overview.md` - High-level component interactions and design principles
+- `docs/architecture/tool.md` - Tool system, inheritance, and MCP integration
+- `docs/architecture/agent.md` - Agent architecture and execution flow
+- `docs/architecture/llm.md` - LLM integration and capabilities
+- `docs/architecture/conversation.md` - Conversation interface and persistence
 - `docs/README.md` - Overview and navigation
 - `docs/mcp.md` - MCP integration guide
 - `README.md` - Root project documentation
@@ -31,7 +31,7 @@ Review these key files for accuracy:
 ### 3. Content Updates Required
 
 #### Architecture Diagrams
-- Keep mermaid diagrams SIMPLE and READABLE across all architecture/ files
+- Keep mermaid diagrams SIMPLE and READABLE across all docs/architecture/ files
 - Focus on core components and relationships, not every possible class
 - Include all current runtime tools: BashTool, FileEditorTool, TaskTrackerTool, etc.
 - Verify component interactions and inheritance reflect actual codebase structure
@@ -44,11 +44,11 @@ For each tool, ensure:
 - Clear descriptions of functionality
 
 #### Core Framework Classes
-Verify documentation across architecture/ files for:
-- `Tool`, `ActionBase`, `ObservationBase`, `ToolExecutor` (architecture/tool.md)
-- `Agent`, `AgentBase`, system prompts (architecture/agent.md)
-- `LLM`, message types, provider support (architecture/llm.md)
-- `Conversation`, `ConversationState`, event system (architecture/conversation.md)
+Verify documentation across docs/architecture/ files for:
+- `Tool`, `ActionBase`, `ObservationBase`, `ToolExecutor` (docs/architecture/tool.md)
+- `Agent`, `AgentBase`, system prompts (docs/architecture/agent.md)
+- `LLM`, message types, provider support (docs/architecture/llm.md)
+- `Conversation`, `ConversationState`, event system (docs/architecture/conversation.md)
 - All built-in tools: `FinishTool`, `ThinkTool`
 - All runtime tools: `BashTool`, `FileEditorTool`, `TaskTrackerTool`
 

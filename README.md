@@ -266,13 +266,13 @@ context = AgentContext(
 
 ## Documentation
 
-Comprehensive architecture documentation is available in the [`architecture/`](./architecture/) folder:
+Comprehensive architecture documentation is available in the [`docs/architecture/`](./docs/architecture/) folder:
 
-- **[Overview](./architecture/overview.md)** - High-level component interactions and design principles
-- **[Tool System](./architecture/tool.md)** - Tool framework, built-ins, runtime tools, and MCP integration
-- **[Agent Architecture](./architecture/agent.md)** - Agent execution flow, system prompts, and context management
-- **[LLM Integration](./architecture/llm.md)** - Provider support, message types, and advanced features
-- **[Conversation System](./architecture/conversation.md)** - State management, event system, and persistence
+- **[Overview](./docs/architecture/overview.md)** - High-level component interactions and design principles
+- **[Tool System](./docs/architecture/tool.md)** - Tool framework, built-ins, runtime tools, and MCP integration
+- **[Agent Architecture](./docs/architecture/agent.md)** - Agent execution flow, system prompts, and context management
+- **[LLM Integration](./docs/architecture/llm.md)** - Provider support, message types, and advanced features
+- **[Conversation System](./docs/architecture/conversation.md)** - State management, event system, and persistence
 
 Additional documentation:
 - **[Getting Started](./docs/getting-started.md)** - Step-by-step setup guide
