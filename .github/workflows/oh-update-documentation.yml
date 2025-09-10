@@ -1,0 +1,30 @@
+name: Update Documentation (by OpenHands)
+
+on:
+  schedule:
+    # Run every 7 days at 2 AM UTC on Sundays
+    - cron: '0 2 * * 0'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Documentation with OpenHands
+        uses: All-Hands-AI/openhands-github-action@v1
+        with:
+          prompt: .github/prompts/update-documentation.md
+          repository: ${{ github.repository }}
+          selected-branch: main
+          base-url: https://app.all-hands.dev
+          poll: "true"
+          timeout-seconds: 1800
+          poll-interval-seconds: 30
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          openhands-api-key: ${{ secrets.OPENHANDS_API_KEY }}

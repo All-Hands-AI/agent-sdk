@@ -1,3 +1,8 @@
+---
+title: LLM Test Data Fixtures
+description: Real LLM completion data collected for comprehensive testing of the LLM class and related components. Includes function calling and non-function calling data.
+---
+
 # LLM Test Data Fixtures
 
 This directory contains real LLM completion data collected from `examples/hello_world.py` for comprehensive testing of the LLM class and related components.
@@ -6,7 +11,7 @@ This directory contains real LLM completion data collected from `examples/hello_
 
 ```
 tests/fixtures/llm_data/
-├── README.md                      # This file
+├── README.mdx                     # This file
 ├── fncall-llm-message.json       # Function calling conversation messages
 ├── nonfncall-llm-message.json    # Non-function calling conversation messages
 ├── llm-logs/                     # Raw function calling completion logs

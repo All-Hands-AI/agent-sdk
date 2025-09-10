@@ -8,14 +8,14 @@ from openhands.sdk.context.microagents import (
     MicroagentKnowledge,
     RepoMicroagent,
 )
-from openhands.sdk.context.utils import render_template
+from openhands.sdk.context.prompts import render_template
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
 
-PROMPT_DIR = pathlib.Path(__file__).parent / "utils" / "prompts"
+PROMPT_DIR = pathlib.Path(__file__).parent / "prompts" / "templates"
 
 
 class AgentContext(BaseModel):

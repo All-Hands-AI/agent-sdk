@@ -1,3 +1,8 @@
+---
+title: OpenHands Agent SDK
+description: A clean, modular SDK for building AI agents with OpenHands. Complete architectural refactor emphasizing simplicity, maintainability, and developer experience.
+---
+
 # OpenHands Agent SDK
 
 A clean, modular SDK for building AI agents with OpenHands. This project represents a complete architectural refactor from OpenHands V0, emphasizing simplicity, maintainability, and developer experience.
@@ -263,6 +268,21 @@ context = AgentContext(
     user_message_suffix="The first character of your response should be 'I'",
 )
 ```
+
+## Documentation
+
+Comprehensive architecture documentation is available in the [`docs/architecture/`](./docs/architecture/) folder:
+
+- **[Overview](./docs/architecture/overview.mdx)** - High-level component interactions and design principles
+- **[Tool System](./docs/architecture/tool.mdx)** - Tool framework, built-ins, runtime tools, and MCP integration
+- **[Agent Architecture](./docs/architecture/agent.mdx)** - Agent execution flow, system prompts, and context management
+- **[LLM Integration](./docs/architecture/llm.mdx)** - Provider support, message types, and advanced features
+- **[Conversation System](./docs/architecture/conversation.mdx)** - State management, event system, and persistence
+
+Additional documentation:
+- **[Getting Started](./docs/getting-started.mdx)** - Step-by-step setup guide
+- **[Examples](./docs/examples.mdx)** - Code examples and use cases
+- **[MCP Integration](./docs/mcp.mdx)** - Model Context Protocol integration guide
 
 ## Development Workflow
 
