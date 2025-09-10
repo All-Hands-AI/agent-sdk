@@ -1,5 +1,5 @@
 ---
-title: Tool System
+title: Tool System and MCP
 description: Flexible tool system enabling agents to interact with external systems. Typed action/observation pattern with built-in and runtime implementations.
 ---
 
@@ -190,24 +190,29 @@ mcp_tools = create_mcp_tools(mcp_config, timeout=30)
 ```
 
 ### MCP Configuration Formats
-```python
-# Local stdio server
-{
-    "transport": "stdio",
-    "command": "python",
-    "args": ["./server.py", "--verbose"],
-    "env": {"DEBUG": "true"},
-    "cwd": "/path/to/server"
-}
 
-# Remote HTTP/SSE server  
-{
-    "transport": "http",  # or "sse"
-    "url": "https://api.example.com/mcp",
-    "headers": {"Authorization": "Bearer token"},
-    "auth": "oauth"
+OpenHands Agent SDK uses the [FastMCP configuration format](https://gofastmcp.com/clients/client#configuration-format), which provides a standardized way to configure MCP servers.
+
+```python
+config = {
+    "mcpServers": {
+        "server_name": {
+            # Remote HTTP/SSE server
+            "transport": "http",  # or "sse" 
+            "url": "https://api.example.com/mcp",
+            "headers": {"Authorization": "Bearer token"},
+            "auth": "oauth"  # or bearer token string
+        },
+        "local_server": {
+            # Local stdio server
+            "transport": "stdio",
+            "command": "python",
+            "args": ["./server.py", "--verbose"],
+            "env": {"DEBUG": "true"},
+            "cwd": "/path/to/server",
+        }
+    }
 }
-```
 
 ### Combining Built-in and MCP Tools
 ```python
