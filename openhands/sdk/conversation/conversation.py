@@ -1,9 +1,10 @@
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Callable, Dict, Iterable
 
 
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
 
+from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import (
@@ -72,6 +73,9 @@ class Conversation:
 
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
+            # Initialize secrets manager
+            if self.state.get_secrets_manager() is None:
+                self.state.set_secrets_manager(SecretsManager())
 
     @property
     def id(self) -> str:
@@ -218,3 +222,18 @@ class Conversation:
             pause_event = PauseEvent()
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
+
+    def add_secrets(self, secrets: Dict[str, Callable[[str], str]]) -> None:
+        """Add secrets to the conversation.
+
+        Args:
+            secrets: Dictionary mapping secret keys to callable functions.
+                    Each callable takes a string (the key) and returns the secret value.
+        """
+        with self.state:
+            secrets_manager = self.state.get_secrets_manager()
+            if secrets_manager is None:
+                secrets_manager = SecretsManager()
+                self.state.set_secrets_manager(secrets_manager)
+            secrets_manager.add_secrets(secrets)
+        logger.info(f"Added {len(secrets)} secrets to conversation")

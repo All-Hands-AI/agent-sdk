@@ -1,10 +1,14 @@
 import uuid
 from threading import RLock, get_ident
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from openhands.sdk.event import Event
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
 class ConversationState(BaseModel):
@@ -28,6 +32,7 @@ class ConversationState(BaseModel):
     # Private attrs (NOT Fields) — allowed to start with underscore
     _lock: RLock = PrivateAttr(default_factory=RLock)
     _owner_tid: Optional[int] = PrivateAttr(default=None)
+    _secrets_manager: Optional["SecretsManager"] = PrivateAttr(default=None)
 
     # Lock/guard API
     def acquire(self) -> None:
@@ -48,3 +53,11 @@ class ConversationState(BaseModel):
     def assert_locked(self) -> None:
         if self._owner_tid != get_ident():
             raise RuntimeError("State not held by current thread")
+
+    def get_secrets_manager(self) -> Optional["SecretsManager"]:
+        """Get the secrets manager instance."""
+        return self._secrets_manager
+
+    def set_secrets_manager(self, secrets_manager: "SecretsManager") -> None:
+        """Set the secrets manager instance."""
+        self._secrets_manager = secrets_manager

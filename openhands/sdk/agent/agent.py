@@ -338,10 +338,35 @@ class Agent(AgentBase):
                 "as it was checked earlier."
             )
 
+        # Check for secrets injection for bash commands
+        action = action_event.action
+        if tool.name == "execute_bash" and hasattr(action, "command"):
+            secrets_manager = state.get_secrets_manager()
+            if secrets_manager and secrets_manager.has_secrets():
+                # Import here to avoid circular imports
+                from openhands.tools.execute_bash.definition import ExecuteBashAction
+
+                if isinstance(action, ExecuteBashAction):
+                    original_command = action.command
+                    modified_command = secrets_manager.inject_secrets_into_bash_command(
+                        original_command
+                    )
+                    if modified_command != original_command:
+                        # Create a new action with the modified command
+                        action = ExecuteBashAction(
+                            command=modified_command,
+                            is_input=action.is_input,
+                            timeout=action.timeout,
+                        )
+                        logger.debug(
+                            f"Modified bash command with secrets injection: "
+                            f"{original_command} -> {modified_command}"
+                        )
+
         # Execute actions!
         if tool.executor is None:
             raise RuntimeError(f"Tool '{tool.name}' has no executor")
-        observation: ObservationBase = tool.executor(action_event.action)
+        observation: ObservationBase = tool.executor(action)
         assert isinstance(observation, ObservationBase), (
             f"Tool '{tool.name}' executor must return an ObservationBase"
         )
