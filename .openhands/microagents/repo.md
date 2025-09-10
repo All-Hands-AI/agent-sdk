@@ -104,7 +104,7 @@ When reviewing code, provide constructive feedback:
 This repo has two python packages, with unit tests specifically written for each package.
 ```
 ├── Makefile
-├── README.md
+├── README.mdx
 ├── examples
 ├── openhands
 │   ├── __init__.py

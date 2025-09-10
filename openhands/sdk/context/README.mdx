@@ -1,3 +1,8 @@
+---
+title: Context
+description: Microagents and knowledge that agents can rely on during conversations. Provides repository context and structured knowledge.
+---
+
 # Context
 
 Context provides microagents and knowledge the agent can rely on during a conversation.
@@ -23,4 +28,3 @@ agent_context = AgentContext(
     ]
 )
 ```
-
