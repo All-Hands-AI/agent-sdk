@@ -5,7 +5,7 @@ from openhands.sdk.event import Event
 from openhands.sdk.event.condenser import (
     Condensation,
     CondensationRequest,
-    CondensationSummary,
+    CondensationSummaryEvent,
 )
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import Message, TextContent
@@ -84,7 +84,7 @@ def test_view_inserts_summary() -> None:
         assert len(view) == 6  # 5 message events + 1 summary observation
         for index, event in enumerate(view.events):
             if index == offset:
-                assert isinstance(event, CondensationSummary)
+                assert isinstance(event, CondensationSummaryEvent)
                 assert event.summary == "My Summary"
 
             # Events before where the summary is inserted will have content

@@ -2,7 +2,7 @@ from openhands.sdk.event.base import Event, EventBase, LLMConvertibleEvent
 from openhands.sdk.event.condenser import (
     Condensation,
     CondensationRequest,
-    CondensationSummary,
+    CondensationSummaryEvent,
 )
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
@@ -28,5 +28,5 @@ __all__ = [
     "Event",
     "Condensation",
     "CondensationRequest",
-    "CondensationSummary",
+    "CondensationSummaryEvent",
 ]

@@ -21,6 +21,7 @@ from openhands.sdk import (
     Tool,
     get_logger,
 )
+from openhands.sdk.io.local import LocalFileStore
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
@@ -48,7 +49,7 @@ tools: list[Tool] = [
 # exceeds max_size
 condenser = LLMSummarizingCondenser(
     llm=llm,
-    max_size=20,  # Trigger condensation when conversation has more than 20 events
+    max_size=10,  # Trigger condensation when conversation has more than 10 events
     keep_first=4,  # Always keep the first 4 events (system prompt, initial messages)
 )
 
@@ -63,7 +64,11 @@ def conversation_callback(event: Event):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+file_store = LocalFileStore("./.conversations")
+
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+)
 
 # Send multiple messages to demonstrate condensation
 print("Sending multiple messages to demonstrate LLM Summarizing Condenser...")
@@ -134,6 +139,24 @@ conversation.send_message(
 )
 conversation.run()
 
+
+print("=" * 100)
+print("Conversation finished. Got the following LLM messages:")
+for i, message in enumerate(llm_messages):
+    print(f"Message {i}: {str(message)[:200]}")
+
+# Conversation persistence
+print("Serializing conversation...")
+
+del conversation
+
+# Deserialize the conversation
+print("Deserializing conversation...")
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+)
+
+print("Sending message to deserialized conversation...")
 conversation.send_message(
     message=Message(
         role="user",
@@ -141,6 +164,7 @@ conversation.send_message(
     )
 )
 conversation.run()
+
 
 print("=" * 100)
 print("Conversation finished with LLM Summarizing Condenser.")

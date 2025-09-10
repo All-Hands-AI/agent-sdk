@@ -8,6 +8,7 @@ from rich.text import Text
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
+    CondensationSummaryEvent,
     Event,
     MessageEvent,
     ObservationEvent,
@@ -170,6 +171,14 @@ class ConversationVisualizer:
                 content,
                 title=f"[bold {_PAUSE_COLOR}]User Paused[/bold {_PAUSE_COLOR}]",
                 border_style=_PAUSE_COLOR,
+                expand=True,
+            )
+        elif isinstance(event, CondensationSummaryEvent):
+            return Panel(
+                content,
+                title=f"[bold {_SYSTEM_COLOR}]Condensation Summary"
+                f"[/bold {_SYSTEM_COLOR}]",
+                border_style=_SYSTEM_COLOR,
                 expand=True,
             )
         else:
