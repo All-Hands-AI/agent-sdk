@@ -2,7 +2,6 @@
 
 from typing import Annotated
 
-import pytest
 from pydantic import BaseModel
 
 from openhands.sdk.agent import Agent, AgentType
@@ -14,7 +13,7 @@ def test_agent_supports_polymorphic_deserialization() -> None:
     """Test that Agent supports polymorphic deserialization from dict data."""
     # Create a simple LLM instance
     llm = LLM(model="test-model")
-    
+
     # Create a simple agent instance
     agent_data = {
         "llm": llm.model_dump(),

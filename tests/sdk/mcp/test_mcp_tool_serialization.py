@@ -152,9 +152,7 @@ def test_mcp_tool_fallback_behavior(mock_mcp_tool, mock_mcp_client) -> None:
     assert not isinstance(result, MCPTool)
 
 
-def test_mcp_tool_preserves_pydantic_parameters(
-    mock_mcp_tool, mock_mcp_client
-) -> None:
+def test_mcp_tool_preserves_pydantic_parameters(mock_mcp_tool, mock_mcp_client) -> None:
     """Test that all Pydantic validation parameters are preserved."""
     mcp_tool_instance = MCPTool.create(
         mcp_tool=mock_mcp_tool, mcp_client=mock_mcp_client
