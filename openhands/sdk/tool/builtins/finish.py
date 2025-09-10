@@ -1,4 +1,5 @@
 from pydantic import Field
+from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
@@ -20,6 +21,12 @@ class FinishObservation(ObservationBase):
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation - empty since action shows the message."""
+        # Don't duplicate the finish message display - action already shows it
+        return Text()
 
 
 TOOL_DESCRIPTION = """Signals the completion of the current task or conversation.

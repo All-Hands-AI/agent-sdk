@@ -15,8 +15,10 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
+from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 logger = get_logger(__name__)
@@ -37,6 +39,7 @@ class Conversation:
     def __init__(
         self,
         agent: "AgentType",
+        persist_filestore: FileStore | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         visualize: bool = True,
@@ -52,13 +55,28 @@ class Conversation:
                       application to provide visualization through callbacks.
         """
         self.agent = agent
-        self.state = ConversationState()
+        self._persist_filestore = persist_filestore
+        if self._persist_filestore is not None and self._persist_filestore.list("."):
+            self.state = ConversationState.load(self._persist_filestore)
+            self.state.agent = agent.resolve_diff_from_deserialized(self.state.agent)
+            if agent.model_dump(exclude_none=True) != self.state.agent.model_dump(
+                exclude_none=True
+            ):
+                raise ValueError(
+                    "The agent provided is different from the one in persisted state. "
+                    "Please use the same agent instance to resume the conversation. \n"
+                    f"Diff: {pretty_pydantic_diff(agent, self.state.agent)}"
+                )
+        else:
+            self.state = ConversationState(agent=agent)
 
         # Default callback: persist every event to state
-        def _append_event(e):
+        def _default_callback(e):
             self.state.events.append(e)
+            if self._persist_filestore is not None:
+                self.state.save(self._persist_filestore)
 
-        composed_list = (callbacks if callbacks else []) + [_append_event]
+        composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
             self._visualizer = create_default_visualizer()

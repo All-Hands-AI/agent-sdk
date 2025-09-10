@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
 
@@ -11,8 +12,7 @@ from openhands.sdk.conversation.visualizer import ConversationVisualizer
 @pytest.fixture
 def mock_agent():
     """Create a mock agent for testing."""
-    agent = Mock()
-    agent.init_state = Mock()
+    agent = Mock(spec=Agent)
     return agent
 
 

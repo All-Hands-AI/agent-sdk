@@ -196,4 +196,5 @@ The simplified pattern eliminates the need for manual executor instantiation and
 - You should put unit tests in the corresponding test folder. For example, to test `openhands.sdk.tool/tool.py`, you should put tests under `openhands.sdk.tests/tool/test_tool.py`.
 - DON'T write TEST CLASSES unless absolutely necessary!
 - If you find yourself duplicating logics in preparing mocks, loading data etc, these logic should be fixtures in conftest.py!
+- Please test only the logic implemented in the current codebase. Do not test functionality (e.g., BaseModel.model_dumps()) that is not implemented in this repository.
 </TESTING>

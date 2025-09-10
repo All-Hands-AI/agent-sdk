@@ -4,6 +4,7 @@ from openhands.sdk.agent import Agent, AgentBase
 from openhands.sdk.context import AgentContext
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
 from openhands.sdk.event import Event, EventBase, LLMConvertibleEvent
+from openhands.sdk.io import FileStore, LocalFileStore
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
@@ -44,5 +45,7 @@ __all__ = [
     "EventBase",
     "LLMConvertibleEvent",
     "AgentContext",
+    "FileStore",
+    "LocalFileStore",
     "__version__",
 ]
