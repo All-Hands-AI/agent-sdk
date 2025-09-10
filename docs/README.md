@@ -3,7 +3,7 @@
 A clean, modular SDK for building AI agents. This repository provides two Python packages:
 
 - openhands.sdk — core agent framework (agent, conversation, context, LLM, events, tools API)
-- openhands.tools — production-ready tool implementations (Bash, File Editor)
+- openhands.tools — production-ready tool implementations (Bash, File Editor, Task Tracker)
 
 Goals:
 - Simple mental model: short, focused modules with clear responsibilities

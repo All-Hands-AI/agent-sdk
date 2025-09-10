@@ -2,7 +2,7 @@
 
 Packages
 - openhands.sdk: agent, conversation, config, context, llm, tool, utils
-- openhands.tools: concrete tools (bash, file editor) and executors
+- openhands.tools: concrete tools (bash, file editor, task tracker) and executors
 
 Design principles
 - Keep functions short; minimize indentation depth

@@ -9,83 +9,70 @@ A type-safe tool execution framework with Pydantic schema validation and MCP com
 ```mermaid
 graph TB
     subgraph "Core Framework (openhands/sdk/tool)"
-        Schema[Schema]
+        Tool[Tool]
         ActionBase[ActionBase]
         ObservationBase[ObservationBase]
-        Tool[Tool]
         ToolExecutor[ToolExecutor]
-        ToolAnnotations[ToolAnnotations]
     end
     
     subgraph "Built-in Tools (openhands/sdk/tool/builtins)"
         FinishTool[FinishTool]
-        FinishAction[FinishAction]
-        FinishObservation[FinishObservation]
         ThinkTool[ThinkTool]
-        ThinkAction[ThinkAction]
-        ThinkObservation[ThinkObservation]
     end
     
     subgraph "Runtime Tools (openhands/tools)"
         BashTool[BashTool]
         FileEditorTool[FileEditorTool]
-        BashExecutor[BashExecutor]
-        FileEditorExecutor[FileEditorExecutor]
+        TaskTrackerTool[TaskTrackerTool]
     end
     
-    Schema --> ActionBase
-    Schema --> ObservationBase
-    ActionBase --> FinishAction
-    ActionBase --> ExecuteBashAction
-    ActionBase --> StrReplaceEditorAction
-    ObservationBase --> FinishObservation
-    ObservationBase --> ExecuteBashObservation
-    ObservationBase --> StrReplaceEditorObservation
-    
-    Tool --> BashTool
-    Tool --> FileEditorTool
     Tool --> FinishTool
     Tool --> ThinkTool
+    Tool --> BashTool
+    Tool --> FileEditorTool
+    Tool --> TaskTrackerTool
     
-    ToolExecutor --> BashExecutor
-    ToolExecutor --> FileEditorExecutor
+    ActionBase --> ExecuteBashAction
+    ActionBase --> StrReplaceEditorAction
+    ActionBase --> TaskTrackerAction
     
-    BashTool --> BashExecutor
-    FileEditorTool --> FileEditorExecutor
+    ObservationBase --> ExecuteBashObservation
+    ObservationBase --> StrReplaceEditorObservation
+    ObservationBase --> TaskTrackerObservation
 ```
 
 ## Core Components
 
 ### Schema Base Classes
 
-**Schema** - Base for all input/output schemas
+**Schema** - Base for all input/output schemas ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/schema.py))
 - Converts Pydantic models to MCP-compatible JSON schemas
 - Handles schema normalization and validation
 - Supports dynamic model creation from JSON schemas
 
-**ActionBase** - Input schema for tool actions
+**ActionBase** - Input schema for tool actions ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/schema.py))
 - Inherits from Schema
 - Includes security_risk field for LLM safety assessment
 - Moves ActionBase fields to end of schema for better LLM ordering
 
-**ObservationBase** - Output schema for tool results
+**ObservationBase** - Output schema for tool results ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/schema.py))
 - Inherits from Schema
 - Requires agent_observation property for LLM consumption
 - Allows extra fields for flexibility
 
 ### Tool Framework
 
-**Tool** - Generic tool wrapper with validation
+**Tool** - Generic tool wrapper with validation ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/tool.py))
 - Type parameters: `Tool[ActionT, ObservationT]`
 - Validates inputs before execution
 - Coerces outputs to expected types
 - Exports MCP and OpenAI tool descriptions
 
-**ToolExecutor** - Callable interface for tool logic
+**ToolExecutor** - Callable interface for tool logic ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/tool.py))
 - Generic type: `ToolExecutor[ActionT, ObservationT]`
 - Implements `__call__(action: ActionT) -> ObservationT`
 
-**ToolAnnotations** - MCP-compatible tool metadata
+**ToolAnnotations** - MCP-compatible tool metadata ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/tool.py))
 - readOnlyHint: Tool doesn't modify environment
 - destructiveHint: Tool may perform destructive updates
 - idempotentHint: Repeated calls have no additional effect
@@ -96,11 +83,12 @@ graph TB
 ### Simplified Pattern (Recommended)
 
 ```python
-from openhands.tools import BashTool, FileEditorTool
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 tools = [
     BashTool.create(working_dir="/workspace"),
     FileEditorTool.create(),
+    TaskTrackerTool.create(save_dir="/workspace"),
 ]
 ```
 
@@ -143,37 +131,41 @@ my_tool = Tool(
 )
 ```
 
-## Pydantic Class Inheritance
+## Available Runtime Tools
+
+### BashTool
+Execute bash commands in a persistent shell session.
+```python
+BashTool.create(working_dir="/workspace")
+```
+**Source**: [`openhands/tools/execute_bash/definition.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/execute_bash/definition.py)
+
+### FileEditorTool  
+Edit files using string replacement, creation, and viewing operations.
+```python
+FileEditorTool.create(workspace_root="/workspace")
+```
+**Source**: [`openhands/tools/str_replace_editor/definition.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/str_replace_editor/definition.py)
+
+### TaskTrackerTool
+Manage development tasks with structured tracking and persistence.
+```python
+TaskTrackerTool.create(save_dir="/workspace")  # Saves to TASKS.json
+```
+**Source**: [`openhands/tools/task_tracker/definition.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/task_tracker/definition.py)
+
+## Schema Class Inheritance
 
 ```mermaid
 classDiagram
-    class BaseModel {
-        +model_validate()
-        +model_dump()
-    }
-    
-    class Schema {
-        +to_mcp_schema() dict
-        +from_mcp_schema() Schema
-        -_process_schema_node()
-    }
-    
     class ActionBase {
         +security_risk: SECURITY_RISK_LITERAL
         +to_mcp_schema() dict
     }
     
-    class MCPActionBase {
-        +model_config: extra="allow"
-    }
-    
     class ObservationBase {
         +agent_observation: list[TextContent|ImageContent]
         +model_config: extra="allow"
-    }
-    
-    class FinishAction {
-        +message: str
     }
     
     class ExecuteBashAction {
@@ -192,9 +184,9 @@ classDiagram
         +view_range: list[int]|None
     }
     
-    class FinishObservation {
-        +message: str
-        +agent_observation
+    class TaskTrackerAction {
+        +command: Literal["view", "plan"]
+        +task_list: list[TaskItem]
     }
     
     class ExecuteBashObservation {
@@ -217,16 +209,19 @@ classDiagram
         +agent_observation
     }
     
-    BaseModel <|-- Schema
-    Schema <|-- ActionBase
-    Schema <|-- ObservationBase
-    ActionBase <|-- MCPActionBase
-    ActionBase <|-- FinishAction
+    class TaskTrackerObservation {
+        +content: str
+        +command: str
+        +task_list: list[TaskItem]
+        +agent_observation
+    }
+    
     ActionBase <|-- ExecuteBashAction
     ActionBase <|-- StrReplaceEditorAction
-    ObservationBase <|-- FinishObservation
+    ActionBase <|-- TaskTrackerAction
     ObservationBase <|-- ExecuteBashObservation
     ObservationBase <|-- StrReplaceEditorObservation
+    ObservationBase <|-- TaskTrackerObservation
 ```
 
 ## Tool Execution Flow
@@ -250,15 +245,15 @@ sequenceDiagram
 
 ## Built-in vs Runtime Tools
 
-**Built-in Tools** (`openhands/sdk/tool/builtins`)
+**Built-in Tools** ([`openhands/sdk/tool/builtins`](https://github.com/All-Hands-AI/agent-sdk/tree/main/openhands/sdk/tool/builtins))
 - Essential tools required for agent operation
 - No environment interaction
-- Example: FinishTool for task completion
+- Examples: [FinishTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/builtins/finish.py), [ThinkTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/builtins/think.py)
 
-**Runtime Tools** (`openhands/tools`)
+**Runtime Tools** ([`openhands/tools`](https://github.com/All-Hands-AI/agent-sdk/tree/main/openhands/tools))
 - Environment-interactive tools
 - Separate package for modularity
-- Examples: BashTool, FileEditorTool
+- Examples: [BashTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/execute_bash/definition.py), [FileEditorTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/str_replace_editor/definition.py), [TaskTrackerTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/task_tracker/definition.py)
 
 ## Security Integration
 
