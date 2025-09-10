@@ -1,6 +1,6 @@
 import os
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 from openhands.sdk.context.condenser.base import RollingCondenser
 from openhands.sdk.context.utils import render_template
@@ -30,17 +30,15 @@ class LLMSummarizingCondenser(RollingCondenser):
             raise ValueError("keep_first must be non-negative")
         return v
 
-    @field_validator("keep_first")
+    @model_validator(mode="after")
     @classmethod
-    def validate_keep_first_vs_max_size(cls, v: int, info) -> int:
-        if info.data and "max_size" in info.data:
-            max_size = info.data["max_size"]
-            if v >= max_size // 2:
-                raise ValueError(
-                    "keep_first must be less than max_size // 2 to leave room for "
-                    "condensation"
-                )
-        return v
+    def validate_keep_first_vs_max_size(cls, model):
+        if model.keep_first >= model.max_size // 2:
+            raise ValueError(
+                "keep_first must be less than max_size // 2 to leave room for "
+                "condensation"
+            )
+        return model
 
     def should_condense(self, view: View) -> bool:
         return len(view) > self.max_size
