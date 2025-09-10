@@ -183,7 +183,7 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
         for field_name, field_value in action_fields.items():
             if field_value is None:
                 continue  # skip None fields
-            content.append(f"  {field_name}: ", style="bold")
+            content.append(f"\n  {field_name}: ", style="bold")
             if isinstance(field_value, str):
                 # Handle multiline strings with proper indentation
                 if "\n" in field_value:
@@ -196,7 +196,6 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
                 content.append(str(field_value))
             else:
                 content.append(str(field_value))
-            content.append("\n")
 
         return content
 
