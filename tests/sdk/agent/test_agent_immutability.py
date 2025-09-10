@@ -3,7 +3,7 @@
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from openhands.sdk.agent.agent.agent import Agent
+from openhands.sdk.agent.agent import Agent
 from openhands.sdk.llm import LLM
 
 
@@ -80,9 +80,8 @@ class TestAgentImmutability:
 
         # Test inherited properties from AgentBase
         assert agent.llm == self.llm
-        from types import MappingProxyType
 
-        assert isinstance(agent.tools, MappingProxyType)  # Should be MappingProxyType
+        assert isinstance(agent.tools, dict)
         assert agent.agent_context is None
         assert agent.name == "Agent"
         assert isinstance(agent.prompt_dir, str)

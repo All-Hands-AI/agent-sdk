@@ -119,13 +119,14 @@ execute_bash_tool = Tool(
 class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
     """A Tool subclass that automatically initializes a BashExecutor with auto-detection."""  # noqa: E501
 
-    def __init__(
-        self,
+    @classmethod
+    def create(
+        cls,
         working_dir: str,
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
-    ):
+    ) -> "BashTool":
         """Initialize BashTool with executor parameters.
 
         Args:
@@ -150,7 +151,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         )
 
         # Initialize the parent Tool with the executor
-        super().__init__(
+        return cls(
             name=execute_bash_tool.name,
             description=TOOL_DESCRIPTION,
             action_type=ExecuteBashAction,

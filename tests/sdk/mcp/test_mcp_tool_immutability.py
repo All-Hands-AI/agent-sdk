@@ -36,7 +36,7 @@ class TestMCPToolImmutability:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = {"version": "1.0"}
 
-        self.tool = MCPTool.from_mcp(
+        self.tool = MCPTool.create(
             mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
         )
 
@@ -52,9 +52,6 @@ class TestMCPToolImmutability:
 
         with pytest.raises(Exception):
             self.tool.description = "modified_description"
-
-        with pytest.raises(Exception):
-            self.tool.mcp_client = MockMCPClient()
 
     def test_mcp_tool_set_executor_returns_new_instance(self):
         """Test that set_executor returns a new MCPTool instance."""
@@ -99,20 +96,15 @@ class TestMCPToolImmutability:
 
     def test_mcp_tool_extra_fields_immutability(self):
         """Test that MCPTool extra fields (mcp_client, mcp_tool) are immutable."""
-        # Test that extra fields cannot be directly modified
-        with pytest.raises(Exception):
-            self.tool.mcp_client = MockMCPClient()
 
         with pytest.raises(Exception):
             self.tool.mcp_tool = self.mock_mcp_tool
 
-        # Test that extra fields can be accessed
-        assert self.tool.mcp_client is self.mock_client
         assert self.tool.mcp_tool is self.mock_mcp_tool
 
-    def test_mcp_tool_from_mcp_creates_immutable_instance(self):
-        """Test that MCPTool.from_mcp() creates immutable instances."""
-        # Create another tool using from_mcp
+    def test_mcp_tool_create_immutable_instance(self):
+        """Test that MCPTool.create() creates immutable instances."""
+        # Create another tool using create
         mock_tool2 = MagicMock(spec=mcp.types.Tool)
         mock_tool2.name = "another_tool"
         mock_tool2.description = "Another test tool"
@@ -120,7 +112,7 @@ class TestMCPToolImmutability:
         mock_tool2.annotations = None
         mock_tool2.meta = None
 
-        tool2 = MCPTool.from_mcp(mcp_tool=mock_tool2, mcp_client=self.mock_client)
+        tool2 = MCPTool.create(mcp_tool=mock_tool2, mcp_client=self.mock_client)
 
         # Verify it's immutable
         with pytest.raises(Exception):
@@ -131,7 +123,7 @@ class TestMCPToolImmutability:
         assert tool2.description == "Another test tool"
         assert isinstance(tool2.executor, MCPToolExecutor)
 
-        tool2 = MCPTool.from_mcp(mcp_tool=mock_tool2, mcp_client=self.mock_client)
+        tool2 = MCPTool.create(mcp_tool=mock_tool2, mcp_client=self.mock_client)
 
         # Verify it's immutable
         with pytest.raises(Exception):

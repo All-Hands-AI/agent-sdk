@@ -1,5 +1,4 @@
 import json
-from types import MappingProxyType
 from typing import cast
 
 from litellm.types.utils import (
@@ -52,24 +51,22 @@ class Agent(AgentBase):
     @model_validator(mode="before")
     @classmethod
     def _merge_builtins(cls, data: dict):
-        tools: list[Tool] = data.get("tools", [])
-        if not isinstance(tools, list):
-            # Let AgentBase.tools validator handle the exact error message/shape,
-            # but keep this strict so we can reason about built-ins here.
-            raise TypeError("tools must be a list[Tool]")
+        tools: list[Tool] | dict[str, Tool] = data.get("tools", [])
+        if isinstance(tools, list) and all(isinstance(t, Tool) for t in tools):
+            # Convert list of Tool to dict[str, Tool]
+            builtin_names = {t.name for t in BUILT_IN_TOOLS}
+            provided_names = {t.name for t in tools}
+            overlap = sorted(builtin_names & provided_names)
+            if overlap:
+                raise ValueError(
+                    f"These built-in tools are auto-included and "
+                    f"should not be provided: {overlap}"
+                )
+            data["tools"] = {t.name: t for t in tools + BUILT_IN_TOOLS}
 
-        builtin_names = {t.name for t in BUILT_IN_TOOLS}
-        provided_names = {t.name for t in tools}
-        overlap = sorted(builtin_names & provided_names)
-        if overlap:
-            raise ValueError(
-                f"These built-in tools are auto-included and "
-                f"should not be provided: {overlap}"
-            )
-
-        # Append built-ins; AgentBase will
-        # coerce list[Tool] -> MappingProxyType[str, Tool]
-        data["tools"] = tools + BUILT_IN_TOOLS
+        assert isinstance(data.get("tools", {}), dict) and all(
+            isinstance(t, Tool) for t in data["tools"].values()
+        )
         return data
 
     @property
@@ -97,7 +94,7 @@ class Agent(AgentBase):
             event for event in state.events if isinstance(event, LLMConvertibleEvent)
         ]
         if len(llm_convertible_messages) == 0:
-            assert isinstance(self.tools, MappingProxyType)
+            assert isinstance(self.tools, dict)
             # Prepare system message
             event = SystemPromptEvent(
                 source="agent",
@@ -159,7 +156,7 @@ class Agent(AgentBase):
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        assert isinstance(self.tools, MappingProxyType)
+        assert isinstance(self.tools, dict)
         tools = [tool.to_openai_tool() for tool in self.tools.values()]
         response = self.llm.completion(
             messages=_messages,
@@ -277,7 +274,7 @@ class Agent(AgentBase):
         assert tool_call.type == "function"
         tool_name = tool_call.function.name
         assert tool_name is not None, "Tool call must have a name"
-        assert isinstance(self.tools, MappingProxyType)
+        assert isinstance(self.tools, dict)
         tool = self.tools.get(tool_name, None)
         # Handle non-existing tools
         if tool is None:
@@ -333,7 +330,7 @@ class Agent(AgentBase):
         It will call the tool's executor and update the state & call callback fn
         with the observation.
         """
-        assert isinstance(self.tools, MappingProxyType)
+        assert isinstance(self.tools, dict)
         tool = self.tools.get(action_event.tool_name, None)
         if tool is None:
             raise RuntimeError(

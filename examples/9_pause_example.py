@@ -28,8 +28,8 @@ llm = LLM(
 
 # Tools
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 
 # Agent

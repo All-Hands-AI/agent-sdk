@@ -66,11 +66,9 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
-    # runtime-only fields; keep out of dumps & repr
-    mcp_client: MCPClient = Field(repr=False, exclude=True)
 
     @classmethod
-    def from_mcp(
+    def create(
         cls,
         mcp_tool: mcp.types.Tool,
         mcp_client: MCPClient,
@@ -98,7 +96,6 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
                 meta=mcp_tool.meta,
                 executor=MCPToolExecutor(tool_name=mcp_tool.name, client=mcp_client),
                 # pass-through fields (enabled by **extra in Tool.create)
-                mcp_client=mcp_client,
                 mcp_tool=mcp_tool,
             )
         except ValidationError as e:

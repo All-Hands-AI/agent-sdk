@@ -30,7 +30,7 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [BashTool(working_dir=cwd)]
+tools: list[Tool] = [BashTool.create(working_dir=cwd)]
 
 # Agent and Conversation with confirmation mode enabled
 agent = Agent(llm=llm, tools=tools)

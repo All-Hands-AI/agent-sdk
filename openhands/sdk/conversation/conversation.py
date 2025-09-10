@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Iterable
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.agent import AgentBase
+    from openhands.sdk.agent import AgentType
 
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
@@ -36,7 +36,7 @@ def compose_callbacks(
 class Conversation:
     def __init__(
         self,
-        agent: "AgentBase",
+        agent: "AgentType",
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         visualize: bool = True,
