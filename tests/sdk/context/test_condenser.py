@@ -1,3 +1,6 @@
+from unittest.mock import MagicMock
+
+from openhands.sdk.agent import Agent
 from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation.state import ConversationState
@@ -20,7 +23,7 @@ def test_noop_condenser() -> None:
         message_event("Event 2"),
         message_event("Event 3"),
     ]
-    state = ConversationState(events=events)
+    state = ConversationState(events=events, agent=MagicMock(spec=Agent))
 
     condenser = NoOpCondenser()
     view = View.from_events(state.events)
