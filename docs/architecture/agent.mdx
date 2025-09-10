@@ -8,23 +8,17 @@ The Agent is the core orchestrator that combines language models with tools to e
 ## Core Architecture
 
 ```mermaid
-graph TB
+graph TD
     Agent[Agent] --> LLM[LLM]
     Agent --> Tools[Tools]
     Agent --> Context[AgentContext]
-    Agent --> Prompts[System Prompts]
+    
+    Tools --> BashTool[BashTool]
+    Tools --> FileEditor[FileEditorTool]
+    Tools --> MCPTools[MCP Tools]
     
     Context --> Microagents[Microagents]
-    Context --> Knowledge[Knowledge Base]
     Context --> Condenser[Context Condenser]
-    
-    Tools --> BuiltIn[Built-in Tools]
-    Tools --> Runtime[Runtime Tools]
-    Tools --> MCP[MCP Tools]
-    
-    Prompts --> SystemPrompt[system_prompt.j2]
-    Prompts --> Interactive[system_prompt_interactive.j2]
-    Prompts --> LongHorizon[system_prompt_long_horizon.j2]
     
     style Agent fill:#e1f5fe
     style LLM fill:#fff3e0

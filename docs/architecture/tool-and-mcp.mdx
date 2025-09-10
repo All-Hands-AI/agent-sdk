@@ -8,26 +8,24 @@ The OpenHands Agent SDK provides a flexible tool system that enables agents to i
 ## Core Architecture
 
 ```mermaid
-graph TB
-    Tool[Tool&lt;ActionT, ObservationT&gt;] --> ToolExecutor[ToolExecutor]
-    Tool --> ActionBase[ActionBase]
-    Tool --> ObservationBase[ObservationBase]
+graph TD
+    Tool[Tool] --> Executor[ToolExecutor]
+    Tool --> Actions[Actions]
+    Tool --> Observations[Observations]
     
-    ActionBase --> BashAction[BashAction]
-    ActionBase --> FileEditAction[FileEditAction]
-    ActionBase --> TaskAction[TaskAction]
+    Actions --> BashAction[BashAction]
+    Actions --> FileEditAction[FileEditAction]
     
-    ObservationBase --> BashObservation[BashObservation]
-    ObservationBase --> FileEditObservation[FileEditObservation]
-    ObservationBase --> TaskObservation[TaskObservation]
+    Observations --> BashObservation[BashObservation]
+    Observations --> FileEditObservation[FileEditObservation]
     
-    ToolExecutor --> BashExecutor[BashExecutor]
-    ToolExecutor --> FileEditorExecutor[FileEditorExecutor]
-    ToolExecutor --> TaskTrackerExecutor[TaskTrackerExecutor]
+    Executor --> BashExecutor[BashExecutor]
+    Executor --> FileEditorExecutor[FileEditorExecutor]
     
     style Tool fill:#e1f5fe
-    style ActionBase fill:#fff3e0
-    style ObservationBase fill:#f3e5f5
+    style Actions fill:#fff3e0
+    style Observations fill:#f3e5f5
+    style Executor fill:#e8f5e8
 ```
 
 ## Core Framework Classes

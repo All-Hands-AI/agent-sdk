@@ -8,7 +8,7 @@ The Context system manages all contextual inputs that shape how agents extend an
 ## Core Architecture
 
 ```mermaid
-graph TB
+graph TD
     AgentContext[AgentContext] --> Microagents[Microagents]
     AgentContext --> Prompts[Prompt Templates]
     AgentContext --> View[View System]
@@ -17,8 +17,8 @@ graph TB
     Microagents --> KnowledgeMicroagent[KnowledgeMicroagent]
     Microagents --> TaskMicroagent[TaskMicroagent]
     
-    View --> Condenser[Context Condenser]
     View --> Events[Event History]
+    View --> Condenser[Context Condenser]
     
     Prompts --> SystemSuffix[System Message Suffix]
     Prompts --> UserSuffix[User Message Suffix]

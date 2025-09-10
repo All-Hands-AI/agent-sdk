@@ -8,32 +8,27 @@ The LLM system provides a unified interface for language model integration with 
 ## Core Architecture
 
 ```mermaid
-graph TB
-    LLM[LLM] --> LiteLLM[LiteLLM Backend]
-    LLM --> Messages[Message System]
-    LLM --> Tools[Tool Integration]
+graph TD
+    LLM[LLM] --> Messages[Message System]
+    LLM --> Backend[LiteLLM Backend]
     LLM --> Features[Model Features]
     
     Messages --> TextContent[TextContent]
     Messages --> ImageContent[ImageContent]
     Messages --> ToolCall[ToolCall]
-    Messages --> ToolResult[ToolResult]
     
     Features --> FunctionCalling[Function Calling]
     Features --> Vision[Vision Support]
     Features --> Streaming[Streaming]
-    Features --> Caching[Prompt Caching]
     
-    LiteLLM --> OpenAI[OpenAI]
-    LiteLLM --> Anthropic[Anthropic]
-    LiteLLM --> Google[Google]
-    LiteLLM --> Azure[Azure]
-    LiteLLM --> Local[Local Models]
+    Backend --> OpenAI[OpenAI]
+    Backend --> Anthropic[Anthropic]
+    Backend --> Local[Local Models]
     
     style LLM fill:#e1f5fe
     style Messages fill:#fff3e0
     style Features fill:#e8f5e8
-    style LiteLLM fill:#f3e5f5
+    style Backend fill:#f3e5f5
 ```
 
 ## Core Classes

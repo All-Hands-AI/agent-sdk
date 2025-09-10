@@ -8,16 +8,18 @@ The OpenHands Agent SDK provides a modular framework for building AI agents with
 ## Core Components
 
 ```mermaid
-graph TB
+graph TD
     User[User] --> Conversation[Conversation]
     Conversation --> Agent[Agent]
+    
     Agent --> LLM[LLM]
     Agent --> Tools[Tools]
+    Agent --> Context[Context]
+    
     Tools --> BashTool[BashTool]
     Tools --> FileEditor[FileEditorTool]
-    Tools --> TaskTracker[TaskTrackerTool]
     Tools --> MCP[MCP Tools]
-    Agent --> Context[Context]
+    
     Context --> Microagents[Microagents]
     
     style Conversation fill:#e1f5fe

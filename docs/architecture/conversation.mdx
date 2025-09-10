@@ -8,24 +8,20 @@ The Conversation system manages message flow, state transitions, and event handl
 ## Core Architecture
 
 ```mermaid
-graph TB
+graph TD
     User[User] --> Conversation[Conversation]
     Conversation --> Agent[Agent]
     Conversation --> State[ConversationState]
-    Conversation --> Events[Event System]
-    Conversation --> Callbacks[Callbacks]
     
-    State --> EventList[Event List]
+    State --> Events[Event List]
     State --> Flags[Status Flags]
-    State --> Lock[Thread Lock]
     
     Events --> MessageEvent[MessageEvent]
     Events --> ActionEvent[ActionEvent]
     Events --> ObservationEvent[ObservationEvent]
-    Events --> SystemEvent[SystemEvent]
     
+    Conversation --> Callbacks[Callbacks]
     Callbacks --> Visualizer[Visualizer]
-    Callbacks --> Logger[Logger]
     Callbacks --> Custom[Custom Callbacks]
     
     style Conversation fill:#e1f5fe
