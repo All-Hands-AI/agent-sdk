@@ -2,6 +2,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from openhands.sdk.agent import Agent, AgentBase
 from openhands.sdk.context import AgentContext
+from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
 from openhands.sdk.event import Event, EventBase, LLMConvertibleEvent
 from openhands.sdk.llm import (
@@ -44,5 +45,6 @@ __all__ = [
     "EventBase",
     "LLMConvertibleEvent",
     "AgentContext",
+    "LLMSummarizingCondenser",
     "__version__",
 ]
