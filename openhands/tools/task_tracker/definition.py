@@ -140,7 +140,7 @@ class TaskTrackerExecutor(ToolExecutor):
 
         try:
             with open(tasks_file, "r", encoding="utf-8") as f:
-                self._task_list = json.load(f)
+                self._task_list = [TaskItem.model_validate(d) for d in json.load(f)]
         except (OSError, json.JSONDecodeError) as e:
             logger.warning(
                 f"Failed to load tasks from {tasks_file}: {e}. Starting with "
@@ -159,7 +159,7 @@ class TaskTrackerExecutor(ToolExecutor):
             self.save_dir.mkdir(parents=True, exist_ok=True)
 
             with open(tasks_file, "w", encoding="utf-8") as f:
-                json.dump(self._task_list, f, indent=2)
+                json.dump([task.model_dump() for task in self._task_list], f, indent=2)
         except OSError as e:
             logger.warning(f"Failed to save tasks to {tasks_file}: {e}")
             pass

@@ -91,7 +91,6 @@ class FileEditor:
         old_str: str | None = None,
         new_str: str | None = None,
         insert_line: int | None = None,
-        enable_linting: bool = False,
     ) -> StrReplaceEditorObservation:
         _path = Path(path)
         self.validate_path(command, _path)
@@ -103,6 +102,7 @@ class FileEditor:
             self.write_file(_path, file_text)
             self._history_manager.add_history(_path, file_text)
             return StrReplaceEditorObservation(
+                command=command,
                 path=str(_path),
                 new_content=file_text,
                 prev_exist=False,
@@ -245,6 +245,7 @@ class FileEditor:
             "file again if necessary."
         )
         return StrReplaceEditorObservation(
+            command="str_replace",
             output=success_message,
             prev_exist=True,
             path=str(path),
@@ -304,6 +305,7 @@ class FileEditor:
                     )
                 stdout = "\n".join(msg)
             return StrReplaceEditorObservation(
+                command="view",
                 output=stdout,
                 error=stderr,
                 path=str(path),
@@ -320,6 +322,7 @@ class FileEditor:
             output = self._make_output(file_content, str(path), start_line)
 
             return StrReplaceEditorObservation(
+                command="view",
                 output=output,
                 path=str(path),
                 prev_exist=True,
@@ -372,6 +375,7 @@ class FileEditor:
             output = f"NOTE: {warning_message}\n{output}"
 
         return StrReplaceEditorObservation(
+            command="view",
             path=str(path),
             output=output,
             prev_exist=True,
@@ -484,6 +488,7 @@ class FileEditor:
             "indentation, no duplicate lines, etc). Edit the file again if necessary."
         )
         return StrReplaceEditorObservation(
+            command="insert",
             output=success_message,
             prev_exist=True,
             path=str(path),
@@ -552,6 +557,7 @@ class FileEditor:
         self.write_file(path, old_text)
 
         return StrReplaceEditorObservation(
+            command="undo_edit",
             output=(
                 f"Last edit to {path} undone successfully. "
                 f"{self._make_output(old_text, str(path))}"

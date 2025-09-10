@@ -1,3 +1,5 @@
+from rich.text import Text
+
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.types import SourceType
 
@@ -6,6 +8,13 @@ class PauseEvent(EventBase):
     """Event indicating that the agent execution was paused by user request."""
 
     source: SourceType = "user"
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this pause event."""
+        content = Text()
+        content.append("Conversation Paused", style="bold")
+        return content
 
     def __str__(self) -> str:
         """Plain text string representation for PauseEvent."""

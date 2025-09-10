@@ -1,8 +1,10 @@
 import copy
+import json
 from typing import cast
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import ConfigDict, Field, computed_field
+from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
@@ -19,6 +21,34 @@ class SystemPromptEvent(LLMConvertibleEvent):
     tools: list[ChatCompletionToolParam] = Field(
         ..., description="List of tools in OpenAI tool format"
     )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this system prompt event."""
+        content = Text()
+        content.append("System Prompt:\n", style="bold")
+        content.append(self.system_prompt.text)
+        content.append(f"\n\nTools Available: {len(self.tools)}")
+        for tool in self.tools:
+            tool_fn = tool.get("function", None)
+            # make each field short
+            for k, v in tool.items():
+                if isinstance(v, str) and len(v) > 30:
+                    tool[k] = v[:27] + "..."
+            if tool_fn:
+                assert "name" in tool_fn
+                assert "description" in tool_fn
+                assert "parameters" in tool_fn
+                params_str = json.dumps(tool_fn["parameters"])
+                content.append(
+                    f"\n  - {tool_fn['name']}: "
+                    f"{tool_fn['description'].split('\n')[0][:100]}...\n",
+                    style="dim",
+                )
+                content.append(f"  Parameters: {params_str}", style="dim")
+            else:
+                content.append(f"\n  - Cannot access .function for {tool}", style="dim")
+        return content
 
     def to_llm_message(self) -> Message:
         return Message(role="system", content=[self.system_prompt])
@@ -74,6 +104,29 @@ class ActionEvent(LLMConvertibleEvent):
         ),
     )
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this action event."""
+        content = Text()
+
+        # Display reasoning content first if available
+        if self.reasoning_content:
+            content.append("Reasoning:\n", style="bold")
+            content.append(self.reasoning_content)
+            content.append("\n\n")
+
+        # Display complete thought content
+        thought_text = " ".join([t.text for t in self.thought])
+        if thought_text:
+            content.append("Thought:\n", style="bold")
+            content.append(thought_text)
+            content.append("\n\n")
+
+        # Display action information using action's visualize method
+        content.append(self.action.visualize)
+
+        return content
+
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
         content: list[TextContent | ImageContent] = cast(
@@ -114,6 +167,17 @@ class ObservationEvent(LLMConvertibleEvent):
     tool_call_id: str = Field(
         ..., description="The tool call id that this observation is responding to"
     )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this observation event."""
+        content = Text()
+        content.append("Tool: ", style="bold")
+        content.append(self.tool_name)
+        content.append("\nResult:\n", style="bold")
+        content.append(self.observation.visualize)
+
+        return content
 
     def to_llm_message(self) -> Message:
         return Message(
@@ -166,6 +230,40 @@ class MessageEvent(LLMConvertibleEvent):
     def reasoning_content(self) -> str:
         return self.llm_message.reasoning_content or ""
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this message event."""
+        content = Text()
+
+        text_parts = content_to_str(self.llm_message.content)
+        if text_parts:
+            full_content = "".join(text_parts)
+            content.append(full_content)
+        else:
+            content.append("[no text content]", style="dim")
+
+        # Add microagent information if present
+        if self.activated_microagents:
+            content.append(
+                f"\n\nActivated Microagents: {', '.join(self.activated_microagents)}",
+                style="dim",
+            )
+
+        # Add extended content if available
+        if self.extended_content:
+            assert not any(
+                isinstance(c, ImageContent) for c in self.extended_content
+            ), "Extended content should not contain images"
+            text_parts = content_to_str(
+                cast(list[TextContent | ImageContent], self.extended_content)
+            )
+            content.append(
+                "\n\nPrompt Extension based on Agent Context:\n", style="dim"
+            )
+            content.append(" ".join(text_parts))
+
+        return content
+
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
         msg.content.extend(self.extended_content)
@@ -215,6 +313,16 @@ class UserRejectObservation(LLMConvertibleEvent):
         description="Reason for rejecting the action",
     )
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this user rejection event."""
+        content = Text()
+        content.append("Tool: ", style="bold")
+        content.append(self.tool_name)
+        content.append("\n\nRejection Reason:\n", style="bold")
+        content.append(self.rejection_reason)
+        return content
+
     def to_llm_message(self) -> Message:
         return Message(
             role="tool",
@@ -250,6 +358,14 @@ class AgentErrorEvent(LLMConvertibleEvent):
             "to the last action when multiple actions share the same LLM response."
         ),
     )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this agent error event."""
+        content = Text()
+        content.append("Error Details:\n", style="bold")
+        content.append(self.error)
+        return content
 
     def to_llm_message(self) -> Message:
         return Message(role="user", content=[TextContent(text=self.error)])

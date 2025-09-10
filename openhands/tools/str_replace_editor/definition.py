@@ -2,10 +2,12 @@
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
+from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
@@ -56,6 +58,10 @@ class StrReplaceEditorAction(ActionBase):
 class StrReplaceEditorObservation(ObservationBase):
     """A ToolResult that can be rendered as a CLI output."""
 
+    command: CommandLiteral = Field(
+        description="The commands to run. Allowed options are: `view`, `create`, "
+        "`str_replace`, `insert`, `undo_edit`."
+    )
     output: str = Field(
         default="", description="The output message from the tool for the LLM to see."
     )
@@ -72,11 +78,63 @@ class StrReplaceEditorObservation(ObservationBase):
     )
     error: str | None = Field(default=None, description="Error message if any.")
 
+    _diff_cache: Text | None = PrivateAttr(default=None)
+
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=self.error)]
         return [TextContent(text=self.output)]
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this observation.
+
+        Shows diff visualization for meaningful changes (file creation, successful
+        edits), otherwise falls back to agent observation.
+        """
+
+        if not self._has_meaningful_diff:
+            return super().visualize
+
+        assert self.path is not None, "path should be set for meaningful diff"
+        # Generate and cache diff visualization
+        if not self._diff_cache:
+            change_applied = self.command != "view" and not self.error
+            self._diff_cache = visualize_diff(
+                self.path,
+                self.old_content,
+                self.new_content,
+                n_context_lines=2,
+                change_applied=change_applied,
+            )
+
+        return self._diff_cache
+
+    @property
+    def _has_meaningful_diff(self) -> bool:
+        """Check if there's a meaningful diff to display."""
+        if self.error:
+            return False
+
+        if not self.path:
+            return False
+
+        if self.command not in ("create", "str_replace", "insert", "undo_edit"):
+            return False
+
+        # File creation case
+        if self.command == "create" and self.new_content and not self.prev_exist:
+            return True
+
+        # File modification cases (str_replace, insert, undo_edit)
+        if self.command in ("str_replace", "insert", "undo_edit"):
+            # Need both old and new content to show meaningful diff
+            if self.old_content is not None and self.new_content is not None:
+                # Only show diff if content actually changed
+                return self.old_content != self.new_content
+
+        return False
 
 
 Command = Literal[
