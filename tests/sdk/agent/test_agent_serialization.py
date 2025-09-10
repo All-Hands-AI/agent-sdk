@@ -1,11 +1,33 @@
 """Test agent JSON serialization with DiscriminatedUnionMixin."""
 
 import json
+from unittest.mock import Mock
 
+import mcp.types
 from pydantic import BaseModel
 
 from openhands.sdk.agent import Agent, AgentType
 from openhands.sdk.llm import LLM
+from openhands.sdk.mcp.client import MCPClient
+from openhands.sdk.mcp.tool import MCPTool
+
+
+def create_mock_mcp_tool(name: str = "test_tool") -> MCPTool:
+    # Create mock MCP tool and client
+    mock_mcp_tool = mcp.types.Tool(
+        name=name,
+        description=f"A test MCP tool named {name}",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Query parameter"}
+            },
+            "required": ["query"],
+        },
+    )
+    mock_client = Mock(spec=MCPClient)
+    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    return mcp_tool
 
 
 def test_agent_supports_polymorphic_json_serialization() -> None:
@@ -15,6 +37,26 @@ def test_agent_supports_polymorphic_json_serialization() -> None:
     agent = Agent(llm=llm, tools={})
 
     # Serialize to JSON (excluding non-serializable fields)
+    agent_json = agent.model_dump_json()
+
+    # Deserialize from JSON using the base class
+    deserialized_agent = Agent.model_validate_json(agent_json)
+
+    # Should deserialize to the correct type and have same core fields
+    assert isinstance(deserialized_agent, Agent)
+    assert deserialized_agent.model_dump() == agent.model_dump()
+
+
+def test_agent_serialization_should_include_mcp_tool() -> None:
+    # Create a simple LLM instance and agent with empty tools
+    llm = LLM(model="test-model")
+    agent = Agent(llm=llm, tools={"test_tool": create_mock_mcp_tool()})
+
+    # Serialize to JSON (excluding non-serializable fields)
+    agent_dump = agent.model_dump()
+    assert "tools" in agent_dump and isinstance(agent_dump["tools"], dict)
+    assert "test_tool" in agent_dump["tools"]
+    assert "mcp_tool" in agent_dump["tools"]["test_tool"]
     agent_json = agent.model_dump_json()
 
     # Deserialize from JSON using the base class
