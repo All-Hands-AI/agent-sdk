@@ -8,12 +8,16 @@ from openhands.sdk import (
     Conversation,
     Event,
     LLMConvertibleEvent,
+    LocalFileStore,
     Message,
     TextContent,
-    Tool,
+    create_mcp_tools,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.tools import (
+    BashTool,
+    FileEditorTool,
+)
 
 
 logger = get_logger(__name__)
@@ -29,11 +33,22 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [
+tools = [
     BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
-    TaskTrackerTool.create(save_dir=cwd),
 ]
+
+# Add MCP Tools
+mcp_config = {
+    "mcpServers": {
+        "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
+    }
+}
+mcp_tools = create_mcp_tools(mcp_config, timeout=30)
+tools.extend(mcp_tools)
+logger.info(f"Added {len(mcp_tools)} MCP tools")
+for tool in mcp_tools:
+    logger.info(f"  - {tool.name}: {tool.description}")
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -46,16 +61,19 @@ def conversation_callback(event: Event):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+file_store = LocalFileStore("./.conversations")
 
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+)
 conversation.send_message(
     message=Message(
         role="user",
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py"
-                    " that prints 'Hello, World!'? Use task tracker to plan your steps."
+                    "Read https://github.com/All-Hands-AI/OpenHands. "
+                    "Then write 3 facts about the project into FACTS.txt."
                 )
             )
         ],
@@ -71,8 +89,27 @@ conversation.send_message(
 )
 conversation.run()
 
-
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
 for i, message in enumerate(llm_messages):
     print(f"Message {i}: {str(message)[:200]}")
+
+# Conversation persistence
+print("Serializing conversation...")
+
+del conversation
+
+# Deserialize the conversation
+print("Deserializing conversation...")
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+)
+
+print("Sending message to deserialized conversation...")
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[TextContent(text="Hey what did you create?")],
+    )
+)
+conversation.run()

@@ -196,4 +196,4 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         )
 
 
-ToolType = Annotated[Tool, DiscriminatedUnionType[Tool]]
+ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]

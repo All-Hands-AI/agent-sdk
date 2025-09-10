@@ -135,7 +135,7 @@ grep_tool = Tool(
     executor=grep_executor,
 )
 
-tools: list[Tool] = [
+tools = [
     # Simplified pattern
     FileEditorTool.create(),
     # Advanced pattern with explicit executor

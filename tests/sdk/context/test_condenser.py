@@ -8,7 +8,6 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
 )
 from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
 from openhands.sdk.context.view import View
-from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event import Event
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
@@ -73,10 +72,9 @@ class TestNoOpCondenser:
             message_event("Event 2"),
             message_event("Event 3"),
         ]
-        state = ConversationState(events=events)
 
         condenser = NoOpCondenser()
-        view = View.from_events(state.events)
+        view = View.from_events(events)
 
         condensation_result = condenser.condense(view)
         assert isinstance(condensation_result, View)

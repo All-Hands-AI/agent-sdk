@@ -5,6 +5,7 @@ from openhands.sdk.context import AgentContext
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
 from openhands.sdk.event import Event, EventBase, LLMConvertibleEvent
+from openhands.sdk.io import FileStore, LocalFileStore
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
@@ -46,5 +47,7 @@ __all__ = [
     "LLMConvertibleEvent",
     "AgentContext",
     "LLMSummarizingCondenser",
+    "FileStore",
+    "LocalFileStore",
     "__version__",
 ]
