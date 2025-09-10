@@ -13,22 +13,8 @@ from openhands.sdk.llm.metadata import get_llm_metadata
 
 class LLMSummarizingCondenser(RollingCondenser):
     llm: LLM
-    max_size: int = 120
-    keep_first: int = 4
-
-    @field_validator("max_size")
-    @classmethod
-    def validate_max_size(cls, v: int) -> int:
-        if v <= 0:
-            raise ValueError("max_size must be positive")
-        return v
-
-    @field_validator("keep_first")
-    @classmethod
-    def validate_keep_first(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("keep_first must be non-negative")
-        return v
+    max_size: int = Field(default=120, gt=0)
+    keep_first: int = Field(default=4, ge=0)
 
     @model_validator(mode="after")
     @classmethod
