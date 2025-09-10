@@ -45,34 +45,34 @@ graph TB
 
 ### Schema Base Classes
 
-**Schema** - Base for all input/output schemas
+**Schema** - Base for all input/output schemas ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/schema.py))
 - Converts Pydantic models to MCP-compatible JSON schemas
 - Handles schema normalization and validation
 - Supports dynamic model creation from JSON schemas
 
-**ActionBase** - Input schema for tool actions
+**ActionBase** - Input schema for tool actions ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/schema.py))
 - Inherits from Schema
 - Includes security_risk field for LLM safety assessment
 - Moves ActionBase fields to end of schema for better LLM ordering
 
-**ObservationBase** - Output schema for tool results
+**ObservationBase** - Output schema for tool results ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/schema.py))
 - Inherits from Schema
 - Requires agent_observation property for LLM consumption
 - Allows extra fields for flexibility
 
 ### Tool Framework
 
-**Tool** - Generic tool wrapper with validation
+**Tool** - Generic tool wrapper with validation ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/tool.py))
 - Type parameters: `Tool[ActionT, ObservationT]`
 - Validates inputs before execution
 - Coerces outputs to expected types
 - Exports MCP and OpenAI tool descriptions
 
-**ToolExecutor** - Callable interface for tool logic
+**ToolExecutor** - Callable interface for tool logic ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/tool.py))
 - Generic type: `ToolExecutor[ActionT, ObservationT]`
 - Implements `__call__(action: ActionT) -> ObservationT`
 
-**ToolAnnotations** - MCP-compatible tool metadata
+**ToolAnnotations** - MCP-compatible tool metadata ([source](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/tool.py))
 - readOnlyHint: Tool doesn't modify environment
 - destructiveHint: Tool may perform destructive updates
 - idempotentHint: Repeated calls have no additional effect
@@ -138,18 +138,21 @@ Execute bash commands in a persistent shell session.
 ```python
 BashTool.create(working_dir="/workspace")
 ```
+**Source**: [`openhands/tools/execute_bash/definition.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/execute_bash/definition.py)
 
 ### FileEditorTool  
 Edit files using string replacement, creation, and viewing operations.
 ```python
 FileEditorTool.create(workspace_root="/workspace")
 ```
+**Source**: [`openhands/tools/str_replace_editor/definition.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/str_replace_editor/definition.py)
 
 ### TaskTrackerTool
 Manage development tasks with structured tracking and persistence.
 ```python
 TaskTrackerTool.create(save_dir="/workspace")  # Saves to TASKS.json
 ```
+**Source**: [`openhands/tools/task_tracker/definition.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/task_tracker/definition.py)
 
 ## Schema Class Inheritance
 
@@ -242,15 +245,15 @@ sequenceDiagram
 
 ## Built-in vs Runtime Tools
 
-**Built-in Tools** (`openhands/sdk/tool/builtins`)
+**Built-in Tools** ([`openhands/sdk/tool/builtins`](https://github.com/All-Hands-AI/agent-sdk/tree/main/openhands/sdk/tool/builtins))
 - Essential tools required for agent operation
 - No environment interaction
-- Examples: FinishTool, ThinkTool
+- Examples: [FinishTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/builtins/finish.py), [ThinkTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/sdk/tool/builtins/think.py)
 
-**Runtime Tools** (`openhands/tools`)
+**Runtime Tools** ([`openhands/tools`](https://github.com/All-Hands-AI/agent-sdk/tree/main/openhands/tools))
 - Environment-interactive tools
 - Separate package for modularity
-- Examples: BashTool, FileEditorTool, TaskTrackerTool
+- Examples: [BashTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/execute_bash/definition.py), [FileEditorTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/str_replace_editor/definition.py), [TaskTrackerTool](https://github.com/All-Hands-AI/agent-sdk/blob/main/openhands/tools/task_tracker/definition.py)
 
 ## Security Integration
 
