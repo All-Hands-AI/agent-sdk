@@ -1,12 +1,14 @@
 """Secrets manager for handling sensitive data in conversations."""
 
 import re
-from typing import Callable, Dict
+from typing import Callable
 
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
+
+SecretValue = str | Callable[[], str]
 
 
 class SecretsManager:
@@ -20,9 +22,9 @@ class SecretsManager:
 
     def __init__(self) -> None:
         """Initialize an empty secrets manager."""
-        self._secrets: Dict[str, Callable[[str], str]] = {}
+        self._secrets: dict[str, SecretValue] = {}
 
-    def add_secrets(self, secrets: Dict[str, Callable[[str], str]]) -> None:
+    def add_secrets(self, secrets: dict[str, SecretValue]) -> None:
         """Add secrets to the manager.
 
         Args:
@@ -74,8 +76,13 @@ class SecretsManager:
         env_vars = {}
         for key in found_secrets:
             try:
-                secret_value = self._secrets[key](key)
-                env_vars[key] = secret_value
+                provider_or_value = self._secrets[key]
+                value = (
+                    provider_or_value()
+                    if callable(provider_or_value)
+                    else provider_or_value
+                )
+                env_vars[key] = value
             except Exception as e:
                 logger.error(f"Failed to retrieve secret for key '{key}': {e}")
                 continue

@@ -1,10 +1,10 @@
-from typing import TYPE_CHECKING, Callable, Dict, Iterable
+from typing import TYPE_CHECKING, Iterable
 
 
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
 
-from openhands.sdk.conversation.secrets_manager import SecretsManager
+from openhands.sdk.conversation.secrets_manager import SecretsManager, SecretValue
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import (
@@ -223,7 +223,7 @@ class Conversation:
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
 
-    def add_secrets(self, secrets: Dict[str, Callable[[str], str]]) -> None:
+    def add_secrets(self, secrets: dict[str, SecretValue]) -> None:
         """Add secrets to the conversation.
 
         Args:
