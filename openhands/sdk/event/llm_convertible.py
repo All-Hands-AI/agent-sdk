@@ -171,12 +171,13 @@ class ObservationEvent(LLMConvertibleEvent):
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this observation event."""
+        to_viz = self.observation.visualize
         content = Text()
-        content.append("Tool: ", style="bold")
-        content.append(self.tool_name)
-        content.append("\nResult:\n", style="bold")
-        content.append(self.observation.visualize)
-
+        if to_viz.plain.strip():
+            content.append("Tool: ", style="bold")
+            content.append(self.tool_name)
+            content.append("\nResult:\n", style="bold")
+            content.append(to_viz)
         return content
 
     def to_llm_message(self) -> Message:

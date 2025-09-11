@@ -109,7 +109,9 @@ print("Sending message to deserialized conversation...")
 conversation.send_message(
     message=Message(
         role="user",
-        content=[TextContent(text="Hey what did you create?")],
+        content=[
+            TextContent(text="Hey what did you create? Return an agent finish action")
+        ],
     )
 )
 conversation.run()
