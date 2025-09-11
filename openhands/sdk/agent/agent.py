@@ -110,10 +110,6 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # TODO(openhands): we should add test to test this init_state will actually
-        # modify state in-place
-        self._current_state = state
-
         # Configure bash tools with env provider
         self._configure_bash_tools_env_provider(state)
 
@@ -144,9 +140,6 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # Track the current state for secrets manager access
-        self._current_state = state
-
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = get_unmatched_actions(state.events)
