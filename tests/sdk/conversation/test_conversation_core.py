@@ -140,17 +140,59 @@ class TestConversationCore:
         assert len(our_events) == 1
 
     def test_conversation_large_event_handling(self):
-        """Test conversation handling of many events."""
+        """Test conversation handling of many events with memory usage monitoring."""
+        import gc
+        import sys
+
+        # Try to import psutil for memory monitoring, skip if not available
+        try:
+            import os
+
+            import psutil
+
+            memory_monitoring = True
+            process = psutil.Process(os.getpid())
+            initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+        except ImportError:
+            memory_monitoring = False
+            process = None
+            initial_memory = 0.0
+
         fs = InMemoryFileStore()
         agent = create_test_agent()
 
         conv = Conversation(agent=agent, persist_filestore=fs)
 
-        # Add many events
-        num_events = 50  # Reduced for faster testing
+        # Get initial events size for fallback monitoring
+        initial_events_size = sys.getsizeof(conv.state.events)
+
+        # Add many events to test memory bounds
+        num_events = 5000  # Large number to test memory usage
         for i in range(num_events):
-            event = create_test_event(f"bulk-event-{i:03d}", f"Message {i}")
+            event = create_test_event(f"bulk-event-{i:04d}", f"Message {i}")
             conv.state.events.append(event)
+
+            # Check memory usage periodically
+            if i % 1000 == 0 and i > 0:
+                gc.collect()  # Force garbage collection
+
+                if memory_monitoring and process is not None:
+                    current_memory = process.memory_info().rss / 1024 / 1024  # MB
+                    memory_growth = current_memory - initial_memory
+                    # Memory should not grow excessively (allow reasonable growth)
+                    assert memory_growth < 500, (
+                        f"Memory usage grew too much: {memory_growth:.2f}MB "
+                        f"after {i} events"
+                    )
+                else:
+                    # Fallback: check that events list size doesn't grow linearly
+                    current_events_size = sys.getsizeof(conv.state.events)
+                    size_growth = current_events_size - initial_events_size
+                    # With file-backed storage, the list itself shouldn't grow much
+                    assert size_growth < 1024 * 1024, (  # 1MB
+                        f"Events list size grew too much: {size_growth} bytes "
+                        f"after {i} events"
+                    )
 
         # Test that all events are accessible
         total_events = len(conv.state.events)
@@ -161,14 +203,34 @@ class TestConversationCore:
         assert len(our_events) == num_events
 
         # Test random access
-        assert our_events[25].id == "bulk-event-025"
-        assert our_events[49].id == "bulk-event-049"
+        assert our_events[2500].id == "bulk-event-2500"
+        assert our_events[4999].id == "bulk-event-4999"
 
         # Test iteration performance
         event_count = sum(
             1 for e in conv.state.events if e.id.startswith("bulk-event-")
         )
         assert event_count == num_events
+
+        # Final memory check
+        gc.collect()
+        if memory_monitoring and process is not None:
+            final_memory = process.memory_info().rss / 1024 / 1024  # MB
+            total_memory_growth = final_memory - initial_memory
+
+            # Ensure memory usage stays bounded (allow reasonable growth)
+            assert total_memory_growth < 1000, (
+                f"Total memory growth too high: {total_memory_growth:.2f}MB "
+                f"for {num_events} events"
+            )
+        else:
+            # Fallback: verify the events list size is still reasonable
+            final_events_size = sys.getsizeof(conv.state.events)
+            total_size_growth = final_events_size - initial_events_size
+            assert total_size_growth < 2 * 1024 * 1024, (  # 2MB
+                f"Events list size growth too high: {total_size_growth} bytes "
+                f"for {num_events} events"
+            )
 
     def test_conversation_error_handling(self):
         """Test conversation handles errors gracefully."""
