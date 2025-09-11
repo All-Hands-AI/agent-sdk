@@ -151,6 +151,7 @@ class Conversation:
                     )
 
             user_msg_event = MessageEvent(
+                id=self.state.events.next_id(),
                 source="user",
                 llm_message=message,
                 activated_microagents=activated_microagent_names,
@@ -229,6 +230,7 @@ class Conversation:
             for action_event in pending_actions:
                 # Create rejection observation
                 rejection_event = UserRejectObservation(
+                    id=self.state.events.next_id(),
                     action_id=action_event.id,
                     tool_name=action_event.tool_name,
                     tool_call_id=action_event.tool_call_id,
@@ -253,7 +255,7 @@ class Conversation:
 
         with self.state:
             self.state.agent_paused = True
-            pause_event = PauseEvent()
+            pause_event = PauseEvent(id=self.state.events.next_id())
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
 

@@ -101,14 +101,18 @@ class ConversationState(BaseModel):
         """
         if file_store is None:
             file_store = InMemoryFileStore()
-        else:
-            base_txt = file_store.read(BASE_STATE)
-            if base_txt:
-                state = cls.model_validate(json.loads(base_txt))
-                state._fs = file_store
-                state._events = EventLog(file_store, dir_path=EVENTS_DIR)
-                state._autosave_enabled = True
-                return state
+
+        try:
+            base_text = file_store.read(BASE_STATE)
+        except FileNotFoundError:
+            base_text = None
+
+        if base_text:  # resume existing state
+            state = cls.model_validate(json.loads(base_text))
+            state._fs = file_store
+            state._events = EventLog(file_store, dir_path=EVENTS_DIR)
+            state._autosave_enabled = True
+            return state
 
         if agent is None:
             raise ValueError(
