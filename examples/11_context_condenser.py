@@ -56,12 +56,12 @@ condenser = PipelineCondenser(
         # The first condenser will automatically truncate conversation history when it
         # exceeds max_size, and replaces the dropped events with an LLM-generated
         # summary. This condenser triggers when there are more than ten events in the
-        # conversation history, and always keeps the first four events (system prompts,
+        # conversation history, and always keeps the first two events (system prompts,
         # initial user messages) to preserve important context.
         LLMSummarizingCondenser(
             llm=llm,
             max_size=10,
-            keep_first=4,
+            keep_first=2,
         ),
         # The second condenser filters out any unmatched tool calls that LLM APIs may
         # complain about. These might arise when another condenser chooses to drop an

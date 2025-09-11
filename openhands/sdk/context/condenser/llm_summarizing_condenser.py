@@ -19,7 +19,8 @@ class LLMSummarizingCondenser(RollingCondenser):
     @model_validator(mode="after")
     @classmethod
     def validate_keep_first_vs_max_size(cls, model):
-        if model.keep_first >= model.max_size // 2:
+        events_from_tail = model.max_size // 2 - model.keep_first - 1
+        if events_from_tail <= 0:
             raise ValueError(
                 "keep_first must be less than max_size // 2 to leave room for "
                 "condensation"
@@ -30,6 +31,7 @@ class LLMSummarizingCondenser(RollingCondenser):
         return len(view) > self.max_size
 
     def get_condensation(self, view: View) -> Condensation:
+        print(view)
         head = view[: self.keep_first]
         target_size = self.max_size // 2
         # Number of events to keep from the tail -- target size, minus however many
