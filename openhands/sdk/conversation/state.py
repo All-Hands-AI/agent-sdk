@@ -32,7 +32,7 @@ class ConversationState(BaseModel):
     # Private attrs (NOT Fields) — allowed to start with underscore
     _lock: RLock = PrivateAttr(default_factory=RLock)
     _owner_tid: Optional[int] = PrivateAttr(default=None)
-    _secrets_manager: Optional["SecretsManager"] = PrivateAttr(default=None)
+    _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
 
     # Lock/guard API
     def acquire(self) -> None:
