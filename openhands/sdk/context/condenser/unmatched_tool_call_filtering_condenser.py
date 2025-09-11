@@ -5,7 +5,7 @@ from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import ActionEvent, ObservationEvent
 
 
-class MatchingToolFilteringCondenser(CondenserBase):
+class UnmatchedToolCallFilteringCondenser(CondenserBase):
     """A condenser that filters out tool-call events that don't have a matching pair."""
 
     def _get_action_tool_call_ids(self, events: list[LLMConvertibleEvent]) -> set[str]:

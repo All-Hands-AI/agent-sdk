@@ -1,7 +1,7 @@
 from unittest.mock import create_autospec
 
-from openhands.sdk.context.condenser.matching_tool_filtering_condenser import (
-    MatchingToolFilteringCondenser,
+from openhands.sdk.context.condenser.unmatched_tool_call_filtering_condenser import (
+    UnmatchedToolCallFilteringCondenser,
 )
 from openhands.sdk.context.view import View
 from openhands.sdk.event.llm_convertible import (
@@ -13,7 +13,7 @@ from openhands.sdk.event.llm_convertible import (
 
 def test_get_action_tool_call_ids_empty() -> None:
     """Test _get_action_tool_call_ids with empty event list."""
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
     result = condenser._get_action_tool_call_ids([])
     assert result == set()
 
@@ -23,7 +23,7 @@ def test_get_action_tool_call_ids_no_action_events() -> None:
     # Create mock non-ActionEvent
     message_event = create_autospec(MessageEvent, instance=True)
 
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
     result = condenser._get_action_tool_call_ids([message_event])
     assert result == set()
 
@@ -41,14 +41,14 @@ def test_get_action_tool_call_ids_with_action_events() -> None:
     message_event = create_autospec(MessageEvent, instance=True)
 
     events = [message_event, action_event_1, action_event_2]
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
     result = condenser._get_action_tool_call_ids(events)  # type: ignore
     assert result == {"call_1", "call_2"}
 
 
 def test_get_observation_tool_call_ids_empty() -> None:
     """Test _get_observation_tool_call_ids with empty event list."""
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
     result = condenser._get_observation_tool_call_ids([])
     assert result == set()
 
@@ -58,7 +58,7 @@ def test_get_observation_tool_call_ids_no_observation_events() -> None:
     # Create mock non-ObservationEvent
     message_event = create_autospec(MessageEvent, instance=True)
 
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
     result = condenser._get_observation_tool_call_ids([message_event])
     assert result == set()
 
@@ -76,14 +76,14 @@ def test_get_observation_tool_call_ids_with_observation_events() -> None:
     message_event = create_autospec(MessageEvent, instance=True)
 
     events = [message_event, observation_event_1, observation_event_2]
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
     result = condenser._get_observation_tool_call_ids(events)  # type: ignore
     assert result == {"call_1", "call_2"}
 
 
 def test_should_keep_event_non_tool_event() -> None:
     """Test _should_keep_event with non-tool events (should always keep)."""
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
 
     # Create mock non-tool event
     message_event = create_autospec(MessageEvent, instance=True)
@@ -99,7 +99,7 @@ def test_should_keep_event_non_tool_event() -> None:
 
 def test_should_keep_event_matched_action_event() -> None:
     """Test _should_keep_event with matched ActionEvent (should keep)."""
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
 
     # Create mock ActionEvent
     action_event = create_autospec(ActionEvent, instance=True)
@@ -116,7 +116,7 @@ def test_should_keep_event_matched_action_event() -> None:
 
 def test_should_keep_event_unmatched_action_event() -> None:
     """Test _should_keep_event with unmatched ActionEvent (should filter out)."""
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
 
     # Create mock ActionEvent
     action_event = create_autospec(ActionEvent, instance=True)
@@ -133,7 +133,7 @@ def test_should_keep_event_unmatched_action_event() -> None:
 
 def test_should_keep_event_matched_observation_event() -> None:
     """Test _should_keep_event with matched ObservationEvent (should keep)."""
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
 
     # Create mock ObservationEvent
     observation_event = create_autospec(ObservationEvent, instance=True)
@@ -150,7 +150,7 @@ def test_should_keep_event_matched_observation_event() -> None:
 
 def test_should_keep_event_unmatched_observation_event() -> None:
     """Test _should_keep_event with unmatched ObservationEvent (should filter out)."""  # noqa: E501
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
 
     # Create mock ObservationEvent
     observation_event = create_autospec(ObservationEvent, instance=True)
@@ -167,7 +167,7 @@ def test_should_keep_event_unmatched_observation_event() -> None:
 
 def test_condense_filters_correctly() -> None:
     """Test condense method filters events correctly."""
-    condenser = MatchingToolFilteringCondenser()
+    condenser = UnmatchedToolCallFilteringCondenser()
 
     # Create mock events
     message_event = create_autospec(MessageEvent, instance=True)
