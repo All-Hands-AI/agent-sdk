@@ -1,4 +1,3 @@
-import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, cast
@@ -25,8 +24,7 @@ class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
 
     model_config = ConfigDict(extra="forbid")
     id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()),
-        description="Unique event id (ULID/UUID)",
+        description="5-character integer ID (index of the event)",
     )
     timestamp: str = Field(
         default_factory=lambda: datetime.now().isoformat(),
