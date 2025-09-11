@@ -54,10 +54,6 @@ class ConversationState(BaseModel):
         if self._owner_tid != get_ident():
             raise RuntimeError("State not held by current thread")
 
-    def get_secrets_manager(self) -> Optional["SecretsManager"]:
+    def get_secrets_manager(self) -> "SecretsManager":
         """Get the secrets manager instance."""
         return self._secrets_manager
-
-    def set_secrets_manager(self, secrets_manager: "SecretsManager") -> None:
-        """Set the secrets manager instance."""
-        self._secrets_manager = secrets_manager
