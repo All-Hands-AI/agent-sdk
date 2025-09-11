@@ -256,7 +256,7 @@ class TestConfirmationMode:
         events: list[Event] = [action_event]
 
         # Test: action without observation should be pending
-        unmatched = get_unmatched_actions(events)  # type: ignore[arg-type]
+        unmatched = get_unmatched_actions(events)
         assert len(unmatched) == 1
         assert unmatched[0].id == action_event.id
 
@@ -273,7 +273,7 @@ class TestConfirmationMode:
         events.append(obs_event)
 
         # Test: action with observation should not be pending
-        unmatched = get_unmatched_actions(events)  # type: ignore[arg-type]
+        unmatched = get_unmatched_actions(events)
         assert len(unmatched) == 0
 
         # Test rejection functionality
@@ -290,7 +290,7 @@ class TestConfirmationMode:
         events.append(rejection)
 
         # Test: rejected action should not be pending
-        unmatched = get_unmatched_actions(events)  # type: ignore[arg-type]
+        unmatched = get_unmatched_actions(events)
         assert len(unmatched) == 0
 
         # Test UserRejectObservation functionality
