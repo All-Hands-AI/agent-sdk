@@ -74,6 +74,14 @@ logger.info("Starting conversation with MCP integration...")
 response = conversation.send_message(message)
 conversation.run()
 
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[TextContent(text=("Great! Now delete that file."))],
+    )
+)
+conversation.run()
+
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
 for i, message in enumerate(llm_messages):

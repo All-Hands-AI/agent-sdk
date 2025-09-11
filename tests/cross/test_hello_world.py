@@ -1,4 +1,4 @@
-"""Integration test based on hello_world.py example with mocked LLM responses."""
+"""Test based on hello_world.py example with mocked LLM responses."""
 
 import os
 import tempfile
@@ -31,8 +31,8 @@ from openhands.tools import (
 )
 
 
-class TestHelloWorldIntegration:
-    """Integration test for the hello world example with mocked LLM."""
+class TestHelloWorld:
+    """Test for the hello world example with mocked LLM."""
 
     def setup_method(self):
         """Set up test environment."""
@@ -149,9 +149,7 @@ class TestHelloWorldIntegration:
         return [first_response, second_response]
 
     @patch("openhands.sdk.llm.llm.litellm_completion")
-    def test_hello_world_integration_with_real_llm_data(
-        self, mock_completion, fncall_raw_logs
-    ):
+    def test_hello_world_with_real_llm_data(self, mock_completion, fncall_raw_logs):
         """Test the complete hello world flow with real LLM completion data."""
         # Setup real LLM responses from fixtures
         real_responses = self.create_real_llm_responses_from_fixtures(fncall_raw_logs)
@@ -384,7 +382,7 @@ class TestHelloWorldIntegration:
                 f"{context} choice {m}: Missing message role"
             )
 
-    def test_non_function_call_integration(self):
+    def test_non_function_call(self):
         """Test LLM completion logging for non-function call responses (pure text)."""
         from litellm.types.utils import (
             Choices,

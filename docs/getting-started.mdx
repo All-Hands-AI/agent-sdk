@@ -7,39 +7,105 @@ description: Create a simple agent that can run bash commands and edit files. Qu
 
 This guide shows how to create a simple agent that can run bash commands and edit files.
 
-Prerequisites
+## Prerequisites
 - Python 3.12+
-- uv installed
+- uv installed (version 0.8.13+)
 - A LiteLLM proxy API key set in LITELLM_API_KEY
 
-Install
+## Installation
 ```bash
+# Clone the repository
+git clone https://github.com/All-Hands-AI/agent-sdk.git
+cd agent-sdk
+
+# Install dependencies and setup development environment
 make build
 ```
 
-**Hello World agent**
+## Hello World Agent
 
 ```python
 import os
 from pydantic import SecretStr
-from openhands.sdk import Agent, Conversation, LLM, Message, TextContent, Tool
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk import Agent, Conversation, LLM, Message, TextContent
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
-api_key = os.getenv("ANTHROPIC_API_KEY")
+# Configure LLM
+api_key = os.getenv("LITELLM_API_KEY")
+assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
-tools = [BashTool.create(working_dir=os.getcwd()), FileEditorTool.create()]
+# Setup tools
+cwd = os.getcwd()
+tools = [
+    BashTool.create(working_dir=cwd),
+    FileEditorTool.create(),
+    TaskTrackerTool.create(save_dir=cwd),
+]
+
+# Create agent and conversation
 agent = Agent(llm=llm, tools=tools)
-conv = Conversation(agent=agent)
-conv.send_message(Message(role="user", content=[TextContent(text="Create hello.py printing Hello")]))
-conv.run()
+conversation = Conversation(agent=agent)
+
+# Send message and run
+conversation.send_message(
+    Message(
+        role="user",
+        content=[
+            TextContent(
+                text=(
+                    "Hello! Can you create a new Python file named hello.py"
+                    " that prints 'Hello, World!'? Use task tracker to plan your steps."
+                )
+            )
+        ],
+    )
+)
+conversation.run()
 ```
 
-Run examples
+## Available Examples
+
+The repository includes 10 comprehensive examples demonstrating different features:
 
 ```bash
-uv run python examples/1_hello_world.py
+# Basic agent setup
+uv run python examples/01_hello_world.py
+
+# Custom tool implementation
+uv run python examples/02_custom_tools.py
+
+# Microagent usage
+uv run python examples/03_activate_microagent.py
+
+# Interactive confirmation mode
+uv run python examples/04_confirmation_mode_example.py
+
+# LLM registry usage
+uv run python examples/05_use_llm_registry.py
+
+# Interactive terminal with reasoning
+uv run python examples/06_interactive_terminal_w_reasoning.py
+
+# MCP integration
+uv run python examples/07_mcp_integration.py
+
+# MCP with OAuth
+uv run python examples/08_mcp_with_oauth.py
+
+# Pause and resume functionality
+uv run python examples/09_pause_example.py
+
+# Conversation persistence
+uv run python examples/10_persistence.py
 ```
+
+## Next Steps
+
+- Explore the [Architecture Documentation](./architecture/overview.mdx) to understand the framework
+- Learn about [Tools and MCP Integration](./architecture/tool-and-mcp.mdx)
+- Check out [Agent Architecture](./architecture/agent.mdx) for advanced usage

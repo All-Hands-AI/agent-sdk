@@ -1,4 +1,4 @@
-"""Shared fixtures for integration tests."""
+"""Shared fixtures for cross package tests."""
 
 import json
 from pathlib import Path
@@ -34,6 +34,3 @@ def nonfncall_raw_logs(llm_fixtures_dir):
             with open(log_file) as f:
                 logs.append(json.load(f))
     return logs
-
-
-# Removed cleaning function - working with raw data to understand real issues

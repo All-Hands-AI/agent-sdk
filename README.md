@@ -19,15 +19,16 @@ agent-sdk/
 ├── pyproject.toml                      # Workspace configuration
 ├── uv.lock                             # Dependency lock file
 ├── examples/                           # Usage examples
-│   ├── 1_hello_world.py                # Basic agent setup
-│   ├── 2_custom_tools.py               # Custom tool implementation
-│   ├── 3_activate_microagent.py        # Microagent usage
-│   ├── 4_confirmation_mode_example.py  # Interactive mode
-│   ├── 5_use_llm_registry.py           # LLM registry usage
-│   ├── 6_interactive_terminal.py       # Terminal interaction
-│   ├── 7_mcp_integration.py            # MCP integration
-│   ├── 8_mcp_with_oauth.py             # MCP integration with OAuth
-│   └── 9_pause_example.py              # Pause and resume agent execution
+│   ├── 01_hello_world.py               # Basic agent setup
+│   ├── 02_custom_tools.py              # Custom tool implementation
+│   ├── 03_activate_microagent.py       # Microagent usage
+│   ├── 04_confirmation_mode_example.py # Interactive mode
+│   ├── 05_use_llm_registry.py          # LLM registry usage
+│   ├── 06_interactive_terminal_w_reasoning.py # Terminal interaction with reasoning
+│   ├── 07_mcp_integration.py           # MCP integration
+│   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
+│   ├── 09_pause_example.py             # Pause and resume agent execution
+│   └── 10_persistence.py               # Conversation persistence
 ├── openhands/              # Main SDK packages
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
@@ -70,7 +71,7 @@ cd agent-sdk
 make build
 
 # Verify installation
-uv run python examples/1_hello_world.py
+uv run python examples/01_hello_world.py
 ```
 
 ### Hello World Example
@@ -90,8 +91,8 @@ llm = LLM(
 
 # Setup tools
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 
 # Create agent and conversation
@@ -120,7 +121,7 @@ from openhands.tools import BashTool, FileEditorTool
 
 agent = Agent(
     llm=llm,
-    tools=[BashTool(), FileEditorTool()],
+    tools=[BashTool.create(), FileEditorTool.create()],
     # Optional: custom context, microagents, etc.
 )
 ```
@@ -157,8 +158,8 @@ from openhands.tools import BashTool, FileEditorTool
 
 # Direct instantiation with simplified API
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 ```
 
@@ -280,9 +281,7 @@ Comprehensive architecture documentation is available in the [`docs/architecture
 - **[Conversation System](./docs/architecture/conversation.mdx)** - State management, event system, and persistence
 
 Additional documentation:
-- **[Getting Started](./docs/getting-started.mdx)** - Step-by-step setup guide
-- **[Examples](./docs/examples.mdx)** - Code examples and use cases
-- **[MCP Integration](./docs/mcp.mdx)** - Model Context Protocol integration guide
+- **[Getting Started](./docs/getting-started.mdx)** - Step-by-step setup guide with all examples
 
 ## Development Workflow
 

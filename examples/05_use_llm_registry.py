@@ -15,7 +15,6 @@ from openhands.sdk import (
 )
 from openhands.tools import (
     BashTool,
-    FileEditorTool,
 )
 
 
@@ -41,10 +40,7 @@ llm = llm_registry.get("main_agent")
 
 # Tools
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-]
+tools = [BashTool.create(working_dir=cwd)]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -62,12 +58,7 @@ conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 conversation.send_message(
     message=Message(
         role="user",
-        content=[
-            TextContent(
-                text="Hello! Can you create a new Python file named "
-                "hello_registry.py that prints 'Hello from LLM Registry!'?"
-            )
-        ],
+        content=[TextContent(text="Please echo 'Hello!'")],
     )
 )
 conversation.run()
