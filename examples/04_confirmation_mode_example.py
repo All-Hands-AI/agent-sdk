@@ -227,6 +227,20 @@ conversation.send_message(
 )
 conversation.run()
 
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[
+            TextContent(
+                text=(
+                    "Please delete any file that was created during this conversation."
+                )
+            )
+        ],
+    )
+)
+conversation.run()
+
 print("\n=== Example Complete ===")
 print("Key points:")
 print(
