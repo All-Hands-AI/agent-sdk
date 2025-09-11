@@ -62,7 +62,7 @@ def mock_llm() -> LLM:
 
 def test_should_condense(mock_llm: LLM) -> None:
     """Test that LLMSummarizingCondenser correctly determines when to condense."""
-    max_size = 10
+    max_size = 100
     condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
 
     # Create events below the threshold
@@ -80,7 +80,7 @@ def test_should_condense(mock_llm: LLM) -> None:
 
 def test_condense_returns_view_when_no_condensation_needed(mock_llm: LLM) -> None:
     """Test that condenser returns the original view when no condensation is needed."""  # noqa: E501
-    max_size = 10
+    max_size = 100
     condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
 
     events = [message_event(f"Event {i}") for i in range(max_size)]
