@@ -16,14 +16,29 @@ from openhands.sdk.utils.protocol import ListLike
 logger = get_logger(__name__)
 
 
-# ===== Minimal file-backed, lazy EventLog that satisfies ListLike[Event] =====
-class EventLog(ListLike[Event]):  # runtime class; conforms to the Protocol
+class EventLog(ListLike[Event]):
     def __init__(self, fs: FileStore, dir_path: str = EVENTS_DIR) -> None:
         self._fs = fs
         self._dir = dir_path
-        self._length = self._scan_len()  # contiguous count from 0..N-1
+        self._id_to_idx: dict[str, int] = {}
+        self._idx_to_id: dict[int, str] = {}
+        self._length = self._scan_and_build_index()
 
-    # ---- ListLike API ----
+    def get_index(self, event_id: str) -> int:
+        """Return the integer index for a given event_id."""
+        try:
+            return self._id_to_idx[event_id]
+        except KeyError:
+            raise KeyError(f"Unknown event_id: {event_id}")
+
+    def get_id(self, idx: int) -> str:
+        """Return the event_id for a given index."""
+        if idx < 0:
+            idx += self._length
+        if idx < 0 or idx >= self._length:
+            raise IndexError("Event index out of range")
+        return self._idx_to_id[idx]
+
     def __getitem__(self, idx: int) -> Event:
         if idx < 0:
             idx += self._length
@@ -39,44 +54,69 @@ class EventLog(ListLike[Event]):  # runtime class; conforms to the Protocol
             txt = self._fs.read(self._path(i))
             if not txt:
                 continue
-            try:
-                yield EventBase.model_validate(json.loads(txt))
-            except Exception as e:
-                logger.error(
-                    f"Failed to parse event file: {self._path(i)}", exc_info=True
-                )
-                raise e
+            evt = EventBase.model_validate(json.loads(txt))
+            evt_id = evt.id
+            # only backfill mapping if missing
+            if i not in self._idx_to_id:
+                self._idx_to_id[i] = evt_id
+                self._id_to_idx.setdefault(evt_id, i)
+            yield evt
 
     def append(self, item: Event) -> None:
-        path = self._path(self._length)
+        evt_id = item.id
+        path = self._path(self._length, event_id=evt_id)
         self._fs.write(path, item.model_dump_json(exclude_none=True))
-        self._length += 1  # update length after successful write
+        self._idx_to_id[self._length] = evt_id
+        self._id_to_idx[evt_id] = self._length
+        self._length += 1
 
     def __len__(self) -> int:
         return self._length
 
-    # ---- internals ----
-    def _path(self, idx: int) -> str:
-        return f"{self._dir}/{EVENT_FILE_PATTERN.format(idx=idx)}"
+    def _path(self, idx: int, *, event_id: str | None = None) -> str:
+        return f"{self._dir}/{
+            EVENT_FILE_PATTERN.format(
+                idx=idx, event_id=event_id or self._idx_to_id[idx]
+            )
+        }"
 
-    def _scan_len(self) -> int:
+    def _scan_and_build_index(self) -> int:
         try:
             paths = self._fs.list(self._dir)
         except Exception:
+            self._id_to_idx.clear()
+            self._idx_to_id.clear()
             return 0
-        idxs: list[int] = []
+
+        by_idx: dict[int, str] = {}
         for p in paths:
             name = p.rsplit("/", 1)[-1]
             m = EVENT_NAME_RE.match(name)
             if m:
-                idxs.append(int(m.group("idx")))
-        if not idxs:
+                idx = int(m.group("idx"))
+                evt_id = m.group("event_id")
+                by_idx[idx] = evt_id
+
+        if not by_idx:
+            self._id_to_idx.clear()
+            self._idx_to_id.clear()
             return 0
-        idxs.sort()
+
         n = 0
-        for v in idxs:
-            if v != n:
-                logger.warning(f"Event index gap detected: expect next {n}, got {v}")
-                break  # stop at first gap; we enforce contiguous indices
+        while True:
+            if n not in by_idx:
+                if any(i > n for i in by_idx.keys()):
+                    logger.warning(
+                        "Event index gap detected: "
+                        f"expect next index {n} but got {sorted(by_idx.keys())}"
+                    )
+                break
             n += 1
+
+        self._id_to_idx.clear()
+        self._idx_to_id.clear()
+        for i in range(n):
+            evt_id = by_idx[i]
+            self._idx_to_id[i] = evt_id
+            self._id_to_idx.setdefault(evt_id, i)
         return n
