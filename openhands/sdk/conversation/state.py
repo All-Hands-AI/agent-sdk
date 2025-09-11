@@ -1,6 +1,5 @@
 # state.py
 import json
-import uuid
 from dataclasses import dataclass
 from threading import RLock, get_ident
 from typing import Optional
@@ -34,10 +33,7 @@ class EventFileInfo:
 
 class ConversationState(BaseModel):
     # ===== Public, validated fields =====
-    id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()),
-        description="Unique conversation ID",
-    )
+    id: str = Field(description="Unique conversation ID")
 
     agent: AgentType = Field(
         ...,
