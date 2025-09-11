@@ -224,8 +224,9 @@ class Conversation:
         """Add secrets to the conversation.
 
         Args:
-            secrets: Dictionary mapping secret keys to callable functions.
-                    Each callable takes a string (the key) and returns the secret value.
+            secrets: Dictionary mapping secret keys to values or no-arg callables.
+                     SecretValue = str | Callable[[], str]. Callables are invoked lazily
+                     when a command references the secret key.
         """
 
         secrets_manager = self.state.get_secrets_manager()

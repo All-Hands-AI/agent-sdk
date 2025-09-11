@@ -25,11 +25,12 @@ class SecretsManager:
         self._secrets: dict[str, SecretValue] = {}
 
     def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
-        """Add secrets to the manager.
+        """Add or update secrets in the manager.
 
         Args:
-            secrets: Dictionary mapping secret keys to callable functions.
-                    Each callable takes a string (the key) and returns the secret value.
+            secrets: Dictionary mapping secret keys to values or no-arg callables.
+                     SecretValue = str | Callable[[], str]. Callables are invoked lazily
+                     when a command references the secret key.
         """
         self._secrets.update(secrets)
 
