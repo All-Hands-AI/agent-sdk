@@ -63,7 +63,26 @@ class Conversation:
         self._persist_filestore = persist_filestore
 
         # Create-or-resume: factory inspects BASE_STATE to decide
-        desired_id = conversation_id or str(uuid.uuid4())
+        desired_id = conversation_id
+
+        # If no specific ID provided, check if there's persisted state to resume
+        if desired_id is None and self._persist_filestore is not None:
+            try:
+                import json
+
+                base_text = self._persist_filestore.read("base_state.json")
+                if base_text:
+                    persisted_data = json.loads(base_text)
+                    desired_id = persisted_data.get("id")
+            except Exception:
+                # Catch all exceptions including FileNotFoundError,
+                # json.JSONDecodeError, KeyError
+                pass
+
+        # If still no ID, generate a new one
+        if desired_id is None:
+            desired_id = str(uuid.uuid4())
+
         self.state = ConversationState.create(
             id=desired_id,
             agent=agent,

@@ -22,6 +22,7 @@ class EventLog(ListLike[Event]):
         self._dir = dir_path
         self._id_to_idx: dict[str, int] = {}
         self._idx_to_id: dict[int, str] = {}
+        self._idx_to_path: dict[int, str] = {}  # Store actual file paths
         self._length = self._scan_and_build_index()
 
     def get_index(self, event_id: str) -> int:
@@ -64,16 +65,53 @@ class EventLog(ListLike[Event]):
 
     def append(self, item: Event) -> None:
         evt_id = item.id
+        expected_idx = self._length
+
+        # Validate that event ID matches expected index position
+        if evt_id in self._id_to_idx:
+            existing_idx = self._id_to_idx[evt_id]
+            if existing_idx != expected_idx:
+                raise ValueError(
+                    f"Event ID validation failed: Event with ID '{evt_id}' "
+                    f"already exists at index {existing_idx}, but trying to append "
+                    f"at index {expected_idx}. Event IDs must be unique and "
+                    f"match their index position."
+                )
+
         path = self._path(self._length, event_id=evt_id)
         self._fs.write(path, item.model_dump_json(exclude_none=True))
         self._idx_to_id[self._length] = evt_id
         self._id_to_idx[evt_id] = self._length
+        # Store the filename for the new event
+        filename = path.split("/")[-1]
+        self._idx_to_path[self._length] = filename
         self._length += 1
 
     def __len__(self) -> int:
         return self._length
 
+    def clear(self) -> None:
+        """Clear all events from the log."""
+        # Remove all event files
+        for i in range(self._length):
+            if i in self._idx_to_id:
+                event_id = self._idx_to_id[i]
+                path = self._path(i, event_id=event_id)
+                if self._fs.exists(path):
+                    self._fs.delete(path)
+
+        # Reset internal state
+        self._length = 0
+        self._idx_to_id.clear()
+        self._id_to_idx.clear()
+        self._idx_to_path.clear()
+
     def _path(self, idx: int, *, event_id: str | None = None) -> str:
+        # If we have the actual path stored (from scanning), use it
+        if idx in self._idx_to_path:
+            return f"{self._dir}/{self._idx_to_path[idx]}"
+
+        # Otherwise, generate the new format path
         return f"{self._dir}/{
             EVENT_FILE_PATTERN.format(
                 idx=idx, event_id=event_id or self._idx_to_id[idx]
@@ -81,6 +119,12 @@ class EventLog(ListLike[Event]):
         }"
 
     def _scan_and_build_index(self) -> int:
+        import re
+
+        # Support both old format (event-00000.json) and new format
+        # (event-00000-{id}.json)
+        old_format_re = re.compile(r"^event-(?P<idx>\d{5})\.json$")
+
         try:
             paths = self._fs.list(self._dir)
         except Exception:
@@ -89,17 +133,39 @@ class EventLog(ListLike[Event]):
             return 0
 
         by_idx: dict[int, str] = {}
+        path_by_idx: dict[int, str] = {}
         for p in paths:
             name = p.rsplit("/", 1)[-1]
+            # Try new format first
             m = EVENT_NAME_RE.match(name)
             if m:
                 idx = int(m.group("idx"))
                 evt_id = m.group("event_id")
                 by_idx[idx] = evt_id
+                path_by_idx[idx] = name
+            else:
+                # Try old format for backward compatibility
+                m = old_format_re.match(name)
+                if m:
+                    idx = int(m.group("idx"))
+                    # For old format, we need to read the file to get the event ID
+                    try:
+                        import json
+
+                        file_content = self._fs.read(f"{self._dir}/{name}")
+                        if file_content:
+                            event_data = json.loads(file_content)
+                            evt_id = event_data.get("id", f"legacy-{idx}")
+                            by_idx[idx] = evt_id
+                            path_by_idx[idx] = name
+                    except Exception:
+                        # If we can't read the file, skip it
+                        continue
 
         if not by_idx:
             self._id_to_idx.clear()
             self._idx_to_id.clear()
+            self._idx_to_path.clear()
             return 0
 
         n = 0
@@ -115,8 +181,11 @@ class EventLog(ListLike[Event]):
 
         self._id_to_idx.clear()
         self._idx_to_id.clear()
+        self._idx_to_path.clear()
         for i in range(n):
             evt_id = by_idx[i]
             self._idx_to_id[i] = evt_id
             self._id_to_idx.setdefault(evt_id, i)
+            if i in path_by_idx:
+                self._idx_to_path[i] = path_by_idx[i]
         return n
