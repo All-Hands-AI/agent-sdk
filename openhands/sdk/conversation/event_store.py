@@ -1,6 +1,6 @@
 # state.py
 import json
-from typing import Iterator
+from typing import Iterator, overload
 
 from openhands.sdk.conversation.persistence_const import (
     EVENT_FILE_PATTERN,
@@ -40,15 +40,27 @@ class EventLog(ListLike[Event]):
             raise IndexError("Event index out of range")
         return self._idx_to_id[idx]
 
-    def __getitem__(self, idx: int) -> Event:
-        if idx < 0:
-            idx += self._length
-        if idx < 0 or idx >= self._length:
-            raise IndexError("Event index out of range")
-        txt = self._fs.read(self._path(idx))
-        if not txt:
-            raise FileNotFoundError(f"Missing event file: {self._path(idx)}")
-        return EventBase.model_validate(json.loads(txt))
+    @overload
+    def __getitem__(self, idx: int) -> Event: ...
+
+    @overload
+    def __getitem__(self, idx: slice) -> list[Event]: ...
+
+    def __getitem__(self, idx: int | slice) -> Event | list[Event]:
+        if isinstance(idx, slice):
+            start, stop, step = idx.indices(self._length)
+            return [self[i] for i in range(start, stop, step)]
+        elif isinstance(idx, int):
+            if idx < 0:
+                idx += self._length
+            if idx < 0 or idx >= self._length:
+                raise IndexError("Event index out of range")
+            txt = self._fs.read(self._path(idx))
+            if not txt:
+                raise FileNotFoundError(f"Missing event file: {self._path(idx)}")
+            return EventBase.model_validate(json.loads(txt))
+        else:
+            raise TypeError(f"Invalid index type: {type(idx)}")
 
     def __iter__(self) -> Iterator[Event]:
         for i in range(self._length):

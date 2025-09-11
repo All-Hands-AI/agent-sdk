@@ -18,7 +18,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
-from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
+from openhands.sdk.event import ActionEvent, Event, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
@@ -253,10 +253,10 @@ class TestConfirmationMode:
         """Test getting unmatched events (actions without observations)."""
         # Create test action
         action_event = self._create_test_action()
-        events: list = [action_event]
+        events: list[Event] = [action_event]
 
         # Test: action without observation should be pending
-        unmatched = get_unmatched_actions(events)
+        unmatched = get_unmatched_actions(events)  # type: ignore[arg-type]
         assert len(unmatched) == 1
         assert unmatched[0].id == action_event.id
 
@@ -273,7 +273,7 @@ class TestConfirmationMode:
         events.append(obs_event)
 
         # Test: action with observation should not be pending
-        unmatched = get_unmatched_actions(events)
+        unmatched = get_unmatched_actions(events)  # type: ignore[arg-type]
         assert len(unmatched) == 0
 
         # Test rejection functionality
@@ -290,7 +290,7 @@ class TestConfirmationMode:
         events.append(rejection)
 
         # Test: rejected action should not be pending
-        unmatched = get_unmatched_actions(events)
+        unmatched = get_unmatched_actions(events)  # type: ignore[arg-type]
         assert len(unmatched) == 0
 
         # Test UserRejectObservation functionality

@@ -17,7 +17,7 @@ def test_view_preserves_uncondensed_lists() -> None:
     actions.
     """
     events: list[Event] = [message_event(f"Event {i}") for i in range(5)]
-    view = View.from_events(events)
+    view = View.from_events(events)  # type: ignore[arg-type]
     assert len(view) == 5
     assert view.events == events
 
@@ -35,7 +35,7 @@ def test_view_forgets_events() -> None:
     ]
 
     # All events should be forgotten and removed.
-    view = View.from_events(events)
+    view = View.from_events(events)  # type: ignore[arg-type]
     assert view.events == []
 
 
@@ -54,7 +54,7 @@ def test_view_keeps_non_forgotten_events() -> None:
             Condensation(forgotten_event_ids=[forgotten_event_id]),
         ]
 
-        view = View.from_events(events)
+        view = View.from_events(events)  # type: ignore[arg-type]
 
         # We should have one less message event
         assert len(view.events) == len(message_events) - 1
@@ -73,7 +73,7 @@ def test_view_inserts_summary() -> None:
                 forgotten_event_ids=[], summary="My Summary", summary_offset=offset
             ),
         ]
-        view = View.from_events(events)
+        view = View.from_events(events)  # type: ignore[arg-type]
 
         assert len(view) == 6  # 5 message events + 1 summary observation
         for index, event in enumerate(view.events):
@@ -106,7 +106,7 @@ def test_no_condensation_action_in_view() -> None:
     events.append(Condensation(forgotten_event_ids=[message_events[0].id]))
     events.extend(message_events[2:])
 
-    view = View.from_events(events)
+    view = View.from_events(events)  # type: ignore[arg-type]
 
     # Check that no condensation is present in the view
     for event in view:
@@ -126,7 +126,7 @@ def test_unhandled_condensation_request_with_no_condensation() -> None:
         CondensationRequest(),
         message_event("Event 2"),
     ]
-    view = View.from_events(events)
+    view = View.from_events(events)  # type: ignore[arg-type]
 
     # Should be marked as having an unhandled condensation request
     assert view.unhandled_condensation_request is True
@@ -152,7 +152,7 @@ def test_handled_condensation_request_with_condensation_action() -> None:
     )
     events.append(Condensation(forgotten_event_ids=[event.id for event in events[:2]]))
     events.append(message_event("Event 3"))
-    view = View.from_events(events)
+    view = View.from_events(events)  # type: ignore[arg-type]
 
     # Should NOT be marked as having an unhandled condensation request
     assert view.unhandled_condensation_request is False
@@ -176,7 +176,7 @@ def test_multiple_condensation_requests_pattern() -> None:
         CondensationRequest(),  # Second request - should be unhandled
         message_event(content="Event 3"),
     ]
-    view = View.from_events(events)
+    view = View.from_events(events)  # type: ignore[arg-type]
 
     # Should be marked as having an unhandled condensation request (the second one)
     assert view.unhandled_condensation_request is True
@@ -199,7 +199,7 @@ def test_condensation_action_before_request() -> None:
         CondensationRequest(),  # This should be unhandled
         message_event(content="Event 2"),
     ]
-    view = View.from_events(events)
+    view = View.from_events(events)  # type: ignore[arg-type]
 
     # Should be marked as having an unhandled condensation request
     assert view.unhandled_condensation_request is True
@@ -221,7 +221,7 @@ def test_no_condensation_events() -> None:
         message_event(content="Event 1"),
         message_event(content="Event 2"),
     ]
-    view = View.from_events(events)
+    view = View.from_events(events)  # type: ignore[arg-type]
 
     # Should NOT be marked as having an unhandled condensation request
     assert view.unhandled_condensation_request is False
@@ -241,7 +241,7 @@ def test_condensation_request_always_removed_from_view() -> None:
         CondensationRequest(),
         message_event(content="Event 1"),
     ]
-    view_unhandled = View.from_events(events_unhandled)
+    view_unhandled = View.from_events(events_unhandled)  # type: ignore[arg-type]
 
     assert view_unhandled.unhandled_condensation_request is True
     assert len(view_unhandled) == 2  # Only MessageEvents
@@ -256,7 +256,7 @@ def test_condensation_request_always_removed_from_view() -> None:
         Condensation(forgotten_event_ids=[]),
         message_event(content="Event 2"),
     ]
-    view_handled = View.from_events(events_handled)
+    view_handled = View.from_events(events_handled)  # type: ignore[arg-type]
 
     assert view_handled.unhandled_condensation_request is False
     assert len(view_handled) == 3  # Only MessageEvents
