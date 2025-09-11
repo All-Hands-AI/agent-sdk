@@ -9,7 +9,7 @@ from openhands.sdk.llm import LLM
 
 
 @pytest.fixture
-def mock_llm():  # noqa: F811
+def mock_llm():
     """Create a standard mock LLM instance for testing."""
     return LLM(
         model="gpt-4o",
