@@ -41,7 +41,7 @@ class TestEventLogEdgeCases:
             log[-1]
 
     def test_event_log_id_validation_duplicate_id(self):
-        """Test that duplicate event IDs are allowed in current implementation."""
+        """Test that duplicate event IDs are prevented."""
         fs = InMemoryFileStore()
         log = EventLog(fs)
 
@@ -50,10 +50,13 @@ class TestEventLogEdgeCases:
 
         log.append(event1)
 
-        # Current implementation allows duplicate IDs
-        log.append(event2)
+        # Duplicate IDs should raise ValueError
+        with pytest.raises(
+            ValueError, match="Event with ID 'test-id-1' already exists at index 0"
+        ):
+            log.append(event2)
 
-        assert len(log) == 2
+        assert len(log) == 1
 
     def test_event_log_id_validation_existing_id_different_index(self):
         """Test behavior when internal state is manually modified."""
@@ -67,12 +70,16 @@ class TestEventLogEdgeCases:
         # Manually corrupt the internal state to simulate edge case
         log._id_to_idx["event-2"] = 0  # Wrong index for event-2
 
-        # Current implementation doesn't validate this, so event-2 will be added
+        # With duplicate prevention, event-2 will be rejected because
+        # "event-2" is already in _id_to_idx
         event2 = create_test_event("event-2", "Second")
-        log.append(event2)
+        with pytest.raises(
+            ValueError, match="Event with ID 'event-2' already exists at index 0"
+        ):
+            log.append(event2)
 
-        # Both events should be in the log
-        assert len(log) == 2
+        # Only the first event should be in the log
+        assert len(log) == 1
 
     def test_event_log_negative_indexing(self):
         """Test negative indexing works correctly."""

@@ -75,6 +75,13 @@ class EventLog(ListLike[Event]):
 
     def append(self, item: Event) -> None:
         evt_id = item.id
+        # Check for duplicate ID
+        if evt_id in self._id_to_idx:
+            existing_idx = self._id_to_idx[evt_id]
+            raise ValueError(
+                f"Event with ID '{evt_id}' already exists at index {existing_idx}"
+            )
+
         path = self._path(self._length, event_id=evt_id)
         self._fs.write(path, item.model_dump_json(exclude_none=True))
         self._idx_to_id[self._length] = evt_id
@@ -131,5 +138,12 @@ class EventLog(ListLike[Event]):
         for i in range(n):
             evt_id = by_idx[i]
             self._idx_to_id[i] = evt_id
-            self._id_to_idx.setdefault(evt_id, i)
+            if evt_id in self._id_to_idx:
+                logger.warning(
+                    f"Duplicate event ID '{evt_id}' found during scan. "
+                    f"Keeping first occurrence at index {self._id_to_idx[evt_id]}, "
+                    f"ignoring duplicate at index {i}"
+                )
+            else:
+                self._id_to_idx[evt_id] = i
         return n

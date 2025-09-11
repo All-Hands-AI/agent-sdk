@@ -116,7 +116,9 @@ class TestConversationCore:
         assert conv.state.id == custom_id
 
     def test_conversation_event_id_validation(self):
-        """Test that EventLog handles duplicate event IDs."""
+        """Test that EventLog prevents duplicate event IDs."""
+        import pytest
+
         fs = InMemoryFileStore()
         agent = create_test_agent()
 
@@ -126,13 +128,16 @@ class TestConversationCore:
         event1 = create_test_event("unique-id-1", "First event")
         conv.state.events.append(event1)
 
-        # Add event with duplicate ID - current implementation allows this
+        # Add event with duplicate ID - should raise ValueError
         event2 = create_test_event("unique-id-1", "Second event")
-        conv.state.events.append(event2)
+        with pytest.raises(
+            ValueError, match="Event with ID 'unique-id-1' already exists at index 1"
+        ):
+            conv.state.events.append(event2)
 
-        # Both events should be in the log
+        # Only the first event should be in the log
         our_events = [e for e in conv.state.events if e.id == "unique-id-1"]
-        assert len(our_events) == 2
+        assert len(our_events) == 1
 
     def test_conversation_large_event_handling(self):
         """Test conversation handling of many events."""
