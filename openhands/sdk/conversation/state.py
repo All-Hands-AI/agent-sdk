@@ -2,6 +2,8 @@ import uuid
 from threading import RLock, get_ident
 from typing import TYPE_CHECKING, Optional
 
+from openhands.sdk.conversation.secrets_manager import SecretsManager
+
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from openhands.sdk.event import Event

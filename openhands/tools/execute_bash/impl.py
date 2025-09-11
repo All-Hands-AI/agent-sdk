@@ -43,7 +43,7 @@ class BashExecutor(ToolExecutor):
         self.env_provider = env_provider
 
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
-        # If env vars are needed for this command, export them as a separate action first
+        # If env vars are needed, export them as a separate action first
         if self.env_provider and action.command.strip() and not action.is_input:
             env_vars = self.env_provider(action.command)
             if env_vars:
