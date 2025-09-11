@@ -70,28 +70,6 @@ class Conversation:
             file_store=self._persist_filestore,
         )
 
-        # If caller supplied an ID, enforce match when resuming
-        if conversation_id is not None and conversation_id != self.state.id:
-            raise ValueError(
-                f"Conversation ID mismatch: provided {conversation_id}, "
-                f"but persisted state has {self.state.id}"
-            )
-
-        # Reconcile agent config with the deserialized one, then assert equality
-        resolved = agent.resolve_diff_from_deserialized(self.state.agent)
-        if agent.model_dump(exclude_none=True) != resolved.model_dump(
-            exclude_none=True
-        ):
-            from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
-
-            raise ValueError(
-                "The agent provided is different from the one in persisted state. "
-                "Please use the same agent instance to resume the conversation. \n"
-                f"Diff: {pretty_pydantic_diff(agent, self.state.agent)}"
-            )
-        # Assign back (safe; triggers autosave of base state if changed)
-        self.state.agent = resolved
-
         # Default callback: persist every event to state
         def _default_callback(e):
             self.state.events.append(e)

@@ -96,7 +96,8 @@ class ConversationState(BaseModel):
         file_store: FileStore | None = None,
     ) -> "ConversationState":
         """
-        If base_state.json exists: resume (attach EventLog).
+        If base_state.json exists: resume (attach EventLog,
+            reconcile agent, enforce id).
         Else: create fresh (agent required), persist base, and return.
         """
         if file_store is None:
@@ -107,13 +108,44 @@ class ConversationState(BaseModel):
         except FileNotFoundError:
             base_text = None
 
-        if base_text:  # resume existing state
+        # ---- Resume path ----
+        if base_text:
             state = cls.model_validate(json.loads(base_text))
+
+            # Enforce conversation id match
+            if state.id != id:
+                raise ValueError(
+                    f"Conversation ID mismatch: provided {id}, "
+                    f"but persisted state has {state.id}"
+                )
+
+            # Reconcile agent config with deserialized one, then assert equality
+            resolved = agent.resolve_diff_from_deserialized(state.agent)
+            if agent.model_dump(exclude_none=True) != resolved.model_dump(
+                exclude_none=True
+            ):
+                from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
+
+                raise ValueError(
+                    "The agent provided is different from the one in persisted state. "
+                    "Please use the same agent instance to resume the conversation.\n"
+                    f"Diff: {pretty_pydantic_diff(agent, state.agent)}"
+                )
+
+            # Attach runtime handles and commit reconciled agent (may autosave)
             state._fs = file_store
             state._events = EventLog(file_store, dir_path=EVENTS_DIR)
             state._autosave_enabled = True
+            state.agent = resolved
+
+            logger.info(
+                f"Resumed conversation {state.id} from persistent storage.\n"
+                f"State: {state.model_dump()}\n"
+                f"Agent: {state.agent.model_dump(exclude_none=True)}"
+            )
             return state
 
+        # ---- Fresh path ----
         if agent is None:
             raise ValueError(
                 "agent is required when initializing a new ConversationState"
@@ -124,6 +156,11 @@ class ConversationState(BaseModel):
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
         state._save_base_state(file_store)  # initial snapshot
         state._autosave_enabled = True
+        logger.info(
+            f"Created new conversation {state.id}\n"
+            f"State: {state.model_dump()}\n"
+            f"Agent: {state.agent.model_dump(exclude_none=True)}"
+        )
         return state
 
     # ===== Auto-persist base on public field changes =====
