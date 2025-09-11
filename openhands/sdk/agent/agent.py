@@ -115,7 +115,7 @@ class Agent(AgentBase):
         self._current_state = state
 
         # Configure bash tools with env provider
-        self._configure_bash_tools_env_provider()
+        self._configure_bash_tools_env_provider(state)
 
         llm_convertible_messages = [
             event for event in state.events if isinstance(event, LLMConvertibleEvent)
