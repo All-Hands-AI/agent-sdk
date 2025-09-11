@@ -64,7 +64,6 @@ class Conversation:
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or str(uuid.uuid4())
-
         self.state = ConversationState.create(
             id=desired_id,
             agent=agent,

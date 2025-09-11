@@ -53,6 +53,3 @@ class InMemoryFileStore(FileStore):
             logger.debug(f"Cleared in-memory file store: {path}")
         except Exception as e:
             logger.error(f"Error clearing in-memory file store: {str(e)}")
-
-    def exists(self, path: str) -> bool:
-        return path in self.files
