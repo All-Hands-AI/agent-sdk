@@ -69,16 +69,12 @@ class Agent(AgentBase):
         )
         return data
 
-    def _configure_bash_tools_env_provider(self) -> None:
+    def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
         """Configure bash tools with an environment provider closure."""
         if not isinstance(self.tools, dict):
             return
 
-        current_state = getattr(self, "_current_state", None)
-        if current_state is None:
-            return
-
-        mgr = current_state.get_secrets_manager()
+        mgr = state.get_secrets_manager()
 
         def env_for_cmd(cmd: str) -> dict[str, str]:
             try:

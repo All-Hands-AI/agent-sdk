@@ -43,32 +43,28 @@ class BashExecutor(ToolExecutor):
         self.env_provider = env_provider
 
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
-        # Check if we need to inject env vars for this command
+        # If env vars are needed for this command, export them as a separate action first
         if self.env_provider and action.command.strip() and not action.is_input:
             env_vars = self.env_provider(action.command)
             if env_vars:
-                # Create export statements for the secrets
                 export_statements = []
                 for key, value in env_vars.items():
-                    # Escape the value for bash
                     escaped_value = value.replace("'", "'\"'\"'")
                     export_statements.append(f"export {key}='{escaped_value}'")
-
-                # Create a modified action with export statements
-                exports = " && ".join(export_statements)
-                modified_command = f"{exports} && {action.command}"
+                exports_cmd = " && ".join(export_statements)
 
                 logger.debug(
-                    f"Injecting {len(env_vars)} environment variables for command"
+                    f"Exporting {len(env_vars)} environment variables before command"
                 )
 
-                # Create new action with modified command
-                modified_action = ExecuteBashAction(
-                    command=modified_command,
-                    is_input=action.is_input,
-                    timeout=action.timeout,
+                # Execute the export command separately to persist env in the session
+                _ = self.session.execute(
+                    ExecuteBashAction(
+                        command=exports_cmd,
+                        is_input=False,
+                        timeout=action.timeout,
+                    )
                 )
-                return self.session.execute(modified_action)
 
-        # Execute the original action if no env vars need to be injected
+        # Now execute the original action unchanged
         return self.session.execute(action)
