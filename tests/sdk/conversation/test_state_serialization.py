@@ -88,7 +88,7 @@ def test_conversation_state_persistence_save_load():
 
         # Events are stored with new naming pattern
         event_files = list(Path(temp_dir, "events").glob("*.json"))
-        assert len(event_files) >= 2  # May have additional events from Agent.init_state
+        assert len(event_files) == 2
 
         # Load state using Conversation (which handles loading)
         conversation = Conversation(
@@ -98,9 +98,16 @@ def test_conversation_state_persistence_save_load():
 
         # Verify loaded state matches original
         assert loaded_state.id == state.id
-        assert len(loaded_state.events) >= 2  # May have additional events
+        assert len(loaded_state.events) == 2
+        assert isinstance(loaded_state.events[0], SystemPromptEvent)
+        assert isinstance(loaded_state.events[1], MessageEvent)
         assert loaded_state.agent.llm.model == agent.llm.model
         assert loaded_state.agent.__class__ == agent.__class__
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
+        # Also verify key fields are preserved
+        assert loaded_state.id == state.id
+        assert len(loaded_state.events) == len(state.events)
 
 
 def test_conversation_state_incremental_save():
@@ -121,8 +128,7 @@ def test_conversation_state_incremental_save():
 
         # Verify event files exist (may have additional events from Agent.init_state)
         event_files = list(Path(temp_dir, "events").glob("*.json"))
-        initial_count = len(event_files)
-        assert initial_count >= 1
+        assert len(event_files) == 1
 
         # Add second event - auto-saves
         event2 = MessageEvent(
@@ -133,14 +139,16 @@ def test_conversation_state_incremental_save():
 
         # Verify additional event file was created
         event_files = list(Path(temp_dir, "events").glob("*.json"))
-        assert len(event_files) == initial_count + 1
+        assert len(event_files) == 2
 
         # Load using Conversation and verify events are present
         conversation = Conversation(
             agent=agent, persist_filestore=file_store, conversation_id="test-id-3"
         )
         loaded_state = conversation.state
-        assert len(loaded_state.events) >= 2
+        assert len(loaded_state.events) == 2
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
 
 
 def test_conversation_state_event_file_scanning():
@@ -179,7 +187,7 @@ def test_conversation_state_event_file_scanning():
 
         # Should load valid events in order
         assert (
-            len(conversation.state.events) >= 2
+            len(conversation.state.events) == 2
         )  # May have additional events from Agent.init_state
 
         # Find our test events
@@ -561,6 +569,8 @@ def test_conversation_state_flags_persistence():
         assert loaded_state.agent_waiting_for_confirmation is True
         assert loaded_state.agent_paused is True
         assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
         # Verify key fields are preserved
         assert loaded_state.id == state.id
         assert loaded_state.agent.llm.model == state.agent.llm.model
