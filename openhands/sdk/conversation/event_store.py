@@ -107,6 +107,8 @@ class EventLog(ListLike[Event]):
                 idx = int(m.group("idx"))
                 evt_id = m.group("event_id")
                 by_idx[idx] = evt_id
+            else:
+                logger.warning(f"Unrecognized event file name: {name}")
 
         if not by_idx:
             self._id_to_idx.clear()
