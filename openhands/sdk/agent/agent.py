@@ -135,7 +135,6 @@ class Agent(AgentBase):
             assert isinstance(self.tools, dict)
             # Prepare system message
             event = SystemPromptEvent(
-                id=state.events.next_id(),
                 source="agent",
                 system_prompt=TextContent(text=self.system_message),
                 tools=[t.to_openai_tool() for t in self.tools.values()],
@@ -172,7 +171,7 @@ class Agent(AgentBase):
         # of events, exactly as expected, or a new condensation that needs to be
         # processed before the agent can sample another action.
         if self.condenser is not None:
-            view = View.from_state(state)
+            view = View.from_events(state.events)
             condensation_result = self.condenser.condense(view)
 
             match condensation_result:
@@ -267,7 +266,6 @@ class Agent(AgentBase):
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
             msg_event = MessageEvent(
-                id=state.events.next_id(),
                 source="agent",
                 llm_message=message,
                 metrics=metrics,
@@ -323,7 +321,6 @@ class Agent(AgentBase):
             err = f"Tool '{tool_name}' not found. Available: {list(self.tools.keys())}"
             logger.error(err)
             event = AgentErrorEvent(
-                id=state.events.next_id(),
                 error=err,
                 metrics=metrics,
             )
@@ -342,7 +339,6 @@ class Agent(AgentBase):
                 f"'{tool.name}': {e}"
             )
             event = AgentErrorEvent(
-                id=state.events.next_id(),
                 error=err,
                 metrics=metrics,
             )
@@ -351,7 +347,6 @@ class Agent(AgentBase):
 
         # Create one ActionEvent per action
         action_event = ActionEvent(
-            id=state.events.next_id(),
             action=action,
             thought=thought,
             reasoning_content=reasoning_content,
@@ -392,7 +387,6 @@ class Agent(AgentBase):
         )
 
         obs_event = ObservationEvent(
-            id=state.events.next_id(),
             observation=observation,
             action_id=action_event.id,
             tool_name=tool.name,

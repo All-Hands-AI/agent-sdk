@@ -9,8 +9,10 @@ from pydantic import BaseModel, Field, PrivateAttr
 from openhands.sdk.agent.base import AgentType
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
+from openhands.sdk.event import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
+from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
@@ -55,7 +57,7 @@ class ConversationState(BaseModel):
 
     # ===== Public "events" facade (ListLike[Event]) =====
     @property
-    def events(self) -> EventLog:
+    def events(self) -> ListLike[Event]:
         return self._events
 
     # ===== Lock/guard API =====

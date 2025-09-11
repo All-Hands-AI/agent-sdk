@@ -3,7 +3,6 @@ from typing import overload
 
 from pydantic import BaseModel
 
-from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event import (
     Condensation,
     CondensationRequest,
@@ -54,11 +53,10 @@ class View(BaseModel):
             raise ValueError(f"Invalid key type: {type(key)}")
 
     @staticmethod
-    def from_state(state: ConversationState) -> "View":
+    def from_events(events: ListLike[Event]) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """
-        events: ListLike[Event] = state.events
         forgotten_event_ids: set[str] = set()
         for event in events:
             if isinstance(event, Condensation):
@@ -94,7 +92,6 @@ class View(BaseModel):
             kept_events.insert(
                 summary_offset,
                 MessageEvent(
-                    id=state.events.next_id(),
                     llm_message=Message(
                         role="system",
                         content=[TextContent(text=summary)],

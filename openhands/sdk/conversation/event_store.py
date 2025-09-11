@@ -4,7 +4,6 @@ from typing import Iterator
 
 from openhands.sdk.conversation.persistence_const import (
     EVENT_FILE_PATTERN,
-    EVENT_ID_PATTERN,
     EVENT_NAME_RE,
     EVENTS_DIR,
 )
@@ -23,9 +22,6 @@ class EventLog(ListLike[Event]):  # runtime class; conforms to the Protocol
         self._fs = fs
         self._dir = dir_path
         self._length = self._scan_len()  # contiguous count from 0..N-1
-
-    def next_id(self) -> str:
-        return EVENT_ID_PATTERN.format(idx=self._length)
 
     # ---- ListLike API ----
     def __getitem__(self, idx: int) -> Event:
