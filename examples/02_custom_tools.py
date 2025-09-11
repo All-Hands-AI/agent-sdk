@@ -121,9 +121,9 @@ llm = LLM(
 # Tools - demonstrating both simplified and advanced patterns
 cwd = os.getcwd()
 
-# Advanced pattern: explicit executor creation and reuse with context manager
-with BashExecutor(working_dir=cwd) as bash_executor:
-    bash_tool_advanced = execute_bash_tool.set_executor(executor=bash_executor)
+# Advanced pattern: explicit executor creation and reuse
+bash_executor = BashExecutor(working_dir=cwd)
+bash_tool_advanced = execute_bash_tool.set_executor(executor=bash_executor)
 
 # Create the grep tool using explicit executor that reuses the bash executor
 grep_executor = GrepExecutor(bash_executor)
@@ -169,13 +169,6 @@ conversation.send_message(
                 )
             )
         ],
-    )
-)
-
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
     )
 )
 conversation.run()
