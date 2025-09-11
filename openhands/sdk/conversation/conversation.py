@@ -255,4 +255,4 @@ class Conversation:
         try:
             self.close()
         except Exception as e:
-            logger.warning(f"Error during conversation cleanup: {e}")
+            logger.warning(f"Error during conversation cleanup: {e}", exc_info=True)
