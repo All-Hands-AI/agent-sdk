@@ -15,11 +15,15 @@ from openhands.sdk import (
     Conversation,
     Event,
     LLMConvertibleEvent,
-    LLMSummarizingCondenser,
     Message,
     TextContent,
     Tool,
     get_logger,
+)
+from openhands.sdk.context.condenser import (
+    LLMSummarizingCondenser,
+    PipelineCondenser,
+    UnmatchedToolCallFilteringCondenser,
 )
 from openhands.sdk.io.local import LocalFileStore
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
@@ -44,13 +48,26 @@ tools: list[Tool] = [
     TaskTrackerTool.create(save_dir=cwd),
 ]
 
-# Create LLM Summarizing Condenser
-# This condenser will automatically summarize conversation history when it
-# exceeds max_size
-condenser = LLMSummarizingCondenser(
-    llm=llm,
-    max_size=10,  # Trigger condensation when conversation has more than 10 events
-    keep_first=4,  # Always keep the first 4 events (system prompt, initial messages)
+# Create a condenser to manage the context
+condenser = PipelineCondenser(
+    # The pipeline condenser allows for chaining of multiple condensers, allowing for
+    # complex condensation behavior with minimal configuration.
+    condensers=[
+        # The first condenser will automatically truncate conversation history when it
+        # exceeds max_size, and replaces the dropped events with an LLM-generated
+        # summary. This condenser triggers when there are more than ten events in the
+        # conversation history, and always keeps the first four events (system prompts,
+        # initial user messages) to preserve important context.
+        LLMSummarizingCondenser(
+            llm=llm,
+            max_size=10,
+            keep_first=4,
+        ),
+        # The second condenser filters out any unmatched tool calls that LLM APIs may
+        # complain about. These might arise when another condenser chooses to drop an
+        # action but not the corresponding observation, or vice versa.
+        UnmatchedToolCallFilteringCondenser(),
+    ]
 )
 
 # Agent with condenser
