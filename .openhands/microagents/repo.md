@@ -104,7 +104,7 @@ When reviewing code, provide constructive feedback:
 This repo has two python packages, with unit tests specifically written for each package.
 ```
 ├── Makefile
-├── README.md
+├── README.mdx
 ├── examples
 ├── openhands
 │   ├── __init__.py
@@ -143,10 +143,9 @@ The tools package now provides two patterns for tool usage:
 ```python
 from openhands.tools import BashTool, FileEditorTool
 
-# Direct instantiation with simplified API
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 ```
 
@@ -185,7 +184,9 @@ The simplified pattern eliminates the need for manual executor instantiation and
 - Use existing packages/libraries instead of implementing yourselves whenever possible.
 - Avoid using # type: ignore. Treat it only as a last resort. In most cases, issues should be resolved by improving type annotations, adding assertions, or adjusting code/tests—rather than silencing the type checker.
   - Please AVOID using # type: ignore[attr-defined] unless absolutely necessary. If the issue can be addressed by adding a few extra assert statements to verify types, prefer that approach instead!
-  - For issue like # type: ignore[call-arg]: if you discover that the argument doesn't actually exist, do not try to mock it again in tests. Instead, simply remove it.
+  - For issue like # type: ignore[call-arg]: if you discover that the argument doesn’t actually exist, do not try to mock it again in tests. Instead, simply remove it.
+- Avoid doing in-line imports unless absolutely necessary (e.g., circular dependency).
+- Avoid getattr/hasattr guards and instead enforce type correctness by relying on explicit type assertions and proper object usage, ensuring functions only receive the expected Pydantic models or typed inputs.
 </CODE>
 
 <TESTING>
@@ -195,4 +196,5 @@ The simplified pattern eliminates the need for manual executor instantiation and
 - You should put unit tests in the corresponding test folder. For example, to test `openhands.sdk.tool/tool.py`, you should put tests under `openhands.sdk.tests/tool/test_tool.py`.
 - DON'T write TEST CLASSES unless absolutely necessary!
 - If you find yourself duplicating logics in preparing mocks, loading data etc, these logic should be fixtures in conftest.py!
+- Please test only the logic implemented in the current codebase. Do not test functionality (e.g., BaseModel.model_dumps()) that is not implemented in this repository.
 </TESTING>

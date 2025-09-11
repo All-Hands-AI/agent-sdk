@@ -1,3 +1,8 @@
+---
+title: OpenHands Agent SDK
+description: A clean, modular SDK for building AI agents with OpenHands. Complete architectural refactor emphasizing simplicity, maintainability, and developer experience.
+---
+
 # OpenHands Agent SDK
 
 A clean, modular SDK for building AI agents with OpenHands. This project represents a complete architectural refactor from OpenHands V0, emphasizing simplicity, maintainability, and developer experience.
@@ -10,16 +15,20 @@ The OpenHands Agent SDK provides a streamlined framework for creating AI agents 
 
 ```plain
 agent-sdk/
-├── Makefile                # Build and development commands
-├── pyproject.toml          # Workspace configuration
-├── uv.lock                 # Dependency lock file
-├── examples/               # Usage examples
-│   ├── 1_hello_world.py    # Basic agent setup
-│   ├── 2_custom_tools.py   # Custom tool implementation
-│   ├── 3_activate_microagent.py  # Microagent usage
-│   ├── 4_confirmation_mode_example.py  # Interactive mode
-│   ├── 5_use_llm_registry.py  # LLM registry usage
-│   └── 6_interactive_terminal.py  # Terminal interaction
+├── Makefile                            # Build and development commands
+├── pyproject.toml                      # Workspace configuration
+├── uv.lock                             # Dependency lock file
+├── examples/                           # Usage examples
+│   ├── 01_hello_world.py               # Basic agent setup
+│   ├── 02_custom_tools.py              # Custom tool implementation
+│   ├── 03_activate_microagent.py       # Microagent usage
+│   ├── 04_confirmation_mode_example.py # Interactive mode
+│   ├── 05_use_llm_registry.py          # LLM registry usage
+│   ├── 06_interactive_terminal_w_reasoning.py # Terminal interaction with reasoning
+│   ├── 07_mcp_integration.py           # MCP integration
+│   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
+│   ├── 09_pause_example.py             # Pause and resume agent execution
+│   └── 10_persistence.py               # Conversation persistence
 ├── openhands/              # Main SDK packages
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
@@ -38,7 +47,8 @@ agent-sdk/
 │       ├── utils/          # Tool utilities
 │       └── pyproject.toml  # Tools package configuration
 └── tests/                  # Test suites
-    ├── integration/        # Cross-package integration tests
+    ├── cross/              # Cross-package tests
+    ├── integration/        # Integration tests
     ├── sdk/                # SDK unit tests
     └── tools/              # Tools unit tests
 ```
@@ -61,7 +71,7 @@ cd agent-sdk
 make build
 
 # Verify installation
-uv run python examples/1_hello_world.py
+uv run python examples/01_hello_world.py
 ```
 
 ### Hello World Example
@@ -81,8 +91,8 @@ llm = LLM(
 
 # Setup tools
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 
 # Create agent and conversation
@@ -111,7 +121,7 @@ from openhands.tools import BashTool, FileEditorTool
 
 agent = Agent(
     llm=llm,
-    tools=[BashTool(), FileEditorTool()],
+    tools=[BashTool.create(), FileEditorTool.create()],
     # Optional: custom context, microagents, etc.
 )
 ```
@@ -148,8 +158,8 @@ from openhands.tools import BashTool, FileEditorTool
 
 # Direct instantiation with simplified API
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 ```
 
@@ -260,6 +270,19 @@ context = AgentContext(
 )
 ```
 
+## Documentation
+
+Comprehensive architecture documentation is available in the [`docs/architecture/`](./docs/architecture/) folder:
+
+- **[Overview](./docs/architecture/overview.mdx)** - High-level component interactions and design principles
+- **[Tool System](./docs/architecture/tool.mdx)** - Tool framework, built-ins, runtime tools, and MCP integration
+- **[Agent Architecture](./docs/architecture/agent.mdx)** - Agent execution flow, system prompts, and context management
+- **[LLM Integration](./docs/architecture/llm.mdx)** - Provider support, message types, and advanced features
+- **[Conversation System](./docs/architecture/conversation.mdx)** - State management, event system, and persistence
+
+Additional documentation:
+- **[Getting Started](./docs/getting-started.mdx)** - Step-by-step setup guide with all examples
+
 ## Development Workflow
 
 ### Environment Setup
@@ -301,9 +324,10 @@ uv run pyright
 uv run pytest
 
 # Run specific test suite
+uv run pytest tests/cross/
+uv run pytest tests/integration/
 uv run pytest tests/sdk/
 uv run pytest tests/tools/
-uv run pytest tests/integration/
 
 # Run with coverage
 uv run pytest --cov=openhands --cov-report=html

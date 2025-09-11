@@ -253,6 +253,7 @@ def test_token_usage_pydantic_features():
         "completion_tokens": 25,
         "cache_read_tokens": 5,
         "cache_write_tokens": 2,
+        "reasoning_tokens": 0,
         "context_window": 2048,
         "per_turn_token": 102,
         "response_id": "test-456",

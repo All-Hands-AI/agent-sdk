@@ -1,9 +1,22 @@
-from typing import Any, Generic, TypeVar
+from typing import Annotated, Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_serializer,
+    field_validator,
+)
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
+    kind_of,
+    resolve_kind,
+)
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
@@ -54,7 +67,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class Tool(Generic[ActionT, ObservationT]):
+class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -63,38 +76,79 @@ class Tool(Generic[ActionT, ObservationT]):
     - Export MCP tool description.
     """
 
-    def __init__(
-        self,
-        *,
-        name: str,
-        description: str,
-        input_schema: type[ActionBase],
-        output_schema: type[ObservationBase] | None = None,
-        title: str | None = None,
-        annotations: ToolAnnotations | None = None,
-        _meta: dict[str, Any] | None = None,
-        executor: ToolExecutor | None = None,
-    ):
-        self.name = name
-        self.description = description
-        self.annotations = annotations
-        self._meta = _meta
-        self.title = title or name
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-        # Schemas
-        self.action_type: type[ActionBase] = input_schema
-        self.input_schema: dict[str, Any] = input_schema.to_mcp_schema()
-        self.observation_type: type[ObservationBase] | None = output_schema
-        self.output_schema: dict[str, Any] | None = (
-            output_schema.to_mcp_schema() if output_schema else None
+    name: str
+    description: str
+    action_type: type[ActionBase] = Field(repr=False)
+    observation_type: type[ObservationBase] | None = Field(default=None, repr=False)
+
+    annotations: ToolAnnotations | None = None
+    meta: dict[str, Any] | None = None
+
+    # runtime-only; always hidden on dumps
+    executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
+
+    @classmethod
+    def create(cls, *args, **kwargs) -> "Tool":
+        """Create a Tool instance. Placeholder for subclasses.
+
+        This can be overridden in subclasses to provide custom initialization logic
+            (e.g., typically initializing the executor with parameters).
+        """
+        raise NotImplementedError("Tool.create() must be implemented in subclasses")
+
+    @computed_field(return_type=dict[str, Any], alias="input_schema")
+    @property
+    def input_schema(self) -> dict[str, Any]:
+        return self.action_type.to_mcp_schema()
+
+    @computed_field(return_type=dict[str, Any] | None, alias="output_schema")
+    @property
+    def output_schema(self) -> dict[str, Any] | None:
+        return self.observation_type.to_mcp_schema() if self.observation_type else None
+
+    @computed_field(return_type=str, alias="title")
+    @property
+    def title(self) -> str:
+        if self.annotations and self.annotations.title:
+            return self.annotations.title
+        return self.name
+
+    @field_serializer("action_type")
+    def _ser_action_type(self, t: type[ActionBase]) -> str:
+        # serialize as a plain kind string
+        return kind_of(t)
+
+    @field_serializer("observation_type")
+    def _ser_observation_type(self, t: type[ObservationBase] | None) -> str | None:
+        return None if t is None else kind_of(t)
+
+    @field_validator("action_type", mode="before")
+    @classmethod
+    def _val_action_type(cls, v):
+        if isinstance(v, str):
+            return resolve_kind(v)
+        assert isinstance(v, type) and issubclass(v, ActionBase), (
+            f"action_type must be a subclass of ActionBase, but got {type(v)}"
         )
+        return v
 
-        self.executor = executor
+    @field_validator("observation_type", mode="before")
+    @classmethod
+    def _val_observation_type(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = resolve_kind(v)
+        assert isinstance(v, type) and issubclass(v, ObservationBase), (
+            f"observation_type must be a subclass of ObservationBase, but got {type(v)}"
+        )
+        return v
 
     def set_executor(self, executor: ToolExecutor) -> "Tool":
-        """Set or replace the executor function."""
-        self.executor = executor
-        return self
+        """Create a new Tool instance with the given executor."""
+        return self.model_copy(update={"executor": executor})
 
     def call(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
@@ -133,8 +187,8 @@ class Tool(Generic[ActionT, ObservationT]):
         }
         if self.annotations:
             out["annotations"] = self.annotations
-        if self._meta is not None:
-            out["_meta"] = self._meta
+        if self.meta is not None:
+            out["_meta"] = self.meta
         if self.output_schema:
             out["outputSchema"] = self.output_schema
         return out
@@ -149,3 +203,6 @@ class Tool(Generic[ActionT, ObservationT]):
                 parameters=self.input_schema,
             ),
         )
+
+
+ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]

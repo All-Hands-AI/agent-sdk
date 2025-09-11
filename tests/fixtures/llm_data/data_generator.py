@@ -59,7 +59,7 @@ def create_llm(
 def create_tools(working_dir: Optional[str] = None) -> List[Tool]:
     """Create standard tools for testing."""
     cwd = working_dir or os.getcwd()
-    return [BashTool(working_dir=cwd), FileEditorTool()]
+    return [BashTool.create(working_dir=cwd), FileEditorTool.create()]
 
 
 def run_conversation(

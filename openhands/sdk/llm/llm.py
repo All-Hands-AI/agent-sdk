@@ -4,7 +4,7 @@ import os
 import time
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, TypeGuard, cast, get_args, get_origin
+from typing import Any, Callable, Literal, cast, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -17,16 +17,14 @@ from pydantic import (
     model_validator,
 )
 
+from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
+
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import (
-    ChatCompletionToolParam,
-    Message as LiteLLMMessage,
-    completion as litellm_completion,
-)
+from litellm import ChatCompletionToolParam, completion as litellm_completion
 from litellm.exceptions import (
     APIConnectionError,
     InternalServerError,
@@ -34,11 +32,7 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
 )
-from litellm.types.utils import (
-    Choices,
-    ModelResponse,
-    StreamingChoices,
-)
+from litellm.types.utils import ModelResponse
 from litellm.utils import (
     create_pretrained_tokenizer,
     get_model_info,
@@ -49,11 +43,7 @@ from litellm.utils import (
 # OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
-from openhands.sdk.llm.utils.fn_call_converter import (
-    STOP_WORDS,
-    convert_fncall_messages_to_non_fncall_messages,
-    convert_non_fncall_messages_to_fncall_messages,
-)
+from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -119,7 +109,7 @@ class RetryMixin:
         return decorator
 
 
-class LLM(BaseModel, RetryMixin):
+class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
 
     # =========================================================================
@@ -230,6 +220,15 @@ class LLM(BaseModel, RetryMixin):
     metrics: Metrics | None = Field(default=None, exclude=True)
     retry_listener: Callable[[int, int], None] | None = Field(
         default=None, exclude=True
+    )
+    # ===== Plain class vars (NOT Fields) =====
+    # When serializing, these fields (SecretStr) will be dump to "****"
+    # When deserializing, these fields will be ignored and we will override
+    # them from the LLM instance provided at runtime.
+    OVERRIDE_ON_SERIALIZE: tuple[str, ...] = (
+        "api_key",
+        "aws_access_key_id",
+        "aws_secret_access_key",
     )
 
     # Runtime-only private attrs
@@ -361,16 +360,22 @@ class LLM(BaseModel, RetryMixin):
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
         original_fncall_msgs = copy.deepcopy(messages)
-        if tools and not use_native_fc:
+        use_mock_tools = self.should_mock_tool_calls(tools)
+        if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
-            messages, kwargs = self._pre_request_prompt_mock(messages, tools, kwargs)
+            messages, kwargs = self.pre_request_prompt_mock(
+                messages, tools or [], kwargs
+            )
 
         # 3) normalize provider params
         kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=bool(tools))
+        has_tools_flag = (
+            bool(tools) and use_native_fc
+        )  # only keep tools when native FC is active
+        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
         assert self._telemetry is not None
@@ -399,10 +404,10 @@ class LLM(BaseModel, RetryMixin):
             assert self._telemetry is not None
             resp = self._transport_call(messages=messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
-            if tools and not use_native_fc:
+            if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
-                resp = self._post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools
+                resp = self.post_response_prompt_mock(
+                    resp, nonfncall_msgs=messages, tools=tools or []
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
@@ -495,11 +500,11 @@ class LLM(BaseModel, RetryMixin):
             # Anthropic/OpenAI reasoning models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
-            # Gemini 2.5 budget mapping
+            # Gemini 2.5-pro default to low if not set
+            # otherwise litellm doesn't send reasoning, even though it happens
             if "gemini-2.5-pro" in self.model:
-                if self.reasoning_effort in {None, "low", "none"}:
-                    out["thinking"] = {"budget_tokens": 128}
-                    out["allowed_openai_params"] = ["thinking"]
+                if self.reasoning_effort in {None, "none"}:
+                    out["reasoning_effort"] = "low"
 
         # Anthropic Opus 4.1: prefer temperature when
         # both provided; disable extended thinking
@@ -524,54 +529,6 @@ class LLM(BaseModel, RetryMixin):
             out.pop("extra_body", None)
 
         return out
-
-    def _pre_request_prompt_mock(
-        self, messages: list[dict], tools: list[ChatCompletionToolParam], kwargs: dict
-    ) -> tuple[list[dict], dict]:
-        """Convert to non-fncall prompting when native tool-calling is off."""
-        add_iclex = not any(s in self.model for s in ("openhands-lm", "devstral"))
-        messages = convert_fncall_messages_to_non_fncall_messages(
-            messages, tools, add_in_context_learning_example=add_iclex
-        )
-        if get_features(self.model).supports_stop_words and not self.disable_stop_word:
-            kwargs = dict(kwargs)
-            kwargs["stop"] = STOP_WORDS
-
-        # Ensure we don't send tool_choice when mocking
-        kwargs.pop("tool_choice", None)
-        return messages, kwargs
-
-    def _post_response_prompt_mock(
-        self,
-        resp: ModelResponse,
-        nonfncall_msgs: list[dict],
-        tools: list[ChatCompletionToolParam],
-    ) -> ModelResponse:
-        if len(resp.choices) < 1:
-            raise LLMNoResponseError(
-                "Response choices is less than 1 (seen in some providers). Resp: "
-                + str(resp)
-            )
-
-        def _all_choices(
-            items: list[Choices | StreamingChoices],
-        ) -> TypeGuard[list[Choices]]:
-            return all(isinstance(c, Choices) for c in items)
-
-        if not _all_choices(resp.choices):
-            raise AssertionError(
-                "Expected non-streaming Choices when post-processing mocked tools"
-            )
-
-        non_fn_message: dict = resp.choices[0].message.model_dump()
-        fn_msgs = convert_non_fncall_messages_to_fncall_messages(
-            nonfncall_msgs + [non_fn_message], tools
-        )
-        last = fn_msgs[-1]
-        if not isinstance(last, LiteLLMMessage):
-            last = LiteLLMMessage(**last)
-        resp.choices[0].message = last
-        return resp
 
     # =========================================================================
     # Capabilities, formatting, and info
@@ -855,3 +812,39 @@ class LLM(BaseModel, RetryMixin):
         if "llm" in data:
             data = data["llm"]
         return cls.deserialize(data)
+
+    def resolve_diff_from_deserialized(self, persisted: "LLM") -> "LLM":
+        """Resolve differences between a deserialized LLM and the current instance.
+
+        This is due to fields like api_key being serialized to "****" in dumps,
+        and we want to ensure that when loading from a file, we still use the
+        runtime-provided api_key in the self instance.
+
+        Return a new LLM instance equivalent to `persisted` but with
+        explicitly whitelisted fields (e.g. api_key) taken from `self`.
+        """
+        if persisted.__class__ is not self.__class__:
+            raise ValueError(
+                f"Cannot resolve_diff_from_deserialized between {self.__class__} "
+                f"and {persisted.__class__}"
+            )
+
+        # Copy allowed fields from runtime llm into the persisted llm
+        llm_updates = {}
+        persisted_dump = persisted.model_dump(exclude_none=True)
+        for field in self.OVERRIDE_ON_SERIALIZE:
+            if field in persisted_dump.keys():
+                llm_updates[field] = getattr(self, field)
+        if llm_updates:
+            reconciled = persisted.model_copy(update=llm_updates)
+        else:
+            reconciled = persisted
+
+        if self.model_dump(exclude_none=True) != reconciled.model_dump(
+            exclude_none=True
+        ):
+            raise ValueError(
+                "The LLM provided is different from the one in persisted state.\n"
+                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
+            )
+        return reconciled

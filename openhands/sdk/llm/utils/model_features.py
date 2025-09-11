@@ -103,7 +103,7 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
 ]
 
 REASONING_EFFORT_PATTERNS: list[str] = [
-    # Mirror main behavior exactly (no unintended expansion), plus DeepSeek support
+    # Mirror main behavior exactly (no unintended expansion)
     "o1-2024-12-17",
     "o1",
     "o3",
@@ -116,8 +116,6 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "gemini-2.5-pro",
     "gpt-5",
     "gpt-5-2025-08-07",
-    # DeepSeek reasoning family
-    "deepseek-r1-0528*",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [

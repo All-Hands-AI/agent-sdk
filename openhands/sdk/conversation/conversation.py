@@ -2,19 +2,23 @@ from typing import TYPE_CHECKING, Iterable
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.agent import AgentBase
+    from openhands.sdk.agent import AgentType
 
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
-from openhands.sdk.conversation.visualizer import ConversationVisualizer
+from openhands.sdk.conversation.visualizer import (
+    create_default_visualizer,
+)
 from openhands.sdk.event import (
     MessageEvent,
     PauseEvent,
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
+from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 logger = get_logger(__name__)
@@ -34,27 +38,54 @@ def compose_callbacks(
 class Conversation:
     def __init__(
         self,
-        agent: "AgentBase",
+        agent: "AgentType",
+        persist_filestore: FileStore | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
+        visualize: bool = True,
     ):
-        """Initialize the conversation."""
-        self._visualizer = ConversationVisualizer()
+        """Initialize the conversation.
+
+        Args:
+            agent: The agent to use for the conversation
+            callbacks: Optional list of callback functions to handle events
+            max_iteration_per_run: Maximum number of iterations per run
+            visualize: Whether to enable default visualization. If True, adds
+                      a default visualizer callback. If False, relies on
+                      application to provide visualization through callbacks.
+        """
         self.agent = agent
-        self.state = ConversationState()
+        self._persist_filestore = persist_filestore
+        if self._persist_filestore is not None and self._persist_filestore.list("."):
+            self.state = ConversationState.load(self._persist_filestore)
+            self.state.agent = agent.resolve_diff_from_deserialized(self.state.agent)
+            if agent.model_dump(exclude_none=True) != self.state.agent.model_dump(
+                exclude_none=True
+            ):
+                raise ValueError(
+                    "The agent provided is different from the one in persisted state. "
+                    "Please use the same agent instance to resume the conversation. \n"
+                    f"Diff: {pretty_pydantic_diff(agent, self.state.agent)}"
+                )
+        else:
+            self.state = ConversationState(agent=agent)
 
         # Default callback: persist every event to state
-        def _append_event(e):
+        def _default_callback(e):
             self.state.events.append(e)
+            if self._persist_filestore is not None:
+                self.state.save(self._persist_filestore)
 
-        # Compose callbacks; default appender runs last to keep agent-emitted event order (on_event then persist)  # noqa: E501
-        composed_list = (
-            [self._visualizer.on_event]
-            + (callbacks if callbacks else [])
-            + [_append_event]
-        )
+        composed_list = (callbacks if callbacks else []) + [_default_callback]
+        # Add default visualizer if requested
+        if visualize:
+            self._visualizer = create_default_visualizer()
+            composed_list = [self._visualizer.on_event] + composed_list
+            # visualize should happen first for visibility
+        else:
+            self._visualizer = None
+
         self._on_event = compose_callbacks(composed_list)
-
         self.max_iteration_per_run = max_iteration_per_run
 
         with self.state:
@@ -209,6 +240,7 @@ class Conversation:
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
+        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
         for tool in self.agent.tools.values():
             if tool.executor is not None:
                 try:

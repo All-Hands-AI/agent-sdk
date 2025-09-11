@@ -3,7 +3,7 @@ from typing import Any, Literal, cast
 import mcp.types
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
@@ -81,10 +81,26 @@ class Message(BaseModel):
     name: str | None = None  # name of the tool
     # force string serializer
     force_string_serializer: bool = False
+    # reasoning content (from reasoning models like o1, Claude thinking, DeepSeek R1)
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning/thinking content from reasoning models",
+    )
 
     @property
     def contains_image(self) -> bool:
         return any(isinstance(content, ImageContent) for content in self.content)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def _coerce_content(cls, v: Any) -> list[TextContent | ImageContent] | Any:
+        # Accept None → []
+        if v is None:
+            return []
+        # Accept a single string → [TextContent(...)]
+        if isinstance(v, str):
+            return [TextContent(text=v)]
+        return v
 
     def to_llm_dict(self) -> dict[str, Any]:
         """Serialize message for LLM API consumption.
@@ -178,14 +194,22 @@ class Message(BaseModel):
 
     @classmethod
     def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
-        """Convert a litellm LiteLLMMessage to our Message class."""
+        """Convert a LiteLLMMessage to our Message class.
+
+        Provider-agnostic mapping for reasoning:
+        - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
+        """
         assert message.role != "function", "Function role is not supported"
+
+        rc = getattr(message, "reasoning_content", None)
+
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
             tool_calls=message.tool_calls,
+            reasoning_content=rc,
         )
 
 
