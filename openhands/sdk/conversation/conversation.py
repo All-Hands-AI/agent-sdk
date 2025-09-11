@@ -73,9 +73,6 @@ class Conversation:
 
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
-            # Initialize secrets manager
-            if self.state.get_secrets_manager() is None:
-                self.state.set_secrets_manager(SecretsManager())
 
     @property
     def id(self) -> str:
