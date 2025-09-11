@@ -1,13 +1,9 @@
 """Execute bash tool implementation."""
 
 # Import for type annotation
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import Callable, Literal
 
 from pydantic import Field
-
-
-if TYPE_CHECKING:
-    from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
@@ -130,7 +126,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
-        secrets_manager_provider: Callable[[], "SecretsManager | None"] | None = None,
+        env_provider: Callable[[str], dict[str, str]] | None = None,
     ) -> "BashTool":
         """Initialize BashTool with executor parameters.
 
@@ -143,8 +139,9 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
                          If None, auto-detect based on system capabilities:
                          - On Windows: PowerShell if available, otherwise subprocess
                          - On Unix-like: tmux if available, otherwise subprocess
-            secrets_manager_provider: Optional function that returns the current
-                                    secrets manager for environment variable injection
+            env_provider: Optional callable that maps a command string to
+                          environment variables (key -> value) to export before
+                          running that command.
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
@@ -155,7 +152,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
             username=username,
             no_change_timeout_seconds=no_change_timeout_seconds,
             terminal_type=terminal_type,
-            secrets_manager_provider=secrets_manager_provider,
+            env_provider=env_provider,
         )
 
         # Initialize the parent Tool with the executor

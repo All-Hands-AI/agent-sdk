@@ -69,37 +69,31 @@ class Agent(AgentBase):
         )
         return data
 
-    def _get_current_secrets_manager(self):
-        """Get the secrets manager from the current conversation state.
-
-        Returns:
-            SecretsManager or None if no current state or no secrets manager
-        """
-        current_state = getattr(self, "_current_state", None)
-        if current_state is None:
-            return None
-        return current_state.get_secrets_manager()
-
-    def _configure_bash_tools_with_secrets(self) -> None:
-        """Configure bash tools with secrets manager provider."""
+    def _configure_bash_tools_env_provider(self) -> None:
+        """Configure bash tools with an environment provider closure."""
         if not isinstance(self.tools, dict):
             return
 
+        current_state = getattr(self, "_current_state", None)
+        if current_state is None:
+            return
+
+        mgr = current_state.get_secrets_manager()
+
+        def env_for_cmd(cmd: str) -> dict[str, str]:
+            try:
+                return mgr.get_secrets_as_env_vars(cmd)
+            except Exception:
+                return {}
+
         for tool in self.tools.values():
-            # Check if this is a bash tool with an executor that supports secrets
             if (
                 tool.name == "execute_bash"
                 and hasattr(tool, "executor")
                 and tool.executor is not None
-                and hasattr(tool.executor, "secrets_manager_provider")
             ):
-                # Set the secrets manager provider to our method
-                # Use setattr to avoid type checking issues
-                setattr(
-                    tool.executor,
-                    "secrets_manager_provider",
-                    self._get_current_secrets_manager,
-                )
+                # Wire the env provider for the bash executor
+                setattr(tool.executor, "env_provider", env_for_cmd)
 
     @property
     def system_message(self) -> str:
@@ -124,8 +118,8 @@ class Agent(AgentBase):
         # modify state in-place
         self._current_state = state
 
-        # Configure bash tools with secrets manager provider
-        self._configure_bash_tools_with_secrets()
+        # Configure bash tools with env provider
+        self._configure_bash_tools_env_provider()
 
         llm_convertible_messages = [
             event for event in state.events if isinstance(event, LLMConvertibleEvent)
