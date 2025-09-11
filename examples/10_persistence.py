@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from pydantic import SecretStr
 
@@ -61,10 +62,14 @@ def conversation_callback(event: Event):
         llm_messages.append(event.to_llm_message())
 
 
-file_store = LocalFileStore("./.conversations")
+conv_id = str(uuid.uuid4())
+file_store = LocalFileStore(f"./.conversations/{conv_id}")
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+    agent=agent,
+    callbacks=[conversation_callback],
+    persist_filestore=file_store,
+    conversation_id=conv_id,
 )
 conversation.send_message(
     message=Message(

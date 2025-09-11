@@ -1,3 +1,4 @@
+import uuid
 from typing import TYPE_CHECKING, Iterable
 
 
@@ -40,6 +41,7 @@ class Conversation:
         self,
         agent: "AgentType",
         persist_filestore: FileStore | None = None,
+        conversation_id: str | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         visualize: bool = True,
@@ -48,6 +50,10 @@ class Conversation:
 
         Args:
             agent: The agent to use for the conversation
+            persist_filestore: Optional FileStore to persist conversation state
+            conversation_id: Optional ID for the conversation. If provided, will
+                      be used to identify the conversation. The user might want to
+                      suffix their persistent filestore with this ID.
             callbacks: Optional list of callback functions to handle events
             max_iteration_per_run: Maximum number of iterations per run
             visualize: Whether to enable default visualization. If True, adds
@@ -67,8 +73,16 @@ class Conversation:
                     "Please use the same agent instance to resume the conversation. \n"
                     f"Diff: {pretty_pydantic_diff(agent, self.state.agent)}"
                 )
+            if conversation_id is not None and conversation_id != self.state.id:
+                raise ValueError(
+                    f"Conversation ID mismatch: provided {conversation_id}, "
+                    f"but persisted state has {self.state.id}"
+                )
         else:
-            self.state = ConversationState(agent=agent)
+            # Use the provided conversation_id or generate a new one
+            self.state = ConversationState(
+                agent=agent, id=conversation_id or str(uuid.uuid4())
+            )
 
         # Default callback: persist every event to state
         def _default_callback(e):
