@@ -220,7 +220,7 @@ class Conversation:
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
 
-    def add_secrets(self, secrets: dict[str, SecretValue]) -> None:
+    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
         """Add secrets to the conversation.
 
         Args:
@@ -229,5 +229,5 @@ class Conversation:
         """
 
         secrets_manager = self.state.get_secrets_manager()
-        secrets_manager.add_secrets(secrets)
+        secrets_manager.update_secrets(secrets)
         logger.info(f"Added {len(secrets)} secrets to conversation")

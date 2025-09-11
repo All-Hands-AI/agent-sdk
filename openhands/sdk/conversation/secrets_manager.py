@@ -24,7 +24,7 @@ class SecretsManager:
         """Initialize an empty secrets manager."""
         self._secrets: dict[str, SecretValue] = {}
 
-    def add_secrets(self, secrets: dict[str, SecretValue]) -> None:
+    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
         """Add secrets to the manager.
 
         Args:
@@ -32,9 +32,6 @@ class SecretsManager:
                     Each callable takes a string (the key) and returns the secret value.
         """
         self._secrets.update(secrets)
-        logger.debug(
-            f"Added {len(secrets)} secrets. Total secrets: {len(self._secrets)}"
-        )
 
     def get_secret_keys(self) -> set[str]:
         """Get all registered secret keys."""
