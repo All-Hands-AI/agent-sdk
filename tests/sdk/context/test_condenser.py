@@ -23,7 +23,7 @@ def test_noop_condenser() -> None:
         message_event("Event 2"),
         message_event("Event 3"),
     ]
-    state = ConversationState(events=events, agent=MagicMock(spec=Agent))
+    state = ConversationState(events=events, agent=MagicMock(spec=Agent), id="test-id")
 
     condenser = NoOpCondenser()
     view = View.from_events(state.events)
