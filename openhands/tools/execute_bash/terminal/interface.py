@@ -186,4 +186,8 @@ class TerminalSessionBase(ABC):
 
     def __del__(self) -> None:
         """Ensure the session is closed when the object is destroyed."""
-        self.close()
+        try:
+            self.close()
+        except ImportError:
+            # Python is shutting down, let the OS handle cleanup
+            pass

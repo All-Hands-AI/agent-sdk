@@ -41,7 +41,7 @@ DEFAULT_HIGHLIGHT_REGEX = {
     r"\*(.*?)\*": "italic",
 }
 
-_PANEL_WITH_METRICS_PADDING = (1, 1)
+_PANEL_PADDING = (1, 1)
 
 
 class ConversationVisualizer:
@@ -103,6 +103,9 @@ class ConversationVisualizer:
         # Use the event's visualize property for content
         content = event.visualize
 
+        if not content.plain.strip():
+            return None
+
         # Apply highlighting if configured
         if self._highlight_patterns:
             content = self._apply_highlighting(content)
@@ -113,6 +116,7 @@ class ConversationVisualizer:
                 content,
                 title=f"[bold {_SYSTEM_COLOR}]System Prompt[/bold {_SYSTEM_COLOR}]",
                 border_style=_SYSTEM_COLOR,
+                padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, ActionEvent):
@@ -121,6 +125,7 @@ class ConversationVisualizer:
                 title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
                 subtitle=self._format_metrics_subtitle(event),
                 border_style=_ACTION_COLOR,
+                padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, ObservationEvent):
@@ -129,6 +134,7 @@ class ConversationVisualizer:
                 title=f"[bold {_OBSERVATION_COLOR}]Observation"
                 f"[/bold {_OBSERVATION_COLOR}]",
                 border_style=_OBSERVATION_COLOR,
+                padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, MessageEvent):
@@ -155,7 +161,7 @@ class ConversationVisualizer:
                 title=title_text,
                 subtitle=self._format_metrics_subtitle(event),
                 border_style=role_color,
-                padding=_PANEL_WITH_METRICS_PADDING,
+                padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, AgentErrorEvent):
@@ -164,6 +170,7 @@ class ConversationVisualizer:
                 title=f"[bold {_ERROR_COLOR}]Agent Error[/bold {_ERROR_COLOR}]",
                 subtitle=self._format_metrics_subtitle(event),
                 border_style=_ERROR_COLOR,
+                padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, PauseEvent):
@@ -171,6 +178,7 @@ class ConversationVisualizer:
                 content,
                 title=f"[bold {_PAUSE_COLOR}]User Paused[/bold {_PAUSE_COLOR}]",
                 border_style=_PAUSE_COLOR,
+                padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, CondensationSummaryEvent):
@@ -189,6 +197,7 @@ class ConversationVisualizer:
                 f"[/bold {_ERROR_COLOR}]",
                 subtitle=f"[dim]({event.source})[/dim]",
                 border_style=_ERROR_COLOR,
+                padding=_PANEL_PADDING,
                 expand=True,
             )
 

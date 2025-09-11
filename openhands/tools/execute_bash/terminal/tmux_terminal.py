@@ -83,8 +83,12 @@ class TmuxTerminal(TerminalInterface):
         """Clean up the tmux session."""
         if self._closed:
             return
-        if hasattr(self, "session"):
-            self.session.kill()
+        try:
+            if hasattr(self, "session"):
+                self.session.kill()
+        except ImportError:
+            # Python is shutting down, let the OS handle cleanup
+            pass
         self._closed = True
 
     def send_keys(self, text: str, enter: bool = True) -> None:

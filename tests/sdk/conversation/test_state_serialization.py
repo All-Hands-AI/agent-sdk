@@ -20,7 +20,7 @@ def test_conversation_state_basic_serialization():
     """Test basic ConversationState serialization and deserialization."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
     agent = Agent(llm=llm, tools=[])
-    state = ConversationState(agent=agent)
+    state = ConversationState(agent=agent, id="test-id-1")
 
     # Add some events
     event1 = SystemPromptEvent(
@@ -62,7 +62,7 @@ def test_conversation_state_persistence_save_load():
         file_store = LocalFileStore(temp_dir)
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
-        state = ConversationState(agent=agent)
+        state = ConversationState(agent=agent, id="test-id-2")
 
         # Add events
         event1 = SystemPromptEvent(
@@ -105,7 +105,7 @@ def test_conversation_state_incremental_save():
         file_store = LocalFileStore(temp_dir)
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
-        state = ConversationState(agent=agent)
+        state = ConversationState(agent=agent, id="test-id-3")
 
         # Add first event and save
         event1 = SystemPromptEvent(
@@ -392,7 +392,7 @@ def test_conversation_state_exclude_from_base_state():
         file_store = LocalFileStore(temp_dir)
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
-        state = ConversationState(agent=agent)
+        state = ConversationState(agent=agent, id="test-id-4")
 
         # Add events
         event = SystemPromptEvent(
@@ -417,7 +417,7 @@ def test_conversation_state_thread_safety():
     """Test ConversationState thread safety with lock/unlock."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
     agent = Agent(llm=llm, tools=[])
-    state = ConversationState(agent=agent)
+    state = ConversationState(agent=agent, id="test-id-5")
 
     # Test context manager
     with state:
@@ -488,7 +488,7 @@ def test_conversation_state_flags_persistence():
         file_store = LocalFileStore(temp_dir)
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
-        state = ConversationState(agent=agent)
+        state = ConversationState(agent=agent, id="test-id-6")
 
         # Set various flags
         state.agent_finished = True
