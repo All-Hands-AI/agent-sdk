@@ -13,10 +13,8 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.sdk.utils.async_utils import (
-    AsyncCallbackWrapper,
-    AsyncConversationCallback,
-)
+from openhands.sdk.conversation.types import ConversationCallbackType
+from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
@@ -46,17 +44,15 @@ llm_messages = []  # collect raw LLM messages
 
 
 # Callback coroutine
-async def conversation_coro(event: Event):
+async def callback_coro(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
 # Synchronous run conversation
-def run_conversation(
-    callback: AsyncConversationCallback, loop: asyncio.AbstractEventLoop
-):
+def run_conversation(callback: ConversationCallbackType):
     conversation = Conversation(
-        agent=agent, callbacks=[AsyncCallbackWrapper(callback, loop)]
+        agent=agent, callbacks=[callback]
     )
 
     conversation.send_message(
@@ -85,11 +81,13 @@ def run_conversation(
 
 
 async def main():
-    # Get the current event loop
     loop = asyncio.get_running_loop()
 
+    # Create the callback
+    callback = AsyncCallbackWrapper(callback_coro, loop)
+
     # Run the conversation in a background thread and wait for it to finish...
-    await loop.run_in_executor(None, run_conversation, conversation_coro, loop)
+    await loop.run_in_executor(None, run_conversation, callback)
 
     print("=" * 100)
     print("Conversation finished. Got the following LLM messages:")
