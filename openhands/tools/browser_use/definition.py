@@ -84,17 +84,7 @@ class BrowserClickAction(ActionBase):
     )
 
 
-BROWSER_CLICK_DESCRIPTION = """Click an element on the page by its index.
-
-Use this tool to click on interactive elements like buttons, links, or form controls.
-The index comes from the browser_get_state tool output.
-
-Parameters:
-- index: The index of the element to click (from browser_get_state)
-- new_tab: Whether to open any resulting navigation in a new tab (optional)
-
-Important: Only use indices that appear in your current browser_get_state output.
-"""
+BROWSER_CLICK_DESCRIPTION = """Click an element on the page by its index"""
 
 browser_click_tool = Tool(
     name="browser_click",
@@ -138,17 +128,7 @@ class BrowserTypeAction(ActionBase):
     text: str = Field(description="The text to type")
 
 
-BROWSER_TYPE_DESCRIPTION = """Type text into an input field.
-
-Use this tool to enter text into form fields, search boxes, or other text input elements.
-The index comes from the browser_get_state tool output.
-
-Parameters:
-- index: The index of the input element (from browser_get_state)
-- text: The text to type
-
-Important: Only use indices that appear in your current browser_get_state output.
-"""  # noqa: E501
+BROWSER_TYPE_DESCRIPTION = """Type text into an input field"""
 
 browser_type_tool = Tool(
     name="browser_type",

@@ -33,7 +33,7 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-browser_executor = BrowserToolExecutor(headless=False)
+browser_executor = BrowserToolExecutor()
 browser_navigate_tool = browser_navigate_tool.set_executor(browser_executor)
 browser_get_state_tool = browser_get_state_tool.set_executor(browser_executor)
 tools = [
