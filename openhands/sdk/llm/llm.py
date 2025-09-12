@@ -558,7 +558,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     messages=messages,
                     **kwargs,
                 )
-                logger.debug("Raw completion response: %s", ret)
                 assert isinstance(ret, ModelResponse), (
                     f"Expected ModelResponse, got {type(ret)}"
                 )
