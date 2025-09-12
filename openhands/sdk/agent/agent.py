@@ -70,15 +70,18 @@ class Agent(AgentBase):
         return data
 
     def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
-        """Configure bash tools with an environment provider closure."""
+        """
+        Configure bash tool with reference to secrets manager.
+        Updated secrets automatically propagate.
+        """
         if not isinstance(self.tools, dict):
             return
 
-        mgr = state.get_secrets_manager()
+        secrets_manager = state.get_secrets_manager()
 
         def env_for_cmd(cmd: str) -> dict[str, str]:
             try:
-                return mgr.get_secrets_as_env_vars(cmd)
+                return secrets_manager.get_secrets_as_env_vars(cmd)
             except Exception:
                 return {}
 
@@ -110,6 +113,9 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        # TODO(openhands): we should add test to test this init_state will actually
+        # modify state in-place
+
         # Configure bash tools with env provider
         self._configure_bash_tools_env_provider(state)
 

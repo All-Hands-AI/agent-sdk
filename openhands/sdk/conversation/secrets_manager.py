@@ -1,6 +1,5 @@
 """Secrets manager for handling sensitive data in conversations."""
 
-import re
 from typing import Callable
 
 from openhands.sdk.logger import get_logger
@@ -25,18 +24,8 @@ class SecretsManager:
         self._secrets: dict[str, SecretValue] = {}
 
     def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
-        """Add or update secrets in the manager.
-
-        Args:
-            secrets: Dictionary mapping secret keys to values or no-arg callables.
-                     SecretValue = str | Callable[[], str]. Callables are invoked lazily
-                     when a command references the secret key.
-        """
+        """Add or update secrets in the manager."""
         self._secrets.update(secrets)
-
-    def get_secret_keys(self) -> set[str]:
-        """Get all registered secret keys."""
-        return set(self._secrets.keys())
 
     def find_secrets_in_text(self, text: str) -> set[str]:
         """Find all secret keys mentioned in the given text.
@@ -49,9 +38,7 @@ class SecretsManager:
         """
         found_keys = set()
         for key in self._secrets.keys():
-            # Use word boundaries to match whole words only
-            pattern = r"\b" + re.escape(key) + r"\b"
-            if re.search(pattern, text, re.IGNORECASE):
+            if key.lower() in text.lower():
                 found_keys.add(key)
         return found_keys
 
@@ -87,13 +74,3 @@ class SecretsManager:
 
         logger.debug(f"Prepared {len(env_vars)} secrets as environment variables")
         return env_vars
-
-    def clear_secrets(self) -> None:
-        """Clear all stored secrets."""
-        count = len(self._secrets)
-        self._secrets.clear()
-        logger.debug(f"Cleared {count} secrets")
-
-    def has_secrets(self) -> bool:
-        """Check if any secrets are registered."""
-        return len(self._secrets) > 0
