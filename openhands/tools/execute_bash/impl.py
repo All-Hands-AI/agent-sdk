@@ -1,3 +1,4 @@
+import json
 from typing import Callable, Literal
 
 from openhands.sdk.logger import get_logger
@@ -42,29 +43,36 @@ class BashExecutor(ToolExecutor):
         self.session.initialize()
         self.env_provider = env_provider
 
+    def _export_envs(self, action: ExecuteBashAction) -> None:
+        if not self.env_provider:
+            return
+        if not action.command.strip():
+            return
+
+        if action.is_input:
+            return
+
+        env_vars = self.env_provider(action.command)
+        if not env_vars:
+            return
+
+        export_statements = []
+        for key, value in env_vars.items():
+            export_statements.append(f"export {key}={json.dumps(value)}")
+        exports_cmd = " && ".join(export_statements)
+
+        logger.debug(f"Exporting {len(env_vars)} environment variables before command")
+
+        # Execute the export command separately to persist env in the session
+        _ = self.session.execute(
+            ExecuteBashAction(
+                command=exports_cmd,
+                is_input=False,
+                timeout=action.timeout,
+            )
+        )
+
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
-        # If env vars are needed, export them as a separate action first
-        if self.env_provider and action.command.strip() and not action.is_input:
-            env_vars = self.env_provider(action.command)
-            if env_vars:
-                export_statements = []
-                for key, value in env_vars.items():
-                    escaped_value = value.replace("'", "'\"'\"'")
-                    export_statements.append(f"export {key}='{escaped_value}'")
-                exports_cmd = " && ".join(export_statements)
-
-                logger.debug(
-                    f"Exporting {len(env_vars)} environment variables before command"
-                )
-
-                # Execute the export command separately to persist env in the session
-                _ = self.session.execute(
-                    ExecuteBashAction(
-                        command=exports_cmd,
-                        is_input=False,
-                        timeout=action.timeout,
-                    )
-                )
-
-        # Now execute the original action unchanged
+        # If env keys detected, export env values to bash as a separate action first
+        self._export_envs(action)
         return self.session.execute(action)
