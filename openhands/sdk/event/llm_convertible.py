@@ -11,6 +11,7 @@ from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool import Action, Observation
+from openhands.sdk.tool.builtins import FinishAction
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
@@ -132,6 +133,17 @@ class ActionEvent(LLMConvertibleEvent):
         content: list[TextContent | ImageContent] = cast(
             list[TextContent | ImageContent], self.thought
         )
+
+        # Ensure assistant messages have non-empty content (required by some providers)
+        # Check if this is a FinishAction with empty thought
+        if isinstance(self.action, FinishAction) and (
+            not content
+            or all(not c.text.strip() for c in content if isinstance(c, TextContent))
+        ):
+            content = cast(
+                list[TextContent | ImageContent], [TextContent(text="Task completed.")]
+            )
+
         return Message(
             role="assistant",
             content=content,

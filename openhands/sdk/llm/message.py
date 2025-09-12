@@ -126,6 +126,7 @@ class Message(BaseModel):
         content = "\n".join(
             item.text for item in self.content if isinstance(item, TextContent)
         )
+
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 
         # add tool call keys if we have a tool call or response
