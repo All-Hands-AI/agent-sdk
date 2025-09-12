@@ -1,6 +1,5 @@
 """Tests for SecretsManager class."""
 
-
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
@@ -25,9 +24,8 @@ def test_update_secrets_overwrites_existing():
     assert manager._secrets["API_KEY"] == "old-value"
 
     # Update with new value
-    manager.update_secrets({"API_KEY": "new-value", "NEW_KEY": 'key-value'})
+    manager.update_secrets({"API_KEY": "new-value", "NEW_KEY": "key-value"})
     assert manager._secrets["API_KEY"] == "new-value"
-
 
     manager.update_secrets({"API_KEY": "new-value-2"})
     assert manager._secrets["API_KEY"] == "new-value-2"
@@ -113,7 +111,6 @@ def test_get_secrets_as_env_vars_callable_values():
     assert env_vars == {"DYNAMIC_TOKEN": "dynamic-token-456"}
 
 
-
 def test_get_secrets_as_env_vars_handles_callable_exceptions():
     """Test that get_secrets_as_env_vars handles exceptions from callables."""
     manager = SecretsManager()
@@ -138,4 +135,3 @@ def test_get_secrets_as_env_vars_handles_callable_exceptions():
 
     # Only working secret should be returned
     assert env_vars == {"WORKING_SECRET": "working-value"}
-

@@ -1,6 +1,6 @@
 """Execute bash tool implementation."""
 
-from typing import Literal, Callable
+from typing import Callable, Literal
 
 from pydantic import Field
 from rich.text import Text
