@@ -86,7 +86,10 @@ jobs:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
         run: |
-          curl -H "Authorization: Bearer $LLM_API_KEY" "$LLM_BASE_URL/v1/models" | jq '.data[] | select(.id | contains("deepseek")) | .id' || echo "Failed to list models or no DeepSeek models found"
+          echo "=== All available models ==="
+          curl -H "Authorization: Bearer $LLM_API_KEY" "$LLM_BASE_URL/v1/models" | jq '.data[] | .id' || echo "Failed to list all models"
+          echo "=== DeepSeek models only ==="
+          curl -H "Authorization: Bearer $LLM_API_KEY" "$LLM_BASE_URL/v1/models" | jq '.data[] | select(.id | contains("deepseek")) | .id' || echo "No DeepSeek models found"
 
       # Run integration test evaluation for DeepSeek
       - name: Run integration test evaluation for DeepSeek
