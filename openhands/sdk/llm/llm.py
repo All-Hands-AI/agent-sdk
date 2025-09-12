@@ -45,8 +45,10 @@ from litellm.utils import (
 )
 
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+from openhands.sdk.llm.llm_responses import NativeResponsesSession
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
+from openhands.sdk.llm.native_responses import is_gpt5_model
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.responses_converter import (
@@ -565,6 +567,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 return ret
 
     def _transport_responses_call(self, *, input: Any, **kwargs) -> Any:
+        """Transport for Responses API.
+
+        For OpenAI GPT-5 family, use a native, stateful Responses session (store=True)
+        which preserves previous_response_id. Otherwise, fall back to litellm.responses.
+        """
         with self._litellm_modify_params_ctx(self.modify_params):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
@@ -575,6 +582,27 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     message=r".*content=.*upload.*",
                     category=DeprecationWarning,
                 )
+
+                # Native Responses for GPT-5 models
+                if is_gpt5_model(self.model):
+                    if (
+                        not hasattr(self, "_native_responses_session")
+                        or getattr(self, "_native_responses_session", None) is None
+                    ):
+                        self._native_responses_session = NativeResponsesSession(
+                            model=self.model,
+                            api_key=self.api_key.get_secret_value()
+                            if self.api_key
+                            else None,
+                            base_url=self.base_url,
+                            api_version=self.api_version,
+                            timeout=self.timeout,
+                        )
+                    ret = self._native_responses_session.send(input=input, **kwargs)
+                    logger.debug("Raw native responses result: %s", ret)
+                    return ret
+
+                # Default: provider-managed Responses call
                 ret = litellm_responses(
                     model=self.model,
                     api_key=self.api_key.get_secret_value() if self.api_key else None,
