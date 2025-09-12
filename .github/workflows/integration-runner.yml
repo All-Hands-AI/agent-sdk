@@ -1,0 +1,170 @@
+name: Run Integration Tests
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: true
+        default: ''
+  schedule:
+    - cron: '30 22 * * *'  # Runs at 10:30pm UTC every day
+
+env:
+  N_PROCESSES: 4 # Global configuration for number of parallel processes for evaluation
+
+jobs:
+  run-integration-tests:
+    if: github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: blacksmith-4vcpu-ubuntu-2204
+    permissions:
+      contents: "read"
+      id-token: "write"
+      pull-requests: "write"
+      issues: "write"
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Comment on PR if 'integration-test' label is present
+        if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
+        uses: KeisukeYamashita/create-comment@v1
+        with:
+          unique: false
+          comment: |
+            Hi! I started running the integration tests on your PR. You will receive a comment with the results shortly.
+
+      - name: Install Python dependencies using uv
+        run: |
+          uv sync --dev
+          uv pip install pytest
+
+      # Configure environment for testing with Claude Sonnet 4
+      - name: Configure environment for testing with Claude Sonnet 4
+        env:
+          LITELLM_MODEL: "litellm_proxy/anthropic/claude-sonnet-4-20250514"
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+        run: |
+          echo "LITELLM_MODEL=$LITELLM_MODEL" >> $GITHUB_ENV
+          echo "LITELLM_API_KEY=$LITELLM_API_KEY" >> $GITHUB_ENV
+          echo "LITELLM_BASE_URL=$LITELLM_BASE_URL" >> $GITHUB_ENV
+
+      # Run integration test evaluation for Claude Sonnet 4
+      - name: Run integration test evaluation for Claude Sonnet 4
+        env:
+          LITELLM_MODEL: ${{ env.LITELLM_MODEL }}
+          LITELLM_API_KEY: ${{ env.LITELLM_API_KEY }}
+          LITELLM_BASE_URL: ${{ env.LITELLM_BASE_URL }}
+        run: |
+          ./tests/integration/run_infer.sh "$LITELLM_MODEL" "$LITELLM_API_KEY" "$LITELLM_BASE_URL" $N_PROCESSES '' 'sonnet_run'
+
+          # get integration tests report
+          REPORT_FILE_SONNET=$(find tests/integration/outputs/sonnet*_N* -name "report.md" -type f | head -n 1)
+          echo "REPORT_FILE: $REPORT_FILE_SONNET"
+          if [ -f "$REPORT_FILE_SONNET" ]; then
+            echo "INTEGRATION_TEST_REPORT_SONNET<<EOF" >> $GITHUB_ENV
+            cat $REPORT_FILE_SONNET >> $GITHUB_ENV
+            echo >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            echo "INTEGRATION_TEST_REPORT_SONNET=No report file found" >> $GITHUB_ENV
+          fi
+
+      - name: Wait a little bit
+        run: sleep 10
+
+      # Configure environment for testing with DeepSeek
+      - name: Configure environment for testing with DeepSeek
+        env:
+          LITELLM_MODEL: "litellm_proxy/deepseek/deepseek-reasoner"
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+        run: |
+          echo "LITELLM_MODEL=$LITELLM_MODEL" >> $GITHUB_ENV
+          echo "LITELLM_API_KEY=$LITELLM_API_KEY" >> $GITHUB_ENV
+          echo "LITELLM_BASE_URL=$LITELLM_BASE_URL" >> $GITHUB_ENV
+
+      # Run integration test evaluation for DeepSeek
+      - name: Run integration test evaluation for DeepSeek
+        env:
+          LITELLM_MODEL: ${{ env.LITELLM_MODEL }}
+          LITELLM_API_KEY: ${{ env.LITELLM_API_KEY }}
+          LITELLM_BASE_URL: ${{ env.LITELLM_BASE_URL }}
+        run: |
+          ./tests/integration/run_infer.sh "$LITELLM_MODEL" "$LITELLM_API_KEY" "$LITELLM_BASE_URL" $N_PROCESSES '' 'deepseek_run'
+
+          # get integration tests report
+          REPORT_FILE_DEEPSEEK=$(find tests/integration/outputs/deepseek*_N* -name "report.md" -type f | head -n 1)
+          echo "REPORT_FILE: $REPORT_FILE_DEEPSEEK"
+          if [ -f "$REPORT_FILE_DEEPSEEK" ]; then
+            echo "INTEGRATION_TEST_REPORT_DEEPSEEK<<EOF" >> $GITHUB_ENV
+            cat $REPORT_FILE_DEEPSEEK >> $GITHUB_ENV
+            echo >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            echo "INTEGRATION_TEST_REPORT_DEEPSEEK=No report file found" >> $GITHUB_ENV
+          fi
+
+      - name: Create archive of evaluation outputs
+        run: |
+          TIMESTAMP=$(date +'%y-%m-%d-%H-%M')
+          cd tests/integration/outputs  # Change to the outputs directory
+          tar -czvf ../../../integration_tests_${TIMESTAMP}.tar.gz *_N* # Include all result directories
+
+      - name: Upload evaluation results as artifact
+        uses: actions/upload-artifact@v4
+        id: upload_results_artifact
+        with:
+          name: integration-test-outputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: integration_tests_*.tar.gz
+
+      - name: Get artifact URLs
+        run: |
+          echo "ARTIFACT_URL=${{ steps.upload_results_artifact.outputs.artifact-url }}" >> $GITHUB_ENV
+
+      - name: Set timestamp and trigger reason
+        run: |
+          echo "TIMESTAMP=$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_ENV
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "TRIGGER_REASON=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "TRIGGER_REASON=manual-${{ github.event.inputs.reason }}" >> $GITHUB_ENV
+          else
+            echo "TRIGGER_REASON=nightly-scheduled" >> $GITHUB_ENV
+          fi
+
+      - name: Comment with results and artifact link
+        id: create_comment
+        uses: KeisukeYamashita/create-comment@v1
+        with:
+          # if triggered by PR, use PR number, otherwise use 9745 as fallback issue number for manual triggers
+          number: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || 9745 }}
+          unique: false
+          comment: |
+              Trigger by: ${{ github.event_name == 'pull_request' && format('Pull Request (integration-test label on PR #{0})', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && format('Manual Trigger: {0}', github.event.inputs.reason)) || 'Nightly Scheduled Run' }}
+              Commit: ${{ github.sha }}
+              **Integration Tests Report (Claude Sonnet 4)**
+              Claude Sonnet 4 LLM Test Results:
+              ${{ env.INTEGRATION_TEST_REPORT_SONNET }}
+              ---
+              **Integration Tests Report (DeepSeek)**
+              DeepSeek LLM Test Results:
+              ${{ env.INTEGRATION_TEST_REPORT_DEEPSEEK }}
+              ---
+              Download testing outputs (includes both Claude Sonnet 4 and DeepSeek results): [Download](${{ steps.upload_results_artifact.outputs.artifact-url }})
