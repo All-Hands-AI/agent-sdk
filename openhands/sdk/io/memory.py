@@ -15,10 +15,7 @@ class InMemoryFileStore(FileStore):
         if files is not None:
             self.files = files
 
-    def write(self, path: str, contents: str | bytes) -> None:
-        if isinstance(contents, bytes):
-            contents = contents.decode("utf-8")
-        assert isinstance(contents, str)
+    def write(self, path: str, contents: str) -> None:
         self.files[path] = contents
 
     def read(self, path: str) -> str:

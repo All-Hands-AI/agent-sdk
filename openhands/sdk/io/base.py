@@ -1,9 +1,9 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 
-class FileStore:
+class FileStore(ABC):
     @abstractmethod
-    def write(self, path: str, contents: str | bytes) -> None:
+    def write(self, path: str, contents: str) -> None:
         pass
 
     @abstractmethod
