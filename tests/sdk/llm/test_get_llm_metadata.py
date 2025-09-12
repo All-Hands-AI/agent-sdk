@@ -1,4 +1,3 @@
-import os
 from unittest.mock import patch
 
 
@@ -12,13 +11,12 @@ def test_get_llm_metadata_basic():
     assert "trace_version" in metadata
     assert "tags" in metadata
     assert isinstance(metadata["tags"], list)
-    assert len(metadata["tags"]) == 5
+    assert len(metadata["tags"]) == 4
 
     # Check required tags
     tags = metadata["tags"]
     assert "model:gpt-4o" in tags
     assert "agent:test-agent" in tags
-    assert any(tag.startswith("web_host:") for tag in tags)
     assert any(tag.startswith("openhands_version:") for tag in tags)
     assert any(tag.startswith("openhands_tools_version:") for tag in tags)
 
@@ -66,12 +64,10 @@ def test_get_llm_metadata_none_values():
         model_name="gpt-4o",
         agent_name="test-agent",
         session_id=None,
-        user_id=None,
     )
 
-    # Should not have session_id or trace_user_id keys
+    # Should not have session_id key
     assert "session_id" not in metadata
-    assert "trace_user_id" not in metadata
     assert "trace_version" in metadata
     assert "tags" in metadata
 
@@ -89,19 +85,6 @@ def test_get_llm_metadata_with_session_id():
     assert metadata["session_id"] == "test-session-123"
 
 
-def test_get_llm_metadata_with_user_id():
-    """Test metadata generation with user_id."""
-    from openhands.sdk.llm.metadata import get_llm_metadata
-
-    metadata = get_llm_metadata(
-        model_name="gpt-4o",
-        agent_name="test-agent",
-        user_id="test-user-456",
-    )
-
-    assert metadata["trace_user_id"] == "test-user-456"
-
-
 def test_get_llm_metadata_with_all_params():
     """Test metadata generation with all parameters."""
     from openhands.sdk.llm.metadata import get_llm_metadata
@@ -110,36 +93,8 @@ def test_get_llm_metadata_with_all_params():
         model_name="claude-3-5-sonnet",
         agent_name="coding-agent",
         session_id="session-789",
-        user_id="user-101",
     )
 
     assert metadata["session_id"] == "session-789"
-    assert metadata["trace_user_id"] == "user-101"
     assert "model:claude-3-5-sonnet" in metadata["tags"]
     assert "agent:coding-agent" in metadata["tags"]
-
-
-@patch.dict("os.environ", {"WEB_HOST": "test.example.com"})
-def test_get_llm_metadata_with_web_host_env():
-    """Test metadata generation with WEB_HOST environment variable."""
-    from openhands.sdk.llm.metadata import get_llm_metadata
-
-    metadata = get_llm_metadata(model_name="gpt-4o", agent_name="test-agent")
-
-    tags = metadata["tags"]
-    assert "web_host:test.example.com" in tags
-
-
-@patch.dict("os.environ", {}, clear=True)
-def test_get_llm_metadata_without_web_host_env():
-    """Test metadata generation without WEB_HOST environment variable."""
-    from openhands.sdk.llm.metadata import get_llm_metadata
-
-    # Remove WEB_HOST if it exists
-    if "WEB_HOST" in os.environ:
-        del os.environ["WEB_HOST"]
-
-    metadata = get_llm_metadata(model_name="gpt-4o", agent_name="test-agent")
-
-    tags = metadata["tags"]
-    assert "web_host:unspecified" in tags
