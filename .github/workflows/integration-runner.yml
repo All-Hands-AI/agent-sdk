@@ -56,25 +56,14 @@ jobs:
           uv sync --dev
           uv pip install pytest
 
-      # Configure environment for testing with Claude Sonnet 4
-      - name: Configure environment for testing with Claude Sonnet 4
-        env:
-          LITELLM_MODEL: "litellm_proxy/anthropic/claude-sonnet-4-20250514"
-          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
-          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
-        run: |
-          echo "LITELLM_MODEL=$LITELLM_MODEL" >> $GITHUB_ENV
-          echo "LITELLM_API_KEY=$LITELLM_API_KEY" >> $GITHUB_ENV
-          echo "LITELLM_BASE_URL=$LITELLM_BASE_URL" >> $GITHUB_ENV
-
       # Run integration test evaluation for Claude Sonnet 4
       - name: Run integration test evaluation for Claude Sonnet 4
         env:
-          LITELLM_MODEL: ${{ env.LITELLM_MODEL }}
-          LITELLM_API_KEY: ${{ env.LITELLM_API_KEY }}
-          LITELLM_BASE_URL: ${{ env.LITELLM_BASE_URL }}
+          LLM_MODEL: "litellm_proxy/anthropic/claude-sonnet-4-20250514"
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
         run: |
-          ./tests/integration/run_infer.sh "$LITELLM_MODEL" "$LITELLM_API_KEY" "$LITELLM_BASE_URL" $N_PROCESSES '' 'sonnet_run'
+          ./tests/integration/run_infer.sh "$LLM_MODEL" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' 'sonnet_run'
 
           # get integration tests report
           REPORT_FILE_SONNET=$(find tests/integration/outputs/sonnet*_N* -name "report.md" -type f | head -n 1)
@@ -91,25 +80,14 @@ jobs:
       - name: Wait a little bit
         run: sleep 10
 
-      # Configure environment for testing with DeepSeek
-      - name: Configure environment for testing with DeepSeek
-        env:
-          LITELLM_MODEL: "litellm_proxy/deepseek/deepseek-reasoner"
-          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
-          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
-        run: |
-          echo "LITELLM_MODEL=$LITELLM_MODEL" >> $GITHUB_ENV
-          echo "LITELLM_API_KEY=$LITELLM_API_KEY" >> $GITHUB_ENV
-          echo "LITELLM_BASE_URL=$LITELLM_BASE_URL" >> $GITHUB_ENV
-
       # Run integration test evaluation for DeepSeek
       - name: Run integration test evaluation for DeepSeek
         env:
-          LITELLM_MODEL: ${{ env.LITELLM_MODEL }}
-          LITELLM_API_KEY: ${{ env.LITELLM_API_KEY }}
-          LITELLM_BASE_URL: ${{ env.LITELLM_BASE_URL }}
+          LLM_MODEL: "litellm_proxy/deepseek/deepseek-reasoner"
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
         run: |
-          ./tests/integration/run_infer.sh "$LITELLM_MODEL" "$LITELLM_API_KEY" "$LITELLM_BASE_URL" $N_PROCESSES '' 'deepseek_run'
+          ./tests/integration/run_infer.sh "$LLM_MODEL" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' 'deepseek_run'
 
           # get integration tests report
           REPORT_FILE_DEEPSEEK=$(find tests/integration/outputs/deepseek*_N* -name "report.md" -type f | head -n 1)

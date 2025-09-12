@@ -244,7 +244,7 @@ def main():
     parser.add_argument(
         "--llm-model",
         type=str,
-        default="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+        required=True,
         help="LLM model to use for testing",
     )
     parser.add_argument(

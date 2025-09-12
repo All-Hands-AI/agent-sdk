@@ -3,42 +3,52 @@ set -eo pipefail
 
 # Check for help flag
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-  echo "Usage: $0 [LITELLM_MODEL] [LITELLM_API_KEY] [LITELLM_BASE_URL] [NUM_WORKERS] [EVAL_IDS] [RUN_NAME]"
+  echo "Usage: $0 [LLM_MODEL] [LLM_API_KEY] [LLM_BASE_URL] [NUM_WORKERS] [EVAL_IDS] [RUN_NAME]"
   echo ""
   echo "Arguments:"
-  echo "  LITELLM_MODEL     LLM model to use (default: litellm_proxy/anthropic/claude-sonnet-4-20250514)"
-  echo "  LITELLM_API_KEY   API key for LiteLLM (optional, can use env var)"
-  echo "  LITELLM_BASE_URL  Base URL for LiteLLM (optional, can use env var)"
+  echo "  LLM_MODEL         LLM model to use (required)"
+  echo "  LLM_API_KEY       API key for LLM service (optional, can use env var)"
+  echo "  LLM_BASE_URL      Base URL for LLM service (optional, can use env var)"
   echo "  NUM_WORKERS       Number of parallel workers (default: 1)"
   echo "  EVAL_IDS          Comma-separated list of test IDs to run (optional)"
   echo "  RUN_NAME          Name for this run (optional)"
   echo ""
   echo "Example:"
-  echo "  $0 litellm_proxy/anthropic/claude-sonnet-4-20250514 \"\$API_KEY\" \"\" 1 \"t01_fix_simple_typo_class_based\" \"test_run\""
+  echo "  $0 \"litellm_proxy/anthropic/claude-sonnet-4-20250514\" \"api_key\" \"base_url\" 1 \"t01_fix_simple_typo_class_based\" \"test_run\""
   exit 0
 fi
 
-LITELLM_MODEL=$1
-LITELLM_API_KEY=$2
-LITELLM_BASE_URL=$3
+LLM_MODEL=$1
+LLM_API_KEY_PARAM=$2
+LLM_BASE_URL_PARAM=$3
 NUM_WORKERS=$4
 EVAL_IDS=$5
 RUN_NAME=$6
+
+if [ -z "$LLM_MODEL" ]; then
+  echo "Error: LLM_MODEL is required as first parameter!"
+  echo "Use --help for usage information"
+  exit 1
+fi
 
 if [ -z "$NUM_WORKERS" ]; then
   NUM_WORKERS=1
   echo "Number of workers not specified, use default $NUM_WORKERS"
 fi
 
-if [ -z "$LITELLM_MODEL" ]; then
-  echo "LLM model not specified, use default litellm_proxy/anthropic/claude-sonnet-4-20250514"
-  LITELLM_MODEL="litellm_proxy/anthropic/claude-sonnet-4-20250514"
+# Set environment variables if provided as parameters
+if [ -n "$LLM_API_KEY_PARAM" ]; then
+  export LLM_API_KEY="$LLM_API_KEY_PARAM"
+fi
+
+if [ -n "$LLM_BASE_URL_PARAM" ]; then
+  export LLM_BASE_URL="$LLM_BASE_URL_PARAM"
 fi
 
 # Get agent-sdk version from git
 AGENT_SDK_VERSION=$(git rev-parse --short HEAD)
 
-echo "LITELLM_MODEL: $LITELLM_MODEL"
+echo "LLM_MODEL: $LLM_MODEL"
 echo "AGENT_SDK_VERSION: $AGENT_SDK_VERSION"
 echo "NUM_WORKERS: $NUM_WORKERS"
 
@@ -51,21 +61,9 @@ fi
 
 # Build the command to run the Python script
 COMMAND="uv run python tests/integration/run_infer.py \
-  --llm-model $LITELLM_MODEL \
+  --llm-model $LLM_MODEL \
   --num-workers $NUM_WORKERS \
   --eval-note $EVAL_NOTE"
-
-# Add API key if provided
-if [ -n "$LITELLM_API_KEY" ]; then
-  echo "Using provided LITELLM_API_KEY"
-  export LITELLM_API_KEY="$LITELLM_API_KEY"
-fi
-
-# Add base URL if provided
-if [ -n "$LITELLM_BASE_URL" ]; then
-  echo "Using provided LITELLM_BASE_URL: $LITELLM_BASE_URL"
-  export LITELLM_BASE_URL="$LITELLM_BASE_URL"
-fi
 
 # Add specific test IDs if provided
 if [ -n "$EVAL_IDS" ]; then
