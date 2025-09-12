@@ -5,6 +5,7 @@ from pydantic import Field
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
 from openhands.sdk.utils import maybe_truncate
+from openhands.tools.browser_use.impl import BrowserToolExecutor
 
 
 # Maximum output size for browser observations
@@ -32,7 +33,7 @@ class BrowserNavigateAction(ActionBase):
 
     url: str = Field(description="The URL to navigate to")
     new_tab: bool = Field(
-        default=False, description="Whether to open in a new tab. Default to False"
+        default=False, description="Whether to open in a new tab. Default: False"
     )
 
 
@@ -56,16 +57,125 @@ browser_navigate_tool = Tool(
 class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
     """Tool for browser navigation."""
 
-    def __init__(self, **config):
-        from openhands.tools.browser_use.impl import BrowserToolExecutor
-
-        executor = BrowserToolExecutor(**config)
-        super().__init__(
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
             name=browser_navigate_tool.name,
             description=BROWSER_NAVIGATE_DESCRIPTION,
             action_type=BrowserNavigateAction,
             observation_type=BrowserObservation,
             annotations=browser_navigate_tool.annotations,
+            executor=executor,
+        )
+
+
+# ============================================
+# `browser_click`
+# ============================================
+class BrowserClickAction(ActionBase):
+    """Schema for clicking elements."""
+
+    index: int = Field(
+        description="The index of the element to click (from browser_get_state)"
+    )
+    new_tab: bool = Field(
+        default=False,
+        description="Whether to open any resulting navigation in a new tab. Default: False",  # noqa: E501
+    )
+
+
+BROWSER_CLICK_DESCRIPTION = """Click an element on the page by its index.
+
+Use this tool to click on interactive elements like buttons, links, or form controls.
+The index comes from the browser_get_state tool output.
+
+Parameters:
+- index: The index of the element to click (from browser_get_state)
+- new_tab: Whether to open any resulting navigation in a new tab (optional)
+
+Important: Only use indices that appear in your current browser_get_state output.
+"""
+
+browser_click_tool = Tool(
+    name="browser_click",
+    action_type=BrowserClickAction,
+    observation_type=BrowserObservation,
+    description=BROWSER_CLICK_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="browser_click",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+
+
+class BrowserClickTool(Tool[BrowserClickAction, BrowserObservation]):
+    """Tool for clicking browser elements."""
+
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
+            name=browser_click_tool.name,
+            description=BROWSER_CLICK_DESCRIPTION,
+            action_type=BrowserClickAction,
+            observation_type=BrowserObservation,
+            annotations=browser_click_tool.annotations,
+            executor=executor,
+        )
+
+
+# ============================================
+# `browser_type`
+# ============================================
+class BrowserTypeAction(ActionBase):
+    """Schema for typing text into elements."""
+
+    index: int = Field(
+        description="The index of the input element (from browser_get_state)"
+    )
+    text: str = Field(description="The text to type")
+
+
+BROWSER_TYPE_DESCRIPTION = """Type text into an input field.
+
+Use this tool to enter text into form fields, search boxes, or other text input elements.
+The index comes from the browser_get_state tool output.
+
+Parameters:
+- index: The index of the input element (from browser_get_state)
+- text: The text to type
+
+Important: Only use indices that appear in your current browser_get_state output.
+"""  # noqa: E501
+
+browser_type_tool = Tool(
+    name="browser_type",
+    action_type=BrowserTypeAction,
+    observation_type=BrowserObservation,
+    description=BROWSER_TYPE_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="browser_type",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+
+
+class BrowserTypeTool(Tool[BrowserTypeAction, BrowserObservation]):
+    """Tool for typing text into browser elements."""
+
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
+            name=browser_type_tool.name,
+            description=BROWSER_TYPE_DESCRIPTION,
+            action_type=BrowserTypeAction,
+            observation_type=BrowserObservation,
+            annotations=browser_type_tool.annotations,
             executor=executor,
         )
 
@@ -78,7 +188,7 @@ class BrowserGetStateAction(ActionBase):
 
     include_screenshot: bool = Field(
         default=False,
-        description="Whether to include a screenshot of the current page. Default to False",  # noqa: E501
+        description="Whether to include a screenshot of the current page. Default: False",  # noqa: E501
     )
 
 
@@ -104,11 +214,9 @@ browser_get_state_tool = Tool(
 class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
     """Tool for getting browser state."""
 
-    def __init__(self, **config):
-        from openhands.tools.browser_use.impl import BrowserToolExecutor
-
-        executor = BrowserToolExecutor(**config)
-        super().__init__(
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
             name=browser_get_state_tool.name,
             description=BROWSER_GET_STATE_DESCRIPTION,
             action_type=BrowserGetStateAction,
