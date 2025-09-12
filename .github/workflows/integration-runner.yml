@@ -80,37 +80,28 @@ jobs:
       - name: Wait a little bit
         run: sleep 10
 
-      # Debug: List available models in LiteLLM proxy
-      - name: List available models for debugging
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-        run: |
-          echo "=== All available models ==="
-          curl -H "Authorization: Bearer $LLM_API_KEY" "$LLM_BASE_URL/v1/models" | jq '.data[] | .id' || echo "Failed to list all models"
-          echo "=== DeepSeek models only ==="
-          curl -H "Authorization: Bearer $LLM_API_KEY" "$LLM_BASE_URL/v1/models" | jq '.data[] | select(.id | contains("deepseek")) | .id' || echo "No DeepSeek models found"
 
-      # Run integration test evaluation for DeepSeek
-      - name: Run integration test evaluation for DeepSeek
-        env:
-          LLM_MODEL: "litellm_proxy/deepseek/deepseek-coder-v2"
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-        run: |
-          ./tests/integration/run_infer.sh "$LLM_MODEL" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' 'deepseek_run'
 
-          # get integration tests report
-          REPORT_FILE_DEEPSEEK=$(find tests/integration/outputs/*deepseek_run* -name "report.md" -type f | head -n 1)
-          echo "REPORT_FILE: $REPORT_FILE_DEEPSEEK"
-          if [ -f "$REPORT_FILE_DEEPSEEK" ]; then
-            echo "INTEGRATION_TEST_REPORT_DEEPSEEK<<EOF" >> $GITHUB_ENV
-            cat $REPORT_FILE_DEEPSEEK >> $GITHUB_ENV
-            echo >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          else
-            echo "INTEGRATION_TEST_REPORT_DEEPSEEK=No report file found" >> $GITHUB_ENV
-          fi
+      # DeepSeek models are not available in the LiteLLM proxy - commented out
+      # - name: Run integration test evaluation for DeepSeek
+      #   env:
+      #     LLM_MODEL: "litellm_proxy/deepseek/deepseek-coder-v2"
+      #     LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      #     LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      #   run: |
+      #     ./tests/integration/run_infer.sh "$LLM_MODEL" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' 'deepseek_run'
+      #
+      #     # get integration tests report
+      #     REPORT_FILE_DEEPSEEK=$(find tests/integration/outputs/*deepseek_run* -name "report.md" -type f | head -n 1)
+      #     echo "REPORT_FILE: $REPORT_FILE_DEEPSEEK"
+      #     if [ -f "$REPORT_FILE_DEEPSEEK" ]; then
+      #       echo "INTEGRATION_TEST_REPORT_DEEPSEEK<<EOF" >> $GITHUB_ENV
+      #       cat $REPORT_FILE_DEEPSEEK >> $GITHUB_ENV
+      #       echo >> $GITHUB_ENV
+      #       echo "EOF" >> $GITHUB_ENV
+      #     else
+      #       echo "INTEGRATION_TEST_REPORT_DEEPSEEK=No report file found" >> $GITHUB_ENV
+      #     fi
 
       - name: Create archive of evaluation outputs
         run: |
@@ -154,8 +145,4 @@ jobs:
               Claude Sonnet 4 LLM Test Results:
               ${{ env.INTEGRATION_TEST_REPORT_SONNET }}
               ---
-              **Integration Tests Report (DeepSeek)**
-              DeepSeek LLM Test Results:
-              ${{ env.INTEGRATION_TEST_REPORT_DEEPSEEK }}
-              ---
-              Download testing outputs (includes both Claude Sonnet 4 and DeepSeek results): [Download](${{ steps.upload_results_artifact.outputs.artifact-url }})
+              Download testing outputs (Claude Sonnet 4 results): [Download](${{ steps.upload_results_artifact.outputs.artifact-url }})
