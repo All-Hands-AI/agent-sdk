@@ -83,7 +83,5 @@ completion_response = llm.completion(
 if completion_response.choices and completion_response.choices[0].message:  # type: ignore
     content = completion_response.choices[0].message.content  # type: ignore
     print(f"Direct completion response: {content}")
-    print(f"Type of content: {type(content)}")
-    print(f"Full response object: {completion_response.choices[0].message}")  # type: ignore
 else:
     print("No response content available")
