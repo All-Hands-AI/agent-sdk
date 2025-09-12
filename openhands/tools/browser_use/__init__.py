@@ -2,11 +2,10 @@
 
 from openhands.tools.browser_use.definition import (
     BrowserGetStateAction,
-    BrowserGetStateObservation,
     # Actions
     BrowserNavigateAction,
     # Observations
-    BrowserNavigateObservation,
+    BrowserObservation,
     browser_get_state_tool,
     # Tool objects
     browser_navigate_tool,
@@ -22,8 +21,7 @@ __all__ = [
     "BrowserNavigateAction",
     "BrowserGetStateAction",
     # Observations
-    "BrowserNavigateObservation",
-    "BrowserGetStateObservation",
+    "BrowserObservation",
     # Executor
     "BrowserToolExecutor",
 ]

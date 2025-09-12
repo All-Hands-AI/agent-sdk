@@ -36,18 +36,12 @@ class BrowserNavigateAction(ActionBase):
     )
 
 
-class BrowserNavigateObservation(BrowserObservation):
-    """Observation for browser navigation."""
-
-    pass
-
-
 BROWSER_NAVIGATE_DESCRIPTION = """Navigate to a URL in the browser"""
 
 browser_navigate_tool = Tool(
     name="browser_navigate",
     action_type=BrowserNavigateAction,
-    observation_type=BrowserNavigateObservation,
+    observation_type=BrowserObservation,
     description=BROWSER_NAVIGATE_DESCRIPTION,
     annotations=ToolAnnotations(
         title="browser_navigate",
@@ -59,7 +53,7 @@ browser_navigate_tool = Tool(
 )
 
 
-class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserNavigateObservation]):
+class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
     """Tool for browser navigation."""
 
     def __init__(self, **config):
@@ -70,7 +64,7 @@ class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserNavigateObservation
             name=browser_navigate_tool.name,
             description=BROWSER_NAVIGATE_DESCRIPTION,
             action_type=BrowserNavigateAction,
-            observation_type=BrowserNavigateObservation,
+            observation_type=BrowserObservation,
             annotations=browser_navigate_tool.annotations,
             executor=executor,
         )
@@ -88,12 +82,6 @@ class BrowserGetStateAction(ActionBase):
     )
 
 
-class BrowserGetStateObservation(BrowserObservation):
-    """Observation for getting browser state."""
-
-    pass
-
-
 BROWSER_GET_STATE_DESCRIPTION = (
     """Get the current state of the page including all interactive elements"""
 )
@@ -101,7 +89,7 @@ BROWSER_GET_STATE_DESCRIPTION = (
 browser_get_state_tool = Tool(
     name="browser_get_state",
     action_type=BrowserGetStateAction,
-    observation_type=BrowserGetStateObservation,
+    observation_type=BrowserObservation,
     description=BROWSER_GET_STATE_DESCRIPTION,
     annotations=ToolAnnotations(
         title="browser_get_state",
@@ -113,7 +101,7 @@ browser_get_state_tool = Tool(
 )
 
 
-class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserGetStateObservation]):
+class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
     """Tool for getting browser state."""
 
     def __init__(self, **config):
@@ -124,7 +112,7 @@ class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserGetStateObservation
             name=browser_get_state_tool.name,
             description=BROWSER_GET_STATE_DESCRIPTION,
             action_type=BrowserGetStateAction,
-            observation_type=BrowserGetStateObservation,
+            observation_type=BrowserObservation,
             annotations=browser_get_state_tool.annotations,
             executor=executor,
         )

@@ -49,22 +49,21 @@ class BrowserToolExecutor(ToolExecutor):
         """Execute browser action asynchronously."""
         from openhands.tools.browser_use.definition import (
             BrowserGetStateAction,
-            BrowserGetStateObservation,
             BrowserNavigateAction,
-            BrowserNavigateObservation,
+            BrowserObservation,
         )
 
         try:
             # Route to appropriate method based on action type
             if isinstance(action, BrowserNavigateAction):
                 result = await self.navigate(action.url, action.new_tab)
-                return BrowserNavigateObservation(output=result)
+                return BrowserObservation(output=result)
             elif isinstance(action, BrowserGetStateAction):
                 result = await self.get_state(action.include_screenshot)
-                return BrowserGetStateObservation(output=result)
+                return BrowserObservation(output=result)
             else:
                 error_msg = f"Unsupported action type: {type(action)}"
-                return BrowserNavigateObservation(output="", error=error_msg)
+                return BrowserObservation(output="", error=error_msg)
 
         except Exception as e:
             error_msg = f"Browser operation failed: {str(e)}"
@@ -72,11 +71,11 @@ class BrowserToolExecutor(ToolExecutor):
 
             # Return error observation of appropriate type
             if isinstance(action, BrowserNavigateAction):
-                return BrowserNavigateObservation(output="", error=error_msg)
+                return BrowserObservation(output="", error=error_msg)
             elif isinstance(action, BrowserGetStateAction):
-                return BrowserGetStateObservation(output="", error=error_msg)
+                return BrowserObservation(output="", error=error_msg)
             else:
-                return BrowserNavigateObservation(output="", error=error_msg)
+                return BrowserObservation(output="", error=error_msg)
 
     async def _ensure_initialized(self):
         """Ensure browser session is initialized."""
