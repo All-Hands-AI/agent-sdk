@@ -57,9 +57,7 @@ async def callback_coro(event: Event):
 
 # Synchronous run conversation
 def run_conversation(callback: ConversationCallbackType):
-    conversation = Conversation(
-        agent=agent, callbacks=[callback]
-    )
+    conversation = Conversation(agent=agent, callbacks=[callback])
 
     conversation.send_message(
         message=Message(
