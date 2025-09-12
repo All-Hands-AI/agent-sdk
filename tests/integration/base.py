@@ -52,14 +52,15 @@ class BaseIntegrationTest(ABC):
         self.instruction = instruction
         self.llm_model = llm_model
         self.cwd = cwd
-        api_key = os.getenv("LITELLM_API_KEY")
+        api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             raise ValueError(
-                "LITELLM_API_KEY environment variable not set. Skipping real LLM test."
+                "LLM_API_KEY environment variable not set. Skipping real LLM test."
             )
+        base_url = os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
         self.llm = LLM(
             model=self.llm_model,
-            base_url="https://llm-proxy.eval.all-hands.dev",
+            base_url=base_url,
             api_key=SecretStr(api_key),
         )
         self.agent = Agent(llm=self.llm, tools=self.tools)
