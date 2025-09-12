@@ -1,3 +1,4 @@
+import uuid
 from typing import TYPE_CHECKING, Iterable
 
 
@@ -16,6 +17,7 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
@@ -38,6 +40,8 @@ class Conversation:
     def __init__(
         self,
         agent: "AgentType",
+        persist_filestore: FileStore | None = None,
+        conversation_id: str | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         visualize: bool = True,
@@ -46,6 +50,10 @@ class Conversation:
 
         Args:
             agent: The agent to use for the conversation
+            persist_filestore: Optional FileStore to persist conversation state
+            conversation_id: Optional ID for the conversation. If provided, will
+                      be used to identify the conversation. The user might want to
+                      suffix their persistent filestore with this ID.
             callbacks: Optional list of callback functions to handle events
             max_iteration_per_run: Maximum number of iterations per run
             visualize: Whether to enable default visualization. If True, adds
@@ -53,13 +61,21 @@ class Conversation:
                       application to provide visualization through callbacks.
         """
         self.agent = agent
-        self.state = ConversationState()
+        self._persist_filestore = persist_filestore
+
+        # Create-or-resume: factory inspects BASE_STATE to decide
+        desired_id = conversation_id or str(uuid.uuid4())
+        self.state = ConversationState.create(
+            id=desired_id,
+            agent=agent,
+            file_store=self._persist_filestore,
+        )
 
         # Default callback: persist every event to state
-        def _append_event(e):
+        def _default_callback(e):
             self.state.events.append(e)
 
-        composed_list = (callbacks if callbacks else []) + [_append_event]
+        composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
             self._visualizer = create_default_visualizer()
@@ -232,3 +248,23 @@ class Conversation:
         secrets_manager = self.state.get_secrets_manager()
         secrets_manager.update_secrets(secrets)
         logger.info(f"Added {len(secrets)} secrets to conversation")
+
+    def close(self) -> None:
+        """Close the conversation and clean up all tool executors."""
+        logger.debug("Closing conversation and cleaning up tool executors")
+        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
+        for tool in self.agent.tools.values():
+            if tool.executor is not None:
+                try:
+                    tool.executor.close()
+                except Exception as e:
+                    logger.warning(
+                        f"Error closing executor for tool '{tool.name}': {e}"
+                    )
+
+    def __del__(self) -> None:
+        """Ensure cleanup happens when conversation is destroyed."""
+        try:
+            self.close()
+        except Exception as e:
+            logger.warning(f"Error during conversation cleanup: {e}", exc_info=True)

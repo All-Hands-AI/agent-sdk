@@ -11,7 +11,6 @@ from openhands.sdk import (
     Conversation,
     Message,
     TextContent,
-    Tool,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.tools import BashTool
@@ -30,7 +29,7 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [BashTool.create(working_dir=cwd)]
+tools = [BashTool.create(working_dir=cwd)]
 
 # Agent and Conversation with confirmation mode enabled
 agent = Agent(llm=llm, tools=tools)
@@ -223,6 +222,20 @@ conversation.send_message(
         role="user",
         content=[
             TextContent(text="Please echo 'Hello from confirmation mode example!'")
+        ],
+    )
+)
+conversation.run()
+
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[
+            TextContent(
+                text=(
+                    "Please delete any file that was created during this conversation."
+                )
+            )
         ],
     )
 )

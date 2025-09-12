@@ -76,3 +76,8 @@ class BashExecutor(ToolExecutor):
         # If env keys detected, export env values to bash as a separate action first
         self._export_envs(action)
         return self.session.execute(action)
+
+    def close(self) -> None:
+        """Close the terminal session and clean up resources."""
+        if hasattr(self, "session"):
+            self.session.close()

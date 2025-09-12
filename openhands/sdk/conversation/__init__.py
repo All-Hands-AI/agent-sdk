@@ -1,4 +1,5 @@
 from openhands.sdk.conversation.conversation import Conversation
+from openhands.sdk.conversation.event_store import EventLog, ListLike
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
@@ -11,4 +12,6 @@ __all__ = [
     "ConversationCallbackType",
     "ConversationVisualizer",
     "SecretsManager",
+    "EventLog",
+    "ListLike",
 ]

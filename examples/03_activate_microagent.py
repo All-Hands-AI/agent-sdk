@@ -11,7 +11,6 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Message,
     TextContent,
-    Tool,
     get_logger,
 )
 from openhands.sdk.context import (
@@ -41,7 +40,7 @@ llm = LLM(
 cwd = os.getcwd()
 bash = BashExecutor(working_dir=cwd)
 file_editor = FileEditorExecutor()
-tools: list[Tool] = [
+tools = [
     execute_bash_tool.set_executor(executor=bash),
     str_replace_editor_tool.set_executor(executor=file_editor),
 ]

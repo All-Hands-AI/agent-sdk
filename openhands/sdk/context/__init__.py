@@ -11,7 +11,7 @@ from openhands.sdk.context.microagents import (
     RepoMicroagent,
     load_microagents_from_dir,
 )
-from openhands.sdk.context.utils import render_template
+from openhands.sdk.context.prompts import render_template
 
 
 __all__ = [

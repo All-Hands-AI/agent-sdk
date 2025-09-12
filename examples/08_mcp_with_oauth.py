@@ -10,7 +10,6 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Message,
     TextContent,
-    Tool,
     create_mcp_tools,
     get_logger,
 )
@@ -29,18 +28,20 @@ llm = LLM(
 )
 
 cwd = os.getcwd()
-tools: list[Tool] = [
+tools = [
     BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
 ]
 
 # Add MCP Tools
-mcp_config = {"mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}}}
+mcp_config = {
+    "mcpServers": {"Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"}}
+}
 mcp_tools = create_mcp_tools(mcp_config, timeout=30)
 tools.extend(mcp_tools)
 logger.info(f"Added {len(mcp_tools)} MCP tools")
 for tool in mcp_tools:
-    logger.info(f"  - {tool.name}: {tool.description}")
+    logger.info(f"  - {tool.name}: {tool.description.split('\n')[0][:100]}...")
 
 
 # Agent
@@ -64,10 +65,7 @@ conversation = Conversation(
 message = Message(
     role="user",
     content=[
-        TextContent(
-            text="Read https://github.com/All-Hands-AI/OpenHands and "
-            + "write 3 facts about the project into FACTS.txt."
-        )
+        TextContent(text="Can you search about OpenHands V1 in my notion workspace.")
     ],
 )
 

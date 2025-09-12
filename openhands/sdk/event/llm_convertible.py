@@ -171,12 +171,13 @@ class ObservationEvent(LLMConvertibleEvent):
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this observation event."""
+        to_viz = self.observation.visualize
         content = Text()
-        content.append("Tool: ", style="bold")
-        content.append(self.tool_name)
-        content.append("\nResult:\n", style="bold")
-        content.append(self.observation.visualize)
-
+        if to_viz.plain.strip():
+            content.append("Tool: ", style="bold")
+            content.append(self.tool_name)
+            content.append("\nResult:\n", style="bold")
+            content.append(to_viz)
         return content
 
     def to_llm_message(self) -> Message:
@@ -245,7 +246,7 @@ class MessageEvent(LLMConvertibleEvent):
         # Add microagent information if present
         if self.activated_microagents:
             content.append(
-                f"\n\nActivated Microagents: {', '.join(self.activated_microagents)}",
+                f"\nActivated Microagents: {', '.join(self.activated_microagents)}",
                 style="dim",
             )
 
@@ -257,9 +258,7 @@ class MessageEvent(LLMConvertibleEvent):
             text_parts = content_to_str(
                 cast(list[TextContent | ImageContent], self.extended_content)
             )
-            content.append(
-                "\n\nPrompt Extension based on Agent Context:\n", style="dim"
-            )
+            content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
             content.append(" ".join(text_parts))
 
         return content

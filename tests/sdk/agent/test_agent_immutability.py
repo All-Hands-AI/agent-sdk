@@ -131,6 +131,7 @@ class TestAgentImmutability:
         )
 
         # They should have the same configuration
+        assert agent1 == agent2
         assert agent1.system_prompt_filename == agent2.system_prompt_filename
         assert agent1.cli_mode == agent2.cli_mode
 
