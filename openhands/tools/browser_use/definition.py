@@ -1,5 +1,7 @@
 """Browser-use tool implementation for web automation."""
 
+from typing import Literal
+
 from pydantic import Field
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -202,5 +204,101 @@ class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
             action_type=BrowserGetStateAction,
             observation_type=BrowserObservation,
             annotations=browser_get_state_tool.annotations,
+            executor=executor,
+        )
+
+
+# ============================================
+# `browser_scroll`
+# ============================================
+class BrowserScrollAction(ActionBase):
+    """Schema for scrolling the page."""
+
+    direction: Literal["up", "down"] = Field(
+        default="down",
+        description="Direction to scroll. Options: 'up', 'down'. Default: 'down'",
+    )
+
+
+BROWSER_SCROLL_DESCRIPTION = """Scroll the page up or down.
+
+Use this tool to scroll through page content when elements are not visible or when you need
+to see more content.
+
+Parameters:
+- direction: Direction to scroll - "up" or "down" (optional, default: "down")
+"""  # noqa: E501
+
+browser_scroll_tool = Tool(
+    name="browser_scroll",
+    action_type=BrowserScrollAction,
+    observation_type=BrowserObservation,
+    description=BROWSER_SCROLL_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="browser_scroll",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+
+
+class BrowserScrollTool(Tool[BrowserScrollAction, BrowserObservation]):
+    """Tool for scrolling the browser page."""
+
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
+            name=browser_scroll_tool.name,
+            description=BROWSER_SCROLL_DESCRIPTION,
+            action_type=BrowserScrollAction,
+            observation_type=BrowserObservation,
+            annotations=browser_scroll_tool.annotations,
+            executor=executor,
+        )
+
+
+# ============================================
+# `browser_go_back`
+# ============================================
+class BrowserGoBackAction(ActionBase):
+    """Schema for going back in browser history."""
+
+    pass
+
+
+BROWSER_GO_BACK_DESCRIPTION = """Go back to the previous page in browser history.
+
+Use this tool to navigate back to the previously visited page, similar to clicking the 
+browser's back button.
+"""  # noqa: E501
+
+browser_go_back_tool = Tool(
+    name="browser_go_back",
+    action_type=BrowserGoBackAction,
+    observation_type=BrowserObservation,
+    description=BROWSER_GO_BACK_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="browser_go_back",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+
+
+class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
+    """Tool for going back in browser history."""
+
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
+            name=browser_go_back_tool.name,
+            description=BROWSER_GO_BACK_DESCRIPTION,
+            action_type=BrowserGoBackAction,
+            observation_type=BrowserObservation,
+            annotations=browser_go_back_tool.annotations,
             executor=executor,
         )
