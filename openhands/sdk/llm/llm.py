@@ -882,10 +882,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         return [message.to_llm_dict() for message in messages]
 
-    # =========================================================================
-    # Responses input conversion helpers (moved to utils.responses_converter)
-    # =========================================================================
-
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
         if isinstance(messages, list) and messages and isinstance(messages[0], Message):
             logger.info(
