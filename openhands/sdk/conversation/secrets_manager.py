@@ -1,6 +1,6 @@
 """Secrets manager for handling sensitive data in conversations."""
 
-from typing import Callable
+from typing import Callable, Union, overload
 
 from openhands.sdk.logger import get_logger
 
@@ -23,8 +23,27 @@ class SecretsManager:
         """Initialize an empty secrets manager."""
         self._secrets: dict[str, SecretValue] = {}
 
-    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
-        """Add or update secrets in the manager."""
+    @overload
+    def update_secrets(self, secrets: dict[str, str]) -> None: ...
+
+    @overload
+    def update_secrets(self, secrets: dict[str, Callable[[], str]]) -> None: ...
+
+    @overload
+    def update_secrets(self, secrets: dict[str, SecretValue]) -> None: ...
+
+    def update_secrets(
+        self,
+        secrets: Union[
+            dict[str, str], dict[str, Callable[[], str]], dict[str, SecretValue]
+        ],
+    ) -> None:
+        """Add or update secrets in the manager.
+
+        Args:
+            secrets: Dictionary mapping secret keys to either string values
+                    or callable functions that return string values
+        """
         self._secrets.update(secrets)
 
     def find_secrets_in_text(self, text: str) -> set[str]:

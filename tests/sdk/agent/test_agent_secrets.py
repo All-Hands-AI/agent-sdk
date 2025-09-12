@@ -1,13 +1,16 @@
 """Tests for agent integration with secrets manager."""
 
 import tempfile
+from typing import cast
 
 from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.llm import LLM
+from openhands.sdk.tool import Tool
 from openhands.tools import BashTool
+from openhands.tools.execute_bash.impl import BashExecutor
 
 
 def test_agent_configures_bash_tools_env_provider():
@@ -31,24 +34,21 @@ def test_agent_configures_bash_tools_env_provider():
         )
 
         # Get the bash tool from agent
-        bash_tool = None
-        for tool in agent.tools.values():
-            if tool.name == "execute_bash":
-                bash_tool = tool
-                break
+        tools_dict = cast(dict[str, Tool], agent.tools)
+        bash_tool = tools_dict["execute_bash"]
 
         assert bash_tool is not None
         assert bash_tool.executor is not None
 
         # Check that env_provider is configured
-        assert hasattr(bash_tool.executor, "env_provider")
-        assert bash_tool.executor.env_provider is not None
+        bash_executor = cast(BashExecutor, bash_tool.executor)
+        assert bash_executor.env_provider is not None
 
         # Test that env_provider works correctly
-        env_vars = bash_tool.executor.env_provider("echo $API_KEY")
+        env_vars = bash_executor.env_provider("echo $API_KEY")
         assert env_vars == {"API_KEY": "test-api-key"}
 
-        env_vars = bash_tool.executor.env_provider("echo $NOT_A_KEY")
+        env_vars = bash_executor.env_provider("echo $NOT_A_KEY")
         assert env_vars == {}
 
 
@@ -74,10 +74,11 @@ def test_agent_env_provider_with_callable_secrets():
         )
 
         # Get bash tool and test env provider
-        bash_tool = agent.tools["execute_bash"]
-        env_vars = bash_tool.executor.env_provider(
-            "export DYNAMIC_TOKEN=$DYNAMIC_TOKEN"
-        )
+        tools_dict = cast(dict[str, Tool], agent.tools)
+        bash_tool = tools_dict["execute_bash"]
+        bash_executor = cast(BashExecutor, bash_tool.executor)
+        assert bash_executor.env_provider is not None
+        env_vars = bash_executor.env_provider("export DYNAMIC_TOKEN=$DYNAMIC_TOKEN")
 
         assert env_vars == {"DYNAMIC_TOKEN": "dynamic-token-123"}
 
@@ -104,14 +105,17 @@ def test_agent_env_provider_handles_exceptions():
         )
 
         # Get bash tool and test env provider
-        bash_tool = agent.tools["execute_bash"]
+        tools_dict = cast(dict[str, Tool], agent.tools)
+        bash_tool = tools_dict["execute_bash"]
+        bash_executor = cast(BashExecutor, bash_tool.executor)
+        assert bash_executor.env_provider is not None
 
         # Should not raise exception, should return empty dict
-        env_vars = bash_tool.executor.env_provider("export FAILING_KEY=$FAILING_KEY")
+        env_vars = bash_executor.env_provider("export FAILING_KEY=$FAILING_KEY")
         assert env_vars == {}
 
         # Working key should still work
-        env_vars = bash_tool.executor.env_provider("export WORKING_KEY=$WORKING_KEY")
+        env_vars = bash_executor.env_provider("export WORKING_KEY=$WORKING_KEY")
         assert env_vars == {"WORKING_KEY": "working-value"}
 
 
@@ -129,8 +133,11 @@ def test_agent_env_provider_no_matches():
 
         # Get bash tool and test env provider with command that doesn't reference
         # secrets
-        bash_tool = agent.tools["execute_bash"]
-        env_vars = bash_tool.executor.env_provider("echo hello world")
+        tools_dict = cast(dict[str, Tool], agent.tools)
+        bash_tool = tools_dict["execute_bash"]
+        bash_executor = cast(BashExecutor, bash_tool.executor)
+        assert bash_executor.env_provider is not None
+        env_vars = bash_executor.env_provider("echo hello world")
 
         assert env_vars == {}
 
@@ -176,29 +183,31 @@ def test_agent_secrets_integration_workflow():
         )
 
         # Step 3: Verify bash tool is configured correctly
-        bash_tool = agent.tools["execute_bash"]
-        assert hasattr(bash_tool.executor, "env_provider")
+        tools_dict = cast(dict[str, Tool], agent.tools)
+        bash_tool = tools_dict["execute_bash"]
+        bash_executor = cast(BashExecutor, bash_tool.executor)
+        assert bash_executor.env_provider is not None
 
         # Step 4: Test env provider with various commands
 
         # Single secret
-        env_vars = bash_tool.executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
+        env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
         assert env_vars == {"API_KEY": "static-api-key-123"}
 
         # Multiple secrets
         command = "export API_KEY=$API_KEY && export AUTH_TOKEN=$AUTH_TOKEN"
-        env_vars = bash_tool.executor.env_provider(command)
+        env_vars = bash_executor.env_provider(command)
         assert env_vars == {
             "API_KEY": "static-api-key-123",
             "AUTH_TOKEN": "bearer-token-456",
         }
 
         # No secrets referenced
-        env_vars = bash_tool.executor.env_provider("echo hello world")
+        env_vars = bash_executor.env_provider("echo hello world")
         assert env_vars == {}
 
         # Step 5: Update secrets and verify changes propagate
         conversation.update_secrets({"API_KEY": "updated-api-key-789"})
 
-        env_vars = bash_tool.executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
+        env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
         assert env_vars == {"API_KEY": "updated-api-key-789"}
