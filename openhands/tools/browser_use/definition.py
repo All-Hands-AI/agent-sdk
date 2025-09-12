@@ -24,16 +24,15 @@ class BrowserObservation(ObservationBase):
         return [TextContent(text=maybe_truncate(self.output, MAX_BROWSER_OUTPUT_SIZE))]
 
 
-# 1. NAVIGATION & BROWSER CONTROL
-
-
-# ===== go_to_url =====
+# ============================================
+# `go_to_url`
+# ============================================
 class BrowserNavigateAction(ActionBase):
     """Schema for browser navigation."""
 
     url: str = Field(description="The URL to navigate to")
     new_tab: bool = Field(
-        default=False, description="Whether to open in a new tab. Default: False"
+        default=False, description="Whether to open in a new tab. Default to False"
     )
 
 
@@ -43,18 +42,7 @@ class BrowserNavigateObservation(BrowserObservation):
     pass
 
 
-BROWSER_NAVIGATE_DESCRIPTION = """Navigate to a URL in the browser.
-
-This tool allows you to navigate to any web page. You can optionally open the URL in a new tab.
-
-Parameters:
-- url: The URL to navigate to (required)
-- new_tab: Whether to open in a new tab (optional, default: False)
-
-Examples:
-- Navigate to Google: url="https://www.google.com"
-- Open GitHub in new tab: url="https://github.com", new_tab=True
-"""  # noqa: E501
+BROWSER_NAVIGATE_DESCRIPTION = """Navigate to a URL in the browser"""
 
 browser_navigate_tool = Tool(
     name="browser_navigate",
@@ -88,12 +76,15 @@ class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserNavigateObservation
         )
 
 
+# ============================================
+# `browser_get_state`
+# ============================================
 class BrowserGetStateAction(ActionBase):
     """Schema for getting browser state."""
 
     include_screenshot: bool = Field(
         default=False,
-        description="Whether to include a screenshot of the current page. Default: False",  # noqa: E501
+        description="Whether to include a screenshot of the current page. Default to False",  # noqa: E501
     )
 
 
@@ -103,20 +94,9 @@ class BrowserGetStateObservation(BrowserObservation):
     pass
 
 
-BROWSER_GET_STATE_DESCRIPTION = """Get the current state of the page including all interactive elements.
-
-This tool returns the current page content with numbered interactive elements that you can 
-click or type into. Use this frequently to understand what's available on the page.
-
-Parameters:
-- include_screenshot: Whether to include a screenshot (optional, default: False)
-
-The output includes:
-- Page title and URL
-- All clickable elements with their indices
-- All input fields with their indices
-- Current page content
-"""  # noqa: E501
+BROWSER_GET_STATE_DESCRIPTION = (
+    """Get the current state of the page including all interactive elements"""
+)
 
 browser_get_state_tool = Tool(
     name="browser_get_state",
