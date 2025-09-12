@@ -1,7 +1,6 @@
 """Tests for agent integration with secrets manager."""
 
 import tempfile
-from unittest.mock import patch
 
 from pydantic import SecretStr
 
@@ -114,7 +113,6 @@ def test_agent_env_provider_handles_exceptions():
         # Working key should still work
         env_vars = bash_tool.executor.env_provider("export WORKING_KEY=$WORKING_KEY")
         assert env_vars == {"WORKING_KEY": "working-value"}
-
 
 
 def test_agent_env_provider_no_matches():
