@@ -83,7 +83,7 @@ jobs:
       # Run integration test evaluation for DeepSeek
       - name: Run integration test evaluation for DeepSeek
         env:
-          LLM_MODEL: "litellm_proxy/deepseek/deepseek-reasoner"
+          LLM_MODEL: "litellm_proxy/deepseek-chat"
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
         run: |
