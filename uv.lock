@@ -21,6 +21,7 @@ dev = [
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", specifier = ">=1.1.0" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
+    { name = "pytest-forked", specifier = ">=1.6.0" },
     { name = "ruff", specifier = ">=0.12.10" },
 ]
 

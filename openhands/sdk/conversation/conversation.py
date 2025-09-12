@@ -1,3 +1,4 @@
+import uuid
 from typing import TYPE_CHECKING, Iterable
 
 
@@ -18,7 +19,6 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 logger = get_logger(__name__)
@@ -40,6 +40,7 @@ class Conversation:
         self,
         agent: "AgentType",
         persist_filestore: FileStore | None = None,
+        conversation_id: str | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         visualize: bool = True,
@@ -48,6 +49,10 @@ class Conversation:
 
         Args:
             agent: The agent to use for the conversation
+            persist_filestore: Optional FileStore to persist conversation state
+            conversation_id: Optional ID for the conversation. If provided, will
+                      be used to identify the conversation. The user might want to
+                      suffix their persistent filestore with this ID.
             callbacks: Optional list of callback functions to handle events
             max_iteration_per_run: Maximum number of iterations per run
             visualize: Whether to enable default visualization. If True, adds
@@ -56,25 +61,18 @@ class Conversation:
         """
         self.agent = agent
         self._persist_filestore = persist_filestore
-        if self._persist_filestore is not None and self._persist_filestore.list("."):
-            self.state = ConversationState.load(self._persist_filestore)
-            self.state.agent = agent.resolve_diff_from_deserialized(self.state.agent)
-            if agent.model_dump(exclude_none=True) != self.state.agent.model_dump(
-                exclude_none=True
-            ):
-                raise ValueError(
-                    "The agent provided is different from the one in persisted state. "
-                    "Please use the same agent instance to resume the conversation. \n"
-                    f"Diff: {pretty_pydantic_diff(agent, self.state.agent)}"
-                )
-        else:
-            self.state = ConversationState(agent=agent)
+
+        # Create-or-resume: factory inspects BASE_STATE to decide
+        desired_id = conversation_id or str(uuid.uuid4())
+        self.state = ConversationState.create(
+            id=desired_id,
+            agent=agent,
+            file_store=self._persist_filestore,
+        )
 
         # Default callback: persist every event to state
         def _default_callback(e):
             self.state.events.append(e)
-            if self._persist_filestore is not None:
-                self.state.save(self._persist_filestore)
 
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
@@ -236,3 +234,23 @@ class Conversation:
             pause_event = PauseEvent()
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
+
+    def close(self) -> None:
+        """Close the conversation and clean up all tool executors."""
+        logger.debug("Closing conversation and cleaning up tool executors")
+        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
+        for tool in self.agent.tools.values():
+            if tool.executor is not None:
+                try:
+                    tool.executor.close()
+                except Exception as e:
+                    logger.warning(
+                        f"Error closing executor for tool '{tool.name}': {e}"
+                    )
+
+    def __del__(self) -> None:
+        """Ensure cleanup happens when conversation is destroyed."""
+        try:
+            self.close()
+        except Exception as e:
+            logger.warning(f"Error during conversation cleanup: {e}", exc_info=True)

@@ -1,8 +1,3 @@
----
-title: OpenHands Agent SDK
-description: A clean, modular SDK for building AI agents with OpenHands. Complete architectural refactor emphasizing simplicity, maintainability, and developer experience.
----
-
 # OpenHands Agent SDK
 
 A clean, modular SDK for building AI agents with OpenHands. This project represents a complete architectural refactor from OpenHands V0, emphasizing simplicity, maintainability, and developer experience.
