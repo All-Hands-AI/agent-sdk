@@ -49,11 +49,14 @@ class BrowserToolExecutor(ToolExecutor):
         """Execute browser action asynchronously."""
         from openhands.tools.browser_use.definition import (
             BrowserClickAction,
+            BrowserCloseTabAction,
             BrowserGetStateAction,
             BrowserGoBackAction,
+            BrowserListTabsAction,
             BrowserNavigateAction,
             BrowserObservation,
             BrowserScrollAction,
+            BrowserSwitchTabAction,
             BrowserTypeAction,
         )
 
@@ -76,6 +79,15 @@ class BrowserToolExecutor(ToolExecutor):
                 return BrowserObservation(output=result)
             elif isinstance(action, BrowserGoBackAction):
                 result = await self.go_back()
+                return BrowserObservation(output=result)
+            elif isinstance(action, BrowserListTabsAction):
+                result = await self.list_tabs()
+                return BrowserObservation(output=result)
+            elif isinstance(action, BrowserSwitchTabAction):
+                result = await self.switch_tab(action.tab_id)
+                return BrowserObservation(output=result)
+            elif isinstance(action, BrowserCloseTabAction):
+                result = await self.close_tab(action.tab_id)
                 return BrowserObservation(output=result)
             else:
                 error_msg = f"Unsupported action type: {type(action)}"
@@ -152,8 +164,8 @@ class BrowserToolExecutor(ToolExecutor):
     # We don't need `extract_content` tool as we already have the `fetch` MCP server
 
     # Form Controls
-    # `get_dropdown_options` tool is missing in browser-use MCP server
-    # `select_dropdown_option` tool is missing in browser-use MCP server
+    # TODO: `get_dropdown_options` tool is missing in browser-use MCP server
+    # TODO: `select_dropdown_option` tool is missing in browser-use MCP server
 
     async def close_browser(self) -> str:
         """Close the browser session."""

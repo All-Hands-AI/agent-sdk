@@ -338,3 +338,147 @@ class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
             annotations=browser_go_back_tool.annotations,
             executor=executor,
         )
+
+
+# ============================================
+# `browser_list_tabs`
+# ============================================
+class BrowserListTabsAction(ActionBase):
+    """Schema for listing browser tabs."""
+
+    pass
+
+
+BROWSER_LIST_TABS_DESCRIPTION = """List all open browser tabs.
+
+This tool shows all currently open tabs with their IDs, titles, and URLs. Use the tab IDs
+with browser_switch_tab or browser_close_tab.
+"""  # noqa: E501
+
+browser_list_tabs_tool = Tool(
+    name="browser_list_tabs",
+    action_type=BrowserListTabsAction,
+    observation_type=BrowserObservation,
+    description=BROWSER_LIST_TABS_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="browser_list_tabs",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+
+
+class BrowserListTabsTool(Tool[BrowserListTabsAction, BrowserObservation]):
+    """Tool for listing browser tabs."""
+
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
+            name=browser_list_tabs_tool.name,
+            description=BROWSER_LIST_TABS_DESCRIPTION,
+            action_type=BrowserListTabsAction,
+            observation_type=BrowserObservation,
+            annotations=browser_list_tabs_tool.annotations,
+            executor=executor,
+        )
+
+
+# ============================================
+# `browser_switch_tab`
+# ============================================
+class BrowserSwitchTabAction(ActionBase):
+    """Schema for switching browser tabs."""
+
+    tab_id: str = Field(
+        description="4 Character Tab ID of the tab to switch"
+        + " to (from browser_list_tabs)"
+    )
+
+
+BROWSER_SWITCH_TAB_DESCRIPTION = """Switch to a different browser tab.
+
+Use this tool to switch between open tabs. Get the tab_id from browser_list_tabs.
+
+Parameters:
+- tab_id: 4 Character Tab ID of the tab to switch to
+"""
+
+browser_switch_tab_tool = Tool(
+    name="browser_switch_tab",
+    action_type=BrowserSwitchTabAction,
+    observation_type=BrowserObservation,
+    description=BROWSER_SWITCH_TAB_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="browser_switch_tab",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=False,
+    ),
+)
+
+
+class BrowserSwitchTabTool(Tool[BrowserSwitchTabAction, BrowserObservation]):
+    """Tool for switching browser tabs."""
+
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
+            name=browser_switch_tab_tool.name,
+            description=BROWSER_SWITCH_TAB_DESCRIPTION,
+            action_type=BrowserSwitchTabAction,
+            observation_type=BrowserObservation,
+            annotations=browser_switch_tab_tool.annotations,
+            executor=executor,
+        )
+
+
+# ============================================
+# `browser_close_tab`
+# ============================================
+class BrowserCloseTabAction(ActionBase):
+    """Schema for closing browser tabs."""
+
+    tab_id: str = Field(
+        description="4 Character Tab ID of the tab to close (from browser_list_tabs)"
+    )
+
+
+BROWSER_CLOSE_TAB_DESCRIPTION = """Close a specific browser tab.
+
+Use this tool to close tabs you no longer need. Get the tab_id from browser_list_tabs.
+
+Parameters:
+- tab_id: 4 Character Tab ID of the tab to close
+"""
+
+browser_close_tab_tool = Tool(
+    name="browser_close_tab",
+    action_type=BrowserCloseTabAction,
+    observation_type=BrowserObservation,
+    description=BROWSER_CLOSE_TAB_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="browser_close_tab",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
+    ),
+)
+
+
+class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
+    """Tool for closing browser tabs."""
+
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
+            name=browser_close_tab_tool.name,
+            description=BROWSER_CLOSE_TAB_DESCRIPTION,
+            action_type=BrowserCloseTabAction,
+            observation_type=BrowserObservation,
+            annotations=browser_close_tab_tool.annotations,
+            executor=executor,
+        )
