@@ -356,9 +356,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             retry_multiplier=self.retry_multiplier,
             retry_listener=self.retry_listener,
         )
-        def _one_attempt() -> ModelResponse:
+        def _one_attempt(**retry_kwargs) -> ModelResponse:
             assert self._telemetry is not None
-            resp = self._transport_call(messages=messages, **call_kwargs)
+            # Merge retry-modified kwargs (like temperature) with call_kwargs
+            final_kwargs = {**call_kwargs, **retry_kwargs}
+            resp = self._transport_call(messages=messages, **final_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
