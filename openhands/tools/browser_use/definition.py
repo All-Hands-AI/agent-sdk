@@ -39,7 +39,18 @@ class BrowserNavigateAction(ActionBase):
     )
 
 
-BROWSER_NAVIGATE_DESCRIPTION = """Navigate to a URL in the browser"""
+BROWSER_NAVIGATE_DESCRIPTION = """Navigate to a URL in the browser.
+
+This tool allows you to navigate to any web page. You can optionally open the URL in a new tab.
+
+Parameters:
+- url: The URL to navigate to (required)
+- new_tab: Whether to open in a new tab (optional, default: False)
+
+Examples:
+- Navigate to Google: url="https://www.google.com"
+- Open GitHub in new tab: url="https://github.com", new_tab=True
+"""  # noqa: E501
 
 browser_navigate_tool = Tool(
     name="browser_navigate",
@@ -86,7 +97,17 @@ class BrowserClickAction(ActionBase):
     )
 
 
-BROWSER_CLICK_DESCRIPTION = """Click an element on the page by its index"""
+BROWSER_CLICK_DESCRIPTION = """Click an element on the page by its index.
+
+Use this tool to click on interactive elements like buttons, links, or form controls. 
+The index comes from the browser_get_state tool output.
+
+Parameters:
+- index: The index of the element to click (from browser_get_state)
+- new_tab: Whether to open any resulting navigation in a new tab (optional)
+
+Important: Only use indices that appear in your current browser_get_state output.
+"""  # noqa: E501
 
 browser_click_tool = Tool(
     name="browser_click",
@@ -130,7 +151,17 @@ class BrowserTypeAction(ActionBase):
     text: str = Field(description="The text to type")
 
 
-BROWSER_TYPE_DESCRIPTION = """Type text into an input field"""
+BROWSER_TYPE_DESCRIPTION = """Type text into an input field.
+
+Use this tool to enter text into form fields, search boxes, or other text input elements.
+The index comes from the browser_get_state tool output.
+
+Parameters:
+- index: The index of the input element (from browser_get_state)
+- text: The text to type
+
+Important: Only use indices that appear in your current browser_get_state output.
+"""  # noqa: E501
 
 browser_type_tool = Tool(
     name="browser_type",
@@ -174,9 +205,14 @@ class BrowserGetStateAction(ActionBase):
     )
 
 
-BROWSER_GET_STATE_DESCRIPTION = (
-    """Get the current state of the page including all interactive elements"""
-)
+BROWSER_GET_STATE_DESCRIPTION = """Get the current state of the page including all interactive elements.
+
+This tool returns the current page content with numbered interactive elements that you can 
+click or type into. Use this frequently to understand what's available on the page.
+
+Parameters:
+- include_screenshot: Whether to include a screenshot (optional, default: False)
+"""  # noqa: E501
 
 browser_get_state_tool = Tool(
     name="browser_get_state",
