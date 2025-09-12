@@ -94,7 +94,6 @@ cwd = os.getcwd()
 tools = [
     BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
-    TaskTrackerTool.create(save_dir=cwd),
 ]
 
 # Create agent and conversation
