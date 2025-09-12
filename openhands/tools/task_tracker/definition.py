@@ -123,6 +123,10 @@ class TaskTrackerObservation(ObservationBase):
                 # Task title
                 content.append(f"{i}. {task.title}", style="white")
 
+                # NEW: show notes under the title if present
+                if task.notes:
+                    content.append("\n   Notes: " + task.notes, style="italic dim")
+
                 if i < len(self.task_list):
                     content.append("\n")
         else:
