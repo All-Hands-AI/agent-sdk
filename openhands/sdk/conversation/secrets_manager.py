@@ -1,13 +1,14 @@
 """Secrets manager for handling sensitive data in conversations."""
 
-from typing import Callable, Union, overload
+from typing import Callable, Mapping
 
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
 
-SecretValue = str | Callable[[], str]
+SecretProvider = Callable[[], str]
+SecretValue = str | SecretProvider
 
 
 class SecretsManager:
@@ -23,20 +24,9 @@ class SecretsManager:
         """Initialize an empty secrets manager."""
         self._secrets: dict[str, SecretValue] = {}
 
-    @overload
-    def update_secrets(self, secrets: dict[str, str]) -> None: ...
-
-    @overload
-    def update_secrets(self, secrets: dict[str, Callable[[], str]]) -> None: ...
-
-    @overload
-    def update_secrets(self, secrets: dict[str, SecretValue]) -> None: ...
-
     def update_secrets(
         self,
-        secrets: Union[
-            dict[str, str], dict[str, Callable[[], str]], dict[str, SecretValue]
-        ],
+        secrets: Mapping[str, SecretValue],
     ) -> None:
         """Add or update secrets in the manager.
 
