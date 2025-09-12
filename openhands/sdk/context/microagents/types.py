@@ -1,16 +1,15 @@
 from datetime import datetime, timezone
-from enum import Enum
+from typing import Literal
 
-from fastmcp.mcp_config import MCPConfig
 from pydantic import BaseModel, Field
 
 
-class MicroagentType(str, Enum):
-    """Type of microagent."""
-
-    KNOWLEDGE = "knowledge"  # Optional microagent, triggered by keywords
-    REPO_KNOWLEDGE = "repo"  # Always active microagent
-    TASK = "task"  # Special type for task microagents that require user input
+VALID_MICROAGENT_TYPES = ["knowledge", "repo", "task"]
+MicroagentType = Literal[
+    "knowledge",
+    "repo",
+    "task",
+]
 
 
 class InputMetadata(BaseModel):
@@ -18,18 +17,6 @@ class InputMetadata(BaseModel):
 
     name: str = Field(..., description="Name of the input parameter")
     description: str = Field(..., description="Description of the input parameter")
-
-
-class MicroagentMetadata(BaseModel):
-    """Metadata for all microagents."""
-
-    name: str = Field("default", description="Unique name of the microagent")
-    type: MicroagentType = Field(default=MicroagentType.REPO_KNOWLEDGE)
-    triggers: list[str] = []  # optional, only exists for knowledge microagents
-    inputs: list[InputMetadata] = []  # optional, only exists for task microagents
-    mcp_tools: MCPConfig | None = (
-        None  # optional, for microagents that provide additional MCP tools
-    )
 
 
 class MicroagentKnowledge(BaseModel):
