@@ -1,36 +1,25 @@
 # state.py
 import json
-import re
 from threading import RLock, get_ident
-from typing import Iterable, NamedTuple, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentType
-from openhands.sdk.event import Event, EventBase
-from openhands.sdk.io import FileStore
+from openhands.sdk.conversation.event_store import EventLog
+from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
+from openhands.sdk.event import Event
+from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
+from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
 
 
-class EventFile(NamedTuple):
-    idx: int
-    path: str
-
-
-BASE_STATE = "base_state.json"
-AGENT_STATE = "agent_state.json"
-EVENTS_DIR = "events"
-_EVENT_NAME_RE = re.compile(r"^event-(?P<idx>\d{5})\.json$")
-_EVENT_FILE_PATTERN = "event-{idx:05d}.json"
-
-
 class ConversationState(BaseModel):
     # ===== Public, validated fields =====
     id: str = Field(description="Unique conversation ID")
-    events: list[Event] = Field(default_factory=list)
 
     agent: AgentType = Field(
         ...,
@@ -56,9 +45,16 @@ class ConversationState(BaseModel):
     # ===== Private attrs (NOT Fields) =====
     _lock: RLock = PrivateAttr(default_factory=RLock)
     _owner_tid: Optional[int] = PrivateAttr(default=None)
+    _fs: FileStore = PrivateAttr()  # filestore for persistence
+    _events: EventLog = PrivateAttr()  # now the storage for events
+    _autosave_enabled: bool = PrivateAttr(
+        default=False
+    )  # to avoid recursion during init
 
-    # ===== Plain class vars (NOT Fields) =====
-    EXCLUDE_FROM_BASE_STATE: tuple[str, ...] = ("events",)
+    # ===== Public "events" facade (ListLike[Event]) =====
+    @property
+    def events(self) -> ListLike[Event]:
+        return self._events
 
     # ===== Lock/guard API =====
     def acquire(self) -> None:
@@ -81,93 +77,110 @@ class ConversationState(BaseModel):
         if self._owner_tid != get_ident():
             raise RuntimeError("State not held by current thread")
 
-    # ===== Internal FS helpers (intentionally simple) =====
-
-    @staticmethod
-    def _scan_events(fs: FileStore) -> list[EventFile]:
-        """
-        Single directory listing for events. Returns (index, path) sorted.
-        """
-        try:
-            paths = fs.list(EVENTS_DIR)
-        except Exception:
-            return []
-        out: list[EventFile] = []
-        for p in paths:
-            name = p.rsplit("/", 1)[-1]
-            m = _EVENT_NAME_RE.match(name)
-            if m:
-                out.append(EventFile(idx=int(m.group("idx")), path=p))
-            else:
-                logger.warning(f"Skipping unrecognized event file: {p}")
-        out.sort(key=lambda t: t.idx)
-        return out
-
-    @staticmethod
-    def _restore_from_files(
-        fs: FileStore, files_sorted: Iterable[EventFile]
-    ) -> list[Event]:
-        """
-        One pass: we already have the sorted file list; just read & parse.
-        """
-        out: list[Event] = []
-        for _, path in files_sorted:
-            txt = fs.read(path)
-            if not txt:
-                continue
-            try:
-                out.append(EventBase.model_validate(json.loads(txt)))
-            except Exception:
-                # Be strict if you want. Pragmatically, skip bad files.
-                continue
-        return out
-
+    # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:
         """
-        Persist base state snapshot (excluding events).s
+        Persist base state snapshot (no events; events are file-backed).
         """
-        payload = self.model_dump_json(
-            exclude_none=True,
-            exclude=set(self.EXCLUDE_FROM_BASE_STATE),
-        )
+        payload = self.model_dump_json(exclude_none=True)
         fs.write(BASE_STATE, payload)
 
-    # ===== Public Persistence API =====
+    # ===== Factory: open-or-create (no load/save methods needed) =====
     @classmethod
-    def load(
-        cls: type["ConversationState"], file_store: FileStore
+    def create(
+        cls: type["ConversationState"],
+        id: str,
+        agent: AgentType,
+        file_store: FileStore | None = None,
     ) -> "ConversationState":
         """
-        Load base snapshot (if any), then a SINGLE scan of events dir and replay.
+        If base_state.json exists: resume (attach EventLog,
+            reconcile agent, enforce id).
+        Else: create fresh (agent required), persist base, and return.
         """
-        # base
-        base_txt = file_store.read(BASE_STATE)
-        assert base_txt is not None
-        state = cls.model_validate(json.loads(base_txt))
+        if file_store is None:
+            file_store = InMemoryFileStore()
 
-        # events (one list op, one pass decode)
-        files_sorted = cls._scan_events(file_store)
-        for ev in cls._restore_from_files(file_store, files_sorted):
-            state.events.append(ev)
+        try:
+            base_text = file_store.read(BASE_STATE)
+        except FileNotFoundError:
+            base_text = None
+
+        # ---- Resume path ----
+        if base_text:
+            state = cls.model_validate(json.loads(base_text))
+
+            # Enforce conversation id match
+            if state.id != id:
+                raise ValueError(
+                    f"Conversation ID mismatch: provided {id}, "
+                    f"but persisted state has {state.id}"
+                )
+
+            # Reconcile agent config with deserialized one, then assert equality
+            resolved = agent.resolve_diff_from_deserialized(state.agent)
+            if agent.model_dump(exclude_none=True) != resolved.model_dump(
+                exclude_none=True
+            ):
+                from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
+
+                raise ValueError(
+                    "The agent provided is different from the one in persisted state. "
+                    "Please use the same agent instance to resume the conversation.\n"
+                    f"Diff: {pretty_pydantic_diff(agent, state.agent)}"
+                )
+
+            # Attach runtime handles and commit reconciled agent (may autosave)
+            state._fs = file_store
+            state._events = EventLog(file_store, dir_path=EVENTS_DIR)
+            state._autosave_enabled = True
+            state.agent = resolved
+
+            logger.info(
+                f"Resumed conversation {state.id} from persistent storage.\n"
+                f"State: {state.model_dump(exclude={'agent'})}\n"
+                f"Agent: {state.agent.model_dump_succint()}"
+            )
+            return state
+
+        # ---- Fresh path ----
+        if agent is None:
+            raise ValueError(
+                "agent is required when initializing a new ConversationState"
+            )
+
+        state = cls(id=id, agent=agent)
+        state._fs = file_store
+        state._events = EventLog(file_store, dir_path=EVENTS_DIR)
+        state._save_base_state(file_store)  # initial snapshot
+        state._autosave_enabled = True
+        logger.info(
+            f"Created new conversation {state.id}\n"
+            f"State: {state.model_dump(exclude={'agent'})}\n"
+            f"Agent: {state.agent.model_dump_succint()}"
+        )
         return state
 
-    def save(self, file_store: FileStore) -> None:
-        """
-        Persist current state:
-        - Write base snapshot
-        - Perform a SINGLE scan of events dir to find next index
-        - Append any new events
-        """
-        # keep base snapshot current
-        self._save_base_state(file_store)
+    # ===== Auto-persist base on public field changes =====
+    def __setattr__(self, name, value):
+        # Only autosave when:
+        # - autosave is enabled (set post-init)
+        # - the attribute is a *public field* (not a PrivateAttr)
+        # - we have a filestore to write to
+        is_field = name in self.__class__.model_fields
+        autosave_enabled = getattr(self, "_autosave_enabled", False)
+        fs = getattr(self, "_fs", None)
 
-        # single scan
-        files_sorted = self._scan_events(file_store)
-        next_idx = files_sorted[-1][0] + 1 if files_sorted else 0
+        if not (autosave_enabled and is_field and fs is not None):
+            return super().__setattr__(name, value)
 
-        # append new events only
-        if next_idx < len(self.events):
-            for idx in range(next_idx, len(self.events)):
-                event = self.events[idx]
-                path = f"{EVENTS_DIR}/{_EVENT_FILE_PATTERN.format(idx=idx)}"
-                file_store.write(path, event.model_dump_json(exclude_none=True))
+        _sentinel = object()
+        old = getattr(self, name, _sentinel)
+        super().__setattr__(name, value)
+
+        if old is _sentinel or old != value:
+            try:
+                self._save_base_state(fs)
+            except Exception as e:
+                logger.exception("Auto-persist base_state failed", exc_info=True)
+                raise e

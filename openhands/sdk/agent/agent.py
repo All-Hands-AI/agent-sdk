@@ -266,7 +266,9 @@ class Agent(AgentBase):
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
             msg_event = MessageEvent(
-                source="agent", llm_message=message, metrics=metrics
+                source="agent",
+                llm_message=message,
+                metrics=metrics,
             )
             on_event(msg_event)
 

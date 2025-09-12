@@ -7,7 +7,6 @@ from openhands.sdk.context.microagents import (
     KnowledgeMicroagent,
     RepoMicroagent,
 )
-from openhands.sdk.context.microagents.types import MicroagentType
 from openhands.sdk.llm import Message, TextContent
 
 
@@ -33,10 +32,10 @@ class TestAgentContext:
     def test_microagent_validation_duplicate_names(self):
         """Test that duplicate microagent names raise validation error."""
         repo_agent1 = RepoMicroagent(
-            name="duplicate", content="First agent", type=MicroagentType.REPO_KNOWLEDGE
+            name="duplicate", content="First agent", type="repo"
         )
         repo_agent2 = RepoMicroagent(
-            name="duplicate", content="Second agent", type=MicroagentType.REPO_KNOWLEDGE
+            name="duplicate", content="Second agent", type="repo"
         )
 
         with pytest.raises(
@@ -49,7 +48,7 @@ class TestAgentContext:
         knowledge_agent = KnowledgeMicroagent(
             name="test_knowledge",
             content="Some knowledge content",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["test"],
         )
         context = AgentContext(microagents=[knowledge_agent])
@@ -61,12 +60,12 @@ class TestAgentContext:
         repo_agent1 = RepoMicroagent(
             name="coding_standards",
             content="Follow PEP 8 style guidelines for Python code.",
-            type=MicroagentType.REPO_KNOWLEDGE,
+            type="repo",
         )
         repo_agent2 = RepoMicroagent(
             name="testing_guidelines",
             content="Write comprehensive unit tests for all new features.",
-            type=MicroagentType.REPO_KNOWLEDGE,
+            type="repo",
         )
 
         context = AgentContext(microagents=[repo_agent1, repo_agent2])
@@ -97,7 +96,7 @@ defined in user's repository.\n"
         repo_agent = RepoMicroagent(
             name="security_rules",
             content="Always validate user input and sanitize data.",
-            type=MicroagentType.REPO_KNOWLEDGE,
+            type="repo",
         )
 
         context = AgentContext(
@@ -131,7 +130,7 @@ defined in user's repository.\n"
         knowledge_agent = KnowledgeMicroagent(
             name="python_tips",
             content="Use list comprehensions for better performance.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["python", "performance"],
         )
 
@@ -146,7 +145,7 @@ defined in user's repository.\n"
         knowledge_agent = KnowledgeMicroagent(
             name="python_tips",
             content="Use list comprehensions for better performance.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["python", "performance"],
         )
 
@@ -163,7 +162,7 @@ defined in user's repository.\n"
         knowledge_agent = KnowledgeMicroagent(
             name="python_tips",
             content="Use list comprehensions for better performance.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["python", "performance"],
         )
 
@@ -195,14 +194,14 @@ for "python".\n'
         python_agent = KnowledgeMicroagent(
             name="python_best_practices",
             content="Follow PEP 8 and use type hints for better code quality.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["python", "best practices"],
         )
         testing_agent = KnowledgeMicroagent(
             name="testing_framework",
             content="Use pytest for comprehensive testing with fixtures and \
 parametrization.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["testing", "pytest"],
         )
 
@@ -247,7 +246,7 @@ parametrization.\n"
         knowledge_agent = KnowledgeMicroagent(
             name="python_tips",
             content="Use list comprehensions for better performance.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["python", "performance"],
         )
 
@@ -266,7 +265,7 @@ parametrization.\n"
             name="database_tips",
             content="Always use parameterized queries to prevent SQL injection \
 attacks.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["database", "sql"],
         )
 
@@ -302,12 +301,12 @@ attacks.",
         repo_agent = RepoMicroagent(
             name="repo_standards",
             content="Use semantic versioning for releases.",
-            type=MicroagentType.REPO_KNOWLEDGE,
+            type="repo",
         )
         knowledge_agent = KnowledgeMicroagent(
             name="git_tips",
             content="Use conventional commits for better history.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["git", "commit"],
         )
 
@@ -358,7 +357,7 @@ for "git".\n'
         knowledge_agent = KnowledgeMicroagent(
             name="docker_tips",
             content="Use multi-stage builds to reduce image size.",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["docker", "container"],
         )
 
@@ -391,7 +390,7 @@ for "docker".\n'
             name="special_chars",
             content="Use {{ curly braces }} and <angle brackets> carefully in \
 templates.",
-            type=MicroagentType.REPO_KNOWLEDGE,
+            type="repo",
         )
 
         context = AgentContext(microagents=[repo_agent])
@@ -416,9 +415,7 @@ templates.\n"
 
     def test_empty_microagent_content(self):
         """Test template rendering with empty microagent content."""
-        repo_agent = RepoMicroagent(
-            name="empty_content", content="", type=MicroagentType.REPO_KNOWLEDGE
-        )
+        repo_agent = RepoMicroagent(name="empty_content", content="", type="repo")
 
         context = AgentContext(microagents=[repo_agent])
         result = context.get_system_message_suffix()
@@ -451,7 +448,7 @@ defined in user's repository.\n"
         knowledge_agent = KnowledgeMicroagent(
             name="test_knowledge",
             content="Some knowledge content",
-            type=MicroagentType.KNOWLEDGE,
+            type="knowledge",
             triggers=["test"],
         )
         context = AgentContext(

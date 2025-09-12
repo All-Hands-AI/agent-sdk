@@ -45,6 +45,7 @@ jobs:
           # Clean up any existing coverage file
           rm -f .coverage
           CI=true uv run python -m pytest -vvs \
+            --forked \
             --cov=openhands/sdk \
             --cov-report=term-missing \
             --cov-fail-under=0 \
@@ -98,6 +99,7 @@ jobs:
           # Clean up any existing coverage file
           rm -f .coverage
           CI=true uv run python -m pytest -vvs \
+            --forked \
             --cov=openhands/tools \
             --cov-report=term-missing \
             --cov-fail-under=0 \

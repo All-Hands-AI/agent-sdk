@@ -11,6 +11,10 @@ from openhands.tools.str_replace_editor import file_editor
 from .conftest import assert_successful_result
 
 
+# Apply the forked marker to all tests in this module
+pytestmark = pytest.mark.forked
+
+
 def test_file_read_memory_usage(temp_file):
     """Test that reading a large file uses memory efficiently."""
     # Create a large file (9.5MB to stay under 10MB limit)

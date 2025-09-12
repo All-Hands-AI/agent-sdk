@@ -18,7 +18,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
-from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
+from openhands.sdk.event import ActionEvent, Event, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
@@ -253,7 +253,7 @@ class TestConfirmationMode:
         """Test getting unmatched events (actions without observations)."""
         # Create test action
         action_event = self._create_test_action()
-        events: list = [action_event]
+        events: list[Event] = [action_event]
 
         # Test: action without observation should be pending
         unmatched = get_unmatched_actions(events)

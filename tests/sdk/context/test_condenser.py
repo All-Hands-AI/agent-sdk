@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
@@ -6,7 +6,8 @@ from openhands.sdk.context.view import View
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event import Event
 from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.io.memory import InMemoryFileStore
+from openhands.sdk.llm import LLM, Message, TextContent
 
 
 def message_event(content: str) -> MessageEvent:
@@ -23,7 +24,20 @@ def test_noop_condenser() -> None:
         message_event("Event 2"),
         message_event("Event 3"),
     ]
-    state = ConversationState(events=events, agent=MagicMock(spec=Agent), id="test-id")
+    # Create a real agent for testing
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    agent = Agent(llm=llm, tools=[])
+
+    # Use create method with InMemoryFileStore to properly initialize the state
+    state = ConversationState.create(
+        id="test-id",
+        agent=agent,
+        file_store=InMemoryFileStore(),
+    )
+
+    # Add events to the state
+    for event in events:
+        state.events.append(event)
 
     condenser = NoOpCondenser()
     view = View.from_events(state.events)

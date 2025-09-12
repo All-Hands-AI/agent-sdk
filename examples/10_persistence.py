@@ -107,7 +107,10 @@ del conversation
 # Deserialize the conversation
 print("Deserializing conversation...")
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+    agent=agent,
+    callbacks=[conversation_callback],
+    persist_filestore=file_store,
+    conversation_id=conv_id,
 )
 
 print("Sending message to deserialized conversation...")

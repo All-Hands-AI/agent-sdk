@@ -8,7 +8,6 @@ import pytest
 from openhands.sdk.context import (
     BaseMicroagent,
     KnowledgeMicroagent,
-    MicroagentType,
     MicroagentValidationError,
     RepoMicroagent,
     load_microagents_from_dir,
@@ -28,7 +27,7 @@ def test_legacy_micro_agent_load(tmp_path):
     assert isinstance(micro_agent, RepoMicroagent)
     assert micro_agent.name == "repo_legacy"  # Legacy name is hardcoded
     assert micro_agent.content == CONTENT
-    assert micro_agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert micro_agent.type == "repo"
 
 
 @pytest.fixture
@@ -76,7 +75,7 @@ def test_knowledge_agent():
         name="test",
         content="Test content",
         source="test.md",
-        type=MicroagentType.KNOWLEDGE,
+        type="knowledge",
         triggers=["testing", "pytest"],
     )
 
@@ -94,14 +93,14 @@ def test_load_microagents(temp_microagents_dir):
     assert len(knowledge_agents) == 1
     agent_k = knowledge_agents["knowledge"]
     assert isinstance(agent_k, KnowledgeMicroagent)
-    assert agent_k.type == MicroagentType.KNOWLEDGE  # Check inferred type
+    assert agent_k.type == "knowledge"  # Check inferred type
     assert "test" in agent_k.triggers
 
     # Check repo agents (name derived from filename: repo.md -> 'repo')
     assert len(repo_agents) == 1
     agent_r = repo_agents["repo"]
     assert isinstance(agent_r, RepoMicroagent)
-    assert agent_r.type == MicroagentType.REPO_KNOWLEDGE  # Check inferred type
+    assert agent_r.type == "repo"  # Check inferred type
 
 
 def test_load_microagents_with_nested_dirs(temp_microagents_dir):
@@ -132,7 +131,7 @@ Testing nested directory loading.
     )  # Original ('knowledge') + nested ('nested/dir/nested')
     agent_n = knowledge_agents["nested/dir/nested"]
     assert isinstance(agent_n, KnowledgeMicroagent)
-    assert agent_n.type == MicroagentType.KNOWLEDGE  # Check inferred type
+    assert agent_n.type == "knowledge"  # Check inferred type
     assert "nested" in agent_n.triggers
 
 
@@ -166,7 +165,7 @@ Testing loading with trailing slashes.
     )  # Original ('knowledge') + trailing ('test_knowledge/trailing')
     agent_t = knowledge_agents["test_knowledge/trailing"]
     assert isinstance(agent_t, KnowledgeMicroagent)
-    assert agent_t.type == MicroagentType.KNOWLEDGE  # Check inferred type
+    assert agent_t.type == "knowledge"  # Check inferred type
     assert "trailing" in agent_t.triggers
 
 
@@ -217,7 +216,7 @@ Add proper error handling."""
     assert isinstance(agent, RepoMicroagent)
     assert agent.name == "cursorrules"
     assert agent.content == cursorrules_content
-    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.type == "repo"
     assert agent.source == str(cursorrules_path)
 
 
@@ -250,7 +249,7 @@ This is a test agent with integer version.
     # .metadata was deprecated in V1. this test simply tests
     # that we are backward compatible
     # assert agent.metadata.version == '2512312'  # Should be converted to string
-    assert agent.type == MicroagentType.KNOWLEDGE
+    assert agent.type == "knowledge"
 
 
 def test_microagent_version_as_float():
@@ -278,7 +277,7 @@ This is a test agent with float version.
     # Verify the agent was loaded correctly
     assert isinstance(agent, KnowledgeMicroagent)
     assert agent.name == "test_agent_float"
-    assert agent.type == MicroagentType.KNOWLEDGE
+    assert agent.type == "knowledge"
 
 
 def test_microagent_version_as_string_unchanged():
@@ -306,7 +305,7 @@ This is a test agent with string version.
     # Verify the agent was loaded correctly
     assert isinstance(agent, KnowledgeMicroagent)
     assert agent.name == "test_agent_string"
-    assert agent.type == MicroagentType.KNOWLEDGE
+    assert agent.type == "knowledge"
 
 
 @pytest.fixture
@@ -358,7 +357,7 @@ def test_load_microagents_with_cursorrules(temp_microagents_dir_with_cursorrules
     assert isinstance(cursorrules_agent, RepoMicroagent)
     assert cursorrules_agent.name == "cursorrules"
     assert "Always use TypeScript for new files" in cursorrules_agent.content
-    assert cursorrules_agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert cursorrules_agent.type == "repo"
 
 
 def test_repo_microagent_with_mcp_tools():
@@ -389,7 +388,7 @@ This is a repo microagent that includes MCP tools.
     # Verify it's loaded as a RepoMicroagent
     assert isinstance(agent, RepoMicroagent)
     assert agent.name == "default-tools"
-    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.type == "repo"
     assert agent.mcp_tools is not None
 
     # Verify the mcp_tools configuration is correctly loaded
@@ -435,7 +434,7 @@ This is a repo microagent that includes MCP tools in dict format.
     # Verify it's loaded as a RepoMicroagent
     assert isinstance(agent, RepoMicroagent)
     assert agent.name == "default-tools-dict"
-    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.type == "repo"
     assert agent.mcp_tools is not None
 
     # Verify the mcp_tools configuration is correctly loaded
@@ -473,7 +472,7 @@ This is a repo microagent without MCP tools.
     # Verify it's loaded as a RepoMicroagent
     assert isinstance(agent, RepoMicroagent)
     assert agent.name == "no-mcp-tools"
-    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.type == "repo"
     assert agent.mcp_tools is None
 
 

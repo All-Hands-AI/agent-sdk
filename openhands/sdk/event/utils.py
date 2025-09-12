@@ -1,9 +1,15 @@
 """Utility functions for event processing."""
 
-from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
+from openhands.sdk.event import (
+    ActionEvent,
+    Event,
+    ObservationEvent,
+    UserRejectObservation,
+)
+from openhands.sdk.utils.protocol import ListLike
 
 
-def get_unmatched_actions(events: list) -> list[ActionEvent]:
+def get_unmatched_actions(events: ListLike[Event]) -> list[ActionEvent]:
     """Find actions in the event history that don't have matching observations.
 
     Optimized to search in reverse chronological order since recent actions
