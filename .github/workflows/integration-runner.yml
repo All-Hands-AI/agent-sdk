@@ -80,6 +80,14 @@ jobs:
       - name: Wait a little bit
         run: sleep 10
 
+      # Debug: List available models in LiteLLM proxy
+      - name: List available models for debugging
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+        run: |
+          curl -H "Authorization: Bearer $LLM_API_KEY" "$LLM_BASE_URL/v1/models" | jq '.data[] | select(.id | contains("deepseek")) | .id' || echo "Failed to list models or no DeepSeek models found"
+
       # Run integration test evaluation for DeepSeek
       - name: Run integration test evaluation for DeepSeek
         env:
