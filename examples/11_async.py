@@ -1,6 +1,5 @@
-
-""" 
-This example demonstrates usage of a Conversation in an async context 
+"""
+This example demonstrates usage of a Conversation in an async context
 (e.g.: From a fastapi server). The conversation is run in a background
 thread and a callbck with results is executed in the main runloop
 """
