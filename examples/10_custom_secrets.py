@@ -1,4 +1,5 @@
 import os
+
 from pydantic import SecretStr
 
 from openhands.sdk import (
@@ -32,14 +33,13 @@ tools = [
 agent = Agent(llm=llm, tools=tools)
 conversation = Conversation(agent)
 
+
 def output_token() -> str:
     return "callable-based-secret"
 
+
 conversation.update_secrets(
-    {
-    'SECRET_TOKEN': 'my-secret-token-value', 
-    'SECRET_FUNCTION_TOKEN': output_token 
-    }
+    {"SECRET_TOKEN": "my-secret-token-value", "SECRET_FUNCTION_TOKEN": output_token}
 )
 
 conversation.send_message(
