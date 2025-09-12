@@ -1,0 +1,93 @@
+from abc import abstractmethod
+from typing import Any, cast
+
+from litellm import ChatCompletionToolParam
+from litellm.types.utils import (
+    ModelResponse,
+)
+from pydantic import (
+    Field,
+    field_validator,
+)
+
+from openhands.sdk import Message
+from openhands.sdk.llm.llm import LLM
+from openhands.sdk.logger import get_logger
+
+
+logger = get_logger(__name__)
+
+
+class RouterLLM(LLM):
+    """
+    Base class for multiple LLM acting as a unified LLM.
+    This class provides a foundation for implementing model routing by
+    inheriting from LLM, allowing routers to work with multiple underlying
+    LLM models while presenting a unified LLM interface to consumers.
+    Key features:
+    - Works with multiple LLMs configured via llms_for_routing
+    - Delegates all other operations/properties to the selected LLM
+    - Provides routing interface through _select_llm() method
+    """
+
+    router_name: str = Field(default="base_router", description="Name of the router")
+    llms_for_routing: dict[str, LLM] = Field(
+        default_factory=dict
+    )  # Mapping of LLM name to LLM instance for routing
+    active_llm: LLM | None = Field(
+        default=None, description="Currently selected LLM instance"
+    )
+
+    @field_validator("llms_for_routing")
+    @classmethod
+    def validate_llms_not_empty(cls, v):
+        if not v:
+            raise ValueError(
+                "llms_for_routing cannot be empty - at least one LLM must be provided"
+            )
+        return v
+
+    def completion(
+        self,
+        messages: list[dict[str, Any]] | list[Message],
+        tools: list[ChatCompletionToolParam] | None = None,
+        return_metrics: bool = False,
+        **kwargs,
+    ) -> ModelResponse:
+        """
+        This method intercepts completion calls and routes them to the appropriate
+        underlying LLM based on the routing logic implemented in _select_llm().
+        """
+        # Assert that messages are Message instances (required for routing)
+        assert messages and all(isinstance(msg, Message) for msg in messages), (
+            "RouterLLM requires Message instances for routing logic"
+        )
+        messages = cast(list[Message], messages)
+
+        # Select appropriate LLM
+        selected_model = self._select_llm(messages)
+        self.active_llm = self.llms_for_routing[selected_model]
+
+        logger.info(f"RouterLLM routing to {selected_model}...")
+
+        # Delegate to selected LLM
+        return self.active_llm.completion(
+            messages=messages, tools=tools, return_metrics=return_metrics, **kwargs
+        )
+
+    @abstractmethod
+    def _select_llm(self, messages: list[Message]) -> str:
+        """
+        Select which LLM to use based on messages and events.
+        """
+        pass
+
+    def __getattr__(self, name):
+        """Delegate other attributes/methods to the active LLM."""
+        fallback_llm = next(iter(self.llms_for_routing.values()))
+        logger.info(f"RouterLLM: No active LLM, using first LLM for attribute '{name}'")
+        return getattr(fallback_llm, name)
+
+    def __str__(self) -> str:
+        """String representation of the router."""
+        return f"{self.__class__.__name__}(llms={list(self.llms_for_routing.keys())})"
