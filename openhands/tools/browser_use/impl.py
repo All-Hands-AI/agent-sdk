@@ -48,9 +48,13 @@ class BrowserToolExecutor(ToolExecutor):
     async def _execute_action(self, action):
         """Execute browser action asynchronously."""
         from openhands.tools.browser_use.definition import (
+            BrowserClickAction,
             BrowserGetStateAction,
+            BrowserGoBackAction,
             BrowserNavigateAction,
             BrowserObservation,
+            BrowserScrollAction,
+            BrowserTypeAction,
         )
 
         try:
@@ -58,8 +62,20 @@ class BrowserToolExecutor(ToolExecutor):
             if isinstance(action, BrowserNavigateAction):
                 result = await self.navigate(action.url, action.new_tab)
                 return BrowserObservation(output=result)
+            elif isinstance(action, BrowserClickAction):
+                result = await self.click(action.index, action.new_tab)
+                return BrowserObservation(output=result)
+            elif isinstance(action, BrowserTypeAction):
+                result = await self.type_text(action.index, action.text)
+                return BrowserObservation(output=result)
             elif isinstance(action, BrowserGetStateAction):
                 result = await self.get_state(action.include_screenshot)
+                return BrowserObservation(output=result)
+            elif isinstance(action, BrowserScrollAction):
+                result = await self.scroll(action.direction)
+                return BrowserObservation(output=result)
+            elif isinstance(action, BrowserGoBackAction):
+                result = await self.go_back()
                 return BrowserObservation(output=result)
             else:
                 error_msg = f"Unsupported action type: {type(action)}"
@@ -68,14 +84,7 @@ class BrowserToolExecutor(ToolExecutor):
         except Exception as e:
             error_msg = f"Browser operation failed: {str(e)}"
             logging.error(error_msg, exc_info=True)
-
-            # Return error observation of appropriate type
-            if isinstance(action, BrowserNavigateAction):
-                return BrowserObservation(output="", error=error_msg)
-            elif isinstance(action, BrowserGetStateAction):
-                return BrowserObservation(output="", error=error_msg)
-            else:
-                return BrowserObservation(output="", error=error_msg)
+            return BrowserObservation(output="", error=error_msg)
 
     async def _ensure_initialized(self):
         """Ensure browser session is initialized."""

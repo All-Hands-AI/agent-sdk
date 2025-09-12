@@ -15,8 +15,12 @@ from openhands.sdk import (
 from openhands.tools import BashTool, FileEditorTool
 from openhands.tools.browser_use import (
     BrowserToolExecutor,
+    browser_click_tool,
     browser_get_state_tool,
+    browser_go_back_tool,
     browser_navigate_tool,
+    browser_scroll_tool,
+    browser_type_tool,
 )
 
 
@@ -35,12 +39,21 @@ llm = LLM(
 cwd = os.getcwd()
 browser_executor = BrowserToolExecutor()
 browser_navigate_tool = browser_navigate_tool.set_executor(browser_executor)
+browser_click_tool = browser_click_tool.set_executor(browser_executor)
 browser_get_state_tool = browser_get_state_tool.set_executor(browser_executor)
+browser_type_tool = browser_type_tool.set_executor(browser_executor)
+browser_scroll_tool = browser_scroll_tool.set_executor(browser_executor)
+browser_go_back_tool = browser_go_back_tool.set_executor(browser_executor)
+
 tools = [
     BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
     browser_navigate_tool,
     browser_get_state_tool,
+    browser_click_tool,
+    browser_type_tool,
+    browser_scroll_tool,
+    browser_go_back_tool,
 ]
 
 # Agent
@@ -62,7 +75,8 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Could you find the number 1 post on Show HN using browser?"
+                    "Could you go to https://all-hands.dev/ blog page and "
+                    "summarize main points of the latest blog?"
                 )
             )
         ],
