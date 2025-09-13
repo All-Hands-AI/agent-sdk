@@ -2,6 +2,10 @@ from typing import Any, Literal, cast
 
 import mcp.types
 from litellm import ChatCompletionMessageToolCall
+from litellm.types.llms.openai import (
+    ChatCompletionRedactedThinkingBlock,
+    ChatCompletionThinkingBlock,
+)
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -83,6 +87,20 @@ class Message(BaseModel):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
+    # provider normalized thinking blocks (use litellm types)
+    thinking_blocks: (
+        list[ChatCompletionThinkingBlock | ChatCompletionRedactedThinkingBlock] | None
+    ) = Field(
+        default=None,
+        description="Provider-normalized thinking blocks (e.g., Anthropic)",
+    )
+    # provider specific fields (Anthropic thinking blocks, etc.)
+    provider_specific_fields: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Provider-specific message fields (e.g., Anthropic thinking blocks)"
+        ),
+    )
 
     @property
     def contains_image(self) -> bool:
@@ -115,6 +133,15 @@ class Message(BaseModel):
             # some providers, like HF and Groq/llama, don't support a list here, but a
             # single string
             message_dict = self._string_serializer()
+
+        # Attach optional reasoning/provider-specific fields for providers
+        # that support them
+        if self.reasoning_content is not None:
+            message_dict["reasoning_content"] = self.reasoning_content
+        if self.thinking_blocks is not None:
+            message_dict["thinking_blocks"] = self.thinking_blocks
+        if self.provider_specific_fields is not None:
+            message_dict["provider_specific_fields"] = self.provider_specific_fields
 
         return message_dict
 
@@ -195,10 +222,9 @@ class Message(BaseModel):
 
         Provider-agnostic mapping for reasoning:
         - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
+        - Thinking blocks come from LiteLLM's typed fields when available
         """
         assert message.role != "function", "Function role is not supported"
-
-        rc = getattr(message, "reasoning_content", None)
 
         return Message(
             role=message.role,
@@ -206,7 +232,9 @@ class Message(BaseModel):
             if isinstance(message.content, str)
             else [],
             tool_calls=message.tool_calls,
-            reasoning_content=rc,
+            reasoning_content=message.get("reasoning_content"),
+            thinking_blocks=message.get("thinking_blocks"),
+            provider_specific_fields=message.get("provider_specific_fields"),
         )
 
 

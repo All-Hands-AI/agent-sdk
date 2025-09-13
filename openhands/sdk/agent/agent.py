@@ -244,15 +244,20 @@ class Agent(AgentBase):
                     tool_call,
                     llm_response_id=response.id,
                     on_event=on_event,
-                    thought=thought_content
-                    if i == 0
-                    else [],  # Only first gets thought
+                    thought=thought_content if i == 0 else [],  # Only first gets
+                    # thought
                     metrics=metrics if i == len(tool_calls) - 1 else None,
                     # Only first gets reasoning content
                     reasoning_content=message.reasoning_content if i == 0 else None,
                 )
                 if action_event is None:
                     continue
+                # First ActionEvent carries provider-specific and thinking fields
+                if i == 0:
+                    action_event.provider_specific_fields = (
+                        message.provider_specific_fields
+                    )
+                    action_event.thinking_blocks = message.thinking_blocks
                 action_events.append(action_event)
 
             # Handle confirmation mode - exit early if actions need confirmation

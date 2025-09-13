@@ -84,7 +84,11 @@ class NonNativeToolCallingMixin:
         )
         last: dict = fn_msgs[-1]
 
-        for name in ("reasoning_content", "provider_specific_fields"):
+        for name in (
+            "reasoning_content",
+            "thinking_blocks",
+            "provider_specific_fields",
+        ):
             val = getattr(orig_msg, name, None)
             if not val:
                 continue
