@@ -31,7 +31,6 @@ class LLMSummarizingCondenser(RollingCondenser):
         return len(view) > self.max_size
 
     def get_condensation(self, view: View) -> Condensation:
-        print(view)
         head = view[: self.keep_first]
         target_size = self.max_size // 2
         # Number of events to keep from the tail -- target size, minus however many
