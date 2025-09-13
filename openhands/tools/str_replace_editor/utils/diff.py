@@ -10,7 +10,7 @@ class EditGroup(BaseModel):
 
 
 def get_edit_groups(
-    old_content: str, new_content: str, n_context_lines: int = 2
+    old_content: str | None, new_content: str | None, n_context_lines: int = 2
 ) -> list[EditGroup]:
     """Get the edit groups showing changes between old and new content.
 
