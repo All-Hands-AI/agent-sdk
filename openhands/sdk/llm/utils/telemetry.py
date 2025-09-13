@@ -1,3 +1,5 @@
+"""Telemetry utilities for LLM usage tracking and logging."""
+
 import json
 import os
 import time
@@ -16,8 +18,8 @@ logger = get_logger(__name__)
 
 
 class Telemetry(BaseModel):
-    """
-    Handles latency, token/cost accounting, and optional logging.
+    """Handles latency, token/cost accounting, and optional logging.
+
     All runtime state (like start times) lives in private attrs.
     """
 
@@ -45,16 +47,18 @@ class Telemetry(BaseModel):
 
     # ---------- Lifecycle ----------
     def on_request(self, log_ctx: dict | None) -> None:
+        """Record the start of a request."""
         self._req_start = time.time()
         self._req_ctx = log_ctx or {}
 
     def on_response(
         self, resp: ModelResponse, raw_resp: ModelResponse | None = None
     ) -> Metrics:
-        """
+        """Record response metrics and optionally log to file.
+
         Side-effects:
-          - records latency, tokens, cost into Metrics
-          - optionally writes a JSON log file
+        - records latency, tokens, cost into Metrics
+        - optionally writes a JSON log file
         """
         # 1) latency
         self._last_latency = time.time() - (self._req_start or time.time())
@@ -84,6 +88,7 @@ class Telemetry(BaseModel):
         return self.metrics.deep_copy()
 
     def on_error(self, err: Exception) -> None:
+        """Handle errors during request processing."""
         # Stub for error tracking / counters
         return
 
@@ -115,6 +120,7 @@ class Telemetry(BaseModel):
     def _record_usage(
         self, usage: Usage, response_id: str, context_window: int
     ) -> None:
+        """Record token usage metrics."""
         # Handle both dict and Usage objects
         if isinstance(usage, dict):
             usage = Usage.model_validate(usage)
@@ -188,6 +194,7 @@ class Telemetry(BaseModel):
         cost: Optional[float],
         raw_resp: ModelResponse | None = None,
     ) -> None:
+        """Log completion details to file."""
         if not self.log_dir:
             return
         try:
@@ -246,6 +253,7 @@ class Telemetry(BaseModel):
 
 
 def _safe_json(obj: Any) -> Any:
+    """Safely serialize objects to JSON."""
     try:
         return obj.__dict__
     except Exception:

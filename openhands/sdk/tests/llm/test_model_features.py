@@ -1,3 +1,5 @@
+"""Tests for model features utilities."""
+
 import pytest
 
 from openhands.sdk.llm.utils.model_features import (
@@ -26,6 +28,7 @@ from openhands.sdk.llm.utils.model_features import (
     ],
 )
 def test_normalize_model_name(raw, expected):
+    """Test model name normalization."""
     assert normalize_model_name(raw) == expected
 
 
@@ -42,6 +45,7 @@ def test_normalize_model_name(raw, expected):
     ],
 )
 def test_model_matches(name, pattern, expected):
+    """Test model pattern matching."""
     assert model_matches(name, [pattern]) is expected
 
 
@@ -61,6 +65,7 @@ def test_model_matches(name, pattern, expected):
     ],
 )
 def test_function_calling_support(model, expected_function_calling):
+    """Test function calling support detection."""
     features = get_features(model)
     assert features.supports_function_calling == expected_function_calling
 
@@ -79,6 +84,7 @@ def test_function_calling_support(model, expected_function_calling):
     ],
 )
 def test_reasoning_effort_support(model, expected_reasoning):
+    """Test reasoning effort support detection."""
     features = get_features(model)
     assert features.supports_reasoning_effort == expected_reasoning
 
@@ -96,6 +102,7 @@ def test_reasoning_effort_support(model, expected_reasoning):
     ],
 )
 def test_prompt_cache_support(model, expected_cache):
+    """Test prompt cache support detection."""
     features = get_features(model)
     assert features.supports_prompt_cache == expected_cache
 
@@ -112,6 +119,7 @@ def test_prompt_cache_support(model, expected_cache):
     ],
 )
 def test_stop_words_support(model, expected_stop_words):
+    """Test stop words support detection."""
     features = get_features(model)
     assert features.supports_stop_words == expected_stop_words
 

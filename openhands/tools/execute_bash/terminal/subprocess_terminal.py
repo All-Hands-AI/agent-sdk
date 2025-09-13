@@ -29,6 +29,7 @@ ENTER = b"\n"
 
 
 def _normalize_eols(raw: bytes) -> bytes:
+    """Normalize end-of-line characters for TTY compatibility."""
     # CRLF/LF/CR -> CR, so each logical line is terminated with \r for the TTY
     raw = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     return ENTER.join(raw.split(b"\n"))
@@ -47,6 +48,7 @@ class SubprocessTerminal(TerminalInterface):
         work_dir: str,
         username: str | None = None,
     ):
+        """Initialize SubprocessTerminal with working directory and username."""
         super().__init__(work_dir, username)
         self.PS1 = CmdOutputMetadata.to_ps1_prompt()
         self.process: subprocess.Popen | None = None
@@ -173,6 +175,7 @@ class SubprocessTerminal(TerminalInterface):
     # ------------------------- I/O Core -------------------------
 
     def _write_pty(self, data: bytes) -> None:
+        """Write data to the PTY master file descriptor."""
         if not self._initialized and self._pty_master_fd is None:
             # allow init path to call before _initialized flips
             raise RuntimeError("PTY master FD not ready")
@@ -337,7 +340,7 @@ class SubprocessTerminal(TerminalInterface):
         )
 
     def read_screen(self) -> str:
-        """Read the current terminal screen content.
+        r"""Read the current terminal screen content.
 
         The content we return should NOT contains carriage returns (CR, \r).
         """

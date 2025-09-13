@@ -15,8 +15,7 @@ def maybe_truncate(
     truncate_after: int | None = None,
     truncate_notice: str = DEFAULT_TRUNCATE_NOTICE,
 ) -> str:
-    """
-    Truncate the middle of content if it exceeds the specified length.
+    """Truncate the middle of content if it exceeds the specified length.
 
     Keeps the head and tail of the content to preserve context at both ends.
 
@@ -28,6 +27,7 @@ def maybe_truncate(
     Returns:
         Original content if under limit, or truncated content with head and tail
         preserved
+
     """
     if not truncate_after or len(content) <= truncate_after or truncate_after < 0:
         return content

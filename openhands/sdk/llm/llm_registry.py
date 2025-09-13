@@ -1,3 +1,5 @@
+"""LLM registry for managing LLM instances."""
+
 from typing import Callable
 from uuid import uuid4
 
@@ -11,6 +13,8 @@ logger = get_logger(__name__)
 
 
 class RegistryEvent(BaseModel):
+    """Event representing LLM registration or deregistration."""
+
     llm: LLM
     service_id: str
 
@@ -34,6 +38,7 @@ class LLMRegistry:
 
         Args:
             retry_listener: Optional callback for retry events.
+
         """
         self.registry_id = str(uuid4())
         self.retry_listener = retry_listener
@@ -45,6 +50,7 @@ class LLMRegistry:
 
         Args:
             callback: Function to call when LLMs are created or updated.
+
         """
         self.subscriber = callback
 
@@ -53,6 +59,7 @@ class LLMRegistry:
 
         Args:
             event: The registry event to notify about.
+
         """
         if self.subscriber:
             try:
@@ -69,6 +76,7 @@ class LLMRegistry:
 
         Raises:
             ValueError: If service_id already exists in the registry.
+
         """
         if service_id in self.service_to_llm:
             raise ValueError(
@@ -95,6 +103,7 @@ class LLMRegistry:
 
         Raises:
             KeyError: If service_id is not found in the registry.
+
         """
         if service_id not in self.service_to_llm:
             raise KeyError(
@@ -112,5 +121,6 @@ class LLMRegistry:
 
         Returns:
             List of service IDs currently in the registry.
+
         """
         return list(self.service_to_llm.keys())

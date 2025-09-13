@@ -21,6 +21,7 @@ class EncodingManager:
     DEFAULT_MAX_CACHE_SIZE = 1000  # ~= 300 KB
 
     def __init__(self, max_cache_size=None):
+        """Initialize the encoding detector with optional cache size limit."""
         # Cache detected encodings to avoid repeated detection on the same file
         # Format: {path_str: (encoding, mtime)}
         self._encoding_cache: LRUCache[str, Tuple[str, float]] = LRUCache(
@@ -33,10 +34,12 @@ class EncodingManager:
 
     def detect_encoding(self, path: Path) -> str:
         """Detect the encoding of a file without handling caching logic.
+
         Args:
             path: Path to the file
         Returns:
             The detected encoding or default encoding if detection fails
+
         """
         # Handle non-existent files
         if not path.exists():
@@ -70,10 +73,12 @@ class EncodingManager:
 
     def get_encoding(self, path: Path) -> str:
         """Get encoding for a file, using cache or detecting if necessary.
+
         Args:
             path: Path to the file
         Returns:
             The encoding for the file
+
         """
         path_str = str(path)
         # If file doesn't exist, return default encoding
@@ -98,13 +103,16 @@ class EncodingManager:
 
 
 def with_encoding(method):
-    """Decorator to handle file encoding for file operations.
+    """Handle file encoding for file operations.
+
     This decorator automatically detects and applies the correct encoding
     for file operations, ensuring consistency between read and write operations.
+
     Args:
         method: The method to decorate
     Returns:
         The decorated method
+
     """
 
     @functools.wraps(method)

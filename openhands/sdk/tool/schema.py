@@ -1,3 +1,5 @@
+"""Tool schema definitions."""
+
 from collections.abc import Sequence
 from typing import Annotated, Any, TypeVar
 

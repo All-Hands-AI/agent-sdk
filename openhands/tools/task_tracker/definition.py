@@ -1,3 +1,5 @@
+"""Task tracker tool definition and implementation."""
+
 import json
 from collections.abc import Sequence
 from pathlib import Path
@@ -21,6 +23,8 @@ logger = get_logger(__name__)
 
 
 class TaskItem(BaseModel):
+    """A single task item in the task tracker."""
+
     title: str = Field(..., description="A brief title for the task.")
     notes: str = Field("", description="Additional details or notes about the task.")
     status: Literal["todo", "in_progress", "done"] = Field(
@@ -63,7 +67,7 @@ class TaskTrackerAction(ActionBase):
 
 
 class TaskTrackerObservation(ObservationBase):
-    """This data class represents the result of a task tracking operation."""
+    """Data class representing the result of a task tracking operation."""
 
     content: str = Field(
         default="", description="The formatted task list or status message"
@@ -75,6 +79,7 @@ class TaskTrackerObservation(ObservationBase):
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        """Return the observation content for the agent."""
         return [TextContent(text=self.content)]
 
     @property
@@ -146,6 +151,7 @@ class TaskTrackerExecutor(ToolExecutor):
         Args:
             save_dir: Optional directory to save tasks to. If provided, tasks will be
                      persisted to save_dir/TASKS.md
+
         """
         self.save_dir = Path(save_dir) if save_dir else None
         self._task_list: list[TaskItem] = []
@@ -403,6 +409,7 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
         Args:
             save_dir: Optional directory to save tasks to. If provided, tasks will be
                      persisted to save_dir/TASKS.json
+
         """
         executor = TaskTrackerExecutor(save_dir=save_dir)
 

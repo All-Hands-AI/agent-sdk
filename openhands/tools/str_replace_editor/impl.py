@@ -1,3 +1,5 @@
+"""File editor tool implementation and executor."""
+
 from openhands.sdk.tool import ToolExecutor
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
@@ -13,10 +15,14 @@ _GLOBAL_EDITOR: FileEditor | None = None
 
 
 class FileEditorExecutor(ToolExecutor):
+    """Executor for file editor operations."""
+
     def __init__(self, workspace_root: str | None = None):
+        """Initialize the file editor executor."""
         self.editor = FileEditor(workspace_root=workspace_root)
 
     def __call__(self, action: StrReplaceEditorAction) -> StrReplaceEditorObservation:
+        """Execute a file editor action."""
         result: StrReplaceEditorObservation | None = None
         try:
             result = self.editor(
@@ -45,8 +51,7 @@ def file_editor(
     new_str: str | None = None,
     insert_line: int | None = None,
 ) -> StrReplaceEditorObservation:
-    """A global FileEditor instance to be used by the tool."""
-
+    """Execute file editing operations using a global FileEditor instance."""
     global _GLOBAL_EDITOR
     if _GLOBAL_EDITOR is None:
         _GLOBAL_EDITOR = FileEditor()

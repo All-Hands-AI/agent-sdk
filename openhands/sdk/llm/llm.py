@@ -1,3 +1,5 @@
+"""LLM interface and implementation using LiteLLM."""
+
 import copy
 import json
 import os
@@ -220,6 +222,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     @model_validator(mode="before")
     @classmethod
     def _coerce_inputs(cls, data):
+        """Coerce and validate input data before model creation."""
         if not isinstance(data, dict):
             return data
         d = dict(data)
@@ -252,6 +255,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     @model_validator(mode="after")
     def _set_env_side_effects(self):
+        """Set environment variables based on model configuration."""
         if self.openrouter_site_url:
             os.environ["OR_SITE_URL"] = self.openrouter_site_url
         if self.openrouter_app_name:
@@ -391,6 +395,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def _transport_call(
         self, *, messages: list[dict[str, Any]], **kwargs
     ) -> ModelResponse:
+        """Make a transport call to the LLM API."""
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
             with warnings.catch_warnings():
@@ -426,6 +431,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
+        """Context manager for thread-safe litellm modify_params."""
         old = getattr(litellm, "modify_params", None)
         try:
             litellm.modify_params = flag
@@ -497,6 +503,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Capabilities, formatting, and info
     # =========================================================================
     def _init_model_info_and_caps(self) -> None:
+        """Initialize model information and capabilities."""
         # Try to get model info via openrouter or litellm proxy first
         tried = False
         try:
@@ -577,6 +584,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
 
     def vision_is_active(self) -> bool:
+        """Check if vision capabilities are active."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             return not self.disable_vision and self._supports_vision()
@@ -587,6 +595,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Returns:
             bool: True if model is vision capable. Return False if model not
                 supported by litellm.
+
         """
         # litellm.supports_vision currently returns False for 'openai/gpt-...' or 'anthropic/claude-...' (with prefixes)  # noqa: E501
         # but model_info will have the correct value for some reason.
@@ -609,6 +618,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Returns:
             boolean: True if prompt caching is supported and enabled for the given
                 model.
+
         """
         if not self.caching_prompt:
             return False
@@ -617,8 +627,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return self.caching_prompt and get_features(self.model).supports_prompt_cache
 
     def is_function_calling_active(self) -> bool:
-        """Returns whether function calling is supported
-        and enabled for this LLM instance.
+        """Check whether function calling is supported and enabled for this LLM.
+
+        Returns:
+            True if function calling is active, False otherwise.
+
         """
         return bool(self._function_calling_active)
 
@@ -631,10 +644,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Utilities preserved from previous class
     # =========================================================================
     def _apply_prompt_caching(self, messages: list[Message]) -> None:
-        """Applies caching breakpoints to the messages.
+        """Apply caching breakpoints to the messages.
 
         For new Anthropic API, we only need to mark the last user or
-          tool message as cacheable.
+        tool message as cacheable.
+
+        Args:
+            messages: List of messages to apply caching to.
+
         """
         if len(messages) > 0 and messages[0].role == "system":
             messages[0].content[-1].cache_prompt = True
@@ -647,8 +664,15 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 break
 
     def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
-        """Formats Message objects for LLM consumption."""
+        """Format Message objects for LLM consumption.
 
+        Args:
+            messages: List of Message objects to format.
+
+        Returns:
+            List of dictionaries formatted for LLM consumption.
+
+        """
         messages = copy.deepcopy(messages)
         if self.is_caching_prompt_active():
             self._apply_prompt_caching(messages)
@@ -665,6 +689,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return [message.to_llm_dict() for message in messages]
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
+        """Get token count for messages."""
         if isinstance(messages, list) and messages and isinstance(messages[0], Message):
             logger.info(
                 "Message objects now include serialized tool calls in token counting"
@@ -695,22 +720,27 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     @classmethod
     def deserialize(cls, data: dict[str, Any]) -> "LLM":
+        """Deserialize LLM from dictionary."""
         return cls(**data)
 
     def serialize(self) -> dict[str, Any]:
+        """Serialize LLM to dictionary."""
         return self.model_dump()
 
     @classmethod
     def load_from_json(cls, json_path: str) -> "LLM":
+        """Load LLM from JSON file."""
         with open(json_path, "r") as f:
             data = json.load(f)
         return cls.deserialize(data)
 
     @classmethod
     def load_from_env(cls, prefix: str = "LLM_") -> "LLM":
+        """Load LLM from environment variables."""
         TRUTHY = {"true", "1", "yes", "on"}
 
         def _unwrap_type(t: Any) -> Any:
+            """Unwrap optional types."""
             origin = get_origin(t)
             if origin is None:
                 return t
@@ -718,6 +748,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             return args[0] if args else t
 
         def _cast_value(raw: str, t: Any) -> Any:
+            """Cast string value to appropriate type."""
             t = _unwrap_type(t)
             if t is SecretStr:
                 return SecretStr(raw)
@@ -763,6 +794,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     @classmethod
     def load_from_toml(cls, toml_path: str) -> "LLM":
+        """Load LLM from TOML file."""
         try:
             import tomllib
         except ImportError:

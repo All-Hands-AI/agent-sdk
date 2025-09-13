@@ -1,3 +1,5 @@
+"""LLM metrics tracking for costs, latency, and token usage."""
+
 import copy
 import time
 from typing import Optional
@@ -6,6 +8,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Cost(BaseModel):
+    """Model for tracking LLM API costs."""
+
     model: str
     cost: float = Field(ge=0.0, description="Cost must be non-negative")
     timestamp: float = Field(default_factory=time.time)
@@ -13,6 +17,7 @@ class Cost(BaseModel):
     @field_validator("cost")
     @classmethod
     def validate_cost(cls, v: float) -> float:
+        """Validate that cost is non-negative."""
         if v < 0:
             raise ValueError("Cost cannot be negative")
         return v
@@ -28,6 +33,7 @@ class ResponseLatency(BaseModel):
     @field_validator("latency")
     @classmethod
     def validate_latency(cls, v: float) -> float:
+        """Validate that latency is non-negative."""
         return max(0.0, v)
 
 
@@ -93,6 +99,7 @@ class MetricsSnapshot(BaseModel):
 
 class Metrics(MetricsSnapshot):
     """Metrics class can record various metrics during running and evaluation.
+
     We track:
       - accumulated_cost and costs
       - max_budget_per_task (budget limit)
@@ -113,12 +120,14 @@ class Metrics(MetricsSnapshot):
     @field_validator("accumulated_cost")
     @classmethod
     def validate_accumulated_cost(cls, v: float) -> float:
+        """Validate that accumulated cost is non-negative."""
         if v < 0:
             raise ValueError("Total cost cannot be negative.")
         return v
 
     @model_validator(mode="after")
     def initialize_accumulated_token_usage(self) -> "Metrics":
+        """Initialize accumulated token usage if not set."""
         if self.accumulated_token_usage is None:
             self.accumulated_token_usage = TokenUsage(
                 model=self.model_name,
@@ -144,12 +153,14 @@ class Metrics(MetricsSnapshot):
         )
 
     def add_cost(self, value: float) -> None:
+        """Add a cost to the metrics."""
         if value < 0:
             raise ValueError("Added cost cannot be negative.")
         self.accumulated_cost += value
         self.costs.append(Cost(cost=value, model=self.model_name))
 
     def add_response_latency(self, value: float, response_id: str) -> None:
+        """Add a response latency to the metrics."""
         self.response_latencies.append(
             ResponseLatency(
                 latency=max(0.0, value), model=self.model_name, response_id=response_id
@@ -166,7 +177,7 @@ class Metrics(MetricsSnapshot):
         response_id: str,
         reasoning_tokens: int = 0,
     ) -> None:
-        """Add a single usage record."""
+        """Add a single token usage record."""
         # Token each turn for calculating context usage.
         per_turn_token = prompt_tokens + completion_tokens
 
@@ -257,6 +268,7 @@ class Metrics(MetricsSnapshot):
 
         Returns:
             A new Metrics object containing only the differences since the baseline
+
         """
         result = Metrics(model_name=self.model_name)
 
@@ -308,4 +320,5 @@ class Metrics(MetricsSnapshot):
         return result
 
     def __repr__(self) -> str:
+        """Return string representation of metrics."""
         return f"Metrics({self.get()}"

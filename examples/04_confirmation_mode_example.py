@@ -1,4 +1,4 @@
-"""OpenHands Agent SDK — Confirmation Mode Example"""
+"""OpenHands Agent SDK — Confirmation Mode Example."""
 
 import os
 import signal

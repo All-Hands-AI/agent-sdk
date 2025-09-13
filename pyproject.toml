@@ -18,6 +18,8 @@ dev = [
     "pycodestyle>=2.12.0",
     "pytest-asyncio>=1.1.0",
     "pytest-forked>=1.6.0",
+    "interrogate>=1.7.0",
+    "griffe2md>=1.2.3",
 ]
 
 # Ruff configuration
@@ -30,7 +32,16 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "D"]
+ignore = [
+  "D100", "D104",  # ignore missing docstring for modules/packages
+  "D203",          # disable blank-line-before-class
+  "D213",          # disable multi-line-summary-second-line
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore *all* docstring rules (D) in tests
+"tests/**/*" = ["D"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["openhands"]
@@ -48,4 +59,15 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
+
+# Interrogate configuration for docstring coverage
+[tool.interrogate]
+fail-under = 90
+exclude = ["docs", "tests"]
+ignore-init-method = true
+ignore-magic = true
+ignore-nested-classes = true
+ignore-nested-functions = true
+verbose = 1
+color = true
 

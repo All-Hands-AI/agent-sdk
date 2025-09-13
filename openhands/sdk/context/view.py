@@ -1,3 +1,5 @@
+"""View implementation for event processing and condensation."""
+
 from logging import getLogger
 from typing import overload
 
@@ -28,6 +30,7 @@ class View(BaseModel):
     unhandled_condensation_request: bool = False
 
     def __len__(self) -> int:
+        """Return the number of events in the view."""
         return len(self.events)
 
     # To preserve list-like indexing, we ideally support slicing and position-based
@@ -44,6 +47,7 @@ class View(BaseModel):
     def __getitem__(
         self, key: int | slice
     ) -> LLMConvertibleEvent | list[LLMConvertibleEvent]:
+        """Get event(s) by index or slice."""
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             return [self[i] for i in range(start, stop, step)]
@@ -54,8 +58,14 @@ class View(BaseModel):
 
     @staticmethod
     def from_events(events: ListLike[Event]) -> "View":
-        """Create a view from a list of events, respecting the semantics of any
-        condensation events.
+        """Create a view from a list of events, respecting condensation events.
+
+        Args:
+            events: List of events to create the view from.
+
+        Returns:
+            A View instance containing the filtered events.
+
         """
         forgotten_event_ids: set[str] = set()
         for event in events:

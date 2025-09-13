@@ -1,9 +1,11 @@
+"""Event classes for conversation history condensation."""
+
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.types import SourceType
 
 
 class Condensation(EventBase):
-    """This action indicates a condensation of the conversation history is happening."""
+    """Action indicating a condensation of the conversation history is happening."""
 
     forgotten_event_ids: list[str] | None = None
     """The IDs of the events that are being forgotten (removed from the `View` given to
@@ -30,20 +32,23 @@ class Condensation(EventBase):
 
     @property
     def message(self) -> str:
+        """Get a human-readable message describing the condensation."""
         if self.summary:
             return f"Summary: {self.summary}"
         return f"Condenser is dropping the events: {self.forgotten}."
 
 
 class CondensationRequest(EventBase):
-    """This action is used to request a condensation of the conversation history.
+    """Action used to request a condensation of the conversation history.
 
     Attributes:
         action (str): The action type, namely ActionType.CONDENSATION_REQUEST.
+
     """
 
     source: SourceType = "environment"
 
     @property
     def message(self) -> str:
+        """Get a human-readable message describing the condensation request."""
         return "Requesting a condensation of the conversation history."

@@ -66,6 +66,7 @@ def create_terminal_session(
 
     Raises:
         RuntimeError: If the requested session type is not available
+
     """
     from openhands.tools.execute_bash.terminal.terminal_session import TerminalSession
 

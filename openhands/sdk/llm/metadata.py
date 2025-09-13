@@ -1,3 +1,5 @@
+"""LLM metadata utilities for tracing and telemetry."""
+
 import os
 
 
@@ -7,6 +9,7 @@ def get_llm_metadata(
     session_id: str | None = None,
     user_id: str | None = None,
 ) -> dict:
+    """Get metadata for LLM tracing and telemetry."""
     import openhands.sdk
 
     openhands_tools_version: str = "n/a"

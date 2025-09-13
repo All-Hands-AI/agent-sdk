@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 
 
 def to_camel_case(s: str) -> str:
+    """Convert a string to CamelCase."""
     parts = re.split(r"[_\-\s]+", s)
     return "".join(word.capitalize() for word in parts if word)
 
@@ -29,10 +30,12 @@ class MCPToolExecutor(ToolExecutor):
     """Executor for MCP tools."""
 
     def __init__(self, tool_name: str, client: MCPClient):
+        """Initialize the MCP tool executor."""
         self.tool_name = tool_name
         self.client = client
 
     async def call_tool(self, action: MCPActionBase) -> MCPToolObservation:
+        """Call an MCP tool asynchronously."""
         async with self.client:
             assert self.client.is_connected(), "MCP client is not connected."
             try:
@@ -73,6 +76,7 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
         mcp_tool: mcp.types.Tool,
         mcp_client: MCPClient,
     ) -> "MCPTool":
+        """Create an MCPTool from an MCP tool definition."""
         try:
             annotations = (
                 ToolAnnotations.model_validate(

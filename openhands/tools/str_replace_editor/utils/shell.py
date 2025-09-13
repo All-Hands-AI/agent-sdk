@@ -1,3 +1,5 @@
+"""Shell command utilities for the str_replace_editor tool."""
+
 import os
 import subprocess
 import time
@@ -22,11 +24,12 @@ def run_shell_cmd(
         timeout: The maximum time to wait for the command to complete.
         truncate_after: The maximum number of characters to return for stdout
             and stderr.
+        truncate_notice: Notice to append when content is truncated.
 
     Returns:
         A tuple containing the return code, stdout, and stderr.
-    """
 
+    """
     start_time = time.time()
 
     process: subprocess.Popen | None = None

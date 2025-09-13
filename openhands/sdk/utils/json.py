@@ -1,3 +1,5 @@
+"""JSON utilities with custom encoding for OpenHands objects."""
+
 import json
 from datetime import datetime
 from typing import Any
@@ -9,9 +11,10 @@ from openhands.sdk.llm.utils.metrics import Metrics
 
 
 class OpenHandsJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder that handles datetime and other OH objects"""
+    """Custom JSON encoder that handles datetime and other OH objects."""
 
     def default(self, o: object) -> Any:
+        """Handle serialization of custom objects."""
         if isinstance(o, datetime):
             return o.isoformat()
         if isinstance(o, Metrics):
@@ -26,7 +29,7 @@ _json_encoder = OpenHandsJSONEncoder()
 
 
 def dumps(obj, **kwargs):
-    """Serialize an object to str format"""
+    """Serialize an object to JSON string format."""
     if not kwargs:
         return _json_encoder.encode(obj)
 
@@ -41,7 +44,7 @@ def dumps(obj, **kwargs):
 
 
 def loads(json_str, **kwargs):
-    """Create a JSON object from str"""
+    """Parse a JSON string and return the corresponding Python object."""
     try:
         return json.loads(json_str, **kwargs)
     except json.JSONDecodeError:

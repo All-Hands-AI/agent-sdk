@@ -1,3 +1,5 @@
+"""No-op condenser implementation for testing purposes."""
+
 from openhands.sdk.context.condenser.condenser import Condenser
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
@@ -10,4 +12,5 @@ class NoOpCondenser(Condenser):
     """
 
     def condense(self, view: View) -> View | Condensation:
+        """Return the view unchanged."""
         return view

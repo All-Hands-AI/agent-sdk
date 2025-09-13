@@ -1,3 +1,5 @@
+"""Main agent implementation for OpenHands."""
+
 import json
 from typing import Any, cast
 
@@ -44,6 +46,8 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
+    """Main agent implementation for OpenHands."""
+
     system_prompt_filename: str = Field(default="system_prompt.j2")
     condenser: Condenser | None = Field(default=None, repr=False, exclude=True)
     cli_mode: bool = Field(default=True)
@@ -51,6 +55,7 @@ class Agent(AgentBase):
     @field_validator("tools", mode="before")
     @classmethod
     def _normalize_tools(cls, v: Any) -> dict[str, "Tool"]:
+        """Normalize tools input and merge with built-in tools."""
         # Fast path: already a dict[str, Tool]
         if isinstance(v, dict) and all(isinstance(t, Tool) for t in v.values()):
             user_tools = cast(dict[str, Tool], v)
@@ -126,6 +131,7 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        """Initialize the conversation state with system prompt."""
         # TODO(openhands): we should add test to test this init_state will actually
         # modify state in-place
         llm_convertible_messages = [
@@ -147,6 +153,7 @@ class Agent(AgentBase):
         action_events: list[ActionEvent],
         on_event: ConversationCallbackType,
     ):
+        """Execute a list of action events."""
         for action_event in action_events:
             self._execute_action_events(state, action_event, on_event=on_event)
 
@@ -155,6 +162,7 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        """Execute one step of the agent conversation."""
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = get_unmatched_actions(state.events)
@@ -275,8 +283,7 @@ class Agent(AgentBase):
     def _requires_user_confirmation(
         self, state: ConversationState, action_events: list[ActionEvent]
     ) -> bool:
-        """
-        Decide whether user confirmation is needed to proceed.
+        """Decide whether user confirmation is needed to proceed.
 
         Rules:
             1. Confirmation mode is enabled
@@ -307,7 +314,7 @@ class Agent(AgentBase):
         metrics: MetricsSnapshot | None = None,
         reasoning_content: str | None = None,
     ) -> ActionEvent | None:
-        """Handle tool calls from the LLM.
+        """Convert LLM tool call to action event.
 
         NOTE: state will be mutated in-place.
         """

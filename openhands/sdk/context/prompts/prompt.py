@@ -1,4 +1,6 @@
 # prompt_utils.py
+"""Utilities for rendering Jinja2 templates with platform-specific refinements."""
+
 import os
 import re
 import sys
@@ -8,6 +10,7 @@ from jinja2 import Environment, FileSystemBytecodeCache, FileSystemLoader, Templ
 
 
 def refine(text: str) -> str:
+    """Refine text for platform-specific commands (bash -> powershell on Windows)."""
     if sys.platform == "win32":
         text = re.sub(
             r"\bexecute_bash\b", "execute_powershell", text, flags=re.IGNORECASE
@@ -20,6 +23,7 @@ def refine(text: str) -> str:
 
 @lru_cache(maxsize=64)
 def _get_env(prompt_dir: str) -> Environment:
+    """Get a cached Jinja2 environment for the given prompt directory."""
     if not prompt_dir:
         raise ValueError("prompt_dir is required")
     # BytecodeCache avoids reparsing templates across processes
@@ -38,6 +42,7 @@ def _get_env(prompt_dir: str) -> Environment:
 
 @lru_cache(maxsize=256)
 def _get_template(prompt_dir: str, template_name: str) -> Template:
+    """Get a cached Jinja2 template from the given directory."""
     env = _get_env(prompt_dir)
     try:
         return env.get_template(template_name)
@@ -48,5 +53,6 @@ def _get_template(prompt_dir: str, template_name: str) -> Template:
 
 
 def render_template(prompt_dir: str, template_name: str, **ctx) -> str:
+    """Render a Jinja2 template with context and apply platform refinements."""
     tpl = _get_template(prompt_dir, template_name)
     return refine(tpl.render(**ctx).strip())

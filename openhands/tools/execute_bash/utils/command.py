@@ -1,3 +1,5 @@
+"""Utilities for parsing and processing bash commands."""
+
 import re
 import traceback
 from typing import Any
@@ -12,6 +14,7 @@ logger = get_logger(__name__)
 
 
 def split_bash_commands(commands: str) -> list[str]:
+    """Split bash commands into individual command strings."""
     if not commands.strip():
         return [""]
     try:
@@ -68,7 +71,8 @@ def split_bash_commands(commands: str) -> list[str]:
 
 
 def escape_bash_special_chars(command: str) -> str:
-    r"""Escapes characters that have different interpretations in bash vs python.
+    r"""Escape characters that have different interpretations in bash vs python.
+
     Specifically handles escape sequences like \;, \|, \&, etc.
     """
     if command.strip() == "":
@@ -79,6 +83,7 @@ def escape_bash_special_chars(command: str) -> str:
         last_pos = 0
 
         def visit_node(node: Any) -> None:
+            """Visit a node in the bash AST to process special characters."""
             nonlocal last_pos
             if (
                 node.kind == "redirect"

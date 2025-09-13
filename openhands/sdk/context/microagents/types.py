@@ -1,3 +1,5 @@
+"""Types and models for microagents."""
+
 from datetime import datetime, timezone
 from typing import Literal
 

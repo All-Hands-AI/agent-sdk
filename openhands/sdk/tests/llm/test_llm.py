@@ -1,3 +1,5 @@
+"""Tests for LLM functionality."""
+
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -13,7 +15,7 @@ from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
-    """Helper function to create properly structured mock responses."""
+    """Create properly structured mock responses for testing."""
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
     mock_response.choices[0].message.content = content
@@ -45,7 +47,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
 
 @pytest.fixture(autouse=True)
 def mock_logger(monkeypatch):
-    # suppress logging of completion data to file
+    """Suppress logging of completion data to file."""
     mock_logger = MagicMock()
     monkeypatch.setattr("openhands.sdk.llm.llm.logger", mock_logger)
     return mock_logger
@@ -53,6 +55,7 @@ def mock_logger(monkeypatch):
 
 @pytest.fixture
 def default_config() -> dict[str, Any]:
+    """Provide default configuration for LLM testing."""
     return {
         "model": "gpt-4o",
         "api_key": SecretStr("test_key"),
@@ -63,6 +66,7 @@ def default_config() -> dict[str, Any]:
 
 
 def test_llm_init_with_default_config(default_config):
+    """Test LLM initialization with default configuration."""
     llm = LLM(**default_config, service_id="test-service")
     assert llm.model == "gpt-4o"
     assert llm.api_key is not None and llm.api_key.get_secret_value() == "test_key"
@@ -106,8 +110,7 @@ def test_token_usage_add():
 
 
 def test_metrics_merge_accumulated_token_usage():
-    """Test that accumulated token usage is properly merged between two Metrics
-    instances."""
+    """Test accumulated token usage merging between Metrics instances."""
     # Create two Metrics instances
     metrics1 = Metrics(model_name="model1")
     metrics2 = Metrics(model_name="model2")
@@ -144,8 +147,11 @@ def test_metrics_merge_accumulated_token_usage():
 
 
 def test_metrics_diff():
-    """Test that metrics diff correctly calculates the difference between two
-    metrics."""
+    """Test that metrics diff correctly calculates the difference between two metrics.
+
+    Verifies that the diff method properly computes the difference in costs,
+    token usage, and response latencies between baseline and current metrics.
+    """
     # Create baseline metrics
     baseline = Metrics(model_name="test-model")
     baseline.add_cost(1.0)

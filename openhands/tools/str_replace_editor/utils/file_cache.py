@@ -1,3 +1,5 @@
+"""File-based cache implementation with size limits and LRU eviction."""
+
 import hashlib
 import json
 import os
@@ -12,7 +14,16 @@ logger = get_logger(__name__)
 
 
 class FileCache:
+    """A file-based cache with size limits and LRU eviction."""
+
     def __init__(self, directory: str, size_limit: Optional[int] = None):
+        """Initialize the file cache.
+
+        Args:
+            directory: Directory to store cached files
+            size_limit: Maximum cache size in bytes (None for unlimited)
+
+        """
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.size_limit = size_limit
@@ -24,16 +35,19 @@ class FileCache:
         )
 
     def _get_file_path(self, key: str) -> Path:
+        """Get the file path for a cache key."""
         hashed_key = hashlib.sha256(key.encode()).hexdigest()
         return self.directory / f"{hashed_key}.json"
 
     def _update_current_size(self):
+        """Update the current cache size by scanning all files."""
         self.current_size = sum(
             f.stat().st_size for f in self.directory.glob("*.json") if f.is_file()
         )
         logger.debug(f"Current size updated: {self.current_size}")
 
     def set(self, key: str, value: Any) -> None:
+        """Set a value in the cache."""
         file_path = self._get_file_path(key)
         content = json.dumps({"key": key, "value": value})
         content_size = len(content.encode("utf-8"))
@@ -84,6 +98,7 @@ class FileCache:
         )  # Update access and modification time
 
     def _evict_oldest(self, exclude_path: Optional[Path] = None):
+        """Evict the oldest cache entry."""
         oldest_file = min(
             (
                 f
@@ -101,6 +116,7 @@ class FileCache:
         )
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Get a value from the cache."""
         file_path = self._get_file_path(key)
         if not file_path.exists():
             logger.debug(f"Get: Key not found: {key}")
@@ -112,6 +128,7 @@ class FileCache:
             return data["value"]
 
     def delete(self, key: str) -> None:
+        """Delete a key from the cache."""
         file_path = self._get_file_path(key)
         if file_path.exists():
             deleted_size = file_path.stat().st_size
@@ -123,6 +140,7 @@ class FileCache:
             )
 
     def clear(self) -> None:
+        """Clear all entries from the cache."""
         for item in self.directory.glob("*.json"):
             if item.is_file():
                 os.remove(item)
@@ -130,16 +148,19 @@ class FileCache:
         logger.debug("Cache cleared")
 
     def __contains__(self, key: str) -> bool:
+        """Check if a key exists in the cache."""
         exists = self._get_file_path(key).exists()
         logger.debug(f"Contains check: {key}, result: {exists}")
         return exists
 
     def __len__(self) -> int:
+        """Return the number of items in the cache."""
         length = sum(1 for _ in self.directory.glob("*.json") if _.is_file())
         logger.debug(f"Cache length: {length}")
         return length
 
     def __iter__(self):
+        """Iterate over all keys in the cache."""
         for file in self.directory.glob("*.json"):
             if file.is_file():
                 with open(file, "r") as f:
@@ -148,7 +169,9 @@ class FileCache:
                     yield data["key"]
 
     def __getitem__(self, key: str) -> Any:
+        """Get an item from the cache using bracket notation."""
         return self.get(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
+        """Set an item in the cache using bracket notation."""
         self.set(key, value)

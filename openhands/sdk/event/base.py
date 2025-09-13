@@ -1,3 +1,5 @@
+"""Base event classes and interfaces."""
+
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -72,6 +74,7 @@ class LLMConvertibleEvent(EventBase, ABC):
 
     @abstractmethod
     def to_llm_message(self) -> Message:
+        """Convert the event to an LLM message."""
         raise NotImplementedError()
 
     def __str__(self) -> str:
@@ -101,7 +104,7 @@ class LLMConvertibleEvent(EventBase, ABC):
 
     @staticmethod
     def events_to_messages(events: list["LLMConvertibleEvent"]) -> list[Message]:
-        """Convert event stream to LLM message stream, handling multi-action batches"""
+        """Convert event stream to LLM message stream, handling multi-action batches."""
         # TODO: We should add extensive tests for this
         from openhands.sdk.event.llm_convertible import ActionEvent
 

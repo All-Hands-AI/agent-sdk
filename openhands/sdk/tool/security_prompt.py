@@ -1,3 +1,5 @@
+"""Security risk assessment constants for tools."""
+
 from typing import Literal
 
 

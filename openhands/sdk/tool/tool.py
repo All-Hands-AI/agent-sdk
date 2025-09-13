@@ -1,3 +1,5 @@
+"""Tool framework for defining and executing tools with validation."""
+
 from typing import Annotated, Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
@@ -55,6 +57,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
     """Executor function type for a Tool."""
 
     def __call__(self, action: ActionT) -> ObservationT:
+        """Execute the tool with the given action."""
         raise NotImplementedError
 
     def close(self) -> None:
@@ -101,32 +104,38 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     @computed_field(return_type=dict[str, Any], alias="input_schema")
     @property
     def input_schema(self) -> dict[str, Any]:
+        """Get the input schema for the tool."""
         return self.action_type.to_mcp_schema()
 
     @computed_field(return_type=dict[str, Any] | None, alias="output_schema")
     @property
     def output_schema(self) -> dict[str, Any] | None:
+        """Get the output schema for the tool."""
         return self.observation_type.to_mcp_schema() if self.observation_type else None
 
     @computed_field(return_type=str, alias="title")
     @property
     def title(self) -> str:
+        """Get the title for the tool."""
         if self.annotations and self.annotations.title:
             return self.annotations.title
         return self.name
 
     @field_serializer("action_type")
     def _ser_action_type(self, t: type[ActionBase]) -> str:
+        """Serialize action type."""
         # serialize as a plain kind string
         return kind_of(t)
 
     @field_serializer("observation_type")
     def _ser_observation_type(self, t: type[ObservationBase] | None) -> str | None:
+        """Serialize observation type."""
         return None if t is None else kind_of(t)
 
     @field_validator("action_type", mode="before")
     @classmethod
     def _val_action_type(cls, v):
+        """Validate action type."""
         if isinstance(v, str):
             return resolve_kind(v)
         assert isinstance(v, type) and issubclass(v, ActionBase), (
@@ -137,6 +146,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     @field_validator("observation_type", mode="before")
     @classmethod
     def _val_observation_type(cls, v):
+        """Validate observation type."""
         if v is None:
             return None
         if isinstance(v, str):
@@ -180,6 +190,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
             )
 
     def to_mcp_tool(self) -> dict[str, Any]:
+        """Convert tool to MCP tool format."""
         out = {
             "name": self.name,
             "description": self.description,

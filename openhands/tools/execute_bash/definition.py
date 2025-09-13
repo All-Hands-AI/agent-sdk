@@ -88,6 +88,7 @@ class ExecuteBashObservation(ObservationBase):
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        """Get the agent observation with formatted output and metadata."""
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
@@ -231,6 +232,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
                          If None, auto-detect based on system capabilities:
                          - On Windows: PowerShell if available, otherwise subprocess
                          - On Unix-like: tmux if available, otherwise subprocess
+
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor

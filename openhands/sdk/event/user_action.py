@@ -1,3 +1,5 @@
+"""User action events."""
+
 from rich.text import Text
 
 from openhands.sdk.event.base import EventBase
