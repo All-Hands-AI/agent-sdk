@@ -265,9 +265,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
-        # Create a new list combining existing content and extended content
-        new_content = list(msg.content) + list(self.extended_content)
-        msg.content = new_content
+        msg.content = list(msg.content) + list(self.extended_content)
         return msg
 
     def __str__(self) -> str:
