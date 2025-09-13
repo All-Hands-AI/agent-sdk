@@ -1,7 +1,6 @@
 import copy
 import json
 import os
-import time
 import warnings
 from contextlib import contextmanager
 from typing import Any, Callable, Literal, cast, get_args, get_origin
@@ -46,6 +45,7 @@ from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
+from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
@@ -63,50 +63,6 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     InternalServerError,
     LLMNoResponseError,
 )
-
-
-class RetryMixin:
-    """Minimal retry mixin kept from your original design."""
-
-    def retry_decorator(
-        self,
-        *,
-        num_retries: int,
-        retry_exceptions: tuple[type[Exception], ...],
-        retry_min_wait: int,
-        retry_max_wait: int,
-        retry_multiplier: float,
-        retry_listener: Callable[[int, int], None] | None = None,
-    ):
-        def decorator(fn: Callable[[], Any]):
-            def wrapped():
-                import random
-
-                attempt = 0
-                wait = retry_min_wait
-                last_exc = None
-                while attempt < num_retries:
-                    try:
-                        return fn()
-                    except retry_exceptions as e:
-                        last_exc = e
-                        if attempt == num_retries - 1:
-                            break
-                        # jittered exponential backoff
-                        sleep_for = min(
-                            retry_max_wait, int(wait + random.uniform(0, 1))
-                        )
-                        if retry_listener:
-                            retry_listener(attempt + 1, num_retries)
-                        time.sleep(sleep_for)
-                        wait = max(retry_min_wait, int(wait * retry_multiplier))
-                        attempt += 1
-                assert last_exc is not None
-                raise last_exc
-
-            return wrapped
-
-        return decorator
 
 
 class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
@@ -400,9 +356,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             retry_multiplier=self.retry_multiplier,
             retry_listener=self.retry_listener,
         )
-        def _one_attempt() -> ModelResponse:
+        def _one_attempt(**retry_kwargs) -> ModelResponse:
             assert self._telemetry is not None
-            resp = self._transport_call(messages=messages, **call_kwargs)
+            # Merge retry-modified kwargs (like temperature) with call_kwargs
+            final_kwargs = {**call_kwargs, **retry_kwargs}
+            resp = self._transport_call(messages=messages, **final_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
