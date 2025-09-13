@@ -1,7 +1,6 @@
 import copy
 import json
 from collections.abc import Sequence
-from typing import cast
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import ConfigDict, Field, computed_field
@@ -75,7 +74,7 @@ class SystemPromptEvent(LLMConvertibleEvent):
 
 class ActionEvent(LLMConvertibleEvent):
     source: SourceType = "agent"
-    thought: list[TextContent] = Field(
+    thought: Sequence[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
     reasoning_content: str | None = Field(
@@ -135,12 +134,9 @@ class ActionEvent(LLMConvertibleEvent):
 
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
-        content: list[TextContent | ImageContent] = cast(
-            list[TextContent | ImageContent], self.thought
-        )
         return Message(
             role="assistant",
-            content=content,
+            content=self.thought,
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
         )
@@ -261,9 +257,7 @@ class MessageEvent(LLMConvertibleEvent):
             assert not any(
                 isinstance(c, ImageContent) for c in self.extended_content
             ), "Extended content should not contain images"
-            text_parts = content_to_str(
-                cast(Sequence[TextContent | ImageContent], self.extended_content)
-            )
+            text_parts = content_to_str(self.extended_content)
             content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
             content.append(" ".join(text_parts))
 

@@ -66,7 +66,7 @@ def test_message_content_accepts_tuple():
     """Test that Message.content accepts tuple (another Sequence type)."""
     # This should work since Sequence is covariant
     text_contents = (TextContent(text="hello"), TextContent(text="world"))
-    message = Message(role="user", content=text_contents)
+    message = Message(role="user", content=text_contents)  # type: ignore
 
     assert len(message.content) == 2
     assert isinstance(message.content[0], TextContent)
