@@ -53,8 +53,11 @@ def test_stop_words_defined():
 
 
 def test_convert_fncall_to_non_fncall_basic():
-    """Test basic conversion from function call messages to non-function call
-    messages."""
+    """Test basic conversion from function call messages to non-function call messages.
+
+    Test basic conversion from function call messages to non-function call
+    messages.
+    """
     fncall_messages = [
         {"role": "user", "content": "Please run ls command"},
         {
@@ -95,8 +98,11 @@ def test_convert_fncall_to_non_fncall_basic():
 
 
 def test_convert_non_fncall_to_fncall_basic():
-    """Test basic conversion from non-function call messages to function call
-    messages."""
+    """Test basic conversion from non-function call messages to function call messages.
+
+    Test basic conversion from non-function call messages to function call
+    messages.
+    """
     non_fncall_messages = [
         {"role": "user", "content": "Please run ls command"},
         {
@@ -644,8 +650,11 @@ def test_convert_fncall_messages_without_cache_control():
 
 
 def test_convert_fncall_messages_with_image_url():
-    """Test that convert_fncall_messages_to_non_fncall_messages handles image URLs
-    correctly."""
+    """Test that convert_fncall_messages_to_non_fncall_messages handles image URLs.
+
+    Test that convert_fncall_messages_to_non_fncall_messages handles image URLs
+    correctly.
+    """
     messages = [
         {
             "role": "tool",

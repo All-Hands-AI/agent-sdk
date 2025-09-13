@@ -33,6 +33,8 @@ logger = get_logger(__name__)
 
 
 class GrepAction(ActionBase):
+    """Action for performing grep search operations."""
+
     pattern: str = Field(description="Regex to search for")
     path: str = Field(
         default=".", description="Directory to search (absolute or relative)"
@@ -43,12 +45,15 @@ class GrepAction(ActionBase):
 
 
 class GrepObservation(ObservationBase):
+    """Observation containing grep search results."""
+
     matches: list[str] = Field(default_factory=list)
     files: list[str] = Field(default_factory=list)
     count: int = 0
 
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
+        """Return agent-readable observation content."""
         if not self.count:
             return [TextContent(text="No matches found.")]
         files_list = "\n".join(f"- {f}" for f in self.files[:20])
@@ -66,10 +71,14 @@ class GrepObservation(ObservationBase):
 
 
 class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
+    """Executor for grep search operations."""
+
     def __init__(self, bash: BashExecutor):
+        """Initialize GrepExecutor with bash executor."""
         self.bash = bash
 
     def __call__(self, action: GrepAction) -> GrepObservation:
+        """Execute grep search action and return observation."""
         root = os.path.abspath(action.path)
         pat = shlex.quote(action.pattern)
         root_q = shlex.quote(root)
@@ -151,6 +160,7 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: Event):
+    """Handle conversation events and collect LLM messages."""
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

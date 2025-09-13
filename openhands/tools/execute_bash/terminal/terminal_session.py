@@ -40,6 +40,7 @@ class TerminalCommandStatus(Enum):
 
 
 def _remove_command_prefix(command_output: str, command: str) -> str:
+    """Remove the command prefix from command output."""
     return command_output.lstrip().removeprefix(command.lstrip()).lstrip()
 
 
@@ -60,6 +61,7 @@ class TerminalSession(TerminalSessionBase):
         Args:
             terminal: The terminal backend to use
             no_change_timeout_seconds: Timeout for no output change
+
         """
         super().__init__(
             terminal.work_dir,

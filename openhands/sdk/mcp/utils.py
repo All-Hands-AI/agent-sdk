@@ -16,9 +16,9 @@ LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
 
 
 async def log_handler(message: LogMessage):
-    """
-    Handles incoming logs from the MCP server and forwards them
-    to the standard Python logging system.
+    """Handle incoming logs from the MCP server.
+
+    Forwards them to the standard Python logging system.
     """
     msg = message.data.get("msg")
     extra = message.data.get("extra")

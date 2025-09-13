@@ -1,3 +1,5 @@
+"""Agent context management for prompt extension and microagent integration."""
+
 import pathlib
 
 from pydantic import BaseModel, Field, field_validator
@@ -54,6 +56,7 @@ class AgentContext(BaseModel):
     @field_validator("microagents")
     @classmethod
     def _validate_microagents(cls, v: list[BaseMicroagent], info):
+        """Validate that microagent names are unique."""
         if not v:
             return v
         # Check for duplicate microagent names
@@ -104,7 +107,6 @@ class AgentContext(BaseModel):
         - Matching microagent triggers against the query
         - Returning formatted knowledge and triggered microagent names if relevant microagents were triggered
         """  # noqa: E501
-
         user_message_suffix = None
         if self.user_message_suffix and self.user_message_suffix.strip():
             user_message_suffix = self.user_message_suffix.strip()

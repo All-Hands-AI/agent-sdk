@@ -1,3 +1,5 @@
+"""Think tool for logging thoughts and reasoning."""
+
 from pydantic import Field
 from rich.text import Text
 
@@ -46,6 +48,7 @@ class ThinkObservation(ObservationBase):
 
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
+        """Return the observation content for the agent."""
         return [TextContent(text=self.content)]
 
     @property
@@ -68,7 +71,10 @@ The tool simply logs your thought process for better transparency and does not e
 
 
 class ThinkExecutor(ToolExecutor):
+    """Executor for the think tool."""
+
     def __call__(self, _: ThinkAction) -> ThinkObservation:
+        """Execute the think action."""
         return ThinkObservation()
 
 

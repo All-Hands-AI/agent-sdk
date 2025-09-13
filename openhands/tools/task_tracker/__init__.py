@@ -1,3 +1,5 @@
+"""Task tracker tool for managing development tasks."""
+
 from .definition import (
     TaskTrackerAction,
     TaskTrackerExecutor,

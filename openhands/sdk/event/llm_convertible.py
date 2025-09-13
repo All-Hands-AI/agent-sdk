@@ -1,3 +1,5 @@
+"""Events that can be converted to LLM messages."""
+
 import copy
 import json
 from typing import cast
@@ -51,6 +53,7 @@ class SystemPromptEvent(LLMConvertibleEvent):
         return content
 
     def to_llm_message(self) -> Message:
+        """Convert to LLM message."""
         return Message(role="system", content=[self.system_prompt])
 
     def __str__(self) -> str:
@@ -68,6 +71,8 @@ class SystemPromptEvent(LLMConvertibleEvent):
 
 
 class ActionEvent(LLMConvertibleEvent):
+    """Event representing an action taken by the agent."""
+
     source: SourceType = "agent"
     thought: list[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
@@ -128,7 +133,7 @@ class ActionEvent(LLMConvertibleEvent):
         return content
 
     def to_llm_message(self) -> Message:
-        """Individual message - may be incomplete for multi-action batches"""
+        """Individual message - may be incomplete for multi-action batches."""
         content: list[TextContent | ImageContent] = cast(
             list[TextContent | ImageContent], self.thought
         )
@@ -153,6 +158,8 @@ class ActionEvent(LLMConvertibleEvent):
 
 
 class ObservationEvent(LLMConvertibleEvent):
+    """Event representing an observation from the environment."""
+
     source: SourceType = "environment"
     observation: Observation = Field(
         ..., description="The observation (tool call) sent to LLM"
@@ -181,6 +188,7 @@ class ObservationEvent(LLMConvertibleEvent):
         return content
 
     def to_llm_message(self) -> Message:
+        """Convert to LLM message."""
         return Message(
             role="tool",
             content=self.observation.agent_observation,
@@ -203,7 +211,8 @@ class ObservationEvent(LLMConvertibleEvent):
 class MessageEvent(LLMConvertibleEvent):
     """Message from either agent or user.
 
-    This is originally the "MessageAction", but it suppose not to be tool call."""
+    This is originally the "MessageAction", but it suppose not to be tool call.
+    """
 
     model_config = ConfigDict(extra="ignore")
 
@@ -229,6 +238,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     @computed_field
     def reasoning_content(self) -> str:
+        """Get the reasoning content from the LLM message."""
         return self.llm_message.reasoning_content or ""
 
     @property
@@ -264,6 +274,7 @@ class MessageEvent(LLMConvertibleEvent):
         return content
 
     def to_llm_message(self) -> Message:
+        """Convert to LLM message."""
         msg = copy.deepcopy(self.llm_message)
         msg.content.extend(self.extended_content)
         return msg
@@ -323,6 +334,7 @@ class UserRejectObservation(LLMConvertibleEvent):
         return content
 
     def to_llm_message(self) -> Message:
+        """Convert to LLM message."""
         return Message(
             role="tool",
             content=[TextContent(text=f"Action rejected: {self.rejection_reason}")],
@@ -367,6 +379,7 @@ class AgentErrorEvent(LLMConvertibleEvent):
         return content
 
     def to_llm_message(self) -> Message:
+        """Convert to LLM message."""
         return Message(role="user", content=[TextContent(text=self.error)])
 
     def __str__(self) -> str:

@@ -1,3 +1,5 @@
+"""Non-native function calling mixin for LLMs."""
+
 from __future__ import annotations
 
 from typing import Protocol, TypeGuard
@@ -15,10 +17,14 @@ from openhands.sdk.llm.utils.model_features import get_features
 
 
 class _HostSupports(Protocol):
+    """Protocol for LLM hosts that support function calling features."""
+
     model: str
     disable_stop_word: bool | None
 
-    def is_function_calling_active(self) -> bool: ...
+    def is_function_calling_active(self) -> bool:
+        """Check if function calling is active."""
+        ...
 
 
 class NonNativeToolCallingMixin:
@@ -33,6 +39,7 @@ class NonNativeToolCallingMixin:
     def should_mock_tool_calls(
         self: _HostSupports, tools: list[ChatCompletionToolParam] | None
     ) -> bool:
+        """Check if tool calls should be mocked."""
         return bool(tools) and not self.is_function_calling_active()
 
     def pre_request_prompt_mock(
@@ -60,6 +67,7 @@ class NonNativeToolCallingMixin:
         nonfncall_msgs: list[dict],
         tools: list[ChatCompletionToolParam],
     ) -> ModelResponse:
+        """Process response after prompt mocking."""
         if len(resp.choices) < 1:
             raise LLMNoResponseError(
                 "Response choices is less than 1 (seen in some providers). Resp: "

@@ -1,3 +1,5 @@
+"""Context condensers for managing conversation history."""
+
 from openhands.sdk.context.condenser.condenser import Condenser, RollingCondenser
 from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
 

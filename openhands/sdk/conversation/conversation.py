@@ -1,3 +1,5 @@
+"""Conversation management and callback composition."""
+
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
@@ -27,6 +29,8 @@ logger = get_logger(__name__)
 def compose_callbacks(
     callbacks: Iterable[ConversationCallbackType],
 ) -> ConversationCallbackType:
+    """Compose multiple callbacks into a single callback function."""
+
     def composed(event) -> None:
         for cb in callbacks:
             if cb:
@@ -36,6 +40,8 @@ def compose_callbacks(
 
 
 class Conversation:
+    """Main conversation handler for agent interactions."""
+
     def __init__(
         self,
         agent: "AgentType",
@@ -58,6 +64,7 @@ class Conversation:
             visualize: Whether to enable default visualization. If True, adds
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
+
         """
         self.agent = agent
         self._persist_filestore = persist_filestore
@@ -95,7 +102,7 @@ class Conversation:
         return self.state.id
 
     def send_message(self, message: Message) -> None:
-        """Sending messages to the agent."""
+        """Send messages to the agent."""
         assert message.role == "user", (
             "Only user messages are allowed to be sent to the agent."
         )
@@ -137,7 +144,7 @@ class Conversation:
             self._on_event(user_msg_event)
 
     def run(self) -> None:
-        """Runs the conversation until the agent finishes.
+        """Run the conversation until the agent finishes.
 
         In confirmation mode:
         - First call: creates actions but doesn't execute them, stops and waits
@@ -148,7 +155,6 @@ class Conversation:
 
         Can be paused between steps
         """
-
         with self.state:
             self.state.agent_paused = False
 
@@ -225,7 +231,6 @@ class Conversation:
         Note: If called during an LLM completion, the pause will not take
         effect until the current LLM call completes.
         """
-
         if self.state.agent_paused:
             return
 

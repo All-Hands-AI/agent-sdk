@@ -74,6 +74,7 @@ llm_messages = []  # collect raw LLM messages
 
 
 def conversation_callback(event: Event):
+    """Handle conversation events and collect LLM messages."""
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

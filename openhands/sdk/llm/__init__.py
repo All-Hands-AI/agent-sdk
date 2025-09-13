@@ -1,3 +1,5 @@
+"""LLM integration module - Language model interfaces and utilities."""
+
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 from openhands.sdk.llm.message import ImageContent, Message, TextContent, content_to_str

@@ -1,3 +1,5 @@
+"""Terminal session management for bash execution."""
+
 from openhands.tools.execute_bash.terminal.factory import create_terminal_session
 from openhands.tools.execute_bash.terminal.interface import (
     TerminalInterface,

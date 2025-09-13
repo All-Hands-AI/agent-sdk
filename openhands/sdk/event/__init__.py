@@ -1,3 +1,5 @@
+"""Event system for agent communication and state management."""
+
 from openhands.sdk.event.base import Event, EventBase, LLMConvertibleEvent
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.llm_convertible import (

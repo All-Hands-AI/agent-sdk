@@ -1,3 +1,5 @@
+"""Context management module - Agent context and microagents."""
+
 from openhands.sdk.context.agent_context import (
     AgentContext,
 )

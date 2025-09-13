@@ -1,3 +1,5 @@
+"""Bash execution tool for running shell commands."""
+
 # Core tool interface
 from openhands.tools.execute_bash.definition import (
     BashTool,

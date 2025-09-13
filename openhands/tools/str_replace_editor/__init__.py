@@ -1,3 +1,5 @@
+"""String replace editor tool for file editing operations."""
+
 from openhands.tools.str_replace_editor.definition import (
     FileEditorTool,
     StrReplaceEditorAction,

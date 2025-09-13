@@ -1,3 +1,5 @@
+"""Constants for bash execution tools."""
+
 import re
 
 

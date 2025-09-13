@@ -1,9 +1,10 @@
-# state.py
+"""Conversation state management with thread-safe locking."""
+
 import json
 from threading import RLock, get_ident
 from typing import Optional
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentType
 from openhands.sdk.conversation.event_store import EventLog
@@ -18,6 +19,14 @@ logger = get_logger(__name__)
 
 
 class ConversationState(BaseModel):
+    """Thread-safe conversation state with locking mechanism."""
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,  # allow RLock in PrivateAttr
+        validate_assignment=True,  # validate on attribute set
+        frozen=False,
+    )
+
     # ===== Public, validated fields =====
     id: str = Field(description="Unique conversation ID")
 
@@ -54,34 +63,38 @@ class ConversationState(BaseModel):
     # ===== Public "events" facade (ListLike[Event]) =====
     @property
     def events(self) -> ListLike[Event]:
+        """Get events from the conversations."""
         return self._events
 
     # ===== Lock/guard API =====
     def acquire(self) -> None:
+        """Acquire the conversation state lock."""
         self._lock.acquire()
         self._owner_tid = get_ident()
 
     def release(self) -> None:
+        """Release the conversation state lock."""
         self.assert_locked()
         self._owner_tid = None
         self._lock.release()
 
     def __enter__(self):
+        """Enter the context manager by acquiring the lock."""
         self.acquire()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        """Exit the context manager by releasing the lock."""
         self.release()
 
     def assert_locked(self) -> None:
+        """Assert that the current thread holds the lock."""
         if self._owner_tid != get_ident():
             raise RuntimeError("State not held by current thread")
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:
-        """
-        Persist base state snapshot (no events; events are file-backed).
-        """
+        """Persist base state snapshot (no events; events are file-backed)."""
         payload = self.model_dump_json(exclude_none=True)
         fs.write(BASE_STATE, payload)
 
@@ -93,7 +106,8 @@ class ConversationState(BaseModel):
         agent: AgentType,
         file_store: FileStore | None = None,
     ) -> "ConversationState":
-        """
+        """Create or resume a conversation state.
+
         If base_state.json exists: resume (attach EventLog,
             reconcile agent, enforce id).
         Else: create fresh (agent required), persist base, and return.
@@ -163,6 +177,7 @@ class ConversationState(BaseModel):
 
     # ===== Auto-persist base on public field changes =====
     def __setattr__(self, name, value):
+        """Intercept attribute sets to autosave base state if needed."""
         # Only autosave when:
         # - autosave is enabled (set post-init)
         # - the attribute is a *public field* (not a PrivateAttr)

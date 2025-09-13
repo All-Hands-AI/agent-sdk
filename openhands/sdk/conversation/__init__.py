@@ -1,3 +1,5 @@
+"""Conversation management - Agent-user interaction handling."""
+
 from openhands.sdk.conversation.conversation import Conversation
 from openhands.sdk.conversation.event_store import EventLog, ListLike
 from openhands.sdk.conversation.state import ConversationState

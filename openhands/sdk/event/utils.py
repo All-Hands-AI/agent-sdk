@@ -20,6 +20,7 @@ def get_unmatched_actions(events: ListLike[Event]) -> list[ActionEvent]:
 
     Returns:
         List of ActionEvent objects that don't have corresponding observations
+
     """
     observed_action_ids = set()
     unmatched_actions = []

@@ -1,7 +1,7 @@
 # simple_logger.py
-"""
-Minimal logger setup that encourages per-module loggers,
-with Rich for humans and JSON for machines.
+"""Minimal logger setup that encourages per-module loggers.
+
+With Rich for humans and JSON for machines.
 
 Usage:
     from openhands.sdk.logger import get_logger

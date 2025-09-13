@@ -1,3 +1,5 @@
+"""OpenHands SDK - Core SDK for building AI agents."""
+
 from importlib.metadata import PackageNotFoundError, version
 
 from openhands.sdk.agent import Agent, AgentBase

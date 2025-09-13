@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 
 class CmdOutputMetadata(BaseModel):
-    """Additional metadata captured from PS1"""
+    """Additional metadata captured from PS1."""
 
     exit_code: int = Field(
         default=-1, description="The exit code of the last executed command."
@@ -64,6 +64,15 @@ class CmdOutputMetadata(BaseModel):
 
     @classmethod
     def matches_ps1_metadata(cls, string: str) -> list[re.Match[str]]:
+        """Find all PS1 metadata matches in the given string.
+
+        Args:
+            string: The string to search for PS1 metadata patterns.
+
+        Returns:
+            List of regex matches containing valid PS1 metadata.
+
+        """
         matches = []
         for match in CMD_OUTPUT_METADATA_PS1_REGEX.finditer(string):
             try:

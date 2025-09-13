@@ -1,9 +1,12 @@
+"""Utilities for computing and formatting diffs between Pydantic models."""
+
 from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel
 
 
 def _normalize(x):
+    """Normalize a value for comparison."""
     # Convert Pydantic models to dicts
     if isinstance(x, BaseModel):
         return x.model_dump(exclude_none=True)
@@ -16,6 +19,7 @@ def _normalize(x):
 
 
 def _structured_diff(a, b):
+    """Compute a structured diff between two values."""
     a = _normalize(a)
     b = _normalize(b)
 
@@ -66,6 +70,7 @@ def _structured_diff(a, b):
 
 
 def _format_diff(d, indent=0):
+    """Format a diff for display."""
     if not isinstance(d, Mapping):
         old, new = d
         return f"{'  ' * indent}{old!r} -> {new!r}"
@@ -81,5 +86,6 @@ def _format_diff(d, indent=0):
 
 
 def pretty_pydantic_diff(a: BaseModel, b: BaseModel) -> str:
+    """Generate a pretty-printed diff between two Pydantic models."""
     diff = _structured_diff(a, b)
     return "No differences" if not diff else _format_diff(diff)

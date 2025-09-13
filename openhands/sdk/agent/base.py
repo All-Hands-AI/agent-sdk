@@ -1,3 +1,5 @@
+"""Base classes for OpenHands agents."""
+
 import os
 import sys
 from abc import ABC, abstractmethod
@@ -23,6 +25,8 @@ logger = get_logger(__name__)
 
 
 class AgentBase(DiscriminatedUnionMixin, ABC):
+    """Base class for all OpenHands agents."""
+
     model_config = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,
@@ -57,8 +61,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         state: "ConversationState",
         on_event: "ConversationCallbackType",
     ) -> None:
-        """Initialize the empty conversation state to prepare the agent for user
-        messages.
+        """Initialize the empty conversation state to prepare the agent.
 
         Typically this involves adding system message
 
@@ -72,7 +75,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         state: "ConversationState",
         on_event: "ConversationCallbackType",
     ) -> None:
-        """Taking a step in the conversation.
+        """Take a step in the conversation.
 
         Typically this involves:
         1. Making a LLM call
@@ -87,9 +90,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         raise NotImplementedError("Subclasses must implement this method.")
 
     def resolve_diff_from_deserialized(self, persisted: "AgentType") -> "AgentType":
-        """
-        Return a new AgentBase instance equivalent to `persisted` but with
-        explicitly whitelisted fields (e.g. api_key) taken from `self`.
+        """Return a new AgentBase instance equivalent to `persisted`.
+
+        Explicitly whitelisted fields (e.g. api_key) taken from `self`.
         """
         if persisted.__class__ is not self.__class__:
             raise ValueError(

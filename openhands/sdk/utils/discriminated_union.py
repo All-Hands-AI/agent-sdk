@@ -125,7 +125,7 @@ class DiscriminatedUnionMixin(BaseModel):
         context=None,
         **kwargs,
     ) -> T:
-        """Custom model validation using registered subclasses for deserialization."""
+        """Validate model using registered subclasses for deserialization."""
         # If we have a 'kind' field but no discriminated union handling,
         # we still need to remove it to avoid extra field errors
         if isinstance(obj, dict) and "kind" in obj:
@@ -165,7 +165,7 @@ class DiscriminatedUnionMixin(BaseModel):
         context=None,
         **kwargs,
     ) -> T:
-        """Custom JSON validation that uses our custom model_validate method."""
+        """Validate JSON using our custom model_validate method."""
         import json
 
         # Parse JSON to dict first
@@ -190,6 +190,7 @@ class DiscriminatedUnionType(Generic[T]):
     """
 
     def __init__(self, cls: type[T]):
+        """Initialize DiscriminatedUnion with base class."""
         self.base_class = cls
         self.__origin__ = cls
         self.__args__ = ()
@@ -214,6 +215,7 @@ class DiscriminatedUnionType(Generic[T]):
         return core_schema.no_info_plain_validator_function(validate)
 
     def __repr__(self):
+        """Return string representation of DiscriminatedUnion."""
         return f"DiscriminatedUnion[{self.base_class.__name__}]"
 
     def __class_getitem__(cls, params):
@@ -221,7 +223,9 @@ class DiscriminatedUnionType(Generic[T]):
         return cls(params)
 
     def __instancecheck__(self, instance):
+        """Check if instance is of the base class type."""
         return isinstance(instance, self.base_class)
 
     def __subclasscheck__(self, subclass):
+        """Check if subclass is a subclass of the base class."""
         return issubclass(subclass, self.base_class)

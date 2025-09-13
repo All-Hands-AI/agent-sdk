@@ -9,14 +9,15 @@ from fastmcp import Client as AsyncMCPClient
 
 
 class MCPClient(AsyncMCPClient):
-    """
-    Behaves exactly like fastmcp.Client (same constructor & async API),
-    but owns a background event loop and offers:
+    """Behaves exactly like fastmcp.Client (same constructor & async API).
+
+    Owns a background event loop and offers:
       - call_async_from_sync(awaitable_or_fn, *args, timeout=None, **kwargs)
       - call_sync_from_async(fn, *args, **kwargs)  # await this from async code
     """
 
     def __init__(self, *args, **kwargs):
+        """Initialize the MCP client with background event loop support."""
         super().__init__(*args, **kwargs)
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
@@ -25,6 +26,7 @@ class MCPClient(AsyncMCPClient):
     # ---------- loop management ----------
 
     def _ensure_loop(self) -> asyncio.AbstractEventLoop:
+        """Ensure event loop is running."""
         with self._lock:
             if self._loop is not None:
                 return self._loop
@@ -45,6 +47,7 @@ class MCPClient(AsyncMCPClient):
             return loop
 
     def _shutdown_loop(self) -> None:
+        """Shutdown event loop."""
         with self._lock:
             loop, t = self._loop, self._thread
             self._loop = None
@@ -67,8 +70,7 @@ class MCPClient(AsyncMCPClient):
         timeout: float,
         **kwargs,
     ):
-        """
-        Run a coroutine or async function on this client's loop from sync code.
+        """Run a coroutine or async function on this client's loop from sync code.
 
         Usage:
             mcp.call_async_from_sync(async_fn, arg1, kw=...)
@@ -88,15 +90,14 @@ class MCPClient(AsyncMCPClient):
         return fut.result(timeout)
 
     async def call_sync_from_async(self, fn: Callable[..., Any], *args, **kwargs):
-        """
-        Await running a blocking function in the default threadpool from async code.
-        """
+        """Await running a blocking function in the threadpool from async code."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, lambda: fn(*args, **kwargs))
 
     # ---------- optional cleanup ----------
 
     def sync_close(self):
+        """Close the client synchronously."""
         # Best-effort: try async close if parent provides it
         aclose = self.close
         if inspect.iscoroutinefunction(aclose):
@@ -107,6 +108,7 @@ class MCPClient(AsyncMCPClient):
         self._shutdown_loop()
 
     def __del__(self):
+        """Clean up resources when the object is destroyed."""
         try:
             self.sync_close()
         except Exception:

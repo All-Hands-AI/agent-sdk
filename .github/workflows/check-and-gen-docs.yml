@@ -1,0 +1,60 @@
+name: Check Docstrings & Generate Markdown Docs
+
+on:
+  pull_request:
+    paths:
+      - "**.py"
+      - "docs/scripts/gen_api_docs.sh"
+      - "pyproject.toml"
+      - ".github/workflows/docs-md.yml"
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Sync deps
+        run: uv sync --dev
+
+      - name: Docstring coverage
+        run: uv run interrogate openhands
+
+      - name: Regenerate Markdown API docs
+        run: bash ./docs/scripts/gen_api_docs.sh
+
+      - name: Commit and push updated docs (push events only)
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Only stage docs/reference; adjust if your script writes elsewhere
+          if git diff --quiet -- docs/reference; then
+            echo "Docs are up to date, nothing to commit."
+            exit 0
+          fi
+
+          git add docs/reference
+          git commit -m "chore(docs): auto-regenerate API docs"
+
+          # On push events, GITHUB_REF is refs/heads/<branch>
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          echo "Pushing to ${BRANCH}"
+          git push origin "HEAD:${BRANCH}"

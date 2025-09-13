@@ -1,3 +1,5 @@
+"""Microagents - Specialized agents for specific tasks and knowledge domains."""
+
 from openhands.sdk.context.microagents.exceptions import MicroagentValidationError
 from openhands.sdk.context.microagents.microagent import (
     BaseMicroagent,

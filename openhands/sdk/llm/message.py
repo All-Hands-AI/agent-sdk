@@ -1,3 +1,5 @@
+"""Message types and content for LLM communication."""
+
 from typing import Any, Literal, cast
 
 import mcp.types
@@ -13,6 +15,8 @@ logger = get_logger(__name__)
 
 
 class BaseContent(BaseModel):
+    """Base class for message content."""
+
     cache_prompt: bool = False
 
     def to_llm_dict(
@@ -23,6 +27,8 @@ class BaseContent(BaseModel):
 
 
 class TextContent(mcp.types.TextContent, BaseContent):
+    """Text content for messages."""
+
     type: Literal["text"] = "text"
     text: str
     # We use populate_by_name since mcp.types.TextContent
@@ -49,6 +55,8 @@ class TextContent(mcp.types.TextContent, BaseContent):
 
 
 class ImageContent(mcp.types.ImageContent, BaseContent):
+    """Image content for messages."""
+
     type: Literal["image"] = "image"
     image_urls: list[str]
     # We use populate_by_name since mcp.types.ImageContent
@@ -66,6 +74,8 @@ class ImageContent(mcp.types.ImageContent, BaseContent):
 
 
 class Message(BaseModel):
+    """Message for LLM communication."""
+
     # NOTE: this is not the same as EventSource
     # These are the roles in the LLM's APIs
     role: Literal["user", "system", "assistant", "tool"]
@@ -89,11 +99,13 @@ class Message(BaseModel):
 
     @property
     def contains_image(self) -> bool:
+        """Check if message contains image content."""
         return any(isinstance(content, ImageContent) for content in self.content)
 
     @field_validator("content", mode="before")
     @classmethod
     def _coerce_content(cls, v: Any) -> list[TextContent | ImageContent] | Any:
+        """Coerce content to proper format."""
         # Accept None → []
         if v is None:
             return []
@@ -122,6 +134,7 @@ class Message(BaseModel):
         return message_dict
 
     def _string_serializer(self) -> dict[str, Any]:
+        """Serialize message content as a single string."""
         # convert content to a single string
         content = "\n".join(
             item.text for item in self.content if isinstance(item, TextContent)
@@ -132,6 +145,7 @@ class Message(BaseModel):
         return self._add_tool_call_keys(message_dict)
 
     def _list_serializer(self) -> dict[str, Any]:
+        """Serialize message content as a list of content items."""
         content: list[dict[str, Any]] = []
         role_tool_with_prompt_caching = False
 

@@ -1,3 +1,5 @@
+"""Utilities for generating and visualizing diffs."""
+
 from difflib import SequenceMatcher
 
 from pydantic import BaseModel
@@ -5,6 +7,8 @@ from rich.text import Text
 
 
 class EditGroup(BaseModel):
+    """Group of edits showing before and after changes."""
+
     before_edits: list[str]
     after_edits: list[str]
 
@@ -15,10 +19,13 @@ def get_edit_groups(
     """Get the edit groups showing changes between old and new content.
 
     Args:
+        old_content: The original content to compare.
+        new_content: The new content to compare against.
         n_context_lines: Number of context lines to show around each change.
 
     Returns:
         A list of edit groups, where each group contains before/after edits.
+
     """
     if old_content is None or new_content is None:
         return []
@@ -77,12 +84,16 @@ def visualize_diff(
     of changes as a separate entity.
 
     Args:
+        path: The file path being edited.
+        old_content: The original content before changes.
+        new_content: The new content after changes.
         n_context_lines: Number of context lines to show before/after changes.
         change_applied: Whether changes are applied. If false, shows as
             attempted edit.
 
     Returns:
         A string containing the formatted diff visualization.
+
     """
     content = Text()
     # Check if there are any changes

@@ -21,10 +21,14 @@ from openhands.sdk.llm.exceptions import (
 
 
 class CacheControl(TypedDict):
+    """Cache control configuration for text parts."""
+
     type: Literal["ephemeral"]
 
 
 class TextPart(TypedDict):
+    """Text part with optional cache control."""
+
     type: Literal["text"]
     text: str
     cache_control: NotRequired[CacheControl]
@@ -70,6 +74,7 @@ STOP_WORDS = ["</function"]
 
 
 def refine_prompt(prompt: str) -> str:
+    """Refine prompt for platform-specific commands."""
     if sys.platform == "win32":
         return prompt.replace("bash", "powershell")
     return prompt
@@ -452,6 +457,7 @@ def convert_tool_call_to_string(tool_call: dict) -> str:
 
 
 def convert_tools_to_description(tools: list[ChatCompletionToolParam]) -> str:
+    """Convert tools to text description for non-function-calling models."""
     ret = ""
     for i, tool in enumerate(tools):
         assert tool["type"] == "function"
@@ -664,6 +670,7 @@ def _extract_and_validate_params(
     param_matches: Iterable[re.Match],
     fn_name: str,
 ) -> dict:
+    """Extract and validate parameters from function call matches."""
     params = {}
     # Parse and validate parameters
     required_params = set()

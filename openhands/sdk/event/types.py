@@ -1,3 +1,5 @@
+"""Type definitions for events and sources."""
+
 from typing import Literal
 
 

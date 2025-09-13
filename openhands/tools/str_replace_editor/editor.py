@@ -1,3 +1,5 @@
+"""File editor implementation for viewing, creating, and editing files."""
+
 import os
 import re
 import shutil
@@ -34,16 +36,7 @@ from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
 
 
 class FileEditor:
-    """
-    An filesystem editor tool that allows the agent to
-    - view
-    - create
-    - navigate
-    - edit files
-    The tool parameters are defined by Anthropic and are not editable.
-
-    Original implementation: https://github.com/anthropics/anthropic-quickstarts/blob/main/computer-use-demo/computer_use_demo/tools/edit.py
-    """
+    """A filesystem editor tool for viewing, creating, navigating, and editing files."""
 
     MAX_FILE_SIZE_MB = 10  # Maximum file size in MB
 
@@ -60,6 +53,7 @@ class FileEditor:
             workspace_root: Root directory that serves as the current working
                 directory for relative path suggestions. Must be an absolute path.
                 If None, no path suggestions will be provided for relative paths.
+
         """
         self._history_manager = FileHistoryManager(max_history_per_file=10)
         self._max_file_size = (
@@ -92,6 +86,21 @@ class FileEditor:
         new_str: str | None = None,
         insert_line: int | None = None,
     ) -> StrReplaceEditorObservation:
+        """Execute a file editor command.
+
+        Args:
+            command: The command to execute (view, create, str_replace, insert).
+            path: Path to the file to operate on.
+            file_text: Content for create command.
+            view_range: Line range for view command.
+            old_str: String to replace for str_replace command.
+            new_str: Replacement string for str_replace command.
+            insert_line: Line number for insert command.
+
+        Returns:
+            StrReplaceEditorObservation with the result of the operation.
+
+        """
         _path = Path(path)
         self.validate_path(command, _path)
         if command == "view":
@@ -135,8 +144,7 @@ class FileEditor:
 
     @with_encoding
     def _count_lines(self, path: Path, encoding: str = "utf-8") -> int:
-        """
-        Count the number of lines in a file safely.
+        """Count the number of lines in a file safely.
 
         Args:
             path: Path to the file
@@ -145,6 +153,7 @@ class FileEditor:
 
         Returns:
             The number of lines in the file
+
         """
         with open(path, encoding=encoding) as f:
             return sum(1 for _ in f)
@@ -156,17 +165,7 @@ class FileEditor:
         old_str: str,
         new_str: str | None,
     ) -> StrReplaceEditorObservation:
-        """
-        Implement the str_replace command, which replaces old_str with new_str in
-        the file content.
-
-        Args:
-            path: Path to the file
-            old_str: String to replace
-            new_str: Replacement string
-            enable_linting: Whether to run linting on the changes
-            encoding: The encoding to use (auto-detected by decorator)
-        """
+        """Replace old_str with new_str in the file content."""
         self.validate_file(path)
         new_str = new_str or ""
 
@@ -256,9 +255,7 @@ class FileEditor:
     def view(
         self, path: Path, view_range: list[int] | None = None
     ) -> StrReplaceEditorObservation:
-        """
-        View the contents of a file or a directory.
-        """
+        """View the contents of a file or a directory."""
         if path.is_dir():
             if view_range:
                 raise EditorToolParameterInvalidError(
@@ -383,16 +380,7 @@ class FileEditor:
 
     @with_encoding
     def write_file(self, path: Path, file_text: str, encoding: str = "utf-8") -> None:
-        """
-        Write the content of a file to a given path; raise a ToolError if an
-        error occurs.
-
-        Args:
-            path: Path to the file to write
-            file_text: Content to write to the file
-            encoding: The encoding to use when writing the file (auto-detected by
-                decorator)
-        """
+        """Write content to a file."""
         self.validate_file(path)
         try:
             # Use open with encoding instead of path.write_text
@@ -409,17 +397,7 @@ class FileEditor:
         new_str: str,
         encoding: str = "utf-8",
     ) -> StrReplaceEditorObservation:
-        """
-        Implement the insert command, which inserts new_str at the specified line
-        in the file content.
-
-        Args:
-            path: Path to the file
-            insert_line: Line number where to insert the new content
-            new_str: Content to insert
-            enable_linting: Whether to run linting on the changes
-            encoding: The encoding to use (auto-detected by decorator)
-        """
+        """Insert text at a specified line in a file."""
         # Validate file and count lines
         self.validate_file(path)
         num_lines = self._count_lines(path)
@@ -497,8 +475,7 @@ class FileEditor:
         )
 
     def validate_path(self, command: CommandLiteral, path: Path) -> None:
-        """
-        Check that the path/command combination is valid.
+        """Check that the path/command combination is valid.
 
         Validates:
         1. Path is absolute
@@ -546,9 +523,7 @@ class FileEditor:
                 )
 
     def undo_edit(self, path: Path) -> StrReplaceEditorObservation:
-        """
-        Implement the undo_edit command.
-        """
+        """Implement the undo_edit command."""
         current_text = self.read_file(path)
         old_text = self._history_manager.pop_last_history(path)
         if old_text is None:
@@ -569,14 +544,14 @@ class FileEditor:
         )
 
     def validate_file(self, path: Path) -> None:
-        """
-        Validate a file for reading or editing operations.
+        """Validate a file for reading or editing operations.
 
         Args:
             path: Path to the file to validate
 
         Raises:
             FileValidationError: If the file fails validation
+
         """
         # Skip validation for directories or non-existent files (for create command)
         if not path.exists() or not path.is_file():
@@ -612,19 +587,7 @@ class FileEditor:
         end_line: int | None = None,
         encoding: str = "utf-8",  # Default will be overridden by decorator
     ) -> str:
-        """
-        Read the content of a file from a given path; raise a ToolError if an
-        error occurs.
-
-        Args:
-            path: Path to the file to read
-            start_line: Optional start line number (1-based). If provided with
-                end_line, only reads that range.
-            end_line: Optional end line number (1-based). Must be provided with
-                start_line.
-            encoding: The encoding to use when reading the file (auto-detected by
-                decorator)
-        """
+        """Read content from a file."""
         self.validate_file(path)
         try:
             if start_line is not None and end_line is not None:
@@ -655,9 +618,7 @@ class FileEditor:
         start_line: int = 1,
         is_converted_markdown: bool = False,
     ) -> str:
-        """
-        Generate output for the CLI based on the content of a code snippet.
-        """
+        """Generate output for the CLI based on the content of a code snippet."""
         # If the content is converted from Markdown, we don't need line numbers
         if is_converted_markdown:
             snippet_content = maybe_truncate(

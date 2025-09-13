@@ -1,3 +1,5 @@
+"""Tool schema definitions."""
+
 from typing import Annotated, Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model

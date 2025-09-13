@@ -27,6 +27,7 @@ class TerminalInterface(ABC):
         Args:
             work_dir: Working directory for the terminal
             username: Optional username for the terminal session
+
         """
         self.work_dir = work_dir
         self.username = username
@@ -58,6 +59,7 @@ class TerminalInterface(ABC):
         Args:
             text: Text or key sequence to send
             enter: Whether to send Enter key after the text
+
         """
         pass
 
@@ -67,6 +69,7 @@ class TerminalInterface(ABC):
 
         Returns:
             Current visible content of the terminal screen
+
         """
         pass
 
@@ -81,6 +84,7 @@ class TerminalInterface(ABC):
 
         Returns:
             True if interrupt was sent successfully, False otherwise
+
         """
         pass
 
@@ -90,6 +94,7 @@ class TerminalInterface(ABC):
 
         Returns:
             True if a command is running, False otherwise
+
         """
         pass
 
@@ -108,6 +113,7 @@ class TerminalInterface(ABC):
 
         Returns:
             True if this is a PowerShell terminal, False otherwise
+
         """
         return False
 
@@ -131,6 +137,7 @@ class TerminalSessionBase(ABC):
             work_dir: Working directory for the session
             username: Optional username for the session
             no_change_timeout_seconds: Timeout for no output change
+
         """
         self.work_dir = work_dir
         self.username = username
@@ -153,6 +160,7 @@ class TerminalSessionBase(ABC):
 
         Returns:
             ExecuteBashObservation with the command result
+
         """
         pass
 
@@ -167,6 +175,7 @@ class TerminalSessionBase(ABC):
 
         Returns:
             True if interrupt was successful, False otherwise
+
         """
         pass
 
@@ -176,6 +185,7 @@ class TerminalSessionBase(ABC):
 
         Returns:
             True if a command is running, False otherwise
+
         """
         pass
 
