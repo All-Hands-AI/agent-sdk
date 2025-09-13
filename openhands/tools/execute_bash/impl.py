@@ -21,6 +21,7 @@ class BashExecutor(ToolExecutor):
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
+        secrets_masker: Callable[[str], str] | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
 
@@ -33,6 +34,7 @@ class BashExecutor(ToolExecutor):
                          If None, auto-detect based on system capabilities
             env_provider: Optional function mapping a command string to env vars
                           that should be exported for that command
+            secrets_masker: Optional function to mask secret values in command output
         """
         self.session = create_terminal_session(
             work_dir=working_dir,
@@ -42,6 +44,7 @@ class BashExecutor(ToolExecutor):
         )
         self.session.initialize()
         self.env_provider = env_provider
+        self.secrets_masker = secrets_masker
 
     def _export_envs(self, action: ExecuteBashAction) -> None:
         if not self.env_provider:
@@ -75,7 +78,26 @@ class BashExecutor(ToolExecutor):
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
         # If env keys detected, export env values to bash as a separate action first
         self._export_envs(action)
-        return self.session.execute(action)
+        observation = self.session.execute(action)
+
+        # Apply secrets masking to the observation output if masker is available
+        if self.secrets_masker and observation.output:
+            try:
+                masked_output = self.secrets_masker(observation.output)
+                # Create a new observation with masked output
+                observation = ExecuteBashObservation(
+                    output=masked_output,
+                    command=observation.command,
+                    exit_code=observation.exit_code,
+                    error=observation.error,
+                    timeout=observation.timeout,
+                    metadata=observation.metadata,
+                )
+            except Exception as e:
+                # If masking fails, log the error and return original observation
+                logger.warning(f"Failed to mask secrets in bash output: {e}")
+
+        return observation
 
     def close(self) -> None:
         """Close the terminal session and clean up resources."""

@@ -135,3 +135,118 @@ def test_get_secrets_as_env_vars_handles_callable_exceptions():
 
     # Only working secret should be returned
     assert env_vars == {"WORKING_SECRET": "working-value"}
+
+
+def test_mask_secrets_in_text_static_values():
+    """Test mask_secrets_in_text with static secret values."""
+    manager = SecretsManager()
+    manager.update_secrets(
+        {
+            "API_KEY": "secret-api-key-123",
+            "PASSWORD": "my-secret-password",
+        }
+    )
+
+    # Test masking single secret
+    text = "API key is: secret-api-key-123"
+    masked = manager.mask_secrets_in_text(text)
+    assert masked == "API key is: <secret-hidden>"
+
+    # Test masking multiple secrets
+    text = "API: secret-api-key-123, Password: my-secret-password"
+    masked = manager.mask_secrets_in_text(text)
+    assert masked == "API: <secret-hidden>, Password: <secret-hidden>"
+
+    # Test text without secrets
+    text = "This text has no secrets"
+    masked = manager.mask_secrets_in_text(text)
+    assert masked == "This text has no secrets"
+
+
+def test_mask_secrets_in_text_callable_values():
+    """Test mask_secrets_in_text with callable secret values."""
+    manager = SecretsManager()
+
+    def get_dynamic_token():
+        return "dynamic-token-456"
+
+    manager.update_secrets(
+        {
+            "STATIC_KEY": "static-value-789",
+            "DYNAMIC_TOKEN": get_dynamic_token,
+        }
+    )
+
+    text = "Token: dynamic-token-456, Key: static-value-789"
+    masked = manager.mask_secrets_in_text(text)
+    assert masked == "Token: <secret-hidden>, Key: <secret-hidden>"
+
+
+def test_mask_secrets_in_text_multiple_occurrences():
+    """Test mask_secrets_in_text with multiple occurrences of same secret."""
+    manager = SecretsManager()
+    manager.update_secrets({"SECRET": "my-secret"})
+
+    text = "First: my-secret, Second: my-secret, Third: my-secret"
+    masked = manager.mask_secrets_in_text(text)
+    assert (
+        masked
+        == "First: <secret-hidden>, Second: <secret-hidden>, Third: <secret-hidden>"
+    )
+
+
+def test_mask_secrets_in_text_empty_input():
+    """Test mask_secrets_in_text with empty or None input."""
+    manager = SecretsManager()
+    manager.update_secrets({"SECRET": "my-secret"})
+
+    # Test empty string
+    assert manager.mask_secrets_in_text("") == ""
+
+
+def test_mask_secrets_in_text_no_secrets():
+    """Test mask_secrets_in_text when no secrets are configured."""
+    manager = SecretsManager()
+
+    text = "This text has some content"
+    masked = manager.mask_secrets_in_text(text)
+    assert masked == text
+
+
+def test_mask_secrets_in_text_handles_callable_exceptions():
+    """Test that mask_secrets_in_text handles exceptions from callables gracefully."""
+    manager = SecretsManager()
+
+    def failing_callable():
+        raise ValueError("Secret retrieval failed")
+
+    def working_callable():
+        return "working-secret"
+
+    manager.update_secrets(
+        {
+            "FAILING_SECRET": failing_callable,
+            "WORKING_SECRET": working_callable,
+        }
+    )
+
+    text = "Text with working-secret but no failing secret"
+    masked = manager.mask_secrets_in_text(text)
+    # Should mask the working secret and ignore the failing one
+    assert masked == "Text with <secret-hidden> but no failing secret"
+
+
+def test_mask_secrets_in_text_empty_secret_values():
+    """Test mask_secrets_in_text ignores empty secret values."""
+    manager = SecretsManager()
+    manager.update_secrets(
+        {
+            "EMPTY_SECRET": "",
+            "VALID_SECRET": "valid-value",
+        }
+    )
+
+    text = "Text with valid-value and empty values"
+    masked = manager.mask_secrets_in_text(text)
+    # Should only mask the valid secret
+    assert masked == "Text with <secret-hidden> and empty values"

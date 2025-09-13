@@ -83,3 +83,35 @@ class SecretsManager:
 
         logger.debug(f"Prepared {len(env_vars)} secrets as environment variables")
         return env_vars
+
+    def mask_secrets_in_text(self, text: str) -> str:
+        """Mask secret values in the given text with <secret-hidden>.
+
+        Args:
+            text: The text to search for and mask secret values
+
+        Returns:
+            Text with secret values replaced by <secret-hidden>
+        """
+        if not text or not self._secrets:
+            return text
+
+        masked_text = text
+        for key, provider_or_value in self._secrets.items():
+            try:
+                # Get the actual secret value
+                value = (
+                    provider_or_value()
+                    if callable(provider_or_value)
+                    else provider_or_value
+                )
+
+                # Only mask non-empty values
+                if value and isinstance(value, str):
+                    # Replace all occurrences of the secret value with <secret-hidden>
+                    masked_text = masked_text.replace(value, "<secret-hidden>")
+            except Exception as e:
+                logger.error(f"Failed to retrieve secret for masking key '{key}': {e}")
+                continue
+
+        return masked_text
