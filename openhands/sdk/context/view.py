@@ -3,6 +3,7 @@ from typing import overload
 
 from pydantic import BaseModel
 
+from openhands.sdk import ConversationCallbackType
 from openhands.sdk.event import (
     Condensation,
     CondensationRequest,
@@ -84,7 +85,9 @@ class View(BaseModel):
             raise ValueError(f"Invalid key type: {type(key)}")
 
     @staticmethod
-    def from_events(events: ListLike[Event]) -> "View":
+    def from_events(
+        events: ListLike[Event], on_event: ConversationCallbackType | None = None
+    ) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """
@@ -122,9 +125,10 @@ class View(BaseModel):
         if summary is not None and summary_offset is not None:
             logger.info(f"Inserting summary at offset {summary_offset}")
 
-            kept_events.insert(
-                summary_offset, CondensationSummaryEvent(summary=summary)
-            )
+            _new_summary_event = CondensationSummaryEvent(summary=summary)
+            if on_event:
+                on_event(_new_summary_event)
+            kept_events.insert(summary_offset, _new_summary_event)
 
         # Check for an unhandled condensation request -- these are events closer to the
         # end of the list than any condensation action.
