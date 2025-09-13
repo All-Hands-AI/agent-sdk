@@ -1,0 +1,87 @@
+name: Server Executable & OpenAPI Client
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'openhands/server/**'
+      - 'pyproject.toml'
+      - '.github/workflows/server.yml'
+      - 'Makefile'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'openhands/server/**'
+      - 'pyproject.toml'
+      - '.github/workflows/server.yml'
+      - 'Makefile'
+
+permissions:
+  contents: write        # needed for auto-commit on PRs
+  pull-requests: write   # allows commenting/updating if needed in the future
+
+jobs:
+  build-executable:
+    name: Build server executable with PyInstaller
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --group dev
+
+      - name: Build executable (PyInstaller)
+        run: |
+          # Build using the spec file
+          uv run pyinstaller openhands/server/openhands-server.spec
+          # Show what was produced
+          ls -lah dist || true
+
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openhands-server-executable
+          path: dist/**
+          retention-days: 7
+
+  generate-and-commit-openapi-client:
+    name: Generate OpenAPI client and push to PR branch
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --group dev
+
+      - name: Run make build-server (exports OpenAPI & generates client)
+        run: |
+          make build-server
+
+      - name: Auto-commit generated client & schema
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(ci): regenerate OpenAPI client and schema"
+          file_pattern: |
+            openhands/server/openapi.json
+          branch: ${{ github.head_ref }}
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"

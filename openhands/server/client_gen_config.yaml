@@ -1,0 +1,5 @@
+# Configuration for openapi-python-client to generate
+# a Client library
+project_name_override: openhands-client
+package_name_override: openhands_client
+literal_enums: true

@@ -68,3 +68,12 @@ help:
 	@echo "  $(GREEN)lint$(RESET)         - Lint code with ruff"
 	@echo "  $(GREEN)clean$(RESET)        - Clean up cache files"
 	@echo "  $(GREEN)help$(RESET)         - Show this help message"
+
+build-server: check-uv-version
+	@echo "$(YELLOW)Building openapi.json...$(RESET)"
+	uv run openhands/server/export_openapi.py
+	@echo "$(GREEN)openapi.json build complete.$(RESET)"
+
+run-server: build-server
+	@echo "$(YELLOW)Starting OpenHands server...$(RESET)"
+	uv run -m uvicorn openhands.server.main:app --reload --reload-dir openhands/server --host 0.0.0.0 --port 9000

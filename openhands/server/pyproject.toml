@@ -1,0 +1,39 @@
+[project]
+name = "openhands-server"
+version = "1.0.0"
+description = "OpenHands Server - REST API server for AI agent conversations"
+
+requires-python = ">=3.12"
+dependencies = [
+    "openhands-sdk",
+    "openhands-tools",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "httpx>=0.28.1",
+    "openapi-python-client>=0.26.0",
+]
+
+optional-dependencies.dev = [
+    "pyinstaller>=6.15.0",
+    "pytest>=8.4.1",
+    "pre-commit>=4.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.15.0",
+    "pytest>=8.4.1",
+    "pre-commit>=4.3.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["../.."]
+include = ["openhands*"]
+
+[project.scripts]
+openhandsd = "openhands.server.main:run"

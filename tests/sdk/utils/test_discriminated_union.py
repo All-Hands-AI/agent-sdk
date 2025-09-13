@@ -1,7 +1,13 @@
 from typing import Annotated
 
 import pytest
-from pydantic import BaseModel, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
@@ -216,6 +222,71 @@ def test_discriminated_union_model_validate_dict() -> None:
     assert isinstance(result, Cat)
     assert result.name == "Whiskers"
     assert result.color == "Orange"
+
+
+def test_control_fields_stripped_for_subclass_with_extra_forbid() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        model_config = ConfigDict(extra="forbid")
+        breed: str
+
+    # Including control fields should not cause extra errors
+    dog_data = {
+        "name": "Fido",
+        "breed": "Labrador",
+        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
+        "_du_spec": None,
+    }
+    result = Animal.model_validate(dog_data)
+    assert isinstance(result, Dog)
+    assert result.name == "Fido"
+    assert result.breed == "Labrador"
+
+    # Non-control unknown fields should be rejected by extra="forbid"
+    with pytest.raises(ValidationError):
+        Animal.model_validate({**dog_data, "unknown": 123})
+
+
+def test_fallback_reconstruction_from_du_spec_for_unresolvable_kind() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    # Unresolvable kind but valid _du_spec provided
+    spec = {
+        "title": "TestFallbackModel",
+        "fields": {
+            "name": {"type": "str", "required": True},
+            "age": {"type": "int", "required": False, "default": 0},
+        },
+    }
+    payload = {"name": "Jerry", "age": 3, "kind": "not.real.Class", "_du_spec": spec}
+    obj = Animal.model_validate(payload)
+    # We expect a temporary model constructed from the spec
+    assert type(obj).__name__ == "TestFallbackModel"
+    data = obj.model_dump()
+    assert data["name"] == "Jerry"
+    assert data["age"] == 3
+
+
+def test_json_schema_has_discriminator_property() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        breed: str
+
+    class Cat(Animal):
+        color: str
+
+    class Carrier(BaseModel):
+        animal: Annotated[Animal, DiscriminatedUnionType[Animal]]
+
+    schema = Carrier.model_json_schema()
+    animal_schema = schema["properties"]["animal"]
+    assert "discriminator" in animal_schema
+    assert animal_schema["discriminator"]["propertyName"] == "kind"
 
 
 def test_discriminated_union_fallback_behavior() -> None:

@@ -1,11 +1,12 @@
 # UV workspace configuration
 [tool.uv.workspace]
-members = ["openhands/sdk", "openhands/tools"]
+members = ["openhands/sdk", "openhands/tools", "openhands/server"]
 
 # Workspace sources for intra-repo dependencies
 [tool.uv.sources]
 openhands-sdk = { workspace = true }
 openhands-tools = { workspace = true }
+openhands-server = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -18,6 +19,7 @@ dev = [
     "pycodestyle>=2.12.0",
     "pytest-asyncio>=1.1.0",
     "pytest-forked>=1.6.0",
+    "pyinstaller>=6.15.0",
 ]
 
 # Ruff configuration
