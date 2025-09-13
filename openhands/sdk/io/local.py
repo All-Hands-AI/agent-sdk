@@ -40,8 +40,14 @@ class LocalFileStore(FileStore):
 
     def list(self, path: str) -> list[str]:
         full_path = self.get_full_path(path)
-        if not os.path.exists(full_path):  # to be consistent with S3 API
+        if not os.path.exists(full_path):
             return []
+
+        # If path is a file, return the file itself (S3-consistent behavior)
+        if os.path.isfile(full_path):
+            return [path]
+
+        # Otherwise it's a directory, return its contents
         files = [os.path.join(path, f) for f in os.listdir(full_path)]
         files = [f + "/" if os.path.isdir(self.get_full_path(f)) else f for f in files]
         return files
