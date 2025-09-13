@@ -38,11 +38,13 @@ def test_default_callback_appends_on_init():
     agent = DummyAgent()
     events_seen: List[str] = []
 
-    convo = Conversation(agent=agent, callbacks=[lambda e: events_seen.append(e.id)])
+    conversation = Conversation(
+        agent=agent, callbacks=[lambda e: events_seen.append(e.id)]
+    )
 
-    assert len(convo.state.events) == 1
-    assert isinstance(convo.state.events[0], SystemPromptEvent)
-    assert convo.state.events[0].id in events_seen
+    assert len(conversation.state.events) == 1
+    assert isinstance(conversation.state.events[0], SystemPromptEvent)
+    assert conversation.state.events[0].id in events_seen
 
 
 def test_send_message_appends_once():
@@ -52,17 +54,17 @@ def test_send_message_appends_once():
     def user_cb(event):
         seen_ids.append(event.id)
 
-    convo = Conversation(agent=agent, callbacks=[user_cb])
+    conversation = Conversation(agent=agent, callbacks=[user_cb])
 
-    convo.send_message(Message(role="user", content=[TextContent(text="hi")]))
+    conversation.send_message(Message(role="user", content=[TextContent(text="hi")]))
 
     # Now we should have two events: initial system prompt and the user message
-    assert len(convo.state.events) == 2
-    assert isinstance(convo.state.events[-1], MessageEvent)
+    assert len(conversation.state.events) == 2
+    assert isinstance(conversation.state.events[-1], MessageEvent)
 
     # Ensure the user message event is appended exactly once in state
-    last_id = convo.state.events[-1].id
-    assert sum(1 for e in convo.state.events if e.id == last_id) == 1
+    last_id = conversation.state.events[-1].id
+    assert sum(1 for e in conversation.state.events if e.id == last_id) == 1
 
     # Ensure callback saw both events
-    assert set(seen_ids) == {e.id for e in convo.state.events}
+    assert set(seen_ids) == {e.id for e in conversation.state.events}
