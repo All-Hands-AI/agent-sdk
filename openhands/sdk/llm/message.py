@@ -51,8 +51,6 @@ class TextContent(mcp.types.TextContent, BaseContent):
 class ImageContent(BaseContent):
     type: Literal["image"] = "image"
     image_urls: list[str]
-    data: str | None = None
-    mimeType: str | None = None
 
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""

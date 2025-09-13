@@ -44,10 +44,6 @@ class MCPToolObservation(ObservationBase):
                 convrted_content.append(
                     ImageContent(
                         image_urls=[f"data:{block.mimeType};base64,{block.data}"],
-                        # ImageContent is inherited from mcp.types.ImageContent
-                        # so we need to pass these fields
-                        data=block.data,
-                        mimeType=block.mimeType,
                     )
                 )
             else:
