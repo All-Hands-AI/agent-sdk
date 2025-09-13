@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from openhands.sdk.context import BaseMicroagent, MicroagentType, RepoMicroagent
+from openhands.sdk.context import BaseMicroagent, RepoMicroagent
 
 
 def test_load_markdown_without_frontmatter():
@@ -15,7 +15,7 @@ def test_load_markdown_without_frontmatter():
     assert isinstance(agent, RepoMicroagent)
     assert agent.name == "test"  # Name comes from path.stem
     assert agent.content == content
-    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.type == "repo"
 
 
 def test_load_markdown_with_empty_frontmatter():
@@ -35,7 +35,7 @@ def test_load_markdown_with_empty_frontmatter():
         agent.content
         == "# Test Content\nThis is a test markdown file with empty frontmatter."
     )
-    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.type == "repo"
 
 
 def test_load_markdown_with_partial_frontmatter():
@@ -57,7 +57,7 @@ This is a test markdown file with partial frontmatter."""
         agent.content
         == "# Test Content\nThis is a test markdown file with partial frontmatter."
     )
-    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.type == "repo"
 
 
 def test_load_markdown_with_full_frontmatter():
@@ -82,4 +82,4 @@ This is a test markdown file with full frontmatter."""
         agent.content
         == "# Test Content\nThis is a test markdown file with full frontmatter."
     )
-    assert agent.type == MicroagentType.REPO_KNOWLEDGE
+    assert agent.type == "repo"
