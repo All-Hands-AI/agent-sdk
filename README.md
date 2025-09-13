@@ -23,15 +23,17 @@ agent-sdk/
 │   ├── 07_mcp_integration.py           # MCP integration
 │   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
 │   ├── 09_pause_example.py             # Pause and resume agent execution
-│   └── 10_persistence.py               # Conversation persistence
+│   ├── 10_persistence.py               # Conversation persistence
+│   └── 11_async.py                     # Async agent usage
 ├── openhands/              # Main SDK packages
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
-│   │   ├── config/         # Configuration management
 │   │   ├── context/        # Context management system
 │   │   ├── conversation/   # Conversation management
 │   │   ├── event/          # Event system
+│   │   ├── io/             # I/O abstractions
 │   │   ├── llm/            # LLM integration layer
+│   │   ├── mcp/            # Model Context Protocol integration
 │   │   ├── tool/           # Tool system
 │   │   ├── utils/          # Core utilities
 │   │   ├── logger.py       # Logging configuration
@@ -39,11 +41,12 @@ agent-sdk/
 │   └── tools/              # Runtime tool implementations
 │       ├── execute_bash/   # Bash execution tool
 │       ├── str_replace_editor/  # File editing tool
+│       ├── task_tracker/   # Task tracking tool
 │       ├── utils/          # Tool utilities
 │       └── pyproject.toml  # Tools package configuration
 └── tests/                  # Test suites
     ├── cross/              # Cross-package tests
-    ├── integration/        # Integration tests
+    ├── fixtures/           # Test fixtures and data
     ├── sdk/                # SDK unit tests
     └── tools/              # Tools unit tests
 ```
@@ -75,18 +78,21 @@ uv run python examples/01_hello_world.py
 import os
 from pydantic import SecretStr
 from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
-from openhands.tools import BashTool, FileEditorTool
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 # Configure LLM
+api_key = os.getenv("LITELLM_API_KEY")
+assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
-    api_key=SecretStr(os.getenv("LITELLM_API_KEY")),
+    api_key=SecretStr(api_key),
 )
 
 # Setup tools
+cwd = os.getcwd()
 tools = [
-    BashTool.create(working_dir=os.getcwd()),
+    BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
 ]
 
@@ -149,12 +155,13 @@ Tools provide agents with capabilities to interact with the environment:
 
 ```python
 from openhands.sdk import TextContent, ImageContent
-from openhands.tools import BashTool, FileEditorTool
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 # Direct instantiation with simplified API
 tools = [
     BashTool.create(working_dir=os.getcwd()),
     FileEditorTool.create(),
+    TaskTrackerTool.create(save_dir=os.getcwd()),
 ]
 ```
 
@@ -267,16 +274,7 @@ context = AgentContext(
 
 ## Documentation
 
-Comprehensive architecture documentation is available in the [`docs/architecture/`](./docs/architecture/) folder:
-
-- **[Overview](./docs/architecture/overview.mdx)** - High-level component interactions and design principles
-- **[Tool System](./docs/architecture/tool.mdx)** - Tool framework, built-ins, runtime tools, and MCP integration
-- **[Agent Architecture](./docs/architecture/agent.mdx)** - Agent execution flow, system prompts, and context management
-- **[LLM Integration](./docs/architecture/llm.mdx)** - Provider support, message types, and advanced features
-- **[Conversation System](./docs/architecture/conversation.mdx)** - State management, event system, and persistence
-
-Additional documentation:
-- **[Getting Started](./docs/getting-started.mdx)** - Step-by-step setup guide with all examples
+For detailed documentation and examples, refer to the `examples/` directory which contains comprehensive usage examples covering all major features of the SDK.
 
 ## Development Workflow
 
@@ -320,7 +318,6 @@ uv run pytest
 
 # Run specific test suite
 uv run pytest tests/cross/
-uv run pytest tests/integration/
 uv run pytest tests/sdk/
 uv run pytest tests/tools/
 

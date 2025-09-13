@@ -117,18 +117,8 @@ class ConversationState(BaseModel):
                     f"but persisted state has {state.id}"
                 )
 
-            # Reconcile agent config with deserialized one, then assert equality
+            # Reconcile agent config with deserialized one
             resolved = agent.resolve_diff_from_deserialized(state.agent)
-            if agent.model_dump(exclude_none=True) != resolved.model_dump(
-                exclude_none=True
-            ):
-                from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
-
-                raise ValueError(
-                    "The agent provided is different from the one in persisted state. "
-                    "Please use the same agent instance to resume the conversation.\n"
-                    f"Diff: {pretty_pydantic_diff(agent, state.agent)}"
-                )
 
             # Attach runtime handles and commit reconciled agent (may autosave)
             state._fs = file_store
