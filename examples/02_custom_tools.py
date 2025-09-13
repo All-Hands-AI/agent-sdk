@@ -2,6 +2,7 @@
 
 import os
 import shlex
+from collections.abc import Sequence
 
 from pydantic import Field, SecretStr
 
@@ -10,6 +11,7 @@ from openhands.sdk import (
     Agent,
     Conversation,
     Event,
+    ImageContent,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -47,7 +49,7 @@ class GrepObservation(ObservationBase):
     count: int = 0
 
     @property
-    def agent_observation(self):
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         if not self.count:
             return [TextContent(text="No matches found.")]
         files_list = "\n".join(f"- {f}" for f in self.files[:20])
