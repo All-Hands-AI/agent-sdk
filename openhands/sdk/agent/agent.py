@@ -115,7 +115,7 @@ class Agent(AgentBase):
         if not isinstance(self.tools, dict):
             return
 
-        secrets_manager = state.secrets_manager()
+        secrets_manager = state.secrets_manager
 
         def env_for_cmd(cmd: str) -> dict[str, str]:
             try:
@@ -123,6 +123,7 @@ class Agent(AgentBase):
             except Exception:
                 return {}
 
+        execute_bash_exists = False
         for tool in self.tools.values():
             if (
                 tool.name == "execute_bash"
@@ -131,6 +132,10 @@ class Agent(AgentBase):
             ):
                 # Wire the env provider for the bash executor
                 setattr(tool.executor, "env_provider", env_for_cmd)
+                execute_bash_exists = True
+
+        if not execute_bash_exists:
+            logger.warning("Skipped wiring SecretsManager: missing bash tool")
 
     @property
     def system_message(self) -> str:

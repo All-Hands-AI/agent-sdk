@@ -211,3 +211,22 @@ def test_agent_secrets_integration_workflow():
 
         env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
         assert env_vars == {"API_KEY": "updated-api-key-789"}
+
+
+def test_warns_when_missing_bash_tool(caplog):
+    """
+    If no 'execute_bash' tool is registered, Agent.init_state() should log a warning
+    when wiring the SecretsManager/env provider.
+    """
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+
+    with caplog.at_level("WARNING"):
+        _ = Conversation(Agent(llm=llm, tools=[]))
+
+    messages = [
+        rec.getMessage() for rec in caplog.records if rec.levelno >= 30
+    ]  # WARNING+
+    # Allow any of the suggested phrasings while ensuring it's the right warning
+    assert any(
+        "Skipped wiring SecretsManager: missing bash tool" in m for m in messages
+    ), f"Expected a warning about missing 'execute_bash' tool; got: {messages}"
