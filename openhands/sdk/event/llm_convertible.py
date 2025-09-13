@@ -1,5 +1,6 @@
 import copy
 import json
+from collections.abc import Sequence
 from typing import cast
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
@@ -261,7 +262,7 @@ class MessageEvent(LLMConvertibleEvent):
                 isinstance(c, ImageContent) for c in self.extended_content
             ), "Extended content should not contain images"
             text_parts = content_to_str(
-                cast(list[TextContent | ImageContent], self.extended_content)
+                cast(Sequence[TextContent | ImageContent], self.extended_content)
             )
             content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
             content.append(" ".join(text_parts))
@@ -270,7 +271,9 @@ class MessageEvent(LLMConvertibleEvent):
 
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
-        msg.content.extend(self.extended_content)
+        # Create a new list combining existing content and extended content
+        new_content = list(msg.content) + list(self.extended_content)
+        msg.content = new_content
         return msg
 
     def __str__(self) -> str:
