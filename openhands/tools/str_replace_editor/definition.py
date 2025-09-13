@@ -1,5 +1,6 @@
 """String replace editor tool implementation."""
 
+import os
 from collections.abc import Sequence
 from typing import Literal
 
@@ -8,10 +9,47 @@ from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.tools.str_replace_editor.utils.config import (
+    DEFAULT_WORKSPACE_MOUNT_PATH_IN_SANDBOX,
+)
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
+
+
+def _get_workspace_mount_path_from_env(runtime_type: str | None = None) -> str:
+    """Get the workspace mount path from SANDBOX_VOLUMES environment variable.
+
+    For LocalRuntime and CLIRuntime, returns the host path from SANDBOX_VOLUMES.
+    For other runtimes, returns the default container path (/workspace).
+
+    Args:
+        runtime_type: The runtime type ('local', 'cli', 'docker', etc.)
+
+    Returns:
+        The workspace mount path in sandbox, defaults to '/workspace' if not found.
+    """
+    # For LocalRuntime/CLIRuntime, try to get host path from SANDBOX_VOLUMES
+    if runtime_type in ("local", "cli"):
+        sandbox_volumes = os.environ.get("SANDBOX_VOLUMES")
+        if sandbox_volumes:
+            # Split by commas to handle multiple mounts
+            mounts = sandbox_volumes.split(",")
+
+            # Check if any mount explicitly targets /workspace
+            for mount in mounts:
+                parts = mount.split(":")
+                if len(parts) >= 2 and parts[1] == "/workspace":
+                    host_path = os.path.abspath(parts[0])
+                    return host_path
+
+        # Fallback for local/CLI runtimes when SANDBOX_VOLUMES is not set:
+        # Use current working directory as it's likely the workspace root
+        return os.getcwd()
+
+    # For all other runtimes (docker, remote, etc.), use default container path
+    return DEFAULT_WORKSPACE_MOUNT_PATH_IN_SANDBOX
 
 
 class StrReplaceEditorAction(ActionBase):
@@ -199,19 +237,49 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
-    def create(cls, workspace_root: str | None = None) -> "FileEditorTool":
-        """Initialize FileEditorTool with a FileEditorExecutor."""
+    def create(
+        cls,
+        workspace_root: str | None = None,
+        workspace_mount_path_in_sandbox: str | None = None,
+        runtime_type: str | None = None,
+    ) -> "FileEditorTool":
+        """Initialize FileEditorTool with a FileEditorExecutor.
+
+        Args:
+            workspace_root: Root directory for file operations
+            workspace_mount_path_in_sandbox: Path to workspace in sandbox
+            runtime_type: Runtime type for dynamic path detection
+        """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+
+        # If no workspace path is provided, try to get it from environment
+        if workspace_mount_path_in_sandbox is None:
+            workspace_mount_path_in_sandbox = _get_workspace_mount_path_from_env(
+                runtime_type
+            )
+
+        # Create dynamic tool description with correct workspace path
+        dynamic_description = TOOL_DESCRIPTION.replace(
+            "/workspace", workspace_mount_path_in_sandbox
+        )
 
         # Initialize the executor
         executor = FileEditorExecutor(workspace_root=workspace_root)
 
+        # Create a dynamic action type with updated path description
+        class DynamicStrReplaceEditorAction(StrReplaceEditorAction):
+            path: str = Field(
+                description=f"Absolute path to file or directory, e.g. "
+                f"`{workspace_mount_path_in_sandbox}/file.py` "
+                f"or `{workspace_mount_path_in_sandbox}`."
+            )
+
         # Initialize the parent Tool with the executor
         return cls(
             name=str_replace_editor_tool.name,
-            description=TOOL_DESCRIPTION,
-            action_type=StrReplaceEditorAction,
+            description=dynamic_description,
+            action_type=DynamicStrReplaceEditorAction,
             observation_type=StrReplaceEditorObservation,
             annotations=str_replace_editor_tool.annotations,
             executor=executor,

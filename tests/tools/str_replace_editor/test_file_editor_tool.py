@@ -2,11 +2,15 @@
 
 import os
 import tempfile
+from unittest.mock import patch
 
 from openhands.tools import FileEditorTool
 from openhands.tools.str_replace_editor import (
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
+)
+from openhands.tools.str_replace_editor.definition import (
+    _get_workspace_mount_path_from_env,
 )
 
 
@@ -17,7 +21,8 @@ def test_file_editor_tool_initialization():
     # Check that the tool has the correct name and properties
     assert tool.name == "str_replace_editor"
     assert tool.executor is not None
-    assert tool.action_type == StrReplaceEditorAction
+    # The action type is now dynamic, but should be a subclass of StrReplaceEditorAction
+    assert issubclass(tool.action_type, StrReplaceEditorAction)
 
 
 def test_file_editor_tool_create_file():
@@ -154,3 +159,82 @@ def test_file_editor_tool_view_directory():
         assert not result.error
         assert "file1.txt" in result.output
         assert "file2.txt" in result.output
+
+
+def test_workspace_path_detection_docker_runtime():
+    """Test that DockerRuntime ignores SANDBOX_VOLUMES and uses /workspace."""
+    with patch.dict(os.environ, {"SANDBOX_VOLUMES": "/host/app:/workspace:rw"}):
+        result = _get_workspace_mount_path_from_env(runtime_type="docker")
+        assert result == "/workspace"
+
+
+def test_workspace_path_detection_local_runtime():
+    """Test that LocalRuntime uses host path from SANDBOX_VOLUMES."""
+    with patch.dict(os.environ, {"SANDBOX_VOLUMES": "/host/app:/workspace:rw"}):
+        result = _get_workspace_mount_path_from_env(runtime_type="local")
+        assert result == "/host/app"
+
+
+def test_workspace_path_detection_local_runtime_multiple_mounts():
+    """Test LocalRuntime with multiple mounts, finds /workspace mount."""
+    sandbox_volumes = "/tmp:/tmp:rw,/home/user/project:/workspace:rw,/var:/var:rw"
+    with patch.dict(
+        os.environ,
+        {"SANDBOX_VOLUMES": sandbox_volumes},
+    ):
+        result = _get_workspace_mount_path_from_env(runtime_type="local")
+        assert result == "/home/user/project"
+
+
+def test_workspace_path_detection_local_runtime_no_workspace_mount():
+    """Test LocalRuntime with no /workspace mount falls back to current directory."""
+    with patch.dict(os.environ, {"SANDBOX_VOLUMES": "/tmp:/tmp:rw,/var:/var:rw"}):
+        result = _get_workspace_mount_path_from_env(runtime_type="local")
+        assert result == os.getcwd()
+
+
+def test_workspace_path_detection_local_runtime_no_sandbox_volumes():
+    """Test LocalRuntime with no SANDBOX_VOLUMES falls back to current directory."""
+    with patch.dict(os.environ, {}, clear=True):
+        result = _get_workspace_mount_path_from_env(runtime_type="local")
+        assert result == os.getcwd()
+
+
+def test_file_editor_tool_dynamic_workspace_path_docker():
+    """Test FileEditorTool with DockerRuntime shows /workspace in description."""
+    with patch.dict(os.environ, {"SANDBOX_VOLUMES": "/host/app:/workspace:rw"}):
+        tool = FileEditorTool.create(runtime_type="docker")
+        openai_tool = tool.to_openai_tool()
+        assert "parameters" in openai_tool["function"]
+        path_description = openai_tool["function"]["parameters"]["properties"]["path"][
+            "description"
+        ]
+        assert "/workspace/file.py" in path_description
+        assert "/workspace`." in path_description
+        # Should not contain host paths
+        assert "/host/app" not in path_description
+
+
+def test_file_editor_tool_dynamic_workspace_path_local():
+    """Test FileEditorTool with LocalRuntime shows host path in description."""
+    with patch.dict(os.environ, {"SANDBOX_VOLUMES": "/host/app:/workspace:rw"}):
+        tool = FileEditorTool.create(runtime_type="local")
+        openai_tool = tool.to_openai_tool()
+        assert "parameters" in openai_tool["function"]
+        path_description = openai_tool["function"]["parameters"]["properties"]["path"][
+            "description"
+        ]
+        assert "/host/app/file.py" in path_description
+        assert "/host/app`." in path_description
+
+
+def test_file_editor_tool_explicit_workspace_path():
+    """Test FileEditorTool with explicitly provided workspace path."""
+    tool = FileEditorTool.create(workspace_mount_path_in_sandbox="/custom/path")
+    openai_tool = tool.to_openai_tool()
+    assert "parameters" in openai_tool["function"]
+    path_description = openai_tool["function"]["parameters"]["properties"]["path"][
+        "description"
+    ]
+    assert "/custom/path/file.py" in path_description
+    assert "/custom/path`." in path_description
