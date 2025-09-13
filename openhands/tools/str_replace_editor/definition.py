@@ -1,5 +1,6 @@
 """String replace editor tool implementation."""
 
+from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import Field, PrivateAttr
@@ -81,7 +82,7 @@ class StrReplaceEditorObservation(ObservationBase):
     _diff_cache: Text | None = PrivateAttr(default=None)
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=self.error)]
         return [TextContent(text=self.output)]

@@ -32,8 +32,6 @@ def test_image_content_with_cache_prompt():
 
     content = ImageContent(
         image_urls=["data:image/png;base64,abc123", "data:image/jpeg;base64,def456"],
-        data="fake_image_data",
-        mimeType="image/jpeg",
         cache_prompt=True,
     )
     result = content.to_llm_dict()
@@ -63,8 +61,6 @@ def test_message_contains_image_property():
             TextContent(text="Look at this:"),
             ImageContent(
                 image_urls=["data:image/png;base64,abc123"],
-                data="fake_image_data",
-                mimeType="image/jpeg",
             ),
         ],
     )
@@ -100,8 +96,6 @@ def test_message_tool_role_with_image_cache_prompt():
         content=[
             ImageContent(
                 image_urls=["data:image/png;base64,abc123"],
-                data="fake_image_data",
-                mimeType="image/jpeg",
                 cache_prompt=True,
             )
         ],

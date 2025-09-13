@@ -62,14 +62,14 @@ def conversation_callback(event: Event):
         llm_messages.append(event.to_llm_message())
 
 
-conv_id = str(uuid.uuid4())
-file_store = LocalFileStore(f"./.conversations/{conv_id}")
+conversation_id = str(uuid.uuid4())
+file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
     persist_filestore=file_store,
-    conversation_id=conv_id,
+    conversation_id=conversation_id,
 )
 conversation.send_message(
     message=Message(
@@ -110,7 +110,7 @@ conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
     persist_filestore=file_store,
-    conversation_id=conv_id,
+    conversation_id=conversation_id,
 )
 
 print("Sending message to deserialized conversation...")
