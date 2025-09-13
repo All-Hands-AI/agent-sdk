@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import cast
+from collections.abc import Sequence
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import ConfigDict, Field, computed_field
@@ -30,16 +30,19 @@ class SystemPromptEvent(LLMConvertibleEvent):
         content.append(self.system_prompt.text)
         content.append(f"\n\nTools Available: {len(self.tools)}")
         for tool in self.tools:
-            tool_fn = tool.get("function", None)
-            # make each field short
-            for k, v in tool.items():
-                if isinstance(v, str) and len(v) > 30:
-                    tool[k] = v[:27] + "..."
-            if tool_fn:
+            # Build display-only copy to avoid mutating event data
+            tool_display = {
+                k: (v[:27] + "..." if isinstance(v, str) and len(v) > 30 else v)
+                for k, v in tool.items()
+            }
+            tool_fn = tool_display.get("function", None)
+            if tool_fn and isinstance(tool_fn, dict):
                 assert "name" in tool_fn
                 assert "description" in tool_fn
                 assert "parameters" in tool_fn
                 params_str = json.dumps(tool_fn["parameters"])
+                if len(params_str) > 200:
+                    params_str = params_str[:197] + "..."
                 content.append(
                     f"\n  - {tool_fn['name']}: "
                     f"{tool_fn['description'].split('\n')[0][:100]}...\n",
@@ -47,7 +50,9 @@ class SystemPromptEvent(LLMConvertibleEvent):
                 )
                 content.append(f"  Parameters: {params_str}", style="dim")
             else:
-                content.append(f"\n  - Cannot access .function for {tool}", style="dim")
+                content.append(
+                    f"\n  - Cannot access .function for {tool_display}", style="dim"
+                )
         return content
 
     def to_llm_message(self) -> Message:
@@ -69,7 +74,7 @@ class SystemPromptEvent(LLMConvertibleEvent):
 
 class ActionEvent(LLMConvertibleEvent):
     source: SourceType = "agent"
-    thought: list[TextContent] = Field(
+    thought: Sequence[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
     reasoning_content: str | None = Field(
@@ -129,12 +134,9 @@ class ActionEvent(LLMConvertibleEvent):
 
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
-        content: list[TextContent | ImageContent] = cast(
-            list[TextContent | ImageContent], self.thought
-        )
         return Message(
             role="assistant",
-            content=content,
+            content=self.thought,
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
         )
@@ -205,7 +207,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", frozen=True)
 
     source: SourceType
     llm_message: Message = Field(
@@ -255,9 +257,7 @@ class MessageEvent(LLMConvertibleEvent):
             assert not any(
                 isinstance(c, ImageContent) for c in self.extended_content
             ), "Extended content should not contain images"
-            text_parts = content_to_str(
-                cast(list[TextContent | ImageContent], self.extended_content)
-            )
+            text_parts = content_to_str(self.extended_content)
             content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
             content.append(" ".join(text_parts))
 
@@ -265,7 +265,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
-        msg.content.extend(self.extended_content)
+        msg.content = list(msg.content) + list(self.extended_content)
         return msg
 
     def __str__(self) -> str:
