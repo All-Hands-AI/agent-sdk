@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Iterable
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
 
+from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import (
@@ -234,6 +235,19 @@ class Conversation:
             pause_event = PauseEvent()
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
+
+    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
+        """Add secrets to the conversation.
+
+        Args:
+            secrets: Dictionary mapping secret keys to values or no-arg callables.
+                     SecretValue = str | Callable[[], str]. Callables are invoked lazily
+                     when a command references the secret key.
+        """
+
+        secrets_manager = self.state.secrets_manager
+        secrets_manager.update_secrets(secrets)
+        logger.info(f"Added {len(secrets)} secrets to conversation")
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""

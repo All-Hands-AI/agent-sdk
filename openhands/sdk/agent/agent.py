@@ -107,6 +107,36 @@ class Agent(AgentBase):
         # Built-ins last; ensures no duplicates
         return {**user_tools, **builtin_map}
 
+    def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
+        """
+        Configure bash tool with reference to secrets manager.
+        Updated secrets automatically propagate.
+        """
+        if not isinstance(self.tools, dict):
+            return
+
+        secrets_manager = state.secrets_manager
+
+        def env_for_cmd(cmd: str) -> dict[str, str]:
+            try:
+                return secrets_manager.get_secrets_as_env_vars(cmd)
+            except Exception:
+                return {}
+
+        execute_bash_exists = False
+        for tool in self.tools.values():
+            if (
+                tool.name == "execute_bash"
+                and hasattr(tool, "executor")
+                and tool.executor is not None
+            ):
+                # Wire the env provider for the bash executor
+                setattr(tool.executor, "env_provider", env_for_cmd)
+                execute_bash_exists = True
+
+        if not execute_bash_exists:
+            logger.warning("Skipped wiring SecretsManager: missing bash tool")
+
     @property
     def system_message(self) -> str:
         """Compute system message on-demand to maintain statelessness."""
@@ -128,6 +158,10 @@ class Agent(AgentBase):
     ) -> None:
         # TODO(openhands): we should add test to test this init_state will actually
         # modify state in-place
+
+        # Configure bash tools with env provider
+        self._configure_bash_tools_env_provider(state)
+
         llm_convertible_messages = [
             event for event in state.events if isinstance(event, LLMConvertibleEvent)
         ]
