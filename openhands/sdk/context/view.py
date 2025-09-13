@@ -3,7 +3,7 @@ from typing import overload
 
 from pydantic import BaseModel
 
-from openhands.sdk import ConversationCallbackType
+from openhands.sdk.conversation import ConversationCallbackType
 from openhands.sdk.event import (
     Condensation,
     CondensationRequest,
