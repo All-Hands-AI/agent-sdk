@@ -74,6 +74,23 @@ class ModelFeatures:
     supports_stop_words: bool
 
 
+# Models that support OpenAI Native Responses API in our integration
+# We intentionally gate narrowly to GPT-5 and GPT-5-mini families.
+RESPONSES_PATTERNS: list[str] = [
+    "gpt-5*",
+    "gpt-5-mini*",
+]
+
+
+def supports_responses(model: str) -> bool:
+    """Return True if the model is gated for native Responses API.
+
+    We gate by model name only (no config flag) and keep the list intentionally
+    narrow to GPT-5 families.
+    """
+    return model_matches(model, RESPONSES_PATTERNS)
+
+
 # Pattern tables capturing current behavior. Keep patterns lowercase.
 FUNCTION_CALLING_PATTERNS: list[str] = [
     # Anthropic families

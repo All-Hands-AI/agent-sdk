@@ -31,7 +31,7 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
 )
-from litellm.types.utils import ModelResponse
+from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse
 from litellm.utils import (
     create_pretrained_tokenizer,
     get_model_info,
@@ -44,7 +44,7 @@ from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
-from openhands.sdk.llm.utils.model_features import get_features
+from openhands.sdk.llm.utils.model_features import get_features, supports_responses
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
@@ -360,7 +360,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             assert self._telemetry is not None
             # Merge retry-modified kwargs (like temperature) with call_kwargs
             final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=messages, **final_kwargs)
+            if supports_responses(self.model):
+                resp = self._responses_transport(
+                    messages=messages,
+                    tools=tools,
+                    **final_kwargs,
+                )
+            else:
+                resp = self._transport_call(messages=messages, **final_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
@@ -423,6 +430,118 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     f"Expected ModelResponse, got {type(ret)}"
                 )
                 return ret
+
+    def _responses_transport(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        tools: list[ChatCompletionToolParam] | None = None,
+        **kwargs,
+    ) -> ModelResponse:
+        """Call LiteLLM native Responses and adapt to ModelResponse.
+
+        Non-streaming only. Do not send history; rely on previous_response_id.
+        Defaults: store=True, parallel_tool_calls=True.
+        """
+        if kwargs.get("stream"):
+            raise ValueError("Streaming is not supported for Responses path")
+
+        extra_body = kwargs.pop("extra_body", {}) or {}
+        previous_response_id = extra_body.pop("previous_response_id", None)
+        if previous_response_id and not supports_responses(self.model):
+            raise ValueError(
+                "previous_response_id present but model is not Responses-capable"
+            )
+
+        last_msg = None
+        for m in messages:
+            if m.get("role") in ("user", "system", "developer"):
+                last_msg = m
+        if last_msg is None and messages:
+            last_msg = messages[-1]
+        input_param: list[dict[str, Any]] = []
+        if last_msg is not None:
+            content = last_msg.get("content")
+            role = last_msg.get("role", "user")
+            if isinstance(content, str):
+                input_param = [{"type": "message", "role": role, "content": content}]
+            elif isinstance(content, list):
+                input_param = [{"type": "message", "role": role, "content": content}]
+            else:
+                input_param = [{"type": "message", "role": role, "content": ""}]
+
+        from openai.types.responses.function_tool_param import FunctionToolParam
+
+        responses_tools: list[FunctionToolParam] | None = None
+        if tools:
+            responses_tools = []
+            for t in tools:
+                fn = (
+                    t.get("function", {})
+                    if isinstance(t, dict)
+                    else getattr(t, "function", None)
+                )
+                if not fn:
+                    continue
+                responses_tools.append(
+                    {
+                        "type": "function",
+                        "name": fn.get("name"),
+                        "description": fn.get("description"),
+                        "parameters": fn.get("parameters"),
+                        "strict": True,
+                    }
+                )
+
+        kwargs.setdefault("store", True)
+        kwargs.setdefault("parallel_tool_calls", True)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            oa_resp = cast(
+                Any,
+                litellm.responses(
+                    input=cast(Any, input_param),
+                    model=self.model,
+                    tools=responses_tools,
+                    previous_response_id=previous_response_id,
+                    temperature=kwargs.get("temperature"),
+                    top_p=kwargs.get("top_p"),
+                    max_output_tokens=kwargs.get("max_completion_tokens"),
+                    parallel_tool_calls=kwargs.get("parallel_tool_calls"),
+                    store=kwargs.get("store"),
+                    reasoning=(
+                        {"effort": kwargs.get("reasoning_effort")}
+                        if (
+                            kwargs.get("reasoning_effort")
+                            and kwargs.get("reasoning_effort") != "none"
+                        )
+                        else None
+                    ),
+                    extra_body=extra_body or None,
+                    api_key=self.api_key.get_secret_value() if self.api_key else None,
+                    base_url=self.base_url,
+                    api_version=self.api_version,
+                    timeout=self.timeout,
+                    drop_params=self.drop_params,
+                    seed=self.seed,
+                ),
+            )
+
+        output_text = getattr(oa_resp, "output_text", None) or ""
+        msg = LiteLLMMessage(
+            role="assistant",
+            content=output_text,
+            tool_calls=None,
+        )
+        choice = Choices(index=0, message=msg, finish_reason="stop")
+        mr = ModelResponse(
+            id=getattr(oa_resp, "id", None),
+            model=self.model,
+            choices=[choice],
+            usage=None,
+        )
+        return mr
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
@@ -488,7 +607,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             out.pop("tool_choice", None)
 
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
-        if "litellm_proxy" not in self.model:
+        if "litellm_proxy" not in self.model and not supports_responses(self.model):
             out.pop("extra_body", None)
 
         return out

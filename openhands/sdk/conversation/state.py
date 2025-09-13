@@ -8,10 +8,8 @@ from pydantic import BaseModel, Field, PrivateAttr
 from openhands.sdk.agent.base import AgentType
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
-from openhands.sdk.event import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
@@ -51,12 +49,15 @@ class ConversationState(BaseModel):
         default=False
     )  # to avoid recursion during init
 
-    # ===== Public "events" facade (ListLike[Event]) =====
-    @property
-    def events(self) -> ListLike[Event]:
-        return self._events
+    # Responses API continuation state
+    previous_response_id: str | None = Field(
+        default=None,
+        description=(
+            "Last OpenAI Responses API response id for stateful continuation. "
+            "When set, the agent will continue via llm.responses() using this id."
+        ),
+    )
 
-    # ===== Lock/guard API =====
     def acquire(self) -> None:
         self._lock.acquire()
         self._owner_tid = get_ident()

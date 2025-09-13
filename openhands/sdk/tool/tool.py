@@ -1,6 +1,7 @@
 from typing import Annotated, Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
+from openai.types.responses.function_tool_param import FunctionToolParam
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -202,6 +203,19 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
                 description=self.description,
                 parameters=self.input_schema,
             ),
+        )
+
+    def to_responses_tool(self) -> FunctionToolParam:
+        """Convert to OpenAI Responses function tool schema.
+
+        Defaults to strict parameter validation.
+        """
+        return FunctionToolParam(
+            type="function",
+            name=self.name,
+            description=self.description,
+            parameters=self.input_schema,
+            strict=True,
         )
 
 
