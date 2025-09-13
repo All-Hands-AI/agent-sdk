@@ -256,13 +256,13 @@ line3"""
 def test_get_edit_groups_no_content():
     """Test get_edit_groups when old_content or new_content is None."""
     # Test with None values directly - should return empty list
-    edit_groups = get_edit_groups(None, "some content")  # type: ignore
+    edit_groups = get_edit_groups(None, "some content")
     assert edit_groups == []
 
-    edit_groups = get_edit_groups("some content", None)  # type: ignore
+    edit_groups = get_edit_groups("some content", None)
     assert edit_groups == []
 
-    edit_groups = get_edit_groups(None, None)  # type: ignore
+    edit_groups = get_edit_groups(None, None)
     assert edit_groups == []
 
     # Test with empty string vs content - should return edit groups
