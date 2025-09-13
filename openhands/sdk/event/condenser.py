@@ -1,3 +1,5 @@
+from rich.text import Text
+
 from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import Message, TextContent
@@ -20,6 +22,18 @@ class Condensation(EventBase):
     """
 
     source: SourceType = "environment"
+
+    @property
+    def visualize(self) -> Text:
+        text = Text()
+
+        text.append("Auto Conversation Condensation Triggered.\n", style="bold")
+
+        text.append(f"Forgetting {len(self.forgotten_event_ids)} Events\n", style="dim")
+        if self.summary:
+            text.append("[Summary of Events Being Forgotten]\n", style="bold")
+            text.append(f"{self.summary}\n")
+        return text
 
 
 class CondensationRequest(EventBase):
@@ -45,3 +59,7 @@ class CondensationSummaryEvent(LLMConvertibleEvent):
             role="user",
             content=[TextContent(text=self.summary)],
         )
+
+    @property
+    def visualize(self) -> Text:
+        return Text()
