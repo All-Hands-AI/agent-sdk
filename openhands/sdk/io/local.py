@@ -1,6 +1,5 @@
 import os
 import shutil
-from pathlib import PureWindowsPath
 
 from openhands.sdk.logger import get_logger
 
@@ -24,8 +23,8 @@ class LocalFileStore(FileStore):
         # strip leading slash to keep relative under root
         if path.startswith("/"):
             path = path[1:]
-        # normalize path separators cross-platform (handles both / and \)
-        normalized_path = PureWindowsPath(path).as_posix()
+        # normalize path separators to handle both Unix (/) and Windows (\) styles
+        normalized_path = path.replace("\\", "/")
         full = os.path.abspath(
             os.path.normpath(os.path.join(self.root, normalized_path))
         )
