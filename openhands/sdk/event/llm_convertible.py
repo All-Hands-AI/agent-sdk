@@ -30,16 +30,19 @@ class SystemPromptEvent(LLMConvertibleEvent):
         content.append(self.system_prompt.text)
         content.append(f"\n\nTools Available: {len(self.tools)}")
         for tool in self.tools:
-            tool_fn = tool.get("function", None)
-            # make each field short
-            for k, v in tool.items():
-                if isinstance(v, str) and len(v) > 30:
-                    tool[k] = v[:27] + "..."
-            if tool_fn:
+            # Build display-only copy to avoid mutating event data
+            tool_display = {
+                k: (v[:27] + "..." if isinstance(v, str) and len(v) > 30 else v)
+                for k, v in tool.items()
+            }
+            tool_fn = tool_display.get("function", None)
+            if tool_fn and isinstance(tool_fn, dict):
                 assert "name" in tool_fn
                 assert "description" in tool_fn
                 assert "parameters" in tool_fn
                 params_str = json.dumps(tool_fn["parameters"])
+                if len(params_str) > 200:
+                    params_str = params_str[:197] + "..."
                 content.append(
                     f"\n  - {tool_fn['name']}: "
                     f"{tool_fn['description'].split('\n')[0][:100]}...\n",
@@ -47,7 +50,9 @@ class SystemPromptEvent(LLMConvertibleEvent):
                 )
                 content.append(f"  Parameters: {params_str}", style="dim")
             else:
-                content.append(f"\n  - Cannot access .function for {tool}", style="dim")
+                content.append(
+                    f"\n  - Cannot access .function for {tool_display}", style="dim"
+                )
         return content
 
     def to_llm_message(self) -> Message:
