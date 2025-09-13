@@ -3,14 +3,14 @@ from typing import overload
 
 from pydantic import BaseModel
 
+from openhands.sdk.conversation import ConversationCallbackType
 from openhands.sdk.event import (
     Condensation,
     CondensationRequest,
+    CondensationSummaryEvent,
     Event,
     LLMConvertibleEvent,
-    MessageEvent,
 )
-from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -21,14 +21,46 @@ class View(BaseModel):
     """Linearly ordered view of events.
 
     Produced by a condenser to indicate the included events are ready to process as LLM
-    input.
+    input. Also contains fields with information from the condensation process to aid
+    in deciding whether further condensation is needed.
     """
 
     events: list[LLMConvertibleEvent]
+
     unhandled_condensation_request: bool = False
+    """Whether there is an unhandled condensation request in the view."""
+
+    condensations: list[Condensation] = []
+    """A list of condensations that were processed to produce the view."""
 
     def __len__(self) -> int:
         return len(self.events)
+
+    @property
+    def most_recent_condensation(self) -> Condensation | None:
+        """Return the most recent condensation, or None if no condensations exist."""
+        return self.condensations[-1] if self.condensations else None
+
+    @property
+    def summary_event_index(self) -> int | None:
+        """Return the index of the summary event, or None if no summary exists."""
+        recent_condensation = self.most_recent_condensation
+        if (
+            recent_condensation is not None
+            and recent_condensation.summary is not None
+            and recent_condensation.summary_offset is not None
+        ):
+            return recent_condensation.summary_offset
+        return None
+
+    @property
+    def summary_event(self) -> CondensationSummaryEvent | None:
+        """Return the summary event, or None if no summary exists."""
+        if self.summary_event_index is not None:
+            event = self.events[self.summary_event_index]
+            if isinstance(event, CondensationSummaryEvent):
+                return event
+        return None
 
     # To preserve list-like indexing, we ideally support slicing and position-based
     # indexing. The only challenge with that is switching the return type based on the
@@ -53,14 +85,18 @@ class View(BaseModel):
             raise ValueError(f"Invalid key type: {type(key)}")
 
     @staticmethod
-    def from_events(events: ListLike[Event]) -> "View":
+    def from_events(
+        events: ListLike[Event], on_event: ConversationCallbackType | None = None
+    ) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """
         forgotten_event_ids: set[str] = set()
+        condensations: list[Condensation] = []
         for event in events:
             if isinstance(event, Condensation):
-                forgotten_event_ids.update(event.forgotten)
+                condensations.append(event)
+                forgotten_event_ids.update(event.forgotten_event_ids)
                 # Make sure we also forget the condensation action itself
                 forgotten_event_ids.add(event.id)
             if isinstance(event, CondensationRequest):
@@ -89,17 +125,10 @@ class View(BaseModel):
         if summary is not None and summary_offset is not None:
             logger.info(f"Inserting summary at offset {summary_offset}")
 
-            kept_events.insert(
-                summary_offset,
-                MessageEvent(
-                    llm_message=Message(
-                        role="system",
-                        content=[TextContent(text=summary)],
-                        name="system",
-                    ),
-                    source="environment",
-                ),
-            )
+            _new_summary_event = CondensationSummaryEvent(summary=summary)
+            if on_event:
+                on_event(_new_summary_event)
+            kept_events.insert(summary_offset, _new_summary_event)
 
         # Check for an unhandled condensation request -- these are events closer to the
         # end of the list than any condensation action.
@@ -114,4 +143,5 @@ class View(BaseModel):
         return View(
             events=kept_events,
             unhandled_condensation_request=unhandled_condensation_request,
+            condensations=condensations,
         )

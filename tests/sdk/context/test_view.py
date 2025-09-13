@@ -1,6 +1,12 @@
+from typing import cast
+
 from openhands.sdk.context.view import View
 from openhands.sdk.event import Event
-from openhands.sdk.event.condenser import Condensation, CondensationRequest
+from openhands.sdk.event.condenser import (
+    Condensation,
+    CondensationRequest,
+    CondensationSummaryEvent,
+)
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import Message, TextContent
 
@@ -77,20 +83,26 @@ def test_view_inserts_summary() -> None:
 
         assert len(view) == 6  # 5 message events + 1 summary observation
         for index, event in enumerate(view.events):
-            assert isinstance(event, MessageEvent)
-            assert isinstance(event.llm_message.content[0], TextContent)
-            content = event.llm_message.content[0].text
             if index == offset:
-                assert content == "My Summary"
+                assert isinstance(event, CondensationSummaryEvent)
+                assert event.summary == "My Summary"
 
             # Events before where the summary is inserted will have content
             # matching their index.
             elif index < offset:
+                assert isinstance(event, MessageEvent)
+                assert isinstance(event.llm_message.content[0], TextContent)
+                content = event.llm_message.content[0].text
+
                 assert content == f"Event {index}"
 
             # Events after where the summary is inserted will be offset by one
             # from the original list.
             else:
+                assert isinstance(event, MessageEvent)
+                assert isinstance(event.llm_message.content[0], TextContent)
+                content = event.llm_message.content[0].text
+
                 assert content == f"Event {index - 1}"
 
 
@@ -263,3 +275,260 @@ def test_condensation_request_always_removed_from_view() -> None:
     for event in view_handled:
         assert not isinstance(event, CondensationRequest)
         assert not isinstance(event, Condensation)
+
+
+def test_condensations_field_empty_when_no_condensations() -> None:
+    """Test that condensations field is empty when there are no condensation events."""
+    events: list[Event] = [message_event(f"Event {i}") for i in range(3)]
+    view = View.from_events(events)
+
+    assert view.condensations == []
+    assert view.most_recent_condensation is None
+
+
+def test_condensations_field_stores_all_condensations_in_order() -> None:
+    """Test that condensations field stores all condensation events in chronological
+    order.
+    """
+    message_events = [message_event(f"Event {i}") for i in range(5)]
+
+    # Create multiple condensations
+    condensation1 = Condensation(
+        forgotten_event_ids=[message_events[0].id], summary="Summary 1"
+    )
+    condensation2 = Condensation(
+        forgotten_event_ids=[message_events[1].id], summary="Summary 2"
+    )
+    condensation3 = Condensation(forgotten_event_ids=[], summary="Summary 3")
+
+    events: list[Event] = [
+        message_events[0],
+        message_events[1],
+        condensation1,
+        message_events[2],
+        condensation2,
+        message_events[3],
+        message_events[4],
+        condensation3,
+    ]
+
+    view = View.from_events(events)
+
+    # Check that all condensations are stored in order
+    assert len(view.condensations) == 3
+    assert view.condensations[0] == condensation1
+    assert view.condensations[1] == condensation2
+    assert view.condensations[2] == condensation3
+
+
+def test_most_recent_condensation_property() -> None:
+    """Test that most_recent_condensation property returns the last condensation."""
+    message_events = [message_event(f"Event {i}") for i in range(3)]
+
+    # Test with no condensations
+    events_no_condensation: list[Event] = cast(list[Event], message_events.copy())
+    view_no_condensation = View.from_events(events_no_condensation)
+    assert view_no_condensation.most_recent_condensation is None
+
+    # Test with single condensation
+    condensation1 = Condensation(forgotten_event_ids=[], summary="First summary")
+    events_single: list[Event] = [*message_events, condensation1]
+    view_single = View.from_events(events_single)
+    assert view_single.most_recent_condensation == condensation1
+
+    # Test with multiple condensations
+    condensation2 = Condensation(forgotten_event_ids=[], summary="Second summary")
+    condensation3 = Condensation(forgotten_event_ids=[], summary="Third summary")
+    events_multiple: list[Event] = [
+        message_events[0],
+        condensation1,
+        message_events[1],
+        condensation2,
+        message_events[2],
+        condensation3,
+    ]
+    view_multiple = View.from_events(events_multiple)
+    assert view_multiple.most_recent_condensation == condensation3
+
+
+def test_condensations_field_with_mixed_events() -> None:
+    """Test condensations field behavior with mixed event types including requests."""
+    message_events = [message_event(f"Event {i}") for i in range(4)]
+
+    condensation1 = Condensation(forgotten_event_ids=[message_events[0].id])
+    condensation2 = Condensation(forgotten_event_ids=[])
+
+    events: list[Event] = [
+        message_events[0],
+        CondensationRequest(),  # Should not appear in condensations
+        message_events[1],
+        condensation1,
+        message_events[2],
+        CondensationRequest(),  # Should not appear in condensations
+        condensation2,
+        message_events[3],
+    ]
+
+    view = View.from_events(events)
+
+    # Only actual Condensation events should be in the condensations field
+    assert len(view.condensations) == 2
+    assert view.condensations[0] == condensation1
+    assert view.condensations[1] == condensation2
+    assert view.most_recent_condensation == condensation2
+
+
+def test_summary_event_index_none_when_no_summary() -> None:
+    """Test that summary_event_index is None when there's no summary."""
+    events: list[Event] = [message_event(f"Event {i}") for i in range(3)]
+    view = View.from_events(events)
+
+    assert view.summary_event_index is None
+    assert view.summary_event is None
+
+
+def test_summary_event_index_none_when_condensation_has_no_summary() -> None:
+    """Test that summary_event_index is None when condensation exists but has no
+    summary.
+    """
+    message_events = [message_event(f"Event {i}") for i in range(3)]
+
+    # Condensation without summary
+    condensation = Condensation(forgotten_event_ids=[message_events[0].id])
+
+    events: list[Event] = [
+        message_events[0],
+        message_events[1],
+        condensation,
+        message_events[2],
+    ]
+
+    view = View.from_events(events)
+
+    assert view.summary_event_index is None
+    assert view.summary_event is None
+    assert len(view.condensations) == 1
+
+
+def test_summary_event_index_and_event_with_summary() -> None:
+    """Test that summary_event_index and summary_event work correctly when summary
+    exists.
+    """
+    message_events = [message_event(f"Event {i}") for i in range(4)]
+
+    # Condensation with summary at offset 1
+    condensation = Condensation(
+        forgotten_event_ids=[message_events[0].id],
+        summary="This is a test summary",
+        summary_offset=1,
+    )
+
+    events: list[Event] = [
+        message_events[0],  # Will be forgotten
+        message_events[1],
+        condensation,
+        message_events[2],
+        message_events[3],
+    ]
+
+    view = View.from_events(events)
+
+    # Should have summary at index 1
+    assert view.summary_event_index == 1
+    assert view.summary_event is not None
+
+    # Check the summary event properties
+    summary_event = view.summary_event
+    assert summary_event.summary == "This is a test summary"
+
+    # Verify the view structure
+    assert len(view) == 4  # 3 kept events + 1 summary
+    assert view[1] == summary_event  # Summary at index 1
+
+
+def test_summary_event_with_multiple_condensations() -> None:
+    """Test that summary_event uses the most recent condensation's summary."""
+    message_events = [message_event(f"Event {i}") for i in range(5)]
+
+    # First condensation with summary
+    condensation1 = Condensation(
+        forgotten_event_ids=[message_events[0].id],
+        summary="First summary",
+        summary_offset=0,
+    )
+
+    # Second condensation with different summary (should override)
+    condensation2 = Condensation(
+        forgotten_event_ids=[message_events[1].id],
+        summary="Second summary",
+        summary_offset=1,
+    )
+
+    events: list[Event] = [
+        message_events[0],  # Will be forgotten by condensation1
+        message_events[1],  # Will be forgotten by condensation2
+        condensation1,
+        message_events[2],
+        condensation2,
+        message_events[3],
+        message_events[4],
+    ]
+
+    view = View.from_events(events)
+
+    # Should use the most recent condensation's summary
+    assert view.summary_event_index == 1
+    assert view.summary_event is not None
+    assert view.summary_event.summary == "Second summary"
+
+    # Should have both condensations
+    assert len(view.condensations) == 2
+
+
+def test_summary_event_with_condensation_without_offset() -> None:
+    """Test that summary is ignored if condensation has summary but no offset."""
+    message_events = [message_event(f"Event {i}") for i in range(3)]
+
+    # Condensation with summary but no offset
+    condensation = Condensation(
+        forgotten_event_ids=[message_events[0].id],
+        summary="This summary should be ignored",
+        # No summary_offset
+    )
+
+    events: list[Event] = [
+        message_events[0],
+        message_events[1],
+        condensation,
+        message_events[2],
+    ]
+
+    view = View.from_events(events)
+
+    assert view.summary_event_index is None
+    assert view.summary_event is None
+
+
+def test_summary_event_with_zero_offset() -> None:
+    """Test that summary_event works correctly with offset 0."""
+    message_events = [message_event(f"Event {i}") for i in range(3)]
+
+    condensation = Condensation(
+        forgotten_event_ids=[message_events[0].id],
+        summary="Summary at beginning",
+        summary_offset=0,
+    )
+
+    events: list[Event] = [
+        message_events[0],  # Will be forgotten
+        message_events[1],
+        condensation,
+        message_events[2],
+    ]
+
+    view = View.from_events(events)
+
+    assert view.summary_event_index == 0
+    assert view.summary_event is not None
+    assert view.summary_event.summary == "Summary at beginning"
+    assert view[0] == view.summary_event  # Summary is first event
