@@ -21,7 +21,6 @@ class BashExecutor(ToolExecutor):
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
-        secrets_masker: Callable[[str], str] | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
 
@@ -33,8 +32,9 @@ class BashExecutor(ToolExecutor):
                          ('tmux', 'subprocess').
                          If None, auto-detect based on system capabilities
             env_provider: Optional function mapping a command string to env vars
-                          that should be exported for that command
-            secrets_masker: Optional function to mask secret values in command output
+                          that should be exported for that command.
+                          Secret values from env_provider will automatically be
+                          masked in command output.
         """
         self.session = create_terminal_session(
             work_dir=working_dir,
@@ -44,7 +44,7 @@ class BashExecutor(ToolExecutor):
         )
         self.session.initialize()
         self.env_provider = env_provider
-        self.secrets_masker = secrets_masker
+        self._secret_values: set[str] = set()
 
     def _export_envs(self, action: ExecuteBashAction) -> None:
         if not self.env_provider:
@@ -58,6 +58,11 @@ class BashExecutor(ToolExecutor):
         env_vars = self.env_provider(action.command)
         if not env_vars:
             return
+
+        # Capture secret values for masking (only non-empty string values)
+        for value in env_vars.values():
+            if value and isinstance(value, str):
+                self._secret_values.add(value)
 
         export_statements = []
         for key, value in env_vars.items():
@@ -80,10 +85,16 @@ class BashExecutor(ToolExecutor):
         self._export_envs(action)
         observation = self.session.execute(action)
 
-        # Apply secrets masking to the observation output if masker is available
-        if self.secrets_masker and observation.output:
+        # Apply automatic secrets masking if we have captured secret values
+        if self._secret_values and observation.output:
             try:
-                masked_output = self.secrets_masker(observation.output)
+                masked_output = observation.output
+                # Replace each secret value with <secret-hidden>
+                for secret_value in self._secret_values:
+                    masked_output = masked_output.replace(
+                        secret_value, "<secret-hidden>"
+                    )
+
                 # Create a new observation with masked output
                 observation = ExecuteBashObservation(
                     output=masked_output,
