@@ -4,6 +4,7 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -39,7 +40,7 @@ class MockObservation(ObservationBase):
     result: str
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 

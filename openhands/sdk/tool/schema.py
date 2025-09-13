@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Annotated, Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
@@ -261,7 +262,7 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
     model_config = ConfigDict(extra="allow")
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
         raise NotImplementedError("Subclasses must implement agent_observation")
 

@@ -1,6 +1,7 @@
 """Tests for the conversation visualizer and event visualization."""
 
 import json
+from collections.abc import Sequence
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
@@ -151,7 +152,7 @@ def test_observation_event_visualize():
         content: str = "Command output"
 
         @property
-        def agent_observation(self) -> list[TextContent | ImageContent]:
+        def agent_observation(self) -> Sequence[TextContent | ImageContent]:
             return [TextContent(text=self.content)]
 
     observation = MockObservation(

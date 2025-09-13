@@ -1,5 +1,7 @@
 """MCPTool definition and implementation."""
 
+from collections.abc import Sequence
+
 import mcp.types
 from pydantic import Field
 
@@ -57,7 +59,7 @@ class MCPToolObservation(ObservationBase):
         )
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Format the observation for agent display."""
         initial_message = f"[Tool '{self.tool_name}' executed.]\n"
         if self.is_error:

@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from pydantic import Field
 from rich.text import Text
 
@@ -27,7 +29,7 @@ class FinishObservation(ObservationBase):
     message: str = Field(description="Final message sent to the user.")
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
 
     @property

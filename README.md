@@ -180,6 +180,7 @@ bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
 And we can later re-use this bash terminal instance to define a custom tool:
 
 ```python
+from collections.abc import Sequence
 from openhands.sdk.tool import ActionBase, ObservationBase, ToolExecutor
 
 class GrepAction(ActionBase):
@@ -196,8 +197,8 @@ class GrepObservation(ObservationBase):
     output: str = Field(default='')
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
-        return TextContent(text=self.output)
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.output)]
 
 # --- Executor ---
 class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
