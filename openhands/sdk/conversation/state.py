@@ -83,8 +83,9 @@ class ConversationState(BaseModel):
         if self._owner_tid != get_ident():
             raise RuntimeError("State not held by current thread")
 
-    def get_secrets_manager(self) -> "SecretsManager":
-        """Get the secrets manager instance."""
+    @property
+    def secrets_manager(self) -> SecretsManager:
+        """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====

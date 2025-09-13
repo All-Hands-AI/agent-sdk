@@ -245,7 +245,7 @@ class Conversation:
                      when a command references the secret key.
         """
 
-        secrets_manager = self.state.get_secrets_manager()
+        secrets_manager = self.state.secrets_manager()
         secrets_manager.update_secrets(secrets)
         logger.info(f"Added {len(secrets)} secrets to conversation")
 

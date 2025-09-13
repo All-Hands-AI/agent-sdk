@@ -115,7 +115,7 @@ class Agent(AgentBase):
         if not isinstance(self.tools, dict):
             return
 
-        secrets_manager = state.get_secrets_manager()
+        secrets_manager = state.secrets_manager()
 
         def env_for_cmd(cmd: str) -> dict[str, str]:
             try:
