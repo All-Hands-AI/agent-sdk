@@ -307,3 +307,53 @@ def test_event_base_fallback_visualize():
 
     text_content = result.plain
     assert "Unknown event type: UnknownEvent" in text_content
+
+
+def test_no_dim_styling_in_visualizer():
+    """Test that visualizer does not use dim styling."""
+    visualizer = ConversationVisualizer()
+
+    # Test metrics formatting doesn't contain dim styling
+    action = MockAction(command="test")
+    metrics = MetricsSnapshot(
+        accumulated_token_usage=TokenUsage(
+            prompt_tokens=1500,
+            completion_tokens=500,
+            cache_read_tokens=300,
+            reasoning_tokens=200,
+        ),
+        accumulated_cost=0.0234,
+    )
+
+    tool_call = create_tool_call("call_1", "test", {})
+    event = ActionEvent(
+        thought=[TextContent(text="Testing")],
+        action=action,
+        tool_name="test",
+        tool_call_id="call_1",
+        tool_call=tool_call,
+        llm_response_id="response_1",
+        metrics=metrics,
+    )
+
+    subtitle = visualizer._format_metrics_subtitle(event)
+    assert subtitle is not None
+    # Verify no dim styling in metrics subtitle
+    assert "[dim]" not in subtitle
+    assert "[/dim]" not in subtitle
+
+    # Test unknown event panel doesn't contain dim styling
+    from openhands.sdk.event.base import EventBase
+    from openhands.sdk.event.types import SourceType
+
+    class UnknownEvent(EventBase):
+        source: SourceType = "agent"
+
+    unknown_event = UnknownEvent()
+    panel = visualizer._create_event_panel(unknown_event)
+    assert panel is not None
+
+    # Check that subtitle doesn't contain dim styling
+    if hasattr(panel, "subtitle") and panel.subtitle:
+        assert "[dim]" not in str(panel.subtitle)
+        assert "[/dim]" not in str(panel.subtitle)
