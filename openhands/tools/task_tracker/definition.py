@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -73,7 +74,7 @@ class TaskTrackerObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.content)]
 
     @property

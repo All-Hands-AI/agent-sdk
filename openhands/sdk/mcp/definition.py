@@ -1,5 +1,7 @@
 """MCPTool definition and implementation."""
 
+from collections.abc import Sequence
+
 import mcp.types
 from pydantic import Field
 
@@ -44,10 +46,6 @@ class MCPToolObservation(ObservationBase):
                 convrted_content.append(
                     ImageContent(
                         image_urls=[f"data:{block.mimeType};base64,{block.data}"],
-                        # ImageContent is inherited from mcp.types.ImageContent
-                        # so we need to pass these fields
-                        data=block.data,
-                        mimeType=block.mimeType,
                     )
                 )
             else:
@@ -61,7 +59,7 @@ class MCPToolObservation(ObservationBase):
         )
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Format the observation for agent display."""
         initial_message = f"[Tool '{self.tool_name}' executed.]\n"
         if self.is_error:
