@@ -25,7 +25,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             )
         ],
         created=1234567890,
-        model="gpt-4o",
+        model="test-model-non-openai",
         object="chat.completion",
         system_fingerprint="test",
         usage=Usage(
@@ -39,7 +39,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
 @pytest.fixture
 def default_config():
     return LLM(
-        model="gpt-4o",
+        model="test-model-non-openai",
         api_key=SecretStr("test_key"),
         num_retries=2,
         retry_min_wait=1,
@@ -64,7 +64,7 @@ def test_llm_completion_basic(mock_completion):
 
     # Test completion
     messages = [{"role": "user", "content": "Hello"}]
-    response = llm.completion(messages=messages)
+    response = llm.completion(messages=messages, force_chat_completions=True)
 
     assert response == mock_response
     mock_completion.assert_called_once()
@@ -119,7 +119,9 @@ def test_llm_completion_with_tools(mock_completion):
         }
     ]
 
-    response = llm.completion(messages=messages, tools=tools)
+    response = llm.completion(
+        messages=messages, tools=tools, force_chat_completions=True
+    )
 
     assert response == mock_response
     mock_completion.assert_called_once()
@@ -144,7 +146,7 @@ def test_llm_completion_error_handling(mock_completion):
 
     # Should propagate the exception
     with pytest.raises(Exception, match="Test error"):
-        llm.completion(messages=messages)
+        llm.completion(messages=messages, force_chat_completions=True)
 
 
 def test_llm_token_counting_basic(default_config):
@@ -252,7 +254,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     llm = custom_config
 
     messages = [{"role": "user", "content": "Hello with custom params"}]
-    response = llm.completion(messages=messages)
+    response = llm.completion(messages=messages, force_chat_completions=True)
 
     assert response == mock_response
     mock_completion.assert_called_once()
@@ -282,7 +284,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Create LLM with native_tool_calling explicitly set to False
     # This forces the LLM to use prompt-based tool calling instead of native FC
     llm = LLM(
-        model="gpt-4o",
+        model="test-model-not-responses-api",
         api_key=SecretStr("test_key"),
         native_tool_calling=False,  # This is the key setting for non-function call mode
         num_retries=2,
@@ -387,7 +389,9 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # Call both and verify different behavior
     mock_completion.reset_mock()
-    response_native = llm_native.completion(messages=messages, tools=tools)
+    response_native = llm_native.completion(
+        messages=messages, tools=tools, force_chat_completions=True
+    )
     native_call_kwargs = mock_completion.call_args[1]
 
     mock_completion.reset_mock()

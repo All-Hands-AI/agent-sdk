@@ -194,15 +194,28 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         return out
 
     def to_openai_tool(self) -> ChatCompletionToolParam:
-        """Convert an MCP tool to an OpenAI tool."""
+        """Convert an MCP tool to an OpenAI Chat Completions tool."""
+        kwargs: dict[str, Any] = {"name": self.name}
+        if self.description is not None:
+            kwargs["description"] = self.description
+        if self.input_schema is not None:
+            kwargs["parameters"] = self.input_schema
         return ChatCompletionToolParam(
             type="function",
-            function=ChatCompletionToolParamFunctionChunk(
-                name=self.name,
-                description=self.description,
-                parameters=self.input_schema,
-            ),
+            function=ChatCompletionToolParamFunctionChunk(**kwargs),
         )
+
+    def to_responses(self) -> dict[str, Any]:
+        """Convert this tool to an OpenAI Responses API tool dict.
+
+        Only include keys with values to avoid sending nulls downstream.
+        """
+        d: dict[str, Any] = {"type": "function", "name": self.name}
+        if self.description is not None:
+            d["description"] = self.description
+        if self.input_schema is not None:
+            d["parameters"] = self.input_schema
+        return d
 
 
 ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]

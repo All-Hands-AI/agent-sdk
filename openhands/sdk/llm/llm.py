@@ -23,7 +23,11 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import ChatCompletionToolParam, completion as litellm_completion
+from litellm import (
+    ChatCompletionToolParam,
+    completion as litellm_completion,
+    responses as litellm_responses,
+)
 from litellm.exceptions import (
     APIConnectionError,
     InternalServerError,
@@ -39,18 +43,22 @@ from litellm.utils import (
     token_counter,
 )
 
-# OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
+from openhands.sdk.llm.utils.responses_converter import (
+    messages_to_responses_items,
+    responses_to_completion_format,
+)
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
 logger = get_logger(__name__)
+
 
 __all__ = ["LLM"]
 
@@ -301,13 +309,22 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     ) -> ModelResponse:
         """Single entry point for LLM completion.
 
-        Normalize → (maybe) mock tools → transport → postprocess.
+        Serialize messages/tools → (maybe) mock tools
+          → normalize → transport → postprocess.
         """
         # Check if streaming is requested
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
-        # 1) serialize messages
+        # Route to Responses API first, before any message formatting
+        if (
+            get_features(self.model).supports_responses_api
+            and not kwargs.pop("force_chat_completions", False)
+            and self.is_function_calling_active()
+        ):
+            return self.responses(messages=messages, tools=tools, **kwargs)
+
+        # 1) serialize messages for Chat Completions path
         if messages and isinstance(messages[0], Message):
             messages = self.format_messages_for_llm(cast(list[Message], messages))
         else:
@@ -341,7 +358,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "messages": messages[:],  # already simple dicts
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
+                "context_window": (self.max_input_tokens or 0),
             }
             if tools and not use_native_fc:
                 log_ctx["raw_messages"] = original_fncall_msgs
@@ -369,13 +386,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
-
             # Ensure at least one choice
             if not resp.get("choices") or len(resp["choices"]) < 1:
                 raise LLMNoResponseError(
                     "Response choices is less than 1. Response: " + str(resp)
                 )
-
             return resp
 
         try:
@@ -384,6 +399,88 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         except Exception as e:
             self._telemetry.on_error(e)
             raise
+
+    def responses(
+        self,
+        messages: list[dict[str, Any]] | list[Message] | str | None = None,
+        input: str | None = None,
+        **kwargs,
+    ) -> ModelResponse:
+        """Use the Responses API path if supported by the model.
+
+        Note: only one of `messages` or `input` should be provided.
+        """
+        if not get_features(self.model).supports_responses_api:
+            raise ValueError(
+                f"Model {self.model} does not support the Responses API. "
+                f"Use completion() method instead."
+            )
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported in responses() method")
+
+        # Serialize messages for Responses API path (convert Message objects to dicts)
+        if messages and isinstance(messages, list) and isinstance(messages[0], Message):
+            messages = self.format_messages_for_llm(cast(list[Message], messages))
+        else:
+            messages = cast(list[dict[str, Any]], messages)
+
+        return self._responses_request(messages=messages, input=input, **kwargs)
+
+    def _responses_request(
+        self,
+        *,
+        messages: list[dict[str, Any]] | None = None,
+        input: str | None = None,
+        tools: list[Any] | None = None,
+        **kwargs,
+    ) -> ModelResponse:
+        assert self._telemetry is not None
+        if input is not None:
+            input_payload = input
+        elif messages is not None:
+            if isinstance(messages, str):
+                input_payload = messages
+            else:
+                # messages here are already plain dicts via format_messages_for_llm
+                input_payload = messages_to_responses_items(messages)
+        else:
+            raise ValueError("Either 'messages' or 'input' parameter must be provided")
+
+        # Normalize kwargs for Responses API
+        if tools is not None:
+            kwargs = {**kwargs, "tools": tools}
+        call_kwargs = self._normalize_responses_kwargs(kwargs)
+
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "input": input_payload,
+                "kwargs": {k: v for k, v in call_kwargs.items()},
+                "context_window": (self.max_input_tokens or 0),
+            }
+        self._telemetry.on_request(log_ctx=log_ctx)
+
+        @self.retry_decorator(
+            num_retries=self.num_retries,
+            retry_exceptions=LLM_RETRY_EXCEPTIONS,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
+            retry_listener=self.retry_listener,
+        )
+        def _one_attempt() -> ModelResponse:
+            raw = self._transport_responses_call(input=input_payload, **call_kwargs)
+            # Convert raw Responses into ChatCompletions-compatible response
+            converted = responses_to_completion_format(raw)
+            assert self._telemetry is not None
+            self._telemetry.on_response(converted, raw_resp=raw)
+            if not converted.get("choices") or len(converted["choices"]) < 1:
+                raise LLMNoResponseError(
+                    "Response choices is less than 1. Response: " + str(converted)
+                )
+            return converted
+
+        return _one_attempt()
 
     # =========================================================================
     # Transport + helpers
@@ -422,6 +519,29 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 assert isinstance(ret, ModelResponse), (
                     f"Expected ModelResponse, got {type(ret)}"
                 )
+                return ret
+
+    def _transport_responses_call(self, *, input: Any, **kwargs) -> Any:
+        with self._litellm_modify_params_ctx(self.modify_params):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", category=DeprecationWarning, module="httpx.*"
+                )
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r".*content=.*upload.*",
+                    category=DeprecationWarning,
+                )
+                ret = litellm_responses(
+                    model=self.model,
+                    api_key=self.api_key.get_secret_value() if self.api_key else None,
+                    api_base=self.base_url,
+                    api_version=self.api_version,
+                    timeout=self.timeout,
+                    input=input,
+                    **kwargs,
+                )
+                logger.debug("Raw responses result: %s", ret)
                 return ret
 
     @contextmanager
@@ -491,6 +611,58 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if "litellm_proxy" not in self.model:
             out.pop("extra_body", None)
 
+        return out
+
+    def _normalize_responses_kwargs(self, opts: dict) -> dict:
+        out = dict(opts)
+        if self.top_k is not None:
+            out.setdefault("top_k", self.top_k)
+        if self.max_output_tokens is not None:
+            out.setdefault("max_output_tokens", self.max_output_tokens)
+
+        # reasoning
+        if self.reasoning_effort is not None:
+            out["reasoning_effort"] = self.reasoning_effort
+        effort = (
+            self.reasoning_effort
+            if self.reasoning_effort not in (None, "none")
+            else "low"
+        )
+        out.setdefault("reasoning", {"effort": effort, "summary": "detailed"})
+
+        # reasoning models don't like temp/top_p/stop
+        out.pop("temperature", None)
+        out.pop("top_p", None)
+        out.pop("stop", None)
+
+        # Tools mapping: accept either our Tool objects or OpenAI-style dicts
+        tools_param = out.get("tools")
+        if tools_param:
+            converted: list[dict] = []
+            for t in tools_param:
+                if hasattr(t, "to_responses"):
+                    converted.append(t.to_responses())  # type: ignore[attr-defined]
+                else:
+                    fn = t.get("function", {}) if isinstance(t, dict) else {}
+                    name = fn.get("name")
+                    desc = fn.get("description")
+                    params = fn.get("parameters")
+                    td: dict[str, Any] = {"type": "function"}
+                    if name is not None:
+                        td["name"] = name
+                    if desc is not None:
+                        td["description"] = desc
+                    if params is not None:
+                        td["parameters"] = params
+                    converted.append(td)
+            out["tools"] = converted
+        # tool_choice schema is compatible – pass through as-is
+
+        # Default to storing Responses for better retrieval/debugging
+        # out.setdefault("store", True)
+
+        if "litellm_proxy" not in self.model:
+            out.pop("extra_body", None)
         return out
 
     # =========================================================================
@@ -575,6 +747,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if self.native_tool_calling is not None
             else feats.supports_function_calling
         )
+
+    def is_responses_api_supported(self) -> bool:
+        """Returns whether Responses API is supported for this model."""
+        return get_features(self.model).supports_responses_api
 
     def vision_is_active(self) -> bool:
         with warnings.catch_warnings():

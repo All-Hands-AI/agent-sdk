@@ -72,6 +72,7 @@ class ModelFeatures:
     supports_reasoning_effort: bool
     supports_prompt_cache: bool
     supports_stop_words: bool
+    supports_responses_api: bool
 
 
 # Pattern tables capturing current behavior. Keep patterns lowercase.
@@ -92,9 +93,9 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
     # o-series (keep exact o1 support per existing list)
     "o1-2024-12-17",
     "o3*",
-    "o4-mini*",
+    "o4-mini",
     # Google Gemini
-    "gemini-2.5-pro*",
+    "gemini-2.5-pro",
     # Others
     "kimi-k2-0711-preview",
     "kimi-k2-instruct",
@@ -105,8 +106,8 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
 REASONING_EFFORT_PATTERNS: list[str] = [
     # Mirror main behavior exactly (no unintended expansion)
     "o1-2024-12-17",
-    "o1",
-    "o3",
+    "o1*",  # Match all o1 variants including o1-preview
+    "o3*",  # Match all o3 variants
     "o3-2025-04-16",
     "o3-mini-2025-01-31",
     "o3-mini",
@@ -114,8 +115,8 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "o4-mini-2025-04-16",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
-    "gpt-5",
-    "gpt-5-2025-08-07",
+    # OpenAI GPT-5 family (includes mini variants)
+    "gpt-5*",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
@@ -141,6 +142,17 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
     "deepseek-r1-0528*",
 ]
 
+RESPONSES_API_PATTERNS: list[str] = [
+    # OpenAI reasoning models (native Responses API support)
+    "o1*",
+    "o3*",
+    "o4-mini",
+    # OpenAI GPT models with native Responses API support
+    "gpt-4o*",
+    "gpt-4.1*",
+    "gpt-5*",
+]
+
 
 def get_features(model: str) -> ModelFeatures:
     return ModelFeatures(
@@ -150,4 +162,5 @@ def get_features(model: str) -> ModelFeatures:
         supports_stop_words=not model_matches(
             model, SUPPORTS_STOP_WORDS_FALSE_PATTERNS
         ),
+        supports_responses_api=model_matches(model, RESPONSES_API_PATTERNS),
     )

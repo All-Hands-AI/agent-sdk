@@ -113,11 +113,19 @@ class Telemetry(BaseModel):
             return False
 
     def _record_usage(
-        self, usage: Usage, response_id: str, context_window: int
+        self, usage: Usage, response_id: str, context_window: int | None
     ) -> None:
         # Handle both dict and Usage objects
         if isinstance(usage, dict):
             usage = Usage.model_validate(usage)
+
+        # Ensure context_window is a non-negative int
+        safe_context_window = 0
+        try:
+            if context_window is not None:
+                safe_context_window = int(context_window)
+        except Exception:
+            safe_context_window = 0
 
         prompt_tokens = usage.prompt_tokens or 0
         completion_tokens = usage.completion_tokens or 0
@@ -139,7 +147,7 @@ class Telemetry(BaseModel):
             cache_read_tokens=cache_read,
             cache_write_tokens=cache_write,
             reasoning_tokens=reasoning_tokens,
-            context_window=context_window,
+            context_window=safe_context_window,
             response_id=response_id,
         )
 

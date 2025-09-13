@@ -160,7 +160,7 @@ def test_llm_completion_with_mock(mock_completion):
 
     # Test completion
     messages = [{"role": "user", "content": "Hello"}]
-    response = llm.completion(messages=messages)
+    response = llm.completion(messages=messages, force_chat_completions=True)
 
     assert response == mock_response
     mock_completion.assert_called_once()
@@ -191,7 +191,7 @@ def test_llm_retry_on_rate_limit(mock_completion):
 
     # Test completion with retry
     messages = [{"role": "user", "content": "Hello"}]
-    response = llm.completion(messages=messages)
+    response = llm.completion(messages=messages, force_chat_completions=True)
 
     assert response == mock_response
     assert mock_completion.call_count == 2  # First call failed, second succeeded
@@ -410,7 +410,7 @@ def test_llm_no_response_error(mock_completion):
     # Test that empty response raises LLMNoResponseError
     messages = [{"role": "user", "content": "Hello"}]
     with pytest.raises(LLMNoResponseError):
-        llm.completion(messages=messages)
+        llm.completion(messages=messages, force_chat_completions=True)
 
 
 def test_response_latency_tracking(default_llm):

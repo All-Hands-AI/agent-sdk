@@ -74,6 +74,7 @@ def test_completion_retries_api_connection_error(
     )
     response = llm.completion(
         messages=[{"role": "user", "content": "Hello!"}],
+        force_chat_completions=True,
     )
 
     # Verify that the retry was successful
@@ -119,6 +120,7 @@ def test_completion_max_retries_api_connection_error(
     with pytest.raises(APIConnectionError) as excinfo:
         llm.completion(
             messages=[{"role": "user", "content": "Hello!"}],
+            force_chat_completions=True,
         )
 
     # Verify that the correct number of retries were attempted
@@ -146,6 +148,7 @@ def test_completion_no_retry_on_success(mock_litellm_completion, default_config)
     )
     response = llm.completion(
         messages=[{"role": "user", "content": "Hello!"}],
+        force_chat_completions=True,
     )
 
     # Verify that no retries were needed
@@ -175,6 +178,7 @@ def test_completion_no_retry_on_non_retryable_error(
     with pytest.raises(ValueError) as excinfo:
         llm.completion(
             messages=[{"role": "user", "content": "Hello!"}],
+            force_chat_completions=True,
         )
 
     # Verify that no retries were attempted
@@ -233,6 +237,7 @@ def test_retry_listener_callback(mock_litellm_completion, default_config):
     )
     response = llm.completion(
         messages=[{"role": "user", "content": "Hello!"}],
+        force_chat_completions=True,
     )
 
     # Verify that the retry listener was called
