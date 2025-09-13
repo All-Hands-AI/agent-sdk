@@ -5,13 +5,12 @@ from openhands.sdk.context.microagents import (
     BaseMicroagent,
     KnowledgeMicroagent,
     MicroagentKnowledge,
-    MicroagentMetadata,
     MicroagentType,
     MicroagentValidationError,
     RepoMicroagent,
     load_microagents_from_dir,
 )
-from openhands.sdk.context.utils import render_template
+from openhands.sdk.context.prompts import render_template
 
 
 __all__ = [
@@ -19,7 +18,6 @@ __all__ = [
     "BaseMicroagent",
     "KnowledgeMicroagent",
     "RepoMicroagent",
-    "MicroagentMetadata",
     "MicroagentType",
     "MicroagentKnowledge",
     "load_microagents_from_dir",

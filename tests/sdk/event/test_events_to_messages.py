@@ -1,6 +1,7 @@
 """Tests for events_to_messages conversion in openhands/sdk/event/base.py."""  # type: ignore
 
 import json
+from collections.abc import Sequence
 from typing import cast
 
 import pytest
@@ -31,7 +32,7 @@ class MockObservation(ObservationBase):
     result: str
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 

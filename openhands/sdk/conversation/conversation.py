@@ -1,18 +1,22 @@
+import uuid
 from typing import TYPE_CHECKING, Iterable
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.agent import AgentBase
+    from openhands.sdk.agent import AgentType
 
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
-from openhands.sdk.conversation.visualizer import ConversationVisualizer
+from openhands.sdk.conversation.visualizer import (
+    create_default_visualizer,
+)
 from openhands.sdk.event import (
     MessageEvent,
     PauseEvent,
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
@@ -34,31 +38,61 @@ def compose_callbacks(
 class Conversation:
     def __init__(
         self,
-        agent: "AgentBase",
+        agent: "AgentType",
+        persist_filestore: FileStore | None = None,
+        conversation_id: str | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
+        visualize: bool = True,
     ):
-        """Initialize the conversation."""
-        self._visualizer = ConversationVisualizer()
+        """Initialize the conversation.
+
+        Args:
+            agent: The agent to use for the conversation
+            persist_filestore: Optional FileStore to persist conversation state
+            conversation_id: Optional ID for the conversation. If provided, will
+                      be used to identify the conversation. The user might want to
+                      suffix their persistent filestore with this ID.
+            callbacks: Optional list of callback functions to handle events
+            max_iteration_per_run: Maximum number of iterations per run
+            visualize: Whether to enable default visualization. If True, adds
+                      a default visualizer callback. If False, relies on
+                      application to provide visualization through callbacks.
+        """
         self.agent = agent
-        self.state = ConversationState()
+        self._persist_filestore = persist_filestore
+
+        # Create-or-resume: factory inspects BASE_STATE to decide
+        desired_id = conversation_id or str(uuid.uuid4())
+        self.state = ConversationState.create(
+            id=desired_id,
+            agent=agent,
+            file_store=self._persist_filestore,
+        )
 
         # Default callback: persist every event to state
-        def _append_event(e):
+        def _default_callback(e):
             self.state.events.append(e)
 
-        # Compose callbacks; default appender runs last to keep agent-emitted event order (on_event then persist)  # noqa: E501
-        composed_list = (
-            [self._visualizer.on_event]
-            + (callbacks if callbacks else [])
-            + [_append_event]
-        )
-        self._on_event = compose_callbacks(composed_list)
+        composed_list = (callbacks if callbacks else []) + [_default_callback]
+        # Add default visualizer if requested
+        if visualize:
+            self._visualizer = create_default_visualizer()
+            composed_list = [self._visualizer.on_event] + composed_list
+            # visualize should happen first for visibility
+        else:
+            self._visualizer = None
 
+        self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
+
+    @property
+    def id(self) -> str:
+        """Get the unique ID of the conversation."""
+        return self.state.id
 
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
@@ -200,3 +234,23 @@ class Conversation:
             pause_event = PauseEvent()
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
+
+    def close(self) -> None:
+        """Close the conversation and clean up all tool executors."""
+        logger.debug("Closing conversation and cleaning up tool executors")
+        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
+        for tool in self.agent.tools.values():
+            if tool.executor is not None:
+                try:
+                    tool.executor.close()
+                except Exception as e:
+                    logger.warning(
+                        f"Error closing executor for tool '{tool.name}': {e}"
+                    )
+
+    def __del__(self) -> None:
+        """Ensure cleanup happens when conversation is destroyed."""
+        try:
+            self.close()
+        except Exception as e:
+            logger.warning(f"Error during conversation cleanup: {e}", exc_info=True)

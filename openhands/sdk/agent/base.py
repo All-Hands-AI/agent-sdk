@@ -1,42 +1,41 @@
 import os
 import sys
 from abc import ABC, abstractmethod
-from types import MappingProxyType
+from typing import TYPE_CHECKING, Annotated, Sequence
+
+from pydantic import ConfigDict, Field
 
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolType
+from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
+)
+from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 
 logger = get_logger(__name__)
 
 
-class AgentBase(ABC):
-    def __init__(
-        self,
-        llm: LLM,
-        tools: list[Tool],
-        agent_context: AgentContext | None = None,
-    ) -> None:
-        """Initializes a new instance of the Agent class.
+class AgentBase(DiscriminatedUnionMixin, ABC):
+    model_config = ConfigDict(
+        frozen=True,
+        arbitrary_types_allowed=True,
+    )
 
-        Agent should be Stateless: every step only relies on:
-        1. input ConversationState
-        2. LLM/tools/agent_context that were given in __init__
-        """
-        self._llm = llm
-        self._agent_context = agent_context
-
-        # Load tools into an immutable dict
-        _tools_map = {}
-        for tool in tools:
-            if tool.name in _tools_map:
-                raise ValueError(f"Duplicate tool name: {tool.name}")
-            logger.debug(f"Registering tool: {tool}")
-            _tools_map[tool.name] = tool
-        self._tools = MappingProxyType(_tools_map)
+    llm: LLM
+    agent_context: AgentContext | None = Field(default=None)
+    tools: dict[str, ToolType] | Sequence[ToolType] = Field(
+        default_factory=dict,
+        description="Mapping of tool name to Tool instance that the agent can use."
+        " If a list is provided, it should be converted to a mapping by tool name."
+        " We need to define this as ToolType for discriminated union.",
+    )
 
     @property
     def prompt_dir(self) -> str:
@@ -52,26 +51,11 @@ class AgentBase(ABC):
         """Returns the name of the Agent."""
         return self.__class__.__name__
 
-    @property
-    def llm(self) -> LLM:
-        """Returns the LLM instance used by the Agent."""
-        return self._llm
-
-    @property
-    def tools(self) -> MappingProxyType[str, Tool]:
-        """Returns an immutable mapping of available tools from name."""
-        return self._tools
-
-    @property
-    def agent_context(self) -> AgentContext | None:
-        """Returns the agent context used by the Agent."""
-        return self._agent_context
-
     @abstractmethod
     def init_state(
         self,
-        state: ConversationState,
-        on_event: ConversationCallbackType,
+        state: "ConversationState",
+        on_event: "ConversationCallbackType",
     ) -> None:
         """Initialize the empty conversation state to prepare the agent for user
         messages.
@@ -85,8 +69,8 @@ class AgentBase(ABC):
     @abstractmethod
     def step(
         self,
-        state: ConversationState,
-        on_event: ConversationCallbackType,
+        state: "ConversationState",
+        on_event: "ConversationCallbackType",
     ) -> None:
         """Taking a step in the conversation.
 
@@ -101,3 +85,40 @@ class AgentBase(ABC):
         NOTE: state will be mutated in-place.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+    def resolve_diff_from_deserialized(self, persisted: "AgentType") -> "AgentType":
+        """
+        Return a new AgentBase instance equivalent to `persisted` but with
+        explicitly whitelisted fields (e.g. api_key) taken from `self`.
+        """
+        if persisted.__class__ is not self.__class__:
+            raise ValueError(
+                f"Cannot resolve from deserialized: persisted agent is of type "
+                f"{persisted.__class__.__name__}, but self is of type "
+                f"{self.__class__.__name__}."
+            )
+
+        new_llm = self.llm.resolve_diff_from_deserialized(persisted.llm)
+        reconciled = persisted.model_copy(update={"llm": new_llm})
+
+        if self.model_dump(exclude_none=True) != reconciled.model_dump(
+            exclude_none=True
+        ):
+            raise ValueError(
+                "The Agent provided is different from the one in persisted state.\n"
+                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
+            )
+        return reconciled
+
+    def model_dump_succint(self, **kwargs):
+        """Like model_dump, but excludes None fields by default."""
+        if "exclude_none" not in kwargs:
+            kwargs["exclude_none"] = True
+        dumped = super().model_dump(**kwargs)
+        # remove tool schema details for brevity
+        if "tools" in dumped and isinstance(dumped["tools"], dict):
+            dumped["tools"] = list(dumped["tools"].keys())
+        return dumped
+
+
+AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]

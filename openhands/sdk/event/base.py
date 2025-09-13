@@ -1,12 +1,17 @@
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 from pydantic import BaseModel, ConfigDict, Field
+from rich.text import Text
 
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
+)
 
 
 if TYPE_CHECKING:
@@ -15,7 +20,7 @@ if TYPE_CHECKING:
 N_CHAR_PREVIEW = 500
 
 
-class EventBase(BaseModel, ABC):
+class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid")
@@ -29,6 +34,18 @@ class EventBase(BaseModel, ABC):
     )  # consistent with V1
     source: SourceType = Field(..., description="The source of this event")
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this event.
+
+        This is a fallback implementation for unknown event types.
+        Subclasses should override this method to provide specific visualization.
+        """
+        content = Text()
+        content.append(f"Unknown event type: {self.__class__.__name__}")
+        content.append(f"\n{self.model_dump()}")
+        return content
+
     def __str__(self) -> str:
         """Plain text string representation for display."""
         return f"{self.__class__.__name__} ({self.source})"
@@ -39,6 +56,15 @@ class EventBase(BaseModel, ABC):
             f"{self.__class__.__name__}(id='{self.id[:8]}...', "
             f"source='{self.source}', timestamp='{self.timestamp}')"
         )
+
+
+Event = Annotated[EventBase, DiscriminatedUnionType[EventBase]]
+"""Type annotation for values that can be any implementation of EventBase.
+
+In most situations, this is equivalent to EventBase. However, when used in Pydantic
+BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
+discriminator resolution until runtime.
+"""
 
 
 class LLMConvertibleEvent(EventBase, ABC):

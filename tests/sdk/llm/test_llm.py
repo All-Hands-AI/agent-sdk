@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from litellm.exceptions import (
@@ -10,44 +10,8 @@ from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
 
-
-def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
-    """Helper function to create properly structured mock responses."""
-    from litellm.types.utils import (
-        Choices,
-        Message as LiteLLMMessage,
-        ModelResponse,
-        Usage,
-    )
-
-    # Create proper LiteLLM message
-    message = LiteLLMMessage(content=content, role="assistant")
-
-    # Create proper choice
-    choice = Choices(finish_reason="stop", index=0, message=message)
-
-    # Create proper usage
-    usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-
-    # Create proper ModelResponse
-    response = ModelResponse(
-        id=response_id,
-        choices=[choice],
-        created=1234567890,
-        model="gpt-4o",
-        object="chat.completion",
-        usage=usage,
-    )
-
-    return response
-
-
-@pytest.fixture(autouse=True)
-def mock_logger(monkeypatch):
-    # suppress logging of completion data to file
-    mock_logger = MagicMock()
-    monkeypatch.setattr("openhands.sdk.llm.llm.logger", mock_logger)
-    return mock_logger
+# Import common test utilities
+from tests.conftest import create_mock_litellm_response
 
 
 @pytest.fixture
@@ -62,11 +26,14 @@ def default_llm():
 
 
 def test_llm_init_with_default_config(default_llm):
-    llm = LLM(model="gpt-4o", api_key=SecretStr("test_key"), service_id="test-service")
-    assert llm.model == "gpt-4o"
-    assert llm.api_key is not None and llm.api_key.get_secret_value() == "test_key"
-    assert isinstance(llm.metrics, Metrics)
-    assert llm.metrics.model_name == "gpt-4o"
+    """Test LLM initialization with default config using fixture."""
+    assert default_llm.model == "gpt-4o"
+    assert (
+        default_llm.api_key is not None
+        and default_llm.api_key.get_secret_value() == "test_key"
+    )
+    assert isinstance(default_llm.metrics, Metrics)
+    assert default_llm.metrics.model_name == "gpt-4o"
 
 
 def test_token_usage_add():
@@ -179,7 +146,7 @@ def test_metrics_diff():
 @patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_completion_with_mock(mock_completion):
     """Test LLM completion with mocked litellm."""
-    mock_response = create_mock_response("Test response")
+    mock_response = create_mock_litellm_response("Test response")
     mock_completion.return_value = mock_response
 
     # Create LLM after the patch is applied
@@ -202,7 +169,7 @@ def test_llm_completion_with_mock(mock_completion):
 @patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_retry_on_rate_limit(mock_completion):
     """Test that LLM retries on rate limit errors."""
-    mock_response = create_mock_response("Success after retry")
+    mock_response = create_mock_litellm_response("Success after retry")
 
     mock_completion.side_effect = [
         RateLimitError(

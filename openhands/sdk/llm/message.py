@@ -1,9 +1,10 @@
+from collections.abc import Sequence
 from typing import Any, Literal, cast
 
 import mcp.types
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
@@ -48,12 +49,9 @@ class TextContent(mcp.types.TextContent, BaseContent):
         return data
 
 
-class ImageContent(mcp.types.ImageContent, BaseContent):
+class ImageContent(BaseContent):
     type: Literal["image"] = "image"
     image_urls: list[str]
-    # We use populate_by_name since mcp.types.ImageContent
-    # alias meta -> _meta, but .model_dumps() will output "meta"
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""
@@ -69,7 +67,7 @@ class Message(BaseModel):
     # NOTE: this is not the same as EventSource
     # These are the roles in the LLM's APIs
     role: Literal["user", "system", "assistant", "tool"]
-    content: list[TextContent | ImageContent] = Field(default_factory=list)
+    content: Sequence[TextContent | ImageContent] = Field(default_factory=list)
     cache_enabled: bool = False
     vision_enabled: bool = False
     # function calling
@@ -81,10 +79,26 @@ class Message(BaseModel):
     name: str | None = None  # name of the tool
     # force string serializer
     force_string_serializer: bool = False
+    # reasoning content (from reasoning models like o1, Claude thinking, DeepSeek R1)
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning/thinking content from reasoning models",
+    )
 
     @property
     def contains_image(self) -> bool:
         return any(isinstance(content, ImageContent) for content in self.content)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def _coerce_content(cls, v: Any) -> Sequence[TextContent | ImageContent] | Any:
+        # Accept None → []
+        if v is None:
+            return []
+        # Accept a single string → [TextContent(...)]
+        if isinstance(v, str):
+            return [TextContent(text=v)]
+        return v
 
     def to_llm_dict(self) -> dict[str, Any]:
         """Serialize message for LLM API consumption.
@@ -178,18 +192,26 @@ class Message(BaseModel):
 
     @classmethod
     def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
-        """Convert a litellm LiteLLMMessage to our Message class."""
+        """Convert a LiteLLMMessage to our Message class.
+
+        Provider-agnostic mapping for reasoning:
+        - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
+        """
         assert message.role != "function", "Function role is not supported"
+
+        rc = getattr(message, "reasoning_content", None)
+
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
             tool_calls=message.tool_calls,
+            reasoning_content=rc,
         )
 
 
-def content_to_str(contents: list[TextContent | ImageContent]) -> list[str]:
+def content_to_str(contents: Sequence[TextContent | ImageContent]) -> list[str]:
     """Convert a list of TextContent and ImageContent to a list of strings.
 
     This is primarily used for display purposes.

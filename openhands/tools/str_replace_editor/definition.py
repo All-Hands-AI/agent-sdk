@@ -1,11 +1,14 @@
 """String replace editor tool implementation."""
 
+from collections.abc import Sequence
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
+from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
@@ -56,6 +59,10 @@ class StrReplaceEditorAction(ActionBase):
 class StrReplaceEditorObservation(ObservationBase):
     """A ToolResult that can be rendered as a CLI output."""
 
+    command: CommandLiteral = Field(
+        description="The commands to run. Allowed options are: `view`, `create`, "
+        "`str_replace`, `insert`, `undo_edit`."
+    )
     output: str = Field(
         default="", description="The output message from the tool for the LLM to see."
     )
@@ -72,11 +79,63 @@ class StrReplaceEditorObservation(ObservationBase):
     )
     error: str | None = Field(default=None, description="Error message if any.")
 
+    _diff_cache: Text | None = PrivateAttr(default=None)
+
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=self.error)]
         return [TextContent(text=self.output)]
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this observation.
+
+        Shows diff visualization for meaningful changes (file creation, successful
+        edits), otherwise falls back to agent observation.
+        """
+
+        if not self._has_meaningful_diff:
+            return super().visualize
+
+        assert self.path is not None, "path should be set for meaningful diff"
+        # Generate and cache diff visualization
+        if not self._diff_cache:
+            change_applied = self.command != "view" and not self.error
+            self._diff_cache = visualize_diff(
+                self.path,
+                self.old_content,
+                self.new_content,
+                n_context_lines=2,
+                change_applied=change_applied,
+            )
+
+        return self._diff_cache
+
+    @property
+    def _has_meaningful_diff(self) -> bool:
+        """Check if there's a meaningful diff to display."""
+        if self.error:
+            return False
+
+        if not self.path:
+            return False
+
+        if self.command not in ("create", "str_replace", "insert", "undo_edit"):
+            return False
+
+        # File creation case
+        if self.command == "create" and self.new_content and not self.prev_exist:
+            return True
+
+        # File modification cases (str_replace, insert, undo_edit)
+        if self.command in ("str_replace", "insert", "undo_edit"):
+            # Need both old and new content to show meaningful diff
+            if self.old_content is not None and self.new_content is not None:
+                # Only show diff if content actually changed
+                return self.old_content != self.new_content
+
+        return False
 
 
 Command = Literal[
@@ -124,7 +183,7 @@ Remember: when making multiple file edits in a row to the same file, you should 
 
 str_replace_editor_tool = Tool(
     name="str_replace_editor",
-    input_schema=StrReplaceEditorAction,
+    action_type=StrReplaceEditorAction,
     description=TOOL_DESCRIPTION,
     annotations=ToolAnnotations(
         title="str_replace_editor",
@@ -139,20 +198,21 @@ str_replace_editor_tool = Tool(
 class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
-    def __init__(self):
+    @classmethod
+    def create(cls, workspace_root: str | None = None) -> "FileEditorTool":
         """Initialize FileEditorTool with a FileEditorExecutor."""
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
         # Initialize the executor
-        executor = FileEditorExecutor()
+        executor = FileEditorExecutor(workspace_root=workspace_root)
 
         # Initialize the parent Tool with the executor
-        super().__init__(
+        return cls(
             name=str_replace_editor_tool.name,
             description=TOOL_DESCRIPTION,
-            input_schema=StrReplaceEditorAction,
-            output_schema=StrReplaceEditorObservation,
+            action_type=StrReplaceEditorAction,
+            observation_type=StrReplaceEditorObservation,
             annotations=str_replace_editor_tool.annotations,
             executor=executor,
         )

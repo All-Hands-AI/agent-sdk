@@ -36,3 +36,8 @@ class BashExecutor(ToolExecutor):
 
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
         return self.session.execute(action)
+
+    def close(self) -> None:
+        """Close the terminal session and clean up resources."""
+        if hasattr(self, "session"):
+            self.session.close()

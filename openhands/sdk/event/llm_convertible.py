@@ -1,25 +1,59 @@
 import copy
-from typing import cast
+import json
+from collections.abc import Sequence
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
-from pydantic import Field
+from pydantic import ConfigDict, Field, computed_field
+from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
-from openhands.sdk.event.types import EventType, SourceType
+from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.tool import Action, Observation
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
     """System prompt added by the agent."""
 
-    kind: EventType = "system_prompt"
     source: SourceType = "agent"
     system_prompt: TextContent = Field(..., description="The system prompt text")
     tools: list[ChatCompletionToolParam] = Field(
         ..., description="List of tools in OpenAI tool format"
     )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this system prompt event."""
+        content = Text()
+        content.append("System Prompt:\n", style="bold")
+        content.append(self.system_prompt.text)
+        content.append(f"\n\nTools Available: {len(self.tools)}")
+        for tool in self.tools:
+            # Build display-only copy to avoid mutating event data
+            tool_display = {
+                k: (v[:27] + "..." if isinstance(v, str) and len(v) > 30 else v)
+                for k, v in tool.items()
+            }
+            tool_fn = tool_display.get("function", None)
+            if tool_fn and isinstance(tool_fn, dict):
+                assert "name" in tool_fn
+                assert "description" in tool_fn
+                assert "parameters" in tool_fn
+                params_str = json.dumps(tool_fn["parameters"])
+                if len(params_str) > 200:
+                    params_str = params_str[:197] + "..."
+                content.append(
+                    f"\n  - {tool_fn['name']}: "
+                    f"{tool_fn['description'].split('\n')[0][:100]}...\n",
+                    style="dim",
+                )
+                content.append(f"  Parameters: {params_str}", style="dim")
+            else:
+                content.append(
+                    f"\n  - Cannot access .function for {tool_display}", style="dim"
+                )
+        return content
 
     def to_llm_message(self) -> Message:
         return Message(role="system", content=[self.system_prompt])
@@ -39,14 +73,15 @@ class SystemPromptEvent(LLMConvertibleEvent):
 
 
 class ActionEvent(LLMConvertibleEvent):
-    kind: EventType = "action"
     source: SourceType = "agent"
-    thought: list[TextContent] = Field(
+    thought: Sequence[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
-    action: ActionBase = Field(
-        ..., description="Single action (tool call) returned by LLM"
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning/thinking content from reasoning models",
     )
+    action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: str = Field(
         ..., description="The unique id returned by LLM API for this tool call"
@@ -74,12 +109,37 @@ class ActionEvent(LLMConvertibleEvent):
         ),
     )
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this action event."""
+        content = Text()
+
+        # Display reasoning content first if available
+        if self.reasoning_content:
+            content.append("Reasoning:\n", style="bold")
+            content.append(self.reasoning_content)
+            content.append("\n\n")
+
+        # Display complete thought content
+        thought_text = " ".join([t.text for t in self.thought])
+        if thought_text:
+            content.append("Thought:\n", style="bold")
+            content.append(thought_text)
+            content.append("\n\n")
+
+        # Display action information using action's visualize method
+        content.append(self.action.visualize)
+
+        return content
+
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
-        content: list[TextContent | ImageContent] = cast(
-            list[TextContent | ImageContent], self.thought
+        return Message(
+            role="assistant",
+            content=self.thought,
+            tool_calls=[self.tool_call],
+            reasoning_content=self.reasoning_content,
         )
-        return Message(role="assistant", content=content, tool_calls=[self.tool_call])
 
     def __str__(self) -> str:
         """Plain text string representation for ActionEvent."""
@@ -95,9 +155,8 @@ class ActionEvent(LLMConvertibleEvent):
 
 
 class ObservationEvent(LLMConvertibleEvent):
-    kind: EventType = "observation"
     source: SourceType = "environment"
-    observation: ObservationBase = Field(
+    observation: Observation = Field(
         ..., description="The observation (tool call) sent to LLM"
     )
 
@@ -110,6 +169,18 @@ class ObservationEvent(LLMConvertibleEvent):
     tool_call_id: str = Field(
         ..., description="The tool call id that this observation is responding to"
     )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this observation event."""
+        to_viz = self.observation.visualize
+        content = Text()
+        if to_viz.plain.strip():
+            content.append("Tool: ", style="bold")
+            content.append(self.tool_name)
+            content.append("\nResult:\n", style="bold")
+            content.append(to_viz)
+        return content
 
     def to_llm_message(self) -> Message:
         return Message(
@@ -136,18 +207,11 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    kind: EventType = "message"
+    model_config = ConfigDict(extra="ignore")
+
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
-    )
-
-    # context extensions stuff / microagent can go here
-    activated_microagents: list[str] = Field(
-        default_factory=list, description="List of activated microagent name"
-    )
-    extended_content: list[TextContent] = Field(
-        default_factory=list, description="List of content added by agent context"
     )
     metrics: MetricsSnapshot | None = Field(
         default=None,
@@ -157,9 +221,51 @@ class MessageEvent(LLMConvertibleEvent):
         ),
     )
 
+    # context extensions stuff / microagent can go here
+    activated_microagents: list[str] = Field(
+        default_factory=list, description="List of activated microagent name"
+    )
+    extended_content: list[TextContent] = Field(
+        default_factory=list, description="List of content added by agent context"
+    )
+
+    @computed_field
+    def reasoning_content(self) -> str:
+        return self.llm_message.reasoning_content or ""
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this message event."""
+        content = Text()
+
+        text_parts = content_to_str(self.llm_message.content)
+        if text_parts:
+            full_content = "".join(text_parts)
+            content.append(full_content)
+        else:
+            content.append("[no text content]", style="dim")
+
+        # Add microagent information if present
+        if self.activated_microagents:
+            content.append(
+                f"\nActivated Microagents: {', '.join(self.activated_microagents)}",
+                style="dim",
+            )
+
+        # Add extended content if available
+        if self.extended_content:
+            assert not any(
+                isinstance(c, ImageContent) for c in self.extended_content
+            ), "Extended content should not contain images"
+            text_parts = content_to_str(self.extended_content)
+            content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
+            content.append(" ".join(text_parts))
+
+        return content
+
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
-        msg.content.extend(self.extended_content)
+        msg.content = list(msg.content) + list(self.extended_content)
         return msg
 
     def __str__(self) -> str:
@@ -191,7 +297,6 @@ class MessageEvent(LLMConvertibleEvent):
 class UserRejectObservation(LLMConvertibleEvent):
     """Observation when user rejects an action in confirmation mode."""
 
-    kind: EventType = "observation"
     source: SourceType = "user"
     action_id: str = Field(
         ..., description="The action id that this rejection is responding to"
@@ -206,6 +311,16 @@ class UserRejectObservation(LLMConvertibleEvent):
         default="User rejected the action",
         description="Reason for rejecting the action",
     )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this user rejection event."""
+        content = Text()
+        content.append("Tool: ", style="bold")
+        content.append(self.tool_name)
+        content.append("\n\nRejection Reason:\n", style="bold")
+        content.append(self.rejection_reason)
+        return content
 
     def to_llm_message(self) -> Message:
         return Message(
@@ -227,9 +342,12 @@ class UserRejectObservation(LLMConvertibleEvent):
 
 
 class AgentErrorEvent(LLMConvertibleEvent):
-    """Error triggered by the agent."""
+    """Error triggered by the agent.
 
-    kind: EventType = "agent_error"
+    Note: This event should not contain model "thought" or "reasoning_content". It
+    represents an error produced by the agent/scaffold, not model output.
+    """
+
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
     metrics: MetricsSnapshot | None = Field(
@@ -239,6 +357,14 @@ class AgentErrorEvent(LLMConvertibleEvent):
             "to the last action when multiple actions share the same LLM response."
         ),
     )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this agent error event."""
+        content = Text()
+        content.append("Error Details:\n", style="bold")
+        content.append(self.error)
+        return content
 
     def to_llm_message(self) -> Message:
         return Message(role="user", content=[TextContent(text=self.error)])
