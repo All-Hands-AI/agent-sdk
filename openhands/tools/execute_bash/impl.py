@@ -21,7 +21,7 @@ class BashExecutor(ToolExecutor):
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
-        env_masker: Callable[[], dict[str, str]] | None = None,
+        env_masker: Callable[[str], str] | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
 
@@ -57,33 +57,25 @@ class BashExecutor(ToolExecutor):
         if action.is_input:
             return
 
-        try:
-            env_vars = self.env_provider(action.command)
-            if not env_vars:
-                return
+        env_vars = self.env_provider(action.command)
+        if not env_vars:
+            return
 
-            export_statements = []
-            for key, value in env_vars.items():
-                export_statements.append(f"export {key}={json.dumps(value)}")
-            exports_cmd = " && ".join(export_statements)
+        export_statements = []
+        for key, value in env_vars.items():
+            export_statements.append(f"export {key}={json.dumps(value)}")
+        exports_cmd = " && ".join(export_statements)
 
-            logger.debug(
-                f"Exporting {len(env_vars)} environment variables before command"
+        logger.debug(f"Exporting {len(env_vars)} environment variables before command")
+
+        # Execute the export command separately to persist env in the session
+        _ = self.session.execute(
+            ExecuteBashAction(
+                command=exports_cmd,
+                is_input=False,
+                timeout=action.timeout,
             )
-
-            # Execute the export command separately to persist env in the session
-            _ = self.session.execute(
-                ExecuteBashAction(
-                    command=exports_cmd,
-                    is_input=False,
-                    timeout=action.timeout,
-                )
-            )
-        except Exception as e:
-            # If env_provider fails, log the error but continue execution
-            # This allows masking to still work via env_masker even when
-            # env_provider fails
-            logger.debug(f"env_provider failed: {e}")
+        )
 
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
         # If env keys detected, export env values to bash as a separate action first
@@ -92,30 +84,9 @@ class BashExecutor(ToolExecutor):
 
         # Apply automatic secrets masking using env_masker
         if self.env_masker and observation.output:
-            try:
-                # Get current secret values for masking
-                current_secrets = self.env_masker()
-                if current_secrets:
-                    masked_output = observation.output
-                    # Replace each secret value with <secret-hidden>
-                    for secret_value in current_secrets.values():
-                        if secret_value and isinstance(secret_value, str):
-                            masked_output = masked_output.replace(
-                                secret_value, "<secret-hidden>"
-                            )
-
-                    # Create a new observation with masked output
-                    observation = ExecuteBashObservation(
-                        output=masked_output,
-                        command=observation.command,
-                        exit_code=observation.exit_code,
-                        error=observation.error,
-                        timeout=observation.timeout,
-                        metadata=observation.metadata,
-                    )
-            except Exception as e:
-                # If masking fails, log the error and return original observation
-                logger.warning(f"Failed to mask secrets in bash output: {e}")
+            masked_output = self.env_masker(observation.output)
+            data = observation.model_dump(exclude={"output"})
+            return ExecuteBashObservation(**data, output=masked_output)
 
         return observation
 

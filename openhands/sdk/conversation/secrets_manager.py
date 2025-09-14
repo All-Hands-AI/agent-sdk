@@ -91,18 +91,7 @@ class SecretsManager:
         logger.debug(f"Prepared {len(env_vars)} secrets as environment variables")
         return env_vars
 
-    def get_current_secret_values(self) -> dict[str, str]:
-        """Get all currently exported secret values for masking purposes.
-
-        This returns the latest successfully exported values, which may be used
-        for masking even when subsequent callable retrievals fail.
-
-        Returns:
-            Dictionary of currently exported secret values (key -> value)
-        """
-        return self._exported_values.copy()
-
-    def mask_secrets_in_text(self, text: str) -> str:
+    def mask_secrets_in_output(self, text: str) -> str:
         """Mask secret values in the given text.
 
         This method uses both the current exported values and attempts to get
@@ -121,26 +110,6 @@ class SecretsManager:
 
         # First, mask using currently exported values (always available)
         for value in self._exported_values.values():
-            if value and isinstance(value, str):
-                masked_text = masked_text.replace(value, "<secret-hidden>")
-
-        # Then, try to get fresh values and mask those too
-        # This handles cases where new secrets were added but not yet exported
-        for key, provider_or_value in self._secrets.items():
-            try:
-                value = (
-                    provider_or_value()
-                    if callable(provider_or_value)
-                    else provider_or_value
-                )
-                if (
-                    value
-                    and isinstance(value, str)
-                    and value not in self._exported_values.values()
-                ):
-                    masked_text = masked_text.replace(value, "<secret-hidden>")
-            except Exception as e:
-                logger.debug(f"Failed to retrieve secret for masking key '{key}': {e}")
-                continue
+            masked_text = masked_text.replace(value, "<secret-hidden>")
 
         return masked_text

@@ -123,9 +123,9 @@ class Agent(AgentBase):
             except Exception:
                 return {}
 
-        def env_masker() -> dict[str, str]:
+        def env_masker(output: str) -> str:
             try:
-                return secrets_manager.get_current_secret_values()
+                return secrets_manager.mask_secrets_in_output(output)
             except Exception:
                 return {}
 

@@ -220,7 +220,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
-        env_masker: Callable[[], dict[str, str]] | None = None,
+        env_masker: Callable[[str], str] | None = None,
     ) -> "BashTool":
         """Initialize BashTool with executor parameters.
 
