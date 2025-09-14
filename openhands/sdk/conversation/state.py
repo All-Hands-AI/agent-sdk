@@ -1,13 +1,14 @@
 # state.py
 import json
 from threading import RLock, get_ident
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentType
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
+from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.event import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
@@ -15,6 +16,10 @@ from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
 class ConversationState(BaseModel):
@@ -45,6 +50,7 @@ class ConversationState(BaseModel):
     # ===== Private attrs (NOT Fields) =====
     _lock: RLock = PrivateAttr(default_factory=RLock)
     _owner_tid: Optional[int] = PrivateAttr(default=None)
+    _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
     _fs: FileStore = PrivateAttr()  # filestore for persistence
     _events: EventLog = PrivateAttr()  # now the storage for events
     _autosave_enabled: bool = PrivateAttr(
@@ -76,6 +82,11 @@ class ConversationState(BaseModel):
     def assert_locked(self) -> None:
         if self._owner_tid != get_ident():
             raise RuntimeError("State not held by current thread")
+
+    @property
+    def secrets_manager(self) -> SecretsManager:
+        """Public accessor for the SecretsManager (stored as a private attr)."""
+        return self._secrets_manager
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:

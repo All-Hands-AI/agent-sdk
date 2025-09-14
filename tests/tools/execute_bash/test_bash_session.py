@@ -141,6 +141,43 @@ def test_environment_variable_persistence(terminal_type):
     session.close()
 
 
+@parametrize_terminal_types
+def test_environment_variable_inheritance_from_parent(terminal_type):
+    """Test that environment variables from parent process are inherited."""
+    # Set an environment variable in the current process
+    test_var_name = "OPENHANDS_TEST_INHERITANCE_VAR"
+    test_var_value = "inherited_from_parent_12345"
+    original_value = os.environ.get(test_var_name)
+
+    try:
+        # Set the environment variable in the parent process
+        os.environ[test_var_name] = test_var_value
+
+        # Create a new terminal session
+        session = create_terminal_session(
+            work_dir=os.getcwd(), terminal_type=terminal_type
+        )
+        session.initialize()
+
+        # Check if the environment variable is available in the terminal
+        obs = session.execute(
+            ExecuteBashAction(command=f"echo ${test_var_name}", security_risk="LOW")
+        )
+        assert test_var_value in obs.output, (
+            f"Expected '{test_var_value}' in output, but got: {obs.output}"
+        )
+        assert obs.metadata.exit_code == 0
+
+        session.close()
+
+    finally:
+        # Clean up: restore original environment variable value
+        if original_value is not None:
+            os.environ[test_var_name] = original_value
+        else:
+            os.environ.pop(test_var_name, None)
+
+
 def test_long_running_command_follow_by_execute():
     session = create_terminal_session(work_dir=os.getcwd(), no_change_timeout_seconds=2)
     session.initialize()
