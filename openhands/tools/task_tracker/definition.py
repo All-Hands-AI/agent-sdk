@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from rich.text import Text
 
 from openhands.sdk import ImageContent, TextContent
@@ -221,7 +221,7 @@ class TaskTrackerExecutor(ToolExecutor):
         try:
             with open(tasks_file, "r", encoding="utf-8") as f:
                 self._task_list = [TaskItem.model_validate(d) for d in json.load(f)]
-        except (OSError, json.JSONDecodeError) as e:
+        except (OSError, json.JSONDecodeError, TypeError, ValidationError) as e:
             logger.warning(
                 f"Failed to load tasks from {tasks_file}: {e}. Starting with "
                 "an empty task list."

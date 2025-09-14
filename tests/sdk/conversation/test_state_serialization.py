@@ -164,17 +164,21 @@ def test_conversation_state_event_file_scanning():
 
         # Create files with different indices using valid event format
         event1 = SystemPromptEvent(
-            source="agent", system_prompt=TextContent(text="system1"), tools=[]
+            id="abcdef01",
+            source="agent",
+            system_prompt=TextContent(text="system1"),
+            tools=[],
         )
-        event1.id = "abcdef01"
         (events_dir / "event-00000-abcdef01.json").write_text(
             event1.model_dump_json(exclude_none=True)
         )
 
         event2 = SystemPromptEvent(
-            source="agent", system_prompt=TextContent(text="system2"), tools=[]
+            id="abcdef02",
+            source="agent",
+            system_prompt=TextContent(text="system2"),
+            tools=[],
         )
-        event2.id = "abcdef02"
         (events_dir / "event-00001-abcdef02.json").write_text(
             event2.model_dump_json(exclude_none=True)
         )
@@ -212,9 +216,11 @@ def test_conversation_state_corrupted_event_handling():
 
         # Valid event with proper format
         valid_event = SystemPromptEvent(
-            source="agent", system_prompt=TextContent(text="system"), tools=[]
+            id="abcdef01",
+            source="agent",
+            system_prompt=TextContent(text="system"),
+            tools=[],
         )
-        valid_event.id = "abcdef01"
         (events_dir / "event-00000-abcdef01.json").write_text(
             valid_event.model_dump_json(exclude_none=True)
         )
@@ -227,10 +233,10 @@ def test_conversation_state_corrupted_event_handling():
 
         # Valid event with proper format
         valid_event2 = MessageEvent(
+            id="abcdef04",
             source="user",
             llm_message=Message(role="user", content=[TextContent(text="hello")]),
         )
-        valid_event2.id = "abcdef04"
         (events_dir / "event-00003-abcdef04.json").write_text(
             valid_event2.model_dump_json(exclude_none=True)
         )
@@ -428,9 +434,11 @@ def test_conversation_state_missing_base_state():
         events_dir = Path(temp_dir, "events")
         events_dir.mkdir()
         event = SystemPromptEvent(
-            source="agent", system_prompt=TextContent(text="system"), tools=[]
+            id="abcdef01",
+            source="agent",
+            system_prompt=TextContent(text="system"),
+            tools=[],
         )
-        event.id = "abcdef01"
         (events_dir / "event-00000-abcdef01.json").write_text(
             event.model_dump_json(exclude_none=True)
         )

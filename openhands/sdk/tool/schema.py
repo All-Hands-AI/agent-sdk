@@ -101,7 +101,7 @@ def _process_schema_node(node, defs):
 class Schema(BaseModel):
     """Base schema for input action / output observation."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     @classmethod
     def to_mcp_schema(cls) -> dict[str, Any]:
@@ -221,7 +221,7 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
 class MCPActionBase(ActionBase):
     """Base schema for MCP input action."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", frozen=True)
 
     # Collect all fields from ActionBase and its parents
     _parent_fields: frozenset[str] = frozenset(
@@ -259,7 +259,7 @@ discriminator resolution until runtime.
 class ObservationBase(Schema, DiscriminatedUnionMixin):
     """Base schema for output observation."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", frozen=True)
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
