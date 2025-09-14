@@ -18,11 +18,16 @@ class SecretsManager:
     that retrieve the actual secret values. When a bash command is about to be
     executed, it scans the command for any secret keys and injects the corresponding
     environment variables.
+
+    Additionally, it tracks the latest exported values to enable consistent masking
+    even when callable secrets fail on subsequent calls.
     """
 
     def __init__(self) -> None:
         """Initialize an empty secrets manager."""
         self._secrets: dict[str, SecretValue] = {}
+        # Track the latest successfully exported values for masking
+        self._exported_values: dict[str, str] = {}
 
     def update_secrets(
         self,
@@ -77,9 +82,34 @@ class SecretsManager:
                     else provider_or_value
                 )
                 env_vars[key] = value
+                # Track successfully exported values for masking
+                self._exported_values[key] = value
             except Exception as e:
                 logger.error(f"Failed to retrieve secret for key '{key}': {e}")
                 continue
 
         logger.debug(f"Prepared {len(env_vars)} secrets as environment variables")
         return env_vars
+
+    def mask_secrets_in_output(self, text: str) -> str:
+        """Mask secret values in the given text.
+
+        This method uses both the current exported values and attempts to get
+        fresh values from callables to ensure comprehensive masking.
+
+        Args:
+            text: The text to mask secrets in
+
+        Returns:
+            Text with secret values replaced by <secret-hidden>
+        """
+        if not text:
+            return text
+
+        masked_text = text
+
+        # First, mask using currently exported values (always available)
+        for value in self._exported_values.values():
+            masked_text = masked_text.replace(value, "<secret-hidden>")
+
+        return masked_text

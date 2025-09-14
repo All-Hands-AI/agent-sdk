@@ -123,6 +123,12 @@ class Agent(AgentBase):
             except Exception:
                 return {}
 
+        def env_masker(output: str) -> str:
+            try:
+                return secrets_manager.mask_secrets_in_output(output)
+            except Exception:
+                return ""
+
         execute_bash_exists = False
         for tool in self.tools.values():
             if (
@@ -130,8 +136,9 @@ class Agent(AgentBase):
                 and hasattr(tool, "executor")
                 and tool.executor is not None
             ):
-                # Wire the env provider for the bash executor
+                # Wire the env provider and env masker for the bash executor
                 setattr(tool.executor, "env_provider", env_for_cmd)
+                setattr(tool.executor, "env_masker", env_masker)
                 execute_bash_exists = True
 
         if not execute_bash_exists:
