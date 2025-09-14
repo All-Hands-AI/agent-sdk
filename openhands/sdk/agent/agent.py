@@ -110,8 +110,7 @@ class Agent(AgentBase):
     def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
         """
         Configure bash tool with reference to secrets manager.
-        Updated secrets automatically propagate. Secret values from env_provider
-        will automatically be masked in command output.
+        Updated secrets automatically propagate.
         """
         if not isinstance(self.tools, dict):
             return
@@ -132,7 +131,6 @@ class Agent(AgentBase):
                 and tool.executor is not None
             ):
                 # Wire the env provider for the bash executor
-                # Secret masking happens automatically when env_provider is used
                 setattr(tool.executor, "env_provider", env_for_cmd)
                 execute_bash_exists = True
 

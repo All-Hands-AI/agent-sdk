@@ -234,8 +234,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
                          - On Unix-like: tmux if available, otherwise subprocess
             env_provider: Optional callable that maps a command string to
                           environment variables (key -> value) to export before
-                          running that command. Secret values from env_provider
-                          will automatically be masked in command output.
+                          running that command.
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
