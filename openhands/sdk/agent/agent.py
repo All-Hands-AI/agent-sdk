@@ -9,7 +9,6 @@ from litellm.types.utils import (
 from pydantic import Field, ValidationError, field_validator
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.context import render_template
 from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
@@ -44,7 +43,6 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
-    system_prompt_filename: str = Field(default="system_prompt.j2")
     condenser: Condenser | None = Field(default=None, repr=False, exclude=True)
     cli_mode: bool = Field(default=True)
 
@@ -143,20 +141,6 @@ class Agent(AgentBase):
 
         if not execute_bash_exists:
             logger.warning("Skipped wiring SecretsManager: missing bash tool")
-
-    @property
-    def system_message(self) -> str:
-        """Compute system message on-demand to maintain statelessness."""
-        system_message = render_template(
-            prompt_dir=self.prompt_dir,
-            template_name=self.system_prompt_filename,
-            cli_mode=self.cli_mode,
-        )
-        if self.agent_context:
-            _system_message_suffix = self.agent_context.get_system_message_suffix()
-            if _system_message_suffix:
-                system_message += "\n\n" + _system_message_suffix
-        return system_message
 
     def init_state(
         self,
