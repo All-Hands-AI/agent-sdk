@@ -127,7 +127,7 @@ class Agent(AgentBase):
             try:
                 return secrets_manager.mask_secrets_in_output(output)
             except Exception:
-                return {}
+                return ""
 
         execute_bash_exists = False
         for tool in self.tools.values():

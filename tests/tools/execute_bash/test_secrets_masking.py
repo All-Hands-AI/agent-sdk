@@ -18,9 +18,9 @@ def test_bash_executor_with_env_provider_automatic_masking():
 
         # Create env_masker that returns the same secrets for masking
         def mock_env_masker(str: str) -> str:
-             str = str.replace('secret-value-123', '<secret-hidden>')
-             str = str.replace('another-secret-456', '<secret-hidden>')
-             return str
+            str = str.replace("secret-value-123", "<secret-hidden>")
+            str = str.replace("another-secret-456", "<secret-hidden>")
+            return str
 
         # Create executor with both env_provider and env_masker
         executor = BashExecutor(
@@ -63,4 +63,3 @@ def test_bash_executor_without_env_provider():
 
         finally:
             executor.close()
-
