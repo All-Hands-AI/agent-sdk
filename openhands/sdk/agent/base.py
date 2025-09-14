@@ -61,10 +61,15 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @property
     def system_message(self) -> str:
         """Compute system message on-demand to maintain statelessness."""
+        # Prepare template kwargs, including cli_mode if available
+        template_kwargs = dict(self.system_prompt_kwargs)
+        if hasattr(self, "cli_mode"):
+            template_kwargs["cli_mode"] = getattr(self, "cli_mode")
+
         system_message = render_template(
             prompt_dir=self.prompt_dir,
             template_name=self.system_prompt_filename,
-            **self.system_prompt_kwargs,
+            **template_kwargs,
         )
         if self.agent_context:
             _system_message_suffix = self.agent_context.get_system_message_suffix()
