@@ -7,6 +7,12 @@ from openhands.tools.execute_bash import (
     ExecuteBashObservation,
     execute_bash_tool,
 )
+from openhands.tools.repomix import (
+    PackCodebaseAction,
+    PackCodebaseObservation,
+    RepomixTool,
+    pack_codebase_tool,
+)
 from openhands.tools.str_replace_editor import (
     FileEditorExecutor,
     FileEditorTool,
@@ -39,6 +45,10 @@ __all__ = [
     "TaskTrackerObservation",
     "TaskTrackerExecutor",
     "TaskTrackerTool",
+    "pack_codebase_tool",
+    "PackCodebaseAction",
+    "PackCodebaseObservation",
+    "RepomixTool",
 ]
 
 from importlib.metadata import PackageNotFoundError, version
