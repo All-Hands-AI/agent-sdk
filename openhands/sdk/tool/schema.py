@@ -14,6 +14,7 @@ from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
 )
+from openhands.sdk.utils.visualize import display_dict
 
 
 S = TypeVar("S", bound="Schema")
@@ -181,22 +182,7 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
         # Display all action fields systematically
         content.append("Arguments:", style="bold")
         action_fields = self.model_dump()
-        for field_name, field_value in action_fields.items():
-            if field_value is None:
-                continue  # skip None fields
-            content.append(f"\n  {field_name}: ", style="bold")
-            if isinstance(field_value, str):
-                # Handle multiline strings with proper indentation
-                if "\n" in field_value:
-                    content.append("\n")
-                    for line in field_value.split("\n"):
-                        content.append(f"    {line}\n")
-                else:
-                    content.append(f'"{field_value}"')
-            elif isinstance(field_value, (list, dict)):
-                content.append(str(field_value))
-            else:
-                content.append(str(field_value))
+        content.append(display_dict(action_fields))
 
         return content
 

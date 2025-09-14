@@ -1,15 +1,18 @@
 """MCPTool definition and implementation."""
 
+import json
 from collections.abc import Sequence
 
 import mcp.types
 from pydantic import Field
+from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     ObservationBase,
 )
+from openhands.sdk.utils.visualize import display_dict
 
 
 logger = get_logger(__name__)
@@ -65,3 +68,23 @@ class MCPToolObservation(ObservationBase):
         if self.is_error:
             initial_message += "[An error occurred during execution.]\n"
         return [TextContent(text=initial_message)] + self.content
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this observation."""
+        content = Text()
+        content.append(f"[MCP Tool '{self.tool_name}' Observation]\n", style="bold")
+        if self.is_error:
+            content.append("[Error during execution]\n", style="bold red")
+        for block in self.content:
+            if isinstance(block, TextContent):
+                # try to see if block.text is a JSON
+                try:
+                    parsed = json.loads(block.text)
+                    content.append(display_dict(parsed))
+                    continue
+                except (json.JSONDecodeError, TypeError):
+                    content.append(block.text + "\n")
+            elif isinstance(block, ImageContent):
+                content.append(f"[Image with {len(block.image_urls)} URLs]\n")
+        return content
