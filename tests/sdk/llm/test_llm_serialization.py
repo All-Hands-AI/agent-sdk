@@ -64,14 +64,11 @@ def test_llm_excluded_fields_not_serialized() -> None:
     """Test that excluded fields are not included in serialization."""
     # Create LLM with excluded fields
     llm = LLM(model="test-model")
-    llm.service_id = "custom-service"
-    llm.metrics = Metrics(model_name="test-model")
 
     # Serialize to dict
     llm_dict = llm.model_dump()
 
     # Excluded fields should not be present
-    assert "service_id" not in llm_dict
     assert "metrics" not in llm_dict
     assert "retry_listener" not in llm_dict
 

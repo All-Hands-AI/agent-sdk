@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from rich.text import Text
 
 from openhands.sdk.event.types import SourceType
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 N_CHAR_PREVIEW = 500
 
 
-class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
+class EventBase(DiscriminatedUnionMixin, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)

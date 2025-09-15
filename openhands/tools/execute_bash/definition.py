@@ -1,5 +1,6 @@
 """Execute bash tool implementation."""
 
+import os
 from collections.abc import Sequence
 from typing import Callable, Literal
 
@@ -242,6 +243,9 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
+
+        if not os.path.isdir(working_dir):
+            raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
 
         # Initialize the executor
         executor = BashExecutor(
