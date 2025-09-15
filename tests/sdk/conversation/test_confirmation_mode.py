@@ -464,3 +464,47 @@ class TestConfirmationMode:
             e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
         ]
         assert len(obs_events) == 0
+
+    def test_pause_during_confirmation_preserves_waiting_status(self):
+        """Test that pausing during WAITING_FOR_CONFIRMATION preserves the status.
+
+        This test reproduces the race condition issue where agent can be waiting
+        for confirmation and the status is changed to paused instead. Waiting for
+        confirmation is simply a special type of pause and should not be overridden.
+        """
+        # Create a pending action that puts agent in WAITING_FOR_CONFIRMATION state
+        self._make_pending_action()
+
+        # Verify we're in the expected state
+        assert (
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
+        assert self.conversation.state.confirmation_mode is True
+
+        # Call pause() while in WAITING_FOR_CONFIRMATION state
+        self.conversation.pause()
+
+        # Status should remain WAITING_FOR_CONFIRMATION, not change to PAUSED
+        # This is the key fix: waiting for confirmation is a special type of pause
+        assert (
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
+
+        # Test that pause works correctly for other states
+        # Reset to IDLE state
+        with self.conversation.state:
+            self.conversation.state.agent_status = AgentExecutionStatus.IDLE
+
+        # Pause from IDLE should change status to PAUSED
+        self.conversation.pause()
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
+
+        # Reset to RUNNING state
+        with self.conversation.state:
+            self.conversation.state.agent_status = AgentExecutionStatus.RUNNING
+
+        # Pause from RUNNING should change status to PAUSED
+        self.conversation.pause()
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
