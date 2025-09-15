@@ -61,7 +61,7 @@ class LLMSummarizingCondenser(RollingCondenser):
         messages = [Message(role="user", content=[TextContent(text=prompt)])]
 
         response = self.llm.completion(
-            messages=self.llm.format_messages_for_llm(messages),
+            messages=messages,
             extra_body={
                 "metadata": get_llm_metadata(
                     model_name=self.llm.model, agent_name="condenser"
