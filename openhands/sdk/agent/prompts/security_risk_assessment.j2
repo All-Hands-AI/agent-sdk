@@ -1,7 +1,7 @@
 # Security Risk Policy
 When using tools that support the security_risk parameter, assess the safety risk of your actions:
 
-{% if cli_mode %}
+{% if cli_mode | default(true) %}
 - **LOW**: Safe, read-only actions.
   - Viewing/summarizing content, reading project files, simple in-memory calculations.
 - **MEDIUM**: Project-scoped edits or execution.
