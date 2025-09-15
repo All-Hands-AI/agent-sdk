@@ -1,8 +1,6 @@
 import uuid
 from typing import TYPE_CHECKING, Iterable, Optional
 
-from litellm.types.utils import Choices
-
 
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
@@ -22,6 +20,8 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.logger import get_logger
+
+from .title_utils import generate_conversation_title
 
 
 logger = get_logger(__name__)
@@ -278,111 +278,12 @@ class Conversation:
         Raises:
             ValueError: If no user messages are found in the conversation.
         """
-        # Find the first user message in the events
-        first_user_message = None
-        for event in self.state.events:
-            if (
-                isinstance(event, MessageEvent)
-                and event.source == "user"
-                and event.llm_message.content
-            ):
-                # Extract text content from the message
-                text_parts = []
-                for content in event.llm_message.content:
-                    if isinstance(content, TextContent):
-                        text_parts.append(content.text)
-
-                if text_parts:
-                    first_user_message = " ".join(text_parts).strip()
-                    break
-
-        if not first_user_message:
-            raise ValueError("No user messages found in conversation events")
-
         # Use provided LLM or fall back to agent's LLM
         llm_to_use = llm or self.agent.llm
 
-        # Truncate very long messages to avoid excessive token usage
-        if len(first_user_message) > 1000:
-            truncated_message = first_user_message[:1000] + "...(truncated)"
-        else:
-            truncated_message = first_user_message
-
-        try:
-            # Create messages for the LLM to generate a title
-            messages = [
-                Message(
-                    role="system",
-                    content=[
-                        TextContent(
-                            text=(
-                                "You are a helpful assistant that generates concise, "
-                                "descriptive titles for conversations with OpenHands. "
-                                "OpenHands is a helpful AI agent that can interact "
-                                "with a computer to solve tasks using bash terminal, "
-                                "file editor, and browser. Given a user message "
-                                "(which may be truncated), generate a concise, "
-                                "descriptive title for the conversation. Return only "
-                                "the title, with no additional text, quotes, or "
-                                "explanations."
-                            )
-                        )
-                    ],
-                ),
-                Message(
-                    role="user",
-                    content=[
-                        TextContent(
-                            text=(
-                                f"Generate a title (maximum {max_length} characters) "
-                                f"for a conversation that starts with this message:\n\n"
-                                f"{truncated_message}"
-                            )
-                        )
-                    ],
-                ),
-            ]
-
-            # Get completion from LLM
-            response = llm_to_use.completion(messages)
-
-            # Extract the title from the response
-            if (
-                response.choices
-                and isinstance(response.choices[0], Choices)
-                and response.choices[0].message.content
-            ):
-                title = response.choices[0].message.content.strip()
-
-                # Ensure the title isn't too long
-                if len(title) > max_length:
-                    title = title[: max_length - 3] + "..."
-
-                return title
-            else:
-                logger.warning("LLM returned empty response for title generation")
-                # Fall back to simple truncation
-                return self._generate_fallback_title(first_user_message, max_length)
-
-        except Exception as e:
-            logger.warning(f"Error generating conversation title with LLM: {e}")
-            # Fall back to simple truncation
-            return self._generate_fallback_title(first_user_message, max_length)
-
-    def _generate_fallback_title(self, message: str, max_length: int = 50) -> str:
-        """Generate a fallback title by truncating the first user message.
-
-        Args:
-            message: The first user message.
-            max_length: Maximum length of the title.
-
-        Returns:
-            A truncated title.
-        """
-        title = message.strip()
-        if len(title) > max_length:
-            title = title[: max_length - 3] + "..."
-        return title
+        return generate_conversation_title(
+            events=self.state.events, llm=llm_to_use, max_length=max_length
+        )
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""
