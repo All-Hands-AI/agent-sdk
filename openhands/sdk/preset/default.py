@@ -1,6 +1,10 @@
 """Default preset configuration for OpenHands agents."""
 
-from openhands.sdk import Tool, create_mcp_tools
+from openhands.sdk import LLM, Tool, create_mcp_tools
+from openhands.sdk.context.condenser import (
+    Condenser,
+    LLMSummarizingCondenser,
+)
 
 
 def get_default_tools(working_dir: str) -> list[Tool]:
@@ -29,3 +33,12 @@ def get_default_tools(working_dir: str) -> list[Tool]:
         else:
             tools.append(tool)
     return tools
+
+
+def get_default_condenser(llm: LLM) -> Condenser:
+    # Create a condenser to manage the context. The condenser will automatically
+    # truncate conversation history when it exceeds max_size, and replaces the dropped
+    # events with an LLM-generated summary.
+    condenser = LLMSummarizingCondenser(llm=llm, max_size=80, keep_first=4)
+
+    return condenser
