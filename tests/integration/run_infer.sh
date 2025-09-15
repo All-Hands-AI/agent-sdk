@@ -3,10 +3,10 @@ set -eo pipefail
 
 # Check for help flag
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-  echo "Usage: $0 [LLM_MODEL] [LLM_API_KEY] [LLM_BASE_URL] [NUM_WORKERS] [EVAL_IDS] [RUN_NAME]"
+  echo "Usage: $0 [LLM_CONFIG] [LLM_API_KEY] [LLM_BASE_URL] [NUM_WORKERS] [EVAL_IDS] [RUN_NAME]"
   echo ""
   echo "Arguments:"
-  echo "  LLM_MODEL         LLM model to use (required)"
+  echo "  LLM_CONFIG        LLM configuration JSON (required)"
   echo "  LLM_API_KEY       API key for LLM service (optional, can use env var)"
   echo "  LLM_BASE_URL      Base URL for LLM service (optional, can use env var)"
   echo "  NUM_WORKERS       Number of parallel workers (default: 1)"
@@ -14,19 +14,19 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "  RUN_NAME          Name for this run (optional)"
   echo ""
   echo "Example:"
-  echo "  $0 \"litellm_proxy/anthropic/claude-sonnet-4-20250514\" \"api_key\" \"base_url\" 1 \"t01_fix_simple_typo_class_based\" \"test_run\""
+  echo "  $0 '{\"model\":\"litellm_proxy/anthropic/claude-sonnet-4-20250514\",\"temperature\":0.0}' \"api_key\" \"base_url\" 1 \"t01_fix_simple_typo_class_based\" \"test_run\""
   exit 0
 fi
 
-LLM_MODEL=$1
+LLM_CONFIG=$1
 LLM_API_KEY_PARAM=$2
 LLM_BASE_URL_PARAM=$3
 NUM_WORKERS=$4
 EVAL_IDS=$5
 RUN_NAME=$6
 
-if [ -z "$LLM_MODEL" ]; then
-  echo "Error: LLM_MODEL is required as first parameter!"
+if [ -z "$LLM_CONFIG" ]; then
+  echo "Error: LLM_CONFIG is required as first parameter!"
   echo "Use --help for usage information"
   exit 1
 fi
@@ -48,7 +48,7 @@ fi
 # Get agent-sdk version from git
 AGENT_SDK_VERSION=$(git rev-parse --short HEAD)
 
-echo "LLM_MODEL: $LLM_MODEL"
+echo "LLM_CONFIG: $LLM_CONFIG"
 echo "AGENT_SDK_VERSION: $AGENT_SDK_VERSION"
 echo "NUM_WORKERS: $NUM_WORKERS"
 
@@ -61,7 +61,7 @@ fi
 
 # Build the command to run the Python script
 COMMAND="uv run python tests/integration/run_infer.py \
-  --llm-model $LLM_MODEL \
+  --llm-config '$LLM_CONFIG' \
   --num-workers $NUM_WORKERS \
   --eval-note $EVAL_NOTE"
 

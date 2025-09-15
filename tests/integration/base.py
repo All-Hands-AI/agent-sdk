@@ -46,23 +46,31 @@ class BaseIntegrationTest(ABC):
     def __init__(
         self,
         instruction: str,
-        llm_model: str,
+        llm_config: dict[str, Any],
         cwd: str | None = None,
     ):
         self.instruction = instruction
-        self.llm_model = llm_model
+        self.llm_config = llm_config
         self.cwd = cwd
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             raise ValueError(
                 "LLM_API_KEY environment variable not set. Skipping real LLM test."
             )
-        base_url = os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
-        self.llm = LLM(
-            model=self.llm_model,
-            base_url=base_url,
-            api_key=SecretStr(api_key),
-        )
+        base_url = os.getenv("LLM_BASE_URL")
+        if not base_url:
+            raise ValueError(
+                "LLM_BASE_URL environment variable not set. Skipping real LLM test."
+            )
+
+        # Create LLM with all config parameters
+        llm_kwargs = {
+            **self.llm_config,  # Pass through all config parameters
+            "base_url": base_url,
+            "api_key": SecretStr(api_key),
+        }
+
+        self.llm = LLM(**llm_kwargs)
         self.agent = Agent(llm=self.llm, tools=self.tools)
         self.collected_events: list[Event] = []
         self.llm_messages: list[dict[str, Any]] = []
@@ -118,13 +126,6 @@ class BaseIntegrationTest(ABC):
 
         This method should create any files, directories, or other
         resources needed for the test.
-
-        Args:
-            cwd: Working directory for the test (optional)
-            llm_model: LLM model being used for the test (optional)
-
-        Raises:
-            Exception: If initialization fails
         """
         pass
 

@@ -6,13 +6,14 @@ Adapted from OpenHands evaluation/integration_tests/run_infer.py
 
 import argparse
 import importlib.util
+import json
 import os
 import sys
 import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from pydantic import BaseModel
@@ -94,7 +95,7 @@ def load_test_class(file_path: str) -> Optional[type]:
         return None
 
 
-def process_instance(instance: TestInstance, llm_model: str) -> EvalOutput:
+def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> EvalOutput:
     """Process a single test instance."""
     print(f"Processing test: {instance.instance_id}")
 
@@ -104,7 +105,7 @@ def process_instance(instance: TestInstance, llm_model: str) -> EvalOutput:
         return EvalOutput(
             instance_id=instance.instance_id,
             test_result=TestResult(success=False, reason="Failed to load test class"),
-            llm_model=llm_model,
+            llm_model=llm_config.get("model", "unknown"),
             error_message="Could not load test class",
         )
 
@@ -126,7 +127,7 @@ def process_instance(instance: TestInstance, llm_model: str) -> EvalOutput:
         # Note: tools are now provided via the abstract tools property
         test_instance = test_class_type(
             instruction=instruction,
-            llm_model=llm_model,  # Use the provided model
+            llm_config=llm_config,  # Use the provided config
             cwd=temp_dir,  # Pass the CWD (either from module or temp dir)
         )
 
@@ -143,7 +144,7 @@ def process_instance(instance: TestInstance, llm_model: str) -> EvalOutput:
         return EvalOutput(
             instance_id=instance.instance_id,
             test_result=test_result,
-            llm_model=llm_model,
+            llm_model=llm_config.get("model", "unknown"),
             cost=0.0,  # TODO: Extract cost from test execution if available
         )
 
@@ -154,7 +155,7 @@ def process_instance(instance: TestInstance, llm_model: str) -> EvalOutput:
             test_result=TestResult(
                 success=False, reason=f"Test execution failed: {str(e)}"
             ),
-            llm_model=llm_model,
+            llm_model=llm_config.get("model", "unknown"),
             error_message=str(e),
         )
     finally:
@@ -166,7 +167,10 @@ def process_instance(instance: TestInstance, llm_model: str) -> EvalOutput:
 
 
 def run_evaluation(
-    instances: List[TestInstance], llm_model: str, num_workers: int, output_file: str
+    instances: List[TestInstance],
+    llm_config: Dict[str, Any],
+    num_workers: int,
+    output_file: str,
 ) -> None:
     """Run evaluation on all test instances."""
     print(f"Running {len(instances)} tests with {num_workers} workers")
@@ -176,13 +180,13 @@ def run_evaluation(
     if num_workers == 1:
         # Sequential execution
         for instance in instances:
-            result = process_instance(instance, llm_model)
+            result = process_instance(instance, llm_config)
             results.append(result)
     else:
         # Parallel execution
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             future_to_instance = {
-                executor.submit(process_instance, instance, llm_model): instance
+                executor.submit(process_instance, instance, llm_config): instance
                 for instance in instances
             }
 
@@ -242,10 +246,10 @@ def generate_report(output_file: str, eval_note: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Run agent-sdk integration tests")
     parser.add_argument(
-        "--llm-model",
-        type=str,
+        "--llm-config",
+        type=json.loads,
         required=True,
-        help="LLM model to use for testing",
+        help="LLM configuration as JSON string",
     )
     parser.add_argument(
         "--num-workers", type=int, default=1, help="Number of parallel workers"
@@ -271,6 +275,8 @@ def main():
 
     args = parser.parse_args()
 
+    llm_config = args.llm_config
+
     # Load all integration tests
     instances = load_integration_tests()
 
@@ -287,7 +293,7 @@ def main():
 
     # Create output directory with timestamp and model info
     timestamp = time.strftime("%Y%m%d_%H%M%S")
-    model_name = args.llm_model.replace("/", "_").replace("-", "_")
+    model_name = llm_config.get("model", "unknown").replace("/", "_").replace("-", "_")
     output_subdir = f"{model_name}_{args.eval_note}_N{len(instances)}_{timestamp}"
     output_dir = os.path.join(args.output_dir, output_subdir)
     output_file = os.path.join(output_dir, "output.jsonl")
@@ -295,7 +301,7 @@ def main():
     print(f"Output directory: {output_dir}")
 
     # Run evaluation
-    run_evaluation(instances, args.llm_model, args.num_workers, output_file)
+    run_evaluation(instances, llm_config, args.num_workers, output_file)
 
     # Generate report
     generate_report(output_file, args.eval_note)

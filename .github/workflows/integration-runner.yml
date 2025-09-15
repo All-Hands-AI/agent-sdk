@@ -29,16 +29,20 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12"]
-        llm-config:
-          - model: "litellm_proxy/anthropic/claude-sonnet-4-20250514"
-            name: "Claude Sonnet 4"
+        job-config:
+          - name: "Claude Sonnet 4"
             run-suffix: "sonnet_run"
-          - model: "litellm_proxy/openai/gpt-5-mini"
-            name: "GPT-5 Mini"
+            llm-config:
+              model: "litellm_proxy/anthropic/claude-sonnet-4-20250514"
+          - name: "GPT-5 Mini"
             run-suffix: "gpt5_mini_run"
-          - model: "litellm_proxy/deepseek/deepseek-chat"
-            name: "DeepSeek Chat"
+            llm-config:
+              model: "litellm_proxy/openai/gpt-5-mini"
+              temperature: 1.0
+          - name: "DeepSeek Chat"
             run-suffix: "deepseek_run"
+            llm-config:
+              model: "litellm_proxy/deepseek/deepseek-chat"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,16 +67,16 @@ jobs:
           uv pip install pytest
 
       # Run integration test evaluation
-      - name: Run integration test evaluation for ${{ matrix.llm-config.name }}
+      - name: Run integration test evaluation for ${{ matrix.job-config.name }}
         env:
-          LLM_MODEL: ${{ matrix.llm-config.model }}
+          LLM_CONFIG: ${{ toJson(matrix.job-config.llm-config) }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
         run: |
-          ./tests/integration/run_infer.sh "$LLM_MODEL" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' '${{ matrix.llm-config.run-suffix }}'
+          ./tests/integration/run_infer.sh "$LLM_CONFIG" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' '${{ matrix.job-config.run-suffix }}'
 
           # get integration tests report
-          REPORT_FILE=$(find tests/integration/outputs/*${{ matrix.llm-config.run-suffix }}* -name "report.md" -type f | head -n 1)
+          REPORT_FILE=$(find tests/integration/outputs/*${{ matrix.job-config.run-suffix }}* -name "report.md" -type f | head -n 1)
           echo "REPORT_FILE: $REPORT_FILE"
           if [ -f "$REPORT_FILE" ]; then
             echo "INTEGRATION_TEST_REPORT<<EOF" >> $GITHUB_ENV
@@ -94,42 +98,137 @@ jobs:
         run: |
           TIMESTAMP=$(date +'%y-%m-%d-%H-%M')
           cd tests/integration/outputs  # Change to the outputs directory
-          tar -czvf ../../../integration_tests_${{ matrix.llm-config.run-suffix }}_${TIMESTAMP}.tar.gz *${{ matrix.llm-config.run-suffix }}* # Include result directories for this model
+          tar -czvf ../../../integration_tests_${{ matrix.job-config.run-suffix }}_${TIMESTAMP}.tar.gz *${{ matrix.job-config.run-suffix }}* # Include result directories for this model
 
       - name: Upload evaluation results as artifact
         uses: actions/upload-artifact@v4
         id: upload_results_artifact
         with:
-          name: integration-test-outputs-${{ matrix.llm-config.run-suffix }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: integration_tests_${{ matrix.llm-config.run-suffix }}_*.tar.gz
+          name: integration-test-outputs-${{ matrix.job-config.run-suffix }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: integration_tests_${{ matrix.job-config.run-suffix }}_*.tar.gz
 
-      - name: Get artifact URLs
+      - name: Save test results for consolidation
         run: |
-          echo "ARTIFACT_URL=${{ steps.upload_results_artifact.outputs.artifact-url }}" >> $GITHUB_ENV
+          # Create a results summary file for this model
+          mkdir -p test_results_summary
+          cat > test_results_summary/${{ matrix.job-config.run-suffix }}_results.json << EOF
+          {
+            "model_name": "${{ matrix.job-config.name }}",
+            "run_suffix": "${{ matrix.job-config.run-suffix }}",
+            "test_report": $(echo '${{ env.INTEGRATION_TEST_REPORT }}' | jq -Rs .),
+            "artifact_url": "${{ steps.upload_results_artifact.outputs.artifact-url }}",
+            "status": "completed"
+          }
+          EOF
 
-      - name: Set timestamp and trigger reason
+      - name: Upload test results summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.job-config.run-suffix }}
+          path: test_results_summary/${{ matrix.job-config.run-suffix }}_results.json
+
+  consolidate-results:
+    needs: run-integration-tests
+    if: always() && (github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      pull-requests: "write"
+      issues: "write"
+    steps:
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          merge-multiple: true
+          path: all_results
+
+      - name: Consolidate test results and create PR comment
         run: |
-          echo "TIMESTAMP=$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_ENV
+          # Set trigger information
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "TRIGGER_REASON=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+            TRIGGER_TEXT="Pull Request (integration-test label on PR #${{ github.event.pull_request.number }})"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "TRIGGER_REASON=manual-${{ github.event.inputs.reason }}" >> $GITHUB_ENV
+            TRIGGER_TEXT="Manual Trigger: ${{ github.event.inputs.reason }}"
+            PR_NUMBER="9745"  # fallback issue number
           else
-            echo "TRIGGER_REASON=nightly-scheduled" >> $GITHUB_ENV
+            TRIGGER_TEXT="Nightly Scheduled Run"
+            PR_NUMBER="9745"  # fallback issue number
           fi
 
-      - name: Comment with results and artifact link
-        id: create_comment
+          # Initialize consolidated report
+          cat > consolidated_report.md << 'EOF'
+          # Integration Tests Report
+
+          **Trigger:** TRIGGER_PLACEHOLDER
+          **Commit:** ${{ github.sha }}
+          **Timestamp:** $(date +'%Y-%m-%d %H:%M UTC')
+
+          ## Test Results Summary
+
+          | Model | Status | Test Results | Artifact Link |
+          |-------|--------|--------------|---------------|
+          EOF
+
+          # Process each result file
+          DETAILED_RESULTS=""
+          TOTAL_MODELS=0
+          PASSED_MODELS=0
+
+          for result_file in all_results/*_results.json; do
+            if [[ -f "$result_file" ]]; then
+              MODEL_NAME=$(jq -r '.model_name' "$result_file")
+              RUN_SUFFIX=$(jq -r '.run_suffix' "$result_file")
+              TEST_REPORT=$(jq -r '.test_report' "$result_file")
+              ARTIFACT_URL=$(jq -r '.artifact_url' "$result_file")
+              
+              # Extract test results summary (this will need to be adapted based on actual report format)
+              if echo "$TEST_REPORT" | grep -q "PASSED\|SUCCESS"; then
+                STATUS="✅ PASSED"
+                ((PASSED_MODELS++))
+              else
+                STATUS="❌ FAILED"
+              fi
+              
+              # Add to summary table
+              echo "| $MODEL_NAME | $STATUS | See details below | [Download]($ARTIFACT_URL) |" >> consolidated_report.md
+              
+              # Add to detailed results
+              DETAILED_RESULTS="$DETAILED_RESULTS
+
+          ### $MODEL_NAME
+          \`\`\`
+          $TEST_REPORT
+          \`\`\`"
+              
+              ((TOTAL_MODELS++))
+            fi
+          done
+
+          # Complete the report
+          cat >> consolidated_report.md << EOF
+
+          ## Detailed Results
+          $DETAILED_RESULTS
+
+          ---
+          **Overall Status:** $PASSED_MODELS/$TOTAL_MODELS models completed successfully
+          EOF
+
+          # Replace placeholder with actual trigger text
+          sed -i "s/TRIGGER_PLACEHOLDER/$TRIGGER_TEXT/" consolidated_report.md
+
+          # Save PR number and comment content for next step
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          echo "COMMENT_BODY<<EOF" >> $GITHUB_ENV
+          cat consolidated_report.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Create consolidated PR comment
         uses: KeisukeYamashita/create-comment@v1
         with:
-          # if triggered by PR, use PR number, otherwise use 9745 as fallback issue number for manual triggers
-          number: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || 9745 }}
+          number: ${{ env.PR_NUMBER }}
           unique: false
-          comment: |
-              Trigger by: ${{ github.event_name == 'pull_request' && format('Pull Request (integration-test label on PR #{0})', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && format('Manual Trigger: {0}', github.event.inputs.reason)) || 'Nightly Scheduled Run' }}
-              Commit: ${{ github.sha }}
-              **Integration Tests Report (${{ matrix.llm-config.name }})**
-              ${{ matrix.llm-config.name }} LLM Test Results:
-              ${{ env.INTEGRATION_TEST_REPORT }}
-              ---
-              Download testing outputs (${{ matrix.llm-config.name }} results): [Download](${{ steps.upload_results_artifact.outputs.artifact-url }})
+          comment: ${{ env.COMMENT_BODY }}
+

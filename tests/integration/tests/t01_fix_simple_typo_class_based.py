@@ -51,8 +51,6 @@ class TypoFixTest(BaseIntegrationTest):
             f.write(typo_content)
 
         logger.info(f"Created test document with typos at: {document_path}")
-        if self.llm_model:
-            logger.info(f"Using LLM model: {self.llm_model}")
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully fixed the typos."""
