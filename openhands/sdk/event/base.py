@@ -3,11 +3,12 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from rich.text import Text
 
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 N_CHAR_PREVIEW = 500
 
 
-class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
+class EventBase(DiscriminatedUnionMixin, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -136,6 +137,17 @@ class LLMConvertibleEvent(EventBase, ABC):
                 i += 1
 
         return messages
+
+
+class LLMConvertibleEventWithMetrics(LLMConvertibleEvent):
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
+            "to the last ActionEvent when multiple actions share the same LLM response."
+            " For MessageEvent, it is only attached to messages *from agent*."
+        ),
+    )
 
 
 def _combine_action_events(events: list["ActionEvent"]) -> Message:
