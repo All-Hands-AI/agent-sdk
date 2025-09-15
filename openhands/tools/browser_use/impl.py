@@ -1,11 +1,10 @@
 """Browser tool executor implementation using browser-use MCP server wrapper."""
 
-import asyncio
 import json
 import logging
-import threading
 
 from openhands.sdk.tool import ToolExecutor
+from openhands.sdk.utils.async_executor import AsyncExecutor
 from openhands.tools.browser_use.server import CustomBrowserUseServer
 
 
@@ -32,20 +31,13 @@ class BrowserToolExecutor(ToolExecutor):
             **config,
         }
         self._initialized = False
-
-        # Persistent background loop
-        self._loop = asyncio.new_event_loop()
-        self._thread = threading.Thread(
-            target=self._loop.run_forever, name="BrowserExecutorLoop", daemon=True
-        )
-        self._thread.start()
+        self._async_executor = AsyncExecutor()
 
     def __call__(self, action):
         """Submit an action to run in the background loop and wait for result."""
-        future = asyncio.run_coroutine_threadsafe(
-            self._execute_action(action), self._loop
+        return self._async_executor.run_async(
+            self._execute_action, action, timeout=300.0
         )
-        return future.result()  # blocks until done
 
     async def _execute_action(self, action):
         """Execute browser action asynchronously."""
@@ -207,13 +199,20 @@ class BrowserToolExecutor(ToolExecutor):
         except Exception as e:
             logging.warning(f"Error during browser cleanup: {e}")
 
+    def close(self):
+        """Close the browser executor and cleanup resources."""
+        try:
+            # Run cleanup in the async executor with a shorter timeout
+            self._async_executor.run_async(self.cleanup, timeout=30.0)
+        except Exception as e:
+            logging.warning(f"Error during browser cleanup: {e}")
+        finally:
+            # Always close the async executor
+            self._async_executor.close()
+
     def __del__(self):
         """Cleanup on deletion."""
-        if self._initialized:
-            try:
-                # Try to cleanup, but don't block if event loop is closed
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(self.cleanup())
-            except Exception:
-                pass  # Ignore cleanup errors during deletion
+        try:
+            self.close()
+        except Exception:
+            pass  # Ignore cleanup errors during deletion
