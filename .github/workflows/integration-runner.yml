@@ -136,6 +136,9 @@ jobs:
       pull-requests: "write"
       issues: "write"
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download all test results
         uses: actions/download-artifact@v4
         with:
@@ -143,197 +146,26 @@ jobs:
           merge-multiple: true
           path: all_results
 
-      - name: Install jq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-
-      - name: Debug downloaded artifacts
-        run: |
-          echo "=== Debugging downloaded artifacts ==="
-          ls -la all_results/ || echo "all_results directory not found"
-          echo "All files in all_results:"
-          find all_results -type f | head -20 || echo "No files found"
-          echo "JSON files specifically:"
-          find all_results -name "*.json" -type f | head -10 || echo "No JSON files found"
-          echo "Files matching *_results.json pattern:"
-          ls -la all_results/*_results.json 2>/dev/null || echo "No files match *_results.json pattern"
-          echo "=== End debug ==="
-
-      - name: Consolidate test results and create PR comment
+      - name: Consolidate test results
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MANUAL_REASON: ${{ github.event.inputs.reason }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
-          set -x  # Enable command tracing for debugging
-          # Set trigger information using environment variables to avoid expansion issues
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            TRIGGER_TEXT="Pull Request (integration-test label on PR #${PR_NUMBER})"
-            FINAL_PR_NUMBER="$PR_NUMBER"
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            TRIGGER_TEXT="Manual Trigger: ${MANUAL_REASON}"
-            FINAL_PR_NUMBER="9745"  # fallback issue number
-          else
-            TRIGGER_TEXT="Nightly Scheduled Run"
-            FINAL_PR_NUMBER="9745"  # fallback issue number
-          fi
+          python3 tests/integration/utils/consolidate_results.py
 
-          echo "Event name: $EVENT_NAME"
-          echo "Trigger text: $TRIGGER_TEXT"
-          echo "PR number: $FINAL_PR_NUMBER"
-
-          # Initialize consolidated report
-          cat > consolidated_report.md << EOF
-          # Integration Tests Report
-
-          **Trigger:** $TRIGGER_TEXT
-          **Commit:** $COMMIT_SHA
-          **Timestamp:** $(date +'%Y-%m-%d %H:%M UTC')
-
-          ## Test Results Summary
-
-          | Model | Success Rate | Test Results | Artifact Link |
-          |-------|--------------|--------------|---------------|
-          EOF
-
-          # Process each result file
-          TOTAL_MODELS=0
-          
-          # Try multiple patterns to find result files
-          RESULT_FILES=()
-          
-          # Pattern 1: Direct files in all_results
-          for file in all_results/*_results.json; do
-            [[ -f "$file" ]] && RESULT_FILES+=("$file")
-          done
-          
-          # Pattern 2: Files in subdirectories (in case merge-multiple doesn't flatten)
-          for file in all_results/*/*_results.json; do
-            [[ -f "$file" ]] && RESULT_FILES+=("$file")
-          done
-          
-          # Pattern 3: Any JSON file that looks like results
-          for file in all_results/*.json all_results/*/*.json; do
-            if [[ -f "$file" && "$file" =~ results\.json$ ]]; then
-              # Avoid duplicates
-              if [[ ! " ${RESULT_FILES[@]} " =~ " $file " ]]; then
-                RESULT_FILES+=("$file")
-              fi
-            fi
-          done
-          
-          echo "Found ${#RESULT_FILES[@]} result files: ${RESULT_FILES[@]}"
-          
-          if [[ ${#RESULT_FILES[@]} -eq 0 ]]; then
-            echo "No result files found in all_results/"
-            echo "| No results | N/A | No test results available | N/A |" >> consolidated_report.md
-          else
-            for result_file in "${RESULT_FILES[@]}"; do
-              if [[ -f "$result_file" ]]; then
-                echo "Processing file: $result_file"
-                
-                # Check if jq can parse the file
-                if ! jq empty "$result_file" 2>/dev/null; then
-                  echo "Warning: Invalid JSON in $result_file"
-                  continue
-                fi
-                
-                echo "About to extract fields from $result_file"
-                MODEL_NAME=$(jq -r '.model_name // "Unknown"' "$result_file" || echo "Unknown")
-                echo "MODEL_NAME: $MODEL_NAME"
-                
-                RUN_SUFFIX=$(jq -r '.run_suffix // "unknown"' "$result_file" || echo "unknown")
-                echo "RUN_SUFFIX: $RUN_SUFFIX"
-                
-                # Handle TEST_REPORT more carefully as it might contain special characters
-                echo "Extracting test report..."
-                if TEST_REPORT=$(jq -r '.test_report // "No report available"' "$result_file" 2>/dev/null); then
-                  echo "Test report extracted successfully (length: ${#TEST_REPORT})"
-                else
-                  echo "Failed to extract test report, using fallback"
-                  TEST_REPORT="No report available"
-                fi
-                
-                ARTIFACT_URL=$(jq -r '.artifact_url // "N/A"' "$result_file" || echo "N/A")
-                echo "ARTIFACT_URL: $ARTIFACT_URL"
-                
-                echo "Model: $MODEL_NAME, Suffix: $RUN_SUFFIX"
-                
-                # Extract success rate from test report - make grep more robust
-                echo "Extracting success rate..."
-                SUCCESS_RATE=""
-                if [[ -n "$TEST_REPORT" && "$TEST_REPORT" != "No report available" ]]; then
-                  SUCCESS_RATE=$(echo "$TEST_REPORT" | grep -oE "Success rate: [0-9]+\.[0-9]+%" | head -1 || echo "")
-                fi
-                if [[ -z "$SUCCESS_RATE" ]]; then
-                  SUCCESS_RATE="N/A"
-                fi
-                echo "SUCCESS_RATE: $SUCCESS_RATE"
-                
-                # Add to summary table - escape special characters
-                echo "Adding to summary table..."
-                # Use echo instead of printf to avoid format string issues
-                echo "| $MODEL_NAME | $SUCCESS_RATE | See details below | [Download]($ARTIFACT_URL) |" >> consolidated_report.md
-                
-                # Add to detailed results - write directly to temp file to avoid bash string issues
-                echo "Adding to detailed results..."
-                echo "" >> detailed_results_temp.md
-                echo "### $MODEL_NAME" >> detailed_results_temp.md
-                echo '```' >> detailed_results_temp.md
-                # Use printf to safely write the test report, escaping any problematic characters
-                printf '%s\n' "$TEST_REPORT" >> detailed_results_temp.md
-                echo '```' >> detailed_results_temp.md
-                echo "Detailed results added successfully"
-                
-                echo "Incrementing TOTAL_MODELS from $TOTAL_MODELS"
-                TOTAL_MODELS=$((TOTAL_MODELS + 1))
-                echo "TOTAL_MODELS is now $TOTAL_MODELS"
-                echo "Finished processing $result_file"
-              fi
-            done
-            echo "Finished processing all result files"
-          fi
-
-          # Complete the report
-          echo "Completing the report..."
-          echo "" >> consolidated_report.md
-          echo "## Detailed Results" >> consolidated_report.md
-          if [[ -f detailed_results_temp.md ]]; then
-            echo "Adding detailed results from temp file"
-            cat detailed_results_temp.md >> consolidated_report.md
-          else
-            echo "No detailed results temp file found"
-          fi
-          echo "" >> consolidated_report.md
-          echo "---" >> consolidated_report.md
-          echo "**Overall Status:** $TOTAL_MODELS models tested" >> consolidated_report.md
-          echo "Report completion finished"
-
-          # Save PR number and comment content for next step
-          echo "Setting environment variables..."
-          echo "PR_NUMBER=$FINAL_PR_NUMBER" >> $GITHUB_ENV
-          echo "PR number set to: $FINAL_PR_NUMBER"
-          
-          # Use a more robust approach for the multiline environment variable
-          echo "Setting COMMENT_BODY environment variable..."
-          {
-            echo "COMMENT_BODY<<EOF"
-            cat consolidated_report.md
-            echo "EOF"
-          } >> $GITHUB_ENV
-          echo "COMMENT_BODY environment variable set"
-          
-          # Clean up temp file
-          echo "Cleaning up temp file..."
-          rm -f detailed_results_temp.md
-          echo "Script completed successfully"
+      - name: Upload consolidated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: consolidated-report
+          path: consolidated_report.md
 
       - name: Create consolidated PR comment
-        uses: KeisukeYamashita/create-comment@v1
-        with:
-          number: ${{ env.PR_NUMBER }}
-          unique: false
-          comment: ${{ env.COMMENT_BODY }}
+        run: |
+          COMMENT_BODY=$(cat consolidated_report.md)
+          # Use GitHub CLI to create comment
+          echo "$COMMENT_BODY" | gh pr comment ${{ env.PR_NUMBER }} --body-file -
+        env:
+          GH_TOKEN: ${{ github.token }}
 
