@@ -245,6 +245,57 @@ class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
 
 
 # ============================================
+# `browser_get_content`
+# ============================================
+class BrowserGetContentAction(ActionBase):
+    """Schema for getting page content in markdown."""
+
+    extract_links: bool = Field(
+        default=False,
+        description="Whether to include links in the content (default: False)",
+    )
+    start_from_char: int = Field(
+        default=0,
+        description="Character index to start from in the page content (default: 0)",
+    )
+
+
+BROWSER_GET_CONTENT_DESCRIPTION = """Extract the main content of the current page in clean markdown format. It has been filtered to remove noise and advertising content.
+
+If the content was truncated and you need more information, use start_from_char parameter to continue from where truncation occurred.
+"""  # noqa: E501
+
+browser_get_content_tool = Tool(
+    name="browser_get_content",
+    action_type=BrowserGetContentAction,
+    observation_type=BrowserObservation,
+    description=BROWSER_GET_CONTENT_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="browser_get_content",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+
+
+class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
+    """Tool for getting page content in markdown."""
+
+    @classmethod
+    def create(cls, executor: BrowserToolExecutor):
+        return cls(
+            name=browser_get_content_tool.name,
+            description=BROWSER_GET_CONTENT_DESCRIPTION,
+            action_type=BrowserGetContentAction,
+            observation_type=BrowserObservation,
+            annotations=browser_get_content_tool.annotations,
+            executor=executor,
+        )
+
+
+# ============================================
 # `browser_scroll`
 # ============================================
 class BrowserScrollAction(ActionBase):

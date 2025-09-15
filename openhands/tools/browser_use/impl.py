@@ -4,9 +4,8 @@ import asyncio
 import logging
 import threading
 
-from browser_use.mcp.server import BrowserUseServer
-
 from openhands.sdk.tool import ToolExecutor
+from openhands.tools.browser_use.server import CustomBrowserUseServer
 
 
 # Suppress browser-use logging for cleaner integration
@@ -23,7 +22,9 @@ class BrowserToolExecutor(ToolExecutor):
         allowed_domains: list[str] | None = None,
         **config,
     ):
-        self._server = BrowserUseServer(session_timeout_minutes=session_timeout_minutes)
+        self._server = CustomBrowserUseServer(
+            session_timeout_minutes=session_timeout_minutes
+        )
         self._config = {
             "headless": headless,
             "allowed_domains": allowed_domains or [],

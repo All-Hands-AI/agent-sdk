@@ -17,6 +17,7 @@ from openhands.tools.browser_use import (
     BrowserToolExecutor,
     browser_click_tool,
     browser_close_tab_tool,
+    browser_get_content_tool,
     browser_get_state_tool,
     browser_go_back_tool,
     browser_list_tabs_tool,
@@ -40,11 +41,12 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-browser_executor = BrowserToolExecutor(headless=False)
+browser_executor = BrowserToolExecutor()
 browser_use_tools = [
     browser_navigate_tool.set_executor(browser_executor),
     browser_click_tool.set_executor(browser_executor),
     browser_get_state_tool.set_executor(browser_executor),
+    browser_get_content_tool.set_executor(browser_executor),
     browser_type_tool.set_executor(browser_executor),
     browser_scroll_tool.set_executor(browser_executor),
     browser_go_back_tool.set_executor(browser_executor),
