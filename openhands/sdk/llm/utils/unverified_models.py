@@ -1,8 +1,18 @@
+import importlib
+
 import litellm
 from pydantic import SecretStr
 
 from openhands.sdk.llm.utils.verified_models import VERIFIED_MODELS
 from openhands.sdk.logger import get_logger
+
+
+def _get_boto3():
+    """Get boto3 module if available, otherwise return None."""
+    try:
+        return importlib.import_module("boto3")
+    except ModuleNotFoundError:
+        return None
 
 
 logger = get_logger(__name__)
@@ -11,9 +21,8 @@ logger = get_logger(__name__)
 def _list_bedrock_foundation_models(
     aws_region_name: str, aws_access_key_id: str, aws_secret_access_key: str
 ) -> list[str]:
-    try:
-        import boto3
-    except ImportError:
+    boto3 = _get_boto3()
+    if boto3 is None:
         logger.warning(
             "boto3 is not installed. To use Bedrock models,"
             "install with: agent-sdk[boto3]"
