@@ -241,10 +241,14 @@ class Conversation:
             return
 
         with self.state:
-            self.state.agent_status = AgentExecutionStatus.PAUSED
-            pause_event = PauseEvent()
-            self._on_event(pause_event)
-        logger.info("Agent execution pause requested")
+            # Only pause when running or idle
+            if (
+                self.state == AgentExecutionStatus.IDLE
+                or self.state == AgentExecutionStatus.RUNNING
+            ):
+                pause_event = PauseEvent()
+                self._on_event(pause_event)
+                logger.info("Agent execution pause requested")
 
     def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
         """Add secrets to the conversation.
