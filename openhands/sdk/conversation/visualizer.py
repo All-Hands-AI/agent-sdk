@@ -9,6 +9,7 @@ from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     Event,
+    LLMConvertibleEventWithMetrics,
     MessageEvent,
     ObservationEvent,
     PauseEvent,
@@ -186,14 +187,14 @@ class ConversationVisualizer:
                 content,
                 title=f"[bold {_ERROR_COLOR}]UNKNOWN Event: {event.__class__.__name__}"
                 f"[/bold {_ERROR_COLOR}]",
-                subtitle=f"[dim]({event.source})[/dim]",
+                subtitle=f"({event.source})",
                 border_style=_ERROR_COLOR,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
 
     def _format_metrics_subtitle(
-        self, event: ActionEvent | MessageEvent | AgentErrorEvent
+        self, event: LLMConvertibleEventWithMetrics
     ) -> str | None:
         """Format LLM metrics as a visually appealing subtitle string with icons,
         colors, and k/m abbreviations (cache hit rate only)."""
@@ -237,7 +238,7 @@ class ConversationVisualizer:
         parts.append(f"[blue]↓ output {output_tokens}[/blue]")
         parts.append(f"[green]$ {cost_str}[/green]")
 
-        return "Tokens: " + " [dim]•[/dim] ".join(parts)
+        return "Tokens: " + " • ".join(parts)
 
 
 def create_default_visualizer(

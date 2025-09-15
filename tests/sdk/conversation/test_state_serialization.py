@@ -10,7 +10,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation, LocalFileStore
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.tools import BashTool, FileEditorTool
@@ -164,17 +164,21 @@ def test_conversation_state_event_file_scanning():
 
         # Create files with different indices using valid event format
         event1 = SystemPromptEvent(
-            source="agent", system_prompt=TextContent(text="system1"), tools=[]
+            id="abcdef01",
+            source="agent",
+            system_prompt=TextContent(text="system1"),
+            tools=[],
         )
-        event1.id = "abcdef01"
         (events_dir / "event-00000-abcdef01.json").write_text(
             event1.model_dump_json(exclude_none=True)
         )
 
         event2 = SystemPromptEvent(
-            source="agent", system_prompt=TextContent(text="system2"), tools=[]
+            id="abcdef02",
+            source="agent",
+            system_prompt=TextContent(text="system2"),
+            tools=[],
         )
-        event2.id = "abcdef02"
         (events_dir / "event-00001-abcdef02.json").write_text(
             event2.model_dump_json(exclude_none=True)
         )
@@ -212,9 +216,11 @@ def test_conversation_state_corrupted_event_handling():
 
         # Valid event with proper format
         valid_event = SystemPromptEvent(
-            source="agent", system_prompt=TextContent(text="system"), tools=[]
+            id="abcdef01",
+            source="agent",
+            system_prompt=TextContent(text="system"),
+            tools=[],
         )
-        valid_event.id = "abcdef01"
         (events_dir / "event-00000-abcdef01.json").write_text(
             valid_event.model_dump_json(exclude_none=True)
         )
@@ -227,10 +233,10 @@ def test_conversation_state_corrupted_event_handling():
 
         # Valid event with proper format
         valid_event2 = MessageEvent(
+            id="abcdef04",
             source="user",
             llm_message=Message(role="user", content=[TextContent(text="hello")]),
         )
-        valid_event2.id = "abcdef04"
         (events_dir / "event-00003-abcdef04.json").write_text(
             valid_event2.model_dump_json(exclude_none=True)
         )
@@ -428,9 +434,11 @@ def test_conversation_state_missing_base_state():
         events_dir = Path(temp_dir, "events")
         events_dir.mkdir()
         event = SystemPromptEvent(
-            source="agent", system_prompt=TextContent(text="system"), tools=[]
+            id="abcdef01",
+            source="agent",
+            system_prompt=TextContent(text="system"),
+            tools=[],
         )
-        event.id = "abcdef01"
         (events_dir / "event-00000-abcdef01.json").write_text(
             event.model_dump_json(exclude_none=True)
         )
@@ -551,10 +559,8 @@ def test_conversation_state_flags_persistence():
         )
 
         # Set various flags
-        state.agent_finished = True
+        state.agent_status = AgentExecutionStatus.FINISHED
         state.confirmation_mode = True
-        state.agent_waiting_for_confirmation = True
-        state.agent_paused = True
         state.activated_knowledge_microagents = ["agent1", "agent2"]
 
         # State auto-saves, load using Conversation
@@ -564,10 +570,8 @@ def test_conversation_state_flags_persistence():
         loaded_state = conversation.state
 
         # Verify flags are preserved
-        assert loaded_state.agent_finished is True
+        assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
         assert loaded_state.confirmation_mode is True
-        assert loaded_state.agent_waiting_for_confirmation is True
-        assert loaded_state.agent_paused is True
         assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
         # Test model_dump equality
         assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")

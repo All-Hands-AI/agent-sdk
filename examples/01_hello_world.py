@@ -12,7 +12,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.sdk.preset.default import get_default_tools
 
 
 logger = get_logger(__name__)
@@ -28,11 +28,14 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-    TaskTrackerTool.create(save_dir=cwd),
-]
+tools = get_default_tools(working_dir=cwd)  # Use our default openhands experience
+# Or you can define your own tools like this:
+# from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+# tools = [
+#     BashTool.create(working_dir=cwd),
+#     FileEditorTool.create(),
+#     TaskTrackerTool.create(save_dir=cwd),
+# ]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -53,8 +56,8 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Hello! Can you create a new Python file named hello.py"
-                    " that prints 'Hello, World!'? Use task tracker to plan your steps."
+                    "Read the current repo and "
+                    "write 3 facts about the project into FACTS.txt."
                 )
             )
         ],

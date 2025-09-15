@@ -1,0 +1,172 @@
+name: Run Integration Tests
+
+on:
+  pull_request:
+    types: 
+      - labeled
+      - synchronize
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: true
+        default: ''
+  schedule:
+    - cron: '30 22 * * *'  # Runs at 10:30pm UTC every day
+
+env:
+  N_PROCESSES: 4 # Global configuration for number of parallel processes for evaluation
+
+jobs:
+  run-integration-tests:
+    if: github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: blacksmith-4vcpu-ubuntu-2204
+    permissions:
+      contents: "read"
+      id-token: "write"
+      pull-requests: "write"
+      issues: "write"
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+        job-config:
+          - name: "Claude Sonnet 4"
+            run-suffix: "sonnet_run"
+            llm-config:
+              model: "litellm_proxy/anthropic/claude-sonnet-4-20250514"
+          - name: "GPT-5 Mini"
+            run-suffix: "gpt5_mini_run"
+            llm-config:
+              model: "litellm_proxy/openai/gpt-5-mini"
+              temperature: 1.0
+          - name: "DeepSeek Chat"
+            run-suffix: "deepseek_run"
+            llm-config:
+              model: "litellm_proxy/deepseek/deepseek-chat"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          python-version: ${{ matrix.python-version }}
+
+      - name: Comment on PR if 'integration-test' label is present
+        if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
+        uses: KeisukeYamashita/create-comment@v1
+        with:
+          unique: false
+          comment: |
+            Hi! I started running the integration tests on your PR. You will receive a comment with the results shortly.
+
+      - name: Install Python dependencies using uv
+        run: |
+          uv sync --dev
+          uv pip install pytest
+
+      # Run integration test evaluation
+      - name: Run integration test evaluation for ${{ matrix.job-config.name }}
+        env:
+          LLM_CONFIG: ${{ toJson(matrix.job-config.llm-config) }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+        run: |
+          ./tests/integration/run_infer.sh "$LLM_CONFIG" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' '${{ matrix.job-config.run-suffix }}'
+
+          # get integration tests report
+          REPORT_FILE=$(find tests/integration/outputs/*${{ matrix.job-config.run-suffix }}* -name "report.md" -type f | head -n 1)
+          echo "REPORT_FILE: $REPORT_FILE"
+          if [ -f "$REPORT_FILE" ]; then
+            echo "INTEGRATION_TEST_REPORT<<EOF" >> $GITHUB_ENV
+            cat $REPORT_FILE >> $GITHUB_ENV
+            echo >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            echo "INTEGRATION_TEST_REPORT=No report file found" >> $GITHUB_ENV
+          fi
+
+      - name: Wait a little bit
+        run: sleep 10
+
+
+
+
+
+      - name: Create archive of evaluation outputs
+        run: |
+          TIMESTAMP=$(date +'%y-%m-%d-%H-%M')
+          cd tests/integration/outputs  # Change to the outputs directory
+          tar -czvf ../../../integration_tests_${{ matrix.job-config.run-suffix }}_${TIMESTAMP}.tar.gz *${{ matrix.job-config.run-suffix }}* # Include result directories for this model
+
+      - name: Upload evaluation results as artifact
+        uses: actions/upload-artifact@v4
+        id: upload_results_artifact
+        with:
+          name: integration-test-outputs-${{ matrix.job-config.run-suffix }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: integration_tests_${{ matrix.job-config.run-suffix }}_*.tar.gz
+
+      - name: Save test results for consolidation
+        run: |
+          # Create a results summary file for this model
+          mkdir -p test_results_summary
+          cat > test_results_summary/${{ matrix.job-config.run-suffix }}_results.json << EOF
+          {
+            "model_name": "${{ matrix.job-config.name }}",
+            "run_suffix": "${{ matrix.job-config.run-suffix }}",
+            "test_report": $(echo '${{ env.INTEGRATION_TEST_REPORT }}' | jq -Rs .),
+            "artifact_url": "${{ steps.upload_results_artifact.outputs.artifact-url }}",
+            "status": "completed"
+          }
+          EOF
+
+      - name: Upload test results summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.job-config.run-suffix }}
+          path: test_results_summary/${{ matrix.job-config.run-suffix }}_results.json
+
+  consolidate-results:
+    needs: run-integration-tests
+    if: always() && (github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      pull-requests: "write"
+      issues: "write"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          merge-multiple: true
+          path: all_results
+
+      - name: Consolidate test results
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MANUAL_REASON: ${{ github.event.inputs.reason }}
+          COMMIT_SHA: ${{ github.sha }}
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python3 tests/integration/utils/consolidate_results.py
+
+      - name: Upload consolidated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: consolidated-report
+          path: consolidated_report.md
+
+      - name: Create consolidated PR comment
+        run: |
+          COMMENT_BODY=$(cat consolidated_report.md)
+          # Use GitHub CLI to create comment
+          echo "$COMMENT_BODY" | gh pr comment ${{ env.PR_NUMBER }} --body-file -
+        env:
+          GH_TOKEN: ${{ github.token }}
+

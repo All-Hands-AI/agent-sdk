@@ -1,15 +1,18 @@
 import copy
 import json
-from typing import cast
+from collections.abc import Sequence
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import ConfigDict, Field, computed_field
 from rich.text import Text
 
-from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
+from openhands.sdk.event.base import (
+    N_CHAR_PREVIEW,
+    LLMConvertibleEvent,
+    LLMConvertibleEventWithMetrics,
+)
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
-from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool import Action, Observation
 
 
@@ -72,9 +75,9 @@ class SystemPromptEvent(LLMConvertibleEvent):
         )
 
 
-class ActionEvent(LLMConvertibleEvent):
+class ActionEvent(LLMConvertibleEventWithMetrics):
     source: SourceType = "agent"
-    thought: list[TextContent] = Field(
+    thought: Sequence[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
     )
     reasoning_content: str | None = Field(
@@ -99,13 +102,6 @@ class ActionEvent(LLMConvertibleEvent):
             "Groups related actions from same LLM response. This helps in tracking "
             "and managing results of parallel function calling from the same LLM "
             "response."
-        ),
-    )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs). Only attached "
-            "to the last action when multiple actions share the same LLM response."
         ),
     )
 
@@ -134,12 +130,9 @@ class ActionEvent(LLMConvertibleEvent):
 
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
-        content: list[TextContent | ImageContent] = cast(
-            list[TextContent | ImageContent], self.thought
-        )
         return Message(
             role="assistant",
-            content=content,
+            content=self.thought,
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
         )
@@ -205,23 +198,16 @@ class ObservationEvent(LLMConvertibleEvent):
         return f"{base_str}\n  Tool: {self.tool_name}\n  Result: {obs_preview}"
 
 
-class MessageEvent(LLMConvertibleEvent):
+class MessageEvent(LLMConvertibleEventWithMetrics):
     """Message from either agent or user.
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", frozen=True)
 
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
-    )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs) for this message. "
-            "Only attached to messages from agent."
-        ),
     )
 
     # context extensions stuff / microagent can go here
@@ -260,9 +246,7 @@ class MessageEvent(LLMConvertibleEvent):
             assert not any(
                 isinstance(c, ImageContent) for c in self.extended_content
             ), "Extended content should not contain images"
-            text_parts = content_to_str(
-                cast(list[TextContent | ImageContent], self.extended_content)
-            )
+            text_parts = content_to_str(self.extended_content)
             content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
             content.append(" ".join(text_parts))
 
@@ -270,7 +254,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     def to_llm_message(self) -> Message:
         msg = copy.deepcopy(self.llm_message)
-        msg.content.extend(self.extended_content)
+        msg.content = list(msg.content) + list(self.extended_content)
         return msg
 
     def __str__(self) -> str:
@@ -346,7 +330,7 @@ class UserRejectObservation(LLMConvertibleEvent):
         return f"{base_str}\n  Tool: {self.tool_name}\n  Reason: {reason_preview}"
 
 
-class AgentErrorEvent(LLMConvertibleEvent):
+class AgentErrorEvent(LLMConvertibleEventWithMetrics):
     """Error triggered by the agent.
 
     Note: This event should not contain model "thought" or "reasoning_content". It
@@ -355,13 +339,6 @@ class AgentErrorEvent(LLMConvertibleEvent):
 
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs). Only attached "
-            "to the last action when multiple actions share the same LLM response."
-        ),
-    )
 
     @property
     def visualize(self) -> Text:
