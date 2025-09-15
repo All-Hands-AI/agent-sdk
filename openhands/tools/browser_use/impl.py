@@ -51,6 +51,7 @@ class BrowserToolExecutor(ToolExecutor):
         from openhands.tools.browser_use.definition import (
             BrowserClickAction,
             BrowserCloseTabAction,
+            BrowserGetContentAction,
             BrowserGetStateAction,
             BrowserGoBackAction,
             BrowserListTabsAction,
@@ -62,38 +63,35 @@ class BrowserToolExecutor(ToolExecutor):
         )
 
         try:
+            result = ""
             # Route to appropriate method based on action type
             if isinstance(action, BrowserNavigateAction):
                 result = await self.navigate(action.url, action.new_tab)
-                return BrowserObservation(output=result)
             elif isinstance(action, BrowserClickAction):
                 result = await self.click(action.index, action.new_tab)
-                return BrowserObservation(output=result)
             elif isinstance(action, BrowserTypeAction):
                 result = await self.type_text(action.index, action.text)
-                return BrowserObservation(output=result)
             elif isinstance(action, BrowserGetStateAction):
                 result = await self.get_state(action.include_screenshot)
-                return BrowserObservation(output=result)
+            elif isinstance(action, BrowserGetContentAction):
+                result = await self.get_content(
+                    action.extract_links, action.start_from_char
+                )
             elif isinstance(action, BrowserScrollAction):
                 result = await self.scroll(action.direction)
-                return BrowserObservation(output=result)
             elif isinstance(action, BrowserGoBackAction):
                 result = await self.go_back()
-                return BrowserObservation(output=result)
             elif isinstance(action, BrowserListTabsAction):
                 result = await self.list_tabs()
-                return BrowserObservation(output=result)
             elif isinstance(action, BrowserSwitchTabAction):
                 result = await self.switch_tab(action.tab_id)
-                return BrowserObservation(output=result)
             elif isinstance(action, BrowserCloseTabAction):
                 result = await self.close_tab(action.tab_id)
-                return BrowserObservation(output=result)
             else:
                 error_msg = f"Unsupported action type: {type(action)}"
                 return BrowserObservation(output="", error=error_msg)
 
+            return BrowserObservation(output=result)
         except Exception as e:
             error_msg = f"Browser operation failed: {str(e)}"
             logging.error(error_msg, exc_info=True)
@@ -162,7 +160,12 @@ class BrowserToolExecutor(ToolExecutor):
         return await self._server._close_tab(tab_id)
 
     # Content Extraction
-    # We don't need `extract_content` tool as we already have the `fetch` MCP server
+    async def get_content(self, extract_links: bool, start_from_char: int) -> str:
+        """Extract page content, optionally with links."""
+        await self._ensure_initialized()
+        return await self._server._get_content(
+            extract_links=extract_links, start_from_char=start_from_char
+        )
 
     # Form Controls
     # TODO: `get_dropdown_options` tool is missing in browser-use MCP server
