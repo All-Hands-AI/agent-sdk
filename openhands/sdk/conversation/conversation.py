@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.conversation.types import ConversationCallbackType
+from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import (
     create_default_visualizer,
 )
@@ -41,7 +41,7 @@ class Conversation:
         self,
         agent: "AgentType",
         persist_filestore: FileStore | None = None,
-        conversation_id: str | None = None,
+        conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         visualize: bool = True,
@@ -91,7 +91,7 @@ class Conversation:
             self.agent.init_state(self.state, on_event=self._on_event)
 
     @property
-    def id(self) -> str:
+    def id(self) -> ConversationID:
         """Get the unique ID of the conversation."""
         return self.state.id
 
