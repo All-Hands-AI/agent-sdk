@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from pydantic import SecretStr
 
@@ -61,10 +62,14 @@ def conversation_callback(event: Event):
         llm_messages.append(event.to_llm_message())
 
 
-file_store = LocalFileStore("./.conversations")
+conversation_id = str(uuid.uuid4())
+file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+    agent=agent,
+    callbacks=[conversation_callback],
+    persist_filestore=file_store,
+    conversation_id=conversation_id,
 )
 conversation.send_message(
     message=Message(
@@ -102,14 +107,19 @@ del conversation
 # Deserialize the conversation
 print("Deserializing conversation...")
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+    agent=agent,
+    callbacks=[conversation_callback],
+    persist_filestore=file_store,
+    conversation_id=conversation_id,
 )
 
 print("Sending message to deserialized conversation...")
 conversation.send_message(
     message=Message(
         role="user",
-        content=[TextContent(text="Hey what did you create?")],
+        content=[
+            TextContent(text="Hey what did you create? Return an agent finish action")
+        ],
     )
 )
 conversation.run()

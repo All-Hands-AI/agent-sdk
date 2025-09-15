@@ -9,7 +9,6 @@ from litellm.types.utils import (
 from pydantic import Field, ValidationError, field_validator
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.context import render_template
 from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
@@ -44,7 +43,6 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
-    system_prompt_filename: str = Field(default="system_prompt.j2")
     condenser: Condenser | None = Field(default=None, repr=False, exclude=True)
     cli_mode: bool = Field(default=True)
 
@@ -107,19 +105,42 @@ class Agent(AgentBase):
         # Built-ins last; ensures no duplicates
         return {**user_tools, **builtin_map}
 
-    @property
-    def system_message(self) -> str:
-        """Compute system message on-demand to maintain statelessness."""
-        system_message = render_template(
-            prompt_dir=self.prompt_dir,
-            template_name=self.system_prompt_filename,
-            cli_mode=self.cli_mode,
-        )
-        if self.agent_context:
-            _system_message_suffix = self.agent_context.get_system_message_suffix()
-            if _system_message_suffix:
-                system_message += "\n\n" + _system_message_suffix
-        return system_message
+    def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
+        """
+        Configure bash tool with reference to secrets manager.
+        Updated secrets automatically propagate.
+        """
+        if not isinstance(self.tools, dict):
+            return
+
+        secrets_manager = state.secrets_manager
+
+        def env_for_cmd(cmd: str) -> dict[str, str]:
+            try:
+                return secrets_manager.get_secrets_as_env_vars(cmd)
+            except Exception:
+                return {}
+
+        def env_masker(output: str) -> str:
+            try:
+                return secrets_manager.mask_secrets_in_output(output)
+            except Exception:
+                return ""
+
+        execute_bash_exists = False
+        for tool in self.tools.values():
+            if (
+                tool.name == "execute_bash"
+                and hasattr(tool, "executor")
+                and tool.executor is not None
+            ):
+                # Wire the env provider and env masker for the bash executor
+                setattr(tool.executor, "env_provider", env_for_cmd)
+                setattr(tool.executor, "env_masker", env_masker)
+                execute_bash_exists = True
+
+        if not execute_bash_exists:
+            logger.warning("Skipped wiring SecretsManager: missing bash tool")
 
     def init_state(
         self,
@@ -128,6 +149,10 @@ class Agent(AgentBase):
     ) -> None:
         # TODO(openhands): we should add test to test this init_state will actually
         # modify state in-place
+
+        # Configure bash tools with env provider
+        self._configure_bash_tools_env_provider(state)
+
         llm_convertible_messages = [
             event for event in state.events if isinstance(event, LLMConvertibleEvent)
         ]
@@ -266,7 +291,9 @@ class Agent(AgentBase):
             logger.info("LLM produced a message response - awaits user input")
             state.agent_finished = True
             msg_event = MessageEvent(
-                source="agent", llm_message=message, metrics=metrics
+                source="agent",
+                llm_message=message,
+                metrics=metrics,
             )
             on_event(msg_event)
 

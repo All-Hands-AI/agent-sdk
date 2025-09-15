@@ -109,6 +109,7 @@ class TestAgentImmutability:
             "agent_context",
             "tools",
             "system_prompt_filename",
+            "system_prompt_kwargs",
             "condenser",
             "cli_mode",
         }
