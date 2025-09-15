@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from openhands.sdk.llm.utils.model_list import get_unverified_models
+from openhands.sdk.llm.utils.unverified_models import get_unverified_models
 
 
 def test_organize_models_and_providers():
@@ -18,7 +18,7 @@ def test_organize_models_and_providers():
     ]
 
     with patch(
-        "openhands.sdk.llm.utils.model_features.get_supported_llm_models",
+        "openhands.sdk.llm.utils.unverified_models.get_supported_llm_models",
         return_value=models,
     ):
         result = get_unverified_models()
