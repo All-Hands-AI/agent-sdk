@@ -7,8 +7,8 @@ from openhands.sdk import (
     Agent,
     Conversation,
     Event,
+    EventWithMetrics,
     LLMConvertibleEvent,
-    LLMConvertibleEventWithMetrics,
     Message,
     TextContent,
     create_mcp_tools,
@@ -52,7 +52,7 @@ llm_messages = []  # collect raw LLM messages
 def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
-    if isinstance(event, LLMConvertibleEventWithMetrics):
+    if isinstance(event, EventWithMetrics):
         if event.metrics is not None:
             logger.info(f"Metrics Snapshot: {event.metrics}")
 
@@ -90,3 +90,8 @@ print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
 for i, message in enumerate(llm_messages):
     print(f"Message {i}: {str(message)[:200]}")
+
+assert llm.metrics is not None
+print(
+    f"Conversation finished. Final LLM metrics with details: {llm.metrics.model_dump()}"
+)
