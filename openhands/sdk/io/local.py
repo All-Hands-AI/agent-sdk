@@ -15,13 +15,23 @@ class LocalFileStore(FileStore):
     def __init__(self, root: str):
         if root.startswith("~"):
             root = os.path.expanduser(root)
+        root = os.path.abspath(os.path.normpath(root))
         self.root = root
         os.makedirs(self.root, exist_ok=True)
 
     def get_full_path(self, path: str) -> str:
+        # strip leading slash to keep relative under root
         if path.startswith("/"):
             path = path[1:]
-        return os.path.join(self.root, path)
+        # normalize path separators to handle both Unix (/) and Windows (\) styles
+        normalized_path = path.replace("\\", "/")
+        full = os.path.abspath(
+            os.path.normpath(os.path.join(self.root, normalized_path))
+        )
+        # ensure sandboxing
+        if os.path.commonpath([self.root, full]) != self.root:
+            raise ValueError(f"path escapes filestore root: {path}")
+        return full
 
     def write(self, path: str, contents: str | bytes) -> None:
         full_path = self.get_full_path(path)

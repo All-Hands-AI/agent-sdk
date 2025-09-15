@@ -77,7 +77,9 @@ print(f"Same LLM instance: {llm is same_llm}")
 
 # Demonstrate requesting a completion directly from an LLM
 completion_response = llm.completion(
-    messages=[{"role": "user", "content": "Say hello in one word."}]
+    messages=[
+        Message(role="user", content=[TextContent(text="Say hello in one word.")])
+    ]
 )
 # Access the response content
 if completion_response.choices and completion_response.choices[0].message:  # type: ignore

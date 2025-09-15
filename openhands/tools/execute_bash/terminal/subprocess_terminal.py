@@ -67,6 +67,7 @@ class SubprocessTerminal(TerminalInterface):
         if self._initialized:
             return
 
+        # Inherit environment variables from the parent process
         env = os.environ.copy()
         env["PS1"] = self.PS1
         env["PS2"] = ""

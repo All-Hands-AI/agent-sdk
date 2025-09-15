@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 import pytest
 from litellm.exceptions import APIConnectionError
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM
+from openhands.sdk.llm import LLM, Message, TextContent
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -16,7 +16,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             Choices(
                 finish_reason="stop",
                 index=0,
-                message=Message(
+                message=LiteLLMMessage(
                     content=content,
                     role="assistant",
                 ),
@@ -73,7 +73,7 @@ def test_completion_retries_api_connection_error(
         service_id="test-service",
     )
     response = llm.completion(
-        messages=[{"role": "user", "content": "Hello!"}],
+        messages=[Message(role="user", content=[TextContent(text="Hello!")])],
     )
 
     # Verify that the retry was successful
@@ -118,7 +118,7 @@ def test_completion_max_retries_api_connection_error(
     # The completion should raise an APIConnectionError after exhausting all retries
     with pytest.raises(APIConnectionError) as excinfo:
         llm.completion(
-            messages=[{"role": "user", "content": "Hello!"}],
+            messages=[Message(role="user", content=[TextContent(text="Hello!")])],
         )
 
     # Verify that the correct number of retries were attempted
@@ -145,7 +145,7 @@ def test_completion_no_retry_on_success(mock_litellm_completion, default_config)
         service_id="test-service",
     )
     response = llm.completion(
-        messages=[{"role": "user", "content": "Hello!"}],
+        messages=[Message(role="user", content=[TextContent(text="Hello!")])],
     )
 
     # Verify that no retries were needed
@@ -174,7 +174,7 @@ def test_completion_no_retry_on_non_retryable_error(
     # The completion should raise the ValueError immediately without retries
     with pytest.raises(ValueError) as excinfo:
         llm.completion(
-            messages=[{"role": "user", "content": "Hello!"}],
+            messages=[Message(role="user", content=[TextContent(text="Hello!")])],
         )
 
     # Verify that no retries were attempted
@@ -232,7 +232,7 @@ def test_retry_listener_callback(mock_litellm_completion, default_config):
         retry_listener=retry_listener,
     )
     response = llm.completion(
-        messages=[{"role": "user", "content": "Hello!"}],
+        messages=[Message(role="user", content=[TextContent(text="Hello!")])],
     )
 
     # Verify that the retry listener was called

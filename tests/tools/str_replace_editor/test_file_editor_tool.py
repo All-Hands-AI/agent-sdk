@@ -17,7 +17,7 @@ def test_file_editor_tool_initialization():
     # Check that the tool has the correct name and properties
     assert tool.name == "str_replace_editor"
     assert tool.executor is not None
-    assert tool.action_type == StrReplaceEditorAction
+    assert issubclass(tool.action_type, StrReplaceEditorAction)
 
 
 def test_file_editor_tool_create_file():

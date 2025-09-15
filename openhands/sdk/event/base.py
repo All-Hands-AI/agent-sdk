@@ -23,7 +23,7 @@ N_CHAR_PREVIEW = 500
 class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
     """Base class for all events."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     id: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique event id (ULID/UUID)",
