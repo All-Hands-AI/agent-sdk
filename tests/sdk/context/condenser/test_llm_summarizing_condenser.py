@@ -53,6 +53,8 @@ def mock_llm() -> LLM:
     mock_llm.base_url = None
     mock_llm.reasoning_effort = None
 
+    mock_llm._metrics = None
+
     # Helper method to set mock response content
     def set_mock_response_content(content: str):
         mock_message.content = content

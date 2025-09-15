@@ -46,9 +46,7 @@ class LLMSummarizingCondenser(RollingCondenser):
                 summary_event_content = message_content.text
 
         # Identify events to be forgotten (those not in head or tail)
-        forgotten_events = []
-        for event in view[self.keep_first : -events_from_tail]:
-            forgotten_events.append(event)
+        forgotten_events = view[self.keep_first : -events_from_tail]
 
         # Convert events to strings for the template
         event_strings = [str(forgotten_event) for forgotten_event in forgotten_events]
