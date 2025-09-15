@@ -1,5 +1,6 @@
 """Tmux-based terminal backend implementation."""
 
+import os
 import time
 import uuid
 
@@ -34,6 +35,9 @@ class TmuxTerminal(TerminalInterface):
         if self._initialized:
             return
 
+        # Inherit environment variables from the parent process
+        env = os.environ.copy()
+
         self.server = libtmux.Server()
         _shell_command = "/bin/bash"
         if self.username in ["root", "openhands"]:
@@ -50,6 +54,7 @@ class TmuxTerminal(TerminalInterface):
             kill_session=True,
             x=1000,
             y=1000,
+            environment=env,
         )
 
         # Set history limit to a large number to avoid losing history
@@ -63,6 +68,7 @@ class TmuxTerminal(TerminalInterface):
             window_name="bash",
             window_shell=window_command,
             start_directory=self.work_dir,
+            environment=env,
         )
         self.pane = self.window.active_pane
         assert isinstance(self.pane, libtmux.Pane)

@@ -21,6 +21,7 @@ class BashExecutor(ToolExecutor):
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
+        env_masker: Callable[[str], str] | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
 
@@ -32,7 +33,10 @@ class BashExecutor(ToolExecutor):
                          ('tmux', 'subprocess').
                          If None, auto-detect based on system capabilities
             env_provider: Optional function mapping a command string to env vars
-                          that should be exported for that command
+                          that should be exported for that command.
+            env_masker: Optional function that returns current secret values
+                        for masking purposes. This ensures consistent masking
+                        even when env_provider calls fail.
         """
         self.session = create_terminal_session(
             work_dir=working_dir,
@@ -42,6 +46,7 @@ class BashExecutor(ToolExecutor):
         )
         self.session.initialize()
         self.env_provider = env_provider
+        self.env_masker = env_masker
 
     def _export_envs(self, action: ExecuteBashAction) -> None:
         if not self.env_provider:
@@ -75,7 +80,15 @@ class BashExecutor(ToolExecutor):
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
         # If env keys detected, export env values to bash as a separate action first
         self._export_envs(action)
-        return self.session.execute(action)
+        observation = self.session.execute(action)
+
+        # Apply automatic secrets masking using env_masker
+        if self.env_masker and observation.output:
+            masked_output = self.env_masker(observation.output)
+            data = observation.model_dump(exclude={"output"})
+            return ExecuteBashObservation(**data, output=masked_output)
+
+        return observation
 
     def close(self) -> None:
         """Close the terminal session and clean up resources."""
