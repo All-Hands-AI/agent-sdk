@@ -1,11 +1,19 @@
 """Runtime tools package."""
 
+from openhands.tools.datadog_api import (
+    DatadogTool,
+    datadog_search_logs_tool,
+)
 from openhands.tools.execute_bash import (
     BashExecutor,
     BashTool,
     ExecuteBashAction,
     ExecuteBashObservation,
     execute_bash_tool,
+)
+from openhands.tools.github_api import (
+    GitHubTool,
+    github_clone_repo_tool,
 )
 from openhands.tools.str_replace_editor import (
     FileEditorExecutor,
@@ -24,11 +32,15 @@ from openhands.tools.task_tracker import (
 
 
 __all__ = [
+    "datadog_search_logs_tool",
+    "DatadogTool",
     "execute_bash_tool",
     "ExecuteBashAction",
     "ExecuteBashObservation",
     "BashExecutor",
     "BashTool",
+    "github_clone_repo_tool",
+    "GitHubTool",
     "str_replace_editor_tool",
     "StrReplaceEditorAction",
     "StrReplaceEditorObservation",
@@ -39,10 +51,6 @@ __all__ = [
     "TaskTrackerObservation",
     "TaskTrackerExecutor",
     "TaskTrackerTool",
-    "pack_codebase_tool",
-    "PackCodebaseAction",
-    "PackCodebaseObservation",
-    "RepomixTool",
 ]
 
 from importlib.metadata import PackageNotFoundError, version
