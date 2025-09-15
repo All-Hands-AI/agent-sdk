@@ -1,6 +1,12 @@
 """Default preset configuration for OpenHands agents."""
 
-from openhands.sdk import Tool, create_mcp_tools
+from openhands.sdk import LLM, Tool, create_mcp_tools
+from openhands.sdk.context.condenser import (
+    Condenser,
+    LLMSummarizingCondenser,
+    PipelineCondenser,
+    UnmatchedToolCallFilteringCondenser,
+)
 
 
 def get_default_tools(working_dir: str) -> list[Tool]:
@@ -29,3 +35,28 @@ def get_default_tools(working_dir: str) -> list[Tool]:
         else:
             tools.append(tool)
     return tools
+
+
+def get_default_condenser(llm: LLM) -> Condenser:
+    # Create a condenser to manage the context
+    condenser = PipelineCondenser(
+        # The pipeline condenser allows for chaining of multiple condensers,
+        # allowing for complex condensation behavior with minimal configuration.
+        condensers=[
+            # The first condenser will automatically truncate conversation history when
+            # it exceeds max_size, and replaces the dropped events with an LLM-generated
+            # summary. This condenser triggers when there are more than ten events in
+            # the conversation history, and always keeps the first two events
+            # (system prompts, initial user messages) to preserve important context.
+            LLMSummarizingCondenser(
+                llm=llm,
+                max_size=10,
+                keep_first=2,
+            ),
+            # The second condenser filters out any unmatched tool calls that LLM APIs
+            # may complain about. These might arise when another condenser chooses
+            # to drop an action but not the corresponding observation, or vice versa.
+            UnmatchedToolCallFilteringCondenser(),
+        ]
+    )
+    return condenser
