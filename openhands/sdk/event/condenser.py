@@ -1,25 +1,34 @@
+from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import Message, MetricsSnapshot, TextContent
 
 
 class Condensation(EventBase):
     """This action indicates a condensation of the conversation history is happening."""
 
-    forgotten_event_ids: list[str]
-    """The IDs of the events that are being forgotten (removed from the `View` given to
-    the LLM).
-    """
+    forgotten_event_ids: list[str] = Field(
+        default_factory=list,
+        description="The IDs of the events that are being forgotten "
+        "(removed from the `View` given to the LLM).",
+    )
 
-    summary: str | None = None
-    """An optional summary of the events being forgotten."""
+    summary: str | None = Field(
+        default=None, description="An optional summary of the events being forgotten."
+    )
 
-    summary_offset: int | None = None
-    """An optional offset to the start of the resulting view indicating where the
-    summary should be inserted.
-    """
+    summary_offset: int | None = Field(
+        default=None,
+        description="An optional offset to the start of the resulting view"
+        " indicating where the summary should be inserted.",
+    )
+
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description="Snapshot of LLM metrics at the time of condensation",
+    )
 
     source: SourceType = "environment"
 

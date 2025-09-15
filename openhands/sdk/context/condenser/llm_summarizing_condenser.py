@@ -72,8 +72,10 @@ class LLMSummarizingCondenser(RollingCondenser):
         )
         summary = response.choices[0].message.content  # type: ignore
 
+        assert self.llm.metrics is not None, "LLM metrics should not be None"
         return Condensation(
             forgotten_event_ids=[event.id for event in forgotten_events],
             summary=summary,
             summary_offset=self.keep_first,
+            metrics=self.llm.metrics.get_snapshot(),
         )

@@ -8,7 +8,6 @@ from rich.text import Text
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
-    CondensationSummaryEvent,
     Event,
     EventWithMetrics,
     MessageEvent,
@@ -187,12 +186,10 @@ class ConversationVisualizer:
             return Panel(
                 content,
                 title=f"[bold {_SYSTEM_COLOR}]Condensation[/bold {_SYSTEM_COLOR}]",
+                subtitle=self._format_metrics_subtitle(event),
                 border_style=_SYSTEM_COLOR,
                 expand=True,
             )
-        elif isinstance(event, CondensationSummaryEvent):
-            # Condensation already contains all the info we need
-            return None
         else:
             # Fallback panel for unknown event types
             return Panel(

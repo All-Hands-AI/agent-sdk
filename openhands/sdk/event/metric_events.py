@@ -2,6 +2,7 @@ from typing import Union, get_args, get_type_hints
 
 from pydantic import BaseModel
 
+from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
@@ -10,7 +11,7 @@ from openhands.sdk.event.llm_convertible import (
 from openhands.sdk.llm import MetricsSnapshot
 
 
-EventWithMetrics = ActionEvent | MessageEvent | AgentErrorEvent
+EventWithMetrics = ActionEvent | MessageEvent | AgentErrorEvent | Condensation
 EVENT_CLASSES: tuple[type, ...] = get_args(EventWithMetrics)
 
 for cls in EVENT_CLASSES:
