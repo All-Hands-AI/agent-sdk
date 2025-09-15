@@ -14,6 +14,33 @@ import sys
 from datetime import datetime
 
 
+def format_cost(cost: float) -> str:
+    """
+    Format cost with smart precision to show meaningful values even for small amounts.
+
+    Args:
+        cost: The cost value to format
+
+    Returns:
+        Formatted cost string with appropriate precision
+    """
+    if cost == 0.0:
+        return "$0.00"
+    elif cost >= 1.0:
+        return f"${cost:.2f}"
+    elif cost >= 0.1:
+        return f"${cost:.3f}"
+    elif cost >= 0.01:
+        return f"${cost:.4f}"
+    elif cost >= 0.001:
+        return f"${cost:.5f}"
+    elif cost >= 0.0001:
+        return f"${cost:.6f}"
+    else:
+        # Use scientific notation for very small values
+        return f"${cost:.2e}"
+
+
 def find_result_files(results_dir="all_results"):
     """Find all result JSON files using simple glob patterns."""
     patterns = [f"{results_dir}/*_results.json", f"{results_dir}/*.json"]
@@ -43,6 +70,7 @@ def process_result_file(filepath):
             "test_report": data.get("test_report", "No report available"),
             "artifact_url": data.get("artifact_url", "N/A"),
             "success_rate": extract_success_rate(data.get("test_report", "")),
+            "total_cost": data.get("total_cost", 0.0),
         }
     except Exception as e:
         print(f"Error processing {filepath}: {e}", file=sys.stderr)
@@ -53,6 +81,9 @@ def generate_report(results, trigger_text, commit_sha):
     """Generate the consolidated markdown report."""
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
+    # Calculate total cost
+    total_cost = sum(result.get("total_cost", 0.0) for result in results)
+
     report = f"""# Integration Tests Report
 
 **Trigger:** {trigger_text}
@@ -61,19 +92,20 @@ def generate_report(results, trigger_text, commit_sha):
 
 ## Test Results Summary
 
-| Model | Success Rate | Test Results | Artifact Link |
-|-------|--------------|--------------|---------------|
+| Model | Success Rate | Cost | Test Results | Artifact Link |
+|-------|--------------|------|--------------|---------------|
 """
 
     if not results:
-        report += "| No results | N/A | No test results available | N/A |\n"
+        report += "| No results | N/A | N/A | No test results available | N/A |\n"
     else:
         for result in results:
             artifact_link = f"[Download]({result['artifact_url']})"
             model_name = result["model_name"]
             success_rate = result["success_rate"]
+            cost = format_cost(result.get("total_cost", 0.0))
             row = (
-                f"| {model_name} | {success_rate} | "
+                f"| {model_name} | {success_rate} | {cost} | "
                 f"See details below | {artifact_link} |\n"
             )
             report += row
@@ -84,6 +116,7 @@ def generate_report(results, trigger_text, commit_sha):
         report += f"### {result['model_name']}\n```\n{result['test_report']}\n```\n\n"
 
     report += f"---\n**Overall Status:** {len(results)} models tested\n"
+    report += f"**Total Cost:** {format_cost(total_cost)}\n"
 
     return report
 

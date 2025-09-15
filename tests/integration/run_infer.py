@@ -27,6 +27,33 @@ sys.path.insert(0, str(project_root))
 from tests.integration.base import BaseIntegrationTest, TestResult  # noqa: E402
 
 
+def format_cost(cost: float) -> str:
+    """
+    Format cost with smart precision to show meaningful values even for small amounts.
+
+    Args:
+        cost: The cost value to format
+
+    Returns:
+        Formatted cost string with appropriate precision
+    """
+    if cost == 0.0:
+        return "$0.00"
+    elif cost >= 1.0:
+        return f"${cost:.2f}"
+    elif cost >= 0.1:
+        return f"${cost:.3f}"
+    elif cost >= 0.01:
+        return f"${cost:.4f}"
+    elif cost >= 0.001:
+        return f"${cost:.5f}"
+    elif cost >= 0.0001:
+        return f"${cost:.6f}"
+    else:
+        # Use scientific notation for very small values
+        return f"${cost:.2e}"
+
+
 class TestInstance(BaseModel):
     """Represents a single test instance."""
 
@@ -221,7 +248,7 @@ def generate_report(output_file: str, eval_note: str) -> str:
     print("\nEvaluation Results:")
     print(df[["instance_id", "success", "reason"]].to_string(index=False))
     print("-" * 100)
-    print(f"Total cost: USD {total_cost:.2f}")
+    print(f"Total cost: {format_cost(total_cost)}")
 
     # Generate report file
     report_dir = os.path.dirname(output_file)
@@ -230,10 +257,15 @@ def generate_report(output_file: str, eval_note: str) -> str:
     with open(report_file, "w") as f:
         f.write(f"# Integration Tests Report - {eval_note}\n\n")
         f.write(f"Success rate: {success_rate:.2%} ({success_count}/{total_count})\n\n")
-        f.write(f"Total cost: USD {total_cost:.2f}\n\n")
+        f.write(f"Total cost: {format_cost(total_cost)}\n\n")
         f.write("## Test Results\n\n")
+
+        # Format cost column for display
+        df_display = df.copy()
+        df_display["cost"] = df_display["cost"].apply(format_cost)
+
         f.write(
-            df[
+            df_display[
                 ["instance_id", "success", "reason", "cost", "error_message"]
             ].to_markdown(index=False)  # type: ignore
         )
