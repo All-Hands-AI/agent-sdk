@@ -10,6 +10,7 @@ from openhands.sdk.event import (
     Event,
     LLMConvertibleEvent,
 )
+from openhands.sdk.event.llm_convertible import ActionEvent, ObservationEvent
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -84,6 +85,60 @@ class View(BaseModel):
             raise ValueError(f"Invalid key type: {type(key)}")
 
     @staticmethod
+    def filter_unmatched_tool_calls(
+        events: list[LLMConvertibleEvent],
+    ) -> list[LLMConvertibleEvent]:
+        """Filter out unmatched tool call events.
+
+        Removes ActionEvents and ObservationEvents that have tool_call_ids
+        but don't have matching pairs.
+        """
+        action_tool_call_ids = View._get_action_tool_call_ids(events)
+        observation_tool_call_ids = View._get_observation_tool_call_ids(events)
+
+        return [
+            event
+            for event in events
+            if View._should_keep_event(
+                event, action_tool_call_ids, observation_tool_call_ids
+            )
+        ]
+
+    @staticmethod
+    def _get_action_tool_call_ids(events: list[LLMConvertibleEvent]) -> set[str]:
+        """Extract tool_call_ids from ActionEvents."""
+        tool_call_ids = set()
+        for event in events:
+            if isinstance(event, ActionEvent) and event.tool_call_id is not None:
+                tool_call_ids.add(event.tool_call_id)
+        return tool_call_ids
+
+    @staticmethod
+    def _get_observation_tool_call_ids(
+        events: list[LLMConvertibleEvent],
+    ) -> set[str]:
+        """Extract tool_call_ids from ObservationEvents."""
+        tool_call_ids = set()
+        for event in events:
+            if isinstance(event, ObservationEvent) and event.tool_call_id is not None:
+                tool_call_ids.add(event.tool_call_id)
+        return tool_call_ids
+
+    @staticmethod
+    def _should_keep_event(
+        event: LLMConvertibleEvent,
+        action_tool_call_ids: set[str],
+        observation_tool_call_ids: set[str],
+    ) -> bool:
+        """Determine if an event should be kept based on tool call matching."""
+        if isinstance(event, ObservationEvent):
+            return event.tool_call_id in action_tool_call_ids
+        elif isinstance(event, ActionEvent):
+            return event.tool_call_id in observation_tool_call_ids
+        else:
+            return True
+
+    @staticmethod
     def from_events(events: ListLike[Event]) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
@@ -136,7 +191,7 @@ class View(BaseModel):
                 break
 
         return View(
-            events=kept_events,
+            events=View.filter_unmatched_tool_calls(kept_events),
             unhandled_condensation_request=unhandled_condensation_request,
             condensations=condensations,
         )
