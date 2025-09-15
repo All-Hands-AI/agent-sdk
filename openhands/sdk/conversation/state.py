@@ -19,7 +19,7 @@ from openhands.sdk.utils.protocol import ListLike
 logger = get_logger(__name__)
 
 
-class AgentExecutionState(str, Enum):
+class AgentExecutionStatus(str, Enum):
     """Enum representing the current execution state of the agent."""
 
     IDLE = "idle"  # Agent is ready to receive tasks
@@ -51,7 +51,7 @@ class ConversationState(BaseModel):
     )
 
     # New enum-based state management
-    agent_state: AgentExecutionState = Field(default=AgentExecutionState.IDLE)
+    agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
     confirmation_mode: bool = Field(
         default=False
     )  # Keep this as it's a configuration setting
@@ -89,11 +89,11 @@ class ConversationState(BaseModel):
             return
         self._syncing = True
         try:
-            self.agent_finished = self.agent_state == AgentExecutionState.FINISHED
+            self.agent_finished = self.agent_status == AgentExecutionStatus.FINISHED
             self.agent_waiting_for_confirmation = (
-                self.agent_state == AgentExecutionState.WAITING_FOR_CONFIRMATION
+                self.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
             )
-            self.agent_paused = self.agent_state == AgentExecutionState.PAUSED
+            self.agent_paused = self.agent_status == AgentExecutionStatus.PAUSED
         finally:
             self._syncing = False
 
@@ -104,14 +104,14 @@ class ConversationState(BaseModel):
         self._syncing = True
         try:
             if self.agent_finished:
-                self.agent_state = AgentExecutionState.FINISHED
+                self.agent_status = AgentExecutionStatus.FINISHED
             elif self.agent_waiting_for_confirmation:
-                self.agent_state = AgentExecutionState.WAITING_FOR_CONFIRMATION
+                self.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
             elif self.agent_paused:
-                self.agent_state = AgentExecutionState.PAUSED
+                self.agent_status = AgentExecutionStatus.PAUSED
             else:
                 # Default to IDLE if no flags are set
-                self.agent_state = AgentExecutionState.IDLE
+                self.agent_status = AgentExecutionStatus.IDLE
         finally:
             self._syncing = False
 
@@ -218,7 +218,7 @@ class ConversationState(BaseModel):
     # ===== Auto-persist base on public field changes =====
     def __setattr__(self, name, value):
         # Handle state synchronization first
-        if name == "agent_state" and hasattr(self, "agent_state"):
+        if name == "agent_status" and hasattr(self, "agent_status"):
             # When enum state changes, sync boolean fields
             super().__setattr__(name, value)
             if hasattr(self, "_autosave_enabled"):  # Avoid sync during init
@@ -227,7 +227,7 @@ class ConversationState(BaseModel):
             "agent_finished",
             "agent_waiting_for_confirmation",
             "agent_paused",
-        ] and hasattr(self, "agent_state"):
+        ] and hasattr(self, "agent_status"):
             # When boolean fields change, sync enum state
             super().__setattr__(name, value)
             if hasattr(self, "_autosave_enabled"):  # Avoid sync during init

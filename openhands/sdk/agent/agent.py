@@ -12,7 +12,7 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
-from openhands.sdk.conversation.state import AgentExecutionState
+from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
@@ -290,7 +290,7 @@ class Agent(AgentBase):
 
         else:
             logger.info("LLM produced a message response - awaits user input")
-            state.agent_state = AgentExecutionState.FINISHED
+            state.agent_status = AgentExecutionStatus.FINISHED
             msg_event = MessageEvent(
                 source="agent",
                 llm_message=message,
@@ -320,7 +320,7 @@ class Agent(AgentBase):
         if not state.confirmation_mode:
             return False
 
-        state.agent_state = AgentExecutionState.WAITING_FOR_CONFIRMATION
+        state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
         return True
 
     def _get_action_events(
@@ -351,7 +351,7 @@ class Agent(AgentBase):
                 metrics=metrics,
             )
             on_event(event)
-            state.agent_state = AgentExecutionState.FINISHED
+            state.agent_status = AgentExecutionStatus.FINISHED
             return
 
         # Validate arguments
@@ -422,5 +422,5 @@ class Agent(AgentBase):
 
         # Set conversation state
         if tool.name == FinishTool.name:
-            state.agent_state = AgentExecutionState.FINISHED
+            state.agent_status = AgentExecutionStatus.FINISHED
         return obs_event

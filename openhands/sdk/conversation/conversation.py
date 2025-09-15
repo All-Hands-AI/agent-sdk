@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
 
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.state import AgentExecutionState, ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import (
     create_default_visualizer,
@@ -101,9 +101,9 @@ class Conversation:
             "Only user messages are allowed to be sent to the agent."
         )
         with self.state:
-            if self.state.agent_state == AgentExecutionState.FINISHED:
-                self.state.agent_state = (
-                    AgentExecutionState.IDLE
+            if self.state.agent_status == AgentExecutionStatus.FINISHED:
+                self.state.agent_status = (
+                    AgentExecutionStatus.IDLE
                 )  # now we have a new message
 
             # TODO: We should add test cases for all these scenarios
@@ -153,8 +153,8 @@ class Conversation:
         """
 
         with self.state:
-            if self.state.agent_state == AgentExecutionState.PAUSED:
-                self.state.agent_state = AgentExecutionState.RUNNING
+            if self.state.agent_status == AgentExecutionStatus.PAUSED:
+                self.state.agent_status = AgentExecutionStatus.RUNNING
 
         iteration = 0
         while True:
@@ -168,24 +168,24 @@ class Conversation:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
                 # Ensure step conditions are checked when lock is already acquired
-                if self.state.agent_state in [
-                    AgentExecutionState.FINISHED,
-                    AgentExecutionState.PAUSED,
+                if self.state.agent_status in [
+                    AgentExecutionStatus.FINISHED,
+                    AgentExecutionStatus.PAUSED,
                 ]:
                     break
 
                 # clear the flag before calling agent.step() (user approved)
                 if (
-                    self.state.agent_state
-                    == AgentExecutionState.WAITING_FOR_CONFIRMATION
+                    self.state.agent_status
+                    == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
                 ):
-                    self.state.agent_state = AgentExecutionState.RUNNING
+                    self.state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
                 self.agent.step(self.state, on_event=self._on_event)
 
             # In confirmation mode, stop after one iteration if waiting for confirmation
-            if self.state.agent_state == AgentExecutionState.WAITING_FOR_CONFIRMATION:
+            if self.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
                 break
 
             iteration += 1
@@ -208,8 +208,8 @@ class Conversation:
 
         with self.state:
             # Always clear the agent_waiting_for_confirmation flag
-            if self.state.agent_state == AgentExecutionState.WAITING_FOR_CONFIRMATION:
-                self.state.agent_state = AgentExecutionState.IDLE
+            if self.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
+                self.state.agent_status = AgentExecutionStatus.IDLE
 
             if not pending_actions:
                 logger.warning("No pending actions to reject")
@@ -237,11 +237,11 @@ class Conversation:
         effect until the current LLM call completes.
         """
 
-        if self.state.agent_state == AgentExecutionState.PAUSED:
+        if self.state.agent_status == AgentExecutionStatus.PAUSED:
             return
 
         with self.state:
-            self.state.agent_state = AgentExecutionState.PAUSED
+            self.state.agent_status = AgentExecutionStatus.PAUSED
             pause_event = PauseEvent()
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
