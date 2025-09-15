@@ -158,10 +158,10 @@ jobs:
           fi
 
           # Initialize consolidated report
-          cat > consolidated_report.md << 'EOF'
+          cat > consolidated_report.md << EOF
           # Integration Tests Report
 
-          **Trigger:** TRIGGER_PLACEHOLDER
+          **Trigger:** $TRIGGER_TEXT
           **Commit:** ${{ github.sha }}
           **Timestamp:** $(date +'%Y-%m-%d %H:%M UTC')
 
@@ -203,7 +203,6 @@ jobs:
           done
 
           # Complete the report
-          echo "DEBUG: Completing report with $TOTAL_MODELS models..."
           echo "" >> consolidated_report.md
           echo "## Detailed Results" >> consolidated_report.md
           if [[ -f detailed_results_temp.md ]]; then
@@ -213,14 +212,17 @@ jobs:
           echo "---" >> consolidated_report.md
           echo "**Overall Status:** $TOTAL_MODELS models tested" >> consolidated_report.md
 
-          # Replace placeholder with actual trigger text
-          sed -i "s/TRIGGER_PLACEHOLDER/$TRIGGER_TEXT/" consolidated_report.md
+
 
           # Save PR number and comment content for next step
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
-          echo "COMMENT_BODY<<EOF" >> $GITHUB_ENV
-          cat consolidated_report.md >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          
+          # Use a more robust approach for the multiline environment variable
+          {
+            echo "COMMENT_BODY<<EOF"
+            cat consolidated_report.md
+            echo "EOF"
+          } >> $GITHUB_ENV
 
       - name: Create consolidated PR comment
         uses: KeisukeYamashita/create-comment@v1
