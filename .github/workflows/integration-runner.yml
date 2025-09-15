@@ -288,7 +288,7 @@ jobs:
                 echo "Detailed results added successfully"
                 
                 echo "Incrementing TOTAL_MODELS from $TOTAL_MODELS"
-                ((TOTAL_MODELS++)) || true  # Prevent exit on arithmetic errors
+                TOTAL_MODELS=$((TOTAL_MODELS + 1))
                 echo "TOTAL_MODELS is now $TOTAL_MODELS"
                 echo "Finished processing $result_file"
               fi
