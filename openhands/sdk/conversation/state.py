@@ -1,5 +1,6 @@
 # state.py
 import json
+from enum import Enum
 from threading import RLock, get_ident
 from typing import TYPE_CHECKING, Optional
 
@@ -16,6 +17,19 @@ from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
+
+
+class AgentExecutionStatus(str, Enum):
+    """Enum representing the current execution state of the agent."""
+
+    IDLE = "idle"  # Agent is ready to receive tasks
+    RUNNING = "running"  # Agent is actively processing
+    PAUSED = "paused"  # Agent execution is paused by user
+    WAITING_FOR_CONFIRMATION = (
+        "waiting_for_confirmation"  # Agent is waiting for user confirmation
+    )
+    FINISHED = "finished"  # Agent has completed the current task
+    ERROR = "error"  # Agent encountered an error (optional for future use)
 
 
 if TYPE_CHECKING:
@@ -36,11 +50,11 @@ class ConversationState(BaseModel):
         ),
     )
 
-    # flags
-    agent_finished: bool = Field(default=False)
-    confirmation_mode: bool = Field(default=False)
-    agent_waiting_for_confirmation: bool = Field(default=False)
-    agent_paused: bool = Field(default=False)
+    # Enum-based state management
+    agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
+    confirmation_mode: bool = Field(
+        default=False
+    )  # Keep this as it's a configuration setting
 
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list,
@@ -168,16 +182,16 @@ class ConversationState(BaseModel):
         # - autosave is enabled (set post-init)
         # - the attribute is a *public field* (not a PrivateAttr)
         # - we have a filestore to write to
+        _sentinel = object()
+        old = getattr(self, name, _sentinel)
+        super().__setattr__(name, value)
+
         is_field = name in self.__class__.model_fields
         autosave_enabled = getattr(self, "_autosave_enabled", False)
         fs = getattr(self, "_fs", None)
 
         if not (autosave_enabled and is_field and fs is not None):
-            return super().__setattr__(name, value)
-
-        _sentinel = object()
-        old = getattr(self, name, _sentinel)
-        super().__setattr__(name, value)
+            return
 
         if old is _sentinel or old != value:
             try:

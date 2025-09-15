@@ -20,7 +20,7 @@ jobs:
 
       - name: Detect sdk changes
         id: changed
-        uses: tj-actions/changed-files@v46
+        uses: tj-actions/changed-files@v47
         with:
           files: |
             openhands/sdk/**
@@ -74,7 +74,7 @@ jobs:
 
       - name: Detect tools changes
         id: changed
-        uses: tj-actions/changed-files@v46
+        uses: tj-actions/changed-files@v47
         with:
           files: |
             openhands/tools/**
@@ -128,7 +128,7 @@ jobs:
 
       - name: Detect cross changes
         id: changed
-        uses: tj-actions/changed-files@v46
+        uses: tj-actions/changed-files@v47
         with:
           files: |
             tests/**
