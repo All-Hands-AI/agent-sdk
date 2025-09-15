@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Sequence
 from pydantic import ConfigDict, Field
 
 from openhands.sdk.context.agent_context import AgentContext
+from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import ToolType
@@ -36,6 +37,12 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         " If a list is provided, it should be converted to a mapping by tool name."
         " We need to define this as ToolType for discriminated union.",
     )
+    system_prompt_filename: str = Field(default="system_prompt.j2")
+    system_prompt_kwargs: dict = Field(
+        default_factory=dict,
+        description="Optional kwargs to pass to the system prompt Jinja2 template.",
+        examples=[{"cli_mode": True}],
+    )
 
     @property
     def prompt_dir(self) -> str:
@@ -50,6 +57,25 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     def name(self) -> str:
         """Returns the name of the Agent."""
         return self.__class__.__name__
+
+    @property
+    def system_message(self) -> str:
+        """Compute system message on-demand to maintain statelessness."""
+        # Prepare template kwargs, including cli_mode if available
+        template_kwargs = dict(self.system_prompt_kwargs)
+        if hasattr(self, "cli_mode"):
+            template_kwargs["cli_mode"] = getattr(self, "cli_mode")
+
+        system_message = render_template(
+            prompt_dir=self.prompt_dir,
+            template_name=self.system_prompt_filename,
+            **template_kwargs,
+        )
+        if self.agent_context:
+            _system_message_suffix = self.agent_context.get_system_message_suffix()
+            if _system_message_suffix:
+                system_message += "\n\n" + _system_message_suffix
+        return system_message
 
     @abstractmethod
     def init_state(
