@@ -175,21 +175,42 @@ jobs:
           DETAILED_RESULTS=""
           TOTAL_MODELS=0
 
+          echo "DEBUG: Looking for result files in all_results/"
+          ls -la all_results/ || echo "DEBUG: all_results directory not found"
+          echo "DEBUG: Found result files:"
+          find all_results/ -name "*_results.json" -type f || echo "DEBUG: No result files found"
+
           for result_file in all_results/*_results.json; do
+            echo "DEBUG: Processing file: $result_file"
             if [[ -f "$result_file" ]]; then
-              MODEL_NAME=$(jq -r '.model_name' "$result_file")
-              RUN_SUFFIX=$(jq -r '.run_suffix' "$result_file")
-              TEST_REPORT=$(jq -r '.test_report' "$result_file")
-              ARTIFACT_URL=$(jq -r '.artifact_url' "$result_file")
+              echo "DEBUG: File exists, checking content:"
+              cat "$result_file" || echo "DEBUG: Failed to read file"
+              
+              echo "DEBUG: Extracting JSON fields..."
+              MODEL_NAME=$(jq -r '.model_name' "$result_file") || { echo "DEBUG: Failed to extract model_name"; exit 1; }
+              echo "DEBUG: MODEL_NAME=$MODEL_NAME"
+              
+              RUN_SUFFIX=$(jq -r '.run_suffix' "$result_file") || { echo "DEBUG: Failed to extract run_suffix"; exit 1; }
+              echo "DEBUG: RUN_SUFFIX=$RUN_SUFFIX"
+              
+              TEST_REPORT=$(jq -r '.test_report' "$result_file") || { echo "DEBUG: Failed to extract test_report"; exit 1; }
+              echo "DEBUG: TEST_REPORT length: ${#TEST_REPORT}"
+              
+              ARTIFACT_URL=$(jq -r '.artifact_url' "$result_file") || { echo "DEBUG: Failed to extract artifact_url"; exit 1; }
+              echo "DEBUG: ARTIFACT_URL=$ARTIFACT_URL"
               
               # Extract success rate from test report
+              echo "DEBUG: Extracting success rate from test report..."
               SUCCESS_RATE=$(echo "$TEST_REPORT" | grep -oE "Success rate: [0-9]+\.[0-9]+%" | head -1)
+              echo "DEBUG: Extracted SUCCESS_RATE=$SUCCESS_RATE"
               if [[ -z "$SUCCESS_RATE" ]]; then
                 SUCCESS_RATE="N/A"
+                echo "DEBUG: No success rate found, using N/A"
               fi
               
               # Add to summary table
-              echo "| $MODEL_NAME | $SUCCESS_RATE | See details below | [Download]($ARTIFACT_URL) |" >> consolidated_report.md
+              echo "DEBUG: Adding row to summary table..."
+              echo "| $MODEL_NAME | $SUCCESS_RATE | See details below | [Download]($ARTIFACT_URL) |" >> consolidated_report.md || { echo "DEBUG: Failed to write to consolidated_report.md"; exit 1; }
               
               # Add to detailed results
               DETAILED_RESULTS="$DETAILED_RESULTS
@@ -204,6 +225,7 @@ jobs:
           done
 
           # Complete the report
+          echo "DEBUG: Completing report with $TOTAL_MODELS models..."
           cat >> consolidated_report.md << EOF
 
           ## Detailed Results
@@ -213,14 +235,23 @@ jobs:
           **Overall Status:** $TOTAL_MODELS models tested
           EOF
 
+          echo "DEBUG: Report completed, checking content:"
+          echo "DEBUG: Report file size: $(wc -c < consolidated_report.md) bytes"
+          echo "DEBUG: Report preview:"
+          head -20 consolidated_report.md
+
           # Replace placeholder with actual trigger text
-          sed -i "s/TRIGGER_PLACEHOLDER/$TRIGGER_TEXT/" consolidated_report.md
+          echo "DEBUG: Replacing trigger placeholder..."
+          sed -i "s/TRIGGER_PLACEHOLDER/$TRIGGER_TEXT/" consolidated_report.md || { echo "DEBUG: Failed to replace trigger placeholder"; exit 1; }
 
           # Save PR number and comment content for next step
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
-          echo "COMMENT_BODY<<EOF" >> $GITHUB_ENV
-          cat consolidated_report.md >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          echo "DEBUG: Saving environment variables..."
+          echo "DEBUG: PR_NUMBER=$PR_NUMBER"
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV || { echo "DEBUG: Failed to save PR_NUMBER"; exit 1; }
+          echo "COMMENT_BODY<<EOF" >> $GITHUB_ENV || { echo "DEBUG: Failed to start COMMENT_BODY"; exit 1; }
+          cat consolidated_report.md >> $GITHUB_ENV || { echo "DEBUG: Failed to save report content"; exit 1; }
+          echo "EOF" >> $GITHUB_ENV || { echo "DEBUG: Failed to end COMMENT_BODY"; exit 1; }
+          echo "DEBUG: Environment variables saved successfully"
 
       - name: Create consolidated PR comment
         uses: KeisukeYamashita/create-comment@v1
