@@ -16,6 +16,7 @@ from pydantic import (
     model_validator,
 )
 
+from openhands.sdk.io.base import FileStore
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
@@ -705,7 +706,29 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return cls(**data)
 
     def serialize(self) -> dict[str, Any]:
+        """Serialize the LLM instance to a dictionary."""
         return self.model_dump()
+
+    def store_to_json(
+        self, filestore: FileStore, filepath: str, expose_secrets: bool = False
+    ) -> None:
+        """Store the LLM instance to a JSON file using the provided FileStore.
+
+        Args:
+            filestore: FileStore instance to use for writing the file.
+            filepath: Path where the JSON file should be stored.
+            expose_secrets: If True, SecretStr fields will be exposed as regular
+                           strings. If False, SecretStr fields will be serialized
+                           as "****".
+        """
+        if expose_secrets:
+            # Use model_dump_with_secrets to expose SecretStr values
+            serialized_data = self.model_dump_with_secrets()
+            json_content = json.dumps(serialized_data, indent=2)
+        else:
+            # Use Pydantic's JSON serialization to handle SecretStr properly
+            json_content = self.model_dump_json(indent=2)
+        filestore.write(filepath, json_content)
 
     @classmethod
     def load_from_json(cls, json_path: str) -> "LLM":
