@@ -243,9 +243,10 @@ class Conversation:
         with self.state:
             # Only pause when running or idle
             if (
-                self.state == AgentExecutionStatus.IDLE
-                or self.state == AgentExecutionStatus.RUNNING
+                self.state.agent_status == AgentExecutionStatus.IDLE
+                or self.state.agent_status == AgentExecutionStatus.RUNNING
             ):
+                self.state.agent_status = AgentExecutionStatus.PAUSED
                 pause_event = PauseEvent()
                 self._on_event(pause_event)
                 logger.info("Agent execution pause requested")
