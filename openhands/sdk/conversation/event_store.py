@@ -83,12 +83,7 @@ class EventLog(ListLike[Event]):
             )
 
         path = self._path(self._length, event_id=evt_id)
-        try:
-            self._fs.write(path, item.model_dump_json(exclude_none=True))
-        except Exception as e:
-            raise IOError(
-                f"Failed to write event to {path}: {e}.\nEvent: {item}"
-            ) from e
+        self._fs.write(path, item.model_dump_json(exclude_none=True))
         self._idx_to_id[self._length] = evt_id
         self._id_to_idx[evt_id] = self._length
         self._length += 1
