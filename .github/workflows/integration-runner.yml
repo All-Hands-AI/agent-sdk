@@ -143,26 +143,52 @@ jobs:
           merge-multiple: true
           path: all_results
 
-      - name: Consolidate test results and create PR comment
+      - name: Install jq
         run: |
-          # Set trigger information
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            TRIGGER_TEXT="Pull Request (integration-test label on PR #${{ github.event.pull_request.number }})"
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            TRIGGER_TEXT="Manual Trigger: ${{ github.event.inputs.reason }}"
-            PR_NUMBER="9745"  # fallback issue number
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Debug downloaded artifacts
+        run: |
+          echo "=== Debugging downloaded artifacts ==="
+          ls -la all_results/ || echo "all_results directory not found"
+          echo "All files in all_results:"
+          find all_results -type f | head -20 || echo "No files found"
+          echo "JSON files specifically:"
+          find all_results -name "*.json" -type f | head -10 || echo "No JSON files found"
+          echo "Files matching *_results.json pattern:"
+          ls -la all_results/*_results.json 2>/dev/null || echo "No files match *_results.json pattern"
+          echo "=== End debug ==="
+
+      - name: Consolidate test results and create PR comment
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MANUAL_REASON: ${{ github.event.inputs.reason }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          # Set trigger information using environment variables to avoid expansion issues
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            TRIGGER_TEXT="Pull Request (integration-test label on PR #${PR_NUMBER})"
+            FINAL_PR_NUMBER="$PR_NUMBER"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TRIGGER_TEXT="Manual Trigger: ${MANUAL_REASON}"
+            FINAL_PR_NUMBER="9745"  # fallback issue number
           else
             TRIGGER_TEXT="Nightly Scheduled Run"
-            PR_NUMBER="9745"  # fallback issue number
+            FINAL_PR_NUMBER="9745"  # fallback issue number
           fi
+
+          echo "Event name: $EVENT_NAME"
+          echo "Trigger text: $TRIGGER_TEXT"
+          echo "PR number: $FINAL_PR_NUMBER"
 
           # Initialize consolidated report
           cat > consolidated_report.md << EOF
           # Integration Tests Report
 
           **Trigger:** $TRIGGER_TEXT
-          **Commit:** ${{ github.sha }}
+          **Commit:** $COMMIT_SHA
           **Timestamp:** $(date +'%Y-%m-%d %H:%M UTC')
 
           ## Test Results Summary
@@ -172,35 +198,74 @@ jobs:
           EOF
 
           # Process each result file
-          DETAILED_RESULTS=""
           TOTAL_MODELS=0
-
-          for result_file in all_results/*_results.json; do
-            if [[ -f "$result_file" ]]; then
-              MODEL_NAME=$(jq -r '.model_name' "$result_file")
-              RUN_SUFFIX=$(jq -r '.run_suffix' "$result_file")
-              TEST_REPORT=$(jq -r '.test_report' "$result_file")
-              ARTIFACT_URL=$(jq -r '.artifact_url' "$result_file")
-              
-              # Extract success rate from test report
-              SUCCESS_RATE=$(echo "$TEST_REPORT" | grep -oE "Success rate: [0-9]+\.[0-9]+%" | head -1)
-              if [[ -z "$SUCCESS_RATE" ]]; then
-                SUCCESS_RATE="N/A"
+          
+          # Try multiple patterns to find result files
+          RESULT_FILES=()
+          
+          # Pattern 1: Direct files in all_results
+          for file in all_results/*_results.json; do
+            [[ -f "$file" ]] && RESULT_FILES+=("$file")
+          done
+          
+          # Pattern 2: Files in subdirectories (in case merge-multiple doesn't flatten)
+          for file in all_results/*/*_results.json; do
+            [[ -f "$file" ]] && RESULT_FILES+=("$file")
+          done
+          
+          # Pattern 3: Any JSON file that looks like results
+          for file in all_results/*.json all_results/*/*.json; do
+            if [[ -f "$file" && "$file" =~ results\.json$ ]]; then
+              # Avoid duplicates
+              if [[ ! " ${RESULT_FILES[@]} " =~ " $file " ]]; then
+                RESULT_FILES+=("$file")
               fi
-              
-              # Add to summary table
-              printf "| %s | %s | See details below | [Download](%s) |\n" "$MODEL_NAME" "$SUCCESS_RATE" "$ARTIFACT_URL" >> consolidated_report.md
-              
-              # Add to detailed results - write directly to temp file to avoid bash string issues
-              echo "" >> detailed_results_temp.md
-              echo "### $MODEL_NAME" >> detailed_results_temp.md
-              echo '```' >> detailed_results_temp.md
-              echo "$TEST_REPORT" >> detailed_results_temp.md
-              echo '```' >> detailed_results_temp.md
-              
-              ((TOTAL_MODELS++))
             fi
           done
+          
+          echo "Found ${#RESULT_FILES[@]} result files: ${RESULT_FILES[@]}"
+          
+          if [[ ${#RESULT_FILES[@]} -eq 0 ]]; then
+            echo "No result files found in all_results/"
+            echo "| No results | N/A | No test results available | N/A |" >> consolidated_report.md
+          else
+            for result_file in "${RESULT_FILES[@]}"; do
+              if [[ -f "$result_file" ]]; then
+                echo "Processing file: $result_file"
+                
+                # Check if jq can parse the file
+                if ! jq empty "$result_file" 2>/dev/null; then
+                  echo "Warning: Invalid JSON in $result_file"
+                  continue
+                fi
+                
+                MODEL_NAME=$(jq -r '.model_name // "Unknown"' "$result_file")
+                RUN_SUFFIX=$(jq -r '.run_suffix // "unknown"' "$result_file")
+                TEST_REPORT=$(jq -r '.test_report // "No report available"' "$result_file")
+                ARTIFACT_URL=$(jq -r '.artifact_url // "N/A"' "$result_file")
+                
+                echo "Model: $MODEL_NAME, Suffix: $RUN_SUFFIX"
+                
+                # Extract success rate from test report
+                SUCCESS_RATE=$(echo "$TEST_REPORT" | grep -oE "Success rate: [0-9]+\.[0-9]+%" | head -1 || echo "")
+                if [[ -z "$SUCCESS_RATE" ]]; then
+                  SUCCESS_RATE="N/A"
+                fi
+                
+                # Add to summary table
+                printf "| %s | %s | See details below | [Download](%s) |\n" "$MODEL_NAME" "$SUCCESS_RATE" "$ARTIFACT_URL" >> consolidated_report.md
+                
+                # Add to detailed results - write directly to temp file to avoid bash string issues
+                echo "" >> detailed_results_temp.md
+                echo "### $MODEL_NAME" >> detailed_results_temp.md
+                echo '```' >> detailed_results_temp.md
+                echo "$TEST_REPORT" >> detailed_results_temp.md
+                echo '```' >> detailed_results_temp.md
+                
+                ((TOTAL_MODELS++))
+              fi
+            done
+          fi
 
           # Complete the report
           echo "" >> consolidated_report.md
@@ -213,7 +278,7 @@ jobs:
           echo "**Overall Status:** $TOTAL_MODELS models tested" >> consolidated_report.md
 
           # Save PR number and comment content for next step
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          echo "PR_NUMBER=$FINAL_PR_NUMBER" >> $GITHUB_ENV
           # Use a more robust approach for the multiline environment variable
           {
             echo "COMMENT_BODY<<EOF"
