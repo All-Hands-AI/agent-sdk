@@ -10,7 +10,12 @@ from openhands.sdk.event import (
     Event,
     LLMConvertibleEvent,
 )
-from openhands.sdk.event.llm_convertible import ActionEvent, ObservationEvent
+from openhands.sdk.event.base import EventID
+from openhands.sdk.event.llm_convertible import (
+    ActionEvent,
+    ObservationEvent,
+    ToolCallID,
+)
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -105,7 +110,7 @@ class View(BaseModel):
         ]
 
     @staticmethod
-    def _get_action_tool_call_ids(events: list[LLMConvertibleEvent]) -> set[str]:
+    def _get_action_tool_call_ids(events: list[LLMConvertibleEvent]) -> set[ToolCallID]:
         """Extract tool_call_ids from ActionEvents."""
         tool_call_ids = set()
         for event in events:
@@ -116,7 +121,7 @@ class View(BaseModel):
     @staticmethod
     def _get_observation_tool_call_ids(
         events: list[LLMConvertibleEvent],
-    ) -> set[str]:
+    ) -> set[ToolCallID]:
         """Extract tool_call_ids from ObservationEvents."""
         tool_call_ids = set()
         for event in events:
@@ -127,8 +132,8 @@ class View(BaseModel):
     @staticmethod
     def _should_keep_event(
         event: LLMConvertibleEvent,
-        action_tool_call_ids: set[str],
-        observation_tool_call_ids: set[str],
+        action_tool_call_ids: set[ToolCallID],
+        observation_tool_call_ids: set[ToolCallID],
     ) -> bool:
         """Determine if an event should be kept based on tool call matching."""
         if isinstance(event, ObservationEvent):
@@ -143,7 +148,7 @@ class View(BaseModel):
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """
-        forgotten_event_ids: set[str] = set()
+        forgotten_event_ids: set[EventID] = set()
         condensations: list[Condensation] = []
         for event in events:
             if isinstance(event, Condensation):
