@@ -1235,7 +1235,6 @@ name = "openhands-sdk"
 version = "1.0.0"
 source = { editable = "openhands/sdk" }
 dependencies = [
-    { name = "boto3" },
     { name = "fastmcp" },
     { name = "litellm" },
     { name = "pydantic" },
@@ -1244,9 +1243,14 @@ dependencies = [
     { name = "tenacity" },
 ]
 
+[package.optional-dependencies]
+boto3 = [
+    { name = "boto3" },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "boto3", specifier = ">=1.35.0" },
+    { name = "boto3", marker = "extra == 'boto3'", specifier = ">=1.35.0" },
     { name = "fastmcp", specifier = ">=2.11.3" },
     { name = "litellm", specifier = ">=1.75.9" },
     { name = "pydantic", specifier = ">=2.11.7" },
@@ -1255,6 +1259,7 @@ requires-dist = [
     { name = "tenacity", specifier = ">=9.1.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=1.2.0" },
 ]
+provides-extras = ["boto3"]
 
 [[package]]
 name = "openhands-tools"

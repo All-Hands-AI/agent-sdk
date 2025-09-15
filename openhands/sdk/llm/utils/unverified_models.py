@@ -1,4 +1,3 @@
-import boto3
 import litellm
 from pydantic import SecretStr
 
@@ -9,9 +8,18 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-def list_bedrock_foundation_models(
+def _list_bedrock_foundation_models(
     aws_region_name: str, aws_access_key_id: str, aws_secret_access_key: str
 ) -> list[str]:
+    try:
+        import boto3
+    except ImportError:
+        logger.warning(
+            "boto3 is not installed. To use Bedrock models,"
+            "install with: agent-sdk[boto3]"
+        )
+        return []
+
     try:
         # The AWS bedrock model id is not queried, if no AWS parameters are configured.
         client = boto3.client(
@@ -53,7 +61,7 @@ def get_supported_llm_models(
     )
     bedrock_model_list = []
     if aws_region_name and aws_access_key_id and aws_secret_access_key:
-        bedrock_model_list = list_bedrock_foundation_models(
+        bedrock_model_list = _list_bedrock_foundation_models(
             aws_region_name,
             aws_access_key_id.get_secret_value(),
             aws_secret_access_key.get_secret_value(),
@@ -62,7 +70,7 @@ def get_supported_llm_models(
     return model_list
 
 
-def split_is_actually_version(split: list[str]) -> bool:
+def _split_is_actually_version(split: list[str]) -> bool:
     return (
         len(split) > 1
         and bool(split[1])
@@ -71,7 +79,7 @@ def split_is_actually_version(split: list[str]) -> bool:
     )
 
 
-def extract_model_and_provider(model: str) -> tuple[str, str, str]:
+def _extract_model_and_provider(model: str) -> tuple[str, str, str]:
     """
     Extract provider and model information from a model identifier.
     """
@@ -82,7 +90,7 @@ def extract_model_and_provider(model: str) -> tuple[str, str, str]:
         # no "/" separator found, try with "."
         separator = "."
         split = model.split(separator)
-        if split_is_actually_version(split):
+        if _split_is_actually_version(split):
             split = [separator.join(split)]  # undo the split
 
     if len(split) == 1:
@@ -116,8 +124,7 @@ def get_unverified_models(
         aws_region_name, aws_access_key_id, aws_secret_access_key
     )
     for model in models:
-        provider, model_id, separator = extract_model_and_provider(model)
-        print(provider, model_id, separator)
+        provider, model_id, separator = _extract_model_and_provider(model)
 
         # Ignore "anthropic" providers with a separator of "."
         # These are outdated and incompatible providers.
