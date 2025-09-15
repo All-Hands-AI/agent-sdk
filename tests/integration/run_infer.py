@@ -8,7 +8,6 @@ import argparse
 import importlib.util
 import json
 import os
-import sys
 import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -18,14 +17,8 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from pydantic import BaseModel
 
-
-# Add the project root to Python path for imports
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-# Import after path modification
-from tests.integration.base import BaseIntegrationTest, TestResult  # noqa: E402
-from tests.integration.utils.format_costs import format_cost  # noqa: E402
+from tests.integration.base import BaseIntegrationTest, TestResult
+from tests.integration.utils.format_costs import format_cost
 
 
 class TestInstance(BaseModel):

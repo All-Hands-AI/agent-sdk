@@ -13,7 +13,7 @@ import re
 import sys
 from datetime import datetime
 
-from tests.integration.utils.format_costs import format_cost  # noqa: E402
+from tests.integration.utils.format_costs import format_cost
 
 
 def find_result_files(results_dir="all_results"):
