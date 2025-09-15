@@ -10,8 +10,8 @@ from pydantic import (
     field_validator,
 )
 
-from openhands.sdk import Message
 from openhands.sdk.llm.llm import LLM
+from openhands.sdk.llm.message import Message
 from openhands.sdk.logger import get_logger
 
 
