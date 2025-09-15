@@ -29,6 +29,16 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12"]
+        llm-config:
+          - model: "litellm_proxy/anthropic/claude-sonnet-4-20250514"
+            name: "Claude Sonnet 4"
+            run-suffix: "sonnet_run"
+          - model: "litellm_proxy/openai/gpt-5-mini"
+            name: "GPT-5 Mini"
+            run-suffix: "gpt5_mini_run"
+          - model: "litellm_proxy/deepseek/deepseek-chat"
+            name: "DeepSeek Chat"
+            run-suffix: "deepseek_run"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -52,25 +62,25 @@ jobs:
           uv sync --dev
           uv pip install pytest
 
-      # Run integration test evaluation for Claude Sonnet 4
-      - name: Run integration test evaluation for Claude Sonnet 4
+      # Run integration test evaluation
+      - name: Run integration test evaluation for ${{ matrix.llm-config.name }}
         env:
-          LLM_MODEL: "litellm_proxy/anthropic/claude-sonnet-4-20250514"
+          LLM_MODEL: ${{ matrix.llm-config.model }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
         run: |
-          ./tests/integration/run_infer.sh "$LLM_MODEL" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' 'sonnet_run'
+          ./tests/integration/run_infer.sh "$LLM_MODEL" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' '${{ matrix.llm-config.run-suffix }}'
 
           # get integration tests report
-          REPORT_FILE_SONNET=$(find tests/integration/outputs/*sonnet_run* -name "report.md" -type f | head -n 1)
-          echo "REPORT_FILE: $REPORT_FILE_SONNET"
-          if [ -f "$REPORT_FILE_SONNET" ]; then
-            echo "INTEGRATION_TEST_REPORT_SONNET<<EOF" >> $GITHUB_ENV
-            cat $REPORT_FILE_SONNET >> $GITHUB_ENV
+          REPORT_FILE=$(find tests/integration/outputs/*${{ matrix.llm-config.run-suffix }}* -name "report.md" -type f | head -n 1)
+          echo "REPORT_FILE: $REPORT_FILE"
+          if [ -f "$REPORT_FILE" ]; then
+            echo "INTEGRATION_TEST_REPORT<<EOF" >> $GITHUB_ENV
+            cat $REPORT_FILE >> $GITHUB_ENV
             echo >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV
           else
-            echo "INTEGRATION_TEST_REPORT_SONNET=No report file found" >> $GITHUB_ENV
+            echo "INTEGRATION_TEST_REPORT=No report file found" >> $GITHUB_ENV
           fi
 
       - name: Wait a little bit
@@ -84,14 +94,14 @@ jobs:
         run: |
           TIMESTAMP=$(date +'%y-%m-%d-%H-%M')
           cd tests/integration/outputs  # Change to the outputs directory
-          tar -czvf ../../../integration_tests_${TIMESTAMP}.tar.gz *_N* # Include all result directories
+          tar -czvf ../../../integration_tests_${{ matrix.llm-config.run-suffix }}_${TIMESTAMP}.tar.gz *${{ matrix.llm-config.run-suffix }}* # Include result directories for this model
 
       - name: Upload evaluation results as artifact
         uses: actions/upload-artifact@v4
         id: upload_results_artifact
         with:
-          name: integration-test-outputs-${{ github.run_id }}-${{ github.run_attempt }}
-          path: integration_tests_*.tar.gz
+          name: integration-test-outputs-${{ matrix.llm-config.run-suffix }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: integration_tests_${{ matrix.llm-config.run-suffix }}_*.tar.gz
 
       - name: Get artifact URLs
         run: |
@@ -118,8 +128,8 @@ jobs:
           comment: |
               Trigger by: ${{ github.event_name == 'pull_request' && format('Pull Request (integration-test label on PR #{0})', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && format('Manual Trigger: {0}', github.event.inputs.reason)) || 'Nightly Scheduled Run' }}
               Commit: ${{ github.sha }}
-              **Integration Tests Report (Claude Sonnet 4)**
-              Claude Sonnet 4 LLM Test Results:
-              ${{ env.INTEGRATION_TEST_REPORT_SONNET }}
+              **Integration Tests Report (${{ matrix.llm-config.name }})**
+              ${{ matrix.llm-config.name }} LLM Test Results:
+              ${{ env.INTEGRATION_TEST_REPORT }}
               ---
-              Download testing outputs (Claude Sonnet 4 results): [Download](${{ steps.upload_results_artifact.outputs.artifact-url }})
+              Download testing outputs (${{ matrix.llm-config.name }} results): [Download](${{ steps.upload_results_artifact.outputs.artifact-url }})
