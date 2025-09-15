@@ -4,7 +4,7 @@ import os
 import time
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, cast, get_args, get_origin
+from typing import Any, Callable, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -338,7 +338,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     def completion(
         self,
-        messages: list[dict[str, Any]] | list[Message],
+        messages: list[Message],
         tools: list[ChatCompletionToolParam] | None = None,
         return_metrics: bool = False,
         **kwargs,
@@ -352,22 +352,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             raise ValueError("Streaming is not supported")
 
         # 1) serialize messages
-        if messages and isinstance(messages[0], Message):
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
-        else:
-            messages = cast(list[dict[str, Any]], messages)
+        formatted_messages = self.format_messages_for_llm(messages)
 
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(messages)
+        original_fncall_msgs = copy.deepcopy(formatted_messages)
         use_mock_tools = self.should_mock_tool_calls(tools)
         if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
-            messages, kwargs = self.pre_request_prompt_mock(
-                messages, tools or [], kwargs
+            formatted_messages, kwargs = self.pre_request_prompt_mock(
+                formatted_messages, tools or [], kwargs
             )
 
         # 3) normalize provider params
@@ -382,7 +379,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
-                "messages": messages[:],  # already simple dicts
+                "messages": formatted_messages[:],  # already simple dicts
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
@@ -402,12 +399,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
         def _one_attempt() -> ModelResponse:
             assert self._telemetry is not None
-            resp = self._transport_call(messages=messages, **call_kwargs)
+            resp = self._transport_call(messages=formatted_messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
                 resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
+                    resp, nonfncall_msgs=formatted_messages, tools=tools or []
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
@@ -701,17 +698,16 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         return [message.to_llm_dict() for message in messages]
 
-    def get_token_count(self, messages: list[dict] | list[Message]) -> int:
-        if isinstance(messages, list) and messages and isinstance(messages[0], Message):
-            logger.info(
-                "Message objects now include serialized tool calls in token counting"
-            )
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
+    def get_token_count(self, messages: list[Message]) -> int:
+        logger.info(
+            "Message objects now include serialized tool calls in token counting"
+        )
+        formatted_messages = self.format_messages_for_llm(messages)
         try:
             return int(
                 token_counter(
                     model=self.model,
-                    messages=messages,  # type: ignore[arg-type]
+                    messages=formatted_messages,
                     custom_tokenizer=self._tokenizer,
                 )
             )
