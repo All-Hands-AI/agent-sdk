@@ -167,9 +167,13 @@ def main():
         print("❌ LITELLM_API_KEY environment variable is required")
         sys.exit(1)
 
+    # Get LLM configuration from environment
+    model = os.getenv("LLM_MODEL", "litellm_proxy/anthropic/claude-sonnet-4-20250514")
+    base_url = os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
+
     llm = LLM(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-        base_url="https://llm-proxy.eval.all-hands.dev",
+        model=model,
+        base_url=base_url,
         api_key=SecretStr(api_key),
     )
 
