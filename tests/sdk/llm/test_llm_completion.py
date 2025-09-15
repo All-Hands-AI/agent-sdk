@@ -4,10 +4,10 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM
+from openhands.sdk.llm import LLM, Message, TextContent
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -18,7 +18,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             Choices(
                 finish_reason="stop",
                 index=0,
-                message=Message(
+                message=LiteLLMMessage(
                     content=content,
                     role="assistant",
                 ),
@@ -63,7 +63,7 @@ def test_llm_completion_basic(mock_completion):
     )
 
     # Test completion
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
     assert response == mock_response
@@ -74,7 +74,7 @@ def test_llm_streaming_not_supported(default_config):
     """Test that streaming is not supported in the basic LLM class."""
     llm = default_config
 
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
 
     # Streaming should raise an error
     with pytest.raises(ValueError, match="Streaming is not supported"):
@@ -104,7 +104,7 @@ def test_llm_completion_with_tools(mock_completion):
     )
 
     # Test completion with tools
-    messages = [{"role": "user", "content": "Use the test tool"}]
+    messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
     tools: list[Any] = [
         {
             "type": "function",
@@ -140,7 +140,7 @@ def test_llm_completion_error_handling(mock_completion):
         retry_max_wait=2,
     )
 
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
 
     # Should propagate the exception
     with pytest.raises(Exception, match="Test error"):
@@ -153,8 +153,8 @@ def test_llm_token_counting_basic(default_config):
 
     # Test with simple messages
     messages = [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hi there!"},
+        Message(role="user", content=[TextContent(text="Hello")]),
+        Message(role="assistant", content=[TextContent(text="Hi there!")]),
     ]
 
     # Token counting should return a non-negative integer
@@ -251,7 +251,9 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
 
     llm = custom_config
 
-    messages = [{"role": "user", "content": "Hello with custom params"}]
+    messages = [
+        Message(role="user", content=[TextContent(text="Hello with custom params")])
+    ]
     response = llm.completion(messages=messages)
 
     assert response == mock_response
@@ -295,7 +297,10 @@ def test_llm_completion_non_function_call_mode(mock_completion):
 
     # Test completion with tools - this should trigger the non-function call path
     messages = [
-        {"role": "user", "content": "Use the test tool with param 'test_value'"}
+        Message(
+            role="user",
+            content=[TextContent(text="Use the test tool with param 'test_value'")],
+        )
     ]
     tools: list[Any] = [
         {
@@ -353,7 +358,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
             },
         }
     ]
-    messages = [{"role": "user", "content": "Use the test tool"}]
+    messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
     # Test with native function calling enabled (default behavior for gpt-4o)
     llm_native = LLM(
