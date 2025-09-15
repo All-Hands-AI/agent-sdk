@@ -137,4 +137,4 @@ def get_unverified_models(
     return result_dict
 
 
-UNVERIFIED_MODELS = get_unverified_models()
+UNVERIFIED_MODELS_EXCLUDING_BEDROCK = get_unverified_models()
