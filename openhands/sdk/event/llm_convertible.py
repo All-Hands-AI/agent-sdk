@@ -6,7 +6,7 @@ from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import ConfigDict, Field, computed_field
 from rich.text import Text
 
-from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
+from openhands.sdk.event.base import N_CHAR_PREVIEW, EventID, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
@@ -72,6 +72,10 @@ class SystemPromptEvent(LLMConvertibleEvent):
         )
 
 
+ToolCallID = str
+"""Type alias for tool call IDs."""
+
+
 class ActionEvent(LLMConvertibleEvent):
     source: SourceType = "agent"
     thought: Sequence[TextContent] = Field(
@@ -83,7 +87,7 @@ class ActionEvent(LLMConvertibleEvent):
     )
     action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
-    tool_call_id: str = Field(
+    tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"
     )
     tool_call: ChatCompletionMessageToolCall = Field(
@@ -93,7 +97,7 @@ class ActionEvent(LLMConvertibleEvent):
             "so it is easier to construct it into LLM message"
         ),
     )
-    llm_response_id: str = Field(
+    llm_response_id: EventID = Field(
         ...,
         description=(
             "Groups related actions from same LLM response. This helps in tracking "
@@ -160,13 +164,13 @@ class ObservationEvent(LLMConvertibleEvent):
         ..., description="The observation (tool call) sent to LLM"
     )
 
-    action_id: str = Field(
+    action_id: EventID = Field(
         ..., description="The action id that this observation is responding to"
     )
     tool_name: str = Field(
         ..., description="The tool name that this observation is responding to"
     )
-    tool_call_id: str = Field(
+    tool_call_id: ToolCallID = Field(
         ..., description="The tool call id that this observation is responding to"
     )
 
@@ -298,13 +302,13 @@ class UserRejectObservation(LLMConvertibleEvent):
     """Observation when user rejects an action in confirmation mode."""
 
     source: SourceType = "user"
-    action_id: str = Field(
+    action_id: EventID = Field(
         ..., description="The action id that this rejection is responding to"
     )
     tool_name: str = Field(
         ..., description="The tool name that this rejection is responding to"
     )
-    tool_call_id: str = Field(
+    tool_call_id: ToolCallID = Field(
         ..., description="The tool call id that this rejection is responding to"
     )
     rejection_reason: str = Field(

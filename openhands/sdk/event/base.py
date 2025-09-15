@@ -19,12 +19,15 @@ if TYPE_CHECKING:
 
 N_CHAR_PREVIEW = 500
 
+EventID = str
+"""Type alias for event IDs."""
+
 
 class EventBase(DiscriminatedUnionMixin, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    id: str = Field(
+    id: EventID = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique event id (ULID/UUID)",
     )
