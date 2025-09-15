@@ -1,6 +1,7 @@
 """Browser tool executor implementation using browser-use MCP server wrapper."""
 
 import asyncio
+import json
 import logging
 import threading
 
@@ -72,7 +73,7 @@ class BrowserToolExecutor(ToolExecutor):
             elif isinstance(action, BrowserTypeAction):
                 result = await self.type_text(action.index, action.text)
             elif isinstance(action, BrowserGetStateAction):
-                result = await self.get_state(action.include_screenshot)
+                return await self.get_state(action.include_screenshot)
             elif isinstance(action, BrowserGetContentAction):
                 result = await self.get_content(
                     action.extract_links, action.start_from_char
@@ -138,10 +139,28 @@ class BrowserToolExecutor(ToolExecutor):
     # TODO: `scroll_to_text` tool is missing in browser-use MCP server
     # TODO: `send_keys` tool is missing in browser-use MCP server
 
-    async def get_state(self, include_screenshot: bool = False) -> str:
+    async def get_state(self, include_screenshot: bool = False):
         """Get current browser state with interactive elements."""
+        from openhands.tools.browser_use.definition import BrowserObservation
+
         await self._ensure_initialized()
-        return await self._server._get_browser_state(include_screenshot)
+        result_json = await self._server._get_browser_state(include_screenshot)
+
+        if include_screenshot:
+            try:
+                result_data = json.loads(result_json)
+                screenshot_data = result_data.pop("screenshot", None)
+
+                # Return clean JSON + separate screenshot data
+                clean_json = json.dumps(result_data, indent=2)
+                return BrowserObservation(
+                    output=clean_json, screenshot_data=screenshot_data
+                )
+            except json.JSONDecodeError:
+                # If JSON parsing fails, return as-is
+                pass
+
+        return BrowserObservation(output=result_json)
 
     # Tab Management
     async def list_tabs(self) -> str:

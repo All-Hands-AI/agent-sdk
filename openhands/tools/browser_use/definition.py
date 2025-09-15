@@ -1,6 +1,6 @@
 """Browser-use tool implementation for web automation."""
 
-from typing import Literal
+from typing import Literal, Sequence
 
 from pydantic import Field
 
@@ -19,12 +19,25 @@ class BrowserObservation(ObservationBase):
 
     output: str = Field(description="The output message from the browser operation")
     error: str | None = Field(default=None, description="Error message if any")
+    screenshot_data: str | None = Field(
+        default=None, description="Base64 screenshot data if available"
+    )
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=f"Error: {self.error}")]
-        return [TextContent(text=maybe_truncate(self.output, MAX_BROWSER_OUTPUT_SIZE))]
+
+        content: list[TextContent | ImageContent] = [
+            TextContent(text=maybe_truncate(self.output, MAX_BROWSER_OUTPUT_SIZE))
+        ]
+
+        if self.screenshot_data:
+            # Convert base64 to data URL format for ImageContent
+            data_url = f"data:image/png;base64,{self.screenshot_data}"
+            content.append(ImageContent(image_urls=[data_url]))
+
+        return content
 
 
 # ============================================
