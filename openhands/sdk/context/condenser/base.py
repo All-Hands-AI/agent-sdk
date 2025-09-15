@@ -3,7 +3,9 @@ from logging import getLogger
 from typing import Annotated
 
 from openhands.sdk.context.view import View
+from openhands.sdk.event import LLMConvertibleEvent
 from openhands.sdk.event.condenser import Condensation
+from openhands.sdk.event.llm_convertible import ActionEvent, ObservationEvent
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -44,6 +46,70 @@ class CondenserBase(DiscriminatedUnionMixin, ABC):
             View | Condensation: A condensed view of the events or an event indicating
             the history has been condensed.
         """
+
+    def filter_unmatched_tool_calls(
+        self, events: list[LLMConvertibleEvent]
+    ) -> list[LLMConvertibleEvent]:
+        """Filter out tool-call events that don't have a matching pair.
+
+        This method removes ActionEvents that don't have corresponding ObservationEvents
+        and ObservationEvents that don't have corresponding ActionEvents, based on their
+        tool_call_id. Non-tool events are always kept.
+
+        Args:
+            events: List of events to filter.
+
+        Returns:
+            Filtered list of events with only matched tool call pairs and non-tool
+            events.
+        """
+        action_tool_call_ids = self._get_action_tool_call_ids(events)
+        observation_tool_call_ids = self._get_observation_tool_call_ids(events)
+
+        return [
+            event
+            for event in events
+            if self._should_keep_event(
+                event, action_tool_call_ids, observation_tool_call_ids
+            )
+        ]
+
+    def _get_action_tool_call_ids(self, events: list[LLMConvertibleEvent]) -> set[str]:
+        """Collect tool_call_ids from ActionEvents."""
+        return {
+            event.tool_call_id
+            for event in events
+            if isinstance(event, ActionEvent) and event.tool_call_id
+        }
+
+    def _get_observation_tool_call_ids(
+        self, events: list[LLMConvertibleEvent]
+    ) -> set[str]:
+        """Collect tool_call_ids from ObservationEvents."""
+        return {
+            event.tool_call_id
+            for event in events
+            if isinstance(event, ObservationEvent) and event.tool_call_id
+        }
+
+    def _should_keep_event(
+        self,
+        event: LLMConvertibleEvent,
+        action_tool_call_ids: set[str],
+        observation_tool_call_ids: set[str],
+    ) -> bool:
+        """Determine if an event should be kept based on tool call matching."""
+        if isinstance(event, ObservationEvent):
+            # Keep ObservationEvents only if they have a matching ActionEvent
+            return event.tool_call_id in action_tool_call_ids
+
+        elif isinstance(event, ActionEvent):
+            # Keep ActionEvents only if they have a matching ObservationEvent
+            return event.tool_call_id in observation_tool_call_ids
+
+        else:
+            # Keep all other event types
+            return True
 
 
 Condenser = Annotated[CondenserBase, DiscriminatedUnionType[CondenserBase]]
