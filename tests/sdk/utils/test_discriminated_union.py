@@ -333,3 +333,29 @@ def test_discriminated_union_preserves_pydantic_parameters() -> None:
     context = {"test": "value"}
     result = Animal.model_validate(dog_data, context=context)
     assert isinstance(result, Dog)
+
+
+def test_du_spec_is_json_serializable_and_roundtrips() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        __include_du_spec__ = True
+        name: str
+
+    class Dog(Animal):
+        breed: str = "Labrador"  # has a default (will show in _du_spec)
+
+    dog = Dog(name="Fido")
+
+    # Should serialize without raising (no PydanticUndefined leaking)
+    serialized = dog.model_dump_json()
+
+    import json
+
+    data = json.loads(serialized)
+    assert "kind" in data
+    assert "_du_spec" in data
+    assert data["_du_spec"]["fields"]["breed"]["default"] == "Labrador"
+
+    # Should also deserialize back to Dog correctly
+    deserialized = Animal.model_validate_json(serialized)
+    assert isinstance(deserialized, Dog)
+    assert deserialized == dog
