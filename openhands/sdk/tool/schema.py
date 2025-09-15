@@ -102,6 +102,20 @@ def _process_schema_node(node, defs):
 class Schema(BaseModel):
     """Base schema for input action / output observation."""
 
+    __include_du_spec__ = True
+    """Whether to include the _du_spec field in the serialized output.
+
+    This is used to help with discriminated union deserialization fallback.
+    When True, the model's JSON schema will be included in the serialized output
+    under the `_du_spec` key. This allows deserialization to reconstruct the model
+    even if the `kind` discriminator is missing or unresolvable.
+
+    This can be especially useful in server-client scenarios where the client may not
+    have all the same model classes registered as the server.
+    e.g., MCPAction schema created in the server-side; openhands.tools action schemas
+    (if the client doesn't have openhands.tools installed).
+    """
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     @classmethod
