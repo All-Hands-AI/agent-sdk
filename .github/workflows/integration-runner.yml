@@ -212,17 +212,17 @@ jobs:
           echo "---" >> consolidated_report.md
           echo "**Overall Status:** $TOTAL_MODELS models tested" >> consolidated_report.md
 
-
-
           # Save PR number and comment content for next step
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
-          
           # Use a more robust approach for the multiline environment variable
           {
             echo "COMMENT_BODY<<EOF"
             cat consolidated_report.md
             echo "EOF"
           } >> $GITHUB_ENV
+          
+          # Clean up temp file
+          rm -f detailed_results_temp.md
 
       - name: Create consolidated PR comment
         uses: KeisukeYamashita/create-comment@v1
