@@ -14,7 +14,7 @@ import sys
 from datetime import datetime
 
 
-def format_cost(cost: float) -> str:
+def format_cost(value):
     """
     Format cost with smart precision to show meaningful values even for small amounts.
 
@@ -24,21 +24,15 @@ def format_cost(cost: float) -> str:
     Returns:
         Formatted cost string with appropriate precision
     """
-    if cost == 0.0:
-        return "$0.00"
-    elif cost >= 1.0:
-        return f"${cost:.2f}"
-    elif cost >= 0.1:
-        return f"${cost:.3f}"
-    elif cost >= 0.01:
-        return f"${cost:.4f}"
-    elif cost >= 0.001:
-        return f"${cost:.5f}"
-    elif cost >= 0.0001:
-        return f"${cost:.6f}"
+    if abs(value) >= 0.01:
+        # Normal rounding for typical amounts
+        return f"${value:.2f}"
+    elif abs(value) >= 0.001:
+        # Round small numbers to 2 significant figures
+        return f"${value:.2g}"
     else:
-        # Use scientific notation for very small values
-        return f"${cost:.2e}"
+        # Use scientific notation for very small numbers
+        return f"${value:.1e}"
 
 
 def find_result_files(results_dir="all_results"):

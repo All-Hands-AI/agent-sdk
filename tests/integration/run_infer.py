@@ -25,33 +25,7 @@ sys.path.insert(0, str(project_root))
 
 # Import after path modification
 from tests.integration.base import BaseIntegrationTest, TestResult  # noqa: E402
-
-
-def format_cost(cost: float) -> str:
-    """
-    Format cost with smart precision to show meaningful values even for small amounts.
-
-    Args:
-        cost: The cost value to format
-
-    Returns:
-        Formatted cost string with appropriate precision
-    """
-    if cost == 0.0:
-        return "$0.00"
-    elif cost >= 1.0:
-        return f"${cost:.2f}"
-    elif cost >= 0.1:
-        return f"${cost:.3f}"
-    elif cost >= 0.01:
-        return f"${cost:.4f}"
-    elif cost >= 0.001:
-        return f"${cost:.5f}"
-    elif cost >= 0.0001:
-        return f"${cost:.6f}"
-    else:
-        # Use scientific notation for very small values
-        return f"${cost:.2e}"
+from tests.integration.utils.consolidate_results import format_cost  # noqa: E402
 
 
 class TestInstance(BaseModel):
