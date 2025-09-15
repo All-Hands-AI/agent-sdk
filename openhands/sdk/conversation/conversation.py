@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Iterable
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
 
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.secrets_manager import SecretValue
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.conversation.visualizer import (
     create_default_visualizer,
@@ -100,8 +101,10 @@ class Conversation:
             "Only user messages are allowed to be sent to the agent."
         )
         with self.state:
-            if self.state.agent_finished:
-                self.state.agent_finished = False  # now we have a new message
+            if self.state.agent_status == AgentExecutionStatus.FINISHED:
+                self.state.agent_status = (
+                    AgentExecutionStatus.IDLE
+                )  # now we have a new message
 
             # TODO: We should add test cases for all these scenarios
             activated_microagent_names: list[str] = []
@@ -150,7 +153,8 @@ class Conversation:
         """
 
         with self.state:
-            self.state.agent_paused = False
+            if self.state.agent_status == AgentExecutionStatus.PAUSED:
+                self.state.agent_status = AgentExecutionStatus.RUNNING
 
         iteration = 0
         while True:
@@ -164,18 +168,24 @@ class Conversation:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
                 # Ensure step conditions are checked when lock is already acquired
-                if self.state.agent_finished or self.state.agent_paused:
+                if self.state.agent_status in [
+                    AgentExecutionStatus.FINISHED,
+                    AgentExecutionStatus.PAUSED,
+                ]:
                     break
 
                 # clear the flag before calling agent.step() (user approved)
-                if self.state.agent_waiting_for_confirmation:
-                    self.state.agent_waiting_for_confirmation = False
+                if (
+                    self.state.agent_status
+                    == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                ):
+                    self.state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
                 self.agent.step(self.state, on_event=self._on_event)
 
             # In confirmation mode, stop after one iteration if waiting for confirmation
-            if self.state.agent_waiting_for_confirmation:
+            if self.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
                 break
 
             iteration += 1
@@ -198,7 +208,8 @@ class Conversation:
 
         with self.state:
             # Always clear the agent_waiting_for_confirmation flag
-            self.state.agent_waiting_for_confirmation = False
+            if self.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
+                self.state.agent_status = AgentExecutionStatus.IDLE
 
             if not pending_actions:
                 logger.warning("No pending actions to reject")
@@ -226,14 +237,27 @@ class Conversation:
         effect until the current LLM call completes.
         """
 
-        if self.state.agent_paused:
+        if self.state.agent_status == AgentExecutionStatus.PAUSED:
             return
 
         with self.state:
-            self.state.agent_paused = True
+            self.state.agent_status = AgentExecutionStatus.PAUSED
             pause_event = PauseEvent()
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
+
+    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
+        """Add secrets to the conversation.
+
+        Args:
+            secrets: Dictionary mapping secret keys to values or no-arg callables.
+                     SecretValue = str | Callable[[], str]. Callables are invoked lazily
+                     when a command references the secret key.
+        """
+
+        secrets_manager = self.state.secrets_manager
+        secrets_manager.update_secrets(secrets)
+        logger.info(f"Added {len(secrets)} secrets to conversation")
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
