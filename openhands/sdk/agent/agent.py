@@ -197,7 +197,7 @@ class Agent(AgentBase):
         # of events, exactly as expected, or a new condensation that needs to be
         # processed before the agent can sample another action.
         if self.condenser is not None:
-            view = View.from_events(state.events, on_event=on_event)
+            view = View.from_events(state.events)
             condensation_result = self.condenser.condense(view)
 
             match condensation_result:

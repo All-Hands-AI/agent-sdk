@@ -59,7 +59,3 @@ class CondensationSummaryEvent(LLMConvertibleEvent):
             role="user",
             content=[TextContent(text=self.summary)],
         )
-
-    @property
-    def visualize(self) -> Text:
-        return Text()
