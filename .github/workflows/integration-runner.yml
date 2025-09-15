@@ -167,6 +167,7 @@ jobs:
           MANUAL_REASON: ${{ github.event.inputs.reason }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          set -x  # Enable command tracing for debugging
           # Set trigger information using environment variables to avoid expansion issues
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             TRIGGER_TEXT="Pull Request (integration-test label on PR #${PR_NUMBER})"
@@ -239,28 +240,52 @@ jobs:
                   continue
                 fi
                 
-                MODEL_NAME=$(jq -r '.model_name // "Unknown"' "$result_file")
-                RUN_SUFFIX=$(jq -r '.run_suffix // "unknown"' "$result_file")
-                TEST_REPORT=$(jq -r '.test_report // "No report available"' "$result_file")
-                ARTIFACT_URL=$(jq -r '.artifact_url // "N/A"' "$result_file")
+                echo "About to extract fields from $result_file"
+                MODEL_NAME=$(jq -r '.model_name // "Unknown"' "$result_file" || echo "Unknown")
+                echo "MODEL_NAME: $MODEL_NAME"
+                
+                RUN_SUFFIX=$(jq -r '.run_suffix // "unknown"' "$result_file" || echo "unknown")
+                echo "RUN_SUFFIX: $RUN_SUFFIX"
+                
+                # Handle TEST_REPORT more carefully as it might contain special characters
+                echo "Extracting test report..."
+                if TEST_REPORT=$(jq -r '.test_report // "No report available"' "$result_file" 2>/dev/null); then
+                  echo "Test report extracted successfully (length: ${#TEST_REPORT})"
+                else
+                  echo "Failed to extract test report, using fallback"
+                  TEST_REPORT="No report available"
+                fi
+                
+                ARTIFACT_URL=$(jq -r '.artifact_url // "N/A"' "$result_file" || echo "N/A")
+                echo "ARTIFACT_URL: $ARTIFACT_URL"
                 
                 echo "Model: $MODEL_NAME, Suffix: $RUN_SUFFIX"
                 
-                # Extract success rate from test report
-                SUCCESS_RATE=$(echo "$TEST_REPORT" | grep -oE "Success rate: [0-9]+\.[0-9]+%" | head -1 || echo "")
+                # Extract success rate from test report - make grep more robust
+                echo "Extracting success rate..."
+                SUCCESS_RATE=""
+                if [[ -n "$TEST_REPORT" && "$TEST_REPORT" != "No report available" ]]; then
+                  SUCCESS_RATE=$(echo "$TEST_REPORT" | grep -oE "Success rate: [0-9]+\.[0-9]+%" | head -1 || echo "")
+                fi
                 if [[ -z "$SUCCESS_RATE" ]]; then
                   SUCCESS_RATE="N/A"
                 fi
+                echo "SUCCESS_RATE: $SUCCESS_RATE"
                 
-                # Add to summary table
-                printf "| %s | %s | See details below | [Download](%s) |\n" "$MODEL_NAME" "$SUCCESS_RATE" "$ARTIFACT_URL" >> consolidated_report.md
+                # Add to summary table - escape special characters
+                echo "Adding to summary table..."
+                # Use echo instead of printf to avoid format string issues
+                echo "| $MODEL_NAME | $SUCCESS_RATE | See details below | [Download]($ARTIFACT_URL) |" >> consolidated_report.md
                 
                 # Add to detailed results - write directly to temp file to avoid bash string issues
+                echo "Adding to detailed results..."
                 echo "" >> detailed_results_temp.md
                 echo "### $MODEL_NAME" >> detailed_results_temp.md
                 echo '```' >> detailed_results_temp.md
-                echo "$TEST_REPORT" >> detailed_results_temp.md
+                # Use printf to safely write the test report, escaping any problematic characters
+                printf '%s\n' "$TEST_REPORT" >> detailed_results_temp.md
                 echo '```' >> detailed_results_temp.md
+                echo "Detailed results added successfully"
                 
                 ((TOTAL_MODELS++))
               fi
