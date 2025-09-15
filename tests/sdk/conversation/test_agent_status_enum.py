@@ -1,4 +1,4 @@
-"""Test the new AgentExecutionStatus enum functionality."""
+"""Test the AgentExecutionStatus enum functionality."""
 
 from pydantic import SecretStr
 
@@ -15,69 +15,38 @@ def test_agent_execution_state_enum_basic():
 
     # Test initial state
     assert conversation.state.agent_status == AgentExecutionStatus.IDLE
-    assert conversation.state.agent_finished is False
-    assert conversation.state.agent_paused is False
-    assert conversation.state.agent_waiting_for_confirmation is False
 
     # Test setting enum directly
     conversation.state.agent_status = AgentExecutionStatus.RUNNING
     assert conversation.state.agent_status == AgentExecutionStatus.RUNNING
-    assert conversation.state.agent_finished is False
-    assert conversation.state.agent_paused is False
-    assert conversation.state.agent_waiting_for_confirmation is False
 
     # Test setting to FINISHED
     conversation.state.agent_status = AgentExecutionStatus.FINISHED
     assert conversation.state.agent_status == AgentExecutionStatus.FINISHED
-    assert conversation.state.agent_finished is True
-    assert conversation.state.agent_paused is False
-    assert conversation.state.agent_waiting_for_confirmation is False
 
     # Test setting to PAUSED
     conversation.state.agent_status = AgentExecutionStatus.PAUSED
     assert conversation.state.agent_status == AgentExecutionStatus.PAUSED
-    assert conversation.state.agent_finished is False
-    assert conversation.state.agent_paused is True
-    assert conversation.state.agent_waiting_for_confirmation is False
 
     # Test setting to WAITING_FOR_CONFIRMATION
     conversation.state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
     assert (
         conversation.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
     )
-    assert conversation.state.agent_finished is False
-    assert conversation.state.agent_paused is False
-    assert conversation.state.agent_waiting_for_confirmation is True
+
+    # Test setting to ERROR
+    conversation.state.agent_status = AgentExecutionStatus.ERROR
+    assert conversation.state.agent_status == AgentExecutionStatus.ERROR
 
 
-def test_backward_compatibility_boolean_to_enum():
-    """Test that setting boolean fields updates the enum (backward compatibility)."""
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
-    agent = Agent(llm=llm, tools=[])
-    conversation = Conversation(agent=agent)
-
-    # Test setting agent_finished
-    conversation.state.agent_finished = True
-    assert conversation.state.agent_status == AgentExecutionStatus.FINISHED
-    assert conversation.state.agent_finished is True
-
-    # Reset and test agent_paused
-    conversation.state.agent_finished = False
-    conversation.state.agent_paused = True
-    assert conversation.state.agent_status == AgentExecutionStatus.PAUSED
-    assert conversation.state.agent_paused is True
-
-    # Reset and test agent_waiting_for_confirmation
-    conversation.state.agent_paused = False
-    conversation.state.agent_waiting_for_confirmation = True
-    assert (
-        conversation.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-    )
-    assert conversation.state.agent_waiting_for_confirmation is True
-
-    # Reset all to false should go to IDLE
-    conversation.state.agent_waiting_for_confirmation = False
-    assert conversation.state.agent_status == AgentExecutionStatus.IDLE
+def test_enum_values():
+    """Test that all enum values are correct."""
+    assert AgentExecutionStatus.IDLE == "idle"
+    assert AgentExecutionStatus.RUNNING == "running"
+    assert AgentExecutionStatus.PAUSED == "paused"
+    assert AgentExecutionStatus.WAITING_FOR_CONFIRMATION == "waiting_for_confirmation"
+    assert AgentExecutionStatus.FINISHED == "finished"
+    assert AgentExecutionStatus.ERROR == "error"
 
 
 def test_enum_serialization():
@@ -98,3 +67,7 @@ def test_enum_serialization():
     conversation.state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
     serialized = conversation.state.model_dump_json()
     assert '"agent_status":"waiting_for_confirmation"' in serialized
+
+    conversation.state.agent_status = AgentExecutionStatus.ERROR
+    serialized = conversation.state.model_dump_json()
+    assert '"agent_status":"error"' in serialized

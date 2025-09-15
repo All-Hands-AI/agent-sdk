@@ -19,6 +19,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
+from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import ActionEvent, Event, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
@@ -117,7 +118,10 @@ class TestConfirmationMode:
             )
             self.conversation.run()
         assert self.conversation.state.confirmation_mode is True
-        assert self.conversation.state.agent_waiting_for_confirmation is True
+        assert (
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
 
     def _mock_action_once(
         self, call_id: str = "call_1", command: str = "test_command"
@@ -230,7 +234,7 @@ class TestConfirmationMode:
         """Test basic confirmation mode operations."""
         # Test initial state
         assert self.conversation.state.confirmation_mode is False
-        assert self.conversation.state.agent_waiting_for_confirmation is False
+        assert self.conversation.state.agent_status == AgentExecutionStatus.IDLE
         assert get_unmatched_actions(self.conversation.state.events) == []
 
         # Enable confirmation mode
@@ -315,8 +319,7 @@ class TestConfirmationMode:
             )
             self.conversation.run()
 
-        assert self.conversation.state.agent_waiting_for_confirmation is False
-        assert self.conversation.state.agent_finished is True
+        assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
 
         msg_events = [
             e
@@ -360,7 +363,7 @@ class TestConfirmationMode:
                 if isinstance(e, UserRejectObservation)
             ]
             assert len(rejection_events) == 0
-            assert self.conversation.state.agent_waiting_for_confirmation is False
+            assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
         else:
             self.conversation.reject_pending_actions("Not safe to run")
 
@@ -405,10 +408,7 @@ class TestConfirmationMode:
             self.conversation.state.confirmation_mode is True
         )  # Still in confirmation mode
         assert (
-            self.conversation.state.agent_waiting_for_confirmation is False
-        )  # But not waiting
-        assert (
-            self.conversation.state.agent_finished is True
+            self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
         )  # Agent should be finished
 
         # Should have no pending actions (FinishAction was executed immediately)
@@ -447,10 +447,10 @@ class TestConfirmationMode:
 
         # Multiple actions should all wait for confirmation (including FinishAction)
         assert self.conversation.state.confirmation_mode is True
-        assert self.conversation.state.agent_waiting_for_confirmation is True
         assert (
-            self.conversation.state.agent_finished is False
-        )  # No actions executed yet
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
 
         # Should have pending actions (both actions)
         pending_actions = get_unmatched_actions(self.conversation.state.events)

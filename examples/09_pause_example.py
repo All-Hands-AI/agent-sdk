@@ -11,6 +11,7 @@ from openhands.sdk import (
     Message,
     TextContent,
 )
+from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.tools import (
     BashTool,
     FileEditorTool,
@@ -53,7 +54,10 @@ thread.start()
 
 try:
     # Main loop - similar to the user's sample script
-    while not conversation.state.agent_finished and not conversation.state.agent_paused:
+    while (
+        conversation.state.agent_status != AgentExecutionStatus.FINISHED
+        and conversation.state.agent_status != AgentExecutionStatus.PAUSED
+    ):
         # Send encouraging messages periodically
         conversation.send_message(
             Message(
@@ -67,4 +71,4 @@ except KeyboardInterrupt:
 
 thread.join()
 
-print(f"Agent paused: {conversation.state.agent_paused}")
+print(f"Agent status: {conversation.state.agent_status}")

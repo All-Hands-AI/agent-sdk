@@ -50,16 +50,11 @@ class ConversationState(BaseModel):
         ),
     )
 
-    # New enum-based state management
+    # Enum-based state management
     agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
     confirmation_mode: bool = Field(
         default=False
     )  # Keep this as it's a configuration setting
-
-    # Legacy boolean fields - kept for backward compatibility during transition
-    agent_finished: bool = Field(default=False)
-    agent_waiting_for_confirmation: bool = Field(default=False)
-    agent_paused: bool = Field(default=False)
 
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list,
@@ -68,7 +63,6 @@ class ConversationState(BaseModel):
 
     # ===== Private attrs (NOT Fields) =====
     _lock: RLock = PrivateAttr(default_factory=RLock)
-    _syncing: bool = PrivateAttr(default=False)
     _owner_tid: Optional[int] = PrivateAttr(default=None)
     _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
     _fs: FileStore = PrivateAttr()  # filestore for persistence
@@ -81,39 +75,6 @@ class ConversationState(BaseModel):
     @property
     def events(self) -> ListLike[Event]:
         return self._events
-
-    # ===== State synchronization methods =====
-    def _sync_boolean_fields_from_enum(self) -> None:
-        """Synchronize legacy boolean fields with the enum state."""
-        if self._syncing:
-            return
-        self._syncing = True
-        try:
-            self.agent_finished = self.agent_status == AgentExecutionStatus.FINISHED
-            self.agent_waiting_for_confirmation = (
-                self.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-            )
-            self.agent_paused = self.agent_status == AgentExecutionStatus.PAUSED
-        finally:
-            self._syncing = False
-
-    def _sync_enum_from_boolean_fields(self) -> None:
-        """Synchronize enum state with legacy boolean fields (for backward compatibility)."""  # noqa: E501
-        if self._syncing:
-            return
-        self._syncing = True
-        try:
-            if self.agent_finished:
-                self.agent_status = AgentExecutionStatus.FINISHED
-            elif self.agent_waiting_for_confirmation:
-                self.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-            elif self.agent_paused:
-                self.agent_status = AgentExecutionStatus.PAUSED
-            else:
-                # Default to IDLE if no flags are set
-                self.agent_status = AgentExecutionStatus.IDLE
-        finally:
-            self._syncing = False
 
     # ===== Lock/guard API =====
     def acquire(self) -> None:
@@ -217,33 +178,22 @@ class ConversationState(BaseModel):
 
     # ===== Auto-persist base on public field changes =====
     def __setattr__(self, name, value):
-        # Handle state synchronization first
-        if name == "agent_status" and hasattr(self, "agent_status"):
-            # When enum state changes, sync boolean fields
-            super().__setattr__(name, value)
-            if hasattr(self, "_autosave_enabled"):  # Avoid sync during init
-                self._sync_boolean_fields_from_enum()
-        elif name in [
-            "agent_finished",
-            "agent_waiting_for_confirmation",
-            "agent_paused",
-        ] and hasattr(self, "agent_status"):
-            # When boolean fields change, sync enum state
-            super().__setattr__(name, value)
-            if hasattr(self, "_autosave_enabled"):  # Avoid sync during init
-                self._sync_enum_from_boolean_fields()
-        else:
-            super().__setattr__(name, value)
-
         # Only autosave when:
         # - autosave is enabled (set post-init)
         # - the attribute is a *public field* (not a PrivateAttr)
         # - we have a filestore to write to
+        _sentinel = object()
+        old = getattr(self, name, _sentinel)
+        super().__setattr__(name, value)
+
         is_field = name in self.__class__.model_fields
         autosave_enabled = getattr(self, "_autosave_enabled", False)
         fs = getattr(self, "_fs", None)
 
-        if autosave_enabled and is_field and fs is not None:
+        if not (autosave_enabled and is_field and fs is not None):
+            return
+
+        if old is _sentinel or old != value:
             try:
                 self._save_base_state(fs)
             except Exception as e:
