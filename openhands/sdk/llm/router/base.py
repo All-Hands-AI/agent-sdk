@@ -8,6 +8,7 @@ from litellm.types.utils import (
 from pydantic import (
     Field,
     field_validator,
+    model_validator,
 )
 
 from openhands.sdk.llm.llm import LLM
@@ -91,3 +92,17 @@ class RouterLLM(LLM):
     def __str__(self) -> str:
         """String representation of the router."""
         return f"{self.__class__.__name__}(llms={list(self.llms_for_routing.keys())})"
+
+    @model_validator(mode="before")
+    @classmethod
+    def set_placeholder_model(cls, data):
+        """Guarantee `model` exists before LLM base validation runs."""
+        if not isinstance(data, dict):
+            return data
+        d = dict(data)
+
+        # In router, we don't need a model name to be specified
+        if "model" not in d or not d["model"]:
+            d["model"] = d.get("router_name", "router")
+
+        return d

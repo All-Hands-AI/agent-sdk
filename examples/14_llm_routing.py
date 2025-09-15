@@ -33,7 +33,6 @@ gpt5_llm = LLM(
     api_key=SecretStr(api_key),
 )
 random_router = RandomRouter(
-    model="random-router-sonnet-gpt5",
     llms_for_routing={"sonnet": sonnet_llm, "gpt5": gpt5_llm},
 )
 
@@ -61,8 +60,8 @@ conversation.send_message(
         content=[
             TextContent(
                 text=(
-                    "Read the current repo and "
-                    "write 3 facts about the project into FACTS.txt."
+                    "In the current directory, write hello world script in 3 languages:"
+                    " Python, JavaScript, and Bash."
                 )
             )
         ],
