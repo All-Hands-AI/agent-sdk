@@ -22,7 +22,6 @@ from openhands.sdk import (
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.io.local import LocalFileStore
-from openhands.sdk.preset.default import get_default_condenser
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
