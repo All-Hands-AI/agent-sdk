@@ -221,8 +221,6 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
 class MCPActionBase(ActionBase):
     """Base schema for MCP input action."""
 
-    __include_du_spec__ = True
-
     model_config = ConfigDict(extra="allow", frozen=True)
 
     # Collect all fields from ActionBase and its parents
