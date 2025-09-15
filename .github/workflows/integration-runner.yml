@@ -152,6 +152,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MANUAL_REASON: ${{ github.event.inputs.reason }}
           COMMIT_SHA: ${{ github.sha }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           python3 tests/integration/utils/consolidate_results.py
 
