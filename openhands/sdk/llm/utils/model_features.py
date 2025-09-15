@@ -260,13 +260,8 @@ def get_unverified_models(
     aws_access_key_id: SecretStr | None = None,
     aws_secret_access_key: SecretStr | None = None,
 ) -> dict[str, list[str]]:
-    """Organize a list of model identifiers by provider.
-
-    Args:
-        models: List of model identifiers
-
-    Returns:
-        A mapping of providers to their information and models
+    """
+    Organize a mapping of unverified model identifiers by provider.
     """
     result_dict: dict[str, list[str]] = {}
 
