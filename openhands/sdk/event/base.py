@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Annotated, cast
 from pydantic import ConfigDict, Field
 from rich.text import Text
 
-from openhands.sdk.event.types import SourceType
+from openhands.sdk.event.types import EventID, SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
@@ -18,9 +18,6 @@ if TYPE_CHECKING:
     from openhands.sdk.event.llm_convertible import ActionEvent
 
 N_CHAR_PREVIEW = 500
-
-EventID = str
-"""Type alias for event IDs."""
 
 
 class EventBase(DiscriminatedUnionMixin, ABC):

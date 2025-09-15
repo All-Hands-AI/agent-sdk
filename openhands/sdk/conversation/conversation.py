@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.conversation.types import ConversationCallbackType
+from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import (
     create_default_visualizer,
 )
@@ -34,10 +34,6 @@ def compose_callbacks(
                 cb(event)
 
     return composed
-
-
-ConversationID = str
-"""Type alias for conversation IDs."""
 
 
 class Conversation:

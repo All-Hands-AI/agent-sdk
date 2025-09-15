@@ -7,7 +7,7 @@ from pydantic import ConfigDict, Field, computed_field
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, EventID, LLMConvertibleEvent
-from openhands.sdk.event.types import SourceType
+from openhands.sdk.event.types import SourceType, ToolCallID
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool import Action, Observation
@@ -70,10 +70,6 @@ class SystemPromptEvent(LLMConvertibleEvent):
         return (
             f"{base_str}\n  System: {prompt_preview}\n  Tools: {tool_count} available"
         )
-
-
-ToolCallID = str
-"""Type alias for tool call IDs."""
 
 
 class ActionEvent(LLMConvertibleEvent):
