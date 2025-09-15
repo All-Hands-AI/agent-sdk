@@ -167,14 +167,13 @@ jobs:
 
           ## Test Results Summary
 
-          | Model | Status | Test Results | Artifact Link |
-          |-------|--------|--------------|---------------|
+          | Model | Success Rate | Test Results | Artifact Link |
+          |-------|--------------|--------------|---------------|
           EOF
 
           # Process each result file
           DETAILED_RESULTS=""
           TOTAL_MODELS=0
-          PASSED_MODELS=0
 
           for result_file in all_results/*_results.json; do
             if [[ -f "$result_file" ]]; then
@@ -183,16 +182,14 @@ jobs:
               TEST_REPORT=$(jq -r '.test_report' "$result_file")
               ARTIFACT_URL=$(jq -r '.artifact_url' "$result_file")
               
-              # Extract test results summary (this will need to be adapted based on actual report format)
-              if echo "$TEST_REPORT" | grep -q "PASSED\|SUCCESS"; then
-                STATUS="✅ PASSED"
-                ((PASSED_MODELS++))
-              else
-                STATUS="❌ FAILED"
+              # Extract success rate from test report
+              SUCCESS_RATE=$(echo "$TEST_REPORT" | grep -oE "Success rate: [0-9]+\.[0-9]+%" | head -1)
+              if [[ -z "$SUCCESS_RATE" ]]; then
+                SUCCESS_RATE="N/A"
               fi
               
               # Add to summary table
-              echo "| $MODEL_NAME | $STATUS | See details below | [Download]($ARTIFACT_URL) |" >> consolidated_report.md
+              echo "| $MODEL_NAME | $SUCCESS_RATE | See details below | [Download]($ARTIFACT_URL) |" >> consolidated_report.md
               
               # Add to detailed results
               DETAILED_RESULTS="$DETAILED_RESULTS
@@ -213,7 +210,7 @@ jobs:
           $DETAILED_RESULTS
 
           ---
-          **Overall Status:** $PASSED_MODELS/$TOTAL_MODELS models completed successfully
+          **Overall Status:** $TOTAL_MODELS models tested
           EOF
 
           # Replace placeholder with actual trigger text
