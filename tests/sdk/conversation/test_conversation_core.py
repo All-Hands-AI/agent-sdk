@@ -24,10 +24,10 @@ def create_test_agent() -> Agent:
 def create_test_event(event_id: str, content: str = "Test content") -> MessageEvent:
     """Create a test MessageEvent with specific ID."""
     event = MessageEvent(
+        id=event_id,
         llm_message=Message(role="user", content=[TextContent(text=content)]),
         source="user",
     )
-    event.id = event_id
     return event
 
 

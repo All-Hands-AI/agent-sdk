@@ -53,8 +53,6 @@ class TestStorageSerialization:
                 TextContent(text="What's in this image?"),
                 ImageContent(
                     image_urls=["https://example.com/image.jpg"],
-                    data="fake_image_data",
-                    mimeType="image/jpeg",
                 ),
             ],
             vision_enabled=True,
@@ -204,8 +202,6 @@ class TestLLMAPISerialization:
                 TextContent(text="What's in this image?"),
                 ImageContent(
                     image_urls=["https://example.com/image.jpg"],
-                    data="fake_image_data",
-                    mimeType="image/jpeg",
                 ),
             ],
             vision_enabled=True,
@@ -296,8 +292,6 @@ class TestLLMAPISerialization:
                 TextContent(text="Describe this image"),
                 ImageContent(
                     image_urls=["https://example.com/image.jpg"],
-                    data="fake_image_data",
-                    mimeType="image/jpeg",
                 ),
             ],
             vision_enabled=True,  # Forces list serializer

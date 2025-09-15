@@ -1,5 +1,6 @@
 """String replace editor tool implementation."""
 
+from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import Field, PrivateAttr
@@ -81,7 +82,7 @@ class StrReplaceEditorObservation(ObservationBase):
     _diff_cache: Text | None = PrivateAttr(default=None)
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=self.error)]
         return [TextContent(text=self.output)]
@@ -199,9 +200,24 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
 
     @classmethod
     def create(cls, workspace_root: str | None = None) -> "FileEditorTool":
-        """Initialize FileEditorTool with a FileEditorExecutor."""
+        """Initialize FileEditorTool with a FileEditorExecutor.
+
+        Args:
+            workspace_root: Root directory for file operations. If provided,
+                          tool descriptions will use this path in examples.
+        """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+
+        # Determine the workspace path for examples
+        workspace_path = workspace_root if workspace_root else "/workspace"
+
+        # Create a dynamic action type with updated path description
+        class DynamicStrReplaceEditorAction(StrReplaceEditorAction):
+            path: str = Field(
+                description=f"Absolute path to file or directory, e.g. "
+                f"`{workspace_path}/file.py` or `{workspace_path}`."
+            )
 
         # Initialize the executor
         executor = FileEditorExecutor(workspace_root=workspace_root)
@@ -210,7 +226,7 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         return cls(
             name=str_replace_editor_tool.name,
             description=TOOL_DESCRIPTION,
-            action_type=StrReplaceEditorAction,
+            action_type=DynamicStrReplaceEditorAction,
             observation_type=StrReplaceEditorObservation,
             annotations=str_replace_editor_tool.annotations,
             executor=executor,
