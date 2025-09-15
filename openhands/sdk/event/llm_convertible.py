@@ -6,8 +6,8 @@ from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import ConfigDict, Field, computed_field
 from rich.text import Text
 
-from openhands.sdk.event.base import N_CHAR_PREVIEW, EventID, LLMConvertibleEvent
-from openhands.sdk.event.types import SourceType, ToolCallID
+from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
+from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool import Action, Observation

@@ -1,8 +1,8 @@
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.event.base import EventBase, EventID, LLMConvertibleEvent
-from openhands.sdk.event.types import SourceType
+from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
+from openhands.sdk.event.types import EventID, SourceType
 from openhands.sdk.llm import Message, MetricsSnapshot, TextContent
 
 
