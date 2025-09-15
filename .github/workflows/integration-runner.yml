@@ -287,32 +287,48 @@ jobs:
                 echo '```' >> detailed_results_temp.md
                 echo "Detailed results added successfully"
                 
-                ((TOTAL_MODELS++))
+                echo "Incrementing TOTAL_MODELS from $TOTAL_MODELS"
+                ((TOTAL_MODELS++)) || true  # Prevent exit on arithmetic errors
+                echo "TOTAL_MODELS is now $TOTAL_MODELS"
+                echo "Finished processing $result_file"
               fi
             done
+            echo "Finished processing all result files"
           fi
 
           # Complete the report
+          echo "Completing the report..."
           echo "" >> consolidated_report.md
           echo "## Detailed Results" >> consolidated_report.md
           if [[ -f detailed_results_temp.md ]]; then
+            echo "Adding detailed results from temp file"
             cat detailed_results_temp.md >> consolidated_report.md
+          else
+            echo "No detailed results temp file found"
           fi
           echo "" >> consolidated_report.md
           echo "---" >> consolidated_report.md
           echo "**Overall Status:** $TOTAL_MODELS models tested" >> consolidated_report.md
+          echo "Report completion finished"
 
           # Save PR number and comment content for next step
+          echo "Setting environment variables..."
           echo "PR_NUMBER=$FINAL_PR_NUMBER" >> $GITHUB_ENV
+          echo "PR number set to: $FINAL_PR_NUMBER"
+          
           # Use a more robust approach for the multiline environment variable
+          echo "Setting COMMENT_BODY environment variable..."
           {
             echo "COMMENT_BODY<<EOF"
             cat consolidated_report.md
             echo "EOF"
           } >> $GITHUB_ENV
+          echo "COMMENT_BODY environment variable set"
           
           # Clean up temp file
+          echo "Cleaning up temp file..."
           rm -f detailed_results_temp.md
+          echo "Script completed successfully"
 
       - name: Create consolidated PR comment
         uses: KeisukeYamashita/create-comment@v1
