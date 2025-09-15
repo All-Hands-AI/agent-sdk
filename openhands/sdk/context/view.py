@@ -6,11 +6,11 @@ from pydantic import BaseModel
 from openhands.sdk.event import (
     Condensation,
     CondensationRequest,
+    CondensationSummaryEvent,
     Event,
     LLMConvertibleEvent,
-    MessageEvent,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.event.llm_convertible import ActionEvent, ObservationEvent
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -21,14 +21,46 @@ class View(BaseModel):
     """Linearly ordered view of events.
 
     Produced by a condenser to indicate the included events are ready to process as LLM
-    input.
+    input. Also contains fields with information from the condensation process to aid
+    in deciding whether further condensation is needed.
     """
 
     events: list[LLMConvertibleEvent]
+
     unhandled_condensation_request: bool = False
+    """Whether there is an unhandled condensation request in the view."""
+
+    condensations: list[Condensation] = []
+    """A list of condensations that were processed to produce the view."""
 
     def __len__(self) -> int:
         return len(self.events)
+
+    @property
+    def most_recent_condensation(self) -> Condensation | None:
+        """Return the most recent condensation, or None if no condensations exist."""
+        return self.condensations[-1] if self.condensations else None
+
+    @property
+    def summary_event_index(self) -> int | None:
+        """Return the index of the summary event, or None if no summary exists."""
+        recent_condensation = self.most_recent_condensation
+        if (
+            recent_condensation is not None
+            and recent_condensation.summary is not None
+            and recent_condensation.summary_offset is not None
+        ):
+            return recent_condensation.summary_offset
+        return None
+
+    @property
+    def summary_event(self) -> CondensationSummaryEvent | None:
+        """Return the summary event, or None if no summary exists."""
+        if self.summary_event_index is not None:
+            event = self.events[self.summary_event_index]
+            if isinstance(event, CondensationSummaryEvent):
+                return event
+        return None
 
     # To preserve list-like indexing, we ideally support slicing and position-based
     # indexing. The only challenge with that is switching the return type based on the
@@ -53,14 +85,70 @@ class View(BaseModel):
             raise ValueError(f"Invalid key type: {type(key)}")
 
     @staticmethod
+    def filter_unmatched_tool_calls(
+        events: list[LLMConvertibleEvent],
+    ) -> list[LLMConvertibleEvent]:
+        """Filter out unmatched tool call events.
+
+        Removes ActionEvents and ObservationEvents that have tool_call_ids
+        but don't have matching pairs.
+        """
+        action_tool_call_ids = View._get_action_tool_call_ids(events)
+        observation_tool_call_ids = View._get_observation_tool_call_ids(events)
+
+        return [
+            event
+            for event in events
+            if View._should_keep_event(
+                event, action_tool_call_ids, observation_tool_call_ids
+            )
+        ]
+
+    @staticmethod
+    def _get_action_tool_call_ids(events: list[LLMConvertibleEvent]) -> set[str]:
+        """Extract tool_call_ids from ActionEvents."""
+        tool_call_ids = set()
+        for event in events:
+            if isinstance(event, ActionEvent) and event.tool_call_id is not None:
+                tool_call_ids.add(event.tool_call_id)
+        return tool_call_ids
+
+    @staticmethod
+    def _get_observation_tool_call_ids(
+        events: list[LLMConvertibleEvent],
+    ) -> set[str]:
+        """Extract tool_call_ids from ObservationEvents."""
+        tool_call_ids = set()
+        for event in events:
+            if isinstance(event, ObservationEvent) and event.tool_call_id is not None:
+                tool_call_ids.add(event.tool_call_id)
+        return tool_call_ids
+
+    @staticmethod
+    def _should_keep_event(
+        event: LLMConvertibleEvent,
+        action_tool_call_ids: set[str],
+        observation_tool_call_ids: set[str],
+    ) -> bool:
+        """Determine if an event should be kept based on tool call matching."""
+        if isinstance(event, ObservationEvent):
+            return event.tool_call_id in action_tool_call_ids
+        elif isinstance(event, ActionEvent):
+            return event.tool_call_id in observation_tool_call_ids
+        else:
+            return True
+
+    @staticmethod
     def from_events(events: ListLike[Event]) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """
         forgotten_event_ids: set[str] = set()
+        condensations: list[Condensation] = []
         for event in events:
             if isinstance(event, Condensation):
-                forgotten_event_ids.update(event.forgotten)
+                condensations.append(event)
+                forgotten_event_ids.update(event.forgotten_event_ids)
                 # Make sure we also forget the condensation action itself
                 forgotten_event_ids.add(event.id)
             if isinstance(event, CondensationRequest):
@@ -89,17 +177,8 @@ class View(BaseModel):
         if summary is not None and summary_offset is not None:
             logger.info(f"Inserting summary at offset {summary_offset}")
 
-            kept_events.insert(
-                summary_offset,
-                MessageEvent(
-                    llm_message=Message(
-                        role="system",
-                        content=[TextContent(text=summary)],
-                        name="system",
-                    ),
-                    source="environment",
-                ),
-            )
+            _new_summary_event = CondensationSummaryEvent(summary=summary)
+            kept_events.insert(summary_offset, _new_summary_event)
 
         # Check for an unhandled condensation request -- these are events closer to the
         # end of the list than any condensation action.
@@ -112,6 +191,7 @@ class View(BaseModel):
                 break
 
         return View(
-            events=kept_events,
+            events=View.filter_unmatched_tool_calls(kept_events),
             unhandled_condensation_request=unhandled_condensation_request,
+            condensations=condensations,
         )

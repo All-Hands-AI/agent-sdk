@@ -705,7 +705,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return cls(**data)
 
     def serialize(self) -> dict[str, Any]:
+        """Serialize the LLM instance to a dictionary."""
         return self.model_dump()
+
+    def store_to_json(self, filepath: str) -> None:
+        """Store the LLM instance to a JSON file with secrets exposed.
+
+        Args:
+            filepath: Path where the JSON file should be stored.
+        """
+        data = self.model_dump_with_secrets()
+
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
 
     @classmethod
     def load_from_json(cls, json_path: str) -> "LLM":

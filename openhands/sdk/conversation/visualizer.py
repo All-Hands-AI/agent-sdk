@@ -15,6 +15,7 @@ from openhands.sdk.event import (
     PauseEvent,
     SystemPromptEvent,
 )
+from openhands.sdk.event.condenser import Condensation
 
 
 # These are external inputs
@@ -179,6 +180,14 @@ class ConversationVisualizer:
                 title=f"[bold {_PAUSE_COLOR}]User Paused[/bold {_PAUSE_COLOR}]",
                 border_style=_PAUSE_COLOR,
                 padding=_PANEL_PADDING,
+                expand=True,
+            )
+        elif isinstance(event, Condensation):
+            return Panel(
+                content,
+                title=f"[bold {_SYSTEM_COLOR}]Condensation[/bold {_SYSTEM_COLOR}]",
+                subtitle=self._format_metrics_subtitle(event),
+                border_style=_SYSTEM_COLOR,
                 expand=True,
             )
         else:
