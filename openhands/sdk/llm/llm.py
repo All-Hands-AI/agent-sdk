@@ -176,8 +176,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Internal fields (excluded from dumps)
     # =========================================================================
+    retry_listener: Callable[[int, int], None] | None = Field(
+        default=None, exclude=True
+    )
     _metrics: Metrics | None = PrivateAttr(default=None)
-    _retry_listener: Callable[[int, int], None] | None = PrivateAttr(default=None)
     # ===== Plain class vars (NOT Fields) =====
     # When serializing, these fields (SecretStr) will be dump to "****"
     # When deserializing, these fields will be ignored and we will override
@@ -359,7 +361,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             retry_min_wait=self.retry_min_wait,
             retry_max_wait=self.retry_max_wait,
             retry_multiplier=self.retry_multiplier,
-            retry_listener=self._retry_listener,
+            retry_listener=self.retry_listener,
         )
         def _one_attempt(**retry_kwargs) -> ModelResponse:
             assert self._telemetry is not None
