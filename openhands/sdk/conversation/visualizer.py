@@ -9,6 +9,7 @@ from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     Event,
+    EventWithMetrics,
     MessageEvent,
     ObservationEvent,
     PauseEvent,
@@ -192,9 +193,7 @@ class ConversationVisualizer:
                 expand=True,
             )
 
-    def _format_metrics_subtitle(
-        self, event: ActionEvent | MessageEvent | AgentErrorEvent
-    ) -> str | None:
+    def _format_metrics_subtitle(self, event: EventWithMetrics) -> str | None:
         """Format LLM metrics as a visually appealing subtitle string with icons,
         colors, and k/m abbreviations (cache hit rate only)."""
         if not event.metrics or not event.metrics.accumulated_token_usage:
