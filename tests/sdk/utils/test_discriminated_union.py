@@ -1,9 +1,11 @@
+import json
 from typing import Annotated
 
 import pytest
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     ValidationError,
     field_validator,
     model_validator,
@@ -359,3 +361,38 @@ def test_du_spec_is_json_serializable_and_roundtrips() -> None:
     deserialized = Animal.model_validate_json(serialized)
     assert isinstance(deserialized, Dog)
     assert deserialized == dog
+
+
+def test_du_spec_with_default_factory_is_json_serializable_and_roundtrips() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        # Enable spec emission so _du_spec is built
+        __include_du_spec__ = True
+
+        breed: str
+        # This is the critical piece: default_factory ⇒ f.default is PydanticUndefined
+        # Old code would copy that sentinel into _du_spec["fields"]["toys"]["default"]
+        # and model_dump_json() would raise.
+        toys: list[str] = Field(default_factory=list)
+
+    d = Dog(name="Fido", breed="Labrador")
+
+    # PRE-FIX this would raise PydanticSerializationError; with the fix it should pass
+    dumped = d.model_dump_json()
+
+    data = json.loads(dumped)
+    assert "kind" in data
+    assert "_du_spec" in data
+    # _du_spec should list 'toys' as not required,
+    # and NOT include a PydanticUndefined default
+    assert data["_du_spec"]["fields"]["toys"]["required"] is False
+    # Either no default key, or a JSON-safe value (empty list) is acceptable post-fix.
+    # If you want to enforce the stricter behavior (skip factories entirely), use:
+    # assert "default" not in data["_du_spec"]["fields"]["toys"]
+
+    # Round-trip should still work
+    loaded = Animal.model_validate_json(dumped)
+    assert isinstance(loaded, Dog)
+    assert loaded == d
