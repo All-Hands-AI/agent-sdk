@@ -86,7 +86,7 @@ from pydantic import (
     computed_field,
     create_model,
 )
-from pydantic_core import core_schema
+from pydantic_core import PydanticUndefined, core_schema
 
 
 T = TypeVar("T", bound="DiscriminatedUnionMixin")
@@ -203,18 +203,20 @@ class DiscriminatedUnionMixin(BaseModel):
                 info["required"] = True
             else:
                 info["required"] = False
-                # defaults must be JSON-serializable; skip if they aren’t
-                if f.default is not None:
-                    try:
-                        TypeAdapter(Any).dump_python(f.default)  # smoke test
-                        info["default"] = f.default
-                    except Exception:
-                        pass
+
+                # Only include a concrete, JSON-safe default
+                default = getattr(f, "default", PydanticUndefined)
+                default_factory = getattr(f, "default_factory", None)
+                if default is not PydanticUndefined and default_factory is None:
+                    jsonable = TypeAdapter(Any).dump_python(default, mode="json")
+                    if jsonable is not None:
+                        info["default"] = jsonable
+
             fields[fname] = info
 
         return {
-            "title": kind_of(self.__class__),  # concrete subclass fqname
-            "base": kind_of(base_cls),  # DU base fqname
+            "title": kind_of(self.__class__),
+            "base": kind_of(base_cls),
             "fields": fields,
         }
 
