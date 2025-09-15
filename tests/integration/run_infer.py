@@ -25,7 +25,7 @@ sys.path.insert(0, str(project_root))
 
 # Import after path modification
 from tests.integration.base import BaseIntegrationTest, TestResult  # noqa: E402
-from tests.integration.utils.consolidate_results import format_cost  # noqa: E402
+from tests.integration.utils.format_costs import format_cost  # noqa: E402
 
 
 class TestInstance(BaseModel):
