@@ -10,6 +10,7 @@ from openhands.sdk.agent.base import AgentType
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
+from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.event import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
 
 class ConversationState(BaseModel):
     # ===== Public, validated fields =====
-    id: str = Field(description="Unique conversation ID")
+    id: ConversationID = Field(description="Unique conversation ID")
 
     agent: AgentType = Field(
         ...,
@@ -114,7 +115,7 @@ class ConversationState(BaseModel):
     @classmethod
     def create(
         cls: type["ConversationState"],
-        id: str,
+        id: ConversationID,
         agent: AgentType,
         file_store: FileStore | None = None,
     ) -> "ConversationState":
