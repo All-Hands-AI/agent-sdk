@@ -68,11 +68,9 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
 
         # Check for evidence of GitHub PR browsing
         github_indicators = [
-            "github.com/all-hands-ai/openhands/pull/8",
-            "pull/8",
-            "github",
-            "pr",
-            "pull request",
+            "MIT",
+            "Apache",
+            "License",
         ]
 
         # Check for evidence of finding information about @asadm
