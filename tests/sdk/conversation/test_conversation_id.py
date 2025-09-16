@@ -34,15 +34,9 @@ def test_conversation_has_unique_id():
     agent = DummyAgent()
     conversation = Conversation(agent=agent)
 
-    # Check that id exists and is a string
+    # Check that id exists and is a UUID
     assert hasattr(conversation, "id")
-    assert isinstance(conversation.id, str)
-
-    # Check that it's a valid UUID format
-    try:
-        uuid.UUID(conversation.id)
-    except ValueError:
-        assert False, f"Conversation ID '{conversation.id}' is not a valid UUID"
+    assert isinstance(conversation.id, uuid.UUID)
 
 
 def test_conversation_ids_are_unique():
@@ -56,12 +50,9 @@ def test_conversation_ids_are_unique():
     # Check that the IDs are different
     assert conversation1.id != conversation2.id
 
-    # Check that both are valid UUIDs
-    try:
-        uuid.UUID(conversation1.id)
-        uuid.UUID(conversation2.id)
-    except ValueError:
-        assert False, "One or both conversation IDs are not valid UUIDs"
+    # Check that both are UUIDs
+    assert isinstance(conversation1.id, uuid.UUID)
+    assert isinstance(conversation2.id, uuid.UUID)
 
 
 def test_conversation_id_persists():
