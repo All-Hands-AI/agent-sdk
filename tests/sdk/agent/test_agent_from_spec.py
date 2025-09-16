@@ -480,3 +480,220 @@ def test_from_spec_with_filter_tools_regex_complex_pattern(basic_llm):
         assert mock_mcp_tool1 in tools_list
         assert "finish" in agent.tools
         assert "think" in agent.tools
+
+
+def test_from_spec_with_toolset_returning_list(basic_llm):
+    """Test creating an agent with a toolset that returns a list of tools."""
+    tool_specs = [
+        ToolSpec(name="BrowserToolSet", params={}),
+    ]
+
+    spec = AgentSpec(llm=basic_llm, tools=tool_specs)
+
+    with patch("openhands.tools.BrowserToolSet") as mock_browser_toolset:
+        # Mock the create method to return a list of tools
+        mock_tool1 = create_mock_tool("browser_tool1")
+        mock_tool2 = create_mock_tool("browser_tool2")
+        mock_tool3 = create_mock_tool("browser_tool3")
+        mock_browser_toolset.create.return_value = [mock_tool1, mock_tool2, mock_tool3]
+
+        agent = Agent.from_spec(spec)
+
+        # Verify toolset create was called
+        mock_browser_toolset.create.assert_called_once_with()
+
+        # Should have 5 tools total: 3 from toolset + 2 built-in
+        assert len(agent.tools) == 5
+        tools_list = get_tools_list(agent.tools)
+        assert mock_tool1 in tools_list
+        assert mock_tool2 in tools_list
+        assert mock_tool3 in tools_list
+        assert "finish" in agent.tools
+        assert "think" in agent.tools
+
+
+def test_from_spec_with_mixed_tools_and_toolsets(basic_llm):
+    """Test creating an agent with both regular tools and toolsets."""
+    tool_specs = [
+        ToolSpec(name="BashTool", params={"working_dir": "/workspace"}),
+        ToolSpec(name="BrowserToolSet", params={}),
+        ToolSpec(name="FileEditorTool", params={}),
+    ]
+
+    spec = AgentSpec(llm=basic_llm, tools=tool_specs)
+
+    with (
+        patch("openhands.tools.BashTool") as mock_bash_tool,
+        patch("openhands.tools.BrowserToolSet") as mock_browser_toolset,
+        patch("openhands.tools.FileEditorTool") as mock_file_tool,
+    ):
+        # Mock regular tools
+        mock_bash_instance = create_mock_tool("bash_tool")
+        mock_file_instance = create_mock_tool("file_editor_tool")
+        mock_bash_tool.create.return_value = mock_bash_instance
+        mock_file_tool.create.return_value = mock_file_instance
+
+        # Mock toolset returning list
+        mock_browser_tool1 = create_mock_tool("browser_tool1")
+        mock_browser_tool2 = create_mock_tool("browser_tool2")
+        mock_browser_toolset.create.return_value = [
+            mock_browser_tool1,
+            mock_browser_tool2,
+        ]
+
+        agent = Agent.from_spec(spec)
+
+        # Verify all create methods were called
+        mock_bash_tool.create.assert_called_once_with(working_dir="/workspace")
+        mock_browser_toolset.create.assert_called_once_with()
+        mock_file_tool.create.assert_called_once_with()
+
+        # Should have 6 tools total: 1 bash + 2 browser + 1 file + 2 built-in
+        assert len(agent.tools) == 6
+        tools_list = get_tools_list(agent.tools)
+        assert mock_bash_instance in tools_list
+        assert mock_browser_tool1 in tools_list
+        assert mock_browser_tool2 in tools_list
+        assert mock_file_instance in tools_list
+        assert "finish" in agent.tools
+        assert "think" in agent.tools
+
+
+def test_from_spec_with_empty_toolset(basic_llm):
+    """Test creating an agent with a toolset that returns an empty list."""
+    tool_specs = [
+        ToolSpec(name="BrowserToolSet", params={}),
+    ]
+
+    spec = AgentSpec(llm=basic_llm, tools=tool_specs)
+
+    with patch("openhands.tools.BrowserToolSet") as mock_browser_toolset:
+        # Mock the create method to return an empty list
+        mock_browser_toolset.create.return_value = []
+
+        agent = Agent.from_spec(spec)
+
+        # Verify toolset create was called
+        mock_browser_toolset.create.assert_called_once_with()
+
+        # Should have only 2 built-in tools
+        assert len(agent.tools) == 2
+        assert "finish" in agent.tools
+        assert "think" in agent.tools
+
+
+def test_from_spec_tool_type_validation_success(basic_llm):
+    """Test that tool type validation passes for valid Tool instances."""
+    tool_specs = [
+        ToolSpec(name="BashTool", params={}),
+    ]
+
+    spec = AgentSpec(llm=basic_llm, tools=tool_specs)
+
+    with patch("openhands.tools.BashTool") as mock_bash_tool:
+        mock_bash_instance = create_mock_tool("bash_tool")
+        mock_bash_tool.create.return_value = mock_bash_instance
+
+        # Should not raise any exceptions
+        agent = Agent.from_spec(spec)
+        assert len(agent.tools) == 3  # 1 bash + 2 built-in
+
+
+def test_from_spec_tool_type_validation_failure_single_tool(basic_llm):
+    """Test that tool type validation fails for invalid tool types from single tool."""
+    tool_specs = [
+        ToolSpec(name="BashTool", params={}),
+    ]
+
+    spec = AgentSpec(llm=basic_llm, tools=tool_specs)
+
+    with patch("openhands.tools.BashTool") as mock_bash_tool:
+        # Mock create to return a non-Tool object
+        mock_bash_tool.create.return_value = "not_a_tool"
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"Tool not_a_tool is not an instance of 'Tool'\. "
+                r"Got type: <class 'str'>"
+            ),
+        ):
+            Agent.from_spec(spec)
+
+
+def test_from_spec_tool_type_validation_failure_toolset(basic_llm):
+    """Test that tool type validation fails for invalid tool types from toolset."""
+    tool_specs = [
+        ToolSpec(name="BrowserToolSet", params={}),
+    ]
+
+    spec = AgentSpec(llm=basic_llm, tools=tool_specs)
+
+    with patch("openhands.tools.BrowserToolSet") as mock_browser_toolset:
+        # Mock create to return a list with invalid tool types
+        mock_valid_tool = create_mock_tool("valid_tool")
+        mock_browser_toolset.create.return_value = [
+            mock_valid_tool,
+            "invalid_tool",
+            123,
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"Tool invalid_tool is not an instance of 'Tool'\. "
+                r"Got type: <class 'str'>"
+            ),
+        ):
+            Agent.from_spec(spec)
+
+
+def test_from_spec_toolset_with_mcp_and_filtering(basic_llm):
+    """Test toolset integration with MCP tools and filtering."""
+    tool_specs = [
+        ToolSpec(name="BashTool", params={}),
+        ToolSpec(name="BrowserToolSet", params={}),
+    ]
+
+    mcp_config = {"mcpServers": {"test": {"command": "test"}}}
+
+    # Filter to include tools starting with "bash" or "browser"
+    spec = AgentSpec(
+        llm=basic_llm,
+        tools=tool_specs,
+        mcp_config=mcp_config,
+        filter_tools_regex=r"^(bash|browser).*",
+    )
+
+    with (
+        patch("openhands.tools.BashTool") as mock_bash_tool,
+        patch("openhands.tools.BrowserToolSet") as mock_browser_toolset,
+        patch("openhands.sdk.mcp.create_mcp_tools") as mock_create_mcp,
+    ):
+        # Mock regular tool
+        mock_bash_instance = create_mock_tool("bash_tool")
+        mock_bash_tool.create.return_value = mock_bash_instance
+
+        # Mock toolset returning list
+        mock_browser_tool1 = create_mock_tool("browser_tool1")
+        mock_browser_tool2 = create_mock_tool("browser_tool2")
+        mock_browser_toolset.create.return_value = [
+            mock_browser_tool1,
+            mock_browser_tool2,
+        ]
+
+        # Mock MCP tools
+        mock_mcp_tool = create_mock_tool("mcp_tool")
+        mock_create_mcp.return_value = [mock_mcp_tool]
+
+        agent = Agent.from_spec(spec)
+
+        # Should have 6 tools total: 1 bash + 2 browser + 1 MCP + 2 built-in
+        assert len(agent.tools) == 6
+        tools_list = get_tools_list(agent.tools)
+        assert mock_bash_instance in tools_list
+        assert mock_browser_tool1 in tools_list
+        assert mock_browser_tool2 in tools_list
+        assert mock_mcp_tool in tools_list
+        assert "finish" in agent.tools
+        assert "think" in agent.tools
