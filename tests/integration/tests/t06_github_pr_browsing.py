@@ -40,7 +40,7 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully browsed the GitHub PR."""
         # Get the agent's final answer/response to the instruction
-        agent_final_answer = self._get_agent_final_response()
+        agent_final_answer = self.get_agent_final_response()
 
         if not agent_final_answer:
             return TestResult(
@@ -71,40 +71,6 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
                     f"Final answer preview: {agent_final_answer[:200]}..."
                 ),
             )
-
-    def _get_agent_final_response(self) -> str:
-        """Extract the agent's final response from the conversation."""
-        from openhands.sdk.event.llm_convertible import MessageEvent
-        from openhands.sdk.llm import content_to_str
-
-        # Method 1: Get the last MessageEvent from agent
-        agent_messages = []
-        for event in self.conversation.state.events:
-            if isinstance(event, MessageEvent) and event.source == "agent":
-                agent_messages.append(event)
-
-        if agent_messages:
-            last_agent_message = agent_messages[-1]
-            # Use the utility function to extract text content
-            text_parts = content_to_str(last_agent_message.llm_message.content)
-            if text_parts:
-                return " ".join(text_parts)
-
-        # Method 2: Get from llm_messages (last assistant message)
-        for msg in reversed(self.llm_messages):
-            if msg.get("role") == "assistant":
-                content = msg.get("content", [])
-                if isinstance(content, list):
-                    text_parts = []
-                    for item in content:
-                        if isinstance(item, dict) and "text" in item:
-                            text_parts.append(item["text"])
-                    if text_parts:
-                        return " ".join(text_parts)
-                elif isinstance(content, str):
-                    return content
-
-        return ""
 
     def teardown(self):
         """No cleanup needed for GitHub PR browsing."""

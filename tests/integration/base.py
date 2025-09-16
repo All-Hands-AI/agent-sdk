@@ -19,6 +19,7 @@ from openhands.sdk import (
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
+from openhands.sdk.llm import content_to_str
 from openhands.sdk.tool import Tool
 
 
@@ -142,6 +143,24 @@ class BaseIntegrationTest(ABC):
             TestResult: The result of the verification
         """
         pass
+
+    def get_agent_final_response(self) -> str:
+        """Extract the agent's final response from the conversation."""
+
+        # Get the last MessageEvent from agent
+        agent_messages = []
+        for event in self.conversation.state.events:
+            if isinstance(event, MessageEvent) and event.source == "agent":
+                agent_messages.append(event)
+
+        if agent_messages:
+            last_agent_message = agent_messages[-1]
+            # Use the utility function to extract text content
+            text_parts = content_to_str(last_agent_message.llm_message.content)
+            if text_parts:
+                return " ".join(text_parts)
+
+        raise ValueError("No final response found from agent")
 
     @abstractmethod
     def teardown(self):
