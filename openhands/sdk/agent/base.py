@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING, Annotated, Sequence
 
 from pydantic import ConfigDict, Field
 
+from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import Condenser
+from openhands.sdk.context.condenser import Condenser, CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
@@ -48,6 +49,35 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         default=None,
         description="Optional condenser to use for condensing conversation history.",
     )
+
+    @classmethod
+    def from_spec(cls, spec: AgentSpec) -> "AgentBase":
+        """Create an AgentBase instance from an AgentSpec."""
+        import openhands.tools  # avoid circular import
+        from openhands.sdk.mcp import create_mcp_tools
+
+        tools: list[ToolType] = []
+        for tool_spec in spec.tools:
+            if tool_spec.name not in openhands.tools.__dict__:
+                continue
+            tool_class = openhands.tools.__dict__[tool_spec.name]
+            tools.append(tool_class.create(**tool_spec.params))
+
+            # Add MCP tools if configured
+            if spec.mcp_config:
+                mcp_tools = create_mcp_tools(spec.mcp_config, timeout=30)
+                tools.extend(mcp_tools)
+
+        return cls(
+            llm=spec.llm,
+            agent_context=spec.agent_context,
+            tools=tools,
+            system_prompt_filename=spec.system_prompt_filename,
+            system_prompt_kwargs=spec.system_prompt_kwargs,
+            condenser=CondenserBase.from_spec(spec.condenser)
+            if spec.condenser
+            else None,
+        )
 
     @property
     def prompt_dir(self) -> str:
