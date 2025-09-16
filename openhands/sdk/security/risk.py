@@ -3,7 +3,7 @@
 from enum import Enum
 
 
-class ActionSecurityRisk(str, Enum):
+class SecurityRisk(str, Enum):
     """Security risk levels for actions.
 
     Based on OpenHands security risk levels but adapted for agent-sdk.
@@ -17,24 +17,18 @@ class ActionSecurityRisk(str, Enum):
 
     @property
     def description(self) -> str:
-        """Get a human-readable description of the risk level.
-
-        Returns:
-            Human-readable description of the risk
-        """
+        """Get a human-readable description of the risk level."""
         descriptions = {
-            ActionSecurityRisk.LOW: (
+            SecurityRisk.LOW: (
                 "Low risk - Safe operation with minimal security impact"
             ),
-            ActionSecurityRisk.MEDIUM: (
+            SecurityRisk.MEDIUM: (
                 "Medium risk - Moderate security impact, review recommended"
             ),
-            ActionSecurityRisk.HIGH: (
+            SecurityRisk.HIGH: (
                 "High risk - Significant security impact, confirmation required"
             ),
-            ActionSecurityRisk.UNKNOWN: (
-                "Unknown risk - Risk level could not be determined"
-            ),
+            SecurityRisk.UNKNOWN: ("Unknown risk - Risk level could not be determined"),
         }
         return descriptions.get(self, "Unknown risk level")
 

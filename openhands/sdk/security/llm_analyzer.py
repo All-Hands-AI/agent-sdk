@@ -4,7 +4,7 @@ from typing import Any
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.analyzer import SecurityAnalyzer
-from openhands.sdk.security.risk import ActionSecurityRisk
+from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool.schema import Action
 
 
@@ -30,7 +30,7 @@ class LLMSecurityAnalyzer(SecurityAnalyzer):
         super().__init__(**kwargs)
         logger.info("LLM Security Analyzer initialized")
 
-    async def security_risk(self, action: Action) -> ActionSecurityRisk:
+    async def security_risk(self, action: Action) -> SecurityRisk:
         """Evaluate security risk based on LLM-provided assessment.
 
         This method checks if the action has a security_risk attribute set by the LLM
@@ -49,12 +49,12 @@ class LLMSecurityAnalyzer(SecurityAnalyzer):
             try:
                 # Convert string risk to enum if needed
                 if isinstance(action.security_risk, str):
-                    risk = ActionSecurityRisk.from_string(action.security_risk)
+                    risk = SecurityRisk(action.security_risk)
                     logger.debug(
                         f"Converted string risk '{action.security_risk}' to {risk}"
                     )
                     return risk
-                elif isinstance(action.security_risk, ActionSecurityRisk):
+                elif isinstance(action.security_risk, SecurityRisk):
                     logger.debug(
                         f"Using existing ActionSecurityRisk: {action.security_risk}"
                     )
@@ -63,16 +63,16 @@ class LLMSecurityAnalyzer(SecurityAnalyzer):
                     logger.warning(
                         f"Unknown security_risk type: {type(action.security_risk)}"
                     )
-                    return ActionSecurityRisk.UNKNOWN
+                    return SecurityRisk.UNKNOWN
             except ValueError as e:
                 logger.warning(
                     f"Invalid security risk value '{action.security_risk}': {e}"
                 )
-                return ActionSecurityRisk.UNKNOWN
+                return SecurityRisk.UNKNOWN
 
         # If no security_risk attribute is found, default to UNKNOWN
         logger.debug("No security_risk attribute found, defaulting to UNKNOWN")
-        return ActionSecurityRisk.UNKNOWN
+        return SecurityRisk.UNKNOWN
 
     async def handle_api_request(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """Handle API requests for LLM analyzer configuration.

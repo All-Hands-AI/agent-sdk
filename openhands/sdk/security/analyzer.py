@@ -8,7 +8,7 @@ from openhands.sdk.event import Event
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.risk import ActionSecurityRisk
+from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool.schema import Action
 
 
@@ -35,7 +35,7 @@ class SecurityAnalyzer(ABC):
         logger.info(f"Initialized {self.__class__.__name__} security analyzer")
 
     @abstractmethod
-    async def security_risk(self, action: Action) -> ActionSecurityRisk:
+    async def security_risk(self, action: Action) -> SecurityRisk:
         """Evaluate the security risk of an action.
 
         This is the core method that analyzes an action and returns its risk level.
@@ -74,7 +74,7 @@ class SecurityAnalyzer(ABC):
         """
         pass
 
-    async def analyze_event(self, event: Event) -> ActionSecurityRisk | None:
+    async def analyze_event(self, event: Event) -> SecurityRisk | None:
         """Analyze an event for security risks.
 
         This is a convenience method that checks if the event is an action
@@ -91,7 +91,7 @@ class SecurityAnalyzer(ABC):
         return None
 
     def should_require_confirmation(
-        self, risk: ActionSecurityRisk, confirmation_mode: bool = False
+        self, risk: SecurityRisk, confirmation_mode: bool = False
     ) -> bool:
         """Determine if an action should require user confirmation.
 
@@ -105,10 +105,10 @@ class SecurityAnalyzer(ABC):
         Returns:
             True if confirmation is required, False otherwise
         """
-        if risk == ActionSecurityRisk.HIGH:
+        if risk == SecurityRisk.HIGH:
             # HIGH risk actions always require confirmation
             return True
-        elif risk == ActionSecurityRisk.UNKNOWN and not confirmation_mode:
+        elif risk == SecurityRisk.UNKNOWN and not confirmation_mode:
             # UNKNOWN risk requires confirmation if no security analyzer is configured
             return True
         elif confirmation_mode:
@@ -120,7 +120,7 @@ class SecurityAnalyzer(ABC):
 
     async def analyze_pending_actions(
         self, conversation: Conversation
-    ) -> list[tuple[ActionEvent, ActionSecurityRisk]]:
+    ) -> list[tuple[ActionEvent, SecurityRisk]]:
         """Analyze all pending actions in a conversation.
 
         This method gets all unmatched actions from the conversation state
@@ -143,7 +143,7 @@ class SecurityAnalyzer(ABC):
             except Exception as e:
                 logger.error(f"Error analyzing action {action_event}: {e}")
                 # Default to HIGH risk on analysis error for safety
-                analyzed_actions.append((action_event, ActionSecurityRisk.HIGH))
+                analyzed_actions.append((action_event, SecurityRisk.HIGH))
 
         return analyzed_actions
 
@@ -187,10 +187,10 @@ class SecurityAnalyzer(ABC):
         analyzed_actions = await self.analyze_pending_actions(conversation)
 
         risk_counts = {
-            ActionSecurityRisk.LOW: 0,
-            ActionSecurityRisk.MEDIUM: 0,
-            ActionSecurityRisk.HIGH: 0,
-            ActionSecurityRisk.UNKNOWN: 0,
+            SecurityRisk.LOW: 0,
+            SecurityRisk.MEDIUM: 0,
+            SecurityRisk.HIGH: 0,
+            SecurityRisk.UNKNOWN: 0,
         }
 
         action_details = []
@@ -211,6 +211,6 @@ class SecurityAnalyzer(ABC):
             "risk_counts": {str(risk): count for risk, count in risk_counts.items()},
             "highest_risk": max(risk for _, risk in analyzed_actions)
             if analyzed_actions
-            else ActionSecurityRisk.LOW,
+            else SecurityRisk.LOW,
             "action_details": action_details,
         }
