@@ -14,10 +14,28 @@ jobs:
       matrix:
         repo: ["All-Hands-AI/docs"]
     steps:
+      - name: Check secret availability
+        id: check_secret
+        run: |
+          if [ -z "${{ secrets.ALLHANDS_BOT_GITHUB_PAT }}" ]; then
+            echo "secret_available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Documentation dispatch requires repository secrets that are not available from forked repositories."
+            echo "This is expected behavior for security reasons."
+          else
+            echo "secret_available=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Push to docs repo
+        if: steps.check_secret.outputs.secret_available == 'true'
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.ALLHANDS_BOT_GITHUB_PAT }}
           repository: ${{ matrix.repo }}
           event-type: update
           client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "module": "agent-sdk", "branch": "main"}'
+
+      - name: Log skipped dispatch
+        if: steps.check_secret.outputs.secret_available == 'false'
+        run: |
+          echo "📝 Documentation dispatch skipped: Repository secrets not available from forked repositories."
+          echo "This is expected behavior for security reasons."

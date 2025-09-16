@@ -226,7 +226,7 @@ jobs:
           uv run coverage report -m
 
       - name: Pytest coverage PR comment
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         continue-on-error: true
         uses: MishaKav/pytest-coverage-comment@v1
         with:
