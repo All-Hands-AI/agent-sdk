@@ -7,9 +7,9 @@ class CustomBrowserUseServer(BrowserUseServer):
     page's content in markdown.
     """
 
-    MAX_CHAR_LIMIT = 3000
-
     async def _get_content(self, extract_links=False, start_from_char: int = 0) -> str:
+        MAX_CHAR_LIMIT = 30000
+
         if not self.browser_session:
             return "Error: No browser session active"
 
@@ -36,20 +36,20 @@ class CustomBrowserUseServer(BrowserUseServer):
 
         # Smart truncation with context preservation
         truncated = False
-        if len(content) > self.MAX_CHAR_LIMIT:
+        if len(content) > MAX_CHAR_LIMIT:
             # Try to truncate at a natural break point (paragraph, sentence)
-            truncate_at = self.MAX_CHAR_LIMIT
+            truncate_at = MAX_CHAR_LIMIT
 
             # Look for paragraph break within last 500 chars of limit
             paragraph_break = content.rfind(
-                "\n\n", self.MAX_CHAR_LIMIT - 500, self.MAX_CHAR_LIMIT
+                "\n\n", MAX_CHAR_LIMIT - 500, MAX_CHAR_LIMIT
             )
             if paragraph_break > 0:
                 truncate_at = paragraph_break
             else:
                 # Look for sentence break within last 200 chars of limit
                 sentence_break = content.rfind(
-                    ".", self.MAX_CHAR_LIMIT - 200, self.MAX_CHAR_LIMIT
+                    ".", MAX_CHAR_LIMIT - 200, MAX_CHAR_LIMIT
                 )
                 if sentence_break > 0:
                     truncate_at = sentence_break + 1
