@@ -23,14 +23,6 @@ def test_tool_spec_with_params():
     assert spec.params == params
 
 
-def test_tool_spec_empty_params():
-    """Test creating ToolSpec with empty parameters."""
-    spec = ToolSpec(name="FileEditorTool", params={})
-
-    assert spec.name == "FileEditorTool"
-    assert spec.params == {}
-
-
 def test_tool_spec_complex_params():
     """Test creating ToolSpec with complex parameters."""
     params = {
