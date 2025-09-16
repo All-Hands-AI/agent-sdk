@@ -7,12 +7,13 @@ from openhands.sdk import (
     Agent,
     Conversation,
     Event,
+    ImageContent,
     LLMConvertibleEvent,
     Message,
     TextContent,
     get_logger,
 )
-from openhands.sdk.llm.router import RandomRouter
+from openhands.sdk.llm.router import MultimodalRouter
 from openhands.sdk.preset.default import get_default_tools
 
 
@@ -22,27 +23,26 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
-sonnet_llm = LLM(
+primary_llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
-gpt5_llm = LLM(
-    model="litellm_proxy/gpt-5-2025-08-07",
+secondary_llm = LLM(
+    model="litellm_proxy/mistral/devstral-small-2507",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
-random_router = RandomRouter(
-    llms_for_routing={"sonnet": sonnet_llm, "gpt5": gpt5_llm},
+multimodal_router = MultimodalRouter(
+    llms_for_routing={"primary": primary_llm, "secondary": secondary_llm},
 )
-
 
 # Tools
 cwd = os.getcwd()
 tools = get_default_tools(working_dir=cwd)  # Use our default openhands experience
 
 # Agent
-agent = Agent(llm=random_router, tools=tools)
+agent = Agent(llm=multimodal_router, tools=tools)
 
 llm_messages = []  # collect raw LLM messages
 
@@ -57,14 +57,7 @@ conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 conversation.send_message(
     message=Message(
         role="user",
-        content=[
-            TextContent(
-                text=(
-                    "In the current directory, write hello world script in 3 languages:"
-                    " Python, JavaScript, and Bash."
-                )
-            )
-        ],
+        content=[TextContent(text=("Hi there, who trained you?"))],
     )
 )
 conversation.run()
@@ -72,7 +65,12 @@ conversation.run()
 conversation.send_message(
     message=Message(
         role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
+        content=[
+            ImageContent(
+                image_urls=["http://images.cocodataset.org/val2017/000000039769.jpg"]
+            ),
+            TextContent(text=("What do you see in the image above?")),
+        ],
     )
 )
 conversation.run()
