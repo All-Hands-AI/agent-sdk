@@ -147,19 +147,43 @@ class BaseIntegrationTest(ABC):
     def get_agent_final_response(self) -> str:
         """Extract the agent's final response from the conversation."""
 
+        print("=== EXTRACTING AGENT FINAL RESPONSE ===", flush=True)
+        print(
+            f"Total events in conversation: {len(self.conversation.state.events)}",
+            flush=True,
+        )
+
         # Get the last MessageEvent from agent
         agent_messages = []
         for event in self.conversation.state.events:
             if isinstance(event, MessageEvent) and event.source == "agent":
                 agent_messages.append(event)
 
+        print(f"Found {len(agent_messages)} agent messages", flush=True)
+
         if agent_messages:
             last_agent_message = agent_messages[-1]
+            msg_type = type(last_agent_message.llm_message.content)
+            print(f"Last agent message type: {msg_type}", flush=True)
+
             # Use the utility function to extract text content
             text_parts = content_to_str(last_agent_message.llm_message.content)
-            if text_parts:
-                return " ".join(text_parts)
+            print(
+                f"Extracted text parts: {len(text_parts) if text_parts else 0}",
+                flush=True,
+            )
 
+            if text_parts:
+                result = " ".join(text_parts)
+                print(f"Final response length: {len(result)} characters", flush=True)
+                print(f"Final response preview: {result[:200]}...", flush=True)
+                return result
+            else:
+                print("No text parts extracted from agent message", flush=True)
+        else:
+            print("No agent messages found in conversation", flush=True)
+
+        print("Returning empty string as final response", flush=True)
         return ""
 
     @abstractmethod
