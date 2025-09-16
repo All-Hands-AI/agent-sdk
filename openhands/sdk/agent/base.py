@@ -63,10 +63,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             tool_class = openhands.tools.__dict__[tool_spec.name]
             tools.append(tool_class.create(**tool_spec.params))
 
-            # Add MCP tools if configured
-            if spec.mcp_config:
-                mcp_tools = create_mcp_tools(spec.mcp_config, timeout=30)
-                tools.extend(mcp_tools)
+        # Add MCP tools if configured
+        if spec.mcp_config:
+            mcp_tools = create_mcp_tools(spec.mcp_config, timeout=30)
+            tools.extend(mcp_tools)
 
         return cls(
             llm=spec.llm,

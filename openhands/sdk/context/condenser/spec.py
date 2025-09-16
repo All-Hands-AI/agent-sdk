@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CondenserSpec(BaseModel):
@@ -29,3 +29,17 @@ class CondenserSpec(BaseModel):
             }
         ],
     )
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate that name is not empty."""
+        if not v or not v.strip():
+            raise ValueError("Condenser name cannot be empty")
+        return v
+
+    @field_validator("params", mode="before")
+    @classmethod
+    def validate_params(cls, v: dict[str, Any] | None) -> dict[str, Any]:
+        """Convert None params to empty dict."""
+        return v if v is not None else {}

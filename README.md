@@ -273,6 +273,126 @@ context = AgentContext(
 )
 ```
 
+## Spec System
+
+The OpenHands Agent SDK includes a powerful specification system that allows you to define and instantiate agents, tools, and condensers using declarative configuration. This system provides a clean, serializable way to configure complex agent setups.
+
+### Agent Specifications
+
+Define complete agent configurations using `AgentSpec`:
+
+```python
+from openhands.sdk.agent import AgentSpec
+from openhands.sdk.tool import ToolSpec
+from openhands.sdk.context.condenser import CondenserSpec
+
+# Define an agent specification
+agent_spec = AgentSpec(
+    llm={
+        "model": "gpt-4",
+        "api_key": "your-api-key",
+        "base_url": "https://api.openai.com/v1"
+    },
+    tools=[
+        ToolSpec(name="BashTool", params={"working_dir": "/workspace"}),
+        ToolSpec(name="FileEditorTool"),
+    ],
+    condenser=CondenserSpec(
+        name="LLMSummarizingCondenser",
+        params={"max_size": 80, "keep_first": 10}
+    ),
+    agent_context={
+        "system_message_suffix": "Always be helpful and concise."
+    }
+)
+
+# Create agent from specification
+agent = AgentBase.from_spec(agent_spec)
+```
+
+### Tool Specifications
+
+Configure tools with `ToolSpec`:
+
+```python
+from openhands.sdk.tool import ToolSpec
+
+# Simple tool specification
+bash_spec = ToolSpec(name="BashTool", params={"working_dir": "/app"})
+
+# Tool with complex parameters
+editor_spec = ToolSpec(
+    name="FileEditorTool",
+    params={
+        "max_file_size": 1000000,
+        "allowed_extensions": [".py", ".js", ".md"]
+    }
+)
+```
+
+### Condenser Specifications
+
+Define context condensers using `CondenserSpec`:
+
+```python
+from openhands.sdk.context.condenser import CondenserSpec
+
+# LLM-based condenser
+llm_condenser = CondenserSpec(
+    name="LLMSummarizingCondenser",
+    params={
+        "llm": {"model": "gpt-3.5-turbo", "api_key": "your-key"},
+        "max_size": 100,
+        "keep_first": 15
+    }
+)
+
+# Pipeline condenser
+pipeline_condenser = CondenserSpec(
+    name="PipelineCondenser",
+    params={
+        "condensers": [
+            {"name": "NoOpCondenser"},
+            {"name": "LLMSummarizingCondenser", "params": {"max_size": 50}}
+        ]
+    }
+)
+```
+
+### Benefits of the Spec System
+
+1. **Serializable Configuration**: Specs can be easily serialized to/from JSON, YAML, or other formats
+2. **Validation**: Built-in validation ensures configurations are correct before instantiation
+3. **Reusability**: Share and reuse agent configurations across different environments
+4. **Version Control**: Track agent configurations alongside your code
+5. **Dynamic Loading**: Load agent configurations from external sources at runtime
+
+### Example: Configuration File
+
+```python
+import json
+from openhands.sdk.agent import AgentSpec, AgentBase
+
+# Save configuration to file
+config = {
+    "llm": {"model": "gpt-4", "api_key": "your-key"},
+    "tools": [
+        {"name": "BashTool", "params": {"working_dir": "/workspace"}},
+        {"name": "FileEditorTool"}
+    ]
+}
+
+with open("agent_config.json", "w") as f:
+    json.dump(config, f)
+
+# Load and create agent from file
+with open("agent_config.json", "r") as f:
+    config = json.load(f)
+
+agent_spec = AgentSpec(**config)
+agent = AgentBase.from_spec(agent_spec)
+```
+
 ## Documentation
 
 For detailed documentation and examples, refer to the `examples/` directory which contains comprehensive usage examples covering all major features of the SDK.
