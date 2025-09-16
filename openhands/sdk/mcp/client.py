@@ -2,10 +2,11 @@
 
 import asyncio
 import inspect
-import threading
 from typing import Any, Callable
 
 from fastmcp import Client as AsyncMCPClient
+
+from openhands.sdk.utils.async_executor import AsyncExecutor
 
 
 class MCPClient(AsyncMCPClient):
@@ -18,47 +19,7 @@ class MCPClient(AsyncMCPClient):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._loop: asyncio.AbstractEventLoop | None = None
-        self._thread: threading.Thread | None = None
-        self._lock = threading.Lock()
-
-    # ---------- loop management ----------
-
-    def _ensure_loop(self) -> asyncio.AbstractEventLoop:
-        with self._lock:
-            if self._loop is not None:
-                return self._loop
-
-            loop = asyncio.new_event_loop()
-
-            def _runner():
-                asyncio.set_event_loop(loop)
-                loop.run_forever()
-
-            t = threading.Thread(target=_runner, daemon=True)
-            t.start()
-            while not loop.is_running():
-                pass
-
-            self._loop = loop
-            self._thread = t
-            return loop
-
-    def _shutdown_loop(self) -> None:
-        with self._lock:
-            loop, t = self._loop, self._thread
-            self._loop = None
-            self._thread = None
-
-        if loop and loop.is_running():
-            try:
-                loop.call_soon_threadsafe(loop.stop)
-            except RuntimeError:
-                pass
-        if t and t.is_alive():
-            t.join(timeout=1.0)
-
-    # ---------- public helpers ----------
+        self._executor = AsyncExecutor()
 
     def call_async_from_sync(
         self,
@@ -66,7 +27,7 @@ class MCPClient(AsyncMCPClient):
         *args,
         timeout: float,
         **kwargs,
-    ):
+    ) -> Any:
         """
         Run a coroutine or async function on this client's loop from sync code.
 
@@ -74,40 +35,39 @@ class MCPClient(AsyncMCPClient):
             mcp.call_async_from_sync(async_fn, arg1, kw=...)
             mcp.call_async_from_sync(coro)
         """
-        if inspect.iscoroutine(awaitable_or_fn):
-            coro = awaitable_or_fn
-        elif inspect.iscoroutinefunction(awaitable_or_fn):
-            coro = awaitable_or_fn(*args, **kwargs)
-        else:
-            raise TypeError(
-                "call_async_from_sync expects a coroutine or async function"
-            )
+        return self._executor.run_async(
+            awaitable_or_fn, *args, timeout=timeout, **kwargs
+        )
 
-        loop = self._ensure_loop()
-        fut = asyncio.run_coroutine_threadsafe(coro, loop)
-        return fut.result(timeout)
-
-    async def call_sync_from_async(self, fn: Callable[..., Any], *args, **kwargs):
+    async def call_sync_from_async(
+        self, fn: Callable[..., Any], *args, **kwargs
+    ) -> Any:
         """
         Await running a blocking function in the default threadpool from async code.
         """
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, lambda: fn(*args, **kwargs))
 
-    # ---------- optional cleanup ----------
+    def sync_close(self) -> None:
+        """
+        Synchronously close the MCP client and cleanup resources.
 
-    def sync_close(self):
+        This will attempt to call the async close() method if available,
+        then shutdown the background event loop.
+        """
         # Best-effort: try async close if parent provides it
-        aclose = self.close
-        if inspect.iscoroutinefunction(aclose):
+        if hasattr(self, "close") and inspect.iscoroutinefunction(self.close):
             try:
-                self.call_async_from_sync(aclose, timeout=10.0)
+                self._executor.run_async(self.close, timeout=10.0)
             except Exception:
-                pass
-        self._shutdown_loop()
+                pass  # Ignore close errors during cleanup
+
+        # Always cleanup the executor
+        self._executor.close()
 
     def __del__(self):
+        """Cleanup on deletion."""
         try:
             self.sync_close()
         except Exception:
-            pass
+            pass  # Ignore cleanup errors during deletion
