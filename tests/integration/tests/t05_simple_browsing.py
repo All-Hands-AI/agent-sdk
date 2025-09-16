@@ -1,11 +1,14 @@
 """Test that an agent can browse a local web page and extract information."""
 
 import os
+import re
 import subprocess
 import tempfile
 import time
 
 from openhands.sdk import get_logger
+from openhands.sdk.event.llm_convertible import MessageEvent
+from openhands.sdk.llm import content_to_str
 from openhands.sdk.tool import Tool
 from openhands.tools import BashTool, FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
@@ -141,23 +144,95 @@ class SimpleBrowsingTest(BaseIntegrationTest):
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully browsed the page and found the answer."""
-        # The verification will be based on the agent's conversation
-        # Since we can't directly check what the agent "said", we'll check if
-        # the server was accessed by looking at the conversation history
-        # This is a simplified verification - in a real scenario, we'd check
-        # the agent's response for the expected content
+        # Extract agent's responses from the conversation
+        agent_messages = []
 
-        # For now, we'll assume success if the setup completed without errors
-        # The actual verification would need to be implemented based on how
-        # the conversation/response system works in the test framework
+        # Look through collected events for MessageEvents from the agent
+        for event in self.collected_events:
+            if isinstance(event, MessageEvent) and event.source == "agent":
+                # Extract text content from the message
+                text_parts = content_to_str(event.llm_message.content)
+                if text_parts:
+                    agent_text = "".join(text_parts)
+                    agent_messages.append(agent_text)
 
-        return TestResult(
-            success=True,
-            reason=(
-                "Web server setup completed. Agent should be able to browse "
-                "localhost:8000 and find 'The answer is OpenHands is all you need!'"
-            ),
-        )
+        # Also check llm_messages for agent responses
+        for llm_msg in self.llm_messages:
+            if llm_msg.get("role") == "assistant":
+                content = llm_msg.get("content", [])
+                if isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, dict) and item.get("type") == "text":
+                            agent_messages.append(item.get("text", ""))
+                elif isinstance(content, str):
+                    agent_messages.append(content)
+
+        # Combine all agent messages
+        full_agent_response = " ".join(agent_messages)
+
+        logger.info(f"Agent response to analyze: {full_agent_response[:500]}...")
+
+        # Use regex to check if the agent found the correct answer
+        # The expected answer is "The answer is OpenHands is all you need!"
+        # We'll be flexible with the exact wording but look for key components
+        answer_patterns = [
+            r"(?i)the answer is openhands is all you need",
+            r"(?i)openhands is all you need",
+            r"(?i)answer.*openhands.*all.*need",
+            r"(?i)ultimate.*answer.*openhands",
+        ]
+
+        found_answer = False
+        matched_pattern = None
+
+        for pattern in answer_patterns:
+            if re.search(pattern, full_agent_response):
+                found_answer = True
+                matched_pattern = pattern
+                break
+
+        if found_answer:
+            return TestResult(
+                success=True,
+                reason=(
+                    f"Agent successfully found the answer! "
+                    f"Matched pattern: {matched_pattern}. "
+                    f"Response contained the expected content about OpenHands."
+                ),
+            )
+        else:
+            # Check if agent at least attempted to browse the page
+            browsing_indicators = [
+                r"(?i)localhost:8000",
+                r"(?i)curl.*8000",
+                r"(?i)wget.*8000",
+                r"(?i)browse.*8000",
+                r"(?i)http.*8000",
+            ]
+
+            attempted_browsing = any(
+                re.search(pattern, full_agent_response)
+                for pattern in browsing_indicators
+            )
+
+            if attempted_browsing:
+                return TestResult(
+                    success=False,
+                    reason=(
+                        "Agent attempted to browse localhost:8000 but did not find "
+                        "the correct answer. Expected to find "
+                        "'OpenHands is all you need' "
+                        f"but got: {full_agent_response[:200]}..."
+                    ),
+                )
+            else:
+                return TestResult(
+                    success=False,
+                    reason=(
+                        "Agent did not appear to browse localhost:8000. "
+                        f"Response: {full_agent_response[:200]}..."
+                    ),
+                )
 
     def teardown(self):
         """Clean up the web server and temporary files."""
