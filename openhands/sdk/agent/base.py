@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Annotated, Sequence
@@ -69,6 +70,17 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if spec.mcp_config:
             mcp_tools = create_mcp_tools(spec.mcp_config, timeout=30)
             tools.extend(mcp_tools)
+
+        logger.info(
+            f"Loaded {len(tools)} tools from spec: {[tool.name for tool in tools]}"
+        )
+        if spec.filter_tools_regex:
+            pattern = re.compile(spec.filter_tools_regex)
+            tools = [tool for tool in tools if pattern.match(tool.name)]
+            logger.info(
+                f"Filtered to {len(tools)} tools after applying regex filter: "
+                f"{[tool.name for tool in tools]}",
+            )
 
         return cls(
             llm=spec.llm,

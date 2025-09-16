@@ -44,6 +44,13 @@ class AgentSpec(BaseModel):
             {"mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}}}
         ],
     )
+    filter_tools_regex: str | None = Field(
+        default=None,
+        description="Optional regex to filter the tools available to the agent by name."
+        " This is applied after any tools provided in `tools` and any MCP tools are"
+        " added.",
+        examples=["^(?!repomix)(.*)|^repomix.*pack_codebase.*$"],
+    )
     agent_context: AgentContext | None = Field(
         default=None,
         description="Optional AgentContext to initialize "
