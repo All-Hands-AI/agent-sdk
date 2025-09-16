@@ -4,6 +4,11 @@ from openhands.sdk.llm.message import ImageContent, Message, TextContent, conten
 from openhands.sdk.llm.metadata import get_llm_metadata
 from openhands.sdk.llm.router import RouterLLM
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
+from openhands.sdk.llm.utils.unverified_models import (
+    UNVERIFIED_MODELS_EXCLUDING_BEDROCK,
+    get_unverified_models,
+)
+from openhands.sdk.llm.utils.verified_models import VERIFIED_MODELS
 
 
 __all__ = [
@@ -18,4 +23,7 @@ __all__ = [
     "get_llm_metadata",
     "Metrics",
     "MetricsSnapshot",
+    "VERIFIED_MODELS",
+    "UNVERIFIED_MODELS_EXCLUDING_BEDROCK",
+    "get_unverified_models",
 ]

@@ -12,6 +12,7 @@ from openhands.sdk import (
     Message,
     TextContent,
 )
+from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.tools import BashTool
 
@@ -52,9 +53,9 @@ conversation.send_message(
 )
 
 # Run conversation with confirmation handling
-while not conversation.state.agent_finished:
+while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
     # If agent is waiting for confirmation, preview actions and ask user
-    if conversation.state.agent_waiting_for_confirmation:
+    if conversation.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
         pending_actions = get_unmatched_actions(conversation.state.events)
 
         if pending_actions:
@@ -98,7 +99,7 @@ while not conversation.state.agent_finished:
             print(
                 "⚠️ Agent is waiting for confirmation but no pending actions were found."
             )
-            conversation.state.agent_waiting_for_confirmation = False
+            conversation.state.agent_status = AgentExecutionStatus.IDLE
 
     print("▶️  Running conversation.run()…")
     conversation.run()
@@ -112,8 +113,8 @@ conversation.send_message(
 )
 
 # Run conversation with confirmation handling
-while not conversation.state.agent_finished:
-    if conversation.state.agent_waiting_for_confirmation:
+while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
+    if conversation.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
         pending_actions = get_unmatched_actions(conversation.state.events)
 
         if pending_actions:
@@ -154,7 +155,7 @@ while not conversation.state.agent_finished:
             print(
                 "⚠️ Agent is waiting for confirmation but no pending actions were found."
             )
-            conversation.state.agent_waiting_for_confirmation = False
+            conversation.state.agent_status = AgentExecutionStatus.IDLE
 
     print("▶️  Running conversation.run()…")
     conversation.run()
@@ -168,8 +169,8 @@ conversation.send_message(
 )
 
 # Run conversation with confirmation handling
-while not conversation.state.agent_finished:
-    if conversation.state.agent_waiting_for_confirmation:
+while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
+    if conversation.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
         pending_actions = get_unmatched_actions(conversation.state.events)
 
         if pending_actions:
@@ -210,7 +211,7 @@ while not conversation.state.agent_finished:
             print(
                 "⚠️ Agent is waiting for confirmation but no pending actions were found."
             )
-            conversation.state.agent_waiting_for_confirmation = False
+            conversation.state.agent_status = AgentExecutionStatus.IDLE
 
     print("▶️  Running conversation.run()…")
     conversation.run()
@@ -245,7 +246,7 @@ print("\n=== Example Complete ===")
 print("Key points:")
 print(
     "- conversation.run() creates actions; confirmation mode sets "
-    "agent_waiting_for_confirmation=True"
+    "agent_status=WAITING_FOR_CONFIRMATION"
 )
 print("- User confirmation is handled inline with input() prompts")
 print("- Rejection uses conversation.reject_pending_actions() and continues the loop")

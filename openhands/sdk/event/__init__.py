@@ -1,5 +1,9 @@
 from openhands.sdk.event.base import Event, EventBase, LLMConvertibleEvent
-from openhands.sdk.event.condenser import Condensation, CondensationRequest
+from openhands.sdk.event.condenser import (
+    Condensation,
+    CondensationRequest,
+    CondensationSummaryEvent,
+)
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
@@ -8,6 +12,8 @@ from openhands.sdk.event.llm_convertible import (
     SystemPromptEvent,
     UserRejectObservation,
 )
+from openhands.sdk.event.metric_events import EventWithMetrics
+from openhands.sdk.event.types import EventID, ToolCallID
 from openhands.sdk.event.user_action import PauseEvent
 
 
@@ -24,4 +30,8 @@ __all__ = [
     "Event",
     "Condensation",
     "CondensationRequest",
+    "CondensationSummaryEvent",
+    "EventWithMetrics",
+    "EventID",
+    "ToolCallID",
 ]

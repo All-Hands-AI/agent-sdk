@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+import uuid
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,7 +11,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation, LocalFileStore
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.tools import BashTool, FileEditorTool
@@ -20,7 +21,9 @@ def test_conversation_state_basic_serialization():
     """Test basic ConversationState serialization and deserialization."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
     agent = Agent(llm=llm, tools=[])
-    state = ConversationState.create(agent=agent, id="test-id-1")
+    state = ConversationState.create(
+        agent=agent, id=uuid.UUID("12345678-1234-5678-9abc-123456789001")
+    )
 
     # Add some events
     event1 = SystemPromptEvent(
@@ -68,7 +71,9 @@ def test_conversation_state_persistence_save_load():
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
         state = ConversationState.create(
-            agent=agent, id="test-id-2", file_store=file_store
+            agent=agent,
+            id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
+            file_store=file_store,
         )
 
         # Add events
@@ -92,7 +97,9 @@ def test_conversation_state_persistence_save_load():
 
         # Load state using Conversation (which handles loading)
         conversation = Conversation(
-            agent=agent, persist_filestore=file_store, conversation_id="test-id-2"
+            agent=agent,
+            persist_filestore=file_store,
+            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
         )
         loaded_state = conversation.state
 
@@ -117,7 +124,9 @@ def test_conversation_state_incremental_save():
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
         state = ConversationState.create(
-            agent=agent, id="test-id-3", file_store=file_store
+            agent=agent,
+            id=uuid.UUID("12345678-1234-5678-9abc-123456789003"),
+            file_store=file_store,
         )
 
         # Add first event - auto-saves
@@ -143,7 +152,9 @@ def test_conversation_state_incremental_save():
 
         # Load using Conversation and verify events are present
         conversation = Conversation(
-            agent=agent, persist_filestore=file_store, conversation_id="test-id-3"
+            agent=agent,
+            persist_filestore=file_store,
+            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789003"),
         )
         loaded_state = conversation.state
         assert len(loaded_state.events) == 2
@@ -460,7 +471,9 @@ def test_conversation_state_exclude_from_base_state():
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
         state = ConversationState.create(
-            agent=agent, id="test-id-4", file_store=file_store
+            agent=agent,
+            id=uuid.UUID("12345678-1234-5678-9abc-123456789004"),
+            file_store=file_store,
         )
 
         # Add events
@@ -483,7 +496,9 @@ def test_conversation_state_thread_safety():
     """Test ConversationState thread safety with lock/unlock."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
     agent = Agent(llm=llm, tools=[])
-    state = ConversationState.create(agent=agent, id="test-id-5")
+    state = ConversationState.create(
+        agent=agent, id=uuid.UUID("12345678-1234-5678-9abc-123456789005")
+    )
 
     # Test context manager
     with state:
@@ -555,27 +570,27 @@ def test_conversation_state_flags_persistence():
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
         state = ConversationState.create(
-            agent=agent, id="test-id-6", file_store=file_store
+            agent=agent,
+            id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
+            file_store=file_store,
         )
 
         # Set various flags
-        state.agent_finished = True
+        state.agent_status = AgentExecutionStatus.FINISHED
         state.confirmation_mode = True
-        state.agent_waiting_for_confirmation = True
-        state.agent_paused = True
         state.activated_knowledge_microagents = ["agent1", "agent2"]
 
         # State auto-saves, load using Conversation
         conversation = Conversation(
-            agent=agent, persist_filestore=file_store, conversation_id="test-id-6"
+            agent=agent,
+            persist_filestore=file_store,
+            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
         )
         loaded_state = conversation.state
 
         # Verify flags are preserved
-        assert loaded_state.agent_finished is True
+        assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
         assert loaded_state.confirmation_mode is True
-        assert loaded_state.agent_waiting_for_confirmation is True
-        assert loaded_state.agent_paused is True
         assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
         # Test model_dump equality
         assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")

@@ -15,6 +15,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -168,15 +169,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
+    service_id: str = Field(
+        default="default",
+        description="Unique identifier for LLM. Typically used by LLM registry.",
+    )
 
     # =========================================================================
     # Internal fields (excluded from dumps)
     # =========================================================================
-    service_id: str = Field(default="default", exclude=True)
-    metrics: Metrics | None = Field(default=None, exclude=True)
-    retry_listener: Callable[[int, int], None] | None = Field(
-        default=None, exclude=True
+    retry_listener: SkipJsonSchema[Callable[[int, int], None] | None] = Field(
+        default=None,
+        exclude=True,
     )
+    _metrics: Metrics | None = PrivateAttr(default=None)
     # ===== Plain class vars (NOT Fields) =====
     # When serializing, these fields (SecretStr) will be dump to "****"
     # When deserializing, these fields will be ignored and we will override
@@ -266,14 +271,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             os.environ["AWS_REGION_NAME"] = self.aws_region_name
 
         # Metrics + Telemetry wiring
-        if self.metrics is None:
-            self.metrics = Metrics(model_name=self.model)
+        if self._metrics is None:
+            self._metrics = Metrics(model_name=self.model)
 
         self._telemetry = Telemetry(
             model_name=self.model,
             log_enabled=self.log_completions,
             log_dir=self.log_completions_folder if self.log_completions else None,
-            metrics=self.metrics,
+            metrics=self._metrics,
         )
 
         # Tokenizer
@@ -292,6 +297,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Public API
     # =========================================================================
+    @property
+    def metrics(self) -> Metrics | None:
+        return self._metrics
+
     def completion(
         self,
         messages: list[Message],
@@ -694,7 +703,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return cls(**data)
 
     def serialize(self) -> dict[str, Any]:
+        """Serialize the LLM instance to a dictionary."""
         return self.model_dump()
+
+    def store_to_json(self, filepath: str) -> None:
+        """Store the LLM instance to a JSON file with secrets exposed.
+
+        Args:
+            filepath: Path where the JSON file should be stored.
+        """
+        data = self.model_dump_with_secrets()
+
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
 
     @classmethod
     def load_from_json(cls, json_path: str) -> "LLM":
@@ -807,3 +828,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
             )
         return reconciled
+
+    def model_dump_with_secrets(self) -> dict[str, Any]:
+        """Dump the model including secrets (normally excluded)."""
+        data = self.model_dump()
+        for field in self.OVERRIDE_ON_SERIALIZE:
+            attr = getattr(self, field)
+            if attr is not None and isinstance(attr, SecretStr):
+                data[field] = attr.get_secret_value()
+        return data
