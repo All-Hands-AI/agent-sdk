@@ -688,12 +688,14 @@ def test_from_spec_toolset_with_mcp_and_filtering(basic_llm):
 
         agent = Agent.from_spec(spec)
 
-        # Should have 6 tools total: 1 bash + 2 browser + 1 MCP + 2 built-in
-        assert len(agent.tools) == 6
+        # Should have 5 tools total: 1 bash + 2 browser + 2 built-in
+        # MCP tool is filtered out because it doesn't match the regex pattern
+        assert len(agent.tools) == 5
         tools_list = get_tools_list(agent.tools)
         assert mock_bash_instance in tools_list
         assert mock_browser_tool1 in tools_list
         assert mock_browser_tool2 in tools_list
-        assert mock_mcp_tool in tools_list
+        # MCP tool should be filtered out by the regex
+        assert mock_mcp_tool not in tools_list
         assert "finish" in agent.tools
         assert "think" in agent.tools
