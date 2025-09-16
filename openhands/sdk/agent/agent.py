@@ -6,10 +6,9 @@ from litellm.types.utils import (
     Choices,
     Message as LiteLLMMessage,
 )
-from pydantic import Field, ValidationError, field_validator
+from pydantic import ValidationError, field_validator
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 from openhands.sdk.conversation.state import AgentExecutionStatus
@@ -44,9 +43,6 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
-    condenser: Condenser | None = Field(default=None, repr=False, exclude=True)
-    cli_mode: bool = Field(default=True)
-
     @field_validator("tools", mode="before")
     @classmethod
     def _normalize_tools(cls, v: Any) -> dict[str, "Tool"]:

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Sequence
 from pydantic import ConfigDict, Field
 
 from openhands.sdk.context.agent_context import AgentContext
+from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
@@ -42,6 +43,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         default_factory=dict,
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
+    )
+    condenser: Condenser | None = Field(
+        default=None,
+        description="Optional condenser to use for condensing conversation history.",
     )
 
     @property
