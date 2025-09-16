@@ -97,8 +97,8 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Tool":
-        """Create a Tool instance. Placeholder for subclasses.
+    def create(cls, *args, **kwargs) -> "Tool | list[Tool]":
+        """Create a Tool instance OR a list of them. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).

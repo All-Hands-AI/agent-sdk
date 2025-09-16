@@ -58,6 +58,8 @@ def get_default_agent_spec(
             ToolSpec(
                 name="TaskTrackerTool", params={"save_dir": f"{working_dir}/.openhands"}
             ),
+            # A set of browsing tools
+            ToolSpec(name="BrowserToolSet", params={}),
         ],
         mcp_config={
             "mcpServers": {

@@ -12,7 +12,7 @@ from openhands.sdk.context.condenser import Condenser, CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import ToolType
+from openhands.sdk.tool import Tool, ToolType
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -64,7 +64,18 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                     f"Unknown tool name: {tool_spec.name}. Not found in openhands.tools"
                 )
             tool_class = openhands.tools.__dict__[tool_spec.name]
-            tools.append(tool_class.create(**tool_spec.params))
+            tool_or_tools = tool_class.create(**tool_spec.params)
+            if isinstance(tool_or_tools, list):
+                tools.extend(tool_or_tools)
+            else:
+                tools.append(tool_or_tools)
+
+        # Check tool types
+        for tool in tools:
+            if not isinstance(tool, Tool):
+                raise ValueError(
+                    f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
+                )
 
         # Add MCP tools if configured
         if spec.mcp_config:

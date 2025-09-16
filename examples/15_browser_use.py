@@ -12,20 +12,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool
-from openhands.tools.browser_use import (
-    BrowserToolExecutor,
-    browser_click_tool,
-    browser_close_tab_tool,
-    browser_get_content_tool,
-    browser_get_state_tool,
-    browser_go_back_tool,
-    browser_list_tabs_tool,
-    browser_navigate_tool,
-    browser_scroll_tool,
-    browser_switch_tab_tool,
-    browser_type_tool,
-)
+from openhands.tools import BashTool, BrowserToolSet, FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -41,19 +28,35 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-browser_executor = BrowserToolExecutor()
-browser_use_tools = [
-    browser_navigate_tool.set_executor(browser_executor),
-    browser_click_tool.set_executor(browser_executor),
-    browser_get_state_tool.set_executor(browser_executor),
-    browser_get_content_tool.set_executor(browser_executor),
-    browser_type_tool.set_executor(browser_executor),
-    browser_scroll_tool.set_executor(browser_executor),
-    browser_go_back_tool.set_executor(browser_executor),
-    browser_list_tabs_tool.set_executor(browser_executor),
-    browser_switch_tab_tool.set_executor(browser_executor),
-    browser_close_tab_tool.set_executor(browser_executor),
-]
+# This will create a set of browser tools with a shared executor
+browser_use_tools = BrowserToolSet.create()
+# If you want to customize the browser tools, you can do it like this:
+# from openhands.tools.browser_use import (
+#     BrowserToolExecutor,
+#     browser_click_tool,
+#     browser_close_tab_tool,
+#     browser_get_content_tool,
+#     browser_get_state_tool,
+#     browser_go_back_tool,
+#     browser_list_tabs_tool,
+#     browser_navigate_tool,
+#     browser_scroll_tool,
+#     browser_switch_tab_tool,
+#     browser_type_tool,
+# )
+# browser_executor = BrowserToolExecutor()
+# browser_use_tools = [
+#     browser_navigate_tool.set_executor(browser_executor),
+#     browser_click_tool.set_executor(browser_executor),
+#     browser_get_state_tool.set_executor(browser_executor),
+#     browser_get_content_tool.set_executor(browser_executor),
+#     browser_type_tool.set_executor(browser_executor),
+#     browser_scroll_tool.set_executor(browser_executor),
+#     browser_go_back_tool.set_executor(browser_executor),
+#     browser_list_tabs_tool.set_executor(browser_executor),
+#     browser_switch_tab_tool.set_executor(browser_executor),
+#     browser_close_tab_tool.set_executor(browser_executor),
+# ]
 
 tools = [BashTool.create(working_dir=cwd), FileEditorTool.create(), *browser_use_tools]
 
