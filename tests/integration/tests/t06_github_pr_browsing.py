@@ -39,86 +39,104 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully browsed the GitHub PR."""
-        # Check if the agent made any attempts to browse the GitHub PR
-        # by examining the conversation events and LLM messages
+        # Get the agent's final answer/response to the instruction
+        agent_final_answer = self._get_agent_final_response()
 
-        # Get all events from the conversation
-        events = list(self.conversation.state.events)
+        if not agent_final_answer:
+            return TestResult(
+                success=False,
+                reason=(
+                    "No final answer found from agent. "
+                    f"Events: {len(list(self.conversation.state.events))}, "
+                    f"LLM messages: {len(self.llm_messages)}"
+                ),
+            )
 
-        # Convert events to text for analysis
-        event_texts = []
-        for event in events:
-            event_str = str(event)
-            event_texts.append(event_str.lower())
+        # Convert to lowercase for case-insensitive matching
+        answer_text = agent_final_answer.lower()
 
-        # Convert LLM messages to text for analysis
-        llm_message_texts = []
-        for msg in self.llm_messages:
-            if isinstance(msg, dict) and "content" in msg:
-                content = msg["content"]
-                if isinstance(content, list):
-                    for item in content:
-                        if isinstance(item, dict) and "text" in item:
-                            llm_message_texts.append(item["text"].lower())
-                elif isinstance(content, str):
-                    llm_message_texts.append(content.lower())
-
-        # Combine all text content for analysis
-        all_text = " ".join(event_texts + llm_message_texts)
-
-        # Check for evidence of GitHub PR browsing
+        # Check for evidence of GitHub PR browsing - indicators that would be
+        # found when browsing https://github.com/All-Hands-AI/OpenHands/pull/8
         github_indicators = [
-            "MIT",
-            "Apache",
-            "License",
+            "mit",
+            "apache",
+            "license",
         ]
 
         # Check for evidence of finding information about @asadm
         asadm_indicators = ["asadm", "@asadm", "suggested", "suggestion"]
 
-        # Check if the agent attempted to browse the GitHub PR
-        found_github_attempt = any(
-            indicator in all_text for indicator in github_indicators
+        # Check if the agent's final answer contains the relevant information
+        found_github_content = any(
+            indicator in answer_text for indicator in github_indicators
         )
-        found_asadm_info = any(indicator in all_text for indicator in asadm_indicators)
+        found_asadm_info = any(
+            indicator in answer_text for indicator in asadm_indicators
+        )
 
-        if not found_github_attempt:
-            return TestResult(
-                success=False,
-                reason=(
-                    "Agent did not appear to attempt browsing the GitHub PR. "
-                    f"No GitHub-related content found in conversation. "
-                    f"Events: {len(events)}, LLM messages: {len(self.llm_messages)}"
-                ),
-            )
-
-        if found_github_attempt and found_asadm_info:
+        if found_github_content and found_asadm_info:
             return TestResult(
                 success=True,
                 reason=(
-                    "Agent successfully browsed the GitHub PR and found information "
-                    "about @asadm's suggestions. Found GitHub-related content and "
-                    "asadm-related content in the conversation."
+                    "Agent's final answer contains information about the GitHub PR "
+                    "and @asadm's suggestions. Found relevant GitHub content and "
+                    "asadm-related information in the final response."
                 ),
             )
-        elif found_github_attempt:
+        elif found_github_content:
             return TestResult(
                 success=True,
                 reason=(
-                    "Agent successfully attempted to browse the GitHub PR, though "
-                    "specific information about @asadm's suggestions may not be "
-                    "clearly identifiable in the conversation text."
+                    "Agent's final answer contains GitHub PR information, though "
+                    "specific details about @asadm's suggestions may not be "
+                    "clearly present in the final response."
                 ),
             )
         else:
             return TestResult(
                 success=False,
                 reason=(
-                    "Agent did not successfully browse the GitHub PR or extract "
-                    "the requested information about what's happening and "
-                    "@asadm's suggestions."
+                    "Agent's final answer does not contain the expected information "
+                    "about the GitHub PR or @asadm's suggestions. "
+                    f"Final answer preview: {agent_final_answer[:200]}..."
                 ),
             )
+
+    def _get_agent_final_response(self) -> str:
+        """Extract the agent's final response from the conversation."""
+        from openhands.sdk.event.llm_convertible import MessageEvent
+
+        # Method 1: Get the last MessageEvent from agent
+        agent_messages = []
+        for event in self.conversation.state.events:
+            if isinstance(event, MessageEvent) and event.source == "agent":
+                agent_messages.append(event)
+
+        if agent_messages:
+            last_agent_message = agent_messages[-1]
+            # Extract text content from the message
+            content_parts = []
+            for content in last_agent_message.llm_message.content:
+                if hasattr(content, "text"):
+                    content_parts.append(content.text)
+            if content_parts:
+                return " ".join(content_parts)
+
+        # Method 2: Get from llm_messages (last assistant message)
+        for msg in reversed(self.llm_messages):
+            if msg.get("role") == "assistant":
+                content = msg.get("content", [])
+                if isinstance(content, list):
+                    text_parts = []
+                    for item in content:
+                        if isinstance(item, dict) and "text" in item:
+                            text_parts.append(item["text"])
+                    if text_parts:
+                        return " ".join(text_parts)
+                elif isinstance(content, str):
+                    return content
+
+        return ""
 
     def teardown(self):
         """No cleanup needed for GitHub PR browsing."""
