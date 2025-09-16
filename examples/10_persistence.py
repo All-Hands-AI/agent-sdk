@@ -62,7 +62,7 @@ def conversation_callback(event: Event):
         llm_messages.append(event.to_llm_message())
 
 
-conversation_id = str(uuid.uuid4())
+conversation_id = uuid.uuid4()
 file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 
 conversation = Conversation(

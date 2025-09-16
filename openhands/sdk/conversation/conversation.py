@@ -64,7 +64,7 @@ class Conversation:
         self._persist_filestore = persist_filestore
 
         # Create-or-resume: factory inspects BASE_STATE to decide
-        desired_id = conversation_id or str(uuid.uuid4())
+        desired_id = conversation_id or uuid.uuid4()
         self.state = ConversationState.create(
             id=desired_id,
             agent=agent,
