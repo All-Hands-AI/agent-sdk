@@ -15,6 +15,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -176,8 +177,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Internal fields (excluded from dumps)
     # =========================================================================
-    retry_listener: Callable[[int, int], None] | None = Field(
-        default=None, exclude=True
+    retry_listener: SkipJsonSchema[Callable[[int, int], None] | None] = Field(
+        default=None,
+        exclude=True,
     )
     _metrics: Metrics | None = PrivateAttr(default=None)
     # ===== Plain class vars (NOT Fields) =====
