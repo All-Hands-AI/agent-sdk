@@ -5,7 +5,7 @@ Utility function to format cost values with appropriate precision.
 """
 
 
-def format_cost(value):
+def format_cost(value) -> str:
     """
     Format cost with smart precision to show meaningful values even for small amounts.
 
@@ -15,16 +15,16 @@ def format_cost(value):
     Returns:
         Formatted cost string with appropriate precision
     """
-    # Handle non-numeric input
-    if not isinstance(value, (int, float)):
-        try:
-            value = float(value)
-        except (ValueError, TypeError):
-            return str(value)  # Return as-is if can't convert to number
+    try:
+        value = float(value)
+    except (ValueError, TypeError):
+        print(f"Warning: Unable to convert cost value '{value}' to float.", flush=True)
+        return "nan"
 
     # Handle NaN or infinite values
-    if not (isinstance(value, (int, float)) and abs(value) < float("inf")):
-        return str(value)
+    if not (abs(value) < float("inf")):
+        print(f"Warning: Cost value '{value}' is not a finite number.", flush=True)
+        return "nan"
 
     if abs(value) >= 0.01:
         # Normal rounding for typical amounts
