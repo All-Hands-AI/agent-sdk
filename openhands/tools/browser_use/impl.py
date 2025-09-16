@@ -108,8 +108,6 @@ class BrowserToolExecutor(ToolExecutor):
         await self._ensure_initialized()
         return await self._server._go_back()
 
-    # TODO: `wait` tool is missing in browser-use MCP server
-
     # Page Interaction
     async def click(self, index: int, new_tab: bool = False) -> str:
         """Click an element by index."""
@@ -121,15 +119,10 @@ class BrowserToolExecutor(ToolExecutor):
         await self._ensure_initialized()
         return await self._server._type_text(index, text)
 
-    # TODO: `upload_file_to_element` tool is missing in browser-use MCP server
-
     async def scroll(self, direction: str = "down") -> str:
         """Scroll the page."""
         await self._ensure_initialized()
         return await self._server._scroll(direction)
-
-    # TODO: `scroll_to_text` tool is missing in browser-use MCP server
-    # TODO: `send_keys` tool is missing in browser-use MCP server
 
     async def get_state(self, include_screenshot: bool = False):
         """Get current browser state with interactive elements."""
@@ -177,10 +170,6 @@ class BrowserToolExecutor(ToolExecutor):
         return await self._server._get_content(
             extract_links=extract_links, start_from_char=start_from_char
         )
-
-    # Form Controls
-    # TODO: `get_dropdown_options` tool is missing in browser-use MCP server
-    # TODO: `select_dropdown_option` tool is missing in browser-use MCP server
 
     async def close_browser(self) -> str:
         """Close the browser session."""
