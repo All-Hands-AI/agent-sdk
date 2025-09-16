@@ -57,6 +57,7 @@ completion_response = second_llm.completion(
     messages=[Message(role="user", content=[TextContent(text="echo 'More spend!'")])]
 )
 
+
 # Access total spend
 spend = conversation.conversation_stats.get_combined_metrics()
 print("\n=== Total Spend for Conversation ===\n")
