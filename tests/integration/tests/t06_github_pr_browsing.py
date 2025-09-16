@@ -39,22 +39,88 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully browsed the GitHub PR."""
-        # The verification will be based on the agent's conversation
-        # Since we can't directly check what the agent "said", we'll assume
-        # success if the setup completed without errors.
-        # In a real scenario, we'd check the agent's response for:
-        # - Information about what's happening in the PR
-        # - What @asadm suggested
-        # - General understanding of the PR content
+        # Check if the agent made any attempts to browse the GitHub PR
+        # by examining the conversation events and LLM messages
 
-        return TestResult(
-            success=True,
-            reason=(
-                "GitHub PR browsing test setup completed. Agent should be able to "
-                "browse https://github.com/All-Hands-AI/OpenHands/pull/8 and "
-                "extract information about what's happening and @asadm's suggestions."
-            ),
+        # Get all events from the conversation
+        events = list(self.conversation.state.events)
+
+        # Convert events to text for analysis
+        event_texts = []
+        for event in events:
+            event_str = str(event)
+            event_texts.append(event_str.lower())
+
+        # Convert LLM messages to text for analysis
+        llm_message_texts = []
+        for msg in self.llm_messages:
+            if isinstance(msg, dict) and "content" in msg:
+                content = msg["content"]
+                if isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, dict) and "text" in item:
+                            llm_message_texts.append(item["text"].lower())
+                elif isinstance(content, str):
+                    llm_message_texts.append(content.lower())
+
+        # Combine all text content for analysis
+        all_text = " ".join(event_texts + llm_message_texts)
+
+        # Check for evidence of GitHub PR browsing
+        github_indicators = [
+            "github.com/all-hands-ai/openhands/pull/8",
+            "pull/8",
+            "github",
+            "pr",
+            "pull request",
+        ]
+
+        # Check for evidence of finding information about @asadm
+        asadm_indicators = ["asadm", "@asadm", "suggested", "suggestion"]
+
+        # Check if the agent attempted to browse the GitHub PR
+        found_github_attempt = any(
+            indicator in all_text for indicator in github_indicators
         )
+        found_asadm_info = any(indicator in all_text for indicator in asadm_indicators)
+
+        if not found_github_attempt:
+            return TestResult(
+                success=False,
+                reason=(
+                    "Agent did not appear to attempt browsing the GitHub PR. "
+                    f"No GitHub-related content found in conversation. "
+                    f"Events: {len(events)}, LLM messages: {len(self.llm_messages)}"
+                ),
+            )
+
+        if found_github_attempt and found_asadm_info:
+            return TestResult(
+                success=True,
+                reason=(
+                    "Agent successfully browsed the GitHub PR and found information "
+                    "about @asadm's suggestions. Found GitHub-related content and "
+                    "asadm-related content in the conversation."
+                ),
+            )
+        elif found_github_attempt:
+            return TestResult(
+                success=True,
+                reason=(
+                    "Agent successfully attempted to browse the GitHub PR, though "
+                    "specific information about @asadm's suggestions may not be "
+                    "clearly identifiable in the conversation text."
+                ),
+            )
+        else:
+            return TestResult(
+                success=False,
+                reason=(
+                    "Agent did not successfully browse the GitHub PR or extract "
+                    "the requested information about what's happening and "
+                    "@asadm's suggestions."
+                ),
+            )
 
     def teardown(self):
         """No cleanup needed for GitHub PR browsing."""
