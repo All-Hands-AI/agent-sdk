@@ -26,7 +26,10 @@ def format_cost(value) -> str:
         print(f"Warning: Cost value '{value}' is not a finite number.", flush=True)
         return "nan"
 
-    if abs(value) >= 0.01:
+    if value == 0.0:
+        # Handle zero as a special case
+        return "$0.00"
+    elif abs(value) >= 0.01:
         # Normal rounding for typical amounts
         return f"${value:.2f}"
     elif abs(value) >= 0.001:
