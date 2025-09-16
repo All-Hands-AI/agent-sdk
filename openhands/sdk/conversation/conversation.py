@@ -97,7 +97,7 @@ class Conversation:
         self.conversation_stats = ConversationStats(persist_filestore, conversation_id)
         self.llm_registry.subscribe(self.conversation_stats.register_llm)
 
-        self.llm_registry.add("agent", self.agent.llm)
+        self.llm_registry.add(self.agent.llm.service_id, self.agent.llm)
 
     @property
     def id(self) -> ConversationID:
