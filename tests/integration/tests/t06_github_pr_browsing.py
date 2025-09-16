@@ -75,6 +75,7 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
     def _get_agent_final_response(self) -> str:
         """Extract the agent's final response from the conversation."""
         from openhands.sdk.event.llm_convertible import MessageEvent
+        from openhands.sdk.llm import content_to_str
 
         # Method 1: Get the last MessageEvent from agent
         agent_messages = []
@@ -84,13 +85,10 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
 
         if agent_messages:
             last_agent_message = agent_messages[-1]
-            # Extract text content from the message
-            content_parts = []
-            for content in last_agent_message.llm_message.content:
-                if hasattr(content, "text"):
-                    content_parts.append(content.text)
-            if content_parts:
-                return " ".join(content_parts)
+            # Use the utility function to extract text content
+            text_parts = content_to_str(last_agent_message.llm_message.content)
+            if text_parts:
+                return " ".join(text_parts)
 
         # Method 2: Get from llm_messages (last assistant message)
         for msg in reversed(self.llm_messages):
