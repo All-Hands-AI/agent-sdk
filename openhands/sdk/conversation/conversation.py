@@ -1,7 +1,6 @@
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
-from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.llm.llm_registry import LLMRegistry
 
 
@@ -94,8 +93,8 @@ class Conversation:
             self.agent.init_state(self.state, on_event=self._on_event)
 
         self.llm_registry = LLMRegistry()
-        self.conversation_stats = ConversationStats(persist_filestore, conversation_id)
-        self.llm_registry.subscribe(self.conversation_stats.register_llm)
+        # Use the integrated stats from ConversationState instead of separate instance
+        self.llm_registry.subscribe(self.state.stats.register_llm)
 
         self.llm_registry.add(self.agent.llm.service_id, self.agent.llm)
 
@@ -103,6 +102,10 @@ class Conversation:
     def id(self) -> ConversationID:
         """Get the unique ID of the conversation."""
         return self.state.id
+
+    @property
+    def conversation_stats(self):
+        return self.state.stats
 
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
