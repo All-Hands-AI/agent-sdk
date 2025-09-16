@@ -232,7 +232,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             # Pydantic models: iterate declared fields
             if isinstance(obj, BaseModel):
                 out: list[LLM] = []
-                for name in obj.model_fields.keys():
+                for name in type(obj).model_fields:
                     try:
                         val = getattr(obj, name)
                     except Exception:
