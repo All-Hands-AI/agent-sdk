@@ -1,7 +1,8 @@
-"""Core high-quality tests for Conversation class focusing on essential
+"""Core high-level tests for Conversation class focusing on essential
 functionality."""
 
 import tempfile
+import uuid
 from unittest.mock import Mock
 
 import pytest
@@ -40,7 +41,7 @@ def test_conversation_basic_creation():
 
     # Basic properties should be set
     assert conv.id is not None
-    assert len(conv.id) > 10  # UUID format
+    assert isinstance(conv.id, uuid.UUID)  # UUID type
     assert conv.state is not None
     assert conv.state.agent == agent
 
@@ -108,7 +109,7 @@ def test_conversation_with_custom_id():
     fs = InMemoryFileStore()
     agent = create_test_agent()
 
-    custom_id = "my-custom-conversation-id"
+    custom_id = uuid.uuid4()
     conv = Conversation(agent=agent, persist_filestore=fs, conversation_id=custom_id)
 
     assert conv.id == custom_id
