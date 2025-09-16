@@ -205,27 +205,47 @@ class BaseIntegrationTest(ABC):
         print("Checking for finish tool calls in ActionEvents...", flush=True)
         finish_actions = []
         for event in self.conversation.state.events:
-            if hasattr(event, "tool_name") and getattr(event, "tool_name") == "finish":
+            # Only check ActionEvents from agent with finish tool
+            if (
+                type(event).__name__ == "ActionEvent"
+                and hasattr(event, "source")
+                and getattr(event, "source") == "agent"
+                and hasattr(event, "tool_name")
+                and getattr(event, "tool_name") == "finish"
+            ):
                 finish_actions.append(event)
                 print(f"Found finish action: {type(event).__name__}", flush=True)
 
         if finish_actions:
             last_finish_action = finish_actions[-1]
             print("Using finish action for final response", flush=True)
+            print(
+                f"Finish action type: {type(last_finish_action).__name__}", flush=True
+            )
+            has_action = hasattr(last_finish_action, "action")
+            print(f"Finish action has 'action' attr: {has_action}", flush=True)
 
-            # Extract message from finish tool call
-            if hasattr(last_finish_action, "action") and hasattr(
-                last_finish_action.action, "message"
-            ):
-                result = last_finish_action.action.message
+            if hasattr(last_finish_action, "action"):
+                action_obj = getattr(last_finish_action, "action")
+                print(f"Action object type: {type(action_obj).__name__}", flush=True)
                 print(
-                    f"Finish action message length: {len(result)} characters",
+                    f"Action has 'message' attr: {hasattr(action_obj, 'message')}",
                     flush=True,
                 )
-                print(f"Finish action message preview: {result[:200]}...", flush=True)
-                return result
+
+                if hasattr(action_obj, "message"):
+                    message = getattr(action_obj, "message")
+                    print(f"Message type: {type(message).__name__}", flush=True)
+                    print(f"Message preview: {str(message)[:100]}...", flush=True)
+                    print(
+                        f"Finish action message length: {len(message)} characters",
+                        flush=True,
+                    )
+                    return message
+                else:
+                    print("No message attribute in action object", flush=True)
             else:
-                print("No message found in finish action", flush=True)
+                print("No action attribute in finish action", flush=True)
 
         print("Returning empty string as final response", flush=True)
         return ""
