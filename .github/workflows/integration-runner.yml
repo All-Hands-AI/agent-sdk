@@ -163,6 +163,7 @@ jobs:
           path: consolidated_report.md
 
       - name: Create consolidated PR comment
+        if: github.event_name == 'pull_request'
         run: |
           COMMENT_BODY=$(cat consolidated_report.md)
           # Use GitHub CLI to create comment
