@@ -2,6 +2,9 @@
 
 import pytest
 
+from openhands.sdk.context.condenser.llm_summarizing_condenser import (
+    LLMSummarizingCondenser,
+)
 from openhands.sdk.llm import LLM
 from openhands.sdk.preset.default import get_default_agent_spec
 from openhands.sdk.tool.spec import ToolSpec
@@ -136,10 +139,10 @@ def test_get_default_agent_spec_condenser_config(basic_llm):
     spec = get_default_agent_spec(llm=basic_llm, working_dir="/test")
 
     assert spec.condenser is not None
-    assert spec.condenser.name == "LLMSummarizingCondenser"
-    assert spec.condenser.params["llm"] == basic_llm
-    assert spec.condenser.params["max_size"] == 80
-    assert spec.condenser.params["keep_first"] == 4
+    assert isinstance(spec.condenser, LLMSummarizingCondenser)
+    assert spec.condenser.llm == basic_llm
+    assert spec.condenser.max_size == 80
+    assert spec.condenser.keep_first == 4
 
 
 def test_get_default_agent_spec_tool_order(basic_llm):

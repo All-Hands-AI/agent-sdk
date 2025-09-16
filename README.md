@@ -284,7 +284,7 @@ Define complete agent configurations using `AgentSpec`:
 ```python
 from openhands.sdk.agent import AgentSpec
 from openhands.sdk.tool import ToolSpec
-from openhands.sdk.context.condenser import CondenserSpec
+from openhands.sdk.context.condenser import LLMSummarizingCondenser
 
 # Define an agent specification
 agent_spec = AgentSpec(
@@ -297,9 +297,10 @@ agent_spec = AgentSpec(
         ToolSpec(name="BashTool", params={"working_dir": "/workspace"}),
         ToolSpec(name="FileEditorTool"),
     ],
-    condenser=CondenserSpec(
-        name="LLMSummarizingCondenser",
-        params={"max_size": 80, "keep_first": 10}
+    condenser=LLMSummarizingCondenser(
+        llm={"model": "gpt-4", "api_key": "your-api-key"},
+        max_size=80,
+        keep_first=10
     ),
     agent_context={
         "system_message_suffix": "Always be helpful and concise."
@@ -326,35 +327,6 @@ editor_spec = ToolSpec(
     params={
         "max_file_size": 1000000,
         "allowed_extensions": [".py", ".js", ".md"]
-    }
-)
-```
-
-### Condenser Specifications
-
-Define context condensers using `CondenserSpec`:
-
-```python
-from openhands.sdk.context.condenser import CondenserSpec
-
-# LLM-based condenser
-llm_condenser = CondenserSpec(
-    name="LLMSummarizingCondenser",
-    params={
-        "llm": {"model": "gpt-3.5-turbo", "api_key": "your-key"},
-        "max_size": 100,
-        "keep_first": 15
-    }
-)
-
-# Pipeline condenser
-pipeline_condenser = CondenserSpec(
-    name="PipelineCondenser",
-    params={
-        "condensers": [
-            {"name": "NoOpCondenser"},
-            {"name": "LLMSummarizingCondenser", "params": {"max_size": 50}}
-        ]
     }
 )
 ```

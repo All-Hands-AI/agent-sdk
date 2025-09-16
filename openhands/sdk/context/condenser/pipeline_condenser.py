@@ -1,9 +1,4 @@
-from typing import Union
-
-from pydantic import field_validator
-
 from openhands.sdk.context.condenser.base import Condenser, CondenserBase
-from openhands.sdk.context.condenser.spec import CondenserSpec
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
 
@@ -45,25 +40,6 @@ class PipelineCondenser(CondenserBase):
 
     condensers: list[Condenser]
     """The list of condensers to apply in order."""
-
-    @field_validator("condensers", mode="before")
-    @classmethod
-    def convert_condenser_specs(
-        cls, v: list[Union[Condenser, CondenserSpec]]
-    ) -> list[Condenser]:
-        """Convert CondenserSpec objects to Condenser instances."""
-        if not v:
-            return []
-
-        result = []
-        for item in v:
-            if isinstance(item, CondenserSpec):
-                # Convert CondenserSpec to actual Condenser instance
-                result.append(CondenserBase.from_spec(item))
-            else:
-                # Assume it's already a Condenser instance
-                result.append(item)
-        return result
 
     def condense(self, view: View) -> View | Condensation:
         result: View | Condensation = view

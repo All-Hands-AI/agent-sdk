@@ -8,7 +8,7 @@ from pydantic import ConfigDict, Field
 
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import Condenser, CondenserBase
+from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
@@ -99,9 +99,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             tools=tools,
             system_prompt_filename=spec.system_prompt_filename,
             system_prompt_kwargs=spec.system_prompt_kwargs,
-            condenser=CondenserBase.from_spec(spec.condenser)
-            if spec.condenser
-            else None,
+            condenser=spec.condenser,
         )
 
     @property

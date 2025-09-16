@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from logging import getLogger
 from typing import Annotated
 
-from openhands.sdk.context.condenser.spec import CondenserSpec
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.utils.discriminated_union import (
@@ -45,18 +44,6 @@ class CondenserBase(DiscriminatedUnionMixin, ABC):
             View | Condensation: A condensed view of the events or an event indicating
             the history has been condensed.
         """
-
-    @classmethod
-    def from_spec(cls, spec: CondenserSpec) -> "CondenserBase":
-        """Create a CondenserBase instance from a CondenserSpec."""
-        # Import here to avoid circular imports
-        import openhands.sdk.context.condenser
-
-        condenser_class = openhands.sdk.context.condenser.__dict__[spec.name]
-        if condenser_class is None:
-            raise ValueError(f"Unknown condenser type: {spec.name}")
-
-        return condenser_class(**spec.params)
 
 
 Condenser = Annotated[CondenserBase, DiscriminatedUnionType[CondenserBase]]

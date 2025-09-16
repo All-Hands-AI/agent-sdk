@@ -8,13 +8,11 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
 )
 from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
 from openhands.sdk.context.condenser.pipeline_condenser import PipelineCondenser
-from openhands.sdk.context.condenser.spec import CondenserSpec
 
 
 __all__ = [
     "CondenserBase",
     "Condenser",
-    "CondenserSpec",
     "RollingCondenser",
     "NoOpCondenser",
     "PipelineCondenser",

@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import CondenserSpec
+from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import ToolSpec
 
@@ -88,22 +88,19 @@ class AgentSpec(BaseModel):
         description="Optional kwargs to pass to render system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    condenser: CondenserSpec | None = Field(
+    condenser: Condenser | None = Field(
         default=None,
-        description="Optional condenser spec to use for "
-        "condensing conversation history.",
+        description="Optional condenser to use for condensing conversation history.",
         examples=[
             {
-                "name": "LLMSummarizingCondenser",
-                "params": {
-                    "llm": {
-                        "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                        "base_url": "https://llm-proxy.eval.all-hands.dev",
-                        "api_key": "your_api_key_here",
-                    },
-                    "max_size": 80,
-                    "keep_first": 10,
+                "kind": "LLMSummarizingCondenser",
+                "llm": {
+                    "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                    "base_url": "https://llm-proxy.eval.all-hands.dev",
+                    "api_key": "your_api_key_here",
                 },
+                "max_size": 80,
+                "keep_first": 10,
             }
         ],
     )

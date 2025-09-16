@@ -35,6 +35,7 @@ cwd = os.getcwd()
 agent_spec = get_default_agent_spec(llm=llm, working_dir=cwd, cli_mode=True)
 # Or define it explicitly like this:
 # from openhands.sdk import AgentSpec, ToolSpec
+# from openhands.sdk.context.condenser import LLMSummarizingCondenser
 # agent_spec = AgentSpec(
 #     llm=llm,
 #     tools=[
@@ -50,10 +51,7 @@ agent_spec = get_default_agent_spec(llm=llm, working_dir=cwd, cli_mode=True)
 #     },
 #     filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
 #     system_prompt_kwargs={"cli_mode": True},
-#     condenser=CondenserSpec(
-#         name="LLMSummarizingCondenser",
-#         params={"llm": llm, "max_size": 80, "keep_first": 4},
-#     ),
+#     condenser=LLMSummarizingCondenser(llm=llm, max_size=80, keep_first=4),
 # )
 agent = Agent.from_spec(agent_spec)
 

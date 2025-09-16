@@ -5,7 +5,10 @@ from pydantic import SecretStr, ValidationError
 
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser.spec import CondenserSpec
+from openhands.sdk.context.condenser.llm_summarizing_condenser import (
+    LLMSummarizingCondenser,
+)
+from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
 from openhands.sdk.context.microagents import KnowledgeMicroagent, RepoMicroagent
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool.spec import ToolSpec
@@ -80,13 +83,11 @@ def test_agent_spec_with_system_prompt_config(basic_llm):
 
 def test_agent_spec_with_condenser(basic_llm):
     """Test creating AgentSpec with condenser."""
-    condenser_spec = CondenserSpec(
-        name="LLMSummarizingCondenser", params={"llm": basic_llm, "max_size": 80}
-    )
+    condenser = LLMSummarizingCondenser(llm=basic_llm, max_size=80)
 
-    spec = AgentSpec(llm=basic_llm, condenser=condenser_spec)
+    spec = AgentSpec(llm=basic_llm, condenser=condenser)
 
-    assert spec.condenser == condenser_spec
+    assert spec.condenser == condenser
 
 
 def test_agent_spec_comprehensive(basic_llm):
@@ -94,7 +95,7 @@ def test_agent_spec_comprehensive(basic_llm):
     tools = [ToolSpec(name="BashTool", params={})]
     mcp_config = {"mcpServers": {"test": {"command": "test"}}}
     agent_context = AgentContext(microagents=[])
-    condenser_spec = CondenserSpec(name="NoOpCondenser", params={})
+    condenser = NoOpCondenser()
 
     spec = AgentSpec(
         llm=basic_llm,
@@ -103,7 +104,7 @@ def test_agent_spec_comprehensive(basic_llm):
         agent_context=agent_context,
         system_prompt_filename="comprehensive.j2",
         system_prompt_kwargs={"mode": "test"},
-        condenser=condenser_spec,
+        condenser=condenser,
     )
 
     assert spec.llm == basic_llm
@@ -112,7 +113,7 @@ def test_agent_spec_comprehensive(basic_llm):
     assert spec.agent_context == agent_context
     assert spec.system_prompt_filename == "comprehensive.j2"
     assert spec.system_prompt_kwargs == {"mode": "test"}
-    assert spec.condenser == condenser_spec
+    assert spec.condenser == condenser
 
 
 def test_agent_spec_serialization(basic_llm):
@@ -188,17 +189,15 @@ def test_agent_spec_examples_from_docstring():
     )
 
     # Test condenser example
-    condenser = CondenserSpec(
-        name="LLMSummarizingCondenser",
-        params={
-            "llm": {
-                "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                "base_url": "https://llm-proxy.eval.all-hands.dev",
-                "api_key": "your_api_key_here",
-            },
-            "max_size": 80,
-            "keep_first": 10,
-        },
+    condenser_llm = LLM(
+        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+        base_url="https://llm-proxy.eval.all-hands.dev",
+        api_key=SecretStr("your_api_key_here"),
+    )
+    condenser = LLMSummarizingCondenser(
+        llm=condenser_llm,
+        max_size=80,
+        keep_first=10,
     )
 
     # Create comprehensive spec with all examples
@@ -247,3 +246,45 @@ def test_agent_spec_field_descriptions():
     assert "mcp_config" in fields
     assert fields["mcp_config"].description is not None
     assert "Optional MCP configuration dictionary" in fields["mcp_config"].description
+
+
+def test_agent_spec_condenser_serialization(basic_llm):
+    """Test that condenser serialization uses 'kind' field, not 'type'."""
+    condenser = LLMSummarizingCondenser(llm=basic_llm, max_size=80, keep_first=10)
+    spec = AgentSpec(llm=basic_llm, condenser=condenser)
+
+    # Test model_dump
+    spec_dict = spec.model_dump()
+    assert "condenser" in spec_dict
+    assert spec_dict["condenser"] is not None
+    assert "kind" in spec_dict["condenser"]
+    assert "type" not in spec_dict["condenser"]
+    assert spec_dict["condenser"]["kind"] == (
+        "openhands.sdk.context.condenser.llm_summarizing_condenser."
+        "LLMSummarizingCondenser"
+    )
+
+    # Test model_dump_json and deserialization
+    spec_json = spec.model_dump_json()
+    spec_restored = AgentSpec.model_validate_json(spec_json)
+
+    # Verify the condenser was properly deserialized
+    assert spec_restored.condenser is not None
+    assert isinstance(spec_restored.condenser, LLMSummarizingCondenser)
+    assert spec_restored.condenser.max_size == 80
+    assert spec_restored.condenser.keep_first == 10
+
+
+def test_agent_spec_condenser_example_format():
+    """Test that the condenser example in the field uses 'kind' field."""
+    fields = AgentSpec.model_fields
+    condenser_field = fields["condenser"]
+
+    # Check that examples exist and use 'kind' field
+    assert condenser_field.examples is not None
+    assert len(condenser_field.examples) > 0
+
+    example = condenser_field.examples[0]
+    assert "kind" in example
+    assert "type" not in example
+    assert example["kind"] == "LLMSummarizingCondenser"
