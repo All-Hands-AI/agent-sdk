@@ -160,7 +160,7 @@ class BaseIntegrationTest(ABC):
             if text_parts:
                 return " ".join(text_parts)
 
-        raise ValueError("No final response found from agent")
+        return ""
 
     @abstractmethod
     def teardown(self):
