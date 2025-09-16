@@ -59,7 +59,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         tools: list[ToolType] = []
         for tool_spec in spec.tools:
             if tool_spec.name not in openhands.tools.__dict__:
-                continue
+                raise ValueError(
+                    f"Unknown tool name: {tool_spec.name}. Not found in openhands.tools"
+                )
             tool_class = openhands.tools.__dict__[tool_spec.name]
             tools.append(tool_class.create(**tool_spec.params))
 

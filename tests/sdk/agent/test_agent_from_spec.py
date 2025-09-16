@@ -132,15 +132,11 @@ def test_from_spec_with_unknown_tool(basic_llm):
         mock_bash_instance = create_mock_tool("bash_tool")
         mock_bash_tool.create.return_value = mock_bash_instance
 
-        agent = Agent.from_spec(spec)
-
-        # Only the known tool should be created (1 custom + 2 built-in)
-        mock_bash_tool.create.assert_called_once_with(working_dir="/workspace")
-        assert len(agent.tools) == 3
-        tools_list = get_tools_list(agent.tools)
-        assert mock_bash_instance in tools_list
-        assert "finish" in agent.tools
-        assert "think" in agent.tools
+        with pytest.raises(
+            ValueError,
+            match="Unknown tool name: UnknownTool. Not found in openhands.tools",
+        ):
+            Agent.from_spec(spec)
 
 
 def test_from_spec_with_mcp_config(basic_llm):
