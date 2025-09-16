@@ -75,6 +75,14 @@ conversation.send_message(
 )
 conversation.run()
 
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[TextContent(text=("Who trained you as an LLM?"))],
+    )
+)
+conversation.run()
+
 
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
