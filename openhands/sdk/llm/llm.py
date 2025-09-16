@@ -301,6 +301,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def metrics(self) -> Metrics | None:
         return self._metrics
 
+    def restore_metrics(self, metrics: Metrics) -> None:
+        # Only used by ConversationStats to seed metrics
+        self._metrics = metrics
+
     def completion(
         self,
         messages: list[Message],

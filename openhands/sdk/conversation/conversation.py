@@ -1,6 +1,9 @@
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
+from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.llm.llm_registry import LLMRegistry
+
 
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
@@ -89,6 +92,12 @@ class Conversation:
 
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
+
+        self.llm_registry = LLMRegistry()
+        self.conversation_stats = ConversationStats(persist_filestore, conversation_id)
+        self.llm_registry.subscribe(self.conversation_stats.register_llm)
+
+        self.llm_registry.add("agent", self.agent.llm)
 
     @property
     def id(self) -> ConversationID:
