@@ -1,6 +1,7 @@
 import base64
 import pickle
 import tempfile
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +10,12 @@ from pydantic import SecretStr
 from openhands.sdk import LLM, ConversationStats, LLMRegistry, RegistryEvent
 from openhands.sdk.io.local import LocalFileStore
 from openhands.sdk.llm.utils.metrics import Metrics
+
+
+# Test UUIDs
+TEST_CONVERSATION_ID = uuid.UUID("12345678-1234-5678-9abc-123456789abc")
+CONV_MERGE_A_ID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+CONV_MERGE_B_ID = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 
 
 @pytest.fixture
@@ -22,7 +29,7 @@ def conversation_stats(mock_file_store):
     """Create a ConversationStats instance for testing."""
     return ConversationStats(
         file_store=mock_file_store,
-        conversation_id="test-conversation-id",
+        conversation_id=TEST_CONVERSATION_ID,
     )
 
 
@@ -43,7 +50,7 @@ def connected_registry_and_stats(mock_llm_registry, conversation_stats):
 
 def test_conversation_stats_initialization(conversation_stats):
     """Test that ConversationStats initializes correctly."""
-    assert conversation_stats.conversation_id == "test-conversation-id"
+    assert conversation_stats.conversation_id == TEST_CONVERSATION_ID
     assert conversation_stats.service_to_metrics == {}
     assert isinstance(conversation_stats.restored_metrics, dict)
 
@@ -85,7 +92,7 @@ def test_maybe_restore_metrics(mock_file_store):
     serialized_metrics = base64.b64encode(pickled).decode("utf-8")
 
     # Create a new ConversationStats with pre-populated file store
-    conversation_id = "test-conversation-id"
+    conversation_id = TEST_CONVERSATION_ID
 
     # Write to the correct path (using the metrics_file_name)
     mock_file_store.write("conversation_stats.pkl", serialized_metrics)
@@ -425,7 +432,7 @@ def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
 def test_save_and_restore_workflow(mock_file_store):
     """Test the full workflow of saving and restoring metrics."""
     # Create initial conversation stats
-    conversation_id = "test-conversation-id"
+    conversation_id = TEST_CONVERSATION_ID
 
     stats1 = ConversationStats(
         file_store=mock_file_store, conversation_id=conversation_id
@@ -492,10 +499,10 @@ def test_merge_conversation_stats_success_non_overlapping(mock_file_store):
     execution continues. Incoming restored metrics overwrite duplicates.
     """
     stats_a = ConversationStats(
-        file_store=mock_file_store, conversation_id="conv-merge-a"
+        file_store=mock_file_store, conversation_id=CONV_MERGE_A_ID
     )
     stats_b = ConversationStats(
-        file_store=mock_file_store, conversation_id="conv-merge-b"
+        file_store=mock_file_store, conversation_id=CONV_MERGE_B_ID
     )
 
     # Self active + restored
@@ -558,10 +565,10 @@ def test_merge_conversation_stats_duplicates_overwrite_and_log_errors(
     mock_file_store, self_side, other_side
 ):
     stats_a = ConversationStats(
-        file_store=mock_file_store, conversation_id="conv-merge-a"
+        file_store=mock_file_store, conversation_id=CONV_MERGE_A_ID
     )
     stats_b = ConversationStats(
-        file_store=mock_file_store, conversation_id="conv-merge-b"
+        file_store=mock_file_store, conversation_id=CONV_MERGE_B_ID
     )
 
     # Place the same service id on the specified sides
@@ -603,7 +610,7 @@ def test_save_metrics_preserves_restored_metrics_fix(mock_file_store):
     Test that save_metrics correctly preserves
     restored metrics for unregistered services.
     """
-    conversation_id = "test-conversation-id"
+    conversation_id = TEST_CONVERSATION_ID
 
     # Step 1: Create initial conversation stats with multiple services
     stats1 = ConversationStats(
@@ -692,7 +699,7 @@ def test_save_metrics_throws_error_on_duplicate_service_ids(mock_file_store):
     Test updated: save_metrics should NOT raise on duplicate service IDs;
     it should prefer service_to_metrics and proceed.
     """
-    conversation_id = "test-conversation-id"
+    conversation_id = TEST_CONVERSATION_ID
 
     stats = ConversationStats(
         file_store=mock_file_store, conversation_id=conversation_id
