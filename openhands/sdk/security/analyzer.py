@@ -1,5 +1,3 @@
-"""Security analyzer base class for OpenHands Agent SDK."""
-
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -24,15 +22,6 @@ class SecurityAnalyzer(ABC):
     This is adapted from OpenHands SecurityAnalyzer but designed to work
     with the agent-sdk's conversation-based architecture.
     """
-
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize the security analyzer.
-
-        Args:
-            **kwargs: Additional configuration parameters for the analyzer
-        """
-        self.config = kwargs
-        logger.info(f"Initialized {self.__class__.__name__} security analyzer")
 
     @abstractmethod
     async def security_risk(self, action: Action) -> SecurityRisk:
