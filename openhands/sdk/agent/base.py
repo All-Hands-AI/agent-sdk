@@ -2,9 +2,9 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Annotated, Sequence
+from typing import TYPE_CHECKING, Annotated, Any, Generator, Iterable, Sequence
 
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
@@ -203,6 +203,63 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if "tools" in dumped and isinstance(dumped["tools"], dict):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
+
+    def get_all_llms(self) -> Generator[LLM, None, None]:
+        """Recursively yield unique LLM objects reachable from `self`.
+
+        - Returns actual object references (not copies).
+        - De-dupes by `id(LLM)`.
+        - Cycle-safe via a visited set for *all* traversed objects.
+        - Does not handle dataclasses
+        """
+        seen_llms: set[int] = set()
+        visited: set[int] = set()
+
+        def _walk(obj: Any) -> Iterable[LLM]:
+            oid = id(obj)
+            # Only guard against cycles for containers/objects we might recurse into.
+            # We still want to *yield* the same LLM once, handled by seen_llms below.
+            if oid in visited:
+                return ()
+            visited.add(oid)
+
+            if isinstance(obj, LLM):
+                if oid not in seen_llms:
+                    seen_llms.add(oid)
+                    return (obj,)
+                return ()
+
+            # Pydantic models: iterate declared fields
+            if isinstance(obj, BaseModel):
+                out: list[LLM] = []
+                for name in obj.model_fields.keys():
+                    try:
+                        val = getattr(obj, name)
+                    except Exception:
+                        continue
+                    out.extend(_walk(val))
+                return out
+
+            # Built-in containers
+            if isinstance(obj, dict):
+                out: list[LLM] = []
+                for k, v in obj.items():
+                    out.extend(_walk(k))
+                    out.extend(_walk(v))
+                return out
+
+            if isinstance(obj, (list, tuple, set, frozenset)):
+                out: list[LLM] = []
+                for item in obj:
+                    out.extend(_walk(item))
+                return out
+
+            # Unknown object types: nothing to do
+            return ()
+
+        # Drive the traversal from self
+        for llm in _walk(self):
+            yield llm
 
 
 AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]

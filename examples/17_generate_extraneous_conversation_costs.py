@@ -7,6 +7,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
+    LLMSummarizingCondenser,
     Message,
     TextContent,
     get_logger,
@@ -29,12 +30,21 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
+llm_condenser = LLM(
+    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
+    service_id="condenser",
+)
+
 # Tools
 cwd = os.getcwd()
 tools = [BashTool.create(working_dir=cwd)]
 
+condenser = LLMSummarizingCondenser(llm=llm_condenser, max_size=10, keep_first=2)
+
 # Agent
-agent = Agent(llm=llm, tools=tools)
+agent = Agent(llm=llm, tools=tools, condenser=condenser)
 
 conversation = Conversation(agent=agent)
 conversation.send_message(

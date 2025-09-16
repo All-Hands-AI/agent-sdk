@@ -96,7 +96,8 @@ class Conversation:
         # Use the integrated stats from ConversationState instead of separate instance
         self.llm_registry.subscribe(self.state.stats.register_llm)
 
-        self.llm_registry.add(self.agent.llm.service_id, self.agent.llm)
+        for llm in list(self.agent.get_all_llms()):
+            self.llm_registry.add(llm.service_id, llm)
 
     @property
     def id(self) -> ConversationID:
