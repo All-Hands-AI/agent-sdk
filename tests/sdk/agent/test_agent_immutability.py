@@ -110,7 +110,6 @@ class TestAgentImmutability:
             "system_prompt_filename",
             "system_prompt_kwargs",
             "condenser",
-            "cli_mode",
         }
 
         # Get all fields from the model class (not instance)
