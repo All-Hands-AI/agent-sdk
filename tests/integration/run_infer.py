@@ -130,16 +130,22 @@ def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> Eval
         test_result = test_instance.run_instruction()
         end_time = time.time()
 
+        # Extract LLM cost from the test instance
+        llm_cost = 0.0
+        if hasattr(test_instance, "llm") and test_instance.llm.metrics is not None:
+            llm_cost = test_instance.llm.metrics.accumulated_cost
+
         print(
             f"Test {instance.instance_id} completed in {end_time - start_time:.2f}s: "
-            f"{'PASS' if test_result.success else 'FAIL'}"
+            f"{'PASS' if test_result.success else 'FAIL'} "
+            f"(Cost: {format_cost(llm_cost)})"
         )
 
         return EvalOutput(
             instance_id=instance.instance_id,
             test_result=test_result,
             llm_model=llm_config.get("model", "unknown"),
-            cost=0.0,  # TODO: Extract cost from test execution if available
+            cost=llm_cost,
         )
 
     except Exception as e:
