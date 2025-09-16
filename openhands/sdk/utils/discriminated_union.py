@@ -77,7 +77,7 @@ Example usage:
 from __future__ import annotations
 
 import importlib
-from typing import Any, Generic, TypeVar, cast, get_args, get_origin
+from typing import Any, Generic, Literal, TypeVar, cast, get_args, get_origin
 
 from pydantic import (
     BaseModel,
@@ -85,6 +85,7 @@ from pydantic import (
     TypeAdapter,
     computed_field,
     create_model,
+    model_serializer,
 )
 from pydantic_core import PydanticUndefined, core_schema
 
@@ -219,6 +220,29 @@ class DiscriminatedUnionMixin(BaseModel):
             "base": kind_of(base_cls),
             "fields": fields,
         }
+
+    @model_serializer
+    def _serialize_model(self) -> dict[str, Any]:
+        """Custom model serializer that ensures discriminator fields are included.
+
+        This method is called by Pydantic's serialization system, including
+        TypeAdapter.dump_python(), to ensure that all fields including computed
+        fields like 'kind' are properly serialized.
+        """
+        # Get all field values using Pydantic's standard mechanism
+        data = {}
+
+        # Include all regular fields
+        for field_name, field_info in self.__class__.model_fields.items():
+            if hasattr(self, field_name):
+                data[field_name] = getattr(self, field_name)
+
+        # Include computed fields
+        for field_name in self.__class__.model_computed_fields:
+            if hasattr(self, field_name):
+                data[field_name] = getattr(self, field_name)
+
+        return data
 
     @classmethod
     def _reconstruct_from_spec(
@@ -364,6 +388,59 @@ class DiscriminatedUnionMixin(BaseModel):
             context=context,
             **kwargs,
         )
+
+    def model_dump(
+        self,
+        *,
+        mode: Literal["json", "python"] | str = "python",
+        include=None,
+        exclude=None,
+        context=None,
+        by_alias: bool | None = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+        round_trip: bool = False,
+        warnings: bool | Literal["none", "warn", "error"] = True,
+        fallback=None,
+        serialize_as_any: bool = False,
+    ) -> dict[str, Any]:
+        """Custom model dump that ensures discriminator fields are included.
+
+        This method ensures that the 'kind' and optional '_du_spec' computed fields
+        are properly included in the serialized output, which is necessary for
+        TypeAdapter and other external serialization tools to work correctly with
+        discriminated unions.
+        """
+        # Call the parent's model_dump to get the base serialization
+        result = super().model_dump(
+            mode=mode,
+            include=include,
+            exclude=exclude,
+            context=context,
+            by_alias=by_alias,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+            round_trip=round_trip,
+            warnings=warnings,
+            fallback=fallback,
+            serialize_as_any=serialize_as_any,
+        )
+
+        # The computed fields 'kind' and '_du_spec' should already be included
+        # by the parent's model_dump, but we ensure they're present for
+        # discriminated union functionality
+        if "kind" not in result:
+            result["kind"] = self.kind
+
+        # Include _du_spec if it should be present and isn't already
+        if "_du_spec" not in result:
+            du_spec = self._du_spec
+            if du_spec is not None:
+                result["_du_spec"] = du_spec
+
+        return result
 
 
 class DiscriminatedUnionType(Generic[T]):
