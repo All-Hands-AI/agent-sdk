@@ -4,6 +4,7 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
+from pydantic import SecretStr
 
 from openhands.sdk import LLM, ConversationStats, LLMRegistry, RegistryEvent
 from openhands.sdk.io.local import LocalFileStore
@@ -169,7 +170,7 @@ def test_register_llm_with_new_service(conversation_stats):
         llm = LLM(
             service_id="new-service",
             model="gpt-4o",
-            api_key="test_key",
+            api_key=SecretStr("test_key"),
             num_retries=2,
             retry_min_wait=1,
             retry_max_wait=2,
@@ -200,7 +201,7 @@ def test_register_llm_with_restored_metrics(conversation_stats):
         llm = LLM(
             service_id=service_id,
             model="gpt-4o",
-            api_key="test_key",
+            api_key=SecretStr("test_key"),
             num_retries=2,
             retry_min_wait=1,
             retry_max_wait=2,
@@ -215,6 +216,7 @@ def test_register_llm_with_restored_metrics(conversation_stats):
         # Verify the service was registered with restored metrics
         assert service_id in conversation_stats.service_to_metrics
         assert conversation_stats.service_to_metrics[service_id] is llm.metrics
+        assert llm.metrics is not None
         assert llm.metrics.accumulated_cost == 0.1  # Restored cost
 
         # Verify the specific service was removed from restored_metrics
@@ -235,7 +237,7 @@ def test_llm_registry_notifications(connected_registry_and_stats):
     llm = LLM(
         service_id=service_id,
         model="gpt-4o",
-        api_key="test_key",
+        api_key=SecretStr("test_key"),
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -249,6 +251,7 @@ def test_llm_registry_notifications(connected_registry_and_stats):
     assert conversation_stats.service_to_metrics[service_id] is llm.metrics
 
     # Add some metrics to the LLM
+    assert llm.metrics is not None
     llm.metrics.add_cost(0.05)
     llm.metrics.add_token_usage(
         prompt_tokens=100,
@@ -293,7 +296,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
     llm1 = LLM(
         service_id=service1,
         model="gpt-4o",
-        api_key="test_key",
+        api_key=SecretStr("test_key"),
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -302,7 +305,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
     llm2 = LLM(
         service_id=service2,
         model="gpt-3.5-turbo",
-        api_key="test_key",
+        api_key=SecretStr("test_key"),
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -313,6 +316,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
     mock_llm_registry.add(service2, llm2)
 
     # Add different metrics to each LLM
+    assert llm1.metrics is not None
     llm1.metrics.add_cost(0.05)
     llm1.metrics.add_token_usage(
         prompt_tokens=100,
@@ -323,6 +327,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
         response_id="resp1",
     )
 
+    assert llm2.metrics is not None
     llm2.metrics.add_cost(0.02)
     llm2.metrics.add_token_usage(
         prompt_tokens=200,
@@ -353,7 +358,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
 
 def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
     """
-    Test that reproduces the bug where del self.restored_metrics 
+    Test that reproduces the bug where del self.restored_metrics
     deletes entire dict instead of specific service.
     """
 
@@ -379,7 +384,7 @@ def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
         llm_1 = LLM(
             service_id=service_id_1,
             model="gpt-4o",
-            api_key="test_key",
+            api_key=SecretStr("test_key"),
             num_retries=2,
             retry_min_wait=1,
             retry_max_wait=2,
@@ -389,9 +394,10 @@ def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
 
         # Verify first service was registered with restored metrics
         assert service_id_1 in conversation_stats.service_to_metrics
+        assert llm_1.metrics is not None
         assert llm_1.metrics.accumulated_cost == 0.1
 
-        # After registering first service, 
+        # After registering first service,
         # restored_metrics should still contain service_id_2
         assert service_id_2 in conversation_stats.restored_metrics
 
@@ -399,7 +405,7 @@ def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
         llm_2 = LLM(
             service_id=service_id_2,
             model="gpt-3.5-turbo",
-            api_key="test_key",
+            api_key=SecretStr("test_key"),
             num_retries=2,
             retry_min_wait=1,
             retry_max_wait=2,
@@ -409,6 +415,7 @@ def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
 
         # Verify second service was registered with restored metrics
         assert service_id_2 in conversation_stats.service_to_metrics
+        assert llm_2.metrics is not None
         assert llm_2.metrics.accumulated_cost == 0.05
 
         # After both services are registered, restored_metrics should be empty
@@ -449,20 +456,17 @@ def test_save_and_restore_workflow(mock_file_store):
     # Verify metrics were restored
     assert service_id in stats2.restored_metrics
     assert stats2.restored_metrics[service_id].accumulated_cost == 0.05
-    assert (
-        stats2.restored_metrics[service_id].accumulated_token_usage.prompt_tokens == 100
-    )
-    assert (
-        stats2.restored_metrics[service_id].accumulated_token_usage.completion_tokens
-        == 50
-    )
+    token_usage = stats2.restored_metrics[service_id].accumulated_token_usage
+    assert token_usage is not None
+    assert token_usage.prompt_tokens == 100
+    assert token_usage.completion_tokens == 50
 
     # Patch the LLM class to avoid actual API calls
     with patch("openhands.sdk.llm.llm.litellm_completion"):
         llm = LLM(
             service_id=service_id,
             model="gpt-4o",
-            api_key="test_key",
+            api_key=SecretStr("test_key"),
             num_retries=2,
             retry_min_wait=1,
             retry_max_wait=2,
@@ -475,7 +479,9 @@ def test_save_and_restore_workflow(mock_file_store):
         stats2.register_llm(event)
 
         # Verify metrics were applied to the LLM
+        assert llm.metrics is not None
         assert llm.metrics.accumulated_cost == 0.05
+        assert llm.metrics.accumulated_token_usage is not None
         assert llm.metrics.accumulated_token_usage.prompt_tokens == 100
         assert llm.metrics.accumulated_token_usage.completion_tokens == 50
 
@@ -575,7 +581,7 @@ def test_merge_conversation_stats_duplicates_overwrite_and_log_errors(
     else:
         stats_b.restored_metrics[dupe_id] = m2
 
-    # Perform merge; should not raise and should 
+    # Perform merge; should not raise and should
     # log error internally if active metrics present
     stats_a.merge_and_save(stats_b)
 
@@ -593,7 +599,10 @@ def test_merge_conversation_stats_duplicates_overwrite_and_log_errors(
 
 
 def test_save_metrics_preserves_restored_metrics_fix(mock_file_store):
-    """Test that save_metrics correctly preserves restored metrics for unregistered services."""
+    """
+    Test that save_metrics correctly preserves
+    restored metrics for unregistered services.
+    """
     conversation_id = "test-conversation-id"
 
     # Step 1: Create initial conversation stats with multiple services
@@ -640,7 +649,7 @@ def test_save_metrics_preserves_restored_metrics_fix(mock_file_store):
         llm_a = LLM(
             service_id=service_a,
             model="gpt-4o",
-            api_key="test_key",
+            api_key=SecretStr("test_key"),
             num_retries=2,
             retry_min_wait=1,
             retry_max_wait=2,
@@ -667,7 +676,6 @@ def test_save_metrics_preserves_restored_metrics_fix(mock_file_store):
         file_store=mock_file_store, conversation_id=conversation_id
     )
 
-    # FIXED: All services should be restored because save_metrics now combines both dictionaries
     # Service A should be restored with its current metrics from service_to_metrics
     assert service_a in stats3.restored_metrics
     assert stats3.restored_metrics[service_a].accumulated_cost == 0.10
@@ -680,15 +688,18 @@ def test_save_metrics_preserves_restored_metrics_fix(mock_file_store):
 
 
 def test_save_metrics_throws_error_on_duplicate_service_ids(mock_file_store):
-    """Test updated: save_metrics should NOT raise on duplicate service IDs; it should prefer service_to_metrics and proceed."""
+    """
+    Test updated: save_metrics should NOT raise on duplicate service IDs;
+    it should prefer service_to_metrics and proceed.
+    """
     conversation_id = "test-conversation-id"
-    user_id = "test-user-id"
 
     stats = ConversationStats(
         file_store=mock_file_store, conversation_id=conversation_id
     )
 
-    # Manually create a scenario with duplicate service IDs (this should never happen in normal operation)
+    # Manually create a scenario with duplicate service IDs
+    # (this should never happen in normal operation)
     service_id = "duplicate-service"
 
     # Add to both restored_metrics and service_to_metrics
