@@ -10,7 +10,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation, LocalFileStore
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.tools import BashTool, FileEditorTool
@@ -559,10 +559,8 @@ def test_conversation_state_flags_persistence():
         )
 
         # Set various flags
-        state.agent_finished = True
+        state.agent_status = AgentExecutionStatus.FINISHED
         state.confirmation_mode = True
-        state.agent_waiting_for_confirmation = True
-        state.agent_paused = True
         state.activated_knowledge_microagents = ["agent1", "agent2"]
 
         # State auto-saves, load using Conversation
@@ -572,10 +570,8 @@ def test_conversation_state_flags_persistence():
         loaded_state = conversation.state
 
         # Verify flags are preserved
-        assert loaded_state.agent_finished is True
+        assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
         assert loaded_state.confirmation_mode is True
-        assert loaded_state.agent_waiting_for_confirmation is True
-        assert loaded_state.agent_paused is True
         assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
         # Test model_dump equality
         assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")

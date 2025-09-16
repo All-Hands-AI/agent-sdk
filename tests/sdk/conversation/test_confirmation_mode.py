@@ -19,6 +19,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
+from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import ActionEvent, Event, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
@@ -117,7 +118,10 @@ class TestConfirmationMode:
             )
             self.conversation.run()
         assert self.conversation.state.confirmation_mode is True
-        assert self.conversation.state.agent_waiting_for_confirmation is True
+        assert (
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
 
     def _mock_action_once(
         self, call_id: str = "call_1", command: str = "test_command"
@@ -230,7 +234,7 @@ class TestConfirmationMode:
         """Test basic confirmation mode operations."""
         # Test initial state
         assert self.conversation.state.confirmation_mode is False
-        assert self.conversation.state.agent_waiting_for_confirmation is False
+        assert self.conversation.state.agent_status == AgentExecutionStatus.IDLE
         assert get_unmatched_actions(self.conversation.state.events) == []
 
         # Enable confirmation mode
@@ -315,8 +319,7 @@ class TestConfirmationMode:
             )
             self.conversation.run()
 
-        assert self.conversation.state.agent_waiting_for_confirmation is False
-        assert self.conversation.state.agent_finished is True
+        assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
 
         msg_events = [
             e
@@ -360,7 +363,7 @@ class TestConfirmationMode:
                 if isinstance(e, UserRejectObservation)
             ]
             assert len(rejection_events) == 0
-            assert self.conversation.state.agent_waiting_for_confirmation is False
+            assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
         else:
             self.conversation.reject_pending_actions("Not safe to run")
 
@@ -405,10 +408,7 @@ class TestConfirmationMode:
             self.conversation.state.confirmation_mode is True
         )  # Still in confirmation mode
         assert (
-            self.conversation.state.agent_waiting_for_confirmation is False
-        )  # But not waiting
-        assert (
-            self.conversation.state.agent_finished is True
+            self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
         )  # Agent should be finished
 
         # Should have no pending actions (FinishAction was executed immediately)
@@ -447,10 +447,10 @@ class TestConfirmationMode:
 
         # Multiple actions should all wait for confirmation (including FinishAction)
         assert self.conversation.state.confirmation_mode is True
-        assert self.conversation.state.agent_waiting_for_confirmation is True
         assert (
-            self.conversation.state.agent_finished is False
-        )  # No actions executed yet
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
 
         # Should have pending actions (both actions)
         pending_actions = get_unmatched_actions(self.conversation.state.events)
@@ -464,3 +464,47 @@ class TestConfirmationMode:
             e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
         ]
         assert len(obs_events) == 0
+
+    def test_pause_during_confirmation_preserves_waiting_status(self):
+        """Test that pausing during WAITING_FOR_CONFIRMATION preserves the status.
+
+        This test reproduces the race condition issue where agent can be waiting
+        for confirmation and the status is changed to paused instead. Waiting for
+        confirmation is simply a special type of pause and should not be overridden.
+        """
+        # Create a pending action that puts agent in WAITING_FOR_CONFIRMATION state
+        self._make_pending_action()
+
+        # Verify we're in the expected state
+        assert (
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
+        assert self.conversation.state.confirmation_mode is True
+
+        # Call pause() while in WAITING_FOR_CONFIRMATION state
+        self.conversation.pause()
+
+        # Status should remain WAITING_FOR_CONFIRMATION, not change to PAUSED
+        # This is the key fix: waiting for confirmation is a special type of pause
+        assert (
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
+
+        # Test that pause works correctly for other states
+        # Reset to IDLE state
+        with self.conversation.state:
+            self.conversation.state.agent_status = AgentExecutionStatus.IDLE
+
+        # Pause from IDLE should change status to PAUSED
+        self.conversation.pause()
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
+
+        # Reset to RUNNING state
+        with self.conversation.state:
+            self.conversation.state.agent_status = AgentExecutionStatus.RUNNING
+
+        # Pause from RUNNING should change status to PAUSED
+        self.conversation.pause()
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED

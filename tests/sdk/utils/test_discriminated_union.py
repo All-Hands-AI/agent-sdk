@@ -1,7 +1,15 @@
+import json
 from typing import Annotated
 
 import pytest
-from pydantic import BaseModel, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
@@ -218,6 +226,71 @@ def test_discriminated_union_model_validate_dict() -> None:
     assert result.color == "Orange"
 
 
+def test_control_fields_stripped_for_subclass_with_extra_forbid() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        model_config = ConfigDict(extra="forbid")
+        breed: str
+
+    # Including control fields should not cause extra errors
+    dog_data = {
+        "name": "Fido",
+        "breed": "Labrador",
+        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
+        "_du_spec": None,
+    }
+    result = Animal.model_validate(dog_data)
+    assert isinstance(result, Dog)
+    assert result.name == "Fido"
+    assert result.breed == "Labrador"
+
+    # Non-control unknown fields should be rejected by extra="forbid"
+    with pytest.raises(ValidationError):
+        Animal.model_validate({**dog_data, "unknown": 123})
+
+
+def test_fallback_reconstruction_from_du_spec_for_unresolvable_kind() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    # Unresolvable kind but valid _du_spec provided
+    spec = {
+        "title": "TestFallbackModel",
+        "fields": {
+            "name": {"type": "str", "required": True},
+            "age": {"type": "int", "required": False, "default": 0},
+        },
+    }
+    payload = {"name": "Jerry", "age": 3, "kind": "not.real.Class", "_du_spec": spec}
+    obj = Animal.model_validate(payload)
+    # We expect a temporary model constructed from the spec
+    assert type(obj).__name__ == "TestFallbackModel"
+    data = obj.model_dump()
+    assert data["name"] == "Jerry"
+    assert data["age"] == 3
+
+
+def test_json_schema_has_discriminator_property() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        breed: str
+
+    class Cat(Animal):
+        color: str
+
+    class Carrier(BaseModel):
+        animal: Annotated[Animal, DiscriminatedUnionType[Animal]]
+
+    schema = Carrier.model_json_schema()
+    animal_schema = schema["properties"]["animal"]
+    assert "discriminator" in animal_schema
+    assert animal_schema["discriminator"]["propertyName"] == "kind"
+
+
 def test_discriminated_union_fallback_behavior() -> None:
     """Test fallback behavior when discriminated union logic doesn't apply."""
 
@@ -262,3 +335,64 @@ def test_discriminated_union_preserves_pydantic_parameters() -> None:
     context = {"test": "value"}
     result = Animal.model_validate(dog_data, context=context)
     assert isinstance(result, Dog)
+
+
+def test_du_spec_is_json_serializable_and_roundtrips() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        __include_du_spec__ = True
+        name: str
+
+    class Dog(Animal):
+        breed: str = "Labrador"  # has a default (will show in _du_spec)
+
+    dog = Dog(name="Fido")
+
+    # Should serialize without raising (no PydanticUndefined leaking)
+    serialized = dog.model_dump_json()
+
+    import json
+
+    data = json.loads(serialized)
+    assert "kind" in data
+    assert "_du_spec" in data
+    assert data["_du_spec"]["fields"]["breed"]["default"] == "Labrador"
+
+    # Should also deserialize back to Dog correctly
+    deserialized = Animal.model_validate_json(serialized)
+    assert isinstance(deserialized, Dog)
+    assert deserialized == dog
+
+
+def test_du_spec_with_default_factory_is_json_serializable_and_roundtrips() -> None:
+    class Animal(DiscriminatedUnionMixin):
+        name: str
+
+    class Dog(Animal):
+        # Enable spec emission so _du_spec is built
+        __include_du_spec__ = True
+
+        breed: str
+        # This is the critical piece: default_factory ⇒ f.default is PydanticUndefined
+        # Old code would copy that sentinel into _du_spec["fields"]["toys"]["default"]
+        # and model_dump_json() would raise.
+        toys: list[str] = Field(default_factory=list)
+
+    d = Dog(name="Fido", breed="Labrador")
+
+    # PRE-FIX this would raise PydanticSerializationError; with the fix it should pass
+    dumped = d.model_dump_json()
+
+    data = json.loads(dumped)
+    assert "kind" in data
+    assert "_du_spec" in data
+    # _du_spec should list 'toys' as not required,
+    # and NOT include a PydanticUndefined default
+    assert data["_du_spec"]["fields"]["toys"]["required"] is False
+    # Either no default key, or a JSON-safe value (empty list) is acceptable post-fix.
+    # If you want to enforce the stricter behavior (skip factories entirely), use:
+    # assert "default" not in data["_du_spec"]["fields"]["toys"]
+
+    # Round-trip should still work
+    loaded = Animal.model_validate_json(dumped)
+    assert isinstance(loaded, Dog)
+    assert loaded == d

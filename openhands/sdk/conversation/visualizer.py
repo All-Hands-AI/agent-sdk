@@ -9,11 +9,13 @@ from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     Event,
+    EventWithMetrics,
     MessageEvent,
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
 )
+from openhands.sdk.event.condenser import Condensation
 
 
 # These are external inputs
@@ -180,6 +182,14 @@ class ConversationVisualizer:
                 padding=_PANEL_PADDING,
                 expand=True,
             )
+        elif isinstance(event, Condensation):
+            return Panel(
+                content,
+                title=f"[bold {_SYSTEM_COLOR}]Condensation[/bold {_SYSTEM_COLOR}]",
+                subtitle=self._format_metrics_subtitle(event),
+                border_style=_SYSTEM_COLOR,
+                expand=True,
+            )
         else:
             # Fallback panel for unknown event types
             return Panel(
@@ -192,9 +202,7 @@ class ConversationVisualizer:
                 expand=True,
             )
 
-    def _format_metrics_subtitle(
-        self, event: ActionEvent | MessageEvent | AgentErrorEvent
-    ) -> str | None:
+    def _format_metrics_subtitle(self, event: EventWithMetrics) -> str | None:
         """Format LLM metrics as a visually appealing subtitle string with icons,
         colors, and k/m abbreviations (cache hit rate only)."""
         if not event.metrics or not event.metrics.accumulated_token_usage:

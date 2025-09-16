@@ -8,7 +8,7 @@ from openhands.sdk.conversation.persistence_const import (
     EVENT_NAME_RE,
     EVENTS_DIR,
 )
-from openhands.sdk.event import Event, EventBase
+from openhands.sdk.event import Event, EventBase, EventID
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.protocol import ListLike
@@ -21,18 +21,18 @@ class EventLog(ListLike[Event]):
     def __init__(self, fs: FileStore, dir_path: str = EVENTS_DIR) -> None:
         self._fs = fs
         self._dir = dir_path
-        self._id_to_idx: dict[str, int] = {}
-        self._idx_to_id: dict[int, str] = {}
+        self._id_to_idx: dict[EventID, int] = {}
+        self._idx_to_id: dict[int, EventID] = {}
         self._length = self._scan_and_build_index()
 
-    def get_index(self, event_id: str) -> int:
+    def get_index(self, event_id: EventID) -> int:
         """Return the integer index for a given event_id."""
         try:
             return self._id_to_idx[event_id]
         except KeyError:
             raise KeyError(f"Unknown event_id: {event_id}")
 
-    def get_id(self, idx: int) -> str:
+    def get_id(self, idx: int) -> EventID:
         """Return the event_id for a given index."""
         if idx < 0:
             idx += self._length
@@ -91,7 +91,7 @@ class EventLog(ListLike[Event]):
     def __len__(self) -> int:
         return self._length
 
-    def _path(self, idx: int, *, event_id: str | None = None) -> str:
+    def _path(self, idx: int, *, event_id: EventID | None = None) -> str:
         return f"{self._dir}/{
             EVENT_FILE_PATTERN.format(
                 idx=idx, event_id=event_id or self._idx_to_id[idx]
@@ -106,7 +106,7 @@ class EventLog(ListLike[Event]):
             self._idx_to_id.clear()
             return 0
 
-        by_idx: dict[int, str] = {}
+        by_idx: dict[int, EventID] = {}
         for p in paths:
             name = p.rsplit("/", 1)[-1]
             m = EVENT_NAME_RE.match(name)

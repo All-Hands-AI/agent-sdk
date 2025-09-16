@@ -3,7 +3,7 @@ import json
 import os
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, cast, get_args, get_origin
+from typing import Any, Callable, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -15,6 +15,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -168,15 +169,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
+    service_id: str = Field(
+        default="default",
+        description="Unique identifier for LLM. Typically used by LLM registry.",
+    )
 
     # =========================================================================
     # Internal fields (excluded from dumps)
     # =========================================================================
-    service_id: str = Field(default="default", exclude=True)
-    metrics: Metrics | None = Field(default=None, exclude=True)
-    retry_listener: Callable[[int, int], None] | None = Field(
-        default=None, exclude=True
+    retry_listener: SkipJsonSchema[Callable[[int, int], None] | None] = Field(
+        default=None,
+        exclude=True,
     )
+    _metrics: Metrics | None = PrivateAttr(default=None)
     # ===== Plain class vars (NOT Fields) =====
     # When serializing, these fields (SecretStr) will be dump to "****"
     # When deserializing, these fields will be ignored and we will override
@@ -266,14 +271,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             os.environ["AWS_REGION_NAME"] = self.aws_region_name
 
         # Metrics + Telemetry wiring
-        if self.metrics is None:
-            self.metrics = Metrics(model_name=self.model)
+        if self._metrics is None:
+            self._metrics = Metrics(model_name=self.model)
 
         self._telemetry = Telemetry(
             model_name=self.model,
             log_enabled=self.log_completions,
             log_dir=self.log_completions_folder if self.log_completions else None,
-            metrics=self.metrics,
+            metrics=self._metrics,
         )
 
         # Tokenizer
@@ -292,9 +297,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Public API
     # =========================================================================
+    @property
+    def metrics(self) -> Metrics | None:
+        return self._metrics
+
     def completion(
         self,
-        messages: list[dict[str, Any]] | list[Message],
+        messages: list[Message],
         tools: list[ChatCompletionToolParam] | None = None,
         return_metrics: bool = False,
         **kwargs,
@@ -308,22 +317,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             raise ValueError("Streaming is not supported")
 
         # 1) serialize messages
-        if messages and isinstance(messages[0], Message):
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
-        else:
-            messages = cast(list[dict[str, Any]], messages)
+        formatted_messages = self.format_messages_for_llm(messages)
 
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(messages)
+        original_fncall_msgs = copy.deepcopy(formatted_messages)
         use_mock_tools = self.should_mock_tool_calls(tools)
         if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
-            messages, kwargs = self.pre_request_prompt_mock(
-                messages, tools or [], kwargs
+            formatted_messages, kwargs = self.pre_request_prompt_mock(
+                formatted_messages, tools or [], kwargs
             )
 
         # 3) normalize provider params
@@ -338,7 +344,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
-                "messages": messages[:],  # already simple dicts
+                "messages": formatted_messages[:],  # already simple dicts
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
@@ -360,12 +366,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             assert self._telemetry is not None
             # Merge retry-modified kwargs (like temperature) with call_kwargs
             final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=messages, **final_kwargs)
+            resp = self._transport_call(messages=formatted_messages, **final_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
                 resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
+                    resp, nonfncall_msgs=formatted_messages, tools=tools or []
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
@@ -664,17 +670,16 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         return [message.to_llm_dict() for message in messages]
 
-    def get_token_count(self, messages: list[dict] | list[Message]) -> int:
-        if isinstance(messages, list) and messages and isinstance(messages[0], Message):
-            logger.info(
-                "Message objects now include serialized tool calls in token counting"
-            )
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
+    def get_token_count(self, messages: list[Message]) -> int:
+        logger.info(
+            "Message objects now include serialized tool calls in token counting"
+        )
+        formatted_messages = self.format_messages_for_llm(messages)
         try:
             return int(
                 token_counter(
                     model=self.model,
-                    messages=messages,  # type: ignore[arg-type]
+                    messages=formatted_messages,
                     custom_tokenizer=self._tokenizer,
                 )
             )
@@ -698,7 +703,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return cls(**data)
 
     def serialize(self) -> dict[str, Any]:
+        """Serialize the LLM instance to a dictionary."""
         return self.model_dump()
+
+    def store_to_json(self, filepath: str) -> None:
+        """Store the LLM instance to a JSON file with secrets exposed.
+
+        Args:
+            filepath: Path where the JSON file should be stored.
+        """
+        data = self.model_dump_with_secrets()
+
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
 
     @classmethod
     def load_from_json(cls, json_path: str) -> "LLM":
@@ -811,3 +828,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
             )
         return reconciled
+
+    def model_dump_with_secrets(self) -> dict[str, Any]:
+        """Dump the model including secrets (normally excluded)."""
+        data = self.model_dump()
+        for field in self.OVERRIDE_ON_SERIALIZE:
+            attr = getattr(self, field)
+            if attr is not None and isinstance(attr, SecretStr):
+                data[field] = attr.get_secret_value()
+        return data

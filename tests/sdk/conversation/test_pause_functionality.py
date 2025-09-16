@@ -25,6 +25,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
+from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
@@ -82,12 +83,12 @@ class TestPauseFunctionality:
     def test_pause_basic_functionality(self):
         """Test basic pause operations."""
         # Test initial state
-        assert self.conversation.state.agent_paused is False
+        assert self.conversation.state.agent_status == AgentExecutionStatus.IDLE
         assert len(self.conversation.state.events) == 1  # System prompt event
 
         # Test pause method
         self.conversation.pause()
-        assert self.conversation.state.agent_paused is True
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         pause_events = [
             event
@@ -122,15 +123,13 @@ class TestPauseFunctionality:
         self.conversation.pause()
 
         # Verify pause was set
-        assert self.conversation.state.agent_paused is True
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         # Run resets pause flag at start and proceeds normally
         self.conversation.run()
 
         # Agent should be finished (pause was reset at start of run)
-        assert self.conversation.state.agent_finished is True
-        # Pause flag is reset to False at start of run()
-        assert self.conversation.state.agent_paused is False
+        assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
 
         # Should have pause event from the pause() call
         pause_events = [
@@ -163,14 +162,13 @@ class TestPauseFunctionality:
 
         # Pause before run
         self.conversation.pause()
-        assert self.conversation.state.agent_paused is True
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         # First run() call resets pause and runs normally
         self.conversation.run()
 
         # Agent should be finished (pause was reset at start of run)
-        assert self.conversation.state.agent_finished is True
-        assert self.conversation.state.agent_paused is False
+        assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
 
         # Should have agent message since run completed normally
         agent_messages = [
@@ -186,7 +184,7 @@ class TestPauseFunctionality:
         # Enable confirmation mode
         self.conversation.set_confirmation_mode(True)
         self.conversation.pause()
-        assert self.conversation.state.agent_paused is True
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         # Mock action
         tool_call = ChatCompletionMessageToolCall(
@@ -219,9 +217,10 @@ class TestPauseFunctionality:
         self.conversation.run()
 
         # Pause should be reset, agent should be waiting for confirmation
-        assert self.conversation.state.agent_paused is False  # Pause was reset
-        assert self.conversation.state.agent_waiting_for_confirmation is True
-        assert self.conversation.state.agent_finished is False
+        assert (
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )
 
         # Action did not execute
         agent_messages = [
@@ -250,7 +249,7 @@ class TestPauseFunctionality:
         )
 
         # State should be paused
-        assert self.conversation.state.agent_paused is True
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
     @pytest.mark.timeout(3)
     @patch("openhands.sdk.llm.llm.litellm_completion")
@@ -323,15 +322,14 @@ class TestPauseFunctionality:
         # Wait until we're *inside* tool execution of the current iteration
         assert step_entered.wait(timeout=3.0), "Agent never reached tool execution"
         self.conversation.pause()
-        assert self.conversation.state.agent_paused is True
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         assert finished.wait(timeout=3.0), "run() did not exit after pause"
         t.join(timeout=0.1)
         assert run_exc[0] is None, f"Run thread failed with: {run_exc[0]}"
 
         # paused, not finished, exactly one PauseEvent
-        assert self.conversation.state.agent_paused is True
-        assert self.conversation.state.agent_finished is False
+        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
         pause_events = [
             e for e in self.conversation.state.events if isinstance(e, PauseEvent)
         ]
