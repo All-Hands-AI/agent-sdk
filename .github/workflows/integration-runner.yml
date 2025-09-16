@@ -111,15 +111,23 @@ jobs:
         run: |
           # Create a results summary file for this model
           mkdir -p test_results_summary
+          
+          # Write the test report to a temporary file to avoid shell quoting issues
+          echo "${{ env.INTEGRATION_TEST_REPORT }}" > /tmp/test_report.txt
+          
+          # Create the JSON file with proper escaping
           cat > test_results_summary/${{ matrix.job-config.run-suffix }}_results.json << EOF
           {
             "model_name": "${{ matrix.job-config.name }}",
             "run_suffix": "${{ matrix.job-config.run-suffix }}",
-            "test_report": $(echo '${{ env.INTEGRATION_TEST_REPORT }}' | jq -Rs .),
+            "test_report": $(jq -Rs . /tmp/test_report.txt),
             "artifact_url": "${{ steps.upload_results_artifact.outputs.artifact-url }}",
             "status": "completed"
           }
           EOF
+          
+          # Clean up temporary file
+          rm -f /tmp/test_report.txt
 
       - name: Upload test results summary
         uses: actions/upload-artifact@v4
