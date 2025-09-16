@@ -327,3 +327,156 @@ def test_from_spec_tools_and_mcp_combined(basic_llm):
         assert mock_mcp_tool2 in tools_list
         assert "finish" in agent.tools
         assert "think" in agent.tools
+
+
+def test_from_spec_with_filter_tools_regex(basic_llm):
+    """Test creating an agent with filter_tools_regex to filter tools by name."""
+    tool_specs = [
+        ToolSpec(name="BashTool", params={}),
+        ToolSpec(name="FileEditorTool", params={}),
+    ]
+
+    # Filter to only include tools starting with "bash"
+    spec = AgentSpec(llm=basic_llm, tools=tool_specs, filter_tools_regex=r"^bash.*")
+
+    with (
+        patch("openhands.tools.BashTool") as mock_bash_tool,
+        patch("openhands.tools.FileEditorTool") as mock_file_tool,
+    ):
+        mock_bash_instance = create_mock_tool("bash_tool")
+        mock_file_instance = create_mock_tool("file_editor_tool")
+
+        mock_bash_tool.create.return_value = mock_bash_instance
+        mock_file_tool.create.return_value = mock_file_instance
+
+        agent = Agent.from_spec(spec)
+
+        # Should have 3 tools total: 1 filtered tool + 2 built-in
+        # (file_editor_tool should be filtered out)
+        assert len(agent.tools) == 3
+        tools_list = get_tools_list(agent.tools)
+        assert mock_bash_instance in tools_list
+        assert mock_file_instance not in tools_list
+        assert "finish" in agent.tools
+        assert "think" in agent.tools
+
+
+def test_from_spec_with_filter_tools_regex_no_matches(basic_llm):
+    """Test filter_tools_regex that matches no tools."""
+    tool_specs = [
+        ToolSpec(name="BashTool", params={}),
+        ToolSpec(name="FileEditorTool", params={}),
+    ]
+
+    # Filter that matches no tools
+    spec = AgentSpec(
+        llm=basic_llm, tools=tool_specs, filter_tools_regex=r"^nonexistent.*"
+    )
+
+    with (
+        patch("openhands.tools.BashTool") as mock_bash_tool,
+        patch("openhands.tools.FileEditorTool") as mock_file_tool,
+    ):
+        mock_bash_instance = create_mock_tool("bash_tool")
+        mock_file_instance = create_mock_tool("file_editor_tool")
+
+        mock_bash_tool.create.return_value = mock_bash_instance
+        mock_file_tool.create.return_value = mock_file_instance
+
+        agent = Agent.from_spec(spec)
+
+        # Should have only 2 built-in tools (all custom tools filtered out)
+        assert len(agent.tools) == 2
+        tools_list = get_tools_list(agent.tools)
+        assert mock_bash_instance not in tools_list
+        assert mock_file_instance not in tools_list
+        assert "finish" in agent.tools
+        assert "think" in agent.tools
+
+
+def test_from_spec_with_filter_tools_regex_and_mcp(basic_llm):
+    """Test filter_tools_regex with both regular tools and MCP tools."""
+    tool_specs = [
+        ToolSpec(name="BashTool", params={}),
+        ToolSpec(name="FileEditorTool", params={}),
+    ]
+
+    mcp_config = {"mcpServers": {"test": {"command": "test"}}}
+
+    # Filter to include tools starting with "bash" or "mcp"
+    spec = AgentSpec(
+        llm=basic_llm,
+        tools=tool_specs,
+        mcp_config=mcp_config,
+        filter_tools_regex=r"^(bash|mcp).*",
+    )
+
+    with (
+        patch("openhands.tools.BashTool") as mock_bash_tool,
+        patch("openhands.tools.FileEditorTool") as mock_file_tool,
+        patch("openhands.sdk.mcp.create_mcp_tools") as mock_create_mcp,
+    ):
+        mock_bash_instance = create_mock_tool("bash_tool")
+        mock_file_instance = create_mock_tool("file_editor_tool")
+        mock_mcp_tool1 = create_mock_tool("mcp_tool1")
+        mock_mcp_tool2 = create_mock_tool("mcp_tool2")
+
+        mock_bash_tool.create.return_value = mock_bash_instance
+        mock_file_tool.create.return_value = mock_file_instance
+        mock_create_mcp.return_value = [mock_mcp_tool1, mock_mcp_tool2]
+
+        agent = Agent.from_spec(spec)
+
+        # Should have 5 tools total: 1 bash + 2 MCP + 2 built-in
+        # (file_editor_tool should be filtered out)
+        assert len(agent.tools) == 5
+        tools_list = get_tools_list(agent.tools)
+        assert mock_bash_instance in tools_list
+        assert mock_file_instance not in tools_list
+        assert mock_mcp_tool1 in tools_list
+        assert mock_mcp_tool2 in tools_list
+        assert "finish" in agent.tools
+        assert "think" in agent.tools
+
+
+def test_from_spec_with_filter_tools_regex_complex_pattern(basic_llm):
+    """Test filter_tools_regex with a complex regex pattern."""
+    tool_specs = [
+        ToolSpec(name="BashTool", params={}),
+        ToolSpec(name="FileEditorTool", params={}),
+    ]
+
+    mcp_config = {"mcpServers": {"test": {"command": "test"}}}
+
+    # Complex pattern: exclude tools starting with "file" but include everything else
+    spec = AgentSpec(
+        llm=basic_llm,
+        tools=tool_specs,
+        mcp_config=mcp_config,
+        filter_tools_regex=r"^(?!file).*",
+    )
+
+    with (
+        patch("openhands.tools.BashTool") as mock_bash_tool,
+        patch("openhands.tools.FileEditorTool") as mock_file_tool,
+        patch("openhands.sdk.mcp.create_mcp_tools") as mock_create_mcp,
+    ):
+        mock_bash_instance = create_mock_tool("bash_tool")
+        mock_file_instance = create_mock_tool("file_editor_tool")
+        mock_mcp_tool1 = create_mock_tool("mcp_tool1")
+
+        mock_bash_tool.create.return_value = mock_bash_instance
+        mock_file_tool.create.return_value = mock_file_instance
+        mock_create_mcp.return_value = [mock_mcp_tool1]
+
+        agent = Agent.from_spec(spec)
+
+        # Should have 4 tools total: 1 bash + 1 MCP + 2 built-in
+        # (file_editor_tool should be filtered out)
+        assert len(agent.tools) == 4
+        tools_list = get_tools_list(agent.tools)
+        assert mock_bash_instance in tools_list
+        assert mock_file_instance not in tools_list
+        assert mock_mcp_tool1 in tools_list
+        assert "finish" in agent.tools
+        assert "think" in agent.tools
