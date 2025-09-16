@@ -153,6 +153,24 @@ class BaseIntegrationTest(ABC):
             flush=True,
         )
 
+        # Debug: Print all event types
+        event_types = {}
+        for i, event in enumerate(self.conversation.state.events):
+            event_type = type(event).__name__
+            event_types[event_type] = event_types.get(event_type, 0) + 1
+            print(f"Event {i}: {event_type}", flush=True)
+            if hasattr(event, "source"):
+                print(f"  - source: {getattr(event, 'source')}", flush=True)
+            if hasattr(event, "tool"):
+                print(f"  - tool: {getattr(event, 'tool')}", flush=True)
+            if hasattr(event, "content"):
+                print(
+                    f"  - content preview: {str(getattr(event, 'content'))[:100]}...",
+                    flush=True,
+                )
+
+        print(f"Event type summary: {event_types}", flush=True)
+
         # Get the last MessageEvent from agent
         agent_messages = []
         for event in self.conversation.state.events:
@@ -182,6 +200,32 @@ class BaseIntegrationTest(ABC):
                 print("No text parts extracted from agent message", flush=True)
         else:
             print("No agent messages found in conversation", flush=True)
+
+        # Also check for finish tool calls in ActionEvents
+        print("Checking for finish tool calls in ActionEvents...", flush=True)
+        finish_actions = []
+        for event in self.conversation.state.events:
+            if hasattr(event, "tool_name") and getattr(event, "tool_name") == "finish":
+                finish_actions.append(event)
+                print(f"Found finish action: {type(event).__name__}", flush=True)
+
+        if finish_actions:
+            last_finish_action = finish_actions[-1]
+            print("Using finish action for final response", flush=True)
+
+            # Extract message from finish tool call
+            if hasattr(last_finish_action, "action") and hasattr(
+                last_finish_action.action, "message"
+            ):
+                result = last_finish_action.action.message
+                print(
+                    f"Finish action message length: {len(result)} characters",
+                    flush=True,
+                )
+                print(f"Finish action message preview: {result[:200]}...", flush=True)
+                return result
+            else:
+                print("No message found in finish action", flush=True)
 
         print("Returning empty string as final response", flush=True)
         return ""
