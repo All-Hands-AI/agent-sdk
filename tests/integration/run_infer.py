@@ -60,33 +60,27 @@ def load_integration_tests() -> List[TestInstance]:
     return instances
 
 
-def load_test_class(file_path: str) -> Optional[type]:
+def load_test_class(file_path: str) -> type[BaseIntegrationTest]:
     """Dynamically load test class from a Python file."""
-    try:
-        spec = importlib.util.spec_from_file_location("test_module", file_path)
-        if spec is None or spec.loader is None:
-            print(f"Could not load spec from {file_path}")
-            return None
 
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+    spec = importlib.util.spec_from_file_location("test_module", file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load module from {file_path}")
 
-        # Find the test class that inherits from BaseIntegrationTest
-        for attr_name in dir(module):
-            attr = getattr(module, attr_name)
-            if (
-                isinstance(attr, type)
-                and issubclass(attr, BaseIntegrationTest)
-                and attr != BaseIntegrationTest
-            ):
-                return attr  # Return the class, not an instance
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
 
-        print(f"No BaseIntegrationTest subclass found in {file_path}")
-        return None
+    # Find the test class that inherits from BaseIntegrationTest
+    for attr_name in dir(module):
+        attr = getattr(module, attr_name)
+        if (
+            isinstance(attr, type)
+            and issubclass(attr, BaseIntegrationTest)
+            and attr != BaseIntegrationTest
+        ):
+            return attr  # Return the class, not an instance
 
-    except Exception as e:
-        print(f"Error loading test class from {file_path}: {e}")
-        return None
+    raise ImportError(f"No BaseIntegrationTest subclass found in {file_path}")
 
 
 def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> EvalOutput:
@@ -130,10 +124,7 @@ def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> Eval
         test_result = test_instance.run_instruction()
         end_time = time.time()
 
-        # Extract LLM cost from the test instance
-        llm_cost = 0.0
-        if hasattr(test_instance, "llm") and test_instance.llm.metrics is not None:
-            llm_cost = test_instance.llm.metrics.accumulated_cost
+        llm_cost = getattr(test_instance.llm, "accumulated_cost", 0.0)
 
         print(
             f"Test {instance.instance_id} completed in {end_time - start_time:.2f}s: "
