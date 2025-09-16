@@ -19,7 +19,6 @@ from openhands.sdk import (
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
-from openhands.sdk.llm import content_to_str
 from openhands.sdk.tool import Tool
 
 
@@ -145,67 +144,12 @@ class BaseIntegrationTest(ABC):
         pass
 
     def get_agent_final_response(self) -> str:
-        """Extract the agent's final response from the conversation."""
-
+        """Extract the final response from the agent's finish tool call."""
         print("=== EXTRACTING AGENT FINAL RESPONSE ===", flush=True)
-        print(
-            f"Total events in conversation: {len(self.conversation.state.events)}",
-            flush=True,
-        )
+        print(f"Total events: {len(self.conversation.state.events)}", flush=True)
 
-        # Debug: Print all event types
-        event_types = {}
-        for i, event in enumerate(self.conversation.state.events):
-            event_type = type(event).__name__
-            event_types[event_type] = event_types.get(event_type, 0) + 1
-            print(f"Event {i}: {event_type}", flush=True)
-            if hasattr(event, "source"):
-                print(f"  - source: {getattr(event, 'source')}", flush=True)
-            if hasattr(event, "tool"):
-                print(f"  - tool: {getattr(event, 'tool')}", flush=True)
-            if hasattr(event, "content"):
-                print(
-                    f"  - content preview: {str(getattr(event, 'content'))[:100]}...",
-                    flush=True,
-                )
-
-        print(f"Event type summary: {event_types}", flush=True)
-
-        # Get the last MessageEvent from agent
-        agent_messages = []
-        for event in self.conversation.state.events:
-            if isinstance(event, MessageEvent) and event.source == "agent":
-                agent_messages.append(event)
-
-        print(f"Found {len(agent_messages)} agent messages", flush=True)
-
-        if agent_messages:
-            last_agent_message = agent_messages[-1]
-            msg_type = type(last_agent_message.llm_message.content)
-            print(f"Last agent message type: {msg_type}", flush=True)
-
-            # Use the utility function to extract text content
-            text_parts = content_to_str(last_agent_message.llm_message.content)
-            print(
-                f"Extracted text parts: {len(text_parts) if text_parts else 0}",
-                flush=True,
-            )
-
-            if text_parts:
-                result = " ".join(text_parts)
-                print(f"Final response length: {len(result)} characters", flush=True)
-                print(f"Final response preview: {result[:200]}...", flush=True)
-                return result
-            else:
-                print("No text parts extracted from agent message", flush=True)
-        else:
-            print("No agent messages found in conversation", flush=True)
-
-        # Also check for finish tool calls in ActionEvents
-        print("Checking for finish tool calls in ActionEvents...", flush=True)
-        finish_actions = []
-        for event in self.conversation.state.events:
-            # Only check ActionEvents from agent with finish tool
+        # Find the last finish action from the agent
+        for event in reversed(self.conversation.state.events):
             if (
                 type(event).__name__ == "ActionEvent"
                 and hasattr(event, "source")
@@ -213,41 +157,20 @@ class BaseIntegrationTest(ABC):
                 and hasattr(event, "tool_name")
                 and getattr(event, "tool_name") == "finish"
             ):
-                finish_actions.append(event)
-                print(f"Found finish action: {type(event).__name__}", flush=True)
+                print("Found agent finish action", flush=True)
 
-        if finish_actions:
-            last_finish_action = finish_actions[-1]
-            print("Using finish action for final response", flush=True)
-            print(
-                f"Finish action type: {type(last_finish_action).__name__}", flush=True
-            )
-            has_action = hasattr(last_finish_action, "action")
-            print(f"Finish action has 'action' attr: {has_action}", flush=True)
-
-            if hasattr(last_finish_action, "action"):
-                action_obj = getattr(last_finish_action, "action")
-                print(f"Action object type: {type(action_obj).__name__}", flush=True)
-                print(
-                    f"Action has 'message' attr: {hasattr(action_obj, 'message')}",
-                    flush=True,
-                )
-
-                if hasattr(action_obj, "message"):
-                    message = getattr(action_obj, "message")
-                    print(f"Message type: {type(message).__name__}", flush=True)
-                    print(f"Message preview: {str(message)[:100]}...", flush=True)
-                    print(
-                        f"Finish action message length: {len(message)} characters",
-                        flush=True,
-                    )
+                # Extract message from finish tool call
+                if hasattr(event, "action") and hasattr(
+                    getattr(event, "action"), "message"
+                ):
+                    message = getattr(getattr(event, "action"), "message")
+                    print(f"Extracted message ({len(message)} chars)", flush=True)
                     return message
                 else:
-                    print("No message attribute in action object", flush=True)
-            else:
-                print("No action attribute in finish action", flush=True)
+                    print("Finish action missing message attribute", flush=True)
+                    break
 
-        print("Returning empty string as final response", flush=True)
+        print("No agent finish action found", flush=True)
         return ""
 
     @abstractmethod
