@@ -71,7 +71,7 @@ def test_condenser_spec_serialization():
 def test_condenser_spec_validation_requires_name():
     """Test that CondenserSpec requires a name."""
     with pytest.raises(ValidationError):
-        CondenserSpec()
+        CondenserSpec()  # type: ignore
 
 
 def test_condenser_spec_examples_from_docstring():

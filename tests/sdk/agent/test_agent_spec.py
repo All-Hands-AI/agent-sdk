@@ -141,7 +141,7 @@ def test_agent_spec_serialization(basic_llm):
 def test_agent_spec_validation_requires_llm(basic_llm):
     """Test that AgentSpec requires an LLM."""
     with pytest.raises(ValidationError):
-        AgentSpec()
+        AgentSpec()  # type: ignore
 
 
 def test_agent_spec_examples_from_docstring():

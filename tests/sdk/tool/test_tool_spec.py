@@ -72,7 +72,7 @@ def test_tool_spec_serialization():
 def test_tool_spec_validation_requires_name():
     """Test that ToolSpec requires a name."""
     with pytest.raises(ValidationError):
-        ToolSpec()
+        ToolSpec()  # type: ignore
 
 
 def test_tool_spec_examples_from_docstring():
