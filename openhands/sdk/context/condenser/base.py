@@ -50,19 +50,9 @@ class CondenserBase(DiscriminatedUnionMixin, ABC):
     def from_spec(cls, spec: CondenserSpec) -> "CondenserBase":
         """Create a CondenserBase instance from a CondenserSpec."""
         # Import here to avoid circular imports
-        from openhands.sdk.context.condenser import (
-            LLMSummarizingCondenser,
-            NoOpCondenser,
-            PipelineCondenser,
-        )
+        import openhands.sdk.context.condenser
 
-        condenser_classes = {
-            "NoOpCondenser": NoOpCondenser,
-            "LLMSummarizingCondenser": LLMSummarizingCondenser,
-            "PipelineCondenser": PipelineCondenser,
-        }
-
-        condenser_class = condenser_classes.get(spec.name)
+        condenser_class = openhands.sdk.context.condenser.__dict__[spec.name]
         if condenser_class is None:
             raise ValueError(f"Unknown condenser type: {spec.name}")
 
