@@ -10,7 +10,7 @@ from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-from openhands.sdk.tool import Action, Observation
+from openhands.sdk.tool.schema import Action, Observation
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
