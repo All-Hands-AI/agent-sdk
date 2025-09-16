@@ -246,3 +246,45 @@ def test_agent_spec_field_descriptions():
     assert "mcp_config" in fields
     assert fields["mcp_config"].description is not None
     assert "Optional MCP configuration dictionary" in fields["mcp_config"].description
+
+
+def test_agent_spec_condenser_serialization(basic_llm):
+    """Test that condenser serialization uses 'kind' field, not 'type'."""
+    condenser = LLMSummarizingCondenser(llm=basic_llm, max_size=80, keep_first=10)
+    spec = AgentSpec(llm=basic_llm, condenser=condenser)
+
+    # Test model_dump
+    spec_dict = spec.model_dump()
+    assert "condenser" in spec_dict
+    assert spec_dict["condenser"] is not None
+    assert "kind" in spec_dict["condenser"]
+    assert "type" not in spec_dict["condenser"]
+    assert spec_dict["condenser"]["kind"] == (
+        "openhands.sdk.context.condenser.llm_summarizing_condenser."
+        "LLMSummarizingCondenser"
+    )
+
+    # Test model_dump_json and deserialization
+    spec_json = spec.model_dump_json()
+    spec_restored = AgentSpec.model_validate_json(spec_json)
+
+    # Verify the condenser was properly deserialized
+    assert spec_restored.condenser is not None
+    assert isinstance(spec_restored.condenser, LLMSummarizingCondenser)
+    assert spec_restored.condenser.max_size == 80
+    assert spec_restored.condenser.keep_first == 10
+
+
+def test_agent_spec_condenser_example_format():
+    """Test that the condenser example in the field uses 'kind' field."""
+    fields = AgentSpec.model_fields
+    condenser_field = fields["condenser"]
+
+    # Check that examples exist and use 'kind' field
+    assert condenser_field.examples is not None
+    assert len(condenser_field.examples) > 0
+
+    example = condenser_field.examples[0]
+    assert "kind" in example
+    assert "type" not in example
+    assert example["kind"] == "LLMSummarizingCondenser"

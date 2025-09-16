@@ -93,7 +93,7 @@ class AgentSpec(BaseModel):
         description="Optional condenser to use for condensing conversation history.",
         examples=[
             {
-                "type": "LLMSummarizingCondenser",
+                "kind": "LLMSummarizingCondenser",
                 "llm": {
                     "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
                     "base_url": "https://llm-proxy.eval.all-hands.dev",
