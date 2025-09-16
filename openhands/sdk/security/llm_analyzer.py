@@ -1,6 +1,6 @@
 """LLM-based security analyzer implementation."""
 
-from typing import Any, Dict
+from typing import Any
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.analyzer import SecurityAnalyzer
@@ -74,7 +74,7 @@ class LLMSecurityAnalyzer(SecurityAnalyzer):
         logger.debug("No security_risk attribute found, defaulting to UNKNOWN")
         return ActionSecurityRisk.UNKNOWN
 
-    async def handle_api_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_api_request(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """Handle API requests for LLM analyzer configuration.
 
         The LLM analyzer has minimal configuration, so this mainly returns

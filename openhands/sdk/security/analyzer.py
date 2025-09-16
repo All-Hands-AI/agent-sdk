@@ -1,7 +1,7 @@
 """Security analyzer base class for OpenHands Agent SDK."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import Event
@@ -51,7 +51,7 @@ class SecurityAnalyzer(ABC):
         pass
 
     @abstractmethod
-    async def handle_api_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_api_request(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """Handle API requests for security analyzer configuration.
 
         This allows the security analyzer to expose configuration endpoints
@@ -74,7 +74,7 @@ class SecurityAnalyzer(ABC):
         """
         pass
 
-    async def analyze_event(self, event: Event) -> Optional[ActionSecurityRisk]:
+    async def analyze_event(self, event: Event) -> ActionSecurityRisk | None:
         """Analyze an event for security risks.
 
         This is a convenience method that checks if the event is an action
@@ -120,7 +120,7 @@ class SecurityAnalyzer(ABC):
 
     async def analyze_pending_actions(
         self, conversation: Conversation
-    ) -> List[tuple[ActionEvent, ActionSecurityRisk]]:
+    ) -> list[tuple[ActionEvent, ActionSecurityRisk]]:
         """Analyze all pending actions in a conversation.
 
         This method gets all unmatched actions from the conversation state
