@@ -30,6 +30,7 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.analyzer import SecurityAnalyzer
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
     ActionBase,
@@ -46,6 +47,7 @@ logger = get_logger(__name__)
 class Agent(AgentBase):
     condenser: Condenser | None = Field(default=None, repr=False, exclude=True)
     cli_mode: bool = Field(default=True)
+    security_analyzer: SecurityAnalyzer | None = None
 
     @field_validator("tools", mode="before")
     @classmethod
@@ -309,14 +311,28 @@ class Agent(AgentBase):
             2. Every action requires confirmation
             3. A single `FinishAction` never requires confirmation
         """
-        if len(action_events) == 0:
-            return False
-
+        # A single `FinishAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
             action_events[0].action, FinishAction
         ):
             return False
 
+        # If there are no actions there is nothing to confirm
+        if len(action_events) == 0:
+            return False
+
+        # If a security analyzer is registered, use it to check the action events and
+        # see if confirmation is needed.
+        if self.security_analyzer is not None:
+            risks = self.security_analyzer.analyze_pending_actions(action_events)
+            for _, risk in risks:
+                if self.security_analyzer.should_require_confirmation(
+                    risk, state.confirmation_mode
+                ):
+                    state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                    return True
+
+        # If confirmation mode is disabled, no confirmation is needed
         if not state.confirmation_mode:
             return False
 
