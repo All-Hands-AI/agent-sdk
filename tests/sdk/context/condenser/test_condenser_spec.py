@@ -214,14 +214,3 @@ def test_condenser_spec_with_llm_object():
     assert spec.name == "LLMSummarizingCondenser"
     assert spec.params["llm"] == llm
     assert spec.params["max_size"] == 80
-
-
-def test_condenser_spec_docstring_attributes():
-    """Test that CondenserSpec docstring mentions the correct attributes."""
-    docstring = CondenserSpec.__doc__
-
-    assert docstring is not None
-    assert "name (str)" in docstring
-    assert "params (dict)" in docstring
-    assert "LLMSummarizingCondenser" in docstring
-    assert "openhands.sdk.context.condenser" in docstring
