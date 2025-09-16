@@ -145,8 +145,6 @@ class BaseIntegrationTest(ABC):
 
     def get_agent_final_response(self) -> str:
         """Extract the final response from the agent's finish tool call."""
-        print("=== EXTRACTING AGENT FINAL RESPONSE ===", flush=True)
-        print(f"Total events: {len(self.conversation.state.events)}", flush=True)
 
         # Find the last finish action from the agent
         for event in reversed(self.conversation.state.events):
@@ -157,20 +155,14 @@ class BaseIntegrationTest(ABC):
                 and hasattr(event, "tool_name")
                 and getattr(event, "tool_name") == "finish"
             ):
-                print("Found agent finish action", flush=True)
-
                 # Extract message from finish tool call
                 if hasattr(event, "action") and hasattr(
                     getattr(event, "action"), "message"
                 ):
                     message = getattr(getattr(event, "action"), "message")
-                    print(f"Extracted message ({len(message)} chars)", flush=True)
                     return message
                 else:
-                    print("Finish action missing message attribute", flush=True)
                     break
-
-        print("No agent finish action found", flush=True)
         return ""
 
     @abstractmethod
