@@ -1,8 +1,12 @@
 from importlib.metadata import PackageNotFoundError, version
 
-from openhands.sdk.agent import Agent, AgentBase
+from openhands.sdk.agent import Agent, AgentBase, AgentSpec
 from openhands.sdk.context import AgentContext
-from openhands.sdk.context.condenser import LLMSummarizingCondenser
+from openhands.sdk.context.condenser import (
+    Condenser,
+    CondenserSpec,
+    LLMSummarizingCondenser,
+)
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.event import Event, EventBase, EventWithMetrics, LLMConvertibleEvent
@@ -37,6 +41,7 @@ __all__ = [
     "ToolSpec",
     "AgentBase",
     "Agent",
+    "AgentSpec",
     "ActionBase",
     "ObservationBase",
     "MCPClient",
@@ -51,6 +56,8 @@ __all__ = [
     "EventWithMetrics",
     "LLMConvertibleEvent",
     "AgentContext",
+    "Condenser",
+    "CondenserSpec",
     "LLMSummarizingCondenser",
     "FileStore",
     "LocalFileStore",

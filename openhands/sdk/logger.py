@@ -123,7 +123,6 @@ def setup_logging(
         # Rich console handler
         rich_handler = RichHandler(
             console=Console(stderr=True),
-            log_time_format="[%x %H:%M:%S.%f]",
             omit_repeated_times=False,
             rich_tracebacks=ENV_RICH_TRACEBACKS,
         )

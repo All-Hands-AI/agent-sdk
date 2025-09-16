@@ -1,15 +1,18 @@
 import os
+import re
 import sys
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Annotated, Sequence
 
 from pydantic import ConfigDict, Field
 
+from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
+from openhands.sdk.context.condenser import Condenser, CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import ToolType
+from openhands.sdk.tool import Tool, ToolType
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -43,6 +46,63 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
+    condenser: Condenser | None = Field(
+        default=None,
+        description="Optional condenser to use for condensing conversation history.",
+    )
+
+    @classmethod
+    def from_spec(cls, spec: AgentSpec) -> "AgentBase":
+        """Create an AgentBase instance from an AgentSpec."""
+        import openhands.tools  # avoid circular import
+        from openhands.sdk.mcp import create_mcp_tools
+
+        tools: list[ToolType] = []
+        for tool_spec in spec.tools:
+            if tool_spec.name not in openhands.tools.__dict__:
+                raise ValueError(
+                    f"Unknown tool name: {tool_spec.name}. Not found in openhands.tools"
+                )
+            tool_class = openhands.tools.__dict__[tool_spec.name]
+            tool_or_tools = tool_class.create(**tool_spec.params)
+            if isinstance(tool_or_tools, list):
+                tools.extend(tool_or_tools)
+            else:
+                tools.append(tool_or_tools)
+
+        # Check tool types
+        for tool in tools:
+            if not isinstance(tool, Tool):
+                raise ValueError(
+                    f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
+                )
+
+        # Add MCP tools if configured
+        if spec.mcp_config:
+            mcp_tools = create_mcp_tools(spec.mcp_config, timeout=30)
+            tools.extend(mcp_tools)
+
+        logger.info(
+            f"Loaded {len(tools)} tools from spec: {[tool.name for tool in tools]}"
+        )
+        if spec.filter_tools_regex:
+            pattern = re.compile(spec.filter_tools_regex)
+            tools = [tool for tool in tools if pattern.match(tool.name)]
+            logger.info(
+                f"Filtered to {len(tools)} tools after applying regex filter: "
+                f"{[tool.name for tool in tools]}",
+            )
+
+        return cls(
+            llm=spec.llm,
+            agent_context=spec.agent_context,
+            tools=tools,
+            system_prompt_filename=spec.system_prompt_filename,
+            system_prompt_kwargs=spec.system_prompt_kwargs,
+            condenser=CondenserBase.from_spec(spec.condenser)
+            if spec.condenser
+            else None,
+        )
 
     @property
     def prompt_dir(self) -> str:
