@@ -55,49 +55,19 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
         # Convert to lowercase for case-insensitive matching
         answer_text = agent_final_answer.lower()
 
-        # Check for evidence of GitHub PR browsing - indicators that would be
-        # found when browsing https://github.com/All-Hands-AI/OpenHands/pull/8
-        github_indicators = [
-            "mit",
-            "apache",
-            "license",
-        ]
+        github_indicators = ["mit", "apache", "license"]
 
-        # Check for evidence of finding information about @asadm
-        asadm_indicators = ["asadm", "@asadm", "suggested", "suggestion"]
-
-        # Check if the agent's final answer contains the relevant information
-        found_github_content = any(
-            indicator in answer_text for indicator in github_indicators
-        )
-        found_asadm_info = any(
-            indicator in answer_text for indicator in asadm_indicators
-        )
-
-        if found_github_content and found_asadm_info:
+        if any(indicator in answer_text for indicator in github_indicators):
             return TestResult(
                 success=True,
-                reason=(
-                    "Agent's final answer contains information about the GitHub PR "
-                    "and @asadm's suggestions. Found relevant GitHub content and "
-                    "asadm-related information in the final response."
-                ),
-            )
-        elif found_github_content:
-            return TestResult(
-                success=True,
-                reason=(
-                    "Agent's final answer contains GitHub PR information, though "
-                    "specific details about @asadm's suggestions may not be "
-                    "clearly present in the final response."
-                ),
+                reason="Agent's final answer contains information about the PR content",
             )
         else:
             return TestResult(
                 success=False,
                 reason=(
                     "Agent's final answer does not contain the expected information "
-                    "about the GitHub PR or @asadm's suggestions. "
+                    "about the PR content. "
                     f"Final answer preview: {agent_final_answer[:200]}..."
                 ),
             )
