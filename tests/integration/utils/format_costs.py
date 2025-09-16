@@ -15,6 +15,17 @@ def format_cost(value):
     Returns:
         Formatted cost string with appropriate precision
     """
+    # Handle non-numeric input
+    if not isinstance(value, (int, float)):
+        try:
+            value = float(value)
+        except (ValueError, TypeError):
+            return str(value)  # Return as-is if can't convert to number
+
+    # Handle NaN or infinite values
+    if not (isinstance(value, (int, float)) and abs(value) < float("inf")):
+        return str(value)
+
     if abs(value) >= 0.01:
         # Normal rounding for typical amounts
         return f"${value:.2f}"
