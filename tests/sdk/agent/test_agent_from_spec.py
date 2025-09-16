@@ -7,8 +7,10 @@ import pytest
 from openhands.sdk.agent import Agent
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
+from openhands.sdk.context.condenser.llm_summarizing_condenser import (
+    LLMSummarizingCondenser,
+)
 from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
-from openhands.sdk.context.condenser.spec import CondenserSpec
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import Tool
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
@@ -208,24 +210,13 @@ def test_from_spec_with_system_prompt_config(basic_llm):
 
 def test_from_spec_with_condenser(basic_llm):
     """Test creating an agent with a condenser."""
-    condenser_spec = CondenserSpec(
-        name="LLMSummarizingCondenser",
-        params={"llm": basic_llm, "max_size": 80, "keep_first": 10},
-    )
+    condenser = LLMSummarizingCondenser(llm=basic_llm, max_size=80, keep_first=10)
 
-    spec = AgentSpec(llm=basic_llm, condenser=condenser_spec)
+    spec = AgentSpec(llm=basic_llm, condenser=condenser)
+    agent = Agent.from_spec(spec)
 
-    with patch(
-        "openhands.sdk.context.condenser.base.CondenserBase.from_spec"
-    ) as mock_from_spec:
-        mock_condenser = create_mock_condenser()
-        mock_from_spec.return_value = mock_condenser
-
-        agent = Agent.from_spec(spec)
-
-        # Verify condenser was created from spec
-        mock_from_spec.assert_called_once_with(condenser_spec)
-        assert agent.condenser == mock_condenser
+    # Verify condenser was set correctly
+    assert agent.condenser == condenser
 
 
 def test_from_spec_without_condenser(basic_llm):
@@ -246,7 +237,7 @@ def test_from_spec_comprehensive(basic_llm):
         ToolSpec(name="BashTool", params={"working_dir": "/test"}),
     ]
 
-    condenser_spec = CondenserSpec(name="NoOpCondenser", params={})
+    condenser = NoOpCondenser()
 
     mcp_config = {"mcpServers": {"test": {"command": "test"}}}
 
@@ -257,23 +248,18 @@ def test_from_spec_comprehensive(basic_llm):
         agent_context=agent_context,
         system_prompt_filename="comprehensive.j2",
         system_prompt_kwargs={"mode": "test"},
-        condenser=condenser_spec,
+        condenser=condenser,
     )
 
     with (
         patch("openhands.tools.BashTool") as mock_bash_tool,
         patch("openhands.sdk.mcp.create_mcp_tools") as mock_create_mcp,
-        patch(
-            "openhands.sdk.context.condenser.base.CondenserBase.from_spec"
-        ) as mock_condenser_from_spec,
     ):
         mock_bash_instance = create_mock_tool("bash_tool")
         mock_mcp_tool = create_mock_tool("mcp_tool")
-        mock_condenser = create_mock_condenser()
 
         mock_bash_tool.create.return_value = mock_bash_instance
         mock_create_mcp.return_value = [mock_mcp_tool]
-        mock_condenser_from_spec.return_value = mock_condenser
 
         agent = Agent.from_spec(spec)
 
@@ -283,12 +269,11 @@ def test_from_spec_comprehensive(basic_llm):
         assert agent.agent_context == agent_context
         assert agent.system_prompt_filename == "comprehensive.j2"
         assert agent.system_prompt_kwargs == {"mode": "test"}
-        assert agent.condenser == mock_condenser
+        assert agent.condenser == condenser
 
         # Verify method calls
         mock_bash_tool.create.assert_called_once_with(working_dir="/test")
         mock_create_mcp.assert_called_once_with(mcp_config, timeout=30)
-        mock_condenser_from_spec.assert_called_once_with(condenser_spec)
 
 
 def test_from_spec_tools_and_mcp_combined(basic_llm):

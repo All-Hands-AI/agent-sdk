@@ -4,7 +4,6 @@ from openhands.sdk.agent import Agent, AgentBase, AgentSpec
 from openhands.sdk.context import AgentContext
 from openhands.sdk.context.condenser import (
     Condenser,
-    CondenserSpec,
     LLMSummarizingCondenser,
 )
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
@@ -55,7 +54,6 @@ __all__ = [
     "LLMConvertibleEvent",
     "AgentContext",
     "Condenser",
-    "CondenserSpec",
     "LLMSummarizingCondenser",
     "FileStore",
     "LocalFileStore",
