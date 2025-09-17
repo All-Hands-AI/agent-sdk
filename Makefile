@@ -68,3 +68,9 @@ help:
 	@echo "  $(GREEN)lint$(RESET)         - Lint code with ruff"
 	@echo "  $(GREEN)clean$(RESET)        - Clean up cache files"
 	@echo "  $(GREEN)help$(RESET)         - Show this help message"
+
+test:
+	@uv run pytest
+
+test-examples:
+	@uv run pytest tests/examples
