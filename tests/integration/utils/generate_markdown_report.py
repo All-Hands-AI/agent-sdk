@@ -131,16 +131,6 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
         ]
     )
 
-    # Footer
-    report_lines.extend(
-        [
-            "---",
-            "",
-            "*This report was automatically generated from structured JSON "
-            "test results.*",
-        ]
-    )
-
     return "\n".join(report_lines)
 
 
