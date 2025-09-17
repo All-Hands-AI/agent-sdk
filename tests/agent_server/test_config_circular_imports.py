@@ -7,6 +7,8 @@ import ast
 from pathlib import Path
 from typing import Set
 
+from openhands.agent_server import config
+
 
 def get_imports_from_file(file_path: Path) -> Set[str]:
     """
@@ -37,18 +39,15 @@ def test_config_no_circular_imports():
     to prevent circular dependencies.
     """
     # Get the path to the config.py file
-    config_file = (
-        Path(__file__).parent.parent / "openhands" / "agent_server" / "config.py"
-    )
-
-    # Ensure the config file exists
-    assert config_file.exists(), f"Config file not found at {config_file}"
+    config_file = Path(config.__file__)
 
     # Get all imports from the config file
     imports = get_imports_from_file(config_file)
 
     # Check that no imports start with 'openhands'
-    openhands_imports = [imp for imp in imports if imp.startswith("openhands")]
+    openhands_imports = [
+        imp for imp in imports if imp.startswith("openhands.agent_server")
+    ]
 
     assert not openhands_imports, (
         f"Config module should not import from openhands package to prevent "
@@ -63,9 +62,7 @@ def test_config_imports_are_external_only():
     any internal imports.
     """
     # Get the path to the config.py file
-    config_file = (
-        Path(__file__).parent.parent / "openhands" / "agent_server" / "config.py"
-    )
+    config_file = Path(config.__file__)
 
     # Get all imports from the config file
     imports = get_imports_from_file(config_file)

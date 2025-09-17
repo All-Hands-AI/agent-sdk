@@ -10,6 +10,9 @@ import ast
 from pathlib import Path
 from typing import List, Set, Tuple
 
+from openhands import agent_server
+from openhands.agent_server import config
+
 
 def get_env_var_access_from_file(file_path: Path) -> List[Tuple[int, str]]:
     """
@@ -125,12 +128,7 @@ def test_no_env_var_access_outside_config():
     except for the config.py file.
     """
     # Get the path to the agent_server directory
-    agent_server_dir = Path(__file__).parent.parent / "openhands" / "agent_server"
-
-    # Ensure the directory exists
-    assert agent_server_dir.exists(), (
-        f"SDK server directory not found at {agent_server_dir}"
-    )
+    agent_server_dir = Path(agent_server.__file__).parent
 
     # Get all Python files in the agent_server directory
     python_files = list(agent_server_dir.glob("*.py"))
@@ -174,12 +172,7 @@ def test_config_file_env_access_is_allowed():
     and that our detection logic works correctly.
     """
     # Get the path to the config.py file
-    config_file = (
-        Path(__file__).parent.parent / "openhands" / "agent_server" / "config.py"
-    )
-
-    # Ensure the config file exists
-    assert config_file.exists(), f"Config file not found at {config_file}"
+    config_file = Path(config.__file__)
 
     # Check that config.py does access environment variables
     env_accesses = get_env_var_access_from_file(config_file)
