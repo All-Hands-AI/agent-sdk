@@ -75,16 +75,13 @@ jobs:
         run: |
           ./tests/integration/run_infer.sh "$LLM_CONFIG" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' '${{ matrix.job-config.run-suffix }}'
 
-          # get integration tests report
-          REPORT_FILE=$(find tests/integration/outputs/*${{ matrix.job-config.run-suffix }}* -name "report.md" -type f | head -n 1)
-          echo "REPORT_FILE: $REPORT_FILE"
-          if [ -f "$REPORT_FILE" ]; then
-            echo "INTEGRATION_TEST_REPORT<<EOF" >> $GITHUB_ENV
-            cat $REPORT_FILE >> $GITHUB_ENV
-            echo >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
+          # get integration tests JSON results
+          RESULTS_FILE=$(find tests/integration/outputs/*${{ matrix.job-config.run-suffix }}* -name "results.json" -type f | head -n 1)
+          echo "RESULTS_FILE: $RESULTS_FILE"
+          if [ -f "$RESULTS_FILE" ]; then
+            echo "JSON_RESULTS_FILE=$RESULTS_FILE" >> $GITHUB_ENV
           else
-            echo "INTEGRATION_TEST_REPORT=No report file found" >> $GITHUB_ENV
+            echo "JSON_RESULTS_FILE=" >> $GITHUB_ENV
           fi
 
       - name: Wait a little bit
@@ -109,22 +106,17 @@ jobs:
 
       - name: Save test results for consolidation
         run: |
-          # Create a results summary file for this model using Python processor
+          # Copy the structured JSON results file for consolidation
           mkdir -p test_results_summary
           
-          # Write the test report to a temporary file
-          echo "${{ env.INTEGRATION_TEST_REPORT }}" > /tmp/test_report.txt
-          
-          # Use Python processor to handle all text processing and JSON creation
-          python scripts/process_integration_results.py \
-            --model-name "${{ matrix.job-config.name }}" \
-            --run-suffix "${{ matrix.job-config.run-suffix }}" \
-            --report-file /tmp/test_report.txt \
-            --artifact-url "${{ steps.upload_results_artifact.outputs.artifact-url }}" \
-            --output-file "test_results_summary/${{ matrix.job-config.run-suffix }}_results.json"
-          
-          # Clean up temporary file
-          rm -f /tmp/test_report.txt
+          if [ -n "${{ env.JSON_RESULTS_FILE }}" ] && [ -f "${{ env.JSON_RESULTS_FILE }}" ]; then
+            # Copy the JSON results file directly
+            cp "${{ env.JSON_RESULTS_FILE }}" "test_results_summary/${{ matrix.job-config.run-suffix }}_results.json"
+            echo "✓ Copied JSON results file for consolidation"
+          else
+            echo "✗ No JSON results file found"
+            exit 1
+          fi
 
       - name: Upload test results summary
         uses: actions/upload-artifact@v4
@@ -159,7 +151,13 @@ jobs:
           COMMIT_SHA: ${{ github.sha }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          python3 tests/integration/utils/consolidate_results.py
+          python3 scripts/consolidate_json_results.py \
+            --results-dir all_results \
+            --output-file consolidated_results.json
+          
+          python3 scripts/generate_markdown_report.py \
+            --input-file consolidated_results.json \
+            --output-file consolidated_report.md
 
       - name: Upload consolidated report
         uses: actions/upload-artifact@v4
