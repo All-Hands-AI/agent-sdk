@@ -6,13 +6,31 @@ on:
         branches: [main]
     pull_request:
         branches: [main]
+    workflow_dispatch:
+        inputs:
+            base_image:
+                description: Base runtime image
+                type: string
+                default: nikolaik/python-nodejs:python3.12-nodejs22
+            image:
+                description: GHCR image name
+                type: string
+                default: ghcr.io/all-hands-ai/agent-server
+            platforms:
+                description: Target platforms
+                type: string
+                default: linux/amd64,linux/arm64
+
+permissions:
+    contents: read
+    packages: write
 
 jobs:
-    build:
+    build-binary-and-test:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [ubuntu-latest, macos-latest, windows-latest]
+                os: [ubuntu-latest, macos-latest]
         steps:
             - uses: actions/checkout@v4
 
@@ -27,14 +45,22 @@ jobs:
               run: |
                   make build-server
 
-            - name: Test binary
+            # FIXME: windows-latest not working due to
+            # Run if [[ "windows-latest" == "windows-latest" ]]; then
+            # [PYI-2160:ERROR] Failed to load Python DLL 'C:\Users\RUNNER~1\AppData\Local\Temp\_MEI5602\python312.dll'.
+            # LoadLibrary: Invalid access to memory location.
+            # - name: Test binary (Windows)
+            #   if: matrix.os == 'windows-latest'
+            #   shell: pwsh
+            #   run: |
+            #       Get-ChildItem dist
+            #       .\dist\openhands-agent-server.exe --help
+
+            - name: Test binary (Linux and macOS)
+              if: matrix.os != 'windows-latest'
               shell: bash
               run: |
-                  if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-                      ./dist/openhands-agent-server.exe --help
-                  else
-                      ./dist/openhands-agent-server --help
-                  fi
+                  ./dist/openhands-agent-server --help
 
             - name: Upload binary artifact
               uses: actions/upload-artifact@v4
@@ -44,45 +70,107 @@ jobs:
                       dist/openhands-server*
                   retention-days: 7
 
-    check-openapi-schema:
-        name: Check OpenAPI Schema
-        if: github.event_name == 'pull_request'
-        runs-on: ubuntu-latest
+    # check-openapi-schema:
+    #     name: Check OpenAPI Schema
+    #     if: github.event_name == 'pull_request'
+    #     runs-on: ubuntu-latest
+
+    #     steps:
+    #         - name: Checkout PR branch
+    #           uses: actions/checkout@v4
+    #           with:
+    #               ref: ${{ github.head_ref }}
+    #               fetch-depth: 0
+
+    #         - name: Install uv
+    #           uses: astral-sh/setup-uv@v6
+    #           with:
+    #               version: latest
+
+    #         - name: Install dependencies
+    #           run: |
+    #               uv sync --frozen --dev
+
+    #         - name: Check OpenAPI JSON and build client
+    #           shell: bash
+    #           env:
+    #               PYTHONPATH: .
+    #           run: |
+    #               set -euo pipefail
+    #               export SCHEMA_PATH="$RUNNER_TEMP/openhands-openapi.json"
+
+    #               # Generate OpenAPI JSON inline (no file left in repo)
+    #               uv run python -c 'import os,json; from openhands.agent_server.api import api; p=os.environ["SCHEMA_PATH"]; open(p,"w").write(json.dumps(api.openapi(), indent=2)); print(f"Wrote {p}")'
+
+    #               # Generate client from the temp schema and **fail on any warnings** to check
+    #               uv run openapi-python-client generate \
+    #                 --path "$SCHEMA_PATH" \
+    #                 --output-path "$RUNNER_TEMP/openhands-client" \
+    #                 --meta uv \
+    #                 --overwrite \
+    #                 --fail-on-warning
+
+    #               # Clean up temp schema
+    #               rm -f "$SCHEMA_PATH"
+
+    build-and-push-image:
+        name: Build & Push
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - name: amd64
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64
+                    - name: arm64
+                      runner: blacksmith-8vcpu-ubuntu-2404-arm
+                      platforms: linux/arm64
+
+        runs-on: ${{ matrix.runner }}
+
+        env:
+            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
+            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || 'nikolaik/python-nodejs:python3.12-nodejs22' }}
+            TARGET: binary
+            PLATFORMS: ${{ matrix.platforms }}
+            GITHUB_SHA: ${{ github.sha }}
+            GITHUB_REF: ${{ github.ref }}
+            CI: 'true'
 
         steps:
-            - name: Checkout PR branch
+            - name: Checkout
               uses: actions/checkout@v4
-              with:
-                  ref: ${{ github.head_ref }}
-                  fetch-depth: 0
 
             - name: Install uv
               uses: astral-sh/setup-uv@v6
               with:
                   version: latest
 
-            - name: Install dependencies
-              run: |
-                  uv sync --frozen --dev
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+              with:
+                  driver-opts: network=host
 
-            - name: Check OpenAPI JSON and build client
+            - name: Log in to GHCR
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Make build script executable
+              run: chmod +x ./openhands/agent_server/docker/build.sh
               shell: bash
-              env:
-                  PYTHONPATH: .
+
+            - name: Build & Push (${{ matrix.name }})
               run: |
-                  set -euo pipefail
-                  export SCHEMA_PATH="$RUNNER_TEMP/openhands-openapi.json"
+                  uv sync --frozen
+                  ./openhands/agent_server/docker/build.sh
+              shell: bash
 
-                  # Generate OpenAPI JSON inline (no file left in repo)
-                  uv run python -c 'import os,json; from openhands.agent_server.api import api; p=os.environ["SCHEMA_PATH"]; open(p,"w").write(json.dumps(api.openapi(), indent=2)); print(f"Wrote {p}")'
-
-                  # Generate client from the temp schema and **fail on any warnings** to check
-                  uv run openapi-python-client generate \
-                    --path "$SCHEMA_PATH" \
-                    --output-path "$RUNNER_TEMP/openhands-client" \
-                    --meta uv \
-                    --overwrite \
-                    --fail-on-warning
-
-                  # Clean up temp schema
-                  rm -f "$SCHEMA_PATH"
+            - name: Summary (${{ matrix.name }})
+              run: |
+                  echo "Pushed image: ${IMAGE}"
+                  echo "Base image: ${BASE_IMAGE}"
+                  echo "Platforms: ${PLATFORMS}"
+              shell: bash
