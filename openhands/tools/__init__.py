@@ -1,5 +1,4 @@
-# openhands/tools/__init__.py
-"""Runtime tools package (lazy)."""
+"""Runtime tools package."""
 
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
