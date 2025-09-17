@@ -6,7 +6,8 @@ from unittest.mock import Mock
 import mcp.types
 from pydantic import BaseModel
 
-from openhands.sdk.agent import Agent, AgentType
+from openhands.sdk.agent import Agent
+from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.tool import MCPTool
@@ -167,7 +168,7 @@ def test_agent_type_annotation_works_json() -> None:
 
     # Use AgentType annotation
     class TestModel(BaseModel):
-        agent: AgentType
+        agent: AgentBase.get_serializable_type()  # type: ignore
 
     model = TestModel(agent=agent)
 

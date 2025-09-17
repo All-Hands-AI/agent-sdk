@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Annotated, Any, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from rich.text import Text
@@ -10,10 +10,7 @@ from openhands.sdk.tool.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
 )
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
-)
+from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
 from openhands.sdk.utils.visualize import display_dict
 
 
@@ -247,15 +244,6 @@ class MCPActionBase(ActionBase):
         return data
 
 
-Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
-"""Type annotation for values that can be any implementation of ActionBase.
-
-In most situations, this is equivalent to ActionBase. However, when used in Pydantic
-BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
-discriminator resolution until runtime.
-"""
-
-
 class ObservationBase(Schema, DiscriminatedUnionMixin):
     """Base schema for output observation."""
 
@@ -281,12 +269,3 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
         else:
             content.append("[no text content]", style="dim")
         return content
-
-
-Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
-"""Type annotation for values that can be any implementation of ObservationBase.
-
-In most situations, this is equivalent to ObservationBase. However, when used in
-Pydantic BaseModels as a field annotation, it enables polymorphic deserialization by
-delaying the discriminator resolution until runtime.
-"""

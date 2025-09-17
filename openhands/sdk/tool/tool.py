@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -13,9 +13,7 @@ from pydantic import (
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
     kind_of,
-    resolve_kind,
 )
 
 
@@ -135,7 +133,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     @classmethod
     def _val_action_type(cls, v):
         if isinstance(v, str):
-            return resolve_kind(v)
+            return ActionBase.resolve_kind(v)
         assert isinstance(v, type) and issubclass(v, ActionBase), (
             f"action_type must be a subclass of ActionBase, but got {type(v)}"
         )
@@ -147,7 +145,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         if v is None:
             return None
         if isinstance(v, str):
-            v = resolve_kind(v)
+            v = ObservationBase.resolve_kind(v)
         assert isinstance(v, type) and issubclass(v, ObservationBase), (
             f"observation_type must be a subclass of ObservationBase, but got {type(v)}"
         )
@@ -210,6 +208,3 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
                 parameters=self.input_schema,
             ),
         )
-
-
-ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]

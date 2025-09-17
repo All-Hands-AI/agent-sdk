@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-from openhands.sdk.agent.base import AgentType
+from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationID
-from openhands.sdk.event import Event
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.protocol import ListLike
@@ -35,6 +35,10 @@ class AgentExecutionStatus(str, Enum):
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
+
+    AgentType = AgentBase
+else:
+    AgentType = AgentBase.get_serializable_type()
 
 
 class ConversationState(BaseModel):
@@ -74,7 +78,7 @@ class ConversationState(BaseModel):
 
     # ===== Public "events" facade (ListLike[Event]) =====
     @property
-    def events(self) -> ListLike[Event]:
+    def events(self) -> ListLike[EventBase]:
         return self._events
 
     # ===== Lock/guard API =====
@@ -116,7 +120,7 @@ class ConversationState(BaseModel):
     def create(
         cls: type["ConversationState"],
         id: ConversationID,
-        agent: AgentType,
+        agent: AgentBase,
         file_store: FileStore | None = None,
     ) -> "ConversationState":
         """

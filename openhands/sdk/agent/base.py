@@ -2,27 +2,29 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Annotated, Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from pydantic import ConfigDict, Field
 
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import Condenser
+from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import Tool, ToolType
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
-)
+from openhands.sdk.tool import Tool
+from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation import ConversationCallbackType, ConversationState
 
+    CondenserType = CondenserBase
+    ToolType = Tool
+else:
+    CondenserType = CondenserBase.get_serializable_type()
+    ToolType = Tool.get_serializable_type()
 logger = get_logger(__name__)
 
 
@@ -46,7 +48,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    condenser: Condenser | None = Field(
+    condenser: CondenserType | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",
     )
@@ -57,7 +59,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         import openhands.tools  # avoid circular import
         from openhands.sdk.mcp import create_mcp_tools
 
-        tools: list[ToolType] = []
+        tools: list[Tool] = []
         for tool_spec in spec.tools:
             if tool_spec.name not in openhands.tools.__dict__:
                 raise ValueError(
@@ -170,7 +172,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def resolve_diff_from_deserialized(self, persisted: "AgentType") -> "AgentType":
+    def resolve_diff_from_deserialized(self, persisted: "AgentBase") -> "AgentBase":
         """
         Return a new AgentBase instance equivalent to `persisted` but with
         explicitly whitelisted fields (e.g. api_key) taken from `self`.
@@ -203,6 +205,3 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if "tools" in dumped and isinstance(dumped["tools"], dict):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
-
-
-AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]

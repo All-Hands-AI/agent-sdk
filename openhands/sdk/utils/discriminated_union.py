@@ -10,7 +10,7 @@ from pydantic import (
 )
 
 
-def kind(obj) -> str:
+def kind_of(obj) -> str:
     """Get the tag"""
     if isinstance(obj, dict):
         return obj["kind"]
@@ -57,14 +57,21 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
         return result
 
     @classmethod
-    def serializable_type(cls) -> Annotated:
+    def get_serializable_type(cls) -> Annotated:
         """Get the serializable type for this discrominated union."""
         subclasses = cls.get_known_concrete_subclasses()
         return Annotated[
             Union[
                 tuple(
-                    Annotated[subclass, Tag(kind(subclass))] for subclass in subclasses
+                    Annotated[subclass, Tag(subclass.kind())] for subclass in subclasses
                 )
             ],
-            Discriminator(kind),
+            Discriminator(kind_of),
         ]
+
+    @classmethod
+    def resolve_kind(cls, kind: str) -> Type:
+        for subclass in cls.get_known_concrete_subclasses():
+            if subclass.kind == kind:
+                return subclass
+        raise ValueError(f"Unknown kind '{kind}' for {cls}")
