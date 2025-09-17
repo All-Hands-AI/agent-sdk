@@ -151,7 +151,9 @@ jobs:
                   GITHUB_SHA: ${{ github.sha }}
                   GITHUB_REF: ${{ github.ref }}
                   CI: 'true'
-              run: ./openhands/agent_server/docker/build.sh
+              run: |
+                  uv sync --frozen
+                  ./openhands/agent_server/docker/build.sh
               shell: bash
 
             - name: Summary
