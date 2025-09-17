@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import Condenser
+from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import ToolSpec
 
@@ -88,7 +88,7 @@ class AgentSpec(BaseModel):
         description="Optional kwargs to pass to render system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    condenser: Condenser | None = Field(
+    condenser: CondenserBase | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",
         examples=[

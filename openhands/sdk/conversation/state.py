@@ -36,16 +36,12 @@ class AgentExecutionStatus(str, Enum):
 if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
-    AgentType = AgentBase
-else:
-    AgentType = AgentBase.get_serializable_type()
-
 
 class ConversationState(BaseModel):
     # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
 
-    agent: AgentType = Field(
+    agent: AgentBase = Field(
         ...,
         description=(
             "The agent running in the conversation. "

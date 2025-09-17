@@ -18,13 +18,9 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation import ConversationCallbackType, ConversationState
+    from openhands.sdk.conversation.state import ConversationState
+    from openhands.sdk.conversation.types import ConversationCallbackType
 
-    CondenserType = CondenserBase
-    ToolType = Tool
-else:
-    CondenserType = CondenserBase.get_serializable_type()
-    ToolType = Tool.get_serializable_type()
 logger = get_logger(__name__)
 
 
@@ -36,7 +32,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     llm: LLM
     agent_context: AgentContext | None = Field(default=None)
-    tools: dict[str, ToolType] | Sequence[ToolType] = Field(
+    tools: dict[str, Tool] | Sequence[Tool] = Field(
         default_factory=dict,
         description="Mapping of tool name to Tool instance that the agent can use."
         " If a list is provided, it should be converted to a mapping by tool name."
@@ -48,7 +44,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    condenser: CondenserType | None = Field(
+    condenser: CondenserBase | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",
     )
