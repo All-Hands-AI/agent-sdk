@@ -26,3 +26,5 @@ include = ["openhands*"]
 [tool.setuptools.package-data]
 "*" = ["*.j2"]
 
+[project.scripts]
+agent-server = "openhands.agent_server.__main__:main"
