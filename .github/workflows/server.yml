@@ -114,7 +114,7 @@ jobs:
     #               rm -f "$SCHEMA_PATH"
 
     build-and-push-image:
-        name: Build & Push (multi-arch on separate runners)
+        name: Build & Push
         strategy:
             fail-fast: false
             matrix:
