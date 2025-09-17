@@ -81,7 +81,10 @@ def save_consolidated_results(
     """Save consolidated results to JSON file."""
     print(f"\nSaving consolidated results to {output_file}...")
 
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    # Only create directory if output_file has a directory component
+    output_dir = os.path.dirname(output_file)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
 
     with open(output_file, "w") as f:
         f.write(consolidated.model_dump_json(indent=2))
