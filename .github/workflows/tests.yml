@@ -147,7 +147,7 @@ jobs:
         if: steps.changed.outputs.any_changed == 'true'
         run: uv sync --frozen --group dev
 
-      - name: Run sdk tests with coverage
+      - name: Run Agent Server tests with coverage
         if: steps.changed.outputs.any_changed == 'true'
         run: |
           # Clean up any existing coverage file
