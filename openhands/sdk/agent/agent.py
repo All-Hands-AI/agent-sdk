@@ -37,6 +37,7 @@ from openhands.sdk.tool import (
     Tool,
 )
 from openhands.sdk.tool.builtins import FinishAction
+from openhands.sdk.utils.discriminated_union import get_polymorphic_type_adapter
 
 
 logger = get_logger(__name__)
@@ -70,7 +71,7 @@ class Agent(AgentBase):
                 tool = (
                     payload
                     if isinstance(payload, Tool)
-                    else Tool.model_validate(payload)
+                    else get_polymorphic_type_adapter(Tool).validate_python(payload)
                 )
                 if name in user_tools:
                     raise ValueError(f"Duplicate tool name: {name}")
@@ -352,9 +353,9 @@ class Agent(AgentBase):
 
         # Validate arguments
         try:
-            action: ActionBase = tool.action_type.model_validate(
-                json.loads(tool_call.function.arguments)
-            )
+            action: ActionBase = get_polymorphic_type_adapter(
+                tool.action_type
+            ).validate_json(tool_call.function.arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "

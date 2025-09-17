@@ -8,10 +8,10 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any, Callable
 
-from openhands.sdk.event import Event
+from openhands.sdk.event.base import EventBase
 
 
-AsyncConversationCallback = Callable[[Event], Coroutine[Any, Any, None]]
+AsyncConversationCallback = Callable[[EventBase], Coroutine[Any, Any, None]]
 
 
 class AsyncCallbackWrapper:
@@ -31,6 +31,6 @@ class AsyncCallbackWrapper:
         self.async_callback = async_callback
         self.loop = loop
 
-    def __call__(self, event: Event):
+    def __call__(self, event: EventBase):
         if self.loop.is_running():
             asyncio.run_coroutine_threadsafe(self.async_callback(event), self.loop)

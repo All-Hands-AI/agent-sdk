@@ -1,12 +1,14 @@
 import inspect
 from abc import ABC
 from copy import deepcopy
+from functools import lru_cache
 from typing import Annotated, Type, Union, get_args, get_origin
 
 from pydantic import (
     BaseModel,
     Discriminator,
     Tag,
+    TypeAdapter,
     computed_field,
 )
 
@@ -55,6 +57,13 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
             if subclass.kind == kind:
                 return subclass
         raise ValueError(f"Unknown kind '{kind}' for {cls}")
+
+
+@lru_cache
+def get_polymorphic_type_adapter(cls):
+    serializable_type = get_serializable_type(cls)
+    type_adapter = TypeAdapter(serializable_type)
+    return type_adapter
 
 
 def _is_subclass(a: Type, b: Type):

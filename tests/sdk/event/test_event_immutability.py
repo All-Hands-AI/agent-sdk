@@ -16,16 +16,16 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.llm import Message, TextContent
-from openhands.sdk.tool import Action, Observation
+from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
-class MockAction(Action):
+class MockAction(ActionBase):
     """Mock action for testing."""
 
     command: str = "test_command"
 
 
-class MockObservation(Observation):
+class MockObservation(ObservationBase):
     """Mock observation for testing."""
 
     result: str = "test_result"
