@@ -1,35 +1,40 @@
+---
 repos:
-  - repo: local
-    hooks:
-      - id: ruff-format
-        name: Ruff format
-        entry: uv
-        args: [run, ruff, format]
-        language: system
-        types: [python]
-        pass_filenames: true
-        always_run: false
-      - id: ruff-check
-        name: Ruff lint
-        entry: uv
-        args: [run, ruff, check, --fix, --exit-non-zero-on-fix]
-        language: system
-        types: [python]
-        pass_filenames: true
-        always_run: false
-      - id: pycodestyle
-        name: PEP8 style check (pycodestyle)
-        entry: uv
-        args: ["run", "pycodestyle", "--max-line-length=88", "--ignore=E203,E501,W503,E704"]
-        language: system
-        types: [python]
-        pass_filenames: true
-        always_run: false
-      - id: pyright
-        name: Type check with Pyright (strict)
-        entry: uv
-        args: [run, pyright]
-        language: system
-        types: [python]
-        pass_filenames: true
-        always_run: false
+    - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+      rev: 0.2.1 # or other specific tag
+      hooks:
+          - id: yamlfmt
+    - repo: local
+      hooks:
+          - id: ruff-format
+            name: Ruff format
+            entry: uv
+            args: [run, ruff, format]
+            language: system
+            types: [python]
+            pass_filenames: true
+            always_run: false
+          - id: ruff-check
+            name: Ruff lint
+            entry: uv
+            args: [run, ruff, check, --fix, --exit-non-zero-on-fix]
+            language: system
+            types: [python]
+            pass_filenames: true
+            always_run: false
+          - id: pycodestyle
+            name: PEP8 style check (pycodestyle)
+            entry: uv
+            args: [run, pycodestyle, --max-line-length=88, '--ignore=E203,E501,W503,E704']
+            language: system
+            types: [python]
+            pass_filenames: true
+            always_run: false
+          - id: pyright
+            name: Type check with Pyright (strict)
+            entry: uv
+            args: [run, pyright]
+            language: system
+            types: [python]
+            pass_filenames: true
+            always_run: false
