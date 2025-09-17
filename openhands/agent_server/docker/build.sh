@@ -26,13 +26,11 @@ GIT_REF="${GITHUB_REF:-$(git symbolic-ref -q --short HEAD 2>/dev/null || echo un
 # Version tag from package (best-effort; fall back to 0.0.0)
 # ------------------------------------------------------------
 SDK_VERSION="$(python - <<'PY' 2>/dev/null || echo 0.0.0
-try:
-    import openhands.sdk as sdk
-    print(getattr(sdk, "__version__", "0.0.0"))
-except Exception:
-    print("0.0.0")
+from importlib.metadata import version
+print(version("openhands-sdk"))
 PY
 )"
+echo "[build] Using SDK version ${SDK_VERSION}"
 
 # Base slug (keep legacy format so downstream tags don’t change)
 BASE_SLUG="$(echo -n "${BASE_IMAGE}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
