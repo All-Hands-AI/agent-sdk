@@ -167,6 +167,7 @@ jobs:
               shell: bash
 
             - name: Build & Push (${{ matrix.name }})
+              id: build
               run: |
                   uv sync --frozen
                   ./openhands/agent_server/docker/build.sh

@@ -95,16 +95,13 @@ printf ' - %s\n' "${TAGS[@]}"
 # GitHub Actions outputs (if available)
 # ------------------------------------------------------------
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-  # Single-line outputs
   {
-    printf 'image=%s\n' "%s" "${IMAGE}"
-    printf 'short_sha=%s\n' "%s" "${SHORT_SHA}"
-    printf 'versioned_tag=%s\n' "%s" "${VERSIONED_TAG}"
-    # Comma-separated tag list
-    printf 'tags_csv=%s\n' "%s" "$(IFS=, ; echo "${TAGS[*]}")"
+    printf 'image=%s\n' "${IMAGE}"
+    printf 'short_sha=%s\n' "${SHORT_SHA}"
+    printf 'versioned_tag=%s\n' "${VERSIONED_TAG}"
+    printf 'tags_csv=%s\n' "$(IFS=, ; echo "${TAGS[*]}")"
   } >> "$GITHUB_OUTPUT"
 
-  # Multiline output (one tag per line) – convenient for loops
   {
     echo 'tags<<EOF'
     printf '%s\n' "${TAGS[@]}"
