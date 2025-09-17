@@ -1,19 +1,15 @@
 from abc import ABC, abstractmethod
 from logging import getLogger
-from typing import Annotated
 
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
-)
+from openhands.sdk.utils.pydantic_utils import KindTagMixin
 
 
 logger = getLogger(__name__)
 
 
-class CondenserBase(DiscriminatedUnionMixin, ABC):
+class CondenserBase(KindTagMixin, ABC):
     """Abstract condenser interface.
 
     Condensers take a list of `Event` objects and reduce them into a potentially smaller
@@ -44,15 +40,6 @@ class CondenserBase(DiscriminatedUnionMixin, ABC):
             View | Condensation: A condensed view of the events or an event indicating
             the history has been condensed.
         """
-
-
-Condenser = Annotated[CondenserBase, DiscriminatedUnionType[CondenserBase]]
-"""Type annotation for values that can be any implementation of CondenserBase.
-
-In most situations, this is equivalent to CondenserBase. However, when used in Pydantic
-BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
-discriminator resolution until runtime.
-"""
 
 
 class RollingCondenser(CondenserBase, ABC):

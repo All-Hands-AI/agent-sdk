@@ -1,23 +1,22 @@
+from __future__ import annotations
+
 import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Annotated, Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from pydantic import ConfigDict, Field
 
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import Condenser
+from openhands.sdk.context.condenser.serialized_type import Condenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool, ToolType
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
-)
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
+from openhands.sdk.utils.pydantic_utils import KindTagMixin
 
 
 if TYPE_CHECKING:
@@ -26,7 +25,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class AgentBase(DiscriminatedUnionMixin, ABC):
+class AgentBase(KindTagMixin, ABC):
     model_config = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,
@@ -170,7 +169,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def resolve_diff_from_deserialized(self, persisted: "AgentType") -> "AgentType":
+    def resolve_diff_from_deserialized(self, persisted: AgentBase) -> AgentBase:
         """
         Return a new AgentBase instance equivalent to `persisted` but with
         explicitly whitelisted fields (e.g. api_key) taken from `self`.
@@ -203,6 +202,3 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if "tools" in dumped and isinstance(dumped["tools"], dict):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
-
-
-AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]
