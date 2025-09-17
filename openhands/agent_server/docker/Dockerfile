@@ -40,9 +40,7 @@ RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
     uv sync --frozen --dev --no-editable
 
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
-    uv run pyinstaller openhands/agent_server/agent-server.spec && \
-    mkdir -p /agent-server/dist && \
-    mv /agent-server/openhands/agent_server/dist/openhands-agent-server /agent-server/dist/
+    uv run pyinstaller openhands/agent_server/agent-server.spec
 # Fail fast if the expected binary is missing
 RUN test -x /agent-server/dist/openhands-agent-server
 
@@ -51,6 +49,8 @@ RUN test -x /agent-server/dist/openhands-agent-server
 ############################
 FROM ${BASE_IMAGE} AS base-image
 ARG USERNAME UID GID PORT
+
+COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
 RUN (getent group ${GID} || groupadd -g ${GID} ${USERNAME}) && \
     (id -u ${USERNAME} >/dev/null 2>&1 || useradd -m -u ${UID} -g ${GID} -s /usr/sbin/nologin ${USERNAME}) && \
@@ -69,9 +69,9 @@ FROM base-image AS source
 ARG USERNAME UV_PROJECT_ENVIRONMENT
 ENV UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT}
 
-COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/.venv /agent-server/.venv
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
-ENTRYPOINT ["uv", "run", "agent-server", "--no-reload"]
+ENTRYPOINT ["/agent-server/.venv/bin/python","-m","openhands.agent_server","--no-reload"]
+
 
 ############################
 # Target B: binary-runtime
