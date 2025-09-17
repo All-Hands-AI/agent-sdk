@@ -21,13 +21,13 @@ USER ${USERNAME}
 WORKDIR /src
 
 # Cache-friendly: lockfiles first
-COPY --chown=${USERNAME}:${USERNAME} pyproject.toml uv.lock* README.md LICENSE ./
+COPY --chown=${USERNAME}:${USERNAME} pyproject.toml uv.lock README.md LICENSE ./
+COPY --chown=${USERNAME}:${USERNAME} openhands ./openhands
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
     uv venv && . .venv/bin/activate && uv sync --frozen --dev
 
-# Project sources
-COPY --chown=${USERNAME}:${USERNAME} . .
-RUN . .venv/bin/activate && uv pip install -e .  # faster than building wheel and sufficint for dev
+RUN . .venv/bin/activate && \
+    uv pip install -e openhands/sdk -e openhands/tools -e openhands/agent_server
 
 ############################
 # Build a standalone binary
@@ -36,7 +36,7 @@ RUN . .venv/bin/activate && uv pip install -e .  # faster than building wheel an
 FROM builder AS build-binary
 ARG USERNAME UID GID
 
-RUN --mount=type=cache,target=/home/${USERNAME}/.cache/uv,uid=${UID},gid=${GID} \
+RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
     uv run pyinstaller openhands/agent_server/agent-server.spec && \
     mkdir -p /src/dist && \
     mv /src/openhands/agent_server/dist/openhands-agent-server /src/dist/
@@ -66,7 +66,9 @@ ARG USERNAME
 
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /src/.venv /agent-server/.venv
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /src /agent-server
-ENTRYPOINT ["/agent-server/.venv/bin/uvicorn", "openhands.agent_server"]
+# We do it explictly instead of $PATH to prevent LLM agent accidentally using
+# the venv's python for its own work.
+# ENTRYPOINT ["/agent-server/.venv/bin/uvicorn", "openhands.agent_server"]
 
 ############################
 # Target B: binary-runtime
