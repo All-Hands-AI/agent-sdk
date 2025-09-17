@@ -89,3 +89,22 @@ fi
 
 echo "[build] Done. Tags:"
 printf ' - %s\n' "${TAGS[@]}"
+
+
+# ------------------------------------------------------------
+# GitHub Actions outputs (if available)
+# ------------------------------------------------------------
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  {
+    printf 'image=%s\n' "${IMAGE}"
+    printf 'short_sha=%s\n' "${SHORT_SHA}"
+    printf 'versioned_tag=%s\n' "${VERSIONED_TAG}"
+    printf 'tags_csv=%s\n' "$(IFS=, ; echo "${TAGS[*]}")"
+  } >> "$GITHUB_OUTPUT"
+
+  {
+    echo 'tags<<EOF'
+    printf '%s\n' "${TAGS[@]}"
+    echo 'EOF'
+  } >> "$GITHUB_OUTPUT"
+fi

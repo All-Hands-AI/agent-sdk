@@ -115,6 +115,10 @@ jobs:
 
     build-and-push-image:
         name: Build & Push
+        outputs:
+            image: ${{ steps.build.outputs.image }}
+            short_sha: ${{ steps.build.outputs.short_sha }}
+            tags: ${{ steps.build.outputs.tags }}
         strategy:
             fail-fast: false
             matrix:
@@ -163,14 +167,52 @@ jobs:
               shell: bash
 
             - name: Build & Push (${{ matrix.name }})
+              id: build
               run: |
                   uv sync --frozen
                   ./openhands/agent_server/docker/build.sh
               shell: bash
 
-            - name: Summary (${{ matrix.name }})
+            - name: Summary (${{ matrix.name }}) - outputs
               run: |
-                  echo "Pushed image: ${IMAGE}"
-                  echo "Base image: ${BASE_IMAGE}"
-                  echo "Platforms: ${PLATFORMS}"
-              shell: bash
+                  echo "Image: ${{ steps.build.outputs.image }}"
+                  echo "Short SHA: ${{ steps.build.outputs.short_sha }}"
+                  echo "Versioned Tag: ${{ steps.build.outputs.versioned_tag }}"
+                  echo "Multiline tags:"
+                  echo "${{ steps.build.outputs.tags }}"
+
+    post-image-comment:
+        name: Post/Update PR image comment
+        needs: build-and-push-image
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write
+        env:
+            IMAGE: ${{ needs.build-and-push-image.outputs.image }}
+            SHORT_SHA: ${{ needs.build-and-push-image.outputs.short_sha }}
+
+        steps:
+            - name: Sticky PR comment with docker command
+              uses: marocchino/sticky-pull-request-comment@v2
+              with:
+                  header: agent-server-image
+                  recreate: true
+                  message: |
+                      **Agent Server image for this PR**
+
+                      Pull (multi-arch manifest):
+                      ```bash
+                      docker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
+                      ```
+
+                      Run:
+                      ```bash
+                      docker run -it --rm \
+                        -p 8000:8000 \
+                        --name agent-server-${{ env.SHORT_SHA }} \
+                        ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
+                      ```
+
+                      _This tag is a multi-arch manifest (amd64/arm64). Your client pulls the right arch automatically._
