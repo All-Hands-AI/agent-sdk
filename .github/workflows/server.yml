@@ -137,7 +137,7 @@ jobs:
 
         # Optional: ensure script is executable
             - name: Make build script executable
-              run: chmod +x ./scripts/build.sh
+              run: chmod +x ./openhands/agent_server/docker/build.sh
               shell: bash
 
             - name: Build & Push (binary)
