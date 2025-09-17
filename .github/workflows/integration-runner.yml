@@ -109,29 +109,19 @@ jobs:
 
       - name: Save test results for consolidation
         run: |
-          # Create a results summary file for this model
+          # Create a results summary file for this model using Python processor
           mkdir -p test_results_summary
           
-          # Write the test report to a temporary file to avoid shell quoting issues
+          # Write the test report to a temporary file
           echo "${{ env.INTEGRATION_TEST_REPORT }}" > /tmp/test_report.txt
           
-          # Extract total cost from the report (handle both decimal and scientific notation)
-          TOTAL_COST=$(grep -o "Total cost: \$[0-9]*\.[0-9]*\([eE][+-][0-9]*\)\?" /tmp/test_report.txt | sed 's/Total cost: \$//g')
-          if [ -z "$TOTAL_COST" ]; then
-            TOTAL_COST="0.0"
-          fi
-          
-          # Create the JSON file with proper escaping
-          cat > test_results_summary/${{ matrix.job-config.run-suffix }}_results.json << EOF
-          {
-            "model_name": "${{ matrix.job-config.name }}",
-            "run_suffix": "${{ matrix.job-config.run-suffix }}",
-            "test_report": $(jq -Rs . /tmp/test_report.txt),
-            "artifact_url": "${{ steps.upload_results_artifact.outputs.artifact-url }}",
-            "total_cost": $TOTAL_COST,
-            "status": "completed"
-          }
-          EOF
+          # Use Python processor to handle all text processing and JSON creation
+          python scripts/process_integration_results.py \
+            --model-name "${{ matrix.job-config.name }}" \
+            --run-suffix "${{ matrix.job-config.run-suffix }}" \
+            --report-file /tmp/test_report.txt \
+            --artifact-url "${{ steps.upload_results_artifact.outputs.artifact-url }}" \
+            --output-file "test_results_summary/${{ matrix.job-config.run-suffix }}_results.json"
           
           # Clean up temporary file
           rm -f /tmp/test_report.txt
