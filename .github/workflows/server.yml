@@ -1,0 +1,88 @@
+---
+name: Agent Server
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    build:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest, windows-latest]
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v3
+              with:
+                  version: latest
+            - name: Install dependencies
+              run: uv sync --dev
+
+            - name: Build binary
+              run: |
+                  make build-server
+
+            - name: Test binary
+              shell: bash
+              run: |
+                  if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+                      ./dist/openhands-agent-server.exe --help
+                  else
+                      ./dist/openhands-agent-server --help
+                  fi
+
+            - name: Upload binary artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: openhands-server-${{ matrix.os }}
+                  path: |
+                      dist/openhands-server*
+                  retention-days: 7
+
+    check-openapi-schema:
+        name: Check OpenAPI Schema
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout PR branch
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.head_ref }}
+                  fetch-depth: 0
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  version: latest
+
+            - name: Install dependencies
+              run: |
+                  uv sync --frozen --dev
+
+            - name: Check OpenAPI JSON and build client
+              shell: bash
+              env:
+                  PYTHONPATH: .
+              run: |
+                  set -euo pipefail
+                  export SCHEMA_PATH="$RUNNER_TEMP/openhands-openapi.json"
+
+                  # Generate OpenAPI JSON inline (no file left in repo)
+                  uv run python -c 'import os,json; from openhands.agent_server.api import api; p=os.environ["SCHEMA_PATH"]; open(p,"w").write(json.dumps(api.openapi(), indent=2)); print(f"Wrote {p}")'
+
+                  # Generate client from the temp schema and **fail on any warnings** to check
+                  uv run openapi-python-client generate \
+                    --path "$SCHEMA_PATH" \
+                    --output-path "$RUNNER_TEMP/openhands-client" \
+                    --meta uv \
+                    --overwrite \
+                    --fail-on-warning
+
+                  # Clean up temp schema
+                  rm -f "$SCHEMA_PATH"
