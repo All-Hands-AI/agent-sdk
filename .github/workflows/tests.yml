@@ -1,290 +1,291 @@
+---
 name: Run tests
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["**"]
+    push:
+        branches: [main]
+    pull_request:
+        branches: ['**']
 
 permissions:
-  contents: write
-  pull-requests: write
+    contents: write
+    pull-requests: write
 
 jobs:
-  sdk-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+    sdk-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with: {fetch-depth: 0}
 
-      - name: Detect sdk changes
-        id: changed
-        uses: tj-actions/changed-files@v47
-        with:
-          files: |
-            openhands/sdk/**
-            tests/sdk/**
-            pyproject.toml
-            uv.lock
-            .github/workflows/tests.yml
+            - name: Detect sdk changes
+              id: changed
+              uses: tj-actions/changed-files@v47
+              with:
+                  files: |
+                      openhands/sdk/**
+                      tests/sdk/**
+                      pyproject.toml
+                      uv.lock
+                      .github/workflows/tests.yml
 
-      - name: Install uv
-        if: steps.changed.outputs.any_changed == 'true'
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
+            - name: Install uv
+              if: steps.changed.outputs.any_changed == 'true'
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
 
-      - name: Install deps
-        if: steps.changed.outputs.any_changed == 'true'
-        run: uv sync --frozen --group dev
+            - name: Install deps
+              if: steps.changed.outputs.any_changed == 'true'
+              run: uv sync --frozen --group dev
 
-      - name: Run sdk tests with coverage
-        if: steps.changed.outputs.any_changed == 'true'
-        run: |
-          # Clean up any existing coverage file
-          rm -f .coverage
-          CI=true uv run python -m pytest -vvs \
-            --forked \
-            --cov=openhands/sdk \
-            --cov-report=term-missing \
-            --cov-fail-under=0 \
-            --cov-config=pyproject.toml \
-            tests/sdk
-          # Rename coverage file for upload
-          if [ -f .coverage ]; then
-            mv .coverage coverage-sdk.dat
-            echo "SDK coverage file prepared for upload"
-          fi
+            - name: Run sdk tests with coverage
+              if: steps.changed.outputs.any_changed == 'true'
+              run: |
+                  # Clean up any existing coverage file
+                  rm -f .coverage
+                  CI=true uv run python -m pytest -vvs \
+                    --forked \
+                    --cov=openhands/sdk \
+                    --cov-report=term-missing \
+                    --cov-fail-under=0 \
+                    --cov-config=pyproject.toml \
+                    tests/sdk
+                  # Rename coverage file for upload
+                  if [ -f .coverage ]; then
+                    mv .coverage coverage-sdk.dat
+                    echo "SDK coverage file prepared for upload"
+                  fi
 
-      - name: Upload sdk coverage
-        if: steps.changed.outputs.any_changed == 'true' && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-sdk
-          path: coverage-sdk.dat
-          if-no-files-found: warn
+            - name: Upload sdk coverage
+              if: steps.changed.outputs.any_changed == 'true' && always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage-sdk
+                  path: coverage-sdk.dat
+                  if-no-files-found: warn
 
-  tools-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+    tools-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with: {fetch-depth: 0}
 
-      - name: Detect tools changes
-        id: changed
-        uses: tj-actions/changed-files@v47
-        with:
-          files: |
-            openhands/tools/**
-            tests/tools/**
-            pyproject.toml
-            uv.lock
-            .github/workflows/tests.yml
-      
-      - name: Install uv
-        if: steps.changed.outputs.any_changed == 'true'
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
+            - name: Detect tools changes
+              id: changed
+              uses: tj-actions/changed-files@v47
+              with:
+                  files: |
+                      openhands/tools/**
+                      tests/tools/**
+                      pyproject.toml
+                      uv.lock
+                      .github/workflows/tests.yml
 
-      - name: Install deps
-        if: steps.changed.outputs.any_changed == 'true'
-        run: uv sync --frozen --group dev
+            - name: Install uv
+              if: steps.changed.outputs.any_changed == 'true'
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
 
-      - name: Run tools tests with coverage
-        if: steps.changed.outputs.any_changed == 'true'
-        run: |
-          # Clean up any existing coverage file
-          rm -f .coverage
-          CI=true uv run python -m pytest -vvs \
-            --forked \
-            --cov=openhands/tools \
-            --cov-report=term-missing \
-            --cov-fail-under=0 \
-            --cov-config=pyproject.toml \
-            tests/tools
-          # Rename coverage file for upload
-          if [ -f .coverage ]; then
-            mv .coverage coverage-tools.dat
-            echo "Tools coverage file prepared for upload"
-          fi
+            - name: Install deps
+              if: steps.changed.outputs.any_changed == 'true'
+              run: uv sync --frozen --group dev
 
-      - name: Upload tools coverage
-        if: steps.changed.outputs.any_changed == 'true' && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-tools
-          path: coverage-tools.dat
-          if-no-files-found: warn
+            - name: Run tools tests with coverage
+              if: steps.changed.outputs.any_changed == 'true'
+              run: |
+                  # Clean up any existing coverage file
+                  rm -f .coverage
+                  CI=true uv run python -m pytest -vvs \
+                    --forked \
+                    --cov=openhands/tools \
+                    --cov-report=term-missing \
+                    --cov-fail-under=0 \
+                    --cov-config=pyproject.toml \
+                    tests/tools
+                  # Rename coverage file for upload
+                  if [ -f .coverage ]; then
+                    mv .coverage coverage-tools.dat
+                    echo "Tools coverage file prepared for upload"
+                  fi
 
-  agent-server-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+            - name: Upload tools coverage
+              if: steps.changed.outputs.any_changed == 'true' && always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage-tools
+                  path: coverage-tools.dat
+                  if-no-files-found: warn
 
-      - name: Detect Agent Server changes
-        id: changed
-        uses: tj-actions/changed-files@v47
-        with:
-          files: |
-            openhands/agent_server/**
-            tests/agent_server/**
-            pyproject.toml
-            uv.lock
-            .github/workflows/tests.yml
+    agent-server-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with: {fetch-depth: 0}
 
-      - name: Install uv
-        if: steps.changed.outputs.any_changed == 'true'
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
+            - name: Detect Agent Server changes
+              id: changed
+              uses: tj-actions/changed-files@v47
+              with:
+                  files: |
+                      openhands/agent_server/**
+                      tests/agent_server/**
+                      pyproject.toml
+                      uv.lock
+                      .github/workflows/tests.yml
 
-      - name: Install deps
-        if: steps.changed.outputs.any_changed == 'true'
-        run: uv sync --frozen --group dev
+            - name: Install uv
+              if: steps.changed.outputs.any_changed == 'true'
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
 
-      - name: Run Agent Server tests with coverage
-        if: steps.changed.outputs.any_changed == 'true'
-        run: |
-          # Clean up any existing coverage file
-          rm -f .coverage
-          CI=true uv run python -m pytest -vvs \
-            --forked \
-            --cov=openhands/agent_server \
-            --cov-report=term-missing \
-            --cov-fail-under=0 \
-            --cov-config=pyproject.toml \
-            tests/agent_server
-          # Rename coverage file for upload
-          if [ -f .coverage ]; then
-            mv .coverage coverage-agent-server.dat
-            echo "Agent Server coverage file prepared for upload"
-          fi
+            - name: Install deps
+              if: steps.changed.outputs.any_changed == 'true'
+              run: uv sync --frozen --group dev
 
-      - name: Upload Agent Server coverage
-        if: steps.changed.outputs.any_changed == 'true' && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-agent-server
-          path: coverage-agent-server.dat
-          if-no-files-found: warn
+            - name: Run Agent Server tests with coverage
+              if: steps.changed.outputs.any_changed == 'true'
+              run: |
+                  # Clean up any existing coverage file
+                  rm -f .coverage
+                  CI=true uv run python -m pytest -vvs \
+                    --forked \
+                    --cov=openhands/agent_server \
+                    --cov-report=term-missing \
+                    --cov-fail-under=0 \
+                    --cov-config=pyproject.toml \
+                    tests/agent_server
+                  # Rename coverage file for upload
+                  if [ -f .coverage ]; then
+                    mv .coverage coverage-agent-server.dat
+                    echo "Agent Server coverage file prepared for upload"
+                  fi
 
-  cross-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+            - name: Upload Agent Server coverage
+              if: steps.changed.outputs.any_changed == 'true' && always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage-agent-server
+                  path: coverage-agent-server.dat
+                  if-no-files-found: warn
 
-      - name: Detect cross changes
-        id: changed
-        uses: tj-actions/changed-files@v47
-        with:
-          files: |
-            tests/**
-            openhands/**
-            pyproject.toml
-            uv.lock
-            .github/workflows/tests.yml
-      
-      - name: Install uv
-        if: steps.changed.outputs.any_changed == 'true'
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
+    cross-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with: {fetch-depth: 0}
 
-      - name: Install deps
-        if: steps.changed.outputs.any_changed == 'true'
-        run: uv sync --frozen --group dev
+            - name: Detect cross changes
+              id: changed
+              uses: tj-actions/changed-files@v47
+              with:
+                  files: |
+                      tests/**
+                      openhands/**
+                      pyproject.toml
+                      uv.lock
+                      .github/workflows/tests.yml
 
-      - name: Run cross tests with coverage
-        if: steps.changed.outputs.any_changed == 'true'
-        run: |
-          # Clean up any existing coverage file
-          rm -f .coverage
-          CI=true uv run python -m pytest -vvs \
-            --basetemp="${{ runner.temp }}/pytest" \
-            -o tmp_path_retention=none \
-            -o tmp_path_retention_count=0 \
-            --cov=openhands \
-            --cov-report=term-missing \
-            --cov-fail-under=0 \
-            --cov-config=pyproject.toml \
-            tests/cross
-          # Rename coverage file for upload
-          if [ -f .coverage ]; then
-            mv .coverage coverage-cross.dat
-            echo "Cross coverage file prepared for upload"
-          fi
+            - name: Install uv
+              if: steps.changed.outputs.any_changed == 'true'
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
 
-      - name: Upload cross coverage
-        if: steps.changed.outputs.any_changed == 'true' && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-cross
-          path: coverage-cross.dat
-          if-no-files-found: warn
+            - name: Install deps
+              if: steps.changed.outputs.any_changed == 'true'
+              run: uv sync --frozen --group dev
 
-  coverage-report:
-    runs-on: ubuntu-latest
-    needs: [sdk-tests, tools-tests, agent-server-tests, cross-tests]
-    if: always() && github.event_name == 'pull_request'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+            - name: Run cross tests with coverage
+              if: steps.changed.outputs.any_changed == 'true'
+              run: |
+                  # Clean up any existing coverage file
+                  rm -f .coverage
+                  CI=true uv run python -m pytest -vvs \
+                    --basetemp="${{ runner.temp }}/pytest" \
+                    -o tmp_path_retention=none \
+                    -o tmp_path_retention_count=0 \
+                    --cov=openhands \
+                    --cov-report=term-missing \
+                    --cov-fail-under=0 \
+                    --cov-config=pyproject.toml \
+                    tests/cross
+                  # Rename coverage file for upload
+                  if [ -f .coverage ]; then
+                    mv .coverage coverage-cross.dat
+                    echo "Cross coverage file prepared for upload"
+                  fi
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
+            - name: Upload cross coverage
+              if: steps.changed.outputs.any_changed == 'true' && always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage-cross
+                  path: coverage-cross.dat
+                  if-no-files-found: warn
 
-      - name: Install deps (for coverage CLI)
-        run: uv sync --frozen --group dev
+    coverage-report:
+        runs-on: ubuntu-latest
+        needs: [sdk-tests, tools-tests, agent-server-tests, cross-tests]
+        if: always() && github.event_name == 'pull_request'
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
 
-      - name: Download coverage artifacts
-        uses: actions/download-artifact@v5
-        with:
-          path: ./cov
-        continue-on-error: true
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
 
-      - name: Combine coverage data
-        run: |
-          shopt -s nullglob
-          # For some reason, the github action won't properly upload the original
-          # .converage* files
-          # Convert uploaded .dat files back to .coverage format for coverage tool
-          for dat_file in cov/**/coverage-*.dat; do
-            if [[ "$dat_file" == *coverage-sdk.dat ]]; then
-              cp "$dat_file" .coverage.sdk
-            elif [[ "$dat_file" == *coverage-tools.dat ]]; then
-              cp "$dat_file" .coverage.tools  
-            elif [[ "$dat_file" == *coverage-cross.dat ]]; then
-              cp "$dat_file" .coverage.cross
-            fi
-          done
-          
-          # Check if we have any coverage files
-          coverage_files=(.coverage.*)
-          if [ ${#coverage_files[@]} -eq 0 ]; then
-            echo "No coverage files found; skipping combined report."
-            exit 0
-          fi
-          
-          echo "Found ${#coverage_files[@]} coverage files"
-          uv run coverage combine
-          uv run coverage xml -i -o coverage.xml
-          uv run coverage report -m
+            - name: Install deps (for coverage CLI)
+              run: uv sync --frozen --group dev
 
-      - name: Pytest coverage PR comment
-        if: always()
-        continue-on-error: true
-        uses: MishaKav/pytest-coverage-comment@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          pytest-xml-coverage-path: coverage.xml
-          title: Coverage Report
-          create-new-comment: false
+            - name: Download coverage artifacts
+              uses: actions/download-artifact@v5
+              with:
+                  path: ./cov
+              continue-on-error: true
+
+            - name: Combine coverage data
+              run: |
+                  shopt -s nullglob
+                  # For some reason, the github action won't properly upload the original
+                  # .converage* files
+                  # Convert uploaded .dat files back to .coverage format for coverage tool
+                  for dat_file in cov/**/coverage-*.dat; do
+                    if [[ "$dat_file" == *coverage-sdk.dat ]]; then
+                      cp "$dat_file" .coverage.sdk
+                    elif [[ "$dat_file" == *coverage-tools.dat ]]; then
+                      cp "$dat_file" .coverage.tools  
+                    elif [[ "$dat_file" == *coverage-cross.dat ]]; then
+                      cp "$dat_file" .coverage.cross
+                    fi
+                  done
+
+                  # Check if we have any coverage files
+                  coverage_files=(.coverage.*)
+                  if [ ${#coverage_files[@]} -eq 0 ]; then
+                    echo "No coverage files found; skipping combined report."
+                    exit 0
+                  fi
+
+                  echo "Found ${#coverage_files[@]} coverage files"
+                  uv run coverage combine
+                  uv run coverage xml -i -o coverage.xml
+                  uv run coverage report -m
+
+            - name: Pytest coverage PR comment
+              if: always()
+              continue-on-error: true
+              uses: MishaKav/pytest-coverage-comment@v1
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  pytest-xml-coverage-path: coverage.xml
+                  title: Coverage Report
+                  create-new-comment: false
