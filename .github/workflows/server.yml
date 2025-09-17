@@ -28,8 +28,9 @@ jobs:
                   make build-server
 
             - name: Test binary
+              shell: bash
               run: |
-                  if [ "${{ matrix.os }}" = "windows-latest" ]; then
+                  if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
                       ./dist/openhands-agent-server.exe --help
                   else
                       ./dist/openhands-agent-server --help
