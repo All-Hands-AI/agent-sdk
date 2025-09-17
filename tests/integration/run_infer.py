@@ -124,15 +124,8 @@ def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> Eval
         test_result = test_instance.run_instruction()
         end_time = time.time()
 
-        llm_cost = getattr(test_instance.llm, "accumulated_cost", 0.0)
-
-        # Debug: Check if cost is a valid number
-        if not isinstance(llm_cost, (int, float)):
-            print(
-                f"WARNING: Invalid cost type for {instance.instance_id}: "
-                f"{type(llm_cost)} = {llm_cost}"
-            )
-            llm_cost = 0.0
+        # Access accumulated_cost from the metrics object where it's properly validated
+        llm_cost = getattr(test_instance.llm.metrics, "accumulated_cost", 0.0)
 
         print(
             f"Test {instance.instance_id} completed in {end_time - start_time:.2f}s: "
@@ -214,20 +207,7 @@ def generate_report(output_file: str, eval_note: str) -> str:
     success_count = df["success"].sum()
     total_count = len(df)
 
-    # Safely sum cost column, handling mixed data types
-    try:
-        total_cost = df["cost"].sum()
-    except (TypeError, ValueError) as e:
-        print(f"Warning: Error summing cost column (mixed data types): {e}")
-        # Convert all cost values to numeric, replacing invalid values with 0.0
-        numeric_costs = []
-        for cost in df["cost"]:
-            try:
-                numeric_costs.append(float(cost))
-            except (ValueError, TypeError):
-                print(f"Warning: Invalid cost value '{cost}', using 0.0")
-                numeric_costs.append(0.0)
-        total_cost = sum(numeric_costs)
+    total_cost = df["cost"].sum()
 
     print("-" * 100)
     print(f"Success rate: {success_rate:.2%} ({success_count}/{total_count})")
