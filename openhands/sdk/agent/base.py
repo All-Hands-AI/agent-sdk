@@ -47,7 +47,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    cli_mode: bool = Field(default=True)
     security_analyzer: analyzer.SecurityAnalyzer | None = None
     condenser: Condenser | None = Field(
         default=None,
