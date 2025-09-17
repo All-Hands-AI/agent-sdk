@@ -518,7 +518,7 @@ def test_merge_conversation_stats_success_non_overlapping(mock_file_store):
     stats_b.restored_metrics = {"b-restored": m_b_restored}
 
     # Merge B into A
-    stats_a.merge_and_save(stats_b)
+    stats_a.merge(stats_b)
 
     # Active metrics should not be merged; only self's active metrics remain
     assert set(stats_a.service_to_metrics.keys()) == {
@@ -588,7 +588,7 @@ def test_merge_conversation_stats_duplicates_overwrite_and_log_errors(
 
     # Perform merge; should not raise and should
     # log error internally if active metrics present
-    stats_a.merge_and_save(stats_b)
+    stats_a.merge(stats_b)
 
     # Only restored metrics are merged; duplicates are allowed with incoming overwriting
     if other_side == "restored":

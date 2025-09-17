@@ -1,4 +1,3 @@
-from threading import Lock
 from typing import Optional
 
 from pydantic import BaseModel, Field, PrivateAttr
@@ -25,7 +24,6 @@ class ConversationStats(BaseModel):
     )
 
     # Private attributes that won't be serialized
-    _save_lock: Lock = PrivateAttr(default_factory=Lock)
     _file_store: Optional[FileStore] = PrivateAttr(default=None)
     _conversation_id: Optional[ConversationID] = PrivateAttr(default=None)
     _metrics_file_name: str = PrivateAttr(default="conversation_stats.pkl")
@@ -34,9 +32,7 @@ class ConversationStats(BaseModel):
         self,
         file_store: FileStore | None = None,
         conversation_id: ConversationID | None = None,
-        **data,
     ):
-        super().__init__(**data)
         self._file_store = file_store
         self._conversation_id = conversation_id
 
@@ -54,47 +50,6 @@ class ConversationStats(BaseModel):
     @property
     def metrics_file_name(self) -> str:
         return self._metrics_file_name
-
-    def save_metrics(self):
-        if not self.file_store:
-            return
-
-        with self._save_lock:
-            # Check for duplicate service IDs between restored and service metrics
-            duplicate_services = set(self.restored_metrics.keys()) & set(
-                self.service_to_metrics.keys()
-            )
-            if duplicate_services:
-                logger.error(
-                    "Duplicate service IDs found between restored"
-                    f"and service metrics: {duplicate_services}. "
-                    "This should not happen as registered services"
-                    "should be removed from restored_metrics. "
-                    "Prefer service_to_metrics values for duplicates.",
-                    extra={
-                        "conversation_id": self.conversation_id,
-                        "duplicate_services": list(duplicate_services),
-                    },
-                )
-
-            # Combine both restored metrics and service metrics to avoid data loss
-            # Start with restored metrics (for services not yet registered)
-            combined_metrics = self.restored_metrics.copy()
-
-            # Add service metrics (for registered services)
-            # Since we checked for duplicates above, this is safe
-            combined_metrics.update(self.service_to_metrics)
-
-            # Note: With Pydantic integration, this method will be deprecated
-            # as serialization will be handled by ConversationState
-            logger.warning(
-                "save_metrics called on ConversationStats - "
-                "this should be handled by ConversationState serialization"
-            )
-            logger.info(
-                "Saved conversation stats",
-                extra={"conversation_id": self.conversation_id},
-            )
 
     def maybe_restore_metrics(self):
         # Note: With Pydantic integration, this method will be deprecated
@@ -140,7 +95,7 @@ class ConversationStats(BaseModel):
         if llm.metrics:
             self.service_to_metrics[service_id] = llm.metrics
 
-    def merge_and_save(self, conversation_stats: "ConversationStats"):
+    def merge(self, conversation_stats: "ConversationStats") -> dict[str, Metrics]:
         """
         Merge restored metrics from another ConversationStats into this one.
 
@@ -157,7 +112,6 @@ class ConversationStats(BaseModel):
         - Merge only `restored_metrics`. For duplicate keys, the incoming
           `conversation_stats.restored_metrics` overwrites existing entries.
         - Do NOT merge `service_to_metrics` here.
-        - Persist results by calling save_metrics().
         """
 
         # If either side has active service metrics, log an error but proceed
@@ -190,9 +144,33 @@ class ConversationStats(BaseModel):
         # Merge restored metrics, allowing incoming to overwrite
         self.restored_metrics.update(conversation_stats.restored_metrics)
 
-        # Save merged state
-        self.save_metrics()
+        duplicate_services = set(self.restored_metrics.keys()) & set(
+            self.service_to_metrics.keys()
+        )
+        if duplicate_services:
+            logger.error(
+                "Duplicate service IDs found between restored"
+                f"and service metrics: {duplicate_services}. "
+                "This should not happen as registered services"
+                "should be removed from restored_metrics. "
+                "Prefer service_to_metrics values for duplicates.",
+                extra={
+                    "conversation_id": self.conversation_id,
+                    "duplicate_services": list(duplicate_services),
+                },
+            )
+
+        # Combine both restored metrics and service metrics to avoid data loss
+        # Start with restored metrics (for services not yet registered)
+        combined_metrics = self.restored_metrics.copy()
+
+        # Add service metrics (for registered services)
+        # Since we checked for duplicates above, this is safe
+        combined_metrics.update(self.service_to_metrics)
+
         logger.info(
             "Merged conversation stats",
             extra={"conversation_id": self.conversation_id},
         )
+
+        return combined_metrics
