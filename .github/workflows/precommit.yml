@@ -1,32 +1,33 @@
+---
 # .github/workflows/precommit.yml
 name: Pre-commit checks
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["**"]
+    push:
+        branches: [main]
+    pull_request:
+        branches: ['**']
 
 jobs:
-  pre-commit:
-    runs-on: ubuntu-latest
+    pre-commit:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
+            - name: Set up Python
+              uses: actions/setup-python@v6
+              with:
+                  python-version: '3.12'
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
 
-      - name: Install dependencies
-        run: uv sync --frozen
+            - name: Install dependencies
+              run: uv sync --frozen
 
-      - name: Run pre-commit (all files)
-        uses: pre-commit/action@v3.0.1
-        with:
-          extra_args: --all-files
+            - name: Run pre-commit (all files)
+              uses: pre-commit/action@v3.0.1
+              with:
+                  extra_args: --all-files

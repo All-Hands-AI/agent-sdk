@@ -5,17 +5,20 @@ Utility function to format cost values with appropriate precision.
 """
 
 
-def format_cost(value):
+def format_cost(value: float) -> str:
     """
     Format cost with smart precision to show meaningful values even for small amounts.
 
     Args:
-        cost: The cost value to format
+        value: The cost value to format (must be a numeric value)
 
     Returns:
         Formatted cost string with appropriate precision
     """
-    if abs(value) >= 0.01:
+    if value == 0.0:
+        # Handle zero as a special case
+        return "$0.00"
+    elif abs(value) >= 0.01:
         # Normal rounding for typical amounts
         return f"${value:.2f}"
     elif abs(value) >= 0.001:
