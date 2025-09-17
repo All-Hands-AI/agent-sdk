@@ -6,19 +6,13 @@ Generate markdown report for PR comments from consolidated JSON results.
 import argparse
 import json
 import sys
-from pathlib import Path
 from typing import List
 
-
-# Add the project root to the path so we can import from tests
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from tests.integration.schemas import (  # noqa: E402
+from tests.integration.schemas import (
     ConsolidatedResults,
     ModelTestResults,
 )
-from tests.integration.utils.format_costs import format_cost  # noqa: E402
+from tests.integration.utils.format_costs import format_cost
 
 
 def generate_model_summary_table(model_results: List[ModelTestResults]) -> str:
