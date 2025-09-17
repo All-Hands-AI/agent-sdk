@@ -149,17 +149,17 @@ def test_agent_env_provider_no_matches(
     assert env_vars == {}
 
 
-def test_agent_without_bash_throws_warning(caplog, llm):
+def test_agent_without_bash_throws_warning(llm):
     """Test that agent works correctly when no bash tools are present."""
-    with caplog.at_level("WARNING"):
+    from unittest.mock import patch
+
+    with patch("openhands.sdk.agent.agent.logger") as mock_logger:
         _ = Conversation(agent=Agent(llm=llm, tools=[]))
 
-    messages = [
-        rec.getMessage() for rec in caplog.records if rec.levelno >= 30
-    ]  # WARNING+
-    assert any(
-        "Skipped wiring SecretsManager: missing bash tool" in m for m in messages
-    ), f"Expected a warning about missing 'execute_bash' tool; got: {messages}"
+        # Check that the warning was logged
+        mock_logger.warning.assert_called_once_with(
+            "Skipped wiring SecretsManager: missing bash tool"
+        )
 
 
 def test_agent_secrets_integration_workflow(

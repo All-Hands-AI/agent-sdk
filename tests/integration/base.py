@@ -143,6 +143,28 @@ class BaseIntegrationTest(ABC):
         """
         pass
 
+    def get_agent_final_response(self) -> str:
+        """Extract the final response from the agent's finish tool call."""
+
+        # Find the last finish action from the agent
+        for event in reversed(self.conversation.state.events):
+            if (
+                type(event).__name__ == "ActionEvent"
+                and hasattr(event, "source")
+                and getattr(event, "source") == "agent"
+                and hasattr(event, "tool_name")
+                and getattr(event, "tool_name") == "finish"
+            ):
+                # Extract message from finish tool call
+                if hasattr(event, "action") and hasattr(
+                    getattr(event, "action"), "message"
+                ):
+                    message = getattr(getattr(event, "action"), "message")
+                    return message
+                else:
+                    break
+        return ""
+
     @abstractmethod
     def teardown(self):
         """Clean up test resources."""
