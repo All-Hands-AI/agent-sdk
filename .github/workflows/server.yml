@@ -114,7 +114,28 @@ jobs:
     #               rm -f "$SCHEMA_PATH"
 
     build-and-push-image:
-        runs-on: ubuntu-latest
+        name: Build & Push (multi-arch on separate runners)
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - name: amd64
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64
+                    - name: arm64
+                      runner: blacksmith-8vcpu-ubuntu-2404-arm
+                      platforms: linux/arm64
+
+        runs-on: ${{ matrix.runner }}
+
+        env:
+            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
+            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || 'nikolaik/python-nodejs:python3.12-nodejs22' }}
+            TARGET: binary
+            PLATFORMS: ${{ matrix.platforms }}
+            GITHUB_SHA: ${{ github.sha }}
+            GITHUB_REF: ${{ github.ref }}
+            CI: 'true'
 
         steps:
             - name: Checkout
@@ -124,9 +145,6 @@ jobs:
               uses: astral-sh/setup-uv@v6
               with:
                   version: latest
-
-            - name: Set up QEMU (multi-arch)
-              uses: docker/setup-qemu-action@v3
 
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
@@ -140,28 +158,17 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
-        # Optional: ensure script is executable
             - name: Make build script executable
               run: chmod +x ./openhands/agent_server/docker/build.sh
               shell: bash
 
-            - name: Build & Push (binary)
-              env:
-            # Script reads these to decide behavior/tagging
-                  IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
-                  BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || 'nikolaik/python-nodejs:python3.12-nodejs22' }}
-                  TARGET: binary
-                  PLATFORMS: ${{ inputs.platforms != '' && inputs.platforms || 'linux/amd64,linux/arm64' }}
-            # Provided automatically by Actions; your script already reads them:
-                  GITHUB_SHA: ${{ github.sha }}
-                  GITHUB_REF: ${{ github.ref }}
-                  CI: 'true'
+            - name: Build & Push (${{ matrix.name }})
               run: |
                   uv sync --frozen
                   ./openhands/agent_server/docker/build.sh
               shell: bash
 
-            - name: Summary
+            - name: Summary (${{ matrix.name }})
               run: |
                   echo "Pushed image: ${IMAGE}"
                   echo "Base image: ${BASE_IMAGE}"
