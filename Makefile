@@ -68,3 +68,8 @@ help:
 	@echo "  $(GREEN)lint$(RESET)         - Lint code with ruff"
 	@echo "  $(GREEN)clean$(RESET)        - Clean up cache files"
 	@echo "  $(GREEN)help$(RESET)         - Show this help message"
+
+build-server: check-uv-version
+	@echo "$(CYAN)Building agent-server executable...$(RESET)"
+	@uv run pyinstaller openhands/agent_server/agent-server.spec
+	@echo "$(GREEN)Build complete! Executable is in dist/agent-server/$(RESET)"
