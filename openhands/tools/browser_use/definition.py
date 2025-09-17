@@ -546,3 +546,27 @@ class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
             annotations=browser_close_tab_tool.annotations,
             executor=executor,
         )
+
+
+class BrowserToolSet(Tool):
+    """A set of all browser tools.
+
+    This tool set includes all available browser-related tools
+      for interacting with web pages.
+    """
+
+    @classmethod
+    def create(cls) -> list[Tool]:
+        executor = BrowserToolExecutor()
+        return [
+            browser_navigate_tool.set_executor(executor),
+            browser_click_tool.set_executor(executor),
+            browser_get_state_tool.set_executor(executor),
+            browser_get_content_tool.set_executor(executor),
+            browser_type_tool.set_executor(executor),
+            browser_scroll_tool.set_executor(executor),
+            browser_go_back_tool.set_executor(executor),
+            browser_list_tabs_tool.set_executor(executor),
+            browser_switch_tab_tool.set_executor(executor),
+            browser_close_tab_tool.set_executor(executor),
+        ]

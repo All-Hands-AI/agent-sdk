@@ -97,8 +97,8 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Tool":
-        """Create a Tool instance. Placeholder for subclasses.
+    def create(cls, *args, **kwargs) -> "Tool | list[Tool]":
+        """Create a Tool instance OR a list of them. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).
@@ -213,23 +213,3 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
 
 
 ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]
-
-
-class ToolSpec(BaseModel):
-    """Defines a tool to be initialized for the agent.
-
-    This is only used in agent-sdk for type schema for server use.
-    """
-
-    name: str = Field(
-        ...,
-        description="Name of the tool class, e.g., 'BashTool', "
-        "must be importable from openhands.tools",
-        examples=["BashTool", "FileEditorTool", "TaskTrackerTool"],
-    )
-    params: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Parameters for the tool's .create() method,"
-        " e.g., {'working_dir': '/app'}",
-        examples=[{"working_dir": "/workspace"}],
-    )

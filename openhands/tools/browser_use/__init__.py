@@ -20,6 +20,7 @@ from openhands.tools.browser_use.definition import (
     BrowserScrollTool,
     BrowserSwitchTabAction,
     BrowserSwitchTabTool,
+    BrowserToolSet,
     BrowserTypeAction,
     BrowserTypeTool,
     browser_click_tool,
@@ -74,4 +75,5 @@ __all__ = [
     "BrowserObservation",
     # Executor
     "BrowserToolExecutor",
+    "BrowserToolSet",
 ]

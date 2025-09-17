@@ -8,11 +8,11 @@ from openhands.sdk.tool.schema import (
     Observation,
     ObservationBase,
 )
+from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import (
     Tool,
     ToolAnnotations,
     ToolExecutor,
-    ToolSpec,
     ToolType,
 )
 

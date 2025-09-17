@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 from typing import Any, Literal, cast
 
-import mcp.types
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -23,7 +22,7 @@ class BaseContent(BaseModel):
         raise NotImplementedError("Subclasses should implement this method.")
 
 
-class TextContent(mcp.types.TextContent, BaseContent):
+class TextContent(BaseContent):
     type: Literal["text"] = "text"
     text: str
     # We use populate_by_name since mcp.types.TextContent
