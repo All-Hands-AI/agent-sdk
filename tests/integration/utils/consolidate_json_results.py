@@ -12,7 +12,7 @@ from typing import List
 
 
 # Add the project root to the path so we can import from tests
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from tests.integration.schemas import (  # noqa: E402
