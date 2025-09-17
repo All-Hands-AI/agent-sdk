@@ -23,7 +23,8 @@ from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolSpec
 
 
 try:
-    __version__ = version("openhands.sdk")
+    # Server should have same version as sdk
+    __version__ = version("openhands-sdk")
 except PackageNotFoundError:
     __version__ = "0.0.0"  # fallback for editable/unbuilt environments
 
