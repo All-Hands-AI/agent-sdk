@@ -5,7 +5,7 @@ from litellm.types.utils import Function
 
 from openhands.sdk.event import ActionEvent, PauseEvent
 from openhands.sdk.llm import TextContent
-from openhands.sdk.security.analyzer import SecurityAnalyzer
+from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool import ActionBase
 
@@ -16,16 +16,15 @@ class MockAction(ActionBase):
     command: str = "test_command"
 
 
-class TestSecurityAnalyzer(SecurityAnalyzer):
+class TestSecurityAnalyzer(SecurityAnalyzerBase):
     """Test implementation of SecurityAnalyzer with controllable security_risk
     method.
     """
 
-    def __init__(self, risk_return_value: SecurityRisk = SecurityRisk.LOW):
-        self.risk_return_value = risk_return_value
-        self.security_risk_calls: list[ActionBase] = []
-        self.handle_api_request_calls: list[dict] = []
-        self.close_calls: list[bool] = []
+    risk_return_value: SecurityRisk = SecurityRisk.LOW
+    security_risk_calls: list[ActionBase] = []
+    handle_api_request_calls: list[dict] = []
+    close_calls: list[bool] = []
 
     def security_risk(self, action: ActionBase) -> SecurityRisk:
         """Return configurable risk level for testing."""
@@ -60,7 +59,7 @@ def create_mock_action_event(action: ActionBase) -> ActionEvent:
 
 def test_analyze_event_with_action_event():
     """Test analyze_event with ActionEvent returns security risk."""
-    analyzer = TestSecurityAnalyzer(SecurityRisk.MEDIUM)
+    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.MEDIUM)
     action = MockAction(command="test")
     action_event = create_mock_action_event(action)
 
@@ -73,7 +72,7 @@ def test_analyze_event_with_action_event():
 
 def test_analyze_event_with_non_action_event():
     """Test analyze_event with non-ActionEvent returns None."""
-    analyzer = TestSecurityAnalyzer(SecurityRisk.HIGH)
+    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.HIGH)
 
     result = analyzer.analyze_event(PauseEvent())
 
@@ -83,7 +82,7 @@ def test_analyze_event_with_non_action_event():
 
 def test_analyze_pending_actions_success():
     """Test analyze_pending_actions with successful analysis."""
-    analyzer = TestSecurityAnalyzer(SecurityRisk.MEDIUM)
+    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.MEDIUM)
 
     action1 = MockAction(command="action1")
     action2 = MockAction(command="action2")
@@ -102,7 +101,7 @@ def test_analyze_pending_actions_success():
 
 def test_analyze_pending_actions_empty_list():
     """Test analyze_pending_actions with empty list."""
-    analyzer = TestSecurityAnalyzer(SecurityRisk.LOW)
+    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.LOW)
 
     result = analyzer.analyze_pending_actions([])
 
@@ -129,17 +128,18 @@ def test_analyze_pending_actions_with_exception():
     assert len(analyzer.security_risk_calls) == 1
 
 
-def test_analyze_pending_actions_mixed_risks():
+def test_analyze_pending_actions_mixed_risks() -> None:
     """Test analyze_pending_actions with different risk levels."""
 
     class VariableRiskAnalyzer(TestSecurityAnalyzer):
-        def __init__(self):
-            super().__init__()
-            self.call_count = 0
-            self.risks = [SecurityRisk.LOW, SecurityRisk.HIGH, SecurityRisk.MEDIUM]
+        call_count: int = 0
+        risks: list[SecurityRisk] = [
+            SecurityRisk.LOW,
+            SecurityRisk.HIGH,
+            SecurityRisk.MEDIUM,
+        ]
 
         def security_risk(self, action: ActionBase) -> SecurityRisk:
-            super().security_risk(action)
             risk = self.risks[self.call_count % len(self.risks)]
             self.call_count += 1
             return risk
@@ -162,6 +162,10 @@ def test_analyze_pending_actions_partial_failure():
 
     class PartiallyFailingAnalyzer(TestSecurityAnalyzer):
         def security_risk(self, action: ActionBase) -> SecurityRisk:
+            # In general not needed, but the test security analyzer is also recording
+            # all the calls for testing purposes and this ensures we keep that behavior
+            super().security_risk(action)
+
             assert hasattr(action, "command")
             if getattr(action, "command") == "failing_action":
                 raise RuntimeError("Specific action failed")

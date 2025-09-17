@@ -1,18 +1,21 @@
 from abc import ABC, abstractmethod
-
-from pydantic import BaseModel
+from typing import Annotated
 
 from openhands.sdk.event import Event
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool.schema import Action
+from openhands.sdk.utils.discriminated_union import (
+    DiscriminatedUnionMixin,
+    DiscriminatedUnionType,
+)
 
 
 logger = get_logger(__name__)
 
 
-class SecurityAnalyzer(BaseModel, ABC):
+class SecurityAnalyzerBase(DiscriminatedUnionMixin, ABC):
     """Abstract base class for security analyzers.
 
     Security analyzers evaluate the risk of actions before they are executed
@@ -109,3 +112,8 @@ class SecurityAnalyzer(BaseModel, ABC):
                 analyzed_actions.append((action_event, SecurityRisk.HIGH))
 
         return analyzed_actions
+
+
+SecurityAnalyzer = Annotated[
+    SecurityAnalyzerBase, DiscriminatedUnionType[SecurityAnalyzerBase]
+]

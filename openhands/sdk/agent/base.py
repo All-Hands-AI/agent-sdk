@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Sequence
 
 from pydantic import ConfigDict, Field
 
+import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser import Condenser
@@ -13,7 +14,6 @@ from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool, ToolType
-from openhands.sdk.security import SecurityAnalyzer
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -48,7 +48,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         examples=[{"cli_mode": True}],
     )
     cli_mode: bool = Field(default=True)
-    security_analyzer: SecurityAnalyzer | None = None
+    security_analyzer: analyzer.SecurityAnalyzer | None = None
     condenser: Condenser | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",
