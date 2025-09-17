@@ -1,5 +1,5 @@
 ---
-name: Server Tests
+name: Agent Server
 
 on:
     push:
