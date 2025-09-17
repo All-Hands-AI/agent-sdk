@@ -3,6 +3,7 @@
 import os
 import tempfile
 
+from openhands.sdk.security.risk import SecurityRisk
 from openhands.tools import FileEditorTool
 from openhands.tools.str_replace_editor import (
     StrReplaceEditorAction,
@@ -32,7 +33,7 @@ def test_file_editor_tool_create_file():
             command="create",
             path=test_file,
             file_text="Hello, World!",
-            security_risk="LOW",
+            security_risk=SecurityRisk.LOW,
         )
 
         # Execute the action
@@ -63,7 +64,7 @@ def test_file_editor_tool_view_file():
 
         # Create an action to view the file
         action = StrReplaceEditorAction(
-            command="view", path=test_file, security_risk="LOW"
+            command="view", path=test_file, security_risk=SecurityRisk.LOW
         )
 
         # Execute the action
@@ -95,7 +96,7 @@ def test_file_editor_tool_str_replace():
             path=test_file,
             old_str="World",
             new_str="Universe",
-            security_risk="LOW",
+            security_risk=SecurityRisk.LOW,
         )
 
         # Execute the action
@@ -142,7 +143,7 @@ def test_file_editor_tool_view_directory():
 
         # Create an action to view the directory
         action = StrReplaceEditorAction(
-            command="view", path=temp_dir, security_risk="LOW"
+            command="view", path=temp_dir, security_risk=SecurityRisk.LOW
         )
 
         # Execute the action
