@@ -325,6 +325,9 @@ class Agent(AgentBase):
                 ):
                     state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
                     return True
+            # If the security analyzer doesn't tell us to stop, we shouldn't stop, even
+            # if the confirmation mode is on.
+            return False
 
         # If confirmation mode is disabled, no confirmation is needed
         if not state.confirmation_mode:
