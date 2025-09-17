@@ -179,8 +179,8 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           COMMENT_BODY=$(cat consolidated_report.md)
-          # Use GitHub CLI to create comment
-          echo "$COMMENT_BODY" | gh pr comment ${{ env.PR_NUMBER }} --body-file -
+          # Use GitHub CLI to create comment with explicit PR number
+          echo "$COMMENT_BODY" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
         env:
           GH_TOKEN: ${{ github.token }}
 
