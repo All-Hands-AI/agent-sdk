@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, Annotated, Sequence
 from pydantic import ConfigDict, Field
 
 from openhands.sdk.context.agent_context import AgentContext
+from openhands.sdk.context.condenser.base import Condenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.analyzer import SecurityAnalyzer
 from openhands.sdk.tool import ToolType
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
@@ -43,6 +45,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
+    condenser: Condenser | None = Field(default=None, repr=False, exclude=True)
+    cli_mode: bool = Field(default=True)
+    security_analyzer: SecurityAnalyzer | None = None
 
     @property
     def prompt_dir(self) -> str:
