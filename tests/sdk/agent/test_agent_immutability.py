@@ -102,15 +102,9 @@ class TestAgentImmutability:
             assert len(msg) > 0
 
         # Verify no computed state is stored
-        # The only fields should be the ones we explicitly defined
-        expected_fields = {
-            "llm",
-            "agent_context",
-            "tools",
-            "system_prompt_filename",
-            "system_prompt_kwargs",
-            "condenser",
-        }
+        # The only fields should be the ones we explicitly defined -- i.e., those
+        # in the model definition
+        expected_fields = Agent.model_fields.keys()
 
         # Get all fields from the model class (not instance)
         actual_fields = set(Agent.model_fields.keys())
