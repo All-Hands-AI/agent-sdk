@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pydantic import BaseModel
+
 from openhands.sdk.event import Event
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.logger import get_logger
@@ -11,7 +13,7 @@ from openhands.sdk.tool.schema import Action
 logger = get_logger(__name__)
 
 
-class SecurityAnalyzer(ABC):
+class SecurityAnalyzer(BaseModel, ABC):
     """Abstract base class for security analyzers.
 
     Security analyzers evaluate the risk of actions before they are executed
