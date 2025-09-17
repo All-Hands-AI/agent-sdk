@@ -36,12 +36,9 @@ a = Analysis(
         *copy_metadata('fastmcp'),
     ],
     hiddenimports=[
-        # Explicitly include modules that might not be detected automatically
-        *collect_submodules('openhands_cli'),
-        *collect_submodules('prompt_toolkit'),
-        # Include OpenHands SDK submodules explicitly to avoid resolution issues
         *collect_submodules('openhands.sdk'),
         *collect_submodules('openhands.tools'),
+        *collect_submodules('openhands.agent_server'),
 
         *collect_submodules('tiktoken'),
         *collect_submodules('tiktoken_ext'),
@@ -83,7 +80,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='openhands-cli',
+    name='openhands-agent-server',
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,  # Strip debug symbols to reduce size
