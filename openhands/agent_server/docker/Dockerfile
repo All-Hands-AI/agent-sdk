@@ -5,15 +5,14 @@ ARG USERNAME=openhands
 ARG UID=10001
 ARG GID=10001
 ARG PORT=8000
-ARG UV_PROJECT_ENVIRONMENT=/agent-server/.venv
 
 ############################
 # Builder (source mode)
 # We copy source + build a venv here for local dev and debugging.
 ############################
 FROM python:3.12-bookworm AS builder
-ARG USERNAME UID GID UV_PROJECT_ENVIRONMENT
-ENV UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT}
+ARG USERNAME UID GID
+ENV UV_PROJECT_ENVIRONMENT=/agent-server/.venv
 
 COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
@@ -32,8 +31,7 @@ RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
 # We run pyinstaller here to produce openhands-agent-server
 ############################
 FROM builder AS build-binary
-ARG USERNAME UID GID UV_PROJECT_ENVIRONMENT
-ENV UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT}
+ARG USERNAME UID GID
 
 # We need --dev for pyinstaller
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
@@ -50,6 +48,8 @@ RUN test -x /agent-server/dist/openhands-agent-server
 FROM ${BASE_IMAGE} AS base-image
 ARG USERNAME UID GID PORT
 
+# NOTE: we should NOT include UV_PROJECT_ENVIRONMENT here, 
+# since the agent might use it to perform other work (e.g. tools that use Python)
 COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
 RUN (getent group ${GID} || groupadd -g ${GID} ${USERNAME}) && \
@@ -66,9 +66,7 @@ EXPOSE ${PORT}
 # Local dev and debugging mode: copy source + venv from builder
 ############################
 FROM base-image AS source
-ARG USERNAME UV_PROJECT_ENVIRONMENT
-ENV UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT}
-
+ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
 ENTRYPOINT ["/agent-server/.venv/bin/python","-m","openhands.agent_server","--no-reload"]
 
