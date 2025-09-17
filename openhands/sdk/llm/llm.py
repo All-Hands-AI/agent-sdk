@@ -298,7 +298,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Public API
     # =========================================================================
     @property
-    def metrics(self) -> Metrics | None:
+    def metrics(self) -> Metrics:
+        assert self._metrics is not None, (
+            "Metrics should be initialized after model validation"
+        )
         return self._metrics
 
     def completion(

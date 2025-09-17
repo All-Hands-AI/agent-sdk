@@ -125,7 +125,7 @@ def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> Eval
         end_time = time.time()
 
         # Access accumulated_cost from the metrics object where it's properly validated
-        llm_cost = getattr(test_instance.llm.metrics, "accumulated_cost", 0.0)
+        llm_cost = test_instance.llm.metrics.accumulated_cost
 
         print(
             f"Test {instance.instance_id} completed in {end_time - start_time:.2f}s: "
