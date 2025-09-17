@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -36,30 +35,6 @@ class SecurityAnalyzer(BaseModel, ABC):
 
         Returns:
             ActionSecurityRisk enum indicating the risk level
-        """
-        pass
-
-    @abstractmethod
-    def handle_api_request(self, request_data: dict[str, Any]) -> dict[str, Any]:
-        """Handle API requests for security analyzer configuration.
-
-        This allows the security analyzer to expose configuration endpoints
-        that can be used by frontends or other systems to manage settings.
-
-        Args:
-            request_data: Dictionary containing request data
-
-        Returns:
-            Dictionary containing response data
-        """
-        pass
-
-    @abstractmethod
-    def close(self) -> None:
-        """Clean up resources used by the security analyzer.
-
-        This method should be called when the analyzer is no longer needed
-        to properly clean up any resources (connections, files, etc.).
         """
         pass
 

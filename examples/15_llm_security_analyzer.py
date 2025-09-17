@@ -12,6 +12,7 @@ from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+from openhands.sdk.tool import Tool
 from openhands.tools import BashTool, FileEditorTool
 
 
@@ -27,7 +28,7 @@ llm = LLM(
 )
 
 # Tools
-tools = [
+tools: list[Tool] = [
     BashTool.create(working_dir=os.getcwd()),
     FileEditorTool.create(),
 ]
@@ -139,5 +140,3 @@ print("The LLMSecurityAnalyzer automatically evaluates action security risks.")
 print(
     "HIGH risk actions require confirmation, while LOW risk actions execute directly."
 )
-
-security_analyzer.close()
