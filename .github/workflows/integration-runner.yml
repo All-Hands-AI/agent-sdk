@@ -75,16 +75,13 @@ jobs:
         run: |
           ./tests/integration/run_infer.sh "$LLM_CONFIG" "$LLM_API_KEY" "$LLM_BASE_URL" $N_PROCESSES '' '${{ matrix.job-config.run-suffix }}'
 
-          # get integration tests report
-          REPORT_FILE=$(find tests/integration/outputs/*${{ matrix.job-config.run-suffix }}* -name "report.md" -type f | head -n 1)
-          echo "REPORT_FILE: $REPORT_FILE"
-          if [ -f "$REPORT_FILE" ]; then
-            echo "INTEGRATION_TEST_REPORT<<EOF" >> $GITHUB_ENV
-            cat $REPORT_FILE >> $GITHUB_ENV
-            echo >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
+          # get integration tests JSON results
+          RESULTS_FILE=$(find tests/integration/outputs/*${{ matrix.job-config.run-suffix }}* -name "results.json" -type f | head -n 1)
+          echo "RESULTS_FILE: $RESULTS_FILE"
+          if [ -f "$RESULTS_FILE" ]; then
+            echo "JSON_RESULTS_FILE=$RESULTS_FILE" >> $GITHUB_ENV
           else
-            echo "INTEGRATION_TEST_REPORT=No report file found" >> $GITHUB_ENV
+            echo "JSON_RESULTS_FILE=" >> $GITHUB_ENV
           fi
 
       - name: Wait a little bit
@@ -109,25 +106,17 @@ jobs:
 
       - name: Save test results for consolidation
         run: |
-          # Create a results summary file for this model
+          # Copy the structured JSON results file for consolidation
           mkdir -p test_results_summary
           
-          # Write the test report to a temporary file to avoid shell quoting issues
-          echo "${{ env.INTEGRATION_TEST_REPORT }}" > /tmp/test_report.txt
-          
-          # Create the JSON file with proper escaping
-          cat > test_results_summary/${{ matrix.job-config.run-suffix }}_results.json << EOF
-          {
-            "model_name": "${{ matrix.job-config.name }}",
-            "run_suffix": "${{ matrix.job-config.run-suffix }}",
-            "test_report": $(jq -Rs . /tmp/test_report.txt),
-            "artifact_url": "${{ steps.upload_results_artifact.outputs.artifact-url }}",
-            "status": "completed"
-          }
-          EOF
-          
-          # Clean up temporary file
-          rm -f /tmp/test_report.txt
+          if [ -n "${{ env.JSON_RESULTS_FILE }}" ] && [ -f "${{ env.JSON_RESULTS_FILE }}" ]; then
+            # Copy the JSON results file directly
+            cp "${{ env.JSON_RESULTS_FILE }}" "test_results_summary/${{ matrix.job-config.run-suffix }}_results.json"
+            echo "✓ Copied JSON results file for consolidation"
+          else
+            echo "✗ No JSON results file found"
+            exit 1
+          fi
 
       - name: Upload test results summary
         uses: actions/upload-artifact@v4
@@ -147,6 +136,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          python-version: "3.12"
+
+      - name: Install Python dependencies using uv
+        run: |
+          uv sync --dev
+
       - name: Download all test results
         uses: actions/download-artifact@v4
         with:
@@ -162,7 +161,13 @@ jobs:
           COMMIT_SHA: ${{ github.sha }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          python3 tests/integration/utils/consolidate_results.py
+          uv run python tests/integration/utils/consolidate_json_results.py \
+            --results-dir all_results \
+            --output-file consolidated_results.json
+          
+          uv run python tests/integration/utils/generate_markdown_report.py \
+            --input-file consolidated_results.json \
+            --output-file consolidated_report.md
 
       - name: Upload consolidated report
         uses: actions/upload-artifact@v4
@@ -174,8 +179,8 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           COMMENT_BODY=$(cat consolidated_report.md)
-          # Use GitHub CLI to create comment
-          echo "$COMMENT_BODY" | gh pr comment ${{ env.PR_NUMBER }} --body-file -
+          # Use GitHub CLI to create comment with explicit PR number
+          echo "$COMMENT_BODY" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
         env:
           GH_TOKEN: ${{ github.token }}
 

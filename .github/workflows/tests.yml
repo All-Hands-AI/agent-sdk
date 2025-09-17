@@ -119,6 +119,60 @@ jobs:
           path: coverage-tools.dat
           if-no-files-found: warn
 
+  agent-server-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+
+      - name: Detect Agent Server changes
+        id: changed
+        uses: tj-actions/changed-files@v47
+        with:
+          files: |
+            openhands/agent_server/**
+            tests/agent_server/**
+            pyproject.toml
+            uv.lock
+            .github/workflows/tests.yml
+
+      - name: Install uv
+        if: steps.changed.outputs.any_changed == 'true'
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        if: steps.changed.outputs.any_changed == 'true'
+        run: uv sync --frozen --group dev
+
+      - name: Run Agent Server tests with coverage
+        if: steps.changed.outputs.any_changed == 'true'
+        run: |
+          # Clean up any existing coverage file
+          rm -f .coverage
+          CI=true uv run python -m pytest -vvs \
+            --forked \
+            --cov=openhands/agent_server \
+            --cov-report=term-missing \
+            --cov-fail-under=0 \
+            --cov-config=pyproject.toml \
+            tests/agent_server
+          # Rename coverage file for upload
+          if [ -f .coverage ]; then
+            mv .coverage coverage-agent-server.dat
+            echo "Agent Server coverage file prepared for upload"
+          fi
+
+      - name: Upload Agent Server coverage
+        if: steps.changed.outputs.any_changed == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-agent-server
+          path: coverage-agent-server.dat
+          if-no-files-found: warn
+
   cross-tests:
     runs-on: ubuntu-latest
     steps:
@@ -177,7 +231,7 @@ jobs:
 
   coverage-report:
     runs-on: ubuntu-latest
-    needs: [sdk-tests, tools-tests, cross-tests]
+    needs: [sdk-tests, tools-tests, agent-server-tests, cross-tests]
     if: always() && github.event_name == 'pull_request'
     steps:
       - name: Checkout

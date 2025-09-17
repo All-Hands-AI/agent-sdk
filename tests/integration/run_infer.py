@@ -14,10 +14,10 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import pandas as pd
 from pydantic import BaseModel
 
 from tests.integration.base import BaseIntegrationTest, TestResult
+from tests.integration.schemas import ModelTestResults
 from tests.integration.utils.format_costs import format_cost
 
 
@@ -60,33 +60,27 @@ def load_integration_tests() -> List[TestInstance]:
     return instances
 
 
-def load_test_class(file_path: str) -> Optional[type]:
+def load_test_class(file_path: str) -> type[BaseIntegrationTest]:
     """Dynamically load test class from a Python file."""
-    try:
-        spec = importlib.util.spec_from_file_location("test_module", file_path)
-        if spec is None or spec.loader is None:
-            print(f"Could not load spec from {file_path}")
-            return None
 
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+    spec = importlib.util.spec_from_file_location("test_module", file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load module from {file_path}")
 
-        # Find the test class that inherits from BaseIntegrationTest
-        for attr_name in dir(module):
-            attr = getattr(module, attr_name)
-            if (
-                isinstance(attr, type)
-                and issubclass(attr, BaseIntegrationTest)
-                and attr != BaseIntegrationTest
-            ):
-                return attr  # Return the class, not an instance
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
 
-        print(f"No BaseIntegrationTest subclass found in {file_path}")
-        return None
+    # Find the test class that inherits from BaseIntegrationTest
+    for attr_name in dir(module):
+        attr = getattr(module, attr_name)
+        if (
+            isinstance(attr, type)
+            and issubclass(attr, BaseIntegrationTest)
+            and attr != BaseIntegrationTest
+        ):
+            return attr  # Return the class, not an instance
 
-    except Exception as e:
-        print(f"Error loading test class from {file_path}: {e}")
-        return None
+    raise ImportError(f"No BaseIntegrationTest subclass found in {file_path}")
 
 
 def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> EvalOutput:
@@ -130,16 +124,20 @@ def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> Eval
         test_result = test_instance.run_instruction()
         end_time = time.time()
 
+        # Access accumulated_cost from the metrics object where it's properly validated
+        llm_cost = test_instance.llm.metrics.accumulated_cost
+
         print(
             f"Test {instance.instance_id} completed in {end_time - start_time:.2f}s: "
-            f"{'PASS' if test_result.success else 'FAIL'}"
+            f"{'PASS' if test_result.success else 'FAIL'} "
+            f"(Cost: {format_cost(llm_cost)})"
         )
 
         return EvalOutput(
             instance_id=instance.instance_id,
             test_result=test_result,
             llm_model=llm_config.get("model", "unknown"),
-            cost=0.0,  # TODO: Extract cost from test execution if available
+            cost=llm_cost,
         )
 
     except Exception as e:
@@ -164,9 +162,8 @@ def run_evaluation(
     instances: List[TestInstance],
     llm_config: Dict[str, Any],
     num_workers: int,
-    output_file: str,
-) -> None:
-    """Run evaluation on all test instances."""
+) -> List[EvalOutput]:
+    """Run evaluation on all test instances and return results directly."""
     print(f"Running {len(instances)} tests with {num_workers} workers")
 
     results = []
@@ -188,58 +185,51 @@ def run_evaluation(
                 result = future.result()
                 results.append(result)
 
-    # Save results to JSONL file
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    with open(output_file, "w") as f:
-        for result in results:
-            f.write(result.model_dump_json() + "\n")
-
-    print(f"Results saved to {output_file}")
+    return results
 
 
-def generate_report(output_file: str, eval_note: str) -> str:
-    """Generate a markdown report from the results."""
-    df = pd.read_json(output_file, lines=True, orient="records")
+def generate_structured_results(
+    eval_outputs: List[EvalOutput],
+    output_dir: str,
+    eval_note: str,
+    model_name: str,
+    run_suffix: str,
+    llm_config: Dict[str, Any],
+) -> str:
+    """Generate structured JSON results from evaluation outputs."""
 
-    # Extract success and reason from test_result
-    df["success"] = df["test_result"].apply(lambda x: x["success"])
-    df["reason"] = df["test_result"].apply(lambda x: x["reason"])
+    # Create structured results using the schema
+    structured_results = ModelTestResults.from_eval_outputs(
+        eval_outputs=eval_outputs,
+        model_name=model_name,
+        run_suffix=run_suffix,
+        llm_config=llm_config,
+        eval_note=eval_note,
+    )
 
-    success_rate = df["success"].mean()
-    success_count = df["success"].sum()
-    total_count = len(df)
-    total_cost = df["cost"].sum()
+    # Save structured results
+    os.makedirs(output_dir, exist_ok=True)
+    results_file = os.path.join(output_dir, "results.json")
 
+    with open(results_file, "w") as f:
+        f.write(structured_results.model_dump_json(indent=2))
+
+    # Print summary for console output
     print("-" * 100)
-    print(f"Success rate: {success_rate:.2%} ({success_count}/{total_count})")
+    success_rate = structured_results.success_rate
+    successful = structured_results.successful_tests
+    total = structured_results.total_tests
+    print(f"Success rate: {success_rate:.2%} ({successful}/{total})")
     print("\nEvaluation Results:")
-    print(df[["instance_id", "success", "reason"]].to_string(index=False))
+    for instance in structured_results.test_instances:
+        status = "✓" if instance.test_result.success else "✗"
+        reason = instance.test_result.reason or "N/A"
+        print(f"{instance.instance_id}: {status} - {reason}")
     print("-" * 100)
-    print(f"Total cost: {format_cost(total_cost)}")
+    print(f"Total cost: {format_cost(structured_results.total_cost)}")
 
-    # Generate report file
-    report_dir = os.path.dirname(output_file)
-    report_file = os.path.join(report_dir, "report.md")
-
-    with open(report_file, "w") as f:
-        f.write(f"# Integration Tests Report - {eval_note}\n\n")
-        f.write(f"Success rate: {success_rate:.2%} ({success_count}/{total_count})\n\n")
-        f.write(f"Total cost: {format_cost(total_cost)}\n\n")
-        f.write("## Test Results\n\n")
-
-        # Format cost column for display
-        df_display = df.copy()
-        df_display["cost"] = df_display["cost"].apply(format_cost)
-
-        f.write(
-            df_display[
-                ["instance_id", "success", "reason", "cost", "error_message"]
-            ].to_markdown(index=False)  # type: ignore
-        )
-        f.write("\n")
-
-    print(f"Report saved to {report_file}")
-    return report_file
+    print(f"Structured results saved to {results_file}")
+    return results_file
 
 
 def main():
@@ -295,15 +285,19 @@ def main():
     model_name = llm_config.get("model", "unknown").replace("/", "_").replace("-", "_")
     output_subdir = f"{model_name}_{args.eval_note}_N{len(instances)}_{timestamp}"
     output_dir = os.path.join(args.output_dir, output_subdir)
-    output_file = os.path.join(output_dir, "output.jsonl")
 
     print(f"Output directory: {output_dir}")
 
-    # Run evaluation
-    run_evaluation(instances, llm_config, args.num_workers, output_file)
+    eval_outputs = run_evaluation(instances, llm_config, args.num_workers)
 
-    # Generate report
-    generate_report(output_file, args.eval_note)
+    generate_structured_results(
+        eval_outputs=eval_outputs,
+        output_dir=output_dir,
+        eval_note=args.eval_note,
+        model_name=model_name,
+        run_suffix=output_subdir,
+        llm_config=llm_config,
+    )
 
 
 if __name__ == "__main__":

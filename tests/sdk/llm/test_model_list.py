@@ -39,16 +39,20 @@ def test_organize_models_and_providers():
         assert "unknown-model" in result["other"]
 
 
-def test_list_bedrock_models_without_boto3(monkeypatch, caplog):
+def test_list_bedrock_models_without_boto3(monkeypatch):
     """Should warn and return empty list if boto3 is missing."""
     # Pretend boto3 is not installed
     monkeypatch.setitem(sys.modules, "boto3", None)
 
-    with caplog.at_level("WARNING"):
+    # Mock the logger to verify warning is called
+    with patch("openhands.sdk.llm.utils.unverified_models.logger") as mock_logger:
         result = _list_bedrock_foundation_models("us-east-1", "key", "secret")
 
     assert result == []
-    assert "boto3 is not installed" in caplog.text
+    mock_logger.warning.assert_called_once_with(
+        "boto3 is not installed. To use Bedrock models,"
+        "install with: openhands-sdk[boto3]"
+    )
 
 
 def test_list_bedrock_models_with_boto3(monkeypatch):
