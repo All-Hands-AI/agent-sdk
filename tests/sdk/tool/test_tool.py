@@ -552,3 +552,86 @@ class TestTool:
         assert "anyOf" not in optional_array_schema
         assert optional_array_schema["type"] == "array"
         assert optional_array_schema["items"]["type"] == "string"
+
+    def test_security_risk_only_added_for_non_readonly_tools(self):
+        """Test that security_risk is only added if the tool is not read-only."""
+        # Test with read-only tool
+        readonly_annotations = ToolAnnotations(
+            title="Read-only Tool",
+            readOnlyHint=True,
+        )
+
+        readonly_tool = Tool(
+            name="readonly_tool",
+            description="A read-only tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+            annotations=readonly_annotations,
+        )
+
+        # Test with non-read-only tool
+        writable_annotations = ToolAnnotations(
+            title="Writable Tool",
+            readOnlyHint=False,
+        )
+
+        writable_tool = Tool(
+            name="writable_tool",
+            description="A writable tool",
+            action_type=MockAction,
+            observation_type=MockObservation,
+            annotations=writable_annotations,
+        )
+
+        # Test with tool that has no annotations (should be treated as writable)
+        no_annotations_tool = Tool(
+            name="no_annotations_tool",
+            description="A tool with no annotations",
+            action_type=MockAction,
+            observation_type=MockObservation,
+            annotations=None,
+        )
+
+        # Test read-only tool - security_risk should NOT be added
+        readonly_openai_tool = readonly_tool.to_openai_tool(
+            add_security_risk_prediction=True
+        )
+        readonly_function = readonly_openai_tool["function"]
+        assert "parameters" in readonly_function
+        readonly_params = readonly_function["parameters"]
+        assert "security_risk" not in readonly_params["properties"]
+
+        # Test writable tool - security_risk SHOULD be added
+        writable_openai_tool = writable_tool.to_openai_tool(
+            add_security_risk_prediction=True
+        )
+        writable_function = writable_openai_tool["function"]
+        assert "parameters" in writable_function
+        writable_params = writable_function["parameters"]
+        assert "security_risk" in writable_params["properties"]
+
+        # Test tool with no annotations - security_risk SHOULD be added
+        no_annotations_openai_tool = no_annotations_tool.to_openai_tool(
+            add_security_risk_prediction=True
+        )
+        no_annotations_function = no_annotations_openai_tool["function"]
+        assert "parameters" in no_annotations_function
+        no_annotations_params = no_annotations_function["parameters"]
+        assert "security_risk" in no_annotations_params["properties"]
+
+        # Test that when add_security_risk_prediction=False, no security_risk is added
+        readonly_no_risk = readonly_tool.to_openai_tool(
+            add_security_risk_prediction=False
+        )
+        readonly_no_risk_function = readonly_no_risk["function"]
+        assert "parameters" in readonly_no_risk_function
+        readonly_no_risk_params = readonly_no_risk_function["parameters"]
+        assert "security_risk" not in readonly_no_risk_params["properties"]
+
+        writable_no_risk = writable_tool.to_openai_tool(
+            add_security_risk_prediction=False
+        )
+        writable_no_risk_function = writable_no_risk["function"]
+        assert "parameters" in writable_no_risk_function
+        writable_no_risk_params = writable_no_risk_function["parameters"]
+        assert "security_risk" not in writable_no_risk_params["properties"]

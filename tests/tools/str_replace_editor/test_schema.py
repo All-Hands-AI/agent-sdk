@@ -16,7 +16,8 @@ def test_to_mcp_tool_detailed_type_validation_editor():
     assert "new_str" in str_editor_props
     assert "insert_line" in str_editor_props
     assert "view_range" in str_editor_props
-    assert "security_risk" in str_editor_props
+    # security_risk should NOT be in the schema after #341
+    assert "security_risk" not in str_editor_props
 
     view_range_schema = str_editor_props["view_range"]
     assert "anyOf" not in view_range_schema
