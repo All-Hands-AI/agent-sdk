@@ -18,6 +18,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
+from openhands.sdk.security.confirmation_policy import ConfirmationPolicy, NeverConfirm
 
 
 # Give pydantic / fastapi some help when serializing
@@ -69,10 +70,10 @@ class StartConversationRequest(AgentSpec):
     """
 
     # These are two conversation specific fields
-    confirmation_mode: bool = Field(
-        default=False,
-        description="If true, the agent will enter confirmation mode, "
-        "requiring user approval for actions.",
+    confirmation_policy: ConfirmationPolicy = Field(
+        default=NeverConfirm(),
+        description="Controls when the conversation will prompt the user before "
+        "continuing. Defaults to never.",
     )
     initial_message: SendMessageRequest | None = Field(
         default=None, description="Initial message to pass to the LLM"

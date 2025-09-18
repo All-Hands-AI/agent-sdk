@@ -183,7 +183,7 @@ class TestPauseFunctionality:
     def test_pause_with_confirmation_mode(self, mock_completion):
         """Test that pause before run() with confirmation mode - pause is reset and agent waits for confirmation."""  # noqa: E501
         # Enable confirmation mode
-        self.conversation.set_confirmation_mode(AlwaysConfirm())
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
         self.conversation.pause()
         assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 

@@ -1,7 +1,11 @@
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicy
+from openhands.sdk.security.confirmation_policy import (
+    AlwaysConfirm,
+    ConfirmationPolicy,
+    NeverConfirm,
+)
 
 
 if TYPE_CHECKING:
@@ -194,11 +198,27 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
-    def set_confirmation_mode(self, policy: ConfirmationPolicy) -> None:
-        """Enable or disable confirmation mode and store it in conversation state."""
+    def set_confirmation_policy(self, policy: ConfirmationPolicy) -> None:
+        """Set the confirmation policy and store it in conversation state."""
         with self.state:
             self.state.confirmation_policy = policy
-        logger.info(f"Confirmation mode set to: {policy}")
+        logger.info(f"Confirmation policy set to: {policy}")
+
+    def set_confirmation_mode(self, enabled: bool) -> None:
+        """Enable or disable confirmation mode.
+
+        If enabled, sets the confirmation policy to AlwaysConfirm.
+        If disabled, sets the confirmation policy to NeverConfirm.
+
+        To set to any other policy, use set_confirmation_policy().
+        """
+        with self.state:
+            if enabled:
+                self.state.confirmation_policy = AlwaysConfirm()
+                logger.info("Confirmation mode enabled")
+            else:
+                self.state.confirmation_policy = NeverConfirm()
+                logger.info("Confirmation mode disabled")
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         """Reject all pending actions from the agent.

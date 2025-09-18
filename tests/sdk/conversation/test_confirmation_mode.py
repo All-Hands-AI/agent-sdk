@@ -108,7 +108,7 @@ class TestConfirmationMode:
 
     def _make_pending_action(self) -> None:
         """Enable confirmation mode and produce a single pending action."""
-        self.conversation.set_confirmation_mode(AlwaysConfirm())
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
         mock_completion = self._mock_action_once()
         with patch(
             "openhands.sdk.llm.llm.litellm_completion",
@@ -239,11 +239,11 @@ class TestConfirmationMode:
         assert get_unmatched_actions(self.conversation.state.events) == []
 
         # Enable confirmation mode
-        self.conversation.set_confirmation_mode(AlwaysConfirm())
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
         assert self.conversation.state.confirmation_policy == AlwaysConfirm()
 
         # Disable confirmation mode
-        self.conversation.set_confirmation_mode(NeverConfirm())
+        self.conversation.set_confirmation_policy(NeverConfirm())
         assert self.conversation.state.confirmation_policy == NeverConfirm()
 
         # Test rejecting when no actions exist doesn't raise error
@@ -309,7 +309,7 @@ class TestConfirmationMode:
 
     def test_message_only_in_confirmation_mode_does_not_wait(self):
         """Don't confirm agent messages."""
-        self.conversation.set_confirmation_mode(AlwaysConfirm())
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
         mock_completion = self._mock_message_only("Hello, how can I help you?")
         with patch(
             "openhands.sdk.llm.llm.litellm_completion",
@@ -385,7 +385,7 @@ class TestConfirmationMode:
     def test_single_finish_action_skips_confirmation_entirely(self):
         """Test that a single FinishAction skips confirmation entirely."""
         # Enable confirmation mode
-        self.conversation.set_confirmation_mode(AlwaysConfirm())
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
 
         # Mock LLM to return a single FinishAction
         mock_completion = self._mock_finish_action("Task completed successfully!")
@@ -426,7 +426,7 @@ class TestConfirmationMode:
     def test_multiple_actions_with_finish_still_require_confirmation(self):
         """Test that multiple actions (including FinishAction) still require confirmation."""  # noqa: E501
         # Enable confirmation mode
-        self.conversation.set_confirmation_mode(AlwaysConfirm())
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
 
         # Mock LLM to return both a regular action and a FinishAction
         mock_completion = self._mock_multiple_actions_with_finish()
