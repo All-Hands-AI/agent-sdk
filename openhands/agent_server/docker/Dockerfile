@@ -53,9 +53,9 @@ ARG USERNAME UID GID PORT VARIANT
 # since the agent might use it to perform other work (e.g. tools that use Python)
 COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
-# Install variant-specific runtimes
+# Install base packages and create user
 RUN set -eux; \
-    # Install base packages
+    # Install base packages (works for both Debian-based images)
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates curl wget; \
     \
@@ -63,30 +63,7 @@ RUN set -eux; \
     (getent group ${GID} || groupadd -g ${GID} ${USERNAME}); \
     (id -u ${USERNAME} >/dev/null 2>&1 || useradd -m -u ${UID} -g ${GID} -s /usr/sbin/nologin ${USERNAME}); \
     \
-    # Install Java for java variant
-    if [ "${VARIANT}" = "java" ]; then \
-        apt-get install -y --no-install-recommends openjdk-17-jdk; \
-    fi; \
-    \
-    # Install Go for golang variant
-    if [ "${VARIANT}" = "golang" ]; then \
-        GO_VERSION="1.21.5"; \
-        ARCH="$(dpkg --print-architecture)"; \
-        case "${ARCH}" in \
-            amd64) GO_ARCH="amd64" ;; \
-            arm64) GO_ARCH="arm64" ;; \
-            *) echo "Unsupported architecture: ${ARCH}" && exit 1 ;; \
-        esac; \
-        wget -O go.tar.gz "https://golang.org/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"; \
-        tar -C /usr/local -xzf go.tar.gz; \
-        rm go.tar.gz; \
-        echo 'export PATH=/usr/local/go/bin:$PATH' >> /etc/environment; \
-    fi; \
-    \
     rm -rf /var/lib/apt/lists/*
-
-# Set Go environment for golang variant
-ENV PATH="${PATH}:/usr/local/go/bin"
 
 USER ${USERNAME}
 WORKDIR /agent-server

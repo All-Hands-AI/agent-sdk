@@ -124,39 +124,24 @@ jobs:
             matrix:
                 include:
                     # Default Python + Node.js variant
-                    - name: default-amd64
+                    - name: default
                       runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64
-                      base_image: nikolaik/python-nodejs:python3.12-nodejs22
-                      variant: default
-                    - name: default-arm64
-                      runner: blacksmith-8vcpu-ubuntu-2404-arm
-                      platforms: linux/arm64
+                      platforms: linux/amd64,linux/arm64
                       base_image: nikolaik/python-nodejs:python3.12-nodejs22
                       variant: default
 
-                    # Java variant (Python + OpenJDK)
-                    - name: java-amd64
+                    # Java variant (OpenJDK base)
+                    - name: java
                       runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64
-                      base_image: python:3.12-bookworm
-                      variant: java
-                    - name: java-arm64
-                      runner: blacksmith-8vcpu-ubuntu-2404-arm
-                      platforms: linux/arm64
-                      base_image: python:3.12-bookworm
+                      platforms: linux/amd64,linux/arm64
+                      base_image: eclipse-temurin:17-jdk
                       variant: java
 
-                    # Golang variant (Python + Go)
-                    - name: golang-amd64
+                    # Golang variant (Go base)
+                    - name: golang
                       runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64
-                      base_image: python:3.12-bookworm
-                      variant: golang
-                    - name: golang-arm64
-                      runner: blacksmith-8vcpu-ubuntu-2404-arm
-                      platforms: linux/arm64
-                      base_image: python:3.12-bookworm
+                      platforms: linux/amd64,linux/arm64
+                      base_image: golang:1.21-bookworm
                       variant: golang
 
         runs-on: ${{ matrix.runner }}
