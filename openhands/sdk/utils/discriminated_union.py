@@ -79,68 +79,15 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
             _types_namespace=_types_namespace,
         )
 
-    @classmethod
-    def model_validate(
-        cls,
-        obj,
-        *,
-        strict=None,
-        from_attributes=None,
-        context=None,
-        by_alias=None,
-        by_name=None,
-    ):
-        if not getattr(cls, "previously_validated", False):
-            cls.model_rebuild()
-            cls.previously_validated = True
-        return super().model_validate(
-            obj,
-            strict=strict,
-            from_attributes=from_attributes,
-            context=context,
-            by_alias=by_alias,
-            by_name=by_name,
-        )
-
-    @classmethod
-    def model_validate_json(
-        cls, json_data, *, strict=None, context=None, by_alias=None, by_name=None
-    ):
-        if not getattr(cls, "previously_validated", False):
-            cls.model_rebuild()
-            cls.previously_validated = True
-        return super().model_validate_json(
-            json_data,
-            strict=strict,
-            context=context,
-            by_alias=by_alias,
-            by_name=by_name,
-        )
-
-    @classmethod
-    def model_validate_strings(
-        cls, obj, *, strict=None, context=None, by_alias=None, by_name=None
-    ):
-        if not getattr(cls, "previously_validated", False):
-            cls.model_rebuild()
-            cls.previously_validated = True
-        return super().model_validate_strings(
-            obj, strict=strict, context=context, by_alias=by_alias, by_name=by_name
-        )
-
     def __init_subclass__(cls, **kwargs):
-        """We want to regenerate the schema for any abstract superclass which
-        is a DiscriminatedUnion any time a subclass is initialized"""
         super().__init_subclass__(**kwargs)
         if _is_abstract(cls):
             return
-        for superclass in cls.mro()[1:]:
-            if (
-                _is_abstract(superclass)
-                and issubclass(superclass, DiscriminatedUnionMixin)
-                and not superclass == DiscriminatedUnionMixin
-            ):
-                superclass.model_rebuild()
+
+        # Because of polymorphic associations are cached within schemas,
+        # we need to rebuild all schemas after all subclasses have loaded.
+        for subclass in BaseModel.__subclasses__():
+            subclass.model_rebuild(force=True)
 
     @classmethod
     def get_serializable_type(cls) -> Type:
