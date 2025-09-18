@@ -46,10 +46,10 @@ jobs:
                           model: litellm_proxy/deepseek/deepseek-chat
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v4
+              uses: astral-sh/setup-uv@v6
               with:
                   version: latest
                   python-version: ${{ matrix.python-version }}
@@ -143,10 +143,10 @@ jobs:
             issues: write
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v4
+              uses: astral-sh/setup-uv@v6
               with:
                   version: latest
                   python-version: '3.12'
@@ -156,7 +156,7 @@ jobs:
                   uv sync --dev
 
             - name: Download all test results
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   pattern: test-results-*
                   merge-multiple: true
