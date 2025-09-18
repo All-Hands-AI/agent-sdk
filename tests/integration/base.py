@@ -12,10 +12,10 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
     Message,
     TextContent,
 )
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
@@ -72,13 +72,13 @@ class BaseIntegrationTest(ABC):
 
         self.llm = LLM(**llm_kwargs)
         self.agent = Agent(llm=self.llm, tools=self.tools)
-        self.collected_events: list[Event] = []
+        self.collected_events: list[EventBase] = []
         self.llm_messages: list[dict[str, Any]] = []
         self.conversation: Conversation = Conversation(
             agent=self.agent, callbacks=[self.conversation_callback]
         )
 
-    def conversation_callback(self, event: Event):
+    def conversation_callback(self, event: EventBase):
         """Callback to collect conversation events."""
         self.collected_events.append(event)
         if isinstance(event, MessageEvent):
