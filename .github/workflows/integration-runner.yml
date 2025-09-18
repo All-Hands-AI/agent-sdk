@@ -79,15 +79,10 @@ jobs:
                   AGENT_SDK_VERSION=$(git rev-parse --short HEAD)
                   EVAL_NOTE="${AGENT_SDK_VERSION}_${{ matrix.job-config.run-suffix }}"
 
-                  echo "LLM_CONFIG: $LLM_CONFIG"
-                  echo "AGENT_SDK_VERSION: $AGENT_SDK_VERSION"
-                  echo "NUM_WORKERS: $N_PROCESSES"
-                  echo "EVAL_NOTE: $EVAL_NOTE"
-
-                  COMMAND="uv run python tests/integration/run_infer.py --llm-config '$LLM_CONFIG' --num-workers $N_PROCESSES --eval-note $EVAL_NOTE"
-                  echo "Running command: $COMMAND"
-
-                  eval "$COMMAND"
+                  uv run python tests/integration/run_infer.py \
+                    --llm-config "$LLM_CONFIG" \
+                    --num-workers $N_PROCESSES \
+                    --eval-note "$EVAL_NOTE"
 
                   # get integration tests JSON results
                   RESULTS_FILE=$(find tests/integration/outputs/*${{ matrix.job-config.run-suffix }}* -name "results.json" -type f | head -n 1)
