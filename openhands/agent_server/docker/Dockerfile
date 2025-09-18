@@ -47,7 +47,7 @@ RUN test -x /agent-server/dist/openhands-agent-server
 # Base runtime
 ############################
 FROM ${BASE_IMAGE} AS base-image
-ARG USERNAME UID GID PORT VARIANT
+ARG USERNAME UID GID PORT
 
 # NOTE: we should NOT include UV_PROJECT_ENVIRONMENT here, 
 # since the agent might use it to perform other work (e.g. tools that use Python)
