@@ -1,6 +1,8 @@
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
+from openhands.sdk.security.confirmation_policy import ConfirmationPolicy
+
 
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
@@ -192,11 +194,11 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
-    def set_confirmation_mode(self, enabled: bool) -> None:
+    def set_confirmation_mode(self, policy: ConfirmationPolicy) -> None:
         """Enable or disable confirmation mode and store it in conversation state."""
         with self.state:
-            self.state.confirmation_mode = enabled
-        logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
+            self.state.confirmation_policy = policy
+        logger.info(f"Confirmation mode set to: {policy}")
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         """Reject all pending actions from the agent.
