@@ -1,13 +1,12 @@
 import inspect
 from abc import ABC
-from typing import Annotated, Type, Union
+from typing import Annotated, ClassVar, Type, Union
 
 from pydantic import (
     BaseModel,
     Discriminator,
     Tag,
     TypeAdapter,
-    computed_field,
 )
 
 
@@ -31,11 +30,13 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
     discriminator for union types.
     """
 
-    @computed_field  # type: ignore
-    @property
-    def kind(self) -> str:
-        """Property to create kind field from class name when serializing."""
-        return self.__class__.__name__
+    kind: ClassVar[str] = "kind"
+
+    # @computed_field  # type: ignore
+    # @property
+    # def kind(self) -> str:
+    #    """Property to create kind field from class name when serializing."""
+    #    return self.__class__.__name__
 
     @classmethod
     def get_known_concrete_subclasses(cls) -> set[Type]:
@@ -83,6 +84,8 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
         super().__init_subclass__(**kwargs)
         if _is_abstract(cls):
             return
+
+        cls.kind = cls.__name__
 
         # Because of polymorphic associations are cached within schemas,
         # we need to rebuild all schemas after all subclasses have loaded.
