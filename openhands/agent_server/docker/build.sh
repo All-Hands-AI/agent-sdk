@@ -6,7 +6,7 @@ set -euo pipefail
 # ------------------------------------------------------------
 IMAGE="${IMAGE:-ghcr.io/all-hands-ai/agent-server}"
 BASE_IMAGE="${BASE_IMAGE:-nikolaik/python-nodejs:python3.12-nodejs22}"
-VARIANT_NAME="${VARIANT_NAME:-default}"  # "default", "java", or "golang"
+VARIANT_NAME="${VARIANT_NAME:-python}"  # "python", "java", or "golang"
 TARGET="${TARGET:-binary}"          # "binary" (prod) or "source" (dev)
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 
@@ -35,41 +35,22 @@ echo "[build] Using SDK version ${SDK_VERSION}"
 
 # Base slug (keep legacy format so downstream tags don’t change)
 BASE_SLUG="$(echo -n "${BASE_IMAGE}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
-# Include variant in tag if not default
-if [[ "${VARIANT_NAME}" != "default" ]]; then
-  VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}_${VARIANT_NAME}"
-else
-  VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}"
-fi
+VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}_${VARIANT_NAME}"
 
 # ------------------------------------------------------------
 # Tagging: prod vs dev
 # ------------------------------------------------------------
 if [[ "${TARGET}" == "source" ]]; then
   # Dev tags: add -dev suffix
-  if [[ "${VARIANT_NAME}" != "default" ]]; then
-    TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}-dev" "${IMAGE}:${VERSIONED_TAG}-dev" )
-    if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-      TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}-dev" )
-    fi
-  else
-    TAGS=( "${IMAGE}:${SHORT_SHA}-dev" "${IMAGE}:${VERSIONED_TAG}-dev" )
-    if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-      TAGS+=( "${IMAGE}:latest-dev" )
-    fi
+  TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}-dev" "${IMAGE}:${VERSIONED_TAG}-dev" )
+  if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
+    TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}-dev" )
   fi
 else
   # Prod tags
-  if [[ "${VARIANT_NAME}" != "default" ]]; then
-    TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}" "${IMAGE}:${VERSIONED_TAG}" )
-    if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-      TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}" )
-    fi
-  else
-    TAGS=( "${IMAGE}:${SHORT_SHA}" "${IMAGE}:${VERSIONED_TAG}" )
-    if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-      TAGS+=( "${IMAGE}:latest" )
-    fi
+  TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}" "${IMAGE}:${VERSIONED_TAG}" )
+  if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
+    TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}" )
   fi
 fi
 

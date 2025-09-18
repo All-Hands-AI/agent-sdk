@@ -123,8 +123,8 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    # Default Python + Node.js variant
-                    - name: default
+                    # Python + Node.js variant
+                    - name: python
                       runner: blacksmith-8vcpu-ubuntu-2404
                       platforms: linux/amd64,linux/arm64
                       base_image: nikolaik/python-nodejs:python3.12-nodejs22
