@@ -306,14 +306,31 @@ class Agent(AgentBase):
             2. Every action requires confirmation
             3. A single `FinishAction` never requires confirmation
         """
-        if len(action_events) == 0:
-            return False
-
+        # A single `FinishAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
             action_events[0].action, FinishAction
         ):
             return False
 
+        # If there are no actions there is nothing to confirm
+        if len(action_events) == 0:
+            return False
+
+        # If a security analyzer is registered, use it to check the action events and
+        # see if confirmation is needed.
+        if self.security_analyzer is not None:
+            risks = self.security_analyzer.analyze_pending_actions(action_events)
+            for _, risk in risks:
+                if self.security_analyzer.should_require_confirmation(
+                    risk, state.confirmation_mode
+                ):
+                    state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                    return True
+            # If the security analyzer doesn't tell us to stop, we shouldn't stop, even
+            # if the confirmation mode is on.
+            return False
+
+        # If confirmation mode is disabled, no confirmation is needed
         if not state.confirmation_mode:
             return False
 

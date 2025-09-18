@@ -6,6 +6,7 @@ import pytest
 from pydantic import Field, ValidationError
 
 from openhands.sdk.llm import ImageContent, TextContent
+from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool.schema import (
     ActionBase,
     MCPActionBase,
@@ -79,7 +80,7 @@ def test_action_base_is_frozen():
         action.args = ["new_arg"]
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        action.security_risk = "HIGH"
+        action.security_risk = SecurityRisk.HIGH
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
         action.metadata = {"new": "data"}
@@ -97,7 +98,7 @@ def test_mcp_action_base_is_frozen():
         action.parameters = {"new": "params"}
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        action.security_risk = "LOW"
+        action.security_risk = SecurityRisk.LOW
 
 
 def test_observation_base_is_frozen():

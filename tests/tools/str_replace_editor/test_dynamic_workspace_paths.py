@@ -3,6 +3,7 @@
 import os
 import tempfile
 
+from openhands.sdk.security.risk import SecurityRisk
 from openhands.tools import FileEditorTool
 from openhands.tools.str_replace_editor import (
     StrReplaceEditorAction,
@@ -63,7 +64,7 @@ def test_file_editor_tool_functional_with_custom_workspace():
             command="create",
             path=test_file,
             file_text="Hello, Custom Workspace!",
-            security_risk="LOW",
+            security_risk=SecurityRisk.LOW,
         )
 
         result = tool.call(action)
