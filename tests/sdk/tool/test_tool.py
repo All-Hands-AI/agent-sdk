@@ -65,7 +65,7 @@ class TestTool:
 
         assert tool.executor is not None
         action = MockAction(command="test")
-        result = tool.call(action)
+        result = tool(action)
         assert isinstance(result, MockObservation)
         assert result.result == "Executed: test"
 
@@ -151,7 +151,7 @@ class TestTool:
         with pytest.raises(
             NotImplementedError, match="Tool 'test_tool' has no executor"
         ):
-            tool.call(action)
+            tool(action)
 
     def test_call_with_executor(self):
         """Test calling tool with executor."""
@@ -169,7 +169,7 @@ class TestTool:
         )
 
         action = MockAction(command="test_command")
-        result = tool.call(action)
+        result = tool(action)
 
         assert isinstance(result, MockObservation)
         assert result.result == "Processed: test_command"
@@ -219,7 +219,7 @@ class TestTool:
         )
 
         action = MockAction(command="test")
-        result = tool.call(action)
+        result = tool(action)
 
         # Should return the correct observation type
         assert isinstance(result, MockObservation)
@@ -241,7 +241,7 @@ class TestTool:
         )
 
         action = MockAction(command="test")
-        result = tool.call(action)
+        result = tool(action)
 
         assert isinstance(result, MockObservation)
         assert result.result == "test"
@@ -327,7 +327,7 @@ class TestTool:
 
         # Should work
         action = MockAction(command="test")
-        result = tool.call(action)
+        result = tool(action)
         assert isinstance(result, MockObservation)
         assert result.result == "Attached: test"
 
@@ -376,7 +376,7 @@ class TestTool:
         )
 
         action = MockAction(command="test_command")
-        result = tool.call(action)
+        result = tool(action)
 
         assert isinstance(result, ComplexObservation)
         assert result.data["processed"] == "test_command"
@@ -399,7 +399,7 @@ class TestTool:
 
         action = MockAction(command="test")
         with pytest.raises(RuntimeError, match="Executor failed"):
-            tool.call(action)
+            tool(action)
 
     def test_executor_with_observation_validation(self):
         """Test that executor return values are validated."""
@@ -421,7 +421,7 @@ class TestTool:
         )
 
         action = MockAction(command="test")
-        result = tool.call(action)
+        result = tool(action)
         assert isinstance(result, StrictObservation)
         assert result.message == "success"
         assert result.value == 42

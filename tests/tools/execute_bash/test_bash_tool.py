@@ -37,7 +37,7 @@ def test_bash_tool_execution():
         action = ExecuteBashAction(command="echo 'Hello, World!'")
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None
@@ -54,7 +54,7 @@ def test_bash_tool_working_directory():
         action = ExecuteBashAction(command="pwd")
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check that the working directory is correct
         assert isinstance(result, ExecuteBashObservation)

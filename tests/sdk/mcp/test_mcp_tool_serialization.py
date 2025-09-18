@@ -10,7 +10,8 @@ from unittest.mock import Mock
 import mcp.types
 
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPActionBase, MCPTool, MCPToolObservation
+from openhands.sdk.mcp.definition import MCPToolAction
+from openhands.sdk.mcp.tool import MCPTool, MCPToolObservation
 from openhands.sdk.tool import Tool
 from openhands.sdk.tool.schema import ActionBase
 
@@ -127,6 +128,6 @@ def test_mcp_tool_essential_properties() -> None:
 
     # Verify action type was created correctly
     assert mcp_tool.action_type is not None and issubclass(
-        mcp_tool.action_type, MCPActionBase
+        mcp_tool.action_type, MCPToolAction
     )
     assert hasattr(mcp_tool.action_type, "to_mcp_arguments")

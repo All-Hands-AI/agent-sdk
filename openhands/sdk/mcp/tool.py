@@ -1,6 +1,7 @@
 """Utility functions for MCP integration."""
 
 import re
+from typing import Any
 
 import mcp.types
 from litellm import ChatCompletionToolParam
@@ -126,6 +127,21 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
                 exc_info=True,
             )
             raise e
+
+    def to_mcp_tool(self) -> dict[str, Any]:
+        """Convert to MCP tool format using the original MCP tool schema."""
+        out = {
+            "name": self.name,
+            "description": self.description,
+            "inputSchema": self.mcp_tool.inputSchema,
+        }
+        if self.annotations:
+            out["annotations"] = self.annotations
+        if self.meta is not None:
+            out["_meta"] = self.meta
+        if self.observation_type:
+            out["outputSchema"] = self.observation_type.to_mcp_schema()
+        return out
 
     def to_openai_tool(
         self,
