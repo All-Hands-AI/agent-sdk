@@ -12,12 +12,12 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
     Message,
     TextContent,
     Tool,
     get_logger,
 )
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     MessageEvent,
@@ -38,7 +38,7 @@ class TestHelloWorld:
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
         self.logger = get_logger(__name__)
-        self.collected_events: List[Event] = []
+        self.collected_events: List[EventBase] = []
         self.llm_messages: List[Dict[str, Any]] = []
 
         # Clean up any existing hello.py files
@@ -55,7 +55,7 @@ class TestHelloWorld:
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def conversation_callback(self, event: Event):
+    def conversation_callback(self, event: EventBase):
         """Callback to collect conversation events."""
         self.collected_events.append(event)
         if isinstance(event, ActionEvent):
