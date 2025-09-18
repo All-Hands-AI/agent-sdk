@@ -5,10 +5,11 @@ evaluate security risks of actions before execution.
 """
 
 import os
+import uuid
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
+from openhands.sdk import LLM, Agent, Conversation, LocalFileStore, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -36,6 +37,9 @@ tools: list[Tool] = [
 # Create agent with security analyzer
 security_analyzer = LLMSecurityAnalyzer()
 agent = Agent(llm=llm, tools=tools, security_analyzer=security_analyzer)
+
+conversation_id = uuid.uuid4()
+file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 conversation = Conversation(agent=agent)
 
 print("\n1) Safe command (LOW risk - should execute automatically)...")
