@@ -1,6 +1,8 @@
+import json
 from typing import Annotated, Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
+from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -147,6 +149,23 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     def set_executor(self, executor: ToolExecutor) -> "Tool":
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
+
+    def action_from_tool_call(
+        self, tool_call: ChatCompletionMessageToolCall
+    ) -> ActionBase:
+        """Create an action from a tool call.
+
+        This method can be overridden by subclasses to provide custom logic
+        for creating actions from tool calls (e.g., for MCP tools).
+
+        Args:
+            tool_call: The tool call from the LLM.
+
+        Returns:
+            The action instance created from the tool call.
+        """
+        arguments = json.loads(tool_call.function.arguments)
+        return self.action_type.model_validate(arguments)
 
     def __call__(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.

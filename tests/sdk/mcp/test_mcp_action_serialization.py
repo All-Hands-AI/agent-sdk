@@ -4,72 +4,69 @@ from pydantic import ValidationError
 from openhands.sdk.mcp import MCPToolAction
 
 
-def _parent_fields() -> frozenset[str]:
-    # Create a minimal instance, then read the private attr value
-    inst = MCPToolAction()
-    pf = getattr(inst, "_parent_fields", None)
-    assert isinstance(pf, (set, frozenset)), "Unexpected _parent_fields shape"
-    return frozenset(pf)
-
-
-def test_extras_are_included_then_emerge_from_to_mcp_arguments():
-    a = MCPToolAction(new_field="value", dynamic=123)  # type: ignore
+def test_data_field_emerges_from_to_mcp_arguments():
+    """Test that data field contents are returned by to_mcp_arguments."""
+    data = {"new_field": "value", "dynamic": 123}
+    a = MCPToolAction(data=data)
     out = a.to_mcp_arguments()
 
-    # Parent fields must be gone (whatever they are)
-    assert set(out).isdisjoint(_parent_fields())
-
-    # Extras must remain
+    # Data field contents should be returned
     assert out["new_field"] == "value"
     assert out["dynamic"] == 123
+    assert out == data
 
 
-def test_declared_child_fields_survive():
+def test_declared_child_fields_with_data():
+    """Test that child classes work with the data field."""
+
     class Child(MCPToolAction):
         declared: int
 
-    a = Child(declared=7)
+    data = {"tool_param": "value"}
+    a = Child(declared=7, data=data)
     out = a.to_mcp_arguments()
 
-    assert out == {"declared": 7}
-    assert set(out).isdisjoint(_parent_fields())
+    # Only data field contents should be in MCP arguments
+    assert out == {"tool_param": "value"}
+    # The declared field should be accessible but not in MCP arguments
+    assert a.declared == 7
 
 
-def test_parent_fields_are_excluded_even_if_provided():
-    """
-    If a caller passes values for names that collide with parent fields,
-    those keys should not appear in the final MCP args.
-    """
-    pf = list(_parent_fields())
-    # Take up to 3 parent-looking keys (if there are that many)
-    attempted = {k: "x" for k in pf[:3]}
-    a = MCPToolAction(**attempted, extra_ok="yes")  # type: ignore
+def test_empty_data_field():
+    """Test behavior with empty data field."""
+    a = MCPToolAction()
     out = a.to_mcp_arguments()
-
-    assert "extra_ok" in out and out["extra_ok"] == "yes"
-    assert set(out).isdisjoint(_parent_fields())
+    assert out == {}
 
 
-def test_exclude_none_behavior():
-    a = MCPToolAction(keep_me="ok", drop_me=None)  # type: ignore
+def test_data_field_with_none_values():
+    """Test that None values in data are preserved."""
+    data = {"keep_me": "ok", "drop_me": None}
+    a = MCPToolAction(data=data)
     out = a.to_mcp_arguments()
     assert out.get("keep_me") == "ok"
-    assert "drop_me" not in out  # excluded by exclude_none=True
+    assert out.get("drop_me") is None  # None values are preserved in data
 
 
-def test_frozen_model_is_immutable_or_skip_if_not_frozen():
-    a = MCPToolAction(x=1)  # type: ignore
+def test_frozen_model_is_immutable():
+    """Test that MCPToolAction is immutable."""
+    a = MCPToolAction(data={"x": 1})
     with pytest.raises(ValidationError):
-        a.x = 2  # type: ignore
+        a.data = {"y": 2}  # type: ignore
 
 
-def test_parent_fields_registry_shape():
-    pf = _parent_fields()
-    assert isinstance(pf, frozenset)
-    assert len(pf) > 0
+def test_data_field_type_validation():
+    """Test that data field accepts dict[str, Any]."""
+    # Valid data
+    a = MCPToolAction(data={"string": "value", "number": 123, "bool": True})
+    assert a.data == {"string": "value", "number": 123, "bool": True}
 
-    class Child(MCPToolAction):
-        child_only: str | None = None
+    # Empty dict is valid
+    b = MCPToolAction(data={})
+    assert b.data == {}
 
-    # Ensure the registry doesn't include child-only names
-    assert "child_only" not in pf
+
+def test_extra_fields_not_allowed():
+    """Test that extra fields are not allowed outside of data."""
+    with pytest.raises(ValidationError):
+        MCPToolAction(extra_field="not_allowed")  # type: ignore

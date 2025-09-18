@@ -2,9 +2,10 @@
 
 import json
 from collections.abc import Sequence
+from typing import Any
 
 import mcp.types
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -34,30 +35,19 @@ class MCPToolAction(ActionBase):
     from the MCP tool input schema.
     """
 
-    model_config = ConfigDict(extra="allow", frozen=True)
+    model_config = ConfigDict(frozen=True)
 
-    # Collect all fields from ActionBase and its parents
-    _parent_fields: frozenset[str] = frozenset(
-        fname
-        for base in ActionBase.__mro__
-        if issubclass(base, BaseModel)
-        for fname in {
-            **base.model_fields,
-            **base.model_computed_fields,
-        }.keys()
+    data: dict[str, Any] = Field(
+        default_factory=dict, description="Dynamic data fields from the tool call"
     )
 
     def to_mcp_arguments(self) -> dict:
-        """Dump model excluding parent ActionBase fields.
+        """Return the data field as MCP tool call arguments.
 
         This is used to convert this action to MCP tool call arguments.
-        The parent fields (e.g., safety_risk, kind) are not part of the MCP tool schema
-        but are only used for our internal processing.
+        The data field contains the dynamic fields from the tool call.
         """
-        data = self.model_dump(exclude_none=True)
-        for f in self._parent_fields:
-            data.pop(f, None)
-        return data
+        return self.data
 
 
 class MCPToolObservation(ObservationBase):

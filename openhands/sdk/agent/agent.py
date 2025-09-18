@@ -405,9 +405,17 @@ class Agent(AgentBase):
                         f"Invalid security_risk value from LLM: {_predicted_risk}"
                     )
 
+            # Create a modified tool call without the security_risk field
             # Arguments we passed in should not contains `security_risk`
             # as a field
-            action: ActionBase = tool.action_type.model_validate(arguments)
+            modified_tool_call = ChatCompletionMessageToolCall(
+                id=tool_call.id,
+                type=tool_call.type,
+                function=tool_call.function.model_copy(
+                    update={"arguments": json.dumps(arguments)}
+                ),
+            )
+            action: ActionBase = tool.action_from_tool_call(modified_tool_call)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "

@@ -1,10 +1,12 @@
 """Utility functions for MCP integration."""
 
+import json
 import re
 from typing import Any
 
 import mcp.types
 from litellm import ChatCompletionToolParam
+from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import Field, ValidationError
 
 from openhands.sdk.llm import TextContent
@@ -90,9 +92,27 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
         DynamicMCPActionType = MCPToolAction.from_mcp_schema(
             f"{to_camel_case(self.name)}Action", self.mcp_tool.inputSchema
         )
-        DynamicMCPActionType.model_validate(action.model_dump())
+        DynamicMCPActionType.model_validate(action.data)
 
         return super().__call__(action)
+
+    def action_from_tool_call(
+        self, tool_call: ChatCompletionMessageToolCall
+    ) -> MCPToolAction:
+        """Create an MCPToolAction from a tool call.
+
+        This method puts the tool call arguments into the .data field
+        of the MCPToolAction, avoiding the need for dynamic class creation
+        during action instantiation.
+
+        Args:
+            tool_call: The tool call from the LLM.
+
+        Returns:
+            The MCPToolAction instance with data populated from the tool call.
+        """
+        arguments = json.loads(tool_call.function.arguments)
+        return MCPToolAction(data=arguments)
 
     @classmethod
     def create(
@@ -161,7 +181,11 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
                 "MCPTool.to_openai_tool does not support overriding action_type"
             )
 
-        DynamicMCPActionType = MCPToolAction.from_mcp_schema(
+        # For OpenAI tool schema, we want only the MCP tool fields, not the data field
+        # So we create the dynamic type from ActionBase instead of MCPToolAction
+        from openhands.sdk.tool.schema import ActionBase
+
+        DynamicMCPActionType = ActionBase.from_mcp_schema(
             f"{to_camel_case(self.name)}Action", self.mcp_tool.inputSchema
         )
         return super().to_openai_tool(
