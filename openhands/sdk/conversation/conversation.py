@@ -139,6 +139,17 @@ class Conversation:
             )
             self._on_event(user_msg_event)
 
+    def send_text(self, text: str) -> None:
+        """Send a text message to the agent.
+
+        This is a convenience method that wraps send_message for simple text input.
+
+        Args:
+            text: The text message to send to the agent
+        """
+        message = Message(role="user", content=[TextContent(text=text)])
+        self.send_message(message)
+
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
 
