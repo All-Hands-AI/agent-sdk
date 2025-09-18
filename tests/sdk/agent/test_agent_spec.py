@@ -259,10 +259,7 @@ def test_agent_spec_condenser_serialization(basic_llm):
     assert spec_dict["condenser"] is not None
     assert "kind" in spec_dict["condenser"]
     assert "type" not in spec_dict["condenser"]
-    assert spec_dict["condenser"]["kind"] == (
-        "openhands.sdk.context.condenser.llm_summarizing_condenser."
-        "LLMSummarizingCondenser"
-    )
+    assert spec_dict["condenser"]["kind"] == "LLMSummarizingCondenser"
 
     # Test model_dump_json and deserialization
     spec_json = spec.model_dump_json()
