@@ -19,7 +19,7 @@ from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool.tool import ToolBase
 
 
 class TestResult(BaseModel):
@@ -115,7 +115,7 @@ class BaseIntegrationTest(ABC):
 
     @property
     @abstractmethod
-    def tools(self) -> list[Tool]:
+    def tools(self) -> list[ToolBase]:
         """List of tools available to the agent."""
         pass
 

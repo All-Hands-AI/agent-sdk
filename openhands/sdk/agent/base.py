@@ -13,7 +13,7 @@ from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -33,7 +33,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     llm: LLM
     agent_context: AgentContext | None = Field(default=None)
-    tools: dict[str, Tool] | Sequence[Tool] = Field(
+    tools: dict[str, ToolBase] | Sequence[ToolBase] = Field(
         default_factory=dict,
         description="Mapping of tool name to Tool instance that the agent can use."
         " If a list is provided, it should be converted to a mapping by tool name."
@@ -57,7 +57,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         import openhands.tools  # avoid circular import
         from openhands.sdk.mcp import create_mcp_tools
 
-        tools: list[Tool] = []
+        tools: list[ToolBase] = []
         for tool_spec in spec.tools:
             tool_class = getattr(openhands.tools, tool_spec.name, None)
             if tool_class is None:
@@ -72,7 +72,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         # Check tool types
         for tool in tools:
-            if not isinstance(tool, Tool):
+            if not isinstance(tool, ToolBase):
                 raise ValueError(
                     f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
                 )

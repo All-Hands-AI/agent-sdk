@@ -20,9 +20,9 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Message,
     TextContent,
-    Tool,
     get_logger,
 )
+from openhands.sdk.tool.tool import ToolBase
 from openhands.tools import BashTool, FileEditorTool
 
 
@@ -56,7 +56,7 @@ def create_llm(
     return LLM(**llm_kwargs)
 
 
-def create_tools(working_dir: Optional[str] = None) -> List[Tool]:
+def create_tools(working_dir: Optional[str] = None) -> List[ToolBase]:
     """Create standard tools for testing."""
     cwd = working_dir or os.getcwd()
     return [BashTool.create(working_dir=cwd), FileEditorTool.create()]
