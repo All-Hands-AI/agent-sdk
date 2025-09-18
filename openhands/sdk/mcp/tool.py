@@ -3,13 +3,20 @@
 import re
 
 import mcp.types
+from litellm import ChatCompletionToolParam
 from pydantic import Field, ValidationError
 
 from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
-from openhands.sdk.tool import ObservationBase, Tool, ToolAnnotations, ToolExecutor
+from openhands.sdk.tool import (
+    ActionBase,
+    ObservationBase,
+    Tool,
+    ToolAnnotations,
+    ToolExecutor,
+)
 
 
 logger = get_logger(__name__)
@@ -119,3 +126,29 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
                 exc_info=True,
             )
             raise e
+
+    def to_openai_tool(
+        self,
+        add_security_risk_prediction: bool = False,
+        action_type: type[ActionBase] | None = None,
+    ) -> ChatCompletionToolParam:
+        """Convert a Tool to an OpenAI tool.
+
+        Args:
+            add_security_risk_prediction: Whether to add a `security_risk` field
+                to the action schema for LLM to predict. This is useful for
+                tools that may have safety risks, so the LLM can reason about
+                the risk level before calling the tool.
+        """
+        if action_type is not None:
+            raise ValueError(
+                "MCPTool.to_openai_tool does not support overriding action_type"
+            )
+
+        DynamicMCPActionType = MCPToolAction.from_mcp_schema(
+            f"{to_camel_case(self.name)}Action", self.mcp_tool.inputSchema
+        )
+        return super().to_openai_tool(
+            add_security_risk_prediction=add_security_risk_prediction,
+            action_type=DynamicMCPActionType,
+        )

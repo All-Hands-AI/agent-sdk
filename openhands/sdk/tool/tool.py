@@ -194,6 +194,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     def to_openai_tool(
         self,
         add_security_risk_prediction: bool = False,
+        action_type: type[ActionBase] | None = None,
     ) -> ChatCompletionToolParam:
         """Convert a Tool to an OpenAI tool.
 
@@ -202,9 +203,13 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
                 to the action schema for LLM to predict. This is useful for
                 tools that may have safety risks, so the LLM can reason about
                 the risk level before calling the tool.
+            action_type: Optionally override the action_type to use for the schema.
+                This is useful for MCPTool to use a dynamically created action type
+                based on the tool's input schema.
         """
+        action_type = action_type or self.action_type
 
-        class ActionTypeWithRisk(self.action_type):
+        class ActionTypeWithRisk(action_type):
             security_risk: risk.SecurityRisk = Field(
                 default=risk.SecurityRisk.UNKNOWN,
                 description="The LLM's assessment of the safety risk of this action.",
@@ -221,7 +226,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
                 description=self.description,
                 parameters=ActionTypeWithRisk.to_mcp_schema()
                 if add_security_risk_prediction
-                else self.action_type.to_mcp_schema(),
+                else action_type.to_mcp_schema(),
             ),
         )
 
