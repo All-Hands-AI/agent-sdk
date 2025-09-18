@@ -79,10 +79,10 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
         Returns:
             The observation result from executing the action.
         """
-        DynamicActionType = MCPToolAction.from_mcp_schema(
+        DynamicMCPActionType = MCPToolAction.from_mcp_schema(
             f"{to_camel_case(self.name)}Action", self.mcp_tool.inputSchema
         )
-        DynamicActionType.model_validate(action.model_dump())
+        DynamicMCPActionType.model_validate(action.model_dump())
 
         return super().call(action)
 
