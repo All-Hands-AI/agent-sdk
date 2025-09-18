@@ -120,6 +120,22 @@ class Success(BaseModel):
     success: bool = True
 
 
+class MessageQueueResponse(BaseModel):
+    """Response when sending a message that may be queued."""
+
+    success: bool = True
+    queued: bool = Field(
+        description="Whether the message was queued or processed immediately"
+    )
+    queue_position: int | None = Field(
+        default=None, description="Position in queue if queued"
+    )
+    processed_immediately: bool | None = Field(
+        default=None, description="Whether message was processed immediately"
+    )
+    agent_status: str = Field(description="Current agent execution status")
+
+
 class EventPage(BaseModel):
     items: list[EventType]
     next_page_id: str | None = None

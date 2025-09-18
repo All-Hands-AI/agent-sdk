@@ -25,6 +25,7 @@ from openhands.agent_server.models import (
     EventPage,
     EventSortOrder,
     EventType,
+    MessageQueueResponse,
     SendMessageRequest,
     Success,
 )
@@ -117,14 +118,22 @@ async def batch_get_conversation_events(
 
 
 @router.post("/")
-async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Success:
+async def send_message(
+    conversation_id: UUID, request: SendMessageRequest
+) -> MessageQueueResponse:
     """Send a message to a conversation"""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     message = Message(role=request.role, content=request.content)
-    await event_service.send_message(message, run=request.run)
-    return Success()
+    result = await event_service.send_message(message, run=request.run)
+
+    return MessageQueueResponse(
+        queued=result["queued"],
+        queue_position=result.get("queue_position"),
+        processed_immediately=result.get("processed_immediately"),
+        agent_status=result["agent_status"],
+    )
 
 
 @router.post(
@@ -161,7 +170,18 @@ async def socket(
             try:
                 data = await websocket.receive_json()
                 message = Message.model_validate(data)
-                await event_service.send_message(message, run=True)
+                result = await event_service.send_message(message, run=True)
+
+                # Send queue status back to client
+                queue_status_response = {
+                    "type": "MessageQueueStatus",
+                    "result": result,
+                    "timestamp": data.get("timestamp")
+                    if isinstance(data, dict)
+                    else None,
+                }
+                await websocket.send_json(queue_status_response)
+
             except WebSocketDisconnect:
                 await event_service.unsubscribe_from_events(subscriber_id)
             except Exception:

@@ -142,14 +142,22 @@ class EventService:
             results.append(result)
         return results
 
-    async def send_message(self, message: Message, run: bool = True):
+    async def send_message(self, message: Message, run: bool = True) -> dict:
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
-        future = loop.run_in_executor(None, self._conversation.send_message, message)
-        if run:
-            await future
-            loop.run_in_executor(None, self._conversation.run)
+
+        # Send message (this now returns queue status from Conversation)
+        result = await loop.run_in_executor(
+            None, self._conversation.send_message_with_queue_status, message
+        )
+
+        if run and not result.get("queued", False):
+            # Only run if message wasn't queued (immediate processing)
+            # If queued, the Conversation will handle running after queue processing
+            await loop.run_in_executor(None, self._conversation.run)
+
+        return result
 
     async def subscribe_to_events(self, subscriber: Subscriber) -> UUID:
         return self._pub_sub.subscribe(subscriber)

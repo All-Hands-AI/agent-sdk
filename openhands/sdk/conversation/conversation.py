@@ -1,4 +1,5 @@
 import uuid
+from collections import deque
 from typing import TYPE_CHECKING, Iterable
 
 
@@ -87,6 +88,9 @@ class Conversation:
         self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
+        # Message queue for handling concurrent messages
+        self._message_queue: deque[Message] = deque()
+
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
 
@@ -139,6 +143,51 @@ class Conversation:
             )
             self._on_event(user_msg_event)
 
+    def send_message_with_queue_status(self, message: Message) -> dict:
+        """
+        Send a message to the agent with queue status information.
+
+        If the agent is currently running, the message will be queued and processed
+        after the current run completes. If the agent is idle, the message will be
+        processed immediately using the original send_message method.
+
+        Returns:
+            dict: Status information about whether the message was queued or processed
+        """
+        assert message.role == "user", (
+            "Only user messages are allowed to be sent to the agent."
+        )
+
+        with self.state:
+            # Check if agent is currently busy
+            if self.state.agent_status == AgentExecutionStatus.RUNNING:
+                # Agent is busy - queue the message
+                self._message_queue.append(message)
+                logger.debug(f"Message queued. Queue size: {len(self._message_queue)}")
+                return {
+                    "queued": True,
+                    "queue_position": len(self._message_queue),
+                    "agent_status": self.state.agent_status.value,
+                }
+
+        # Agent is idle - process immediately using original method
+        self.send_message(message)
+        with self.state:
+            return {
+                "queued": False,
+                "processed_immediately": True,
+                "agent_status": self.state.agent_status.value,
+            }
+
+    def get_queue_status(self) -> dict:
+        """Get current message queue status."""
+        with self.state:
+            return {
+                "queue_size": len(self._message_queue),
+                "agent_status": self.state.agent_status.value,
+                "has_queued_messages": len(self._message_queue) > 0,
+            }
+
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
 
@@ -190,6 +239,42 @@ class Conversation:
 
             iteration += 1
             if iteration >= self.max_iteration_per_run:
+                break
+
+        # Process any queued messages after the run completes
+        self._process_queued_messages()
+
+    def _process_queued_messages(self) -> None:
+        """Process all queued messages sequentially."""
+        while self._message_queue:
+            with self.state:
+                # Check if there are any queued messages and agent is not busy
+                if not self._message_queue:
+                    break
+
+                if self.state.agent_status == AgentExecutionStatus.RUNNING:
+                    # Agent became busy again, stop processing queue
+                    break
+
+                # Get next message from queue
+                message = self._message_queue.popleft()
+                logger.debug(
+                    f"Processing queued message. Queue size: {len(self._message_queue)}"
+                )
+
+            # Process the message using the original send_message method
+            self.send_message(message)
+
+            # After processing the message, run the agent if not in confirmation mode
+            if self.state.agent_status not in [
+                AgentExecutionStatus.WAITING_FOR_CONFIRMATION,
+                AgentExecutionStatus.PAUSED,
+                AgentExecutionStatus.FINISHED,
+            ]:
+                # Run the agent to process the new message
+                self.run()
+                # Note: This will recursively call _process_queued_messages() again
+                # but that's fine because the queue will be empty or stop processing
                 break
 
     def set_confirmation_mode(self, enabled: bool) -> None:
