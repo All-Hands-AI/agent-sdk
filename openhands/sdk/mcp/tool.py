@@ -1,12 +1,10 @@
 """Utility functions for MCP integration."""
 
-import json
 import re
 from typing import Any
 
 import mcp.types
 from litellm import ChatCompletionToolParam
-from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import Field, ValidationError
 
 from openhands.sdk.llm import TextContent
@@ -96,22 +94,19 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
 
         return super().__call__(action)
 
-    def action_from_tool_call(
-        self, tool_call: ChatCompletionMessageToolCall
-    ) -> MCPToolAction:
-        """Create an MCPToolAction from a tool call.
+    def action_from_arguments(self, arguments: dict[str, Any]) -> MCPToolAction:
+        """Create an MCPToolAction from parsed arguments.
 
-        This method puts the tool call arguments into the .data field
+        This method puts the arguments into the .data field
         of the MCPToolAction, avoiding the need for dynamic class creation
         during action instantiation.
 
         Args:
-            tool_call: The tool call from the LLM.
+            arguments: The parsed arguments from the tool call.
 
         Returns:
-            The MCPToolAction instance with data populated from the tool call.
+            The MCPToolAction instance with data populated from the arguments.
         """
-        arguments = json.loads(tool_call.function.arguments)
         return MCPToolAction(data=arguments)
 
     @classmethod
