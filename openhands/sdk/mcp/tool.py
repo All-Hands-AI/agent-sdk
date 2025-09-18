@@ -10,6 +10,7 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import MCPToolObservation
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.tool import MCPActionBase, Tool, ToolAnnotations, ToolExecutor
+from openhands.sdk.utils.discriminated_union import DiscriminatedFields
 
 
 logger = get_logger(__name__)
@@ -62,7 +63,7 @@ class MCPToolExecutor(ToolExecutor):
         )
 
 
-class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
+class MCPTool(Tool[MCPActionBase, MCPToolObservation], DiscriminatedFields):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")

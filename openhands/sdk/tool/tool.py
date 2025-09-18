@@ -1,3 +1,4 @@
+from abc import ABC
 from typing import Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
@@ -72,7 +73,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
+class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.

@@ -51,9 +51,9 @@ def test_agent_supports_polymorphic_json_serialization() -> None:
 
 def test_mcp_tool_serialization():
     tool = create_mock_mcp_tool()
-    dumped = tool.model_dump()
-    loaded = Tool.model_validate(dumped)
-    assert loaded.model_dump() == dumped
+    dumped = tool.model_dump_json()
+    loaded = Tool.model_validate_json(dumped)
+    assert loaded.model_dump_json() == dumped
 
 
 def test_agent_serialization_should_include_mcp_tool() -> None:

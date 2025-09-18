@@ -1,6 +1,7 @@
 import inspect
+import json
 from abc import ABC
-from typing import Annotated, Type, Union
+from typing import Annotated, Any, Self, Type, Union
 
 from pydantic import (
     BaseModel,
@@ -120,6 +121,57 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
             Discriminator(kind_of),
         ]
         return serializable_type  # type: ignore
+
+    @classmethod
+    def model_validate(
+        cls,
+        obj: Any,
+        *,
+        strict: bool | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> Self:
+        if _is_abstract(cls):
+            resolved = cls.resolve_kind(kind_of(obj))
+        else:
+            resolved = super()
+        result = resolved.model_validate(
+            obj,
+            strict=strict,
+            from_attributes=from_attributes,
+            context=context,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+        return result  # type: ignore
+
+    @classmethod
+    def model_validate_json(
+        cls,
+        json_data: str | bytes | bytearray,
+        *,
+        strict: bool | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> Self:
+        data = json.loads(json_data)
+        if _is_abstract(cls):
+            resolved = cls.resolve_kind(kind_of(data))
+        else:
+            resolved = super()
+        result = resolved.model_validate(
+            data,
+            strict=strict,
+            from_attributes=from_attributes,
+            context=context,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+        return result  # type: ignore
 
 
 def _is_abstract(type_: Type) -> bool:
