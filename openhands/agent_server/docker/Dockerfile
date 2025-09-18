@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
 ARG BASE_IMAGE=nikolaik/python-nodejs:python3.12-nodejs22
-ARG VARIANT=default
 ARG USERNAME=openhands
 ARG UID=10001
 ARG GID=10001
