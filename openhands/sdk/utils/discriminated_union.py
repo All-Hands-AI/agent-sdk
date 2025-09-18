@@ -1,8 +1,6 @@
 import inspect
 from abc import ABC
-from copy import deepcopy
-from functools import lru_cache
-from typing import Annotated, Type, Union, get_args, get_origin
+from typing import Annotated, Type, Union
 
 from pydantic import (
     BaseModel,
@@ -58,19 +56,47 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
                 return subclass
         raise ValueError(f"Unknown kind '{kind}' for {cls}")
 
+    @classmethod
+    def _rebuild_schemas(cls):
+        type_adapter = TypeAdapter(cls.get_serializable_type())
+        cls.__pydantic_core_schema__ = type_adapter.core_schema
+        cls.__pydantic_validator__ = type_adapter.validator
+        cls.__pydantic_serializer__ = type_adapter.serializer
 
-@lru_cache
-def get_polymorphic_type_adapter(cls):
-    serializable_type = get_serializable_type(cls)
-    type_adapter = TypeAdapter(serializable_type)
-    return type_adapter
+    def __init_subclass__(cls, **kwargs):
+        """We want to regenerate the schema for any abstract superclass which
+        is a DiscriminatedUnion any time a subclass is initialized"""
+        super().__init_subclass__(**kwargs)
+        if _is_abstract(cls):
+            return
+        for superclass in cls.mro()[1:]:
+            if (
+                _is_abstract(superclass)
+                and issubclass(superclass, DiscriminatedUnionMixin)
+                and not superclass == DiscriminatedUnionMixin
+            ):
+                superclass._rebuild_schemas()
 
+    @classmethod
+    def get_serializable_type(cls) -> Type:
+        """
+        Custom method to get the union of all currently loaded
+        non absract subclasses
+        """
 
-def _is_subclass(a: Type, b: Type):
-    try:
-        return issubclass(a, b)
-    except Exception:
-        return False
+        # If the class is not abstract return self
+        if not _is_abstract(cls):
+            return cls
+
+        subclasses = cls.get_known_concrete_subclasses()
+        if len(subclasses) < 2:
+            return cls
+
+        serializable_type = Annotated[
+            Union[tuple(Annotated[t, Tag(t.__name__)] for t in subclasses)],
+            Discriminator(kind_of),
+        ]
+        return serializable_type  # type: ignore
 
 
 def _is_abstract(type_: Type) -> bool:
@@ -79,60 +105,3 @@ def _is_abstract(type_: Type) -> bool:
         return inspect.isabstract(type_) or ABC in type_.__bases__
     except Exception:
         return False
-
-
-def get_serializable_type(type_: Type) -> Type:
-    if _is_subclass(type_, DiscriminatedUnionMixin):
-        # Build a structure for all concrete subtypes and all fields
-        concrete_subclasses = [
-            _get_serializable_undescriminated_type(cls)
-            for cls in type_.get_known_concrete_subclasses()
-        ]
-
-        if not concrete_subclasses and _is_abstract(type_):
-            raise ValueError(f"No subclasses found for {type_}")
-
-        if concrete_subclasses:
-            tagged_subclasses = tuple(
-                Annotated[cls, Tag(cls.__name__)] for cls in concrete_subclasses
-            )
-
-            result = Annotated[Union[tagged_subclasses], Discriminator(kind_of)]
-            return result  # type: ignore
-
-    return _get_serializable_undescriminated_type(type_)
-
-
-def _get_serializable_undescriminated_type(type_: Type) -> Type:
-    if _is_subclass(type_, BaseModel):
-        # Build a set of updated fields
-        updated_fields = {}
-        for field_name, field_info in type_.model_fields.items():
-            field_serializable_type = get_serializable_type(field_info.annotation)
-            if field_serializable_type == field_info.annotation:
-                continue
-            updated_field = deepcopy(field_info)
-            updated_field.annotation = field_serializable_type
-            updated_fields[field_name] = updated_field
-
-        # If there were no updated fields return the original class
-        if not updated_fields:
-            return type_
-
-        # Define and return a new class using the updated fields
-        # (Which extends the original)
-        updated_annotations = {f.name: f.type for f in updated_fields.items()}  # type: ignore
-        updated_fields["__annotations__"] = updated_annotations
-        updated_class = type(type_.__name__, (type_,), updated_fields)
-        return updated_class
-
-    # If the type has generics, process each of these in turn...
-    origin = get_origin(type_)
-    if origin:
-        args = get_args(type_)
-        updated_origin = get_serializable_type(origin)
-        updated_args = tuple(get_serializable_type(arg) for arg in args)
-        updated_type = updated_origin[updated_args]  # type: ignore
-        return updated_type
-
-    return type_

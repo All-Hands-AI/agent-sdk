@@ -10,7 +10,6 @@ from openhands.sdk.conversation.persistence_const import (
 from openhands.sdk.event import EventBase, EventID
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.discriminated_union import get_polymorphic_type_adapter
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -58,14 +57,14 @@ class EventLog(ListLike[EventBase]):
         txt = self._fs.read(self._path(i))
         if not txt:
             raise FileNotFoundError(f"Missing event file: {self._path(i)}")
-        return get_polymorphic_type_adapter(EventBase).validate_json(txt)
+        return EventBase.model_validate_json(txt)
 
     def __iter__(self) -> Iterator[EventBase]:
         for i in range(self._length):
             txt = self._fs.read(self._path(i))
             if not txt:
                 continue
-            evt = get_polymorphic_type_adapter(EventBase).validate_json(txt)
+            evt = EventBase.model_validate_json(txt)
             evt_id = evt.id
             # only backfill mapping if missing
             if i not in self._idx_to_id:
