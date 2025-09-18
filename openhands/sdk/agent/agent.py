@@ -455,9 +455,7 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        if tool.executor is None:
-            raise RuntimeError(f"Tool '{tool.name}' has no executor")
-        observation: ObservationBase = tool.executor(action_event.action)
+        observation: ObservationBase = tool.call(action_event.action)
         assert isinstance(observation, ObservationBase), (
             f"Tool '{tool.name}' executor must return an ObservationBase"
         )
