@@ -7,9 +7,9 @@ from pydantic import Field, ValidationError
 
 from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import MCPToolObservation
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.tool import MCPActionBase, Tool, ToolAnnotations, ToolExecutor
+from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
+from openhands.sdk.tool import Tool, ToolAnnotations, ToolExecutor
 
 
 logger = get_logger(__name__)
@@ -32,7 +32,7 @@ class MCPToolExecutor(ToolExecutor):
         self.tool_name = tool_name
         self.client = client
 
-    async def call_tool(self, action: MCPActionBase) -> MCPToolObservation:
+    async def call_tool(self, action: MCPToolAction) -> MCPToolObservation:
         async with self.client:
             assert self.client.is_connected(), "MCP client is not connected."
             try:
@@ -55,14 +55,14 @@ class MCPToolExecutor(ToolExecutor):
                     tool_name=self.tool_name,
                 )
 
-    def __call__(self, action: MCPActionBase) -> MCPToolObservation:
+    def __call__(self, action: MCPToolAction) -> MCPToolObservation:
         """Execute an MCP tool call."""
         return self.client.call_async_from_sync(
             self.call_tool, action=action, timeout=300
         )
 
 
-class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
+class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
@@ -82,15 +82,10 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
                 else None
             )
 
-            MCPActionType = MCPActionBase.from_mcp_schema(
-                f"{to_camel_case(mcp_tool.name)}Action",
-                mcp_tool.inputSchema,
-            )
-
             return cls(
                 name=mcp_tool.name,
                 description=mcp_tool.description or "No description provided",
-                action_type=MCPActionType,
+                action_type=MCPToolAction,
                 observation_type=MCPToolObservation,
                 annotations=annotations,
                 meta=mcp_tool.meta,

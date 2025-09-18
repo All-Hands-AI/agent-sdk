@@ -4,7 +4,7 @@ import json
 from collections.abc import Sequence
 
 import mcp.types
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -12,6 +12,7 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     ObservationBase,
 )
+from openhands.sdk.tool.schema import ActionBase
 from openhands.sdk.utils.visualize import display_dict
 
 
@@ -20,6 +21,38 @@ logger = get_logger(__name__)
 
 # NOTE: We don't define MCPToolAction because it
 # will be dynamically created from the MCP tool schema.
+
+
+class MCPToolAction(ActionBase):
+    """Schema for MCP input action.
+
+    It is just a thin wrapper around a thin JSON schema.
+    """
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+    # Collect all fields from ActionBase and its parents
+    _parent_fields: frozenset[str] = frozenset(
+        fname
+        for base in ActionBase.__mro__
+        if issubclass(base, BaseModel)
+        for fname in {
+            **base.model_fields,
+            **base.model_computed_fields,
+        }.keys()
+    )
+
+    def to_mcp_arguments(self) -> dict:
+        """Dump model excluding parent ActionBase fields.
+
+        This is used to convert this action to MCP tool call arguments.
+        The parent fields (e.g., safety_risk, kind) are not part of the MCP tool schema
+        but are only used for our internal processing.
+        """
+        data = self.model_dump(exclude_none=True)
+        for f in self._parent_fields:
+            data.pop(f, None)
+        return data
 
 
 class MCPToolObservation(ObservationBase):
