@@ -104,6 +104,10 @@ class Agent(AgentBase):
         # Built-ins last; ensures no duplicates
         return {**user_tools, **builtin_map}
 
+    @property
+    def _add_security_risk_prediction(self) -> bool:
+        return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
+
     def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
         """
         Configure bash tool with reference to secrets manager.
@@ -161,7 +165,12 @@ class Agent(AgentBase):
             event = SystemPromptEvent(
                 source="agent",
                 system_prompt=TextContent(text=self.system_message),
-                tools=[t.to_openai_tool() for t in self.tools.values()],
+                tools=[
+                    t.to_openai_tool(
+                        add_security_risk_prediction=self._add_security_risk_prediction
+                    )
+                    for t in self.tools.values()
+                ],
             )
             on_event(event)
 
@@ -223,9 +232,7 @@ class Agent(AgentBase):
         tools = [
             # add llm security risk prediction if analyzer is present
             tool.to_openai_tool(
-                add_security_risk_prediction=isinstance(
-                    self.security_analyzer, LLMSecurityAnalyzer
-                )
+                add_security_risk_prediction=self._add_security_risk_prediction
             )
             for tool in self.tools.values()
         ]
