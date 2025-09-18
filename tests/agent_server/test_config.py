@@ -56,12 +56,17 @@ class TestConfig:
     def test_from_json_file_nonexistent_file(self):
         """Test loading from a non-existent JSON file returns defaults."""
         non_existent_path = Path("/tmp/nonexistent_config.json")
-        config = Config.from_json_file(non_existent_path)
 
-        assert config.session_api_key is None
-        assert config.allow_cors_origins == []
-        assert config.conversations_path == Path("workspace/conversations")
-        assert config.workspace_path == Path("workspace/project")
+        # Patch environment to ensure no SESSION_API_KEY is set
+        with patch.dict(os.environ, {}, clear=False):
+            if SESSION_API_KEY_ENV in os.environ:
+                del os.environ[SESSION_API_KEY_ENV]
+            config = Config.from_json_file(non_existent_path)
+
+            assert config.session_api_key is None
+            assert config.allow_cors_origins == []
+            assert config.conversations_path == Path("workspace/conversations")
+            assert config.workspace_path == Path("workspace/project")
 
     def test_from_json_file_empty_file(self):
         """Test loading from an empty JSON file returns defaults."""
@@ -70,12 +75,16 @@ class TestConfig:
             temp_path = Path(f.name)
 
         try:
-            config = Config.from_json_file(temp_path)
+            # Patch environment to ensure no SESSION_API_KEY is set
+            with patch.dict(os.environ, {}, clear=False):
+                if SESSION_API_KEY_ENV in os.environ:
+                    del os.environ[SESSION_API_KEY_ENV]
+                config = Config.from_json_file(temp_path)
 
-            assert config.session_api_key is None
-            assert config.allow_cors_origins == []
-            assert config.conversations_path == Path("workspace/conversations")
-            assert config.workspace_path == Path("workspace/project")
+                assert config.session_api_key is None
+                assert config.allow_cors_origins == []
+                assert config.conversations_path == Path("workspace/conversations")
+                assert config.workspace_path == Path("workspace/project")
         finally:
             temp_path.unlink()
 
@@ -93,12 +102,19 @@ class TestConfig:
             temp_path = Path(f.name)
 
         try:
-            config = Config.from_json_file(temp_path)
+            # Patch environment to ensure no SESSION_API_KEY is set
+            with patch.dict(os.environ, {}, clear=False):
+                if SESSION_API_KEY_ENV in os.environ:
+                    del os.environ[SESSION_API_KEY_ENV]
+                config = Config.from_json_file(temp_path)
 
-            assert config.session_api_key == "json-key"
-            assert config.allow_cors_origins == ["https://json.com", "https://test.com"]
-            assert config.conversations_path == Path("json/conversations")
-            assert config.workspace_path == Path("json/workspace")
+                assert config.session_api_key == "json-key"
+                assert config.allow_cors_origins == [
+                    "https://json.com",
+                    "https://test.com",
+                ]
+                assert config.conversations_path == Path("json/conversations")
+                assert config.workspace_path == Path("json/workspace")
         finally:
             temp_path.unlink()
 
@@ -153,13 +169,17 @@ class TestConfig:
             temp_path = Path(f.name)
 
         try:
-            config = Config.from_json_file(temp_path)
+            # Patch environment to ensure no SESSION_API_KEY is set
+            with patch.dict(os.environ, {}, clear=False):
+                if SESSION_API_KEY_ENV in os.environ:
+                    del os.environ[SESSION_API_KEY_ENV]
+                config = Config.from_json_file(temp_path)
 
-            assert config.session_api_key == "partial-key"
-            assert config.allow_cors_origins == ["https://partial.com"]
-            # Should use defaults for unspecified values
-            assert config.conversations_path == Path("workspace/conversations")
-            assert config.workspace_path == Path("workspace/project")
+                assert config.session_api_key == "partial-key"
+                assert config.allow_cors_origins == ["https://partial.com"]
+                # Should use defaults for unspecified values
+                assert config.conversations_path == Path("workspace/conversations")
+                assert config.workspace_path == Path("workspace/project")
         finally:
             temp_path.unlink()
 
@@ -227,7 +247,11 @@ class TestGetDefaultConfig:
             temp_path = Path(f.name)
 
         try:
-            with patch.dict(os.environ, {CONFIG_FILE_PATH_ENV: str(temp_path)}):
+            with patch.dict(
+                os.environ, {CONFIG_FILE_PATH_ENV: str(temp_path)}, clear=False
+            ):
+                if SESSION_API_KEY_ENV in os.environ:
+                    del os.environ[SESSION_API_KEY_ENV]
                 config = get_default_config()
 
                 assert config.session_api_key == "custom-file-key"
@@ -281,7 +305,16 @@ class TestGetDefaultConfig:
             temp_path = Path(f.name)
 
         try:
-            with patch.dict(os.environ, {CONFIG_FILE_PATH_ENV: str(temp_path)}):
+            with patch.dict(
+                os.environ, {CONFIG_FILE_PATH_ENV: str(temp_path)}, clear=False
+            ):
+                if SESSION_API_KEY_ENV in os.environ:
+                    del os.environ[SESSION_API_KEY_ENV]
+                # Clear the cache first
+                import openhands.agent_server.config
+
+                openhands.agent_server.config._default_config = None
+
                 # First call
                 config1 = get_default_config()
                 # Second call
@@ -297,8 +330,17 @@ class TestGetDefaultConfig:
     def test_get_default_config_nonexistent_custom_file(self):
         """Test get_default_config with non-existent custom config file."""
         with patch.dict(
-            os.environ, {CONFIG_FILE_PATH_ENV: "/tmp/nonexistent_config.json"}
+            os.environ,
+            {CONFIG_FILE_PATH_ENV: "/tmp/nonexistent_config.json"},
+            clear=False,
         ):
+            if SESSION_API_KEY_ENV in os.environ:
+                del os.environ[SESSION_API_KEY_ENV]
+            # Clear the cache first
+            import openhands.agent_server.config
+
+            openhands.agent_server.config._default_config = None
+
             config = get_default_config()
 
             # Should fall back to defaults
@@ -336,7 +378,16 @@ class TestGetDefaultConfig:
             temp_path = Path(f.name)
 
         try:
-            with patch.dict(os.environ, {CONFIG_FILE_PATH_ENV: str(temp_path)}):
+            with patch.dict(
+                os.environ, {CONFIG_FILE_PATH_ENV: str(temp_path)}, clear=False
+            ):
+                if SESSION_API_KEY_ENV in os.environ:
+                    del os.environ[SESSION_API_KEY_ENV]
+                # Clear the cache first
+                import openhands.agent_server.config
+
+                openhands.agent_server.config._default_config = None
+
                 config = get_default_config()
 
                 assert config.session_api_key == "complex-key"

@@ -22,11 +22,11 @@ class TestSecurityAnalyzer(SecurityAnalyzerBase):
     """
 
     risk_return_value: SecurityRisk = SecurityRisk.LOW
-    security_risk_calls: list[ActionBase] = []
+    security_risk_calls: list[ActionEvent] = []
     handle_api_request_calls: list[dict] = []
     close_calls: list[bool] = []
 
-    def security_risk(self, action: ActionBase) -> SecurityRisk:
+    def security_risk(self, action: ActionEvent) -> SecurityRisk:
         """Return configurable risk level for testing."""
         self.security_risk_calls.append(action)
         return self.risk_return_value
@@ -67,7 +67,7 @@ def test_analyze_event_with_action_event():
 
     assert result == SecurityRisk.MEDIUM
     assert len(analyzer.security_risk_calls) == 1
-    assert analyzer.security_risk_calls[0] == action
+    assert analyzer.security_risk_calls[0] == action_event
 
 
 def test_analyze_event_with_non_action_event():
@@ -113,7 +113,7 @@ def test_analyze_pending_actions_with_exception():
     """Test analyze_pending_actions handles exceptions by defaulting to HIGH risk."""
 
     class FailingAnalyzer(TestSecurityAnalyzer):
-        def security_risk(self, action: ActionBase) -> SecurityRisk:
+        def security_risk(self, action: ActionEvent) -> SecurityRisk:
             super().security_risk(action)  # Record the call
             raise ValueError("Analysis failed")
 
@@ -139,7 +139,7 @@ def test_analyze_pending_actions_mixed_risks() -> None:
             SecurityRisk.MEDIUM,
         ]
 
-        def security_risk(self, action: ActionBase) -> SecurityRisk:
+        def security_risk(self, action: ActionEvent) -> SecurityRisk:
             risk = self.risks[self.call_count % len(self.risks)]
             self.call_count += 1
             return risk
@@ -161,13 +161,13 @@ def test_analyze_pending_actions_partial_failure():
     """Test analyze_pending_actions with some actions failing analysis."""
 
     class PartiallyFailingAnalyzer(TestSecurityAnalyzer):
-        def security_risk(self, action: ActionBase) -> SecurityRisk:
+        def security_risk(self, action: ActionEvent) -> SecurityRisk:
             # In general not needed, but the test security analyzer is also recording
             # all the calls for testing purposes and this ensures we keep that behavior
             super().security_risk(action)
 
-            assert hasattr(action, "command")
-            if getattr(action, "command") == "failing_action":
+            assert hasattr(action.action, "command")
+            if getattr(action.action, "command") == "failing_action":
                 raise RuntimeError("Specific action failed")
             return SecurityRisk.LOW
 
