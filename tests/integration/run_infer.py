@@ -16,9 +16,13 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
+from openhands.sdk.logger import get_logger
 from tests.integration.base import BaseIntegrationTest, TestResult
 from tests.integration.schemas import ModelTestResults
 from tests.integration.utils.format_costs import format_cost
+
+
+logger = get_logger(__name__)
 
 
 class TestInstance(BaseModel):
@@ -85,7 +89,7 @@ def load_test_class(file_path: str) -> type[BaseIntegrationTest]:
 
 def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> EvalOutput:
     """Process a single test instance."""
-    print(f"Processing test: {instance.instance_id}")
+    logger.info("Processing test: %s", instance.instance_id)
 
     # Load the test class
     test_class_type = load_test_class(instance.file_path)
@@ -127,10 +131,12 @@ def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> Eval
         # Access accumulated_cost from the metrics object where it's properly validated
         llm_cost = test_instance.llm.metrics.accumulated_cost
 
-        print(
-            f"Test {instance.instance_id} completed in {end_time - start_time:.2f}s: "
-            f"{'PASS' if test_result.success else 'FAIL'} "
-            f"(Cost: {format_cost(llm_cost)})"
+        logger.info(
+            "Test %s completed in %.2fs: %s (Cost: %s)",
+            instance.instance_id,
+            end_time - start_time,
+            "PASS" if test_result.success else "FAIL",
+            format_cost(llm_cost),
         )
 
         return EvalOutput(
@@ -141,7 +147,7 @@ def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> Eval
         )
 
     except Exception as e:
-        print(f"Error running test {instance.instance_id}: {e}")
+        logger.error("Error running test %s: %s", instance.instance_id, e)
         return EvalOutput(
             instance_id=instance.instance_id,
             test_result=TestResult(
@@ -164,7 +170,7 @@ def run_evaluation(
     num_workers: int,
 ) -> List[EvalOutput]:
     """Run evaluation on all test instances and return results directly."""
-    print(f"Running {len(instances)} tests with {num_workers} workers")
+    logger.info("Running %d tests with %d workers", len(instances), num_workers)
 
     results = []
 
@@ -215,20 +221,17 @@ def generate_structured_results(
         f.write(structured_results.model_dump_json(indent=2))
 
     # Print summary for console output
-    print("-" * 100)
     success_rate = structured_results.success_rate
     successful = structured_results.successful_tests
     total = structured_results.total_tests
-    print(f"Success rate: {success_rate:.2%} ({successful}/{total})")
-    print("\nEvaluation Results:")
+    logger.info("Success rate: %.2f%% (%d/%d)", success_rate * 100, successful, total)
+    logger.info("Evaluation Results:")
     for instance in structured_results.test_instances:
         status = "✓" if instance.test_result.success else "✗"
         reason = instance.test_result.reason or "N/A"
-        print(f"{instance.instance_id}: {status} - {reason}")
-    print("-" * 100)
-    print(f"Total cost: {format_cost(structured_results.total_cost)}")
-
-    print(f"Structured results saved to {results_file}")
+        logger.info("%s: %s - %s", instance.instance_id, status, reason)
+    logger.info("Total cost: %s", format_cost(structured_results.total_cost))
+    logger.info("Structured results saved to %s", results_file)
     return results_file
 
 
@@ -266,6 +269,14 @@ def main():
 
     llm_config = args.llm_config
 
+    # Log configuration details
+    logger.info("INTEGRATION TEST CONFIGURATION")
+    logger.info("LLM_CONFIG: %s", json.dumps(llm_config, indent=2))
+    logger.info("NUM_WORKERS: %s", args.num_workers)
+    logger.info("EVAL_NOTE: %s", args.eval_note)
+    if args.eval_ids:
+        logger.info("EVAL_IDS: %s", args.eval_ids)
+
     # Load all integration tests
     instances = load_integration_tests()
 
@@ -274,10 +285,10 @@ def main():
         eval_ids = [id.strip() for id in args.eval_ids.split(",")]
         instances = [inst for inst in instances if inst.instance_id in eval_ids]
         instance_ids = [inst.instance_id for inst in instances]
-        print(f"Filtered to {len(instances)} tests: {instance_ids}")
+        logger.info("Filtered to %d tests: %s", len(instances), instance_ids)
 
     if not instances:
-        print("No test instances found!")
+        logger.error("No test instances found!")
         return
 
     # Create output directory with timestamp and model info
@@ -286,7 +297,7 @@ def main():
     output_subdir = f"{model_name}_{args.eval_note}_N{len(instances)}_{timestamp}"
     output_dir = os.path.join(args.output_dir, output_subdir)
 
-    print(f"Output directory: {output_dir}")
+    logger.info("Output directory: %s", output_dir)
 
     eval_outputs = run_evaluation(instances, llm_config, args.num_workers)
 
