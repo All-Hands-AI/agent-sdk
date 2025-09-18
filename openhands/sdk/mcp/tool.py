@@ -74,7 +74,7 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
 
-    def call(self, action: MCPToolAction) -> ObservationBase:
+    def __call__(self, action: MCPToolAction) -> ObservationBase:
         """Execute the tool action using the MCP client.
 
         We dynamically create a new MCPToolAction class with
@@ -91,7 +91,7 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
         )
         DynamicMCPActionType.model_validate(action.model_dump())
 
-        return super().call(action)
+        return super().__call__(action)
 
     @classmethod
     def create(

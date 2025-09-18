@@ -148,7 +148,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
 
-    def call(self, action: ActionT) -> ObservationBase:
+    def __call__(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
 
         We always return some ObservationBase subclass, but not always the

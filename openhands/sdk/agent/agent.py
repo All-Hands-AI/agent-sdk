@@ -455,7 +455,7 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        observation: ObservationBase = tool.call(action_event.action)
+        observation: ObservationBase = tool(action_event.action)
         assert isinstance(observation, ObservationBase), (
             f"Tool '{tool.name}' executor must return an ObservationBase"
         )
