@@ -45,7 +45,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    security_analyzer: analyzer.SecurityAnalyzer | None = None
+    security_analyzer: analyzer.SecurityAnalyzerBase | None = None
     condenser: CondenserBase | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",
