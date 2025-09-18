@@ -40,7 +40,9 @@ agent = Agent(llm=llm, tools=tools, security_analyzer=security_analyzer)
 
 conversation_id = uuid.uuid4()
 file_store = LocalFileStore(f"./.conversations/{conversation_id}")
-conversation = Conversation(agent=agent)
+conversation = Conversation(
+    agent=agent, conversation_id=conversation_id, persist_filestore=file_store
+)
 
 print("\n1) Safe command (LOW risk - should execute automatically)...")
 conversation.send_message(
