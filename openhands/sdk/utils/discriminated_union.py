@@ -1,13 +1,22 @@
 import inspect
 from abc import ABC
-from typing import Annotated, ClassVar, Type, Union
+from typing import Annotated, Type, Union
 
 from pydantic import (
     BaseModel,
     Discriminator,
     Tag,
     TypeAdapter,
+    computed_field,
 )
+
+
+class DiscriminatedFields(BaseModel):
+    """Any class where a field may be a DiscriminatedUnion,
+    and so may need to have its schema regenerated when a new
+    DiscriminatedUnion is loaded"""
+
+    pass
 
 
 def kind_of(obj) -> str:
@@ -30,30 +39,16 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
     discriminator for union types.
     """
 
-    kind: ClassVar[str] = "kind"
-
-    # @computed_field  # type: ignore
-    # @property
-    # def kind(self) -> str:
-    #    """Property to create kind field from class name when serializing."""
-    #    return self.__class__.__name__
-
-    @classmethod
-    def get_known_concrete_subclasses(cls) -> set[Type]:
-        """
-        Recursively finds and returns all (loaded) subclasses of a given class.
-        """
-        result = set()
-        for subclass in cls.__subclasses__():
-            if not _is_abstract(subclass):
-                result.add(subclass)
-            result.update(subclass.get_known_concrete_subclasses())
-        return result
+    @computed_field  # type: ignore
+    @property
+    def kind(self) -> str:
+        """Property to create kind field from class name when serializing."""
+        return self.__class__.__name__
 
     @classmethod
     def resolve_kind(cls, kind: str) -> Type:
-        for subclass in cls.get_known_concrete_subclasses():
-            if subclass.kind == kind:
+        for subclass in get_known_concrete_subclasses(cls):
+            if subclass.__name__ == kind:
                 return subclass
         raise ValueError(f"Unknown kind '{kind}' for {cls}")
 
@@ -66,7 +61,11 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
         _parent_namespace_depth=2,
         _types_namespace=None,
     ):
-        if _is_abstract(cls):
+        if (
+            _is_abstract(cls)
+            and cls != DiscriminatedUnionMixin
+            and issubclass(cls, DiscriminatedUnionMixin)
+        ):
             type_adapter = TypeAdapter(cls.get_serializable_type())
             cls.__pydantic_core_schema__ = type_adapter.core_schema
             cls.__pydantic_validator__ = type_adapter.validator
@@ -84,13 +83,22 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
         super().__init_subclass__(**kwargs)
         if _is_abstract(cls):
             return
-
-        cls.kind = cls.__name__
+        print("Start")
+        # First we rebuild the model for any abstract discriminated superclass...
+        for superclass in cls.mro()[1:]:
+            if (
+                _is_abstract(superclass)
+                and issubclass(superclass, DiscriminatedUnionMixin)
+                and not superclass == DiscriminatedUnionMixin
+            ):
+                superclass.model_rebuild()
 
         # Because of polymorphic associations are cached within schemas,
         # we need to rebuild all schemas after all subclasses have loaded.
-        for subclass in BaseModel.__subclasses__():
-            subclass.model_rebuild(force=True)
+        all_models = get_known_concrete_subclasses(DiscriminatedFields)
+        for model in all_models:
+            model.model_rebuild(force=True)
+        print("DONE")
 
     @classmethod
     def get_serializable_type(cls) -> Type:
@@ -103,7 +111,7 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
         if not _is_abstract(cls):
             return cls
 
-        subclasses = cls.get_known_concrete_subclasses()
+        subclasses = get_known_concrete_subclasses(cls)
         if len(subclasses) < 2:
             return cls
 
@@ -120,3 +128,15 @@ def _is_abstract(type_: Type) -> bool:
         return inspect.isabstract(type_) or ABC in type_.__bases__
     except Exception:
         return False
+
+
+def get_known_concrete_subclasses(cls) -> set[Type]:
+    """
+    Recursively finds and returns all (loaded) subclasses of a given class.
+    """
+    result = set()
+    for subclass in cls.__subclasses__():
+        if not _is_abstract(subclass):
+            result.add(subclass)
+        result.update(get_known_concrete_subclasses(subclass))
+    return result

@@ -11,6 +11,7 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.tool import MCPTool
+from openhands.sdk.tool.tool import Tool
 
 
 def create_mock_mcp_tool(name: str = "test_tool") -> MCPTool:
@@ -48,6 +49,13 @@ def test_agent_supports_polymorphic_json_serialization() -> None:
     assert deserialized_agent.model_dump() == agent.model_dump()
 
 
+def test_mcp_tool_serialization():
+    tool = create_mock_mcp_tool()
+    dumped = tool.model_dump()
+    loaded = Tool.model_validate(dumped)
+    assert loaded.model_dump() == dumped
+
+
 def test_agent_serialization_should_include_mcp_tool() -> None:
     # Create a simple LLM instance and agent with empty tools
     llm = LLM(model="test-model")
@@ -65,7 +73,7 @@ def test_agent_serialization_should_include_mcp_tool() -> None:
 
     # Should deserialize to the correct type and have same core fields
     assert isinstance(deserialized_agent, Agent)
-    assert deserialized_agent.model_dump() == agent.model_dump()
+    assert deserialized_agent.model_dump_json() == agent.model_dump_json()
 
 
 def test_agent_supports_polymorphic_field_json_serialization() -> None:
