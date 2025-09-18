@@ -15,7 +15,7 @@ from openhands.sdk.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import TextContent
+from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -172,3 +172,22 @@ def test_extra_fields_forbidden():
         SystemPromptEvent.model_validate(data_with_extra)
 
     assert "extra_forbidden" in str(exc_info.value)
+
+
+def test_event_deserialize():
+    original = MessageEvent(
+        source="user",
+        llm_message=Message(
+            role="user",
+            content=[TextContent(text="Hello There!")],
+            cache_enabled=False,
+            vision_enabled=False,
+            function_calling_enabled=False,
+            force_string_serializer=False,
+        ),
+        activated_microagents=[],
+        extended_content=[],
+    )
+    dumped = original.model_dump_json()
+    loaded = EventBase.model_validate_json(dumped)
+    assert loaded == original

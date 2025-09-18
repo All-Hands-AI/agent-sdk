@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import TYPE_CHECKING, Sequence
 
 from pydantic import ConfigDict, Field
@@ -135,7 +135,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 system_message += "\n\n" + _system_message_suffix
         return system_message
 
-    @abstractmethod
     def init_state(
         self,
         state: "ConversationState",
@@ -150,7 +149,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    @abstractmethod
     def step(
         self,
         state: "ConversationState",
