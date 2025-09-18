@@ -4,8 +4,6 @@ from openhands.sdk.tool.builtins import BUILT_IN_TOOLS
 def test_all_tools_property():
     for tool in BUILT_IN_TOOLS:
         assert tool.description is not None
-        assert tool.input_schema is not None
-        assert tool.output_schema is not None
         assert tool.executor is not None
         assert tool.annotations is not None
         # Annotations should have specific hints

@@ -29,6 +29,8 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security import risk
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
     ActionBase,
@@ -217,7 +219,16 @@ class Agent(AgentBase):
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
         assert isinstance(self.tools, dict)
-        tools = [tool.to_openai_tool() for tool in self.tools.values()]
+
+        tools = [
+            # add llm security risk prediction if analyzer is present
+            tool.to_openai_tool(
+                add_security_risk_prediction=isinstance(
+                    self.security_analyzer, LLMSecurityAnalyzer
+                )
+            )
+            for tool in self.tools.values()
+        ]
         response = self.llm.completion(
             messages=_messages,
             tools=tools,
@@ -368,10 +379,28 @@ class Agent(AgentBase):
             return
 
         # Validate arguments
+        security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
-            action: ActionBase = tool.action_type.model_validate(
-                json.loads(tool_call.function.arguments)
-            )
+            arguments = json.loads(tool_call.function.arguments)
+
+            # if the tool has a security_risk field (when security analyzer = LLM),
+            # pop it out as it's not part of the tool's action schema
+            if (_predicted_risk := arguments.pop("security_risk", None)) is not None:
+                if not isinstance(self.security_analyzer, LLMSecurityAnalyzer):
+                    raise RuntimeError(
+                        "LLM provided a security_risk but no security analyzer is "
+                        "configured - THIS SHOULD NOT HAPPEN!"
+                    )
+                try:
+                    security_risk = risk.SecurityRisk(_predicted_risk)
+                except ValueError:
+                    logger.warning(
+                        f"Invalid security_risk value from LLM: {_predicted_risk}"
+                    )
+
+            # Arguments we passed in should not contains `security_risk`
+            # as a field
+            action: ActionBase = tool.action_type.model_validate(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -394,6 +423,7 @@ class Agent(AgentBase):
             tool_call=tool_call,
             llm_response_id=llm_response_id,
             metrics=metrics,
+            security_risk=security_risk,
         )
         on_event(action_event)
         return action_event

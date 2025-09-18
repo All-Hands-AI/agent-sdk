@@ -217,7 +217,7 @@ def test_real_create_mcp_tools_dict_config():
     tools = create_mcp_tools(mcp_config)
     assert len(tools) == 1
     assert tools[0].name == "fetch"
-    input_schema = tools[0].input_schema
+    input_schema = tools[0].action_type.to_mcp_schema()
 
     assert "type" in input_schema
     assert input_schema["type"] == "object"

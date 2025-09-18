@@ -5,10 +5,19 @@ evaluate security risks of actions before execution.
 """
 
 import os
+import uuid
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
+from openhands.sdk import (
+    LLM,
+    Agent,
+    Conversation,
+    LocalFileStore,
+    Message,
+    TextContent,
+    create_mcp_tools,
+)
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -32,17 +41,39 @@ tools: list[Tool] = [
     BashTool.create(working_dir=os.getcwd()),
     FileEditorTool.create(),
 ]
+# Add MCP Tools
+mcp_config = {
+    "mcpServers": {
+        "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
+    }
+}
+mcp_tools = create_mcp_tools(mcp_config, timeout=30)
+tools.extend(mcp_tools)
+print(f"Added {len(mcp_tools)} MCP tools")
+for tool in mcp_tools:
+    print(f"  - {tool.name}: {tool.description}")
+    print(f"    Annotations: {tool.annotations}")
 
 # Create agent with security analyzer
 security_analyzer = LLMSecurityAnalyzer()
 agent = Agent(llm=llm, tools=tools, security_analyzer=security_analyzer)
-conversation = Conversation(agent=agent)
+
+conversation_id = uuid.uuid4()
+file_store = LocalFileStore(f"./.conversations/{conversation_id}")
+conversation = Conversation(
+    agent=agent, conversation_id=conversation_id, persist_filestore=file_store
+)
 
 print("\n1) Safe command (LOW risk - should execute automatically)...")
 conversation.send_message(
     Message(
         role="user",
-        content=[TextContent(text="List files in the current directory")],
+        content=[
+            TextContent(
+                text="Use fetch to check "
+                "https://github.com/All-Hands-AI/agent-sdk and summarize."
+            )
+        ],
     )
 )
 conversation.run()
