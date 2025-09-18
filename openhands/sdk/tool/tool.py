@@ -210,6 +210,10 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
                 description="The LLM's assessment of the safety risk of this action.",
             )
 
+        # We only add security_risk if the tool is not read-only
+        add_security_risk_prediction = add_security_risk_prediction and (
+            self.annotations is None or (not self.annotations.readOnlyHint)
+        )
         return ChatCompletionToolParam(
             type="function",
             function=ChatCompletionToolParamFunctionChunk(
