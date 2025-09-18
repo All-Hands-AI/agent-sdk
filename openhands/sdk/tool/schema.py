@@ -114,7 +114,7 @@ class Schema(BaseModel):
     (if the client doesn't have openhands.tools installed).
     """
 
-    model_config = ConfigDict(extra="ignore", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     @classmethod
     def to_mcp_schema(cls) -> dict[str, Any]:

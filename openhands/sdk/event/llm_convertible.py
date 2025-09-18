@@ -11,7 +11,7 @@ from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.utils.discriminated_union import DiscriminatedFields
+from openhands.sdk.utils.discriminated_union import DiscriminatedFieldsMixin
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
@@ -73,7 +73,7 @@ class SystemPromptEvent(LLMConvertibleEvent):
         )
 
 
-class ActionEvent(LLMConvertibleEvent, DiscriminatedFields):
+class ActionEvent(LLMConvertibleEvent, DiscriminatedFieldsMixin):
     source: SourceType = "agent"
     thought: Sequence[TextContent] = Field(
         ..., description="The thought process of the agent before taking this action"
@@ -157,7 +157,7 @@ class ActionEvent(LLMConvertibleEvent, DiscriminatedFields):
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
 
 
-class ObservationEvent(LLMConvertibleEvent, DiscriminatedFields):
+class ObservationEvent(LLMConvertibleEvent, DiscriminatedFieldsMixin):
     source: SourceType = "environment"
     observation: ObservationBase = Field(
         ..., description="The observation (tool call) sent to LLM"
@@ -210,7 +210,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    model_config = ConfigDict(extra="ignore", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     source: SourceType
     llm_message: Message = Field(

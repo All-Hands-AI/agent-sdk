@@ -10,12 +10,14 @@ from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import (
     Tool,
     ToolAnnotations,
+    ToolBase,
     ToolExecutor,
 )
 
 
 __all__ = [
     "Tool",
+    "ToolBase",
     "ToolSpec",
     "ToolAnnotations",
     "ToolExecutor",

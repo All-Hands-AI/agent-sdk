@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Type, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -14,6 +14,7 @@ from pydantic import (
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
+    get_known_concrete_subclasses,
     kind_of,
 )
 
@@ -73,7 +74,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
+class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -96,7 +97,14 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Tool | list[Tool]":
+    def resolve_kind(cls, kind: str) -> Type:
+        for subclass in get_known_concrete_subclasses(cls):
+            if subclass.__name__ == kind:
+                return subclass
+        return Tool
+
+    @classmethod
+    def create(cls, *args, **kwargs) -> "ToolBase | list[ToolBase]":
         """Create a Tool instance OR a list of them. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
@@ -152,7 +160,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         )
         return v
 
-    def set_executor(self, executor: ToolExecutor) -> "Tool":
+    def set_executor(self, executor: ToolExecutor) -> "ToolBase":
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
 
@@ -211,5 +219,5 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         )
 
 
-class DefaultTool(Tool):
+class Tool(ToolBase):
     pass

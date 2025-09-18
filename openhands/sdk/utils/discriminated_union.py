@@ -1,7 +1,7 @@
 import inspect
 import json
 from abc import ABC
-from typing import Annotated, Any, Self, Type, Union
+from typing import Annotated, Any, Callable, Literal, Self, Type, Union
 
 from pydantic import (
     BaseModel,
@@ -13,7 +13,7 @@ from pydantic import (
 )
 
 
-class DiscriminatedFields(BaseModel):
+class DiscriminatedFieldsMixin(BaseModel):
     """Any class where a field may be a DiscriminatedUnion,
     and so may need to have its schema regenerated when a new
     DiscriminatedUnion is loaded"""
@@ -85,7 +85,7 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
         super().__init_subclass__(**kwargs)
         if _is_abstract(cls):
             return
-        print("Start")
+
         # First we rebuild the model for any abstract discriminated superclass...
         for superclass in cls.mro()[1:]:
             if (
@@ -97,10 +97,9 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
 
         # Because of polymorphic associations are cached within schemas,
         # we need to rebuild all schemas after all subclasses have loaded.
-        all_models = get_known_concrete_subclasses(DiscriminatedFields)
+        all_models = get_known_concrete_subclasses(DiscriminatedFieldsMixin)
         for model in all_models:
             model.model_rebuild(force=True)
-        print("DONE")
 
     @classmethod
     def get_serializable_type(cls) -> Type:
@@ -173,6 +172,49 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
             by_name=by_name,
         )
         return result  # type: ignore
+
+    def model_dump(
+        self,
+        *,
+        mode: Literal["json", "python"] | str = "python",
+        include=None,
+        exclude=None,
+        context: Any | None = None,
+        by_alias: bool | None = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+        round_trip: bool = False,
+        warnings: bool | Literal["none", "warn", "error"] = True,
+        fallback: Callable[[Any], Any] | None = None,
+        serialize_as_any: bool = False,
+    ):
+        if self.__class__.__name__ == "MockObservation":
+            print("zzz")
+        result = super().model_dump(
+            mode=mode,
+            include=include,
+            exclude=exclude,
+            context=context,
+            by_alias=by_alias,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+            round_trip=round_trip,
+            warnings=warnings,
+            fallback=fallback,
+            serialize_as_any=serialize_as_any,
+        )
+        return result
+
+    """
+    @model_validator(mode="before")
+    @classmethod
+    def _process_kind(cls, data):
+        data = dict(data)
+        data["kind"] = cls.__name__
+        return data
+    """
 
     @model_validator(mode="before")
     @classmethod

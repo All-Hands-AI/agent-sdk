@@ -9,6 +9,7 @@ from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
 from openhands.tools.execute_bash.constants import (
     MAX_CMD_OUTPUT_SIZE,
@@ -210,7 +211,7 @@ execute_bash_tool = Tool(
 )
 
 
-class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
+class BashTool(ToolBase[ExecuteBashAction, ExecuteBashObservation]):
     """A Tool subclass that automatically initializes a BashExecutor with auto-detection."""  # noqa: E501
 
     @classmethod
