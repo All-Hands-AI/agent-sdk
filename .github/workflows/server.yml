@@ -159,18 +159,6 @@ jobs:
                       base_image: python:3.12-bookworm
                       variant: golang
 
-                    # Alpine variant (minimal)
-                    - name: alpine-amd64
-                      runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64
-                      base_image: python:3.12-alpine
-                      variant: alpine
-                    - name: alpine-arm64
-                      runner: blacksmith-8vcpu-ubuntu-2404-arm
-                      platforms: linux/arm64
-                      base_image: python:3.12-alpine
-                      variant: alpine
-
         runs-on: ${{ matrix.runner }}
 
         env:

@@ -6,7 +6,7 @@ set -euo pipefail
 # ------------------------------------------------------------
 IMAGE="${IMAGE:-ghcr.io/all-hands-ai/agent-server}"
 BASE_IMAGE="${BASE_IMAGE:-nikolaik/python-nodejs:python3.12-nodejs22}"
-VARIANT="${VARIANT:-default}"       # "default", "java", "golang", or "alpine"
+VARIANT="${VARIANT:-default}"       # "default", "java", or "golang"
 TARGET="${TARGET:-binary}"          # "binary" (prod) or "source" (dev)
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 
