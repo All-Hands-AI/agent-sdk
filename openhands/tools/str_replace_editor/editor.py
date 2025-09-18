@@ -507,7 +507,7 @@ class FileEditor:
         # Check if its an absolute path
         if not path.is_absolute():
             suggestion_message = (
-                "The path should be an absolute path, starting with `/`.\n"
+                "The path should be an absolute path, starting with `/`."
             )
 
             # Only suggest the absolute path if cwd is provided and the path exists
