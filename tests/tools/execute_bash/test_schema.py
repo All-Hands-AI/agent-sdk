@@ -24,8 +24,5 @@ def test_to_mcp_tool_detailed_type_validation_bash():
     assert "anyOf" not in timeout_schema
     assert timeout_schema["type"] == "number"
 
-    # Test security_risk field has enum constraint
-    assert "security_risk" in bash_props
-    security_risk_schema = bash_props["security_risk"]
-    assert "enum" in security_risk_schema
-    assert set(security_risk_schema["enum"]) == {"LOW", "MEDIUM", "HIGH", "UNKNOWN"}
+    # security_risk should NOT be in the schema after #341
+    assert "security_risk" not in bash_props

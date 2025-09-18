@@ -195,7 +195,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         self,
         add_security_risk_prediction: bool = False,
     ) -> ChatCompletionToolParam:
-        """Convert Tool to an OpenAI tool for LLM completion.
+        """Convert a Tool to an OpenAI tool.
 
         Args:
             add_security_risk_prediction: Whether to add a `security_risk` field

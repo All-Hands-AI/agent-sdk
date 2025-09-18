@@ -235,15 +235,11 @@ class TestMCPTool:
 
         input_schema = self.tool.action_type.to_mcp_schema()
 
-        assert len(input_schema["properties"]) == 2
-        assert "security_risk" in input_schema["properties"]
+        # Since security_risk was removed from ActionBase, it should not be in schema
+        assert len(input_schema["properties"]) == 1
+        assert "security_risk" not in input_schema["properties"]
 
-        # Create a copy to avoid modifying the frozen object
-        expected_schema = input_schema.copy()
-        expected_schema["properties"] = expected_schema["properties"].copy()
-        expected_schema["properties"].pop("security_risk")
-
-        assert expected_schema == {
+        assert input_schema == {
             "type": "object",
             "properties": {"param": {"type": "string"}},
         }
