@@ -32,13 +32,13 @@ class DummyAgent(AgentBase):
         )
 
 
-def test_send_text_creates_correct_message():
-    """Test that send_text creates the correct Message structure."""
+def test_send_message_with_string_creates_correct_message():
+    """Test that send_message with string creates the correct Message structure."""
     agent = DummyAgent()
     conversation = Conversation(agent=agent)
 
     test_text = "Hello, world!"
-    conversation.send_text(test_text)
+    conversation.send_message(test_text)
 
     # Should have system prompt + user message
     assert len(conversation.state.events) == 2
@@ -56,8 +56,8 @@ def test_send_text_creates_correct_message():
     assert message.content[0].text == test_text
 
 
-def test_send_text_equivalent_to_send_message():
-    """Test that send_text produces the same result as send_message with equivalent Message."""  # noqa: E501
+def test_send_message_string_equivalent_to_message_object():
+    """Test that send_message with string produces the same result as with Message object."""  # noqa: E501
     agent1 = DummyAgent()
     agent2 = DummyAgent()
 
@@ -66,10 +66,10 @@ def test_send_text_equivalent_to_send_message():
 
     test_text = "Test message"
 
-    # Use send_text
-    conversation1.send_text(test_text)
+    # Use send_message with string
+    conversation1.send_message(test_text)
 
-    # Use send_message with equivalent Message
+    # Use send_message with Message object
     message = Message(role="user", content=[TextContent(text=test_text)])
     conversation2.send_message(message)
 
@@ -93,12 +93,12 @@ def test_send_text_equivalent_to_send_message():
     )
 
 
-def test_send_text_with_empty_string():
-    """Test that send_text works with empty string."""
+def test_send_message_with_empty_string():
+    """Test that send_message works with empty string."""
     agent = DummyAgent()
     conversation = Conversation(agent=agent)
 
-    conversation.send_text("")
+    conversation.send_message("")
 
     # Should have system prompt + user message
     assert len(conversation.state.events) == 2
@@ -109,18 +109,39 @@ def test_send_text_with_empty_string():
     assert user_event.llm_message.content[0].text == ""
 
 
-def test_send_text_with_multiline_string():
-    """Test that send_text works with multiline strings."""
+def test_send_message_with_multiline_string():
+    """Test that send_message works with multiline strings."""
     agent = DummyAgent()
     conversation = Conversation(agent=agent)
 
     test_text = "Line 1\nLine 2\nLine 3"
-    conversation.send_text(test_text)
+    conversation.send_message(test_text)
 
     # Should have system prompt + user message
     assert len(conversation.state.events) == 2
 
     user_event = conversation.state.events[-1]
     assert isinstance(user_event, MessageEvent)
+    assert isinstance(user_event.llm_message.content[0], TextContent)
+    assert user_event.llm_message.content[0].text == test_text
+
+
+def test_send_message_with_message_object():
+    """Test that send_message works with Message objects (existing functionality)."""
+    agent = DummyAgent()
+    conversation = Conversation(agent=agent)
+
+    test_text = "Test message"
+    message = Message(role="user", content=[TextContent(text=test_text)])
+    conversation.send_message(message)
+
+    # Should have system prompt + user message
+    assert len(conversation.state.events) == 2
+
+    user_event = conversation.state.events[-1]
+    assert isinstance(user_event, MessageEvent)
+    assert user_event.source == "user"
+    assert user_event.llm_message.role == "user"
+    assert len(user_event.llm_message.content) == 1
     assert isinstance(user_event.llm_message.content[0], TextContent)
     assert user_event.llm_message.content[0].text == test_text
