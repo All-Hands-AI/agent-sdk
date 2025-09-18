@@ -79,7 +79,7 @@ class FileEditor:
                 )
             self._cwd = workspace_path
         else:
-            self._cwd = None  # type: ignore
+            self._cwd = os.path.abspath(os.getcwd())
 
     def __call__(
         self,
@@ -507,7 +507,7 @@ class FileEditor:
         # Check if its an absolute path
         if not path.is_absolute():
             suggestion_message = (
-                "The path should be an absolute path, starting with `/`."
+                "The path should be an absolute path, starting with `/`.\n"
             )
 
             # Only suggest the absolute path if cwd is provided and the path exists
