@@ -26,8 +26,9 @@ from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
-from openhands.sdk.tool import Tool, ToolExecutor
+from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.tool import DefaultTool
 
 
 class MockAction(ActionBase):
@@ -81,7 +82,7 @@ class TestConfirmationMode:
             def __call__(self, action: MockAction) -> MockObservation:
                 return MockObservation(result=f"Executed: {action.command}")
 
-        test_tool = Tool(
+        test_tool = DefaultTool(
             name="test_tool",
             description="A test tool",
             action_type=MockAction,
@@ -230,6 +231,29 @@ class TestConfirmationMode:
             tool_call=tool_call,
             llm_response_id="response_1",
         )
+
+    def test_mock_observation(self):
+        # First test a round trip in the context of ObservationBase
+        obs = MockObservation(result="executed")
+        dumped_obs = obs.model_dump()
+        loaded_obs = ObservationBase.model_validate(dumped_obs)
+        assert isinstance(loaded_obs, MockObservation)
+        assert loaded_obs.result == "executed"
+
+        # Now test embeddding this into an ObservationEvent
+        event = ObservationEvent(
+            observation=obs,
+            action_id="action_id",
+            tool_name="hammer",
+            tool_call_id="tool_call_id",
+        )
+        dumped_event = event.model_dump()
+        assert dumped_event["observation"]["kind"] == "MockObservation"
+        assert dumped_event["observation"]["result"] == "executed"
+        loaded_event = event.model_validate(dumped_event)
+        loaded_obs = loaded_event.observation
+        assert isinstance(loaded_obs, MockObservation)
+        assert loaded_obs.result == "executed"
 
     def test_confirmation_mode_basic_functionality(self):
         """Test basic confirmation mode operations."""

@@ -9,6 +9,7 @@ from pydantic import (
     Tag,
     TypeAdapter,
     computed_field,
+    model_validator,
 )
 
 
@@ -172,6 +173,17 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
             by_name=by_name,
         )
         return result  # type: ignore
+
+    @model_validator(mode="before")
+    @classmethod
+    def _remove_kind(cls, data):
+        """After the model has been selected remove the "kind" tag
+        so that it doesn't trigger a validation error"""
+        if not isinstance(data, dict):
+            return
+        data = dict(data)
+        data.pop("kind", None)
+        return data
 
 
 def _is_abstract(type_: Type) -> bool:

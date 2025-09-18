@@ -209,3 +209,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
                 parameters=self.input_schema,
             ),
         )
+
+
+class DefaultTool(Tool):
+    pass

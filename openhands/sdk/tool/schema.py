@@ -166,7 +166,7 @@ class Schema(BaseModel):
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class ActionBase(Schema, DiscriminatedUnionMixin):
+class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for input action."""
 
     # NOTE: We make it optional since some weaker
