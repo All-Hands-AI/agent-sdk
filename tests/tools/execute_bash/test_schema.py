@@ -24,5 +24,5 @@ def test_to_mcp_tool_detailed_type_validation_bash():
     assert "anyOf" not in timeout_schema
     assert timeout_schema["type"] == "number"
 
-    # security_risk should NOT be in the schema when no security analyzer is enabled
+    # security_risk should NOT be in the schema after #341
     assert "security_risk" not in bash_props
