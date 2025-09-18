@@ -9,11 +9,6 @@ from pydantic import (
     TypeAdapter,
     computed_field,
 )
-from pydantic.json_schema import (
-    DEFAULT_REF_TEMPLATE,
-    GenerateJsonSchema,
-    JsonSchemaMode,
-)
 
 
 def kind_of(obj) -> str:
@@ -102,19 +97,6 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
             Discriminator(kind_of),
         ]
         return serializable_type  # type: ignore
-
-    @classmethod
-    def model_json_schema(
-        cls,
-        by_alias: bool = True,
-        ref_template: str = DEFAULT_REF_TEMPLATE,
-        schema_generator: type[GenerateJsonSchema] = GenerateJsonSchema,
-        mode: JsonSchemaMode = "serialization",
-    ):
-        # By default schemas are generated in "validation" mode - but this
-        # will ignore our "kind" attribute and then give an error when
-        # deserializing
-        return super().model_json_schema(by_alias, ref_template, schema_generator, mode)
 
 
 def _is_abstract(type_: Type) -> bool:
