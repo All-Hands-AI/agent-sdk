@@ -17,11 +17,11 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Message,
     TextContent,
-    Tool,
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.io.local import LocalFileStore
+from openhands.sdk.tool.tool import ToolBase
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
@@ -38,7 +38,7 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [
+tools: list[ToolBase] = [
     BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
     TaskTrackerTool.create(save_dir=cwd),

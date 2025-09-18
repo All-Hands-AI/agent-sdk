@@ -14,7 +14,7 @@ from openhands.sdk import (
     Conversation,
     Message,
     TextContent,
-    Tool,
+    ToolBase,
     get_logger,
 )
 from openhands.sdk.event.base import EventBase
@@ -173,7 +173,7 @@ class TestHelloWorld:
         # Tools setup with temporary directory
         bash = BashExecutor(working_dir=self.temp_dir)
         file_editor = FileEditorExecutor()
-        tools: List[Tool] = [
+        tools: List[ToolBase] = [
             execute_bash_tool.set_executor(executor=bash),
             str_replace_editor_tool.set_executor(executor=file_editor),
         ]
@@ -288,7 +288,7 @@ class TestHelloWorld:
         # Tools setup with temporary directory
         bash = BashExecutor(working_dir=self.temp_dir)
         file_editor = FileEditorExecutor()
-        tools: List[Tool] = [
+        tools: List[ToolBase] = [
             execute_bash_tool.set_executor(executor=bash),
             str_replace_editor_tool.set_executor(executor=file_editor),
         ]
