@@ -26,7 +26,12 @@ logger = get_logger(__name__)
 class MCPToolAction(ActionBase):
     """Schema for MCP input action.
 
-    It is just a thin wrapper around a thin JSON schema.
+    It is just a thin wrapper around raw JSON and does
+    not do any validation.
+
+    Validation will be performed by MCPTool.__call__
+    by constructing dynamically created Pydantic model
+    from the MCP tool input schema.
     """
 
     model_config = ConfigDict(extra="allow", frozen=True)
