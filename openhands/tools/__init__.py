@@ -4,6 +4,8 @@ from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING
 
+from openhands.sdk.event.llm_convertible import ObservationEvent
+
 
 __all__ = [
     "execute_bash_tool",
@@ -75,6 +77,13 @@ def __getattr__(name: str):
         mod = import_module(mod_name)
         value = getattr(mod, attr)
         globals()[name] = value  # cache for next access
+
+        # After adding new observation types we need to trigger a rebuild for any
+        # model where it is used as a field.
+        # TODO: This is a code smell. I think we should do an explicit
+        # registry instead of doing it automatically by subclass
+        ObservationEvent.model_rebuild(force=True)
+
         return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

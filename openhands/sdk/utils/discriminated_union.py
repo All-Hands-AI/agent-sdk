@@ -57,11 +57,76 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
         raise ValueError(f"Unknown kind '{kind}' for {cls}")
 
     @classmethod
-    def _rebuild_schemas(cls):
-        type_adapter = TypeAdapter(cls.get_serializable_type())
-        cls.__pydantic_core_schema__ = type_adapter.core_schema
-        cls.__pydantic_validator__ = type_adapter.validator
-        cls.__pydantic_serializer__ = type_adapter.serializer
+    def model_rebuild(
+        cls,
+        *,
+        force=False,
+        raise_errors=True,
+        _parent_namespace_depth=2,
+        _types_namespace=None,
+    ):
+        if _is_abstract(cls):
+            type_adapter = TypeAdapter(cls.get_serializable_type())
+            cls.__pydantic_core_schema__ = type_adapter.core_schema
+            cls.__pydantic_validator__ = type_adapter.validator
+            cls.__pydantic_serializer__ = type_adapter.serializer
+            return
+
+        return super().model_rebuild(
+            force=force,
+            raise_errors=raise_errors,
+            _parent_namespace_depth=_parent_namespace_depth,
+            _types_namespace=_types_namespace,
+        )
+
+    @classmethod
+    def model_validate(
+        cls,
+        obj,
+        *,
+        strict=None,
+        from_attributes=None,
+        context=None,
+        by_alias=None,
+        by_name=None,
+    ):
+        if not getattr(cls, "previously_validated", False):
+            cls.model_rebuild()
+            cls.previously_validated = True
+        return super().model_validate(
+            obj,
+            strict=strict,
+            from_attributes=from_attributes,
+            context=context,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+
+    @classmethod
+    def model_validate_json(
+        cls, json_data, *, strict=None, context=None, by_alias=None, by_name=None
+    ):
+        if not getattr(cls, "previously_validated", False):
+            cls.model_rebuild()
+            cls.previously_validated = True
+        return super().model_validate_json(
+            json_data,
+            strict=strict,
+            context=context,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+
+    @classmethod
+    def model_validate_strings(
+        cls, obj, *, strict=None, context=None, by_alias=None, by_name=None
+    ):
+        if not getattr(cls, "previously_validated", False):
+            cls.model_rebuild()
+            cls.previously_validated = True
+        return super().model_validate_strings(
+            obj, strict=strict, context=context, by_alias=by_alias, by_name=by_name
+        )
 
     def __init_subclass__(cls, **kwargs):
         """We want to regenerate the schema for any abstract superclass which
@@ -75,7 +140,7 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
                 and issubclass(superclass, DiscriminatedUnionMixin)
                 and not superclass == DiscriminatedUnionMixin
             ):
-                superclass._rebuild_schemas()
+                superclass.model_rebuild()
 
     @classmethod
     def get_serializable_type(cls) -> Type:

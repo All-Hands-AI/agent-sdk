@@ -1,3 +1,4 @@
+from abc import ABC
 from collections.abc import Sequence
 from typing import Any, TypeVar
 
@@ -244,7 +245,7 @@ class MCPActionBase(ActionBase):
         return data
 
 
-class ObservationBase(Schema, DiscriminatedUnionMixin):
+class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for output observation."""
 
     model_config = ConfigDict(extra="allow", frozen=True)
