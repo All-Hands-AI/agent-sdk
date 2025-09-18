@@ -64,10 +64,11 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
                 f"\n🔍 Agent created {len(pending_actions)} action(s) awaiting "
                 "confirmation:"
             )
-            for i, action in enumerate(pending_actions, 1):
-                tool = getattr(action, "tool_name", "<unknown tool>")
-                snippet = str(getattr(action, "action", ""))[:100].replace("\n", " ")
-                print(f"  {i}. {tool}: {snippet}…")
+            for i, action in enumerate(
+                pending_actions,
+            ):
+                snippet = str(action.action)[:100].replace("\n", " ")
+                print(f"  {i + 1}. {action.tool_name}: {snippet}...")
 
             # Ask for user confirmation
             while True:
