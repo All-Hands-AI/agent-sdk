@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 ARG BASE_IMAGE=nikolaik/python-nodejs:python3.12-nodejs22
+ARG VARIANT=default
 ARG USERNAME=openhands
 ARG UID=10001
 ARG GID=10001
@@ -46,17 +47,67 @@ RUN test -x /agent-server/dist/openhands-agent-server
 # Base runtime
 ############################
 FROM ${BASE_IMAGE} AS base-image
-ARG USERNAME UID GID PORT
+ARG USERNAME UID GID PORT VARIANT
 
 # NOTE: we should NOT include UV_PROJECT_ENVIRONMENT here, 
 # since the agent might use it to perform other work (e.g. tools that use Python)
 COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
-RUN (getent group ${GID} || groupadd -g ${GID} ${USERNAME}) && \
-    (id -u ${USERNAME} >/dev/null 2>&1 || useradd -m -u ${UID} -g ${GID} -s /usr/sbin/nologin ${USERNAME}) && \
-    (command -v apt-get >/dev/null && apt-get update && \
-     apt-get install -y --no-install-recommends ca-certificates && \
-     rm -rf /var/lib/apt/lists/*) || true
+# Install variant-specific runtimes
+RUN set -eux; \
+    # Install base packages and variant-specific runtimes
+    if command -v apt-get >/dev/null; then \
+        # Debian/Ubuntu-based systems
+        apt-get update; \
+        apt-get install -y --no-install-recommends ca-certificates curl wget; \
+        \
+        # Create user and group
+        (getent group ${GID} || groupadd -g ${GID} ${USERNAME}); \
+        (id -u ${USERNAME} >/dev/null 2>&1 || useradd -m -u ${UID} -g ${GID} -s /usr/sbin/nologin ${USERNAME}); \
+        \
+        # Install Java for java variant
+        if [ "${VARIANT}" = "java" ]; then \
+            apt-get install -y --no-install-recommends openjdk-17-jdk; \
+        fi; \
+        \
+        # Install Go for golang variant
+        if [ "${VARIANT}" = "golang" ]; then \
+            GO_VERSION="1.21.5"; \
+            ARCH="$(dpkg --print-architecture)"; \
+            case "${ARCH}" in \
+                amd64) GO_ARCH="amd64" ;; \
+                arm64) GO_ARCH="arm64" ;; \
+                *) echo "Unsupported architecture: ${ARCH}" && exit 1 ;; \
+            esac; \
+            wget -O go.tar.gz "https://golang.org/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"; \
+            tar -C /usr/local -xzf go.tar.gz; \
+            rm go.tar.gz; \
+            echo 'export PATH=/usr/local/go/bin:$PATH' >> /etc/environment; \
+        fi; \
+        \
+        rm -rf /var/lib/apt/lists/*; \
+    elif command -v apk >/dev/null; then \
+        # Alpine-specific installations
+        apk add --no-cache ca-certificates shadow; \
+        \
+        # Create user and group (Alpine style)
+        (getent group ${GID} || addgroup -g ${GID} ${USERNAME}); \
+        (id -u ${USERNAME} >/dev/null 2>&1 || adduser -D -u ${UID} -G ${USERNAME} -s /sbin/nologin ${USERNAME}); \
+        \
+        # Install Java for java variant on Alpine
+        if [ "${VARIANT}" = "java" ]; then \
+            apk add --no-cache openjdk17-jdk; \
+        fi; \
+        \
+        # Install Go for golang variant on Alpine
+        if [ "${VARIANT}" = "golang" ]; then \
+            apk add --no-cache go; \
+        fi; \
+    fi
+
+# Set Go environment for golang variant
+ENV PATH="${PATH}:/usr/local/go/bin"
+
 USER ${USERNAME}
 WORKDIR /agent-server
 EXPOSE ${PORT}

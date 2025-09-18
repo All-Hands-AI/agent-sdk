@@ -123,18 +123,60 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - name: amd64
+                    # Default Python + Node.js variant
+                    - name: default-amd64
                       runner: blacksmith-8vcpu-ubuntu-2404
                       platforms: linux/amd64
-                    - name: arm64
+                      base_image: nikolaik/python-nodejs:python3.12-nodejs22
+                      variant: default
+                    - name: default-arm64
                       runner: blacksmith-8vcpu-ubuntu-2404-arm
                       platforms: linux/arm64
+                      base_image: nikolaik/python-nodejs:python3.12-nodejs22
+                      variant: default
+
+                    # Java variant (Python + OpenJDK)
+                    - name: java-amd64
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64
+                      base_image: python:3.12-bookworm
+                      variant: java
+                    - name: java-arm64
+                      runner: blacksmith-8vcpu-ubuntu-2404-arm
+                      platforms: linux/arm64
+                      base_image: python:3.12-bookworm
+                      variant: java
+
+                    # Golang variant (Python + Go)
+                    - name: golang-amd64
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64
+                      base_image: python:3.12-bookworm
+                      variant: golang
+                    - name: golang-arm64
+                      runner: blacksmith-8vcpu-ubuntu-2404-arm
+                      platforms: linux/arm64
+                      base_image: python:3.12-bookworm
+                      variant: golang
+
+                    # Alpine variant (minimal)
+                    - name: alpine-amd64
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64
+                      base_image: python:3.12-alpine
+                      variant: alpine
+                    - name: alpine-arm64
+                      runner: blacksmith-8vcpu-ubuntu-2404-arm
+                      platforms: linux/arm64
+                      base_image: python:3.12-alpine
+                      variant: alpine
 
         runs-on: ${{ matrix.runner }}
 
         env:
             IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
-            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || 'nikolaik/python-nodejs:python3.12-nodejs22' }}
+            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
+            VARIANT: ${{ matrix.variant }}
             TARGET: binary
             PLATFORMS: ${{ matrix.platforms }}
             GITHUB_SHA: ${{ github.sha }}
