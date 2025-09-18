@@ -1,8 +1,11 @@
-"""Security risk levels for action analysis."""
+from __future__ import annotations
 
 from enum import Enum
+from functools import total_ordering
+from typing import Any
 
 
+@total_ordering
 class SecurityRisk(str, Enum):
     """Security risk levels for actions.
 
@@ -34,3 +37,14 @@ class SecurityRisk(str, Enum):
 
     def __str__(self) -> str:
         return self.name
+
+    def __lt__(self, other: Any) -> bool:
+        if not isinstance(other, SecurityRisk):
+            return NotImplemented
+        order = {
+            SecurityRisk.UNKNOWN: 0,
+            SecurityRisk.LOW: 1,
+            SecurityRisk.MEDIUM: 2,
+            SecurityRisk.HIGH: 3,
+        }
+        return order[self] < order[other]
