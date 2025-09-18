@@ -57,11 +57,11 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         tools: list[Tool] = []
         for tool_spec in spec.tools:
-            if tool_spec.name not in openhands.tools.__dict__:
+            tool_class = getattr(openhands.tools, tool_spec.name, None)
+            if tool_class is None:
                 raise ValueError(
                     f"Unknown tool name: {tool_spec.name}. Not found in openhands.tools"
                 )
-            tool_class = openhands.tools.__dict__[tool_spec.name]
             tool_or_tools = tool_class.create(**tool_spec.params)
             if isinstance(tool_or_tools, list):
                 tools.extend(tool_or_tools)
