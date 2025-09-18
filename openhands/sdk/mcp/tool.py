@@ -9,7 +9,7 @@ from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
-from openhands.sdk.tool import Tool, ToolAnnotations, ToolExecutor
+from openhands.sdk.tool import ObservationBase, Tool, ToolAnnotations, ToolExecutor
 
 
 logger = get_logger(__name__)
@@ -66,6 +66,25 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
+
+    def call(self, action: MCPToolAction) -> ObservationBase:
+        """Execute the tool action using the MCP client.
+
+        We dynamically create a new MCPToolAction class with
+        the tool's input schema to validate the action.
+
+        Args:
+            action: The action to execute.
+
+        Returns:
+            The observation result from executing the action.
+        """
+        DynamicActionType = MCPToolAction.from_mcp_schema(
+            f"{to_camel_case(self.name)}Action", self.mcp_tool.inputSchema
+        )
+        DynamicActionType.model_validate(action.model_dump())
+
+        return super().call(action)
 
     @classmethod
     def create(
