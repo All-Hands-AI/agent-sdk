@@ -57,7 +57,6 @@ RUN (getent group ${GID} || groupadd -g ${GID} ${USERNAME}) && \
     (command -v apt-get >/dev/null && apt-get update && \
      apt-get install -y --no-install-recommends ca-certificates && \
      rm -rf /var/lib/apt/lists/*) || true
-
 USER ${USERNAME}
 WORKDIR /agent-server
 EXPOSE ${PORT}
