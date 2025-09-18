@@ -78,9 +78,7 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
                 f"\n🔒 Security analyzer blocked {len(pending_actions)} "
                 "high-risk action(s):"
             )
-            for i, action in enumerate(
-                pending_actions,
-            ):
+            for i, action in enumerate(pending_actions):
                 snippet = str(action.action)[:100].replace("\n", " ")
                 print(f"  {i + 1}. {action.tool_name}: {snippet}...")
 
