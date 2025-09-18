@@ -1,7 +1,11 @@
 """Utilities for converting Responses API results into Chat Completions format."""
 
-from typing import Any
+from typing import Any, Literal, cast
 
+from litellm import (
+    AllMessageValues as ChatCompletionMessageValues,
+    ChatCompletionToolMessage,
+)
 from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.responses.main import (
     GenericResponseOutputItem,
@@ -10,6 +14,17 @@ from litellm.types.responses.main import (
 )
 from litellm.types.utils import ModelResponse
 from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
+from openai.types.responses.response_input_image_param import ResponseInputImageParam
+from openai.types.responses.response_input_message_content_list_param import (
+    ResponseInputContentParam,
+)
+from openai.types.responses.response_input_param import (
+    FunctionCallOutput,
+    Message as ResponseMessage,
+    ResponseFunctionToolCallParam,
+    ResponseInputItemParam,
+)
+from openai.types.responses.response_input_text_param import ResponseInputTextParam
 from openai.types.responses.response_output_message import ResponseOutputMessage
 from openai.types.responses.response_output_refusal import ResponseOutputRefusal
 from openai.types.responses.response_output_text import ResponseOutputText
@@ -22,8 +37,8 @@ logger = get_logger(__name__)
 
 
 def messages_to_responses_items(
-    messages: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    messages: list[ChatCompletionMessageValues],
+) -> list[ResponseInputItemParam]:
     """Convert Chat Completions-style messages into Responses API input items.
 
     Args:
@@ -45,38 +60,43 @@ def messages_to_responses_items(
 
     dict_messages = messages
 
-    def _extract_content_items(content: Any) -> list[dict[str, Any]]:
+    def _extract_content_items(content: Any) -> list[ResponseInputContentParam]:
         """Extract both text and image content items from message content.
 
         Returns a list of items where each item is either:
-        - {"type": "text", "content": "..."}
+        - {"type": "input_text", "content": "..."}
         - {"type": "input_image", "image_url": "..."}
         """
-        items: list[dict[str, Any]] = []
+        items: list[ResponseInputContentParam] = []
 
         if isinstance(content, str):
             if content:
-                items.append({"type": "text", "content": content})
+                items.append(ResponseInputTextParam(type="input_text", text=content))
         elif isinstance(content, list):
             for seg in content:
                 if isinstance(seg, dict):
                     # Handle text content
                     if seg.get("type") == "text" and seg.get("text"):
-                        items.append({"type": "text", "content": seg["text"]})
+                        items.append(
+                            ResponseInputTextParam(type="input_text", text=seg["text"])
+                        )
                     # Handle image content - convert from Chat Completions to Responses
                     elif seg.get("type") == "image_url" and seg.get("image_url"):
                         image_url_obj = seg["image_url"]
                         if isinstance(image_url_obj, dict) and image_url_obj.get("url"):
                             items.append(
-                                {
-                                    "type": "input_image",
-                                    "image_url": image_url_obj["url"],
-                                }
+                                ResponseInputImageParam(
+                                    detail="auto",
+                                    type="input_image",
+                                    image_url=image_url_obj["url"],
+                                )
                             )
         elif content is not None:
             content_str = str(content)
             if content_str:
-                items.append({"type": "text", "content": content_str})
+                items.append(
+                    ResponseInputTextParam(type="input_text", text=content_str)
+                )
 
         return items
 
@@ -86,30 +106,30 @@ def messages_to_responses_items(
         text_parts = [item["content"] for item in items if item["type"] == "text"]
         return "".join(text_parts)
 
-    out: list[dict[str, Any]] = []
+    out: list[ResponseInputItemParam] = []
     for msg in dict_messages:
         role = str(msg.get("role", ""))
         # 1) Tool outputs -> function_call_output items
         if role == "tool":
+            msg = cast(ChatCompletionToolMessage, msg)
             try:
                 call_id = str(msg["tool_call_id"])  # Chat Completions tool message key
                 output_text = _to_text(msg.get("content", ""))
                 if output_text is not None:
                     out.append(
-                        {
-                            "type": "function_call_output",
-                            "call_id": call_id,
-                            "output": output_text,
-                        }
+                        FunctionCallOutput(
+                            type="function_call_output",
+                            call_id=call_id,
+                            output=output_text,
+                        )
                     )
             except Exception as e:
                 logger.debug(
                     f"Skipping malformed tool output message: {msg!r}; error: {e}"
                 )
-            continue
 
         # 2) Assistant with tool_calls -> function_call items (and optional text)
-        if role == "assistant" and isinstance(msg.get("tool_calls"), list):
+        elif role == "assistant" and isinstance(msg.get("tool_calls"), list):
             # Put assistant text before tool_calls to satisfy ordering
             text = _to_text(msg.get("content", ""))
             if text:
@@ -119,32 +139,29 @@ def messages_to_responses_items(
                 try:
                     fn = tc.get("function")
                     out.append(
-                        {
-                            "type": "function_call",
-                            "call_id": str(tc.get("id")),
-                            "name": str(fn.get("name")),
-                            "arguments": str(fn.get("arguments")),
-                        }
+                        ResponseFunctionToolCallParam(
+                            type="function_call",
+                            call_id=str(tc.get("id")),
+                            name=str(fn.get("name")),
+                            arguments=str(fn.get("arguments")),
+                        )
                     )
                 except Exception as e:
                     logger.debug(f"Skipping malformed tool_call: {tc!r}; error: {e}")
                     pass
-            continue
 
         # 3) Messages with text and/or image content
-        content_items = _extract_content_items(msg.get("content", ""))
-        if role in {"user", "system", "assistant", "developer"}:
-            # Add each content item as a separate Responses API item
-            for item in content_items:
-                if item["type"] == "text":
-                    out.append({"role": role, "content": item["content"]})
-                elif item["type"] == "input_image":
-                    out.append({"type": "input_image", "image_url": item["image_url"]})
+        elif role in {"user", "system", "developer"}:
+            content_items = _extract_content_items(msg.get("content", ""))
+            role_literal = cast(Literal["user", "system", "developer"], role)
+            out.append(
+                ResponseMessage(
+                    type="message", role=role_literal, content=content_items
+                )
+            )
+
         else:
-            # For unknown roles, treat as user and only add text content
-            text = _to_text(msg.get("content", ""))
-            if text:
-                out.append({"role": "user", "content": text})
+            raise ValueError(f"Unsupported message role: {role}")
     return out
 
 

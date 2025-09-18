@@ -1,7 +1,14 @@
 from collections.abc import Sequence
 from typing import Any, Literal, cast
 
-from litellm import ChatCompletionMessageToolCall
+from litellm import (
+    AllMessageValues,
+    ChatCompletionAssistantMessage,
+    ChatCompletionMessageToolCall,
+    ChatCompletionSystemMessage,
+    ChatCompletionToolMessage,
+    ChatCompletionUserMessage,
+)
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -99,7 +106,7 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    def to_llm_dict(self) -> dict[str, Any]:
+    def to_llm_dict(self) -> AllMessageValues:
         """Serialize message for LLM API consumption.
 
         This method chooses the appropriate serialization format based on the message
@@ -116,7 +123,16 @@ class Message(BaseModel):
             # single string
             message_dict = self._string_serializer()
 
-        return message_dict
+        if self.role == "assistant":
+            return ChatCompletionAssistantMessage(**message_dict)
+        elif self.role == "user":
+            return ChatCompletionUserMessage(**message_dict)
+        elif self.role == "system":
+            return ChatCompletionSystemMessage(**message_dict)
+        elif self.role == "tool":
+            return ChatCompletionToolMessage(**message_dict)
+        else:
+            raise ValueError(f"Unsupported role: {self.role}")
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string

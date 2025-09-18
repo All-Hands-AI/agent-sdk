@@ -39,6 +39,8 @@ with warnings.catch_warnings():
 
 from litellm import (
     ChatCompletionToolParam,
+    AllMessageValues,
+    ResponseInputParam,
     completion as litellm_completion,
     responses as litellm_responses,
 )
@@ -114,7 +116,7 @@ class ChatCtx(_BaseCtxModel):
 
 class ResponsesCtx(_BaseCtxModel):
     kind: Literal["responses"]
-    input: str | list[dict[str, Any]]
+    input: ResponseInputParam
     # tools used only in responses path
     tools: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -373,11 +375,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         *,
         kind: CallKind,
-        messages: list[dict[str, Any]] | list[Message] | None,
-        input: str | list[dict[str, Any]] | None,
-        tools: Sequence[dict[str, Any] | "Tool" | ChatCompletionToolParam] | None,
+        messages: list[Message] | None,
+        input: str | None,
+        tools: Sequence["Tool"] | None,
     ) -> tuple[
-        list[dict[str, Any]] | None,
+        list[AllMessageValues] | None,
         str | list[dict[str, Any]] | None,
         list[dict[str, Any]] | list[ChatCompletionToolParam] | None,
     ]:
@@ -390,38 +392,28 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         if kind == "chat":
             # Messages: ensure list[dict]
-            if messages and isinstance(messages[0], Message):
-                messages = self.format_messages_for_llm(cast(list[Message], messages))
-            else:
-                messages = cast(list[dict[str, Any]] | None, messages)
+            assert messages is not None and isinstance(messages, list)
+            converted_messages = self.format_messages_for_llm(messages)
 
             # Tools: Tool -> ChatCompletionToolParam
             tools_cc: list[ChatCompletionToolParam] = []
             if tools:
                 first = tools[0]
-                if isinstance(first, Tool):
-                    tools_cc = [cast(Tool, t).to_openai_tool() for t in tools]  # type: ignore[arg-type]
-                else:
-                    tools_cc = cast(list[ChatCompletionToolParam], list(tools))
-            return messages, None, tools_cc
+                assert isinstance(first, Tool), \
+                    f"tools must be list of Tool or dict, got {type(first)}"
+                tools_cc = [cast(Tool, t).to_openai_tool() for t in tools]
+            return converted_messages, None, tools_cc
 
-        # kind == "responses"
+        assert kind == "responses"
         # Input/messages handling
         if input is None:
-            if messages is not None:
-                # Allow a direct string to be used as input
-                if isinstance(messages, str):
-                    input = messages
-                else:
-                    if isinstance(messages, list) and len(messages) == 0:
-                        raise ValueError("messages cannot be an empty list")
-                    if messages and isinstance(messages[0], Message):
-                        messages = self.format_messages_for_llm(
-                            cast(list[Message], messages)
-                        )
-                    input = messages_to_responses_items(
-                        cast(list[dict[str, Any]], messages or [])
-                    )
+            assert messages is not None and isinstance(messages, list)
+            if isinstance(messages, list) and len(messages) == 0:
+                raise ValueError("messages cannot be an empty list")
+            converted_messages = self.format_messages_for_llm(
+                cast(list[Message], messages)
+            )
+            input = messages_to_responses_items(converted_messages)
             else:
                 raise ValueError("Either messages or input must be provided")
 
@@ -781,7 +773,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         api_base=self.base_url,
                         api_version=self.api_version,
                         timeout=self.timeout,
-                        input=ctx.input,  # type: ignore[attr-defined]
+                        input=ctx.input,
                         drop_params=self.drop_params,
                         custom_llm_provider=(
                             self.model.split("/")[1]
@@ -981,7 +973,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 ].cache_prompt = True  # Last item inside the message content
                 break
 
-    def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
+    def format_messages_for_llm(self, messages: list[Message]) -> list[AllMessageValues]:
         """Formats Message objects for LLM consumption."""
 
         messages = copy.deepcopy(messages)
