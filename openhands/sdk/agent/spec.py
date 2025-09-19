@@ -1,14 +1,15 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import ToolSpec
+from openhands.sdk.utils.discriminated_union import DiscriminatedFieldsMixin
 
 
-class AgentSpec(BaseModel):
+class AgentSpec(DiscriminatedFieldsMixin):
     """Everything needed for creating an agent.
 
     This is used to create an agent in the server via one API request.
