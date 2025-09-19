@@ -51,9 +51,6 @@ class Agent(AgentBase):
     def initialize(self) -> None:
         super().initialize()
 
-    def get_tools(self) -> dict[str, "ToolBase"]:
-        return super().get_tools()
-
     @property
     def _add_security_risk_prediction(self) -> bool:
         return isinstance(self.security_analyzer, LLMSecurityAnalyzer)

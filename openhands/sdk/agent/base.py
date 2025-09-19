@@ -2,20 +2,18 @@ import os
 import re
 import sys
 from abc import ABC
-from typing import TYPE_CHECKING, Sequence, cast
+from typing import TYPE_CHECKING, Any
 
-from pydantic import ConfigDict, Field, PrivateAttr, field_validator
+from pydantic import ConfigDict, Field, PrivateAttr
 
 import openhands.sdk.security.analyzer as analyzer
-from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import BUILT_IN_TOOLS, Tool
-from openhands.sdk.tool.spec import ToolSpec
-from openhands.sdk.tool.tool import ToolBase
+from openhands.sdk.mcp import MCPTool, create_mcp_tools
+from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolSpec, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -28,119 +26,136 @@ logger = get_logger(__name__)
 
 
 class AgentBase(DiscriminatedUnionMixin, ABC):
+    """Abstract base class for agents.
+    Agents are stateless and should be fully defined by their configuration.
+    """
+
     model_config = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,
     )
 
-    llm: LLM
-    agent_context: AgentContext | None = Field(default=None)
-    # Runtime materialized tools; private and non-serializable
-    _tools: dict[str, Tool] = PrivateAttr(default_factory=dict)
-
-    # Back-compat: users may still pass concrete Tool instances here
-    tools: dict[str, ToolBase] | Sequence[ToolBase] = Field(
-        default_factory=dict,
-        description=(
-            "Mapping of tool name to Tool instance that the agent can use. "
-            "If a list is provided, it should be converted to a mapping by tool name. "
-            "We need to define this as ToolType for discriminated union."
-        ),
+    llm: LLM = Field(
+        ...,
+        description="LLM configuration for the agent.",
+        examples=[
+            {
+                "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                "base_url": "https://llm-proxy.eval.all-hands.dev",
+                "api_key": "your_api_key_here",
+            }
+        ],
     )
-    # Preferred: serializable ToolSpec definitions; materialized lazily at runtime
-    tool_specs: list[ToolSpec] | None = Field(default=None)
-
-    @field_validator("tools", mode="before")
-    @classmethod
-    def _normalize_tools(cls, v):
-        from openhands.sdk.tool import Tool
-
-        if v is None:
-            return {}
-        # Already a dict[str, Tool]
-        if isinstance(v, dict) and all(isinstance(t, Tool) for t in v.values()):
-            return v
-        # Mapping[str, Tool|dict]
-        if isinstance(v, dict):
-            items = v.items()
-        # Iterable[Tool|dict]
-        elif isinstance(v, list):
-            items = (
-                (
-                    t.name if isinstance(t, Tool) else t.get("name"),
-                    t,
-                )
-                for t in v
-            )
-        else:
-            raise TypeError(
-                "`tools` must be a dict[str, Tool|dict] or an iterable of Tool|dict"
-            )
-
-        user_tools: dict[str, Tool] = {}
-        for name, payload in items:
-            if not name or not isinstance(name, str):
-                raise ValueError("Each tool must have a non-empty string `name`")
-            tool = (
-                payload if isinstance(payload, Tool) else Tool.model_validate(payload)
-            )
-            if name in user_tools:
-                raise ValueError(f"Duplicate tool name: {name}")
-            if tool.name != name:
-                raise ValueError(
-                    f"Tool key/name mismatch: key={name} vs tool.name={tool.name}"
-                )
-            user_tools[name] = tool
-        return user_tools
-
+    tools: list[ToolSpec] = Field(
+        default_factory=list,
+        description="List of tools to initialize for the agent.",
+        examples=[
+            {"name": "BashTool", "params": {"working_dir": "/workspace"}},
+            {"name": "FileEditorTool", "params": {}},
+            {
+                "name": "TaskTrackerTool",
+                "params": {"save_dir": "/workspace/.openhands"},
+            },
+        ],
+    )
+    mcp_config: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional MCP configuration dictionary to create MCP tools.",
+        examples=[
+            {"mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}}}
+        ],
+    )
+    filter_tools_regex: str | None = Field(
+        default=None,
+        description="Optional regex to filter the tools available to the agent by name."
+        " This is applied after any tools provided in `tools` and any MCP tools are"
+        " added.",
+        examples=["^(?!repomix)(.*)|^repomix.*pack_codebase.*$"],
+    )
+    agent_context: AgentContext | None = Field(
+        default=None,
+        description="Optional AgentContext to initialize "
+        "the agent with specific context.",
+        examples=[
+            {
+                "microagents": [
+                    {
+                        "name": "repo.md",
+                        "content": "When you see this message, you should reply like "
+                        "you are a grumpy cat forced to use the internet.",
+                        "type": "repo",
+                    },
+                    {
+                        "name": "flarglebargle",
+                        "content": (
+                            "IMPORTANT! The user has said the magic word "
+                            '"flarglebargle". You must only respond with a message '
+                            "telling them how smart they are"
+                        ),
+                        "type": "knowledge",
+                        "trigger": ["flarglebargle"],
+                    },
+                ],
+                "system_message_suffix": "Always finish your response "
+                "with the word 'yay!'",
+                "user_message_prefix": "The first character of your "
+                "response should be 'I'",
+            }
+        ],
+    )
     system_prompt_filename: str = Field(default="system_prompt.j2")
     system_prompt_kwargs: dict = Field(
         default_factory=dict,
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    security_analyzer: analyzer.SecurityAnalyzerBase | None = None
+    security_analyzer: analyzer.SecurityAnalyzerBase | None = Field(
+        default=None,
+        description="Optional security analyzer to evaluate action risks.",
+        examples=[{"kind": "LLMSecurityAnalyzer"}],
+    )
     condenser: CondenserBase | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",
+        examples=[
+            {
+                "kind": "LLMSummarizingCondenser",
+                "llm": {
+                    "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                    "base_url": "https://llm-proxy.eval.all-hands.dev",
+                    "api_key": "your_api_key_here",
+                },
+                "max_size": 80,
+                "keep_first": 10,
+            }
+        ],
     )
 
-    @classmethod
-    def from_spec(cls, spec: AgentSpec) -> "AgentBase":
+    # Runtime materialized tools; private and non-serializable
+    _tools: dict[str, Tool | MCPTool] = PrivateAttr(default_factory=dict)
+
+    def initialize(self):
         """Create an AgentBase instance from an AgentSpec."""
-        import openhands.tools  # avoid circular import
-        from openhands.sdk.mcp import create_mcp_tools
+        if self._tools:
+            raise RuntimeError(
+                "Agent already initialized (self._tools is not empty); "
+                "cannot re-initialize"
+            )
 
-        tools: list[ToolBase] = []
-        for tool_spec in spec.tools:
-            tool_class = getattr(openhands.tools, tool_spec.name, None)
-            if tool_class is None:
-                raise ValueError(
-                    f"Unknown tool name: {tool_spec.name}. Not found in openhands.tools"
-                )
-            tool_or_tools = tool_class.create(**tool_spec.params)
-            if isinstance(tool_or_tools, list):
-                tools.extend(tool_or_tools)
-            else:
-                tools.append(tool_or_tools)
-
-        # Check tool types
-        for tool in tools:
-            if not isinstance(tool, ToolBase):
-                raise ValueError(
-                    f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
-                )
+        tools: list[Tool | MCPTool] = []
+        for tool_spec in self.tools:
+            tools.extend(resolve_tool(tool_spec))
 
         # Add MCP tools if configured
-        if spec.mcp_config:
-            mcp_tools = create_mcp_tools(spec.mcp_config, timeout=30)
+        if self.mcp_config:
+            mcp_tools = create_mcp_tools(self.mcp_config, timeout=30)
             tools.extend(mcp_tools)
 
         logger.info(
             f"Loaded {len(tools)} tools from spec: {[tool.name for tool in tools]}"
         )
-        if spec.filter_tools_regex:
-            pattern = re.compile(spec.filter_tools_regex)
+        if self.filter_tools_regex:
+            pattern = re.compile(self.filter_tools_regex)
             tools = [tool for tool in tools if pattern.match(tool.name)]
             logger.info(
                 f"Filtered to {len(tools)} tools after applying regex filter: "
@@ -150,14 +165,21 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         # Always include built-in tools; not subject to filtering
         tools.extend(BUILT_IN_TOOLS)
 
-        return cls(
-            llm=spec.llm,
-            agent_context=spec.agent_context,
-            tools=tools,
-            system_prompt_filename=spec.system_prompt_filename,
-            system_prompt_kwargs=spec.system_prompt_kwargs,
-            condenser=spec.condenser,
-        )
+        # Check tool types
+        for tool in tools:
+            if not isinstance(tool, Tool):
+                raise ValueError(
+                    f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
+                )
+
+        # Check name duplicates
+        tool_names = [tool.name for tool in tools]
+        if len(tool_names) != len(set(tool_names)):
+            duplicates = set(name for name in tool_names if tool_names.count(name) > 1)
+            raise ValueError(f"Duplicate tool names found: {duplicates}")
+
+        # Store tools in a dict for easy access
+        self._tools = {tool.name: tool for tool in tools}
 
     @property
     def prompt_dir(self) -> str:
@@ -259,57 +281,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
 
-    # ----- Tool materialization and access (moved from Agent) -----
-    def initialize(self) -> None:
-        if self._tools:
-            return
-        # Backward-compatible path: explicit Tool instances provided
-        if (
-            isinstance(self.tools, dict)
-            and len(self.tools) > 0
-            and all(isinstance(t, Tool) for t in self.tools.values())
-        ):
-            user_tools = cast(dict[str, Tool], self.tools)
-            self._tools.update(self._merge_with_builtins(dict(user_tools)))
-            return
-        # ToolSpec-based path
-        specs = getattr(self, "tool_specs", None)
-        if specs:
-            from openhands.sdk.tool.registry import resolve_many
-            # NOTE: We no longer auto-register openhands.tools. Callers must
-            # explicitly register factories via register_tool(...) before using
-            # ToolSpec. This keeps initialization predictable and explicit.
-
-            resolved = resolve_many(specs)
-            user_tools: dict[str, Tool] = {}
-            for t in resolved:
-                if t.name in user_tools:
-                    raise ValueError(
-                        f"Duplicate tool name from ToolSpec resolution: {t.name}"
-                    )
-                user_tools[t.name] = t
-            self._tools.update(self._merge_with_builtins(user_tools))
-            return
-        # Default: built-ins only
-        self._tools.update({t.name: t for t in BUILT_IN_TOOLS})
-
-    def get_tools(self) -> dict[str, Tool]:
+    def get_tools(self) -> dict[str, Tool | MCPTool]:
         if not self._tools:
             raise RuntimeError("Agent not initialized; call initialize() before use")
         return self._tools
-
-    @staticmethod
-    def _merge_with_builtins(user_tools: dict[str, Tool]) -> dict[str, Tool]:
-        builtin_map = {t.name: t for t in BUILT_IN_TOOLS}
-        to_delete: list[str] = []
-        for name in set(user_tools) & set(builtin_map):
-            user_tool = user_tools[name]
-            builtin_tool = builtin_map[name]
-            # Compare meaningful fields using model_dump
-            if user_tool.model_dump() == builtin_tool.model_dump():
-                to_delete.append(name)  # keep canonical built-in
-            else:
-                raise ValueError(f"Tool '{name}' is built-in and cannot be overridden.")
-        for name in to_delete:
-            del user_tools[name]
-        return {**user_tools, **builtin_map}
