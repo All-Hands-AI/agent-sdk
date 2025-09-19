@@ -176,7 +176,7 @@ def test_agent_type_annotation_works_json() -> None:
 
     # Use AgentType annotation
     class TestModel(BaseModel):
-        agent: AgentBase  # type: ignore
+        agent: AgentBase
 
     model = TestModel(agent=agent)
 
