@@ -6,6 +6,7 @@ from pydantic import Field
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
 from openhands.tools.browser_use.impl import BrowserToolExecutor
 
@@ -80,7 +81,7 @@ browser_navigate_tool = Tool(
 )
 
 
-class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
+class BrowserNavigateTool(ToolBase[BrowserNavigateAction, BrowserObservation]):
     """Tool for browser navigation."""
 
     @classmethod
@@ -137,7 +138,7 @@ browser_click_tool = Tool(
 )
 
 
-class BrowserClickTool(Tool[BrowserClickAction, BrowserObservation]):
+class BrowserClickTool(ToolBase[BrowserClickAction, BrowserObservation]):
     """Tool for clicking browser elements."""
 
     @classmethod
@@ -191,7 +192,7 @@ browser_type_tool = Tool(
 )
 
 
-class BrowserTypeTool(Tool[BrowserTypeAction, BrowserObservation]):
+class BrowserTypeTool(ToolBase[BrowserTypeAction, BrowserObservation]):
     """Tool for typing text into browser elements."""
 
     @classmethod
@@ -242,7 +243,7 @@ browser_get_state_tool = Tool(
 )
 
 
-class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
+class BrowserGetStateTool(ToolBase[BrowserGetStateAction, BrowserObservation]):
     """Tool for getting browser state."""
 
     @classmethod
@@ -293,7 +294,7 @@ browser_get_content_tool = Tool(
 )
 
 
-class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
+class BrowserGetContentTool(ToolBase[BrowserGetContentAction, BrowserObservation]):
     """Tool for getting page content in markdown."""
 
     @classmethod
@@ -344,7 +345,7 @@ browser_scroll_tool = Tool(
 )
 
 
-class BrowserScrollTool(Tool[BrowserScrollAction, BrowserObservation]):
+class BrowserScrollTool(ToolBase[BrowserScrollAction, BrowserObservation]):
     """Tool for scrolling the browser page."""
 
     @classmethod
@@ -389,7 +390,7 @@ browser_go_back_tool = Tool(
 )
 
 
-class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
+class BrowserGoBackTool(ToolBase[BrowserGoBackAction, BrowserObservation]):
     """Tool for going back in browser history."""
 
     @classmethod
@@ -434,7 +435,7 @@ browser_list_tabs_tool = Tool(
 )
 
 
-class BrowserListTabsTool(Tool[BrowserListTabsAction, BrowserObservation]):
+class BrowserListTabsTool(ToolBase[BrowserListTabsAction, BrowserObservation]):
     """Tool for listing browser tabs."""
 
     @classmethod
@@ -484,7 +485,7 @@ browser_switch_tab_tool = Tool(
 )
 
 
-class BrowserSwitchTabTool(Tool[BrowserSwitchTabAction, BrowserObservation]):
+class BrowserSwitchTabTool(ToolBase[BrowserSwitchTabAction, BrowserObservation]):
     """Tool for switching browser tabs."""
 
     @classmethod
@@ -533,7 +534,7 @@ browser_close_tab_tool = Tool(
 )
 
 
-class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
+class BrowserCloseTabTool(ToolBase[BrowserCloseTabAction, BrowserObservation]):
     """Tool for closing browser tabs."""
 
     @classmethod
@@ -548,7 +549,7 @@ class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
         )
 
 
-class BrowserToolSet(Tool):
+class BrowserToolSet(ToolBase):
     """A set of all browser tools.
 
     This tool set includes all available browser-related tools
@@ -556,7 +557,7 @@ class BrowserToolSet(Tool):
     """
 
     @classmethod
-    def create(cls) -> list[Tool]:
+    def create(cls) -> list[ToolBase]:
         executor = BrowserToolExecutor()
         return [
             browser_navigate_tool.set_executor(executor),

@@ -4,7 +4,7 @@ import asyncio
 import threading
 import time
 
-from openhands.sdk.event import Event, EventBase
+from openhands.sdk.event import EventBase
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.utils.async_utils import (
     AsyncCallbackWrapper,
@@ -12,7 +12,7 @@ from openhands.sdk.utils.async_utils import (
 )
 
 
-class MockEvent(EventBase):
+class TestAsyncUtilsMockEvent(EventBase):
     """Mock event for testing."""
 
     data: str = "test"
@@ -22,7 +22,7 @@ class MockEvent(EventBase):
 def test_async_conversation_callback_type():
     """Test that AsyncConversationCallback type is properly defined."""
 
-    async def sample_callback(event: Event) -> None:
+    async def sample_callback(event: EventBase) -> None:
         pass
 
     # This should not raise any type errors
@@ -34,7 +34,7 @@ def test_async_callback_wrapper_basic():
     """Test basic functionality of AsyncCallbackWrapper."""
     events_processed = []
 
-    async def async_callback(event: Event) -> None:
+    async def async_callback(event: EventBase) -> None:
         events_processed.append(f"processed: {event.source}")
 
     async def run_test():
@@ -45,7 +45,7 @@ def test_async_callback_wrapper_basic():
         wrapper = AsyncCallbackWrapper(async_callback, loop)
 
         # Create and process event
-        event = MockEvent()
+        event = TestAsyncUtilsMockEvent()
         wrapper(event)
 
         # Wait a bit for the callback to execute
@@ -61,14 +61,14 @@ def test_async_callback_wrapper_multiple_events():
     """Test AsyncCallbackWrapper with multiple events."""
     events_processed = []
 
-    async def async_callback(event: Event) -> None:
+    async def async_callback(event: EventBase) -> None:
         events_processed.append(event.id)
 
     async def run_test():
         loop = asyncio.get_running_loop()
         wrapper = AsyncCallbackWrapper(async_callback, loop)
 
-        events = [MockEvent() for _ in range(3)]
+        events = [TestAsyncUtilsMockEvent() for _ in range(3)]
 
         for event in events:
             wrapper(event)
@@ -88,14 +88,14 @@ def test_async_callback_wrapper_with_stopped_loop():
     """Test AsyncCallbackWrapper behavior when loop is not running."""
     events_processed = []
 
-    async def async_callback(event: Event) -> None:
+    async def async_callback(event: EventBase) -> None:
         events_processed.append("processed")
 
     # Create a loop but don't run it
     loop = asyncio.new_event_loop()
     wrapper = AsyncCallbackWrapper(async_callback, loop)
 
-    event = MockEvent()
+    event = TestAsyncUtilsMockEvent()
 
     # This should not execute the callback since loop is not running
     wrapper(event)
@@ -112,14 +112,14 @@ def test_async_callback_wrapper_with_stopped_loop():
 def test_async_callback_wrapper_exception_handling():
     """Test that exceptions in async callbacks don't crash the wrapper."""
 
-    async def failing_callback(event: Event) -> None:
+    async def failing_callback(event: EventBase) -> None:
         raise ValueError("Test exception")
 
     async def run_test():
         loop = asyncio.get_running_loop()
         wrapper = AsyncCallbackWrapper(failing_callback, loop)
 
-        event = MockEvent()
+        event = TestAsyncUtilsMockEvent()
 
         # This should not raise an exception in the calling thread
         wrapper(event)
@@ -135,7 +135,7 @@ def test_async_callback_wrapper_concurrent_execution():
     """Test that AsyncCallbackWrapper can handle concurrent events."""
     events_processed = []
 
-    async def async_callback(event: Event) -> None:
+    async def async_callback(event: EventBase) -> None:
         await asyncio.sleep(0.05)  # Simulate async work
         events_processed.append(
             {
@@ -148,7 +148,7 @@ def test_async_callback_wrapper_concurrent_execution():
         loop = asyncio.get_running_loop()
         wrapper = AsyncCallbackWrapper(async_callback, loop)
 
-        events = [MockEvent() for _ in range(5)]
+        events = [TestAsyncUtilsMockEvent() for _ in range(5)]
 
         # Submit all events quickly
         for event in events:
@@ -178,13 +178,13 @@ def test_async_callback_wrapper_from_different_thread():
     events_processed = []
     exception_caught = None
 
-    async def async_callback(event: Event) -> None:
+    async def async_callback(event: EventBase) -> None:
         events_processed.append(f"processed: {event.source}")
 
     def thread_function(wrapper):
         """Function to run in a separate thread."""
         try:
-            event = MockEvent()
+            event = TestAsyncUtilsMockEvent()
             wrapper(event)
         except Exception as e:
             nonlocal exception_caught
@@ -213,14 +213,14 @@ def test_async_callback_wrapper_from_different_thread():
 def test_async_callback_wrapper_performance():
     """Test that the wrapper doesn't add significant overhead."""
 
-    async def simple_callback(event: Event) -> None:
+    async def simple_callback(event: EventBase) -> None:
         pass  # Do nothing
 
     async def run_test():
         loop = asyncio.get_running_loop()
         wrapper = AsyncCallbackWrapper(simple_callback, loop)
 
-        events = [MockEvent() for _ in range(100)]
+        events = [TestAsyncUtilsMockEvent() for _ in range(100)]
 
         start_time = time.time()
         for event in events:

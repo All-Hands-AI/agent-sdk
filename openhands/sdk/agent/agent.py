@@ -35,7 +35,7 @@ from openhands.sdk.tool import (
     ActionBase,
     FinishTool,
     ObservationBase,
-    Tool,
+    ToolBase,
 )
 from openhands.sdk.tool.builtins import FinishAction
 
@@ -43,7 +43,7 @@ from openhands.sdk.tool.builtins import FinishAction
 logger = get_logger(__name__)
 
 
-class _RuntimeTools(dict[str, "Tool"]):
+class _RuntimeTools(dict[str, "ToolBase"]):
     pass
 
 
@@ -51,7 +51,7 @@ class Agent(AgentBase):
     def initialize(self) -> None:
         super().initialize()
 
-    def get_tools(self) -> dict[str, "Tool"]:
+    def get_tools(self) -> dict[str, "ToolBase"]:
         return super().get_tools()
 
     @property
@@ -353,7 +353,7 @@ class Agent(AgentBase):
 
             # Arguments we passed in should not contains `security_risk`
             # as a field
-            action: ActionBase = tool.action_type.model_validate(arguments)
+            action: ActionBase = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -400,9 +400,7 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        if tool.executor is None:
-            raise RuntimeError(f"Tool '{tool.name}' has no executor")
-        observation: ObservationBase = tool.executor(action_event.action)
+        observation: ObservationBase = tool(action_event.action)
         assert isinstance(observation, ObservationBase), (
             f"Tool '{tool.name}' executor must return an ObservationBase"
         )

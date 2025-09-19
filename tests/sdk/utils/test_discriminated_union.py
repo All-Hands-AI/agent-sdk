@@ -1,398 +1,179 @@
-import json
-from typing import Annotated
+from abc import ABC
+from typing import Annotated, Union
 
 import pytest
+from litellm import BaseModel
 from pydantic import (
-    BaseModel,
     ConfigDict,
+    Discriminator,
     Field,
-    ValidationError,
-    field_validator,
+    Tag,
+    TypeAdapter,
+    computed_field,
     model_validator,
 )
 
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
+    kind_of,
 )
 
 
-def test_discriminated_union_supports_polymorphic_serialization() -> None:
-    """Test that discriminated union supports polymorphic serialization/deserialization.
+class Animal(DiscriminatedUnionMixin, ABC):
+    name: str
 
-    That is, we should be able to serialize things in the union and deserialize them
-    using the base class.
-    """
 
-    class Animal(DiscriminatedUnionMixin):
-        name: str
+class Cat(Animal):
+    pass
 
-    class Dog(Animal):
-        breed: str
 
-    class Cat(Animal):
-        color: str
+class Canine(Animal, ABC):
+    pass
 
-    cat = Cat(name="Whiskers", color="Tabby")
-    dog = Dog(name="Fido", breed="Labrador")
 
-    for animal in [cat, dog]:
-        serialized_animal = animal.model_dump_json()
-        deserialized_animal = Animal.model_validate_json(serialized_animal)
-        assert animal == deserialized_animal
+class Dog(Canine):
+    barking: bool
 
 
-def test_discriminated_union_supports_polymorphic_field_serialization() -> None:
-    """Test that discriminated union supports polymorphic serialization/deserialization
-    when used as a field in another model.
-    """
+class Wolf(Canine):
+    @computed_field
+    @property
+    def genus(self) -> str:
+        return "Canis"
 
-    class Animal(DiscriminatedUnionMixin):
-        name: str
+    @model_validator(mode="before")
+    @classmethod
+    def _remove_genus(cls, data):
+        # Remove the genus from input as it is generated
+        if not isinstance(data, dict):
+            return
+        data = dict(data)
+        data.pop("genus", None)
+        return data
 
-    class Dog(Animal):
-        breed: str
+    model_config = ConfigDict(extra="forbid")
 
-    class Cat(Animal):
-        color: str
 
-    class Carrier(BaseModel):
-        animal: Annotated[Animal, DiscriminatedUnionType[Animal]]
+class AnimalPack(BaseModel):
+    members: list[Animal] = Field(default_factory=list)
 
-    cat = Cat(name="Whiskers", color="Tabby")
-    dog = Dog(name="Fido", breed="Labrador")
+    @computed_field
+    @property
+    def alpha(self) -> Animal | None:
+        return self.members[0] if self.members else None
 
-    for animal in [cat, dog]:
-        carrier = Carrier(animal=animal)
-        serialized_carrier = carrier.model_dump_json()
-        deserialized_carrier = Carrier.model_validate_json(serialized_carrier)
-        assert carrier == deserialized_carrier
+    @property
+    def num_animals(self):
+        return len(self.members)
 
-    carrier = Carrier(animal=dog)
+    @model_validator(mode="before")
+    @classmethod
+    def _remove_alpha(cls, data):
+        # Remove the genus from input as it is generated
+        if not isinstance(data, dict):
+            return
+        data = dict(data)
+        data.pop("alpha", None)
+        return data
 
-    serialized_carrier = carrier.model_dump_json()
-    deserialized_carrier = Carrier.model_validate_json(serialized_carrier)
-    assert carrier == deserialized_carrier
+    model_config = ConfigDict(extra="forbid")
 
 
-def test_discriminated_union_supports_nested_polymorphic_serialization() -> None:
-    """Test that discriminated union supports polymorphic serialization/deserialization
-    when nested in a field in another model.
-    """
+def test_serializable_type_expected() -> None:
+    serializable_type = Animal.get_serializable_type()
+    expected_serializable_type = Annotated[
+        Union[
+            Annotated[Cat, Tag("Cat")],
+            Annotated[Dog, Tag("Dog")],
+            Annotated[Wolf, Tag("Wolf")],
+        ],
+        Discriminator(kind_of),
+    ]
+    assert serializable_type == expected_serializable_type
 
-    class Animal(DiscriminatedUnionMixin):
-        name: str
 
-    class Dog(Animal):
-        breed: str
+def test_json_schema() -> None:
+    serializable_type = Animal.model_json_schema()
+    assert "oneOf" in serializable_type
 
-    class Cat(Animal):
-        color: str
 
-    class Zoo(BaseModel):
-        residents: list[Annotated[Animal, DiscriminatedUnionType[Animal]]]
-
-    dog = Dog(name="Fido", breed="Labrador")
-    cat = Cat(name="Whiskers", color="Tabby")
-    zoo = Zoo(residents=[dog, cat])
-
-    serialized_zoo = zoo.model_dump_json()
-    deserialized_zoo = Zoo.model_validate_json(serialized_zoo)
-    assert zoo == deserialized_zoo
-
-
-def test_containers_support_out_of_order_definitions() -> None:
-    """Test that discriminated union works even if subclasses are defined after
-    containers.
-    """
-
-    class Animal(DiscriminatedUnionMixin):
-        name: str
-
-    class Dog(Animal):
-        breed: str
-
-    class Container(BaseModel):
-        animal: Annotated[Animal, DiscriminatedUnionType[Animal]]
-
-    class Cat(Animal):
-        color: str
-
-    dog = Dog(name="Fido", breed="Labrador")
-    cat = Cat(name="Whiskers", color="Tabby")
-
-    for animal in [dog, cat]:
-        container = Container(animal=animal)
-        serialized_container = container.model_dump_json()
-        deserialized_container = Container.model_validate_json(serialized_container)
-        assert container == deserialized_container
-
-
-def test_discriminated_union_with_pydantic_validators() -> None:
-    """Test that Pydantic validators work correctly with discriminated unions."""
-
-    class Animal(DiscriminatedUnionMixin, BaseModel):
-        name: str
-
-        @field_validator("name")
-        @classmethod
-        def validate_name(cls, v):
-            if not v.strip():
-                raise ValueError("Name cannot be empty")
-            return v.title()
-
-        @model_validator(mode="after")
-        def validate_model(self):
-            return self
-
-    class Dog(Animal):
-        breed: str
-
-        @field_validator("breed")
-        @classmethod
-        def validate_breed(cls, v):
-            return v.title()
-
-    class Cat(Animal):
-        color: str
-
-        @field_validator("color")
-        @classmethod
-        def validate_color(cls, v):
-            return v.title()
-
-    # Test direct creation with validators
-    dog = Dog(name="fido", breed="labrador")
-    assert dog.name == "Fido"
-    assert dog.breed == "Labrador"
-
-    # Test model_validate with validators
-    dog_data = {
-        "name": "rex",
-        "breed": "german shepherd",
-        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
-    }
-    dog_from_dict = Animal.model_validate(dog_data)
-    assert isinstance(dog_from_dict, Dog)
-    assert dog_from_dict.name == "Rex"
-    assert dog_from_dict.breed == "German Shepherd"
-
-    # Test model_validate_json with validators
-    import json
-
-    dog_json = json.dumps(dog_data)
-    dog_from_json = Animal.model_validate_json(dog_json)
-    assert isinstance(dog_from_json, Dog)
-    assert dog_from_json.name == "Rex"
-    assert dog_from_json.breed == "German Shepherd"
-
-    # Test validation errors are properly raised
-    with pytest.raises(ValidationError) as exc_info:
-        Dog(name="", breed="labrador")
-    assert "Name cannot be empty" in str(exc_info.value)
-
-
-def test_discriminated_union_model_validate_dict() -> None:
-    """Test model_validate with dictionary input."""
-
-    class Animal(DiscriminatedUnionMixin, BaseModel):
-        name: str
-
-    class Dog(Animal):
-        breed: str
-
-    class Cat(Animal):
-        color: str
-
-    # Test with valid kind
-    dog_data = {
-        "name": "Buddy",
-        "breed": "Golden Retriever",
-        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
-    }
-    result = Animal.model_validate(dog_data)
-    assert isinstance(result, Dog)
-    assert result.name == "Buddy"
-    assert result.breed == "Golden Retriever"
-
-    cat_data = {
-        "name": "Whiskers",
-        "color": "Orange",
-        "kind": f"{Cat.__module__}.{Cat.__qualname__}",
-    }
-    result = Animal.model_validate(cat_data)
-    assert isinstance(result, Cat)
-    assert result.name == "Whiskers"
-    assert result.color == "Orange"
-
-
-def test_control_fields_stripped_for_subclass_with_extra_forbid() -> None:
-    class Animal(DiscriminatedUnionMixin):
-        name: str
-
-    class Dog(Animal):
-        model_config = ConfigDict(extra="forbid")
-        breed: str
-
-    # Including control fields should not cause extra errors
-    dog_data = {
-        "name": "Fido",
-        "breed": "Labrador",
-        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
-        "_du_spec": None,
-    }
-    result = Animal.model_validate(dog_data)
-    assert isinstance(result, Dog)
-    assert result.name == "Fido"
-    assert result.breed == "Labrador"
-
-    # Non-control unknown fields should be rejected by extra="forbid"
-    with pytest.raises(ValidationError):
-        Animal.model_validate({**dog_data, "unknown": 123})
-
-
-def test_fallback_reconstruction_from_du_spec_for_unresolvable_kind() -> None:
-    class Animal(DiscriminatedUnionMixin):
-        name: str
-
-    # Unresolvable kind but valid _du_spec provided
-    spec = {
-        "title": "TestFallbackModel",
-        "fields": {
-            "name": {"type": "str", "required": True},
-            "age": {"type": "int", "required": False, "default": 0},
-        },
-    }
-    payload = {"name": "Jerry", "age": 3, "kind": "not.real.Class", "_du_spec": spec}
-    obj = Animal.model_validate(payload)
-    # We expect a temporary model constructed from the spec
-    assert type(obj).__name__ == "TestFallbackModel"
-    data = obj.model_dump()
-    assert data["name"] == "Jerry"
-    assert data["age"] == 3
-
-
-def test_json_schema_has_discriminator_property() -> None:
-    class Animal(DiscriminatedUnionMixin):
-        name: str
-
-    class Dog(Animal):
-        breed: str
-
-    class Cat(Animal):
-        color: str
-
-    class Carrier(BaseModel):
-        animal: Annotated[Animal, DiscriminatedUnionType[Animal]]
-
-    schema = Carrier.model_json_schema()
-    animal_schema = schema["properties"]["animal"]
-    assert "discriminator" in animal_schema
-    assert animal_schema["discriminator"]["propertyName"] == "kind"
-
-
-def test_discriminated_union_fallback_behavior() -> None:
-    """Test fallback behavior when discriminated union logic doesn't apply."""
-
-    class Animal(DiscriminatedUnionMixin, BaseModel):
-        name: str
-
-    class Dog(Animal):
-        breed: str
-
-    # Test with missing kind - should fallback to base class
-    no_kind_data = {"name": "Mystery"}
-    result = Animal.model_validate(no_kind_data)
-    assert isinstance(result, Animal)
-    assert result.name == "Mystery"
-
-    # Test with invalid kind - should fallback to base class
-    invalid_kind_data = {"name": "Alien", "kind": "Martian"}
-    result = Animal.model_validate(invalid_kind_data)
-    assert isinstance(result, Animal)
-    assert result.name == "Alien"
-
-
-def test_discriminated_union_preserves_pydantic_parameters() -> None:
-    """Test that all Pydantic validation parameters are preserved."""
-
-    class Animal(DiscriminatedUnionMixin, BaseModel):
-        name: str
-
-    class Dog(Animal):
-        breed: str
-
-    # Test with strict mode
-    dog_data = {
-        "name": "Buddy",
-        "breed": "Golden Retriever",
-        "kind": f"{Dog.__module__}.{Dog.__qualname__}",
-    }
-    result = Animal.model_validate(dog_data, strict=True)
-    assert isinstance(result, Dog)
-
-    # Test with context (even though we don't use it here, it should be passed through)
-    context = {"test": "value"}
-    result = Animal.model_validate(dog_data, context=context)
-    assert isinstance(result, Dog)
-
-
-def test_du_spec_is_json_serializable_and_roundtrips() -> None:
-    class Animal(DiscriminatedUnionMixin):
-        __include_du_spec__ = True
-        name: str
-
-    class Dog(Animal):
-        breed: str = "Labrador"  # has a default (will show in _du_spec)
-
-    dog = Dog(name="Fido")
-
-    # Should serialize without raising (no PydanticUndefined leaking)
-    serialized = dog.model_dump_json()
-
-    import json
-
-    data = json.loads(serialized)
-    assert "kind" in data
-    assert "_du_spec" in data
-    assert data["_du_spec"]["fields"]["breed"]["default"] == "Labrador"
-
-    # Should also deserialize back to Dog correctly
-    deserialized = Animal.model_validate_json(serialized)
-    assert isinstance(deserialized, Dog)
-    assert deserialized == dog
-
-
-def test_du_spec_with_default_factory_is_json_serializable_and_roundtrips() -> None:
-    class Animal(DiscriminatedUnionMixin):
-        name: str
-
-    class Dog(Animal):
-        # Enable spec emission so _du_spec is built
-        __include_du_spec__ = True
-
-        breed: str
-        # This is the critical piece: default_factory ⇒ f.default is PydanticUndefined
-        # Old code would copy that sentinel into _du_spec["fields"]["toys"]["default"]
-        # and model_dump_json() would raise.
-        toys: list[str] = Field(default_factory=list)
-
-    d = Dog(name="Fido", breed="Labrador")
-
-    # PRE-FIX this would raise PydanticSerializationError; with the fix it should pass
-    dumped = d.model_dump_json()
-
-    data = json.loads(dumped)
-    assert "kind" in data
-    assert "_du_spec" in data
-    # _du_spec should list 'toys' as not required,
-    # and NOT include a PydanticUndefined default
-    assert data["_du_spec"]["fields"]["toys"]["required"] is False
-    # Either no default key, or a JSON-safe value (empty list) is acceptable post-fix.
-    # If you want to enforce the stricter behavior (skip factories entirely), use:
-    # assert "default" not in data["_du_spec"]["fields"]["toys"]
-
-    # Round-trip should still work
-    loaded = Animal.model_validate_json(dumped)
+def test_additional_field() -> None:
+    original = Dog(name="Fido", barking=True)
+    dumped = original.model_dump()
+    loaded = Animal.model_validate(dumped)
+    assert loaded == original
     assert isinstance(loaded, Dog)
-    assert loaded == d
+    assert loaded.barking
+
+
+def test_property() -> None:
+    """There seems to be a real issue with @property decorators"""
+    original = Wolf(name="Silver")
+    dumped = original.model_dump()
+    assert dumped["genus"] == "Canis"
+    loaded = Animal.model_validate(dumped)
+    assert loaded == original
+    assert original.genus == "Canis"
+    assert isinstance(loaded, Wolf)
+    assert loaded.genus == "Canis"
+
+
+def test_serialize_single_model() -> None:
+    original = Cat(name="Felix")
+    dumped = original.model_dump()
+    loaded = Animal.model_validate(dumped)
+    assert original == loaded
+    dumped_json = original.model_dump_json()
+    loaded_json = Animal.model_validate_json(dumped_json)
+    assert original == loaded_json
+
+
+def test_serialize_single_model_with_type_adapter() -> None:
+    type_adapter = TypeAdapter(Animal)
+    original = Cat(name="Felix")
+    dumped = type_adapter.dump_python(original)
+    loaded = type_adapter.validate_python(dumped)
+    assert original == loaded
+    dumped_json = type_adapter.dump_json(original)
+    loaded_json = type_adapter.validate_json(dumped_json)
+    assert original == loaded_json
+
+
+def test_serialize_model_list() -> None:
+    type_adapter = TypeAdapter(list[Animal])
+    original = [Cat(name="Felix"), Dog(name="Fido", barking=True), Wolf(name="Bitey")]
+    dumped = type_adapter.dump_python(original)
+    loaded = type_adapter.validate_python(dumped)
+    assert original == loaded
+
+
+def test_model_containing_polymorphic_field():
+    pack = AnimalPack(
+        members=[
+            Wolf(name="Larry"),
+            Dog(name="Curly", barking=False),
+            Cat(name="Moe"),
+        ]
+    )
+    Animal.model_rebuild(force=True)
+    AnimalPack.model_rebuild(force=True)
+    dumped = pack.model_dump()
+    assert dumped == {
+        "members": [
+            {"kind": "Wolf", "name": "Larry", "genus": "Canis"},
+            {"kind": "Dog", "name": "Curly", "barking": False},
+            {"kind": "Cat", "name": "Moe"},
+        ],
+        "alpha": {"kind": "Wolf", "name": "Larry", "genus": "Canis"},
+    }
+    loaded = AnimalPack.model_validate(dumped)
+    assert loaded == pack
+
+
+def test_duplicate_kind():
+    # nAn error should be raised when a duplicate class name is detected
+
+    with pytest.raises(ValueError):
+
+        class Cat(Animal):
+            pass
