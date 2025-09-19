@@ -14,7 +14,9 @@ from openhands.sdk import (
 )
 from openhands.sdk.tool.registry import register_tool
 from openhands.sdk.tool.spec import ToolSpec
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
 
 
 logger = get_logger(__name__)
@@ -39,8 +41,7 @@ register_tool("TaskTrackerTool", TaskTrackerTool)
 # Provide ToolSpec so Agent can lazily materialize tools at runtime.
 agent = Agent(
     llm=llm,
-    tools=[],  # backward-compat path unused here
-    tool_specs=[
+    tools=[
         ToolSpec(name="BashTool", params={"working_dir": cwd}),
         ToolSpec(name="FileEditorTool", params={}),
         ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
