@@ -75,7 +75,7 @@ build-server: check-uv-version
 	@echo "$(GREEN)Build complete! Executable is in dist/agent-server/$(RESET)"
 
 test-server-schema: check-uv-version
-	set -e
+	set -euo pipefail;
 	# Generate OpenAPI JSON inline (no file left in repo)
 	uv run python -c 'import os,json; from openhands.agent_server.api import api; open("openapi.json","w").write(json.dumps(api.openapi(), indent=2))'
 
