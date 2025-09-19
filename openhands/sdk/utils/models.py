@@ -198,13 +198,13 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
 
     @model_validator(mode="before")
     @classmethod
-    def _remove_kind(cls, data):
-        """After the model has been selected remove the "kind" tag
-        so that it doesn't trigger a validation error"""
+    def _set_kind(cls, data):
+        """For some cases (like models with a default fallback), the incoming
+        kind may not match the value so we set it."""
         if not isinstance(data, dict):
             return
         data = dict(data)
-        data.pop("kind", None)
+        data["kind"] = cls.__name__
         return data
 
     def __init_subclass__(cls, **kwargs):

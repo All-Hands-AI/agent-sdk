@@ -99,7 +99,7 @@ jobs:
                   export SCHEMA_PATH="$RUNNER_TEMP/openhands-openapi.json"
 
                   # Generate OpenAPI JSON inline (no file left in repo)
-                  uv run python -c 'import os,json; from openhands.agent_server.api import api; p=os.environ["SCHEMA_PATH"]; open(p,"w").write(json.dumps(api.openapi(), indent=2)); print(f"Wrote {p}")'
+                  uv run python -m openhands.agent_server.openapi
 
                   # Generate client from the temp schema and **fail on any warnings** to check
                   uv run openapi-python-client generate \

@@ -44,7 +44,12 @@ class CondenserBase(DiscriminatedUnionMixin, ABC):
         """
 
 
-class RollingCondenser(CondenserBase, ABC):
+class PipelinableCondenserBase(CondenserBase):
+    """Abstract condenser interface which may be pipelined. (Since a pipeline
+    condenser should not nest another pipeline condenser)"""
+
+
+class RollingCondenser(PipelinableCondenserBase, ABC):
     """Base class for a specialized condenser strategy that applies condensation to a
     rolling history.
 
