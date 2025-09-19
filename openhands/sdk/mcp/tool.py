@@ -33,33 +33,88 @@ class MCPToolExecutor(ToolExecutor):
         self.client = client
 
     async def call_tool(self, action: MCPActionBase) -> MCPToolObservation:
-        async with self.client:
-            assert self.client.is_connected(), "MCP client is not connected."
-            try:
-                logger.debug(
-                    f"Calling MCP tool {self.tool_name} "
-                    f"with args: {action.model_dump()}"
-                )
+        logger.info(f"Starting MCP tool execution for '{self.tool_name}'")
+        logger.debug(f"Tool arguments: {action.model_dump()}")
+
+        try:
+            async with self.client:
+                if not self.client.is_connected():
+                    error_msg = (
+                        f"MCP client is not connected when trying to call tool "
+                        f"'{self.tool_name}'"
+                    )
+                    logger.error(error_msg)
+                    return MCPToolObservation(
+                        content=[TextContent(text=error_msg)],
+                        is_error=True,
+                        tool_name=self.tool_name,
+                    )
+
+                logger.info(f"MCP client connected, calling tool '{self.tool_name}'")
+                logger.debug(f"MCP arguments being sent: {action.to_mcp_arguments()}")
+
                 result: mcp.types.CallToolResult = await self.client.call_tool_mcp(
                     name=self.tool_name, arguments=action.to_mcp_arguments()
                 )
+
+                if result.isError:
+                    logger.warning(
+                        f"MCP tool '{self.tool_name}' returned an error: {result}"
+                    )
+                else:
+                    logger.info(f"MCP tool '{self.tool_name}' executed successfully")
+                    logger.debug(f"Tool result: {result}")
+
                 return MCPToolObservation.from_call_tool_result(
                     tool_name=self.tool_name, result=result
                 )
-            except Exception as e:
-                error_msg = f"Error calling MCP tool {self.tool_name}: {str(e)}"
-                logger.error(error_msg, exc_info=True)
-                return MCPToolObservation(
-                    content=[TextContent(text=error_msg)],
-                    is_error=True,
-                    tool_name=self.tool_name,
-                )
+        except TimeoutError as e:
+            error_msg = f"Timeout calling MCP tool '{self.tool_name}': {str(e)}"
+            logger.error(error_msg)
+            return MCPToolObservation(
+                content=[TextContent(text=error_msg)],
+                is_error=True,
+                tool_name=self.tool_name,
+            )
+        except ConnectionError as e:
+            error_msg = (
+                f"Connection error calling MCP tool '{self.tool_name}': {str(e)}"
+            )
+            logger.error(error_msg)
+            return MCPToolObservation(
+                content=[TextContent(text=error_msg)],
+                is_error=True,
+                tool_name=self.tool_name,
+            )
+        except Exception as e:
+            error_msg = (
+                f"Unexpected error calling MCP tool '{self.tool_name}': "
+                f"{type(e).__name__}: {str(e)}"
+            )
+            logger.error(error_msg, exc_info=True)
+            return MCPToolObservation(
+                content=[TextContent(text=error_msg)],
+                is_error=True,
+                tool_name=self.tool_name,
+            )
 
     def __call__(self, action: MCPActionBase) -> MCPToolObservation:
         """Execute an MCP tool call."""
-        return self.client.call_async_from_sync(
-            self.call_tool, action=action, timeout=300
+        logger.info(
+            f"Synchronously executing MCP tool '{self.tool_name}' with 300s timeout"
         )
+        try:
+            result = self.client.call_async_from_sync(
+                self.call_tool, action=action, timeout=300
+            )
+            logger.info(f"Sync execution of MCP tool '{self.tool_name}' completed")
+            return result
+        except Exception as e:
+            logger.error(
+                f"Sync execution of MCP tool '{self.tool_name}' failed: "
+                f"{type(e).__name__}: {str(e)}"
+            )
+            raise
 
 
 class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
@@ -73,6 +128,7 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
         mcp_tool: mcp.types.Tool,
         mcp_client: MCPClient,
     ) -> "MCPTool":
+        logger.debug(f"Creating MCPTool wrapper for '{mcp_tool.name}'")
         try:
             annotations = (
                 ToolAnnotations.model_validate(
@@ -87,7 +143,7 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
                 mcp_tool.inputSchema,
             )
 
-            return cls(
+            tool = cls(
                 name=mcp_tool.name,
                 description=mcp_tool.description or "No description provided",
                 action_type=MCPActionType,
@@ -98,6 +154,8 @@ class MCPTool(Tool[MCPActionBase, MCPToolObservation]):
                 # pass-through fields (enabled by **extra in Tool.create)
                 mcp_tool=mcp_tool,
             )
+            logger.debug(f"Successfully created MCPTool wrapper for '{mcp_tool.name}'")
+            return tool
         except ValidationError as e:
             logger.error(
                 f"Validation error creating MCPTool for {mcp_tool.name}: "

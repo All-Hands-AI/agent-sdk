@@ -6,7 +6,11 @@ from typing import Any, Callable
 
 from fastmcp import Client as AsyncMCPClient
 
+from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.async_executor import AsyncExecutor
+
+
+logger = get_logger(__name__)
 
 
 class MCPClient(AsyncMCPClient):
@@ -18,6 +22,7 @@ class MCPClient(AsyncMCPClient):
     """
 
     def __init__(self, *args, **kwargs):
+        logger.info(f"Initializing MCP client with args: {args}, kwargs: {kwargs}")
         super().__init__(*args, **kwargs)
         self._executor = AsyncExecutor()
 
