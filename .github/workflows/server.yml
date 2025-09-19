@@ -4,6 +4,8 @@ name: Agent Server
 on:
     push:
         branches: [main]
+        tags:
+            - build-docker
     pull_request:
         branches: [main]
     workflow_dispatch:
@@ -112,8 +114,34 @@ jobs:
                   # Clean up temp schema
                   rm -f "$SCHEMA_PATH"
 
+    check-docker-changes:
+        name: Check Docker Changes
+        runs-on: ubuntu-latest
+        outputs:
+            docker-changed: ${{ steps.changes.outputs.docker }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+
+            - name: Check for Docker changes
+              uses: dorny/paths-filter@v3
+              id: changes
+              with:
+                  filters: |
+                      docker:
+                        - 'openhands/agent_server/docker/**'
+                        - '.github/workflows/server.yml'
+
     build-and-push-image:
         name: Build & Push
+        needs: check-docker-changes
+        # Run only on main branch, 'build-docker' tag, or when Docker files/workflow are changed
+        if: >
+            github.ref == 'refs/heads/main' ||
+            (github.ref_type == 'tag' && github.ref_name == 'build-docker') ||
+            needs.check-docker-changes.outputs.docker-changed == 'true'
         outputs:
             image: ${{ steps.build.outputs.image }}
             short_sha: ${{ steps.build.outputs.short_sha }}
@@ -195,7 +223,8 @@ jobs:
     post-image-comment:
         name: Post/Update PR image comment
         needs: build-and-push-image
-        if: github.event_name == 'pull_request'
+        # Only on PRs, and only if the build actually ran and succeeded
+        if: github.event_name == 'pull_request' && needs.build-and-push-image.result == 'success'
         runs-on: ubuntu-latest
         permissions:
             contents: read
