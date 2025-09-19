@@ -132,11 +132,12 @@ jobs:
                   filters: |
                       docker:
                         - 'openhands/agent_server/docker/**'
+                        - '.github/workflows/server.yml'
 
     build-and-push-image:
         name: Build & Push
         needs: check-docker-changes
-        # Run only on main branch, 'build-docker' tag, or when Docker files are changed
+        # Run only on main branch, 'build-docker' tag, or when Docker files/workflow are changed
         if: >
             github.ref == 'refs/heads/main' ||
             (github.ref_type == 'tag' && github.ref_name == 'build-docker') ||
