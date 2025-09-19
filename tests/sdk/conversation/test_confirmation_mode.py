@@ -4,7 +4,6 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
-import json
 from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
@@ -246,10 +245,6 @@ class TestConfirmationMode:
     def test_mock_observation(self):
         # First test a round trip in the context of ObservationBase
         obs = MockConfirmationModeObservation(result="executed")
-        # dumped_obs = obs.model_dump()
-        # loaded_obs = ObservationBase.model_validate(dumped_obs)
-        # assert isinstance(loaded_obs, MockConfirmationModeObservation)
-        # assert loaded_obs.result == "executed"
 
         # Now test embeddding this into an ObservationEvent
         event = ObservationEvent(
@@ -257,17 +252,6 @@ class TestConfirmationMode:
             action_id="action_id",
             tool_name="hammer",
             tool_call_id="tool_call_id",
-        )
-        mock_schema = json.dumps(MockConfirmationModeObservation.model_json_schema())
-        obs_schema = json.dumps(
-            ObservationBase.model_json_schema()["$defs"][
-                "MockConfirmationModeObservation"
-            ]
-        )
-        schema = json.dumps(
-            ObservationEvent.model_json_schema()["$defs"][
-                "MockConfirmationModeObservation"
-            ]
         )
         dumped_event = event.model_dump()
         assert dumped_event["observation"]["kind"] == "MockConfirmationModeObservation"
