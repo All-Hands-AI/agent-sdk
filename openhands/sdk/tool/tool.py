@@ -101,7 +101,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         for subclass in get_known_concrete_subclasses(cls):
             if subclass.__name__ == kind:
                 return subclass
-        return Tool
+        return ToolBase
 
     @classmethod
     def create(cls, *args, **kwargs) -> "ToolBase | list[ToolBase]":

@@ -154,6 +154,8 @@ def test_model_containing_polymorphic_field():
             Cat(name="Moe"),
         ]
     )
+    Animal.model_rebuild(force=True)
+    AnimalPack.model_rebuild(force=True)
     dumped = pack.model_dump()
     assert dumped == {
         "members": [

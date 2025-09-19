@@ -13,48 +13,75 @@ from pydantic import (
 )
 
 
-class DiscriminatedFieldsMixin(BaseModel):
-    """Tags a class where the fields may include a discriminated union"""
+_rebuild_required = True
 
-    def __init__(self, *args, **kwargs):
-        self.__class__._rebuild_for_polymorphism()
-        super().__init__(*args, **kwargs)
 
-    @classmethod
-    def _rebuild_for_polymorphism(cls):
-        if getattr(cls, "_has_discriminator", False):
-            return
-        cls.model_rebuild()
-        setattr(cls, "_has_discriminator", True)
-
-    @classmethod
-    def model_validate(cls, *args, **kwargs) -> Self:
-        cls._rebuild_for_polymorphism()
-        return super().model_validate(*args, **kwargs)
-
-    @classmethod
-    def model_validate_json(cls, *args, **kwargs) -> Self:
-        cls._rebuild_for_polymorphism()
-        return super().model_validate_json(*args, **kwargs)
-
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        cls._rebuild_for_polymorphism()
-        return super().model_json_schema(*args, **kwargs)
-
-    # Need to run for
-    # self.core_schema = _getattr_no_parents(self._type, '__pydantic_core_schema__')
-    # self.validator = _getattr_no_parents(self._type, '__pydantic_validator__')
-    # self.serializer = _getattr_no_parents(self._type, '__pydantic_serializer__')
+def rebuild_all():
+    """Rebuild all polymorphic classes."""
+    global _rebuild_required
+    _rebuild_required = False
+    for cls in _get_all_subclasses(DiscriminatedFieldsMixin):
+        cls.model_rebuild(force=True)
+    for cls in _get_all_subclasses(DiscriminatedUnionMixin):
+        cls.model_rebuild(force=True)
 
 
 def kind_of(obj) -> str:
-    """Get the tag"""
+    """Get the string value for the kind tag"""
     if isinstance(obj, dict):
         return obj["kind"]
     if not hasattr(obj, "__name__"):
         obj = obj.__class__
     return obj.__name__
+
+
+def get_known_concrete_subclasses(cls) -> set[Type]:
+    """
+    Recursively finds and returns all (loaded) subclasses of a given class.
+    """
+    result = set()
+    for subclass in cls.__subclasses__():
+        if not _is_abstract(subclass):
+            result.add(subclass)
+        result.update(get_known_concrete_subclasses(subclass))
+    return result
+
+
+class DiscriminatedFieldsMixin(BaseModel):
+    """
+    Tags a class where the which may be a discriminated union or contain fields
+    which contain a discriminated union. The first time an instance is initialized,
+    the schema is loaded, or a model is validated after a subclass is defined we
+    regenerate all the polymorphic mappings.
+    """
+
+    def __init__(self, *args, **kwargs):
+        _rebuild_if_required()
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def model_validate(cls, *args, **kwargs) -> Self:
+        _rebuild_if_required()
+        return super().model_validate(*args, **kwargs)
+
+    @classmethod
+    def model_validate_json(cls, *args, **kwargs) -> Self:
+        _rebuild_if_required()
+        return super().model_validate_json(*args, **kwargs)
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        _rebuild_if_required()
+        return super().model_json_schema(*args, **kwargs)
+
+    def __init_subclass__(cls, **kwargs):
+        """
+        When a new subclass is defined, mark that we will need
+        to rebuild everything
+        """
+        global _rebuild_required
+        _rebuild_required = True
+        return super().__init_subclass__(**kwargs)
 
 
 class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
@@ -90,11 +117,7 @@ class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
         _parent_namespace_depth=2,
         _types_namespace=None,
     ):
-        if (
-            _is_abstract(cls)
-            and cls != DiscriminatedUnionMixin
-            and issubclass(cls, DiscriminatedUnionMixin)
-        ):
+        if _is_abstract(cls) and cls != DiscriminatedUnionMixin:
             type_adapter = TypeAdapter(cls.get_serializable_type())
             cls.__pydantic_core_schema__ = type_adapter.core_schema
             cls.__pydantic_validator__ = type_adapter.validator
@@ -107,36 +130,6 @@ class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
             _parent_namespace_depth=_parent_namespace_depth,
             _types_namespace=_types_namespace,
         )
-
-    """
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if _is_abstract(cls):
-            return
-        
-        stahp = cls.__name__ == "MockConfirmationModeObservation"
-
-        # First we rebuild the model for any abstract discriminated superclass...
-        for superclass in cls.mro()[1:]:
-            if (
-                _is_abstract(superclass)
-                and issubclass(superclass, DiscriminatedUnionMixin)
-                and not superclass == DiscriminatedUnionMixin
-            ):
-                if stahp and 'ObservationBase' == superclass.__name__:
-                    print(json.dumps(superclass.model_json_schema()))
-                # ERROR : THIS DOES NOT HAVE PROPERTIES IN ITS SCHEMA YET.
-                # SO THE PROPERTIES ARE EMPTY 
-                superclass.model_rebuild(force=True)
-
-        # Because of polymorphic associations are cached within schemas,
-        # we need to rebuild all schemas after all subclasses have loaded.
-        all_models = get_known_concrete_subclasses(DiscriminatedFieldsMixin)
-        for model in all_models:
-            if stahp and 'ObservationEvent' == superclass.__name__:
-                print(json.dumps(model.model_json_schema()))
-            model.model_rebuild(force=True)
-    """
 
     @classmethod
     def get_serializable_type(cls) -> Type:
@@ -194,21 +187,25 @@ class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
         return data
 
 
+def _rebuild_if_required():
+    if _rebuild_required:
+        rebuild_all()
+
+
 def _is_abstract(type_: Type) -> bool:
-    """Determine whether the class a is a non abstract subclass of b"""
+    """Determine whether the class directly extends ABC or contains abstract methods"""
     try:
         return inspect.isabstract(type_) or ABC in type_.__bases__
     except Exception:
         return False
 
 
-def get_known_concrete_subclasses(cls) -> set[Type]:
+def _get_all_subclasses(cls) -> set[Type]:
     """
     Recursively finds and returns all (loaded) subclasses of a given class.
     """
     result = set()
     for subclass in cls.__subclasses__():
-        if not _is_abstract(subclass):
-            result.add(subclass)
-        result.update(get_known_concrete_subclasses(subclass))
+        result.add(subclass)
+        result.update(_get_all_subclasses(subclass))
     return result
