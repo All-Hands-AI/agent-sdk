@@ -45,6 +45,20 @@ class CondenserBase(DiscriminatedUnionMixin, ABC):
             the history has been condensed.
         """
 
+    def handles_condensation_requests(self) -> bool:
+        """Whether this condenser handles explicit condensation requests.
+
+        If this returns True, the agent will trigger the condenser whenever a
+        CondensationRequest event is added to the history. If False, the condenser will
+        only be triggered when the agent's own logic decides to do so (e.g. context
+        window exceeded).
+
+        Returns:
+            bool: True if the condenser handles explicit condensation requests, False
+            otherwise.
+        """
+        return False
+
 
 Condenser = Annotated[CondenserBase, DiscriminatedUnionType[CondenserBase]]
 """Type annotation for values that can be any implementation of CondenserBase.

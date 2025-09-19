@@ -27,7 +27,12 @@ class LLMSummarizingCondenser(RollingCondenser):
             )
         return model
 
+    def handles_condensation_requests(self) -> bool:
+        return True
+
     def should_condense(self, view: View) -> bool:
+        if view.unhandled_condensation_request:
+            return True
         return len(view) > self.max_size
 
     def get_condensation(self, view: View) -> Condensation:
