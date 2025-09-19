@@ -6,9 +6,9 @@ import pytest
 from pydantic import Field, ValidationError
 
 from openhands.sdk.llm import ImageContent, TextContent
+from openhands.sdk.mcp.definition import MCPToolAction
 from openhands.sdk.tool.schema import (
     ActionBase,
-    MCPActionBase,
     ObservationBase,
     Schema,
 )
@@ -30,7 +30,7 @@ class TestSchemaImmutabilityMockAction(ActionBase):
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadata")
 
 
-class MockMCPAction(MCPActionBase):
+class MockMCPAction(MCPToolAction):
     """Mock MCP action class for testing."""
 
     operation: str = Field(description="Operation to perform")
@@ -85,7 +85,7 @@ def test_action_base_is_frozen():
 
 
 def test_mcp_action_base_is_frozen():
-    """Test that MCPActionBase instances are frozen and cannot be modified."""
+    """Test that MCPToolAction instances are frozen and cannot be modified."""
     action = MockMCPAction(operation="test_op", parameters={"key": "value"})
 
     # Test that we cannot modify any field
@@ -154,7 +154,7 @@ def test_action_model_copy_creates_new_instance():
 
 
 def test_mcp_action_model_copy_creates_new_instance():
-    """Test that MCPActionBase model_copy creates a new instance with updated fields."""
+    """Test that MCPToolAction model_copy creates a new instance with updated fields."""
     original = MockMCPAction(operation="original_op", parameters={"key": "value"})
 
     # Create a copy with updated fields
@@ -261,7 +261,7 @@ def test_all_schema_classes_are_frozen():
     with pytest.raises(ValidationError, match="Instance is frozen"):
         action.command = "changed"
 
-    # Test MCPActionBase
+    # Test MCPToolAction
     mcp_action = MockMCPAction(operation="test")
     with pytest.raises(ValidationError, match="Instance is frozen"):
         mcp_action.operation = "changed"

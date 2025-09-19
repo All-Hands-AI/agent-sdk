@@ -408,7 +408,7 @@ class Agent(AgentBase):
 
             # Arguments we passed in should not contains `security_risk`
             # as a field
-            action: ActionBase = tool.action_type.model_validate(arguments)
+            action: ActionBase = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -456,9 +456,7 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        if tool.executor is None:
-            raise RuntimeError(f"Tool '{tool.name}' has no executor")
-        observation: ObservationBase = tool.executor(action_event.action)
+        observation: ObservationBase = tool(action_event.action)
         assert isinstance(observation, ObservationBase), (
             f"Tool '{tool.name}' executor must return an ObservationBase"
         )
