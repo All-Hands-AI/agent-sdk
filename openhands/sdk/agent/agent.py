@@ -252,6 +252,7 @@ class Agent(AgentBase):
             # exceeded, we can recover by triggering a condensation request.
             if (
                 self.condenser is not None
+                and self.condenser.handles_condensation_requests()
                 and self.llm.is_context_window_exceeded_exception(e)
             ):
                 logger.warning(
