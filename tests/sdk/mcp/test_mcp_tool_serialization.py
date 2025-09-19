@@ -11,7 +11,6 @@ import mcp.types
 
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.tool import MCPActionBase, MCPTool, MCPToolObservation
-from openhands.sdk.tool import Tool
 from openhands.sdk.tool.schema import ActionBase
 from openhands.sdk.tool.tool import ToolBase
 
@@ -54,7 +53,7 @@ def test_mcp_tool_polymorphic_behavior() -> None:
     mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
 
     # Should be instance of Tool
-    assert isinstance(mcp_tool, Tool)
+    assert isinstance(mcp_tool, ToolBase)
     assert isinstance(mcp_tool, MCPTool)
 
     # Check basic properties
