@@ -35,8 +35,6 @@ class MCPToolAction(ActionBase):
     from the MCP tool input schema.
     """
 
-    model_config = ConfigDict(frozen=True)
-
     data: dict[str, Any] = Field(
         default_factory=dict, description="Dynamic data fields from the tool call"
     )
