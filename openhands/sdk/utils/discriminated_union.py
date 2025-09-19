@@ -89,15 +89,6 @@ class DiscriminatedFieldsMixin(BaseModel):
         global _rebuild_required
         _rebuild_required = True
 
-        # Check for duplicates
-        kinds = {}
-        for subclass in _get_all_subclasses(cls):
-            kind = kind_of(subclass)
-            if kind in kinds:
-                raise ValueError(
-                    f"Duplicate kind detected for {cls} : {subclass}, {kinds[subclass]}"
-                )
-
         return super().__init_subclass__(**kwargs)
 
 
@@ -202,6 +193,19 @@ class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
         data = dict(data)
         data.pop("kind", None)
         return data
+
+    def __init_subclass__(cls, **kwargs):
+        # Check for duplicates
+        if cls != DiscriminatedFieldsMixin:
+            kinds = {}
+            for subclass in _get_all_subclasses(cls):
+                kind = kind_of(subclass)
+                if kind in kinds:
+                    raise ValueError(
+                        f"Duplicate kind detected for {cls} : {subclass}, {kinds[kind]}"
+                    )
+
+        return super().__init_subclass__(**kwargs)
 
 
 def _rebuild_if_required():
