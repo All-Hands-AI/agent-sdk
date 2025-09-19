@@ -26,7 +26,7 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import MessageEvent, PauseEvent
+from openhands.sdk.event import ActionEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
 
@@ -170,13 +170,15 @@ class TestPauseFunctionality:
         # Agent should be finished (pause was reset at start of run)
         assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
 
-        # Should have agent message since run completed normally
-        agent_messages = [
+        # Should have agent finish action since run completed normally
+        agent_finish_actions = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, MessageEvent) and event.source == "agent"
+            if isinstance(event, ActionEvent)
+            and event.source == "agent"
+            and event.tool_name == "finish"
         ]
-        assert len(agent_messages) == 1  # Agent ran and completed
+        assert len(agent_finish_actions) == 1  # Agent ran and completed
 
     @patch("openhands.sdk.llm.llm.litellm_completion")
     def test_pause_with_confirmation_mode(self, mock_completion):

@@ -6,12 +6,11 @@ from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
-    MessageEvent,
 )
 from openhands.sdk.llm import MetricsSnapshot
 
 
-EventWithMetrics = ActionEvent | MessageEvent | AgentErrorEvent | Condensation
+EventWithMetrics = ActionEvent | AgentErrorEvent | Condensation
 EVENT_CLASSES: tuple[type, ...] = get_args(EventWithMetrics)
 
 for cls in EVENT_CLASSES:

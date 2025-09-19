@@ -139,29 +139,20 @@ class ConversationVisualizer:
                 expand=True,
             )
         elif isinstance(event, MessageEvent):
-            if (
-                self._skip_user_messages
-                and event.llm_message
-                and event.llm_message.role == "user"
-            ):
+            # MessageEvent should now only be from users
+            # (agent messages are converted to FinishActionEvent)
+            if self._skip_user_messages:
                 return
             assert event.llm_message is not None
-            # Role-based styling
-            role_colors = {
-                "user": _MESSAGE_USER_COLOR,
-                "assistant": _MESSAGE_ASSISTANT_COLOR,
-            }
-            role_color = role_colors.get(event.llm_message.role, "white")
 
             title_text = (
-                f"[bold {role_color}]Message from {event.source.capitalize()}"
-                f"[/bold {role_color}]"
+                f"[bold {_MESSAGE_USER_COLOR}]Message from {event.source.capitalize()}"
+                f"[/bold {_MESSAGE_USER_COLOR}]"
             )
             return Panel(
                 content,
                 title=title_text,
-                subtitle=self._format_metrics_subtitle(event),
-                border_style=role_color,
+                border_style=_MESSAGE_USER_COLOR,
                 padding=_PANEL_PADDING,
                 expand=True,
             )

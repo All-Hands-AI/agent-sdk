@@ -4,6 +4,7 @@ from typing import Any, cast
 from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
+    Function,
     Message as LiteLLMMessage,
 )
 from pydantic import ValidationError, field_validator
@@ -16,7 +17,6 @@ from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     LLMConvertibleEvent,
-    MessageEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
@@ -303,14 +303,43 @@ class Agent(AgentBase):
                 self._execute_actions(state, action_events, on_event)
 
         else:
-            logger.info("LLM produced a message response - awaits user input")
+            logger.info("LLM produced a message response - converting to FinishAction")
             state.agent_status = AgentExecutionStatus.FINISHED
-            msg_event = MessageEvent(
+
+            # Extract message content to use as finish message
+            message_text = ""
+            for content in message.content:
+                if isinstance(content, TextContent):
+                    message_text += content.text
+
+            # Create a FinishAction with the message content
+            finish_action = FinishAction(message=message_text or "Task completed")
+
+            # Create ActionEvent for the finish action
+            action_event = ActionEvent(
                 source="agent",
-                llm_message=message,
+                thought=cast(list[TextContent], message.content),
+                reasoning_content=message.reasoning_content,
+                action=finish_action,
+                tool_name="finish",
+                tool_call_id=None,  # No tool call ID for manually simulated actions
+                tool_call=ChatCompletionMessageToolCall(
+                    id=None,  # No ID for manually simulated tool calls
+                    type="function",
+                    function=Function(
+                        name="finish",
+                        arguments=json.dumps(
+                            {"message": message_text or "Task completed"}
+                        ),
+                    ),
+                ),
+                llm_response_id=response.id,
                 metrics=metrics,
             )
-            on_event(msg_event)
+            on_event(action_event)
+
+            # Execute the finish action immediately
+            self._execute_action_events(state, action_event, on_event=on_event)
 
     def _requires_user_confirmation(
         self, state: ConversationState, action_events: list[ActionEvent]

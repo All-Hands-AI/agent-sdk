@@ -20,12 +20,13 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import ActionEvent, Event, MessageEvent, ObservationEvent
+from openhands.sdk.event import ActionEvent, Event, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.tool import Tool, ToolExecutor
+from openhands.sdk.tool.builtins.finish import FinishAction
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
@@ -321,14 +322,17 @@ class TestConfirmationMode:
 
         assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
 
-        msg_events = [
+        # Agent messages are now converted to FinishActionEvent
+        finish_events = [
             e
             for e in self.conversation.state.events
-            if isinstance(e, MessageEvent) and e.source == "agent"
+            if isinstance(e, ActionEvent)
+            and e.source == "agent"
+            and e.tool_name == "finish"
         ]
-        assert len(msg_events) == 1
-        assert isinstance(msg_events[0].llm_message.content[0], TextContent)
-        assert msg_events[0].llm_message.content[0].text == "Hello, how can I help you?"
+        assert len(finish_events) == 1
+        assert isinstance(finish_events[0].action, FinishAction)
+        assert finish_events[0].action.message == "Hello, how can I help you?"
 
     @pytest.mark.parametrize("should_reject", [True, False])
     def test_action_then_confirm_or_reject(self, should_reject: bool):
@@ -349,14 +353,17 @@ class TestConfirmationMode:
             ):
                 self.conversation.run()
 
-            # Expect an observation (tool executed) and no rejection
+            # Expect two observations: one from test_tool, one from finish action
             obs_events = [
                 e
                 for e in self.conversation.state.events
                 if isinstance(e, ObservationEvent)
             ]
-            assert len(obs_events) == 1
+            assert len(obs_events) == 2
+            # First observation is from the test_tool execution
             assert obs_events[0].observation.result == "Executed: test_command"  # type: ignore[attr-defined]
+            # Second observation is from the finish action
+            assert obs_events[1].observation.message == "Task completed successfully!"  # type: ignore[attr-defined]
             rejection_events = [
                 e
                 for e in self.conversation.state.events
