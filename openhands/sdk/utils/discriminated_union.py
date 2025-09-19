@@ -1,7 +1,7 @@
 import inspect
 import json
 from abc import ABC
-from typing import Annotated, Any, Callable, Literal, Self, Type, Union
+from typing import Annotated, Any, Self, Type, Union
 
 from pydantic import (
     BaseModel,
@@ -22,17 +22,13 @@ class DiscriminatedFieldsMixin(BaseModel):
 
     @classmethod
     def _rebuild_for_polymorphism(cls):
-        if getattr(cls, '_has_discriminator', False):
+        if getattr(cls, "_has_discriminator", False):
             return
         cls.model_rebuild()
-        setattr(cls, '_has_discriminator', True)
+        setattr(cls, "_has_discriminator", True)
 
     @classmethod
-    def model_validate(
-        cls,
-        *args,
-        **kwargs
-    ) -> Self:
+    def model_validate(cls, *args, **kwargs) -> Self:
         cls._rebuild_for_polymorphism()
         return super().model_validate(*args, **kwargs)
 
@@ -40,17 +36,16 @@ class DiscriminatedFieldsMixin(BaseModel):
     def model_validate_json(cls, *args, **kwargs) -> Self:
         cls._rebuild_for_polymorphism()
         return super().model_validate_json(*args, **kwargs)
-    
+
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
         cls._rebuild_for_polymorphism()
         return super().model_json_schema(*args, **kwargs)
-    
-    # Need to run for 
-    #self.core_schema = _getattr_no_parents(self._type, '__pydantic_core_schema__')
-    #self.validator = _getattr_no_parents(self._type, '__pydantic_validator__')
-    #self.serializer = _getattr_no_parents(self._type, '__pydantic_serializer__')
 
+    # Need to run for
+    # self.core_schema = _getattr_no_parents(self._type, '__pydantic_core_schema__')
+    # self.validator = _getattr_no_parents(self._type, '__pydantic_validator__')
+    # self.serializer = _getattr_no_parents(self._type, '__pydantic_serializer__')
 
 
 def kind_of(obj) -> str:
@@ -112,7 +107,8 @@ class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
             _parent_namespace_depth=_parent_namespace_depth,
             _types_namespace=_types_namespace,
         )
-    '''
+
+    """
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if _is_abstract(cls):
@@ -140,7 +136,7 @@ class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
             if stahp and 'ObservationEvent' == superclass.__name__:
                 print(json.dumps(model.model_json_schema()))
             model.model_rebuild(force=True)
-    '''
+    """
 
     @classmethod
     def get_serializable_type(cls) -> Type:

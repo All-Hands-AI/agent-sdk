@@ -4,8 +4,8 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
-from collections.abc import Sequence
 import json
+from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,7 +16,7 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
-from pydantic import Field, SecretStr
+from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
@@ -47,8 +47,10 @@ class MockConfirmationModeObservation(ObservationBase):
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
+
 # ObservationBase.model_rebuild(force=True)
 # ObservationEvent.model_rebuild(force=True)
+
 
 class TestConfirmationMode:
     """Test suite for confirmation mode functionality."""
@@ -81,9 +83,15 @@ class TestConfirmationMode:
         )
         self.mock_llm.metrics.get_snapshot.return_value = mock_metrics_snapshot
 
-        class TestExecutor(ToolExecutor[MockConfirmationModeAction, MockConfirmationModeObservation]):
-            def __call__(self, action: MockConfirmationModeAction) -> MockConfirmationModeObservation:
-                return MockConfirmationModeObservation(result=f"Executed: {action.command}")
+        class TestExecutor(
+            ToolExecutor[MockConfirmationModeAction, MockConfirmationModeObservation]
+        ):
+            def __call__(
+                self, action: MockConfirmationModeAction
+            ) -> MockConfirmationModeObservation:
+                return MockConfirmationModeObservation(
+                    result=f"Executed: {action.command}"
+                )
 
         test_tool = Tool(
             name="test_tool",
@@ -251,8 +259,16 @@ class TestConfirmationMode:
             tool_call_id="tool_call_id",
         )
         mock_schema = json.dumps(MockConfirmationModeObservation.model_json_schema())
-        obs_schema = json.dumps(ObservationBase.model_json_schema()['$defs']['MockConfirmationModeObservation'])
-        schema = json.dumps(ObservationEvent.model_json_schema()['$defs']['MockConfirmationModeObservation'])
+        obs_schema = json.dumps(
+            ObservationBase.model_json_schema()["$defs"][
+                "MockConfirmationModeObservation"
+            ]
+        )
+        schema = json.dumps(
+            ObservationEvent.model_json_schema()["$defs"][
+                "MockConfirmationModeObservation"
+            ]
+        )
         dumped_event = event.model_dump()
         assert dumped_event["observation"]["kind"] == "MockConfirmationModeObservation"
         assert dumped_event["observation"]["result"] == "executed"
