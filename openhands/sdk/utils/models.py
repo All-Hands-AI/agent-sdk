@@ -2,14 +2,14 @@ import inspect
 import json
 import logging
 from abc import ABC
-from typing import Annotated, Any, Self, Type, Union
+from typing import Annotated, Any, Literal, Self, Type, Union
 
 from pydantic import (
     BaseModel,
     Discriminator,
+    Field,
     Tag,
     TypeAdapter,
-    computed_field,
     model_validator,
 )
 
@@ -105,11 +105,7 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     discriminator for union types.
     """
 
-    @computed_field  # type: ignore
-    @property
-    def kind(self) -> str:
-        """Property to create kind field from class name when serializing."""
-        return self.__class__.__name__
+    kind: str = Field(default="")  # We dynamically update on a per class basis
 
     @classmethod
     def resolve_kind(cls, kind: str) -> Type:
@@ -127,12 +123,27 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         _parent_namespace_depth=2,
         _types_namespace=None,
     ):
-        if _is_abstract(cls) and cls != DiscriminatedUnionMixin:
+        if cls == DiscriminatedUnionMixin:
+            pass
+        if _is_abstract(cls):
+            subclasses = get_known_concrete_subclasses(cls)
+            kinds = [subclass.__name__ for subclass in subclasses]
+            if kinds:
+                kind = cls.model_fields["kind"]
+                kind.annotation = Literal[tuple(kinds)]  # type: ignore
+                kind.default = kinds[0]
+
+            # Update kind to be specific - not just str...
             type_adapter = TypeAdapter(cls.get_serializable_type())
             cls.__pydantic_core_schema__ = type_adapter.core_schema
             cls.__pydantic_validator__ = type_adapter.validator
             cls.__pydantic_serializer__ = type_adapter.serializer
             return
+        else:
+            # Update the kind field to be a literal.
+            kind = cls.model_fields["kind"]
+            kind.annotation = Literal[cls.__name__]  # type: ignore
+            kind.default = cls.__name__
 
         return super().model_rebuild(
             force=force,

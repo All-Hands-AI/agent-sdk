@@ -236,12 +236,12 @@ class TestMCPTool:
         input_schema = self.tool.action_type.to_mcp_schema()
 
         # Since security_risk was removed from ActionBase, it should not be in schema
-        assert len(input_schema["properties"]) == 1
+        assert len(input_schema["properties"]) == 2
         assert "security_risk" not in input_schema["properties"]
 
         assert input_schema == {
             "type": "object",
-            "properties": {"param": {"type": "string"}},
+            "properties": {"kind": {"type": "string"}, "param": {"type": "string"}},
         }
 
     def test_mcp_tool_with_annotations(self):
