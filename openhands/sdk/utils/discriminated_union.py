@@ -59,11 +59,7 @@ class DiscriminatedFieldsMixin(BaseModel):
 
     def __init__(self, *args, **kwargs):
         _rebuild_if_required()
-        try:
-            super().__init__(*args, **kwargs)
-        except Exception:
-            logger.exception("model error", stack_info=True)
-            raise
+        super().__init__(*args, **kwargs)
 
     @classmethod
     def model_validate(cls, *args, **kwargs) -> Self:
