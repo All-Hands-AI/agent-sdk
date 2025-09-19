@@ -68,3 +68,25 @@ help:
 	@echo "  $(GREEN)lint$(RESET)         - Lint code with ruff"
 	@echo "  $(GREEN)clean$(RESET)        - Clean up cache files"
 	@echo "  $(GREEN)help$(RESET)         - Show this help message"
+
+build-server: check-uv-version
+	@echo "$(CYAN)Building agent-server executable...$(RESET)"
+	@uv run pyinstaller openhands/agent_server/agent-server.spec
+	@echo "$(GREEN)Build complete! Executable is in dist/agent-server/$(RESET)"
+
+test-server-schema: check-uv-version
+	set -e
+	# Generate OpenAPI JSON inline (no file left in repo)
+	uv run python -c 'import os,json; from openhands.agent_server.api import api; open("openapi.json","w").write(json.dumps(api.openapi(), indent=2))'
+
+	# Generate client from the temp schema and **fail on any warnings** to check
+	uv run openapi-python-client generate \
+	--path "openapi.json" \
+	--output-path ".client" \
+	--meta uv \
+	--overwrite \
+	--fail-on-warning
+	
+	# Clean up temp schema
+	rm -f openapi.json
+	rm -rf .client

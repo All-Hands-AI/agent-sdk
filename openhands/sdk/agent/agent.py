@@ -29,6 +29,8 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security import risk
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
     ActionBase,
@@ -102,6 +104,10 @@ class Agent(AgentBase):
         # Built-ins last; ensures no duplicates
         return {**user_tools, **builtin_map}
 
+    @property
+    def _add_security_risk_prediction(self) -> bool:
+        return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
+
     def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
         """
         Configure bash tool with reference to secrets manager.
@@ -159,7 +165,12 @@ class Agent(AgentBase):
             event = SystemPromptEvent(
                 source="agent",
                 system_prompt=TextContent(text=self.system_message),
-                tools=[t.to_openai_tool() for t in self.tools.values()],
+                tools=[
+                    t.to_openai_tool(
+                        add_security_risk_prediction=self._add_security_risk_prediction
+                    )
+                    for t in self.tools.values()
+                ],
             )
             on_event(event)
 
@@ -217,7 +228,14 @@ class Agent(AgentBase):
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
         assert isinstance(self.tools, dict)
-        tools = [tool.to_openai_tool() for tool in self.tools.values()]
+
+        tools = [
+            # add llm security risk prediction if analyzer is present
+            tool.to_openai_tool(
+                add_security_risk_prediction=self._add_security_risk_prediction
+            )
+            for tool in self.tools.values()
+        ]
         response = self.llm.completion(
             messages=_messages,
             tools=tools,
@@ -305,14 +323,31 @@ class Agent(AgentBase):
             2. Every action requires confirmation
             3. A single `FinishAction` never requires confirmation
         """
-        if len(action_events) == 0:
-            return False
-
+        # A single `FinishAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
             action_events[0].action, FinishAction
         ):
             return False
 
+        # If there are no actions there is nothing to confirm
+        if len(action_events) == 0:
+            return False
+
+        # If a security analyzer is registered, use it to check the action events and
+        # see if confirmation is needed.
+        if self.security_analyzer is not None:
+            risks = self.security_analyzer.analyze_pending_actions(action_events)
+            for _, risk in risks:
+                if self.security_analyzer.should_require_confirmation(
+                    risk, state.confirmation_mode
+                ):
+                    state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                    return True
+            # If the security analyzer doesn't tell us to stop, we shouldn't stop, even
+            # if the confirmation mode is on.
+            return False
+
+        # If confirmation mode is disabled, no confirmation is needed
         if not state.confirmation_mode:
             return False
 
@@ -351,10 +386,28 @@ class Agent(AgentBase):
             return
 
         # Validate arguments
+        security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
-            action: ActionBase = tool.action_type.model_validate(
-                json.loads(tool_call.function.arguments)
-            )
+            arguments = json.loads(tool_call.function.arguments)
+
+            # if the tool has a security_risk field (when security analyzer = LLM),
+            # pop it out as it's not part of the tool's action schema
+            if (_predicted_risk := arguments.pop("security_risk", None)) is not None:
+                if not isinstance(self.security_analyzer, LLMSecurityAnalyzer):
+                    raise RuntimeError(
+                        "LLM provided a security_risk but no security analyzer is "
+                        "configured - THIS SHOULD NOT HAPPEN!"
+                    )
+                try:
+                    security_risk = risk.SecurityRisk(_predicted_risk)
+                except ValueError:
+                    logger.warning(
+                        f"Invalid security_risk value from LLM: {_predicted_risk}"
+                    )
+
+            # Arguments we passed in should not contains `security_risk`
+            # as a field
+            action: ActionBase = tool.action_type.model_validate(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -377,6 +430,7 @@ class Agent(AgentBase):
             tool_call=tool_call,
             llm_response_id=llm_response_id,
             metrics=metrics,
+            security_risk=security_risk,
         )
         on_event(action_event)
         return action_event

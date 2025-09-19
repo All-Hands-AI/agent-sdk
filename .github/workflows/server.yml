@@ -1,0 +1,230 @@
+---
+name: Agent Server
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
+        inputs:
+            base_image:
+                description: Base runtime image
+                type: string
+                default: nikolaik/python-nodejs:python3.12-nodejs22
+            image:
+                description: GHCR image name
+                type: string
+                default: ghcr.io/all-hands-ai/agent-server
+            platforms:
+                description: Target platforms
+                type: string
+                default: linux/amd64,linux/arm64
+
+permissions:
+    contents: read
+    packages: write
+
+jobs:
+    build-binary-and-test:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest]
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  version: latest
+            - name: Install dependencies
+              run: uv sync --dev
+
+            - name: Build binary
+              run: |
+                  make build-server
+
+            # FIXME: windows-latest not working due to
+            # Run if [[ "windows-latest" == "windows-latest" ]]; then
+            # [PYI-2160:ERROR] Failed to load Python DLL 'C:\Users\RUNNER~1\AppData\Local\Temp\_MEI5602\python312.dll'.
+            # LoadLibrary: Invalid access to memory location.
+            # - name: Test binary (Windows)
+            #   if: matrix.os == 'windows-latest'
+            #   shell: pwsh
+            #   run: |
+            #       Get-ChildItem dist
+            #       .\dist\openhands-agent-server.exe --help
+
+            - name: Test binary (Linux and macOS)
+              if: matrix.os != 'windows-latest'
+              shell: bash
+              run: |
+                  ./dist/openhands-agent-server --help
+
+            - name: Upload binary artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: openhands-server-${{ matrix.os }}
+                  path: |
+                      dist/openhands-server*
+                  retention-days: 7
+
+    # check-openapi-schema:
+    #     name: Check OpenAPI Schema
+    #     if: github.event_name == 'pull_request'
+    #     runs-on: ubuntu-latest
+
+    #     steps:
+    #         - name: Checkout PR branch
+    #           uses: actions/checkout@v5
+    #           with:
+    #               ref: ${{ github.head_ref }}
+    #               fetch-depth: 0
+
+    #         - name: Install uv
+    #           uses: astral-sh/setup-uv@v6
+    #           with:
+    #               version: latest
+
+    #         - name: Install dependencies
+    #           run: |
+    #               uv sync --frozen --dev
+
+    #         - name: Check OpenAPI JSON and build client
+    #           shell: bash
+    #           env:
+    #               PYTHONPATH: .
+    #           run: |
+    #               set -euo pipefail
+    #               export SCHEMA_PATH="$RUNNER_TEMP/openhands-openapi.json"
+
+    #               # Generate OpenAPI JSON inline (no file left in repo)
+    #               uv run python -c 'import os,json; from openhands.agent_server.api import api; p=os.environ["SCHEMA_PATH"]; open(p,"w").write(json.dumps(api.openapi(), indent=2)); print(f"Wrote {p}")'
+
+    #               # Generate client from the temp schema and **fail on any warnings** to check
+    #               uv run openapi-python-client generate \
+    #                 --path "$SCHEMA_PATH" \
+    #                 --output-path "$RUNNER_TEMP/openhands-client" \
+    #                 --meta uv \
+    #                 --overwrite \
+    #                 --fail-on-warning
+
+    #               # Clean up temp schema
+    #               rm -f "$SCHEMA_PATH"
+
+    build-and-push-image:
+        name: Build & Push
+        outputs:
+            image: ${{ steps.build.outputs.image }}
+            short_sha: ${{ steps.build.outputs.short_sha }}
+            tags: ${{ steps.build.outputs.tags }}
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    # Python + Node.js variant
+                    - name: python
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64,linux/arm64
+                      base_image: nikolaik/python-nodejs:python3.12-nodejs22
+
+                    # Java variant (OpenJDK base)
+                    - name: java
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64,linux/arm64
+                      base_image: eclipse-temurin:17-jdk
+
+                    # Golang variant (Go base)
+                    - name: golang
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64,linux/arm64
+                      base_image: golang:1.21-bookworm
+
+        runs-on: ${{ matrix.runner }}
+
+        env:
+            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
+            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
+            VARIANT_NAME: ${{ matrix.name }}
+            TARGET: binary
+            PLATFORMS: ${{ matrix.platforms }}
+            GITHUB_SHA: ${{ github.sha }}
+            GITHUB_REF: ${{ github.ref }}
+            CI: 'true'
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  version: latest
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+              with:
+                  driver-opts: network=host
+
+            - name: Log in to GHCR
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Make build script executable
+              run: chmod +x ./openhands/agent_server/docker/build.sh
+              shell: bash
+
+            - name: Build & Push (${{ matrix.name }})
+              id: build
+              run: |
+                  uv sync --frozen
+                  ./openhands/agent_server/docker/build.sh
+              shell: bash
+
+            - name: Summary (${{ matrix.name }}) - outputs
+              run: |
+                  echo "Image: ${{ steps.build.outputs.image }}"
+                  echo "Short SHA: ${{ steps.build.outputs.short_sha }}"
+                  echo "Versioned Tag: ${{ steps.build.outputs.versioned_tag }}"
+                  echo "Multiline tags:"
+                  echo "${{ steps.build.outputs.tags }}"
+
+    post-image-comment:
+        name: Post/Update PR image comment
+        needs: build-and-push-image
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write
+        env:
+            IMAGE: ${{ needs.build-and-push-image.outputs.image }}
+            SHORT_SHA: ${{ needs.build-and-push-image.outputs.short_sha }}
+
+        steps:
+            - name: Sticky PR comment with docker command
+              uses: marocchino/sticky-pull-request-comment@v2
+              with:
+                  header: agent-server-image
+                  recreate: true
+                  message: |
+                      **Agent Server image for this PR**
+
+                      Pull (multi-arch manifest):
+                      ```bash
+                      docker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
+                      ```
+
+                      Run:
+                      ```bash
+                      docker run -it --rm \
+                        -p 8000:8000 \
+                        --name agent-server-${{ env.SHORT_SHA }} \
+                        ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
+                      ```
+
+                      _This tag is a multi-arch manifest (amd64/arm64). Your client pulls the right arch automatically._

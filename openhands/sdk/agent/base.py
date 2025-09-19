@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Sequence
 
 from pydantic import ConfigDict, Field
 
+import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser import Condenser
@@ -46,6 +47,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
+    security_analyzer: analyzer.SecurityAnalyzer | None = None
     condenser: Condenser | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",

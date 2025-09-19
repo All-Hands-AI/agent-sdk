@@ -7,11 +7,11 @@ from pydantic import BaseModel, Field
 
 
 # Environment variable constants
-CONFIG_FILE_PATH_ENV = "openhands_CONFIG_PATH"
+CONFIG_FILE_PATH_ENV = "OPENHANDS_AGENT_SERVER_CONFIG_PATH"
 SESSION_API_KEY_ENV = "SESSION_API_KEY"
 
 # Default config file location
-DEFAULT_CONFIG_FILE_PATH = "workspace/openhands_sdk_config.json"
+DEFAULT_CONFIG_FILE_PATH = "workspace/openhands_agent_server_config.json"
 
 
 class WebhookSpec(BaseModel):

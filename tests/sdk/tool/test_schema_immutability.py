@@ -79,9 +79,6 @@ def test_action_base_is_frozen():
         action.args = ["new_arg"]
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        action.security_risk = "HIGH"
-
-    with pytest.raises(ValidationError, match="Instance is frozen"):
         action.metadata = {"new": "data"}
 
 
@@ -95,9 +92,6 @@ def test_mcp_action_base_is_frozen():
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
         action.parameters = {"new": "params"}
-
-    with pytest.raises(ValidationError, match="Instance is frozen"):
-        action.security_risk = "LOW"
 
 
 def test_observation_base_is_frozen():

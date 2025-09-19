@@ -24,7 +24,11 @@ agent-sdk/
 │   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
 │   ├── 09_pause_example.py             # Pause and resume agent execution
 │   ├── 10_persistence.py               # Conversation persistence
-│   └── 11_async.py                     # Async agent usage
+│   ├── 11_async.py                     # Async agent usage
+│   ├── 12_custom_secrets.py            # Custom secrets management
+│   ├── 13_get_llm_metrics.py           # LLM metrics and monitoring
+│   ├── 14_context_condenser.py         # Context condensation
+│   └── 15_llm_security_analyzer.py     # LLM security analysis
 ├── openhands/              # Main SDK packages
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
