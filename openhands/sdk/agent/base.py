@@ -2,7 +2,7 @@ import os
 import re
 import sys
 from abc import ABC
-from typing import TYPE_CHECKING, Sequence, Type
+from typing import TYPE_CHECKING, Sequence
 
 from pydantic import ConfigDict, Field
 
@@ -14,10 +14,7 @@ from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolBase
-from openhands.sdk.utils.models import (
-    DiscriminatedUnionMixin,
-    get_known_concrete_subclasses,
-)
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
@@ -204,12 +201,3 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if "tools" in dumped and isinstance(dumped["tools"], dict):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
-
-    @classmethod
-    def resolve_kind(cls, kind: str) -> Type:
-        for subclass in get_known_concrete_subclasses(cls):
-            if subclass.__name__ == kind:
-                return subclass
-        from openhands.sdk.agent.agent import Agent
-
-        return Agent
