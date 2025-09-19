@@ -14,6 +14,7 @@ from openhands.agent_server.models import (
 from openhands.sdk import LLM, Conversation, Message
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent
+from openhands.sdk.security.confirmation_policy import NeverConfirm
 
 
 @pytest.fixture
@@ -25,7 +26,7 @@ def sample_stored_conversation():
         tools=[],
         mcp_config={},
         agent_context=None,
-        confirmation_mode=False,
+        confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
         created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),

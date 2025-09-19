@@ -8,6 +8,7 @@ from litellm.types.utils import (
 )
 from pydantic import ValidationError, field_validator
 
+import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
@@ -29,7 +30,6 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.risk import
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
@@ -343,7 +343,7 @@ class Agent(AgentBase):
                 )
             ]
         else:
-            risks = [SecurityRisk.UNKNOWN] * len(action_events)
+            risks = [risk.SecurityRisk.UNKNOWN] * len(action_events)
 
         # Grab the confirmation policy from the state and pass in the risks.
         if any(state.confirmation_policy.should_confirm(risk) for risk in risks):
