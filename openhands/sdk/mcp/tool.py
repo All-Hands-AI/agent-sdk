@@ -74,13 +74,26 @@ _mcp_dynamic_action_type: dict[mcp.types.Tool, type[ActionBase]] = {}
 
 
 def _create_mcp_action_type(name: str, action_type: mcp.types.Tool) -> type[ActionBase]:
-    """Dynamically create a Pydantic model for MCP tool action from schema."""
+    """Dynamically create a Pydantic model for MCP tool action from schema.
+
+    We create from "ActionBase" instead of "MCPToolAction" because
+    MCPToolAction has a "data" field that wraps all dynamic fields,
+    while ActionBase directly defines the fields.
+
+    .from_mcp_schema simply defines a new Pydantic model class
+    that inherits from the given base class.
+
+    We may want to use the returned class to convert fields definitions
+    to openai tool schema. If we use MCPToolAction as base,
+    the generated schema will have an additional "data" field,
+    which is not what we want.
+    """
 
     mcp_action_type = _mcp_dynamic_action_type.get(action_type)
     if mcp_action_type:
         return mcp_action_type
 
-    mcp_action_type = MCPToolAction.from_mcp_schema(
+    mcp_action_type = ActionBase.from_mcp_schema(
         f"{to_camel_case(name)}Action", action_type.inputSchema
     )
     _mcp_dynamic_action_type[action_type] = mcp_action_type
@@ -191,14 +204,8 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
                 "MCPTool.to_openai_tool does not support overriding action_type"
             )
 
-        # For OpenAI tool schema, we want only the MCP tool fields, not the data field
-        # So we create the dynamic type from ActionBase instead of MCPToolAction
-        from openhands.sdk.tool.schema import ActionBase
-
-        DynamicMCPActionType = ActionBase.from_mcp_schema(
-            f"{to_camel_case(self.name)}Action", self.mcp_tool.inputSchema
-        )
+        mcp_action_type = _create_mcp_action_type(self.name, self.mcp_tool)
         return super().to_openai_tool(
             add_security_risk_prediction=add_security_risk_prediction,
-            action_type=DynamicMCPActionType,
+            action_type=mcp_action_type,
         )
