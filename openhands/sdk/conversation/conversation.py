@@ -87,6 +87,15 @@ class Conversation:
         self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
+        # Ensure tools are initialized before first use
+        try:
+            # Not all Agent implementations may have initialize; be defensive
+            initialize = getattr(self.agent, "initialize", None)
+            if callable(initialize):
+                initialize()
+        except Exception as e:
+            logger.warning(f"Agent initialization failed: {e}")
+
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
 
