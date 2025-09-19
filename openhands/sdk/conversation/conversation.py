@@ -1,5 +1,5 @@
 import uuid
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Optional
 
 
 if TYPE_CHECKING:
@@ -18,8 +18,10 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.logger import get_logger
+
+from .title_utils import generate_conversation_title
 
 
 logger = get_logger(__name__)
@@ -285,6 +287,27 @@ class Conversation:
                     logger.warning(
                         f"Error closing executor for tool '{tool.name}': {e}"
                     )
+
+    def generate_title(self, llm: Optional[LLM] = None, max_length: int = 50) -> str:
+        """Generate a title for the conversation based on the first user message.
+
+        Args:
+            llm: Optional LLM to use for title generation. If not provided,
+                 uses self.agent.llm.
+            max_length: Maximum length of the generated title.
+
+        Returns:
+            A generated title for the conversation.
+
+        Raises:
+            ValueError: If no user messages are found in the conversation.
+        """
+        # Use provided LLM or fall back to agent's LLM
+        llm_to_use = llm or self.agent.llm
+
+        return generate_conversation_title(
+            events=self.state.events, llm=llm_to_use, max_length=max_length
+        )
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""
