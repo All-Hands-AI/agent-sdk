@@ -16,6 +16,7 @@ from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
+    get_known_concrete_subclasses,
     kind_of,
 )
 
@@ -223,6 +224,14 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
                 else self.action_type.to_mcp_schema(),
             ),
         )
+
+    @classmethod
+    def resolve_kind(cls, kind: str) -> Type:
+        for subclass in get_known_concrete_subclasses(cls):
+            if subclass.__name__ == kind:
+                return subclass
+        # Fallback to "Tool" for unknown type
+        return Tool
 
 
 class Tool(ToolBase):

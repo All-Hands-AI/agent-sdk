@@ -102,7 +102,7 @@ def test_tool_fallback_behavior_json() -> None:
 
     # Should fall back to base Tool type
     deserialized_tool = ToolBase.model_validate_json(tool_json)
-    assert isinstance(deserialized_tool, ToolBase)
+    assert isinstance(deserialized_tool, Tool)
     assert deserialized_tool.name == "test-tool"
     assert deserialized_tool.description == "A test tool"
 
