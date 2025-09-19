@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import Annotated, Union
 
+import pytest
 from litellm import BaseModel
 from pydantic import (
     ConfigDict,
@@ -167,3 +168,12 @@ def test_model_containing_polymorphic_field():
     }
     loaded = AnimalPack.model_validate(dumped)
     assert loaded == pack
+
+
+def test_duplicate_kind():
+    # nAn error should be raised when a duplicate class name is detected
+
+    with pytest.raises(ValueError):
+
+        class Cat(Animal):
+            pass

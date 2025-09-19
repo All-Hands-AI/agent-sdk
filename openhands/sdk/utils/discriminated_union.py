@@ -1,5 +1,6 @@
 import inspect
 import json
+import logging
 from abc import ABC
 from typing import Annotated, Any, Self, Type, Union
 
@@ -13,6 +14,7 @@ from pydantic import (
 )
 
 
+logger = logging.getLogger(__name__)
 _rebuild_required = True
 
 
@@ -57,7 +59,11 @@ class DiscriminatedFieldsMixin(BaseModel):
 
     def __init__(self, *args, **kwargs):
         _rebuild_if_required()
-        super().__init__(*args, **kwargs)
+        try:
+            super().__init__(*args, **kwargs)
+        except Exception:
+            logger.exception("model error", stack_info=True)
+            raise
 
     @classmethod
     def model_validate(cls, *args, **kwargs) -> Self:
@@ -196,14 +202,18 @@ class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
 
     def __init_subclass__(cls, **kwargs):
         # Check for duplicates
-        if cls != DiscriminatedFieldsMixin:
+        if DiscriminatedUnionMixin not in cls.__bases__:
+            mro = cls.mro()
+            union_class = mro[mro.index(DiscriminatedUnionMixin) - 1]
+            classes = get_known_concrete_subclasses(union_class)
             kinds = {}
-            for subclass in _get_all_subclasses(cls):
+            for subclass in classes:
                 kind = kind_of(subclass)
                 if kind in kinds:
                     raise ValueError(
-                        f"Duplicate kind detected for {cls} : {subclass}, {kinds[kind]}"
+                        f"Duplicate kind detected for {union_class} : {cls}, {subclass}"
                     )
+                kinds[kind] = subclass
 
         return super().__init_subclass__(**kwargs)
 
