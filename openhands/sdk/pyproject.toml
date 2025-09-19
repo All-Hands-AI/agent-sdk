@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=2.11.3",
     "litellm>=1.75.9",
+    "claude-code-sdk>=0.0.23",
     "pydantic>=2.11.7",
     "python-frontmatter>=1.1.0",
     "python-json-logger>=3.3.0",

@@ -451,6 +451,19 @@ wheels = [
 ]
 
 [[package]]
+name = "claude-code-sdk"
+version = "0.0.23"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "mcp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/24/57/3d84b1e48fa8d7b0f14d5511cb21270e6d7b6e8930a19795c5aa6f3705c6/claude_code_sdk-0.0.23.tar.gz", hash = "sha256:17098365e03520637375a8dafab9e93ad2b50463ca1df6d744c5a85a450667e6", size = 41173, upload-time = "2025-09-18T02:45:54.492Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/8d/8bb9db486fc934884420c9543eefb897b110df99f8605388172c0f3c1c3f/claude_code_sdk-0.0.23-py3-none-any.whl", hash = "sha256:5260d940f8a38d9b6eb93f443711b19f2f9130dedf662c2d73a4d78b8d1dc1f0", size = 30916, upload-time = "2025-09-18T02:45:53.555Z" },
+]
+
+[[package]]
 name = "click"
 version = "8.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1675,6 +1688,7 @@ name = "openhands-sdk"
 version = "1.0.0"
 source = { editable = "openhands/sdk" }
 dependencies = [
+    { name = "claude-code-sdk" },
     { name = "fastmcp" },
     { name = "litellm" },
     { name = "pydantic" },
@@ -1691,6 +1705,7 @@ boto3 = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", marker = "extra == 'boto3'", specifier = ">=1.35.0" },
+    { name = "claude-code-sdk", specifier = ">=0.0.23" },
     { name = "fastmcp", specifier = ">=2.11.3" },
     { name = "litellm", specifier = ">=1.75.9" },
     { name = "pydantic", specifier = ">=2.11.7" },
