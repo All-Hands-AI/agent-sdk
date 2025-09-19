@@ -19,7 +19,7 @@ from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
-class MockEvent(EventBase):
+class TestEventSerializationMockEvent(EventBase):
     test_field: str = "test_value"
 
 
@@ -38,10 +38,10 @@ class TestEventsSerializationMockObservation(ObservationBase):
 
 def test_event_base_serialization() -> None:
     """Test basic EventBase serialization/deserialization."""
-    event = MockEvent(source="agent", test_field="custom_value")
+    event = TestEventSerializationMockEvent(source="agent", test_field="custom_value")
 
     json_data = event.model_dump_json()
-    deserialized = MockEvent.model_validate_json(json_data)
+    deserialized = TestEventSerializationMockEvent.model_validate_json(json_data)
     assert deserialized == event
 
 
