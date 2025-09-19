@@ -1,12 +1,12 @@
 import json
-from typing import Any, cast
+from typing import cast
 
 from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message as LiteLLMMessage,
 )
-from pydantic import Field, PrivateAttr, ValidationError, field_validator
+from pydantic import ValidationError
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
@@ -32,14 +32,12 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security import risk
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
-    BUILT_IN_TOOLS,
     ActionBase,
     FinishTool,
     ObservationBase,
     Tool,
 )
 from openhands.sdk.tool.builtins import FinishAction
-from openhands.sdk.tool.spec import ToolSpec
 
 
 logger = get_logger(__name__)
@@ -50,95 +48,11 @@ class _RuntimeTools(dict[str, "Tool"]):
 
 
 class Agent(AgentBase):
-    _tools: _RuntimeTools = PrivateAttr(default_factory=_RuntimeTools)
-    tool_specs: list[ToolSpec] = Field(default_factory=list)
-
-    @field_validator("tools", mode="before")
-    @classmethod
-    def _normalize_tools(cls, v: Any) -> dict[str, "Tool"]:
-        # Fast path: already a dict[str, Tool]
-        if isinstance(v, dict) and all(isinstance(t, Tool) for t in v.values()):
-            return cast(dict[str, Tool], v)
-
-        # Accept Mapping[str, Tool|dict]
-        if isinstance(v, dict):
-            items = v.items()
-        # Accept Iterable[Tool|dict]
-        elif isinstance(v, list):
-            items = ((t.name if isinstance(t, Tool) else t.get("name"), t) for t in v)
-        else:
-            raise TypeError(
-                "`tools` must be a dict[str, Tool|dict] or an iterable of Tool|dict"
-            )
-
-        user_tools: dict[str, Tool] = {}
-        for name, payload in items:
-            if not name or not isinstance(name, str):
-                raise ValueError("Each tool must have a non-empty string `name`")
-            tool = (
-                payload if isinstance(payload, Tool) else Tool.model_validate(payload)
-            )
-            if name in user_tools:
-                raise ValueError(f"Duplicate tool name: {name}")
-            # Trust the tool's own name; also ensure it
-            # matches the key if coming from a dict
-            if tool.name != name:
-                raise ValueError(
-                    f"Tool key/name mismatch: key={name} vs tool.name={tool.name}"
-                )
-            user_tools[name] = tool
-
-        return user_tools
-
-    def _merge_with_builtins(self, user_tools: dict[str, "Tool"]) -> dict[str, "Tool"]:
-        builtin_map = {t.name: t for t in BUILT_IN_TOOLS}
-        to_delete: list[str] = []
-        for name in set(user_tools) & set(builtin_map):
-            user_tool = user_tools[name]
-            builtin_tool = builtin_map[name]
-            if user_tool.model_dump() == builtin_tool.model_dump():
-                to_delete.append(name)
-            else:
-                raise ValueError(f"Tool '{name}' is built-in and cannot be overridden.")
-        for name in to_delete:
-            del user_tools[name]
-        return {**user_tools, **builtin_map}
-
     def initialize(self) -> None:
-        if self._tools:
-            return
-        # If user provided Tool instances, reuse normalized mapping in self.tools
-        if isinstance(self.tools, dict) and all(
-            isinstance(t, Tool) for t in self.tools.values()
-        ):
-            self._tools.update(self._merge_with_builtins(dict(self.tools)))
-            return
-        # Otherwise, if ToolSpec present, materialize from self.tool_specs
-        specs = getattr(self, "tool_specs", None)
-        if specs:
-            from openhands.sdk.tool.registry import (
-                register_openhands_tools,
-                resolve_many,
-            )
-
-            register_openhands_tools()
-            resolved = resolve_many(specs)
-            user_tools: dict[str, Tool] = {}
-            for t in resolved:
-                if t.name in user_tools:
-                    raise ValueError(
-                        f"Duplicate tool name from ToolSpec resolution: {t.name}"
-                    )
-                user_tools[t.name] = t
-            self._tools.update(self._merge_with_builtins(user_tools))
-            return
-        # Nothing specified: only built-ins
-        self._tools.update({t.name: t for t in BUILT_IN_TOOLS})
+        super().initialize()
 
     def get_tools(self) -> dict[str, "Tool"]:
-        if not self._tools:
-            raise RuntimeError("Agent not initialized; call initialize() before use")
-        return self._tools
+        return super().get_tools()
 
     @property
     def _add_security_risk_prediction(self) -> bool:

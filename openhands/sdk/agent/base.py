@@ -2,9 +2,9 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Annotated, Sequence
+from typing import TYPE_CHECKING, Annotated, Sequence, cast
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, PrivateAttr, field_validator
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.agent.spec import AgentSpec
@@ -13,7 +13,8 @@ from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import Tool, ToolType
+from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolType
+from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -35,12 +36,64 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     llm: LLM
     agent_context: AgentContext | None = Field(default=None)
+    # Runtime materialized tools; private and non-serializable
+    _tools: dict[str, Tool] = PrivateAttr(default_factory=dict)
+
+    # Back-compat: users may still pass concrete Tool instances here
     tools: dict[str, ToolType] | Sequence[ToolType] = Field(
         default_factory=dict,
-        description="Mapping of tool name to Tool instance that the agent can use."
-        " If a list is provided, it should be converted to a mapping by tool name."
-        " We need to define this as ToolType for discriminated union.",
+        description=(
+            "Mapping of tool name to Tool instance that the agent can use. "
+            "If a list is provided, it should be converted to a mapping by tool name. "
+            "We need to define this as ToolType for discriminated union."
+        ),
     )
+    # Preferred: serializable ToolSpec definitions; materialized lazily at runtime
+    tool_specs: list[ToolSpec] | None = Field(default=None)
+
+    @field_validator("tools", mode="before")
+    @classmethod
+    def _normalize_tools(cls, v):
+        from openhands.sdk.tool import Tool
+
+        if v is None:
+            return {}
+        # Already a dict[str, Tool]
+        if isinstance(v, dict) and all(isinstance(t, Tool) for t in v.values()):
+            return v
+        # Mapping[str, Tool|dict]
+        if isinstance(v, dict):
+            items = v.items()
+        # Iterable[Tool|dict]
+        elif isinstance(v, list):
+            items = (
+                (
+                    t.name if isinstance(t, Tool) else t.get("name"),
+                    t,
+                )
+                for t in v
+            )
+        else:
+            raise TypeError(
+                "`tools` must be a dict[str, Tool|dict] or an iterable of Tool|dict"
+            )
+
+        user_tools: dict[str, Tool] = {}
+        for name, payload in items:
+            if not name or not isinstance(name, str):
+                raise ValueError("Each tool must have a non-empty string `name`")
+            tool = (
+                payload if isinstance(payload, Tool) else Tool.model_validate(payload)
+            )
+            if name in user_tools:
+                raise ValueError(f"Duplicate tool name: {name}")
+            if tool.name != name:
+                raise ValueError(
+                    f"Tool key/name mismatch: key={name} vs tool.name={tool.name}"
+                )
+            user_tools[name] = tool
+        return user_tools
+
     system_prompt_filename: str = Field(default="system_prompt.j2")
     system_prompt_kwargs: dict = Field(
         default_factory=dict,
@@ -205,6 +258,60 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if "tools" in dumped and isinstance(dumped["tools"], dict):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
+
+    # ----- Tool materialization and access (moved from Agent) -----
+    def initialize(self) -> None:
+        if self._tools:
+            return
+        # Backward-compatible path: explicit Tool instances provided
+        if isinstance(self.tools, dict) and all(
+            isinstance(t, Tool) for t in self.tools.values()
+        ):
+            user_tools = cast(dict[str, Tool], self.tools)
+            self._tools.update(self._merge_with_builtins(dict(user_tools)))
+            return
+        # ToolSpec-based path
+        specs = getattr(self, "tool_specs", None)
+        if specs:
+            from openhands.sdk.tool.registry import (
+                register_openhands_tools,
+                resolve_many,
+            )
+
+            register_openhands_tools()
+            resolved = resolve_many(specs)
+            user_tools: dict[str, Tool] = {}
+            for t in resolved:
+                if t.name in user_tools:
+                    raise ValueError(
+                        f"Duplicate tool name from ToolSpec resolution: {t.name}"
+                    )
+                user_tools[t.name] = t
+            self._tools.update(self._merge_with_builtins(user_tools))
+            return
+        # Default: built-ins only
+        self._tools.update({t.name: t for t in BUILT_IN_TOOLS})
+
+    def get_tools(self) -> dict[str, Tool]:
+        if not self._tools:
+            raise RuntimeError("Agent not initialized; call initialize() before use")
+        return self._tools
+
+    @staticmethod
+    def _merge_with_builtins(user_tools: dict[str, Tool]) -> dict[str, Tool]:
+        builtin_map = {t.name: t for t in BUILT_IN_TOOLS}
+        to_delete: list[str] = []
+        for name in set(user_tools) & set(builtin_map):
+            user_tool = user_tools[name]
+            builtin_tool = builtin_map[name]
+            # Compare meaningful fields using model_dump
+            if user_tool.model_dump() == builtin_tool.model_dump():
+                to_delete.append(name)  # keep canonical built-in
+            else:
+                raise ValueError(f"Tool '{name}' is built-in and cannot be overridden.")
+        for name in to_delete:
+            del user_tools[name]
+        return {**user_tools, **builtin_map}
 
 
 AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]
