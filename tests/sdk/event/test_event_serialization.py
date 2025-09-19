@@ -23,14 +23,14 @@ class MockEvent(EventBase):
     test_field: str = "test_value"
 
 
-class MockAction(ActionBase):
+class TestEventsSerializationMockAction(ActionBase):
     """Mock action for testing."""
 
-    def execute(self) -> "MockObservation":
-        return MockObservation(content="mock result")
+    def execute(self) -> "TestEventsSerializationMockObservation":
+        return TestEventsSerializationMockObservation(content="mock result")
 
 
-class MockObservation(ObservationBase):
+class TestEventsSerializationMockObservation(ObservationBase):
     """Mock observation for testing."""
 
     content: str
@@ -58,7 +58,7 @@ def test_system_prompt_event_serialization() -> None:
 
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
-    action = MockAction()
+    action = TestEventsSerializationMockAction()
     tool_call = ChatCompletionMessageToolCall(
         id="call_123",
         function=Function(name="mock_tool", arguments="{}"),
@@ -90,7 +90,7 @@ def test_action_event_serialization() -> None:
 
 def test_observation_event_serialization() -> None:
     """Test ObservationEvent serialization/deserialization."""
-    observation = MockObservation(content="test result")
+    observation = TestEventsSerializationMockObservation(content="test result")
     event = ObservationEvent(
         observation=observation,
         action_id="action_123",

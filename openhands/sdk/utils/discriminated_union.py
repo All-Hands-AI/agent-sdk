@@ -88,6 +88,16 @@ class DiscriminatedFieldsMixin(BaseModel):
         """
         global _rebuild_required
         _rebuild_required = True
+
+        # Check for duplicates
+        kinds = {}
+        for subclass in _get_all_subclasses(cls):
+            kind = kind_of(subclass)
+            if kind in kinds:
+                raise ValueError(
+                    f"Duplicate kind detected for {cls} : {subclass}, {kinds[subclass]}"
+                )
+
         return super().__init_subclass__(**kwargs)
 
 
