@@ -98,20 +98,6 @@ def _process_schema_node(node, defs):
 class Schema(BaseModel):
     """Base schema for input action / output observation."""
 
-    __include_du_spec__ = True
-    """Whether to include the _du_spec field in the serialized output.
-
-    This is used to help with discriminated union deserialization fallback.
-    When True, the model's JSON schema will be included in the serialized output
-    under the `_du_spec` key. This allows deserialization to reconstruct the model
-    even if the `kind` discriminator is missing or unresolvable.
-
-    This can be especially useful in server-client scenarios where the client may not
-    have all the same model classes registered as the server.
-    e.g., MCPAction schema created in the server-side; openhands.tools action schemas
-    (if the client doesn't have openhands.tools installed).
-    """
-
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     @classmethod
@@ -188,35 +174,6 @@ class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
         content.append(display_dict(action_fields))
 
         return content
-
-
-class MCPActionBase(ActionBase):
-    """Base schema for MCP input action."""
-
-    model_config = ConfigDict(extra="allow", frozen=True)
-
-    # Collect all fields from ActionBase and its parents
-    _parent_fields: frozenset[str] = frozenset(
-        fname
-        for base in ActionBase.__mro__
-        if issubclass(base, BaseModel)
-        for fname in {
-            **base.model_fields,
-            **base.model_computed_fields,
-        }.keys()
-    )
-
-    def to_mcp_arguments(self) -> dict:
-        """Dump model excluding parent ActionBase fields.
-
-        This is used to convert this action to MCP tool call arguments.
-        The parent fields (e.g., safety_risk, kind) are not part of the MCP tool schema
-        but are only used for our internal processing.
-        """
-        data = self.model_dump(exclude_none=True)
-        for f in self._parent_fields:
-            data.pop(f, None)
-        return data
 
 
 class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):

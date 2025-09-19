@@ -233,15 +233,20 @@ class TestMCPTool:
         assert self.tool.name == "test_tool"
         assert self.tool.description == "A test tool"
 
-        input_schema = self.tool.action_type.to_mcp_schema()
+        # Get the schema from the OpenAI tool since MCPToolAction now uses dynamic
+        # schema
+        openai_tool = self.tool.to_openai_tool()
+        function_def = openai_tool["function"]
+        assert "parameters" in function_def
+        input_schema = function_def["parameters"]
 
         # Since security_risk was removed from ActionBase, it should not be in schema
-        assert len(input_schema["properties"]) == 2
+        assert len(input_schema["properties"]) == 1
         assert "security_risk" not in input_schema["properties"]
 
         assert input_schema == {
             "type": "object",
-            "properties": {"kind": {"type": "string"}, "param": {"type": "string"}},
+            "properties": {"param": {"type": "string"}},
         }
 
     def test_mcp_tool_with_annotations(self):

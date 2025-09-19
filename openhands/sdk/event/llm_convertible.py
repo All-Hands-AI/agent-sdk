@@ -94,6 +94,9 @@ class ActionEvent(LLMConvertibleEvent):
         description=(
             "The tool call received from the LLM response. We keep a copy of it "
             "so it is easier to construct it into LLM message"
+            "This could be different from `action`: e.g., `tool_call` may contain "
+            "`security_risk` field predicted by LLM when LLM risk analyzer is enabled"
+            ", while `action` does not."
         ),
     )
     llm_response_id: EventID = Field(
