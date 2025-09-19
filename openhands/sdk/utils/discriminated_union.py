@@ -78,6 +78,7 @@ class DiscriminatedFieldsMixin(BaseModel):
         # This was overridden because it seems there is a bug where sometimes
         # duplicate fields are produced by model_dump_json which does not appear
         # in model_dump
+        kwargs["mode"] = "json"
         return json.dumps(self.model_dump(**kwargs))
 
     def __init_subclass__(cls, **kwargs):
