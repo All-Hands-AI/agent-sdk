@@ -14,12 +14,17 @@ from openhands.agent_server.utils import utc_now
 from openhands.sdk import (
     Agent,
     Conversation,
+    EventBase,
     LocalFileStore,
     Message,
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event.base import EventBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
+
+
+# TODO: This is a hack - it would be nice to pick up changes automatically
+EventBase.model_rebuild()
+EventPage.model_rebuild()
 
 
 @dataclass

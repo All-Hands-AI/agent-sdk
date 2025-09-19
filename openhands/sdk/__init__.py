@@ -7,6 +7,7 @@ from openhands.sdk.context.condenser import (
 )
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
 from openhands.sdk.event import EventBase, EventWithMetrics, LLMConvertibleEvent
+from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.io import FileStore, LocalFileStore
 from openhands.sdk.llm import (
     LLM,
@@ -44,6 +45,7 @@ __all__ = [
     "MCPClient",
     "MCPTool",
     "MCPToolObservation",
+    "MessageEvent",
     "create_mcp_tools",
     "get_logger",
     "Conversation",
