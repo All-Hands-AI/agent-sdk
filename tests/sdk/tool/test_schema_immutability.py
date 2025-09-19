@@ -275,10 +275,10 @@ def test_all_schema_classes_are_frozen():
 def test_schema_inheritance_preserves_immutability():
     """Test that classes inheriting from schema bases are also immutable."""
 
-    class CustomAction(ActionBase):
+    class TestSchemaImmutabilityCustomAction(ActionBase):
         custom_field: str = Field(description="Custom field")
 
-    class CustomObservation(ObservationBase):
+    class TestSchemaImmutabilityCustomObservation(ObservationBase):
         custom_result: str = Field(description="Custom result")
 
         @property
@@ -286,10 +286,10 @@ def test_schema_inheritance_preserves_immutability():
             return [TextContent(text=self.custom_result)]
 
     # Test that custom classes are also frozen
-    custom_action = CustomAction(custom_field="test")
+    custom_action = TestSchemaImmutabilityCustomAction(custom_field="test")
     with pytest.raises(ValidationError, match="Instance is frozen"):
         custom_action.custom_field = "changed"
 
-    custom_obs = CustomObservation(custom_result="test")
+    custom_obs = TestSchemaImmutabilityCustomObservation(custom_result="test")
     with pytest.raises(ValidationError, match="Instance is frozen"):
         custom_obs.custom_result = "changed"

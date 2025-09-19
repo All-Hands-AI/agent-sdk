@@ -31,7 +31,7 @@ class TestVisualizerMockAction(ActionBase):
     working_dir: str = "/tmp"
 
 
-class CustomAction(ActionBase):
+class TestVisualizerCustomAction(ActionBase):
     """Custom action with overridden visualize method."""
 
     task_list: list[dict] = []
@@ -80,7 +80,7 @@ def test_custom_action_visualize():
         {"title": "Task 1", "status": "todo"},
         {"title": "Task 2", "status": "done"},
     ]
-    action = CustomAction(task_list=tasks)
+    action = TestVisualizerCustomAction(task_list=tasks)
 
     result = action.visualize
     assert isinstance(result, Text)

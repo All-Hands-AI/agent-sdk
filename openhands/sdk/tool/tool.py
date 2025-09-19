@@ -234,11 +234,16 @@ def _create_action_type_with_risk(action_type: Type[ActionBase]) -> Type[ActionB
     if action_type_with_risk:
         return action_type_with_risk
 
-    class ActionTypeWithRisk(action_type):
-        security_risk: risk.SecurityRisk = Field(
-            default=risk.SecurityRisk.UNKNOWN,
-            description="The LLM's assessment of the safety risk of this action.",
-        )
-
-    _action_types_with_risk[action_type] = ActionTypeWithRisk
-    return ActionTypeWithRisk
+    action_type_with_risk = type(
+        f"{action_type.__name__}WithRisk",
+        (action_type,),
+        {
+            "security_risk": Field(
+                default=risk.SecurityRisk.UNKNOWN,
+                description="The LLM's assessment of the safety risk of this action.",
+            ),
+            "__annotations__": {"security_risk": risk.SecurityRisk},
+        },
+    )
+    _action_types_with_risk[action_type] = action_type_with_risk
+    return action_type_with_risk
