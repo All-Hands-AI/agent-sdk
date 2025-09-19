@@ -10,7 +10,7 @@ from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool import ActionBase
 
 
-class MockAction(ActionBase):
+class TestSecurityAnalyzerMockAction(ActionBase):
     """Mock action for testing."""
 
     command: str = "test_command"
@@ -60,7 +60,7 @@ def create_mock_action_event(action: ActionBase) -> ActionEvent:
 def test_analyze_event_with_action_event():
     """Test analyze_event with ActionEvent returns security risk."""
     analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.MEDIUM)
-    action = MockAction(command="test")
+    action = TestSecurityAnalyzerMockAction(command="test")
     action_event = create_mock_action_event(action)
 
     result = analyzer.analyze_event(action_event)
@@ -84,8 +84,8 @@ def test_analyze_pending_actions_success():
     """Test analyze_pending_actions with successful analysis."""
     analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.MEDIUM)
 
-    action1 = MockAction(command="action1")
-    action2 = MockAction(command="action2")
+    action1 = TestSecurityAnalyzerMockAction(command="action1")
+    action2 = TestSecurityAnalyzerMockAction(command="action2")
     action_event1 = create_mock_action_event(action1)
     action_event2 = create_mock_action_event(action2)
 
@@ -118,7 +118,7 @@ def test_analyze_pending_actions_with_exception():
             raise ValueError("Analysis failed")
 
     analyzer = FailingAnalyzer()
-    action = MockAction(command="failing_action")
+    action = TestSecurityAnalyzerMockAction(command="failing_action")
     action_event = create_mock_action_event(action)
 
     result = analyzer.analyze_pending_actions([action_event])
@@ -146,7 +146,7 @@ def test_analyze_pending_actions_mixed_risks() -> None:
 
     analyzer = VariableRiskAnalyzer()
 
-    actions = [MockAction(command=f"action{i}") for i in range(3)]
+    actions = [TestSecurityAnalyzerMockAction(command=f"action{i}") for i in range(3)]
     action_events = [create_mock_action_event(action) for action in actions]
 
     result = analyzer.analyze_pending_actions(action_events)
@@ -173,9 +173,9 @@ def test_analyze_pending_actions_partial_failure():
 
     analyzer = PartiallyFailingAnalyzer()
 
-    action1 = MockAction(command="good_action")
-    action2 = MockAction(command="failing_action")
-    action3 = MockAction(command="another_good_action")
+    action1 = TestSecurityAnalyzerMockAction(command="good_action")
+    action2 = TestSecurityAnalyzerMockAction(command="failing_action")
+    action3 = TestSecurityAnalyzerMockAction(command="another_good_action")
 
     action_events = [
         create_mock_action_event(action1),

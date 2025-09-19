@@ -2,9 +2,9 @@
 
 from openhands.sdk import AgentSpec, Tool, ToolSpec, create_mcp_tools
 from openhands.sdk.context.condenser import (
-    Condenser,
     LLMSummarizingCondenser,
 )
+from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm.llm import LLM
 
 
@@ -36,7 +36,7 @@ def get_default_tools(working_dir: str) -> list[Tool]:
     return tools
 
 
-def get_default_condenser(llm: LLM) -> Condenser:
+def get_default_condenser(llm: LLM) -> CondenserBase:
     # Create a condenser to manage the context. The condenser will automatically
     # truncate conversation history when it exceeds max_size, and replaces the dropped
     # events with an LLM-generated summary.

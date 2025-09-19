@@ -1,4 +1,5 @@
-from typing import Annotated, Any, Generic, TypeVar
+from abc import ABC
+from typing import Any, Generic, Type, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -9,19 +10,20 @@ from pydantic import (
     field_serializer,
     field_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
+    get_known_concrete_subclasses,
     kind_of,
-    resolve_kind,
 )
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
 ObservationT = TypeVar("ObservationT", bound=ObservationBase)
+_action_types_with_risk: dict[Type, Type] = {}
 
 
 class ToolAnnotations(BaseModel):
@@ -75,7 +77,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
+class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -95,10 +97,12 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     meta: dict[str, Any] | None = None
 
     # runtime-only; always hidden on dumps
-    executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
+    executor: SkipJsonSchema[ToolExecutor | None] = Field(
+        default=None, repr=False, exclude=True
+    )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Tool | list[Tool]":
+    def create(cls, *args, **kwargs) -> "ToolBase | list[ToolBase]":
         """Create a Tool instance OR a list of them. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
@@ -126,7 +130,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     @classmethod
     def _val_action_type(cls, v):
         if isinstance(v, str):
-            return resolve_kind(v)
+            return ActionBase.resolve_kind(v)
         assert isinstance(v, type) and issubclass(v, ActionBase), (
             f"action_type must be a subclass of ActionBase, but got {type(v)}"
         )
@@ -138,13 +142,13 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         if v is None:
             return None
         if isinstance(v, str):
-            v = resolve_kind(v)
+            v = ObservationBase.resolve_kind(v)
         assert isinstance(v, type) and issubclass(v, ObservationBase), (
             f"observation_type must be a subclass of ObservationBase, but got {type(v)}"
         )
         return v
 
-    def set_executor(self, executor: ToolExecutor) -> "Tool":
+    def set_executor(self, executor: ToolExecutor) -> "ToolBase":
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
 
@@ -223,11 +227,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         """
         action_type = action_type or self.action_type
 
-        class ActionTypeWithRisk(action_type):
-            security_risk: risk.SecurityRisk = Field(
-                default=risk.SecurityRisk.UNKNOWN,
-                description="The LLM's assessment of the safety risk of this action.",
-            )
+        action_type_with_risk = _create_action_type_with_risk(self.action_type)
 
         # We only add security_risk if the tool is not read-only
         add_security_risk_prediction = add_security_risk_prediction and (
@@ -238,11 +238,40 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
             function=ChatCompletionToolParamFunctionChunk(
                 name=self.name,
                 description=self.description,
-                parameters=ActionTypeWithRisk.to_mcp_schema()
+                parameters=action_type_with_risk.to_mcp_schema()
                 if add_security_risk_prediction
                 else action_type.to_mcp_schema(),
             ),
         )
 
+    @classmethod
+    def resolve_kind(cls, kind: str) -> Type:
+        for subclass in get_known_concrete_subclasses(cls):
+            if subclass.__name__ == kind:
+                return subclass
+        # Fallback to "Tool" for unknown type
+        return Tool
 
-ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]
+
+class Tool(ToolBase):
+    pass
+
+
+def _create_action_type_with_risk(action_type: Type[ActionBase]) -> Type[ActionBase]:
+    action_type_with_risk = _action_types_with_risk.get(action_type)
+    if action_type_with_risk:
+        return action_type_with_risk
+
+    action_type_with_risk = type(
+        f"{action_type.__name__}WithRisk",
+        (action_type,),
+        {
+            "security_risk": Field(
+                default=risk.SecurityRisk.UNKNOWN,
+                description="The LLM's assessment of the safety risk of this action.",
+            ),
+            "__annotations__": {"security_risk": risk.SecurityRisk},
+        },
+    )
+    _action_types_with_risk[action_type] = action_type_with_risk
+    return action_type_with_risk

@@ -2,7 +2,7 @@ from typing import cast
 from unittest.mock import create_autospec
 
 from openhands.sdk.context.view import View
-from openhands.sdk.event import Event
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.condenser import (
     Condensation,
     CondensationRequest,
@@ -27,7 +27,7 @@ def test_view_preserves_uncondensed_lists() -> None:
     """Tests that the view preserves event lists that don't contain condensation
     actions.
     """
-    events: list[Event] = [message_event(f"Event {i}") for i in range(5)]
+    events: list[EventBase] = [message_event(f"Event {i}") for i in range(5)]
     view = View.from_events(events)
     assert len(view) == 5
     assert view.events == events
@@ -35,12 +35,12 @@ def test_view_preserves_uncondensed_lists() -> None:
 
 def test_view_forgets_events() -> None:
     """Tests that views drop forgotten events and the condensation actions."""
-    message_events: list[Event] = [message_event(f"Event {i}") for i in range(5)]
+    message_events: list[EventBase] = [message_event(f"Event {i}") for i in range(5)]
     message_event_ids: list[str] = [event.id for event in message_events]
 
     # Build a list of events: M_1, ..., M_5, Condensation
     # The condensation specifically targets the IDs of all M_i messages
-    events: list[Event] = [
+    events: list[EventBase] = [
         *message_events,
         Condensation(forgotten_event_ids=message_event_ids),
     ]
@@ -52,11 +52,11 @@ def test_view_forgets_events() -> None:
 
 def test_view_keeps_non_forgotten_events() -> None:
     """Tests that views keep non-forgotten events."""
-    message_events: list[Event] = [message_event(f"Event {i}") for i in range(5)]
+    message_events: list[EventBase] = [message_event(f"Event {i}") for i in range(5)]
     message_event_ids: list[str] = [event.id for event in message_events]
 
     for forgotten_event_id in message_event_ids:
-        events: list[Event] = [
+        events: list[EventBase] = [
             *message_events,
             # Instead of forgetting all events like in
             # `test_view_forgets_events`, in this test we only want to forget
@@ -78,7 +78,7 @@ def test_view_inserts_summary() -> None:
     message_events = [message_event(f"Event {i}") for i in range(5)]
 
     for offset in range(5):
-        events: list[Event] = [
+        events: list[EventBase] = [
             *message_events,
             Condensation(
                 forgotten_event_ids=[], summary="My Summary", summary_offset=offset
@@ -117,7 +117,7 @@ def test_no_condensation_action_in_view() -> None:
 
     # Build the event sequence -- we'll pack a condensation in the middle of four
     # message events (and make sure the condensation drops the first event)
-    events: list[Event] = []
+    events: list[EventBase] = []
 
     events.extend(message_events[:2])
     events.append(Condensation(forgotten_event_ids=[message_events[0].id]))
@@ -137,7 +137,7 @@ def test_unhandled_condensation_request_with_no_condensation() -> None:
     """Test that unhandled_condensation_request is True when there's a
     CondensationRequestAction but no CondensationAction.
     """
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_event("Event 0"),
         message_event("Event 1"),
         CondensationRequest(),
@@ -158,7 +158,7 @@ def test_handled_condensation_request_with_condensation_action() -> None:
     """Test that unhandled_condensation_request is False when CondensationAction comes
     after CondensationRequestAction.
     """
-    events: list[Event] = []
+    events: list[EventBase] = []
     events.extend(
         [
             message_event("Event 0"),
@@ -184,7 +184,7 @@ def test_handled_condensation_request_with_condensation_action() -> None:
 
 def test_multiple_condensation_requests_pattern() -> None:
     """Test the pattern with multiple condensation requests and actions."""
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_event(content="Event 0"),
         CondensationRequest(),  # First request
         message_event(content="Event 1"),
@@ -209,7 +209,7 @@ def test_condensation_action_before_request() -> None:
     """Test that CondensationAction before CondensationRequestAction doesn't affect the
     unhandled status.
     """
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_event(content="Event 0"),
         Condensation(forgotten_event_ids=[]),  # This doesn't handle the later request
         message_event(content="Event 1"),
@@ -233,7 +233,7 @@ def test_no_condensation_events() -> None:
     """Test that unhandled_condensation_request is False when there are no condensation
     events.
     """
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_event(content="Event 0"),
         message_event(content="Event 1"),
         message_event(content="Event 2"),
@@ -253,7 +253,7 @@ def test_condensation_request_always_removed_from_view() -> None:
     unhandled status.
     """
     # Test case 1: Unhandled request
-    events_unhandled: list[Event] = [
+    events_unhandled: list[EventBase] = [
         message_event(content="Event 0"),
         CondensationRequest(),
         message_event(content="Event 1"),
@@ -266,7 +266,7 @@ def test_condensation_request_always_removed_from_view() -> None:
         assert not isinstance(event, CondensationRequest)
 
     # Test case 2: Handled request
-    events_handled: list[Event] = [
+    events_handled: list[EventBase] = [
         message_event(content="Event 0"),
         CondensationRequest(),
         message_event(content="Event 1"),
@@ -284,7 +284,7 @@ def test_condensation_request_always_removed_from_view() -> None:
 
 def test_condensations_field_empty_when_no_condensations() -> None:
     """Test that condensations field is empty when there are no condensation events."""
-    events: list[Event] = [message_event(f"Event {i}") for i in range(3)]
+    events: list[EventBase] = [message_event(f"Event {i}") for i in range(3)]
     view = View.from_events(events)
 
     assert view.condensations == []
@@ -306,7 +306,7 @@ def test_condensations_field_stores_all_condensations_in_order() -> None:
     )
     condensation3 = Condensation(forgotten_event_ids=[], summary="Summary 3")
 
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_events[0],
         message_events[1],
         condensation1,
@@ -331,20 +331,22 @@ def test_most_recent_condensation_property() -> None:
     message_events = [message_event(f"Event {i}") for i in range(3)]
 
     # Test with no condensations
-    events_no_condensation: list[Event] = cast(list[Event], message_events.copy())
+    events_no_condensation: list[EventBase] = cast(
+        list[EventBase], message_events.copy()
+    )
     view_no_condensation = View.from_events(events_no_condensation)
     assert view_no_condensation.most_recent_condensation is None
 
     # Test with single condensation
     condensation1 = Condensation(forgotten_event_ids=[], summary="First summary")
-    events_single: list[Event] = [*message_events, condensation1]
+    events_single: list[EventBase] = [*message_events, condensation1]
     view_single = View.from_events(events_single)
     assert view_single.most_recent_condensation == condensation1
 
     # Test with multiple condensations
     condensation2 = Condensation(forgotten_event_ids=[], summary="Second summary")
     condensation3 = Condensation(forgotten_event_ids=[], summary="Third summary")
-    events_multiple: list[Event] = [
+    events_multiple: list[EventBase] = [
         message_events[0],
         condensation1,
         message_events[1],
@@ -363,7 +365,7 @@ def test_condensations_field_with_mixed_events() -> None:
     condensation1 = Condensation(forgotten_event_ids=[message_events[0].id])
     condensation2 = Condensation(forgotten_event_ids=[])
 
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_events[0],
         CondensationRequest(),  # Should not appear in condensations
         message_events[1],
@@ -385,7 +387,7 @@ def test_condensations_field_with_mixed_events() -> None:
 
 def test_summary_event_index_none_when_no_summary() -> None:
     """Test that summary_event_index is None when there's no summary."""
-    events: list[Event] = [message_event(f"Event {i}") for i in range(3)]
+    events: list[EventBase] = [message_event(f"Event {i}") for i in range(3)]
     view = View.from_events(events)
 
     assert view.summary_event_index is None
@@ -401,7 +403,7 @@ def test_summary_event_index_none_when_condensation_has_no_summary() -> None:
     # Condensation without summary
     condensation = Condensation(forgotten_event_ids=[message_events[0].id])
 
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_events[0],
         message_events[1],
         condensation,
@@ -428,7 +430,7 @@ def test_summary_event_index_and_event_with_summary() -> None:
         summary_offset=1,
     )
 
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_events[0],  # Will be forgotten
         message_events[1],
         condensation,
@@ -469,7 +471,7 @@ def test_summary_event_with_multiple_condensations() -> None:
         summary_offset=1,
     )
 
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_events[0],  # Will be forgotten by condensation1
         message_events[1],  # Will be forgotten by condensation2
         condensation1,
@@ -501,7 +503,7 @@ def test_summary_event_with_condensation_without_offset() -> None:
         # No summary_offset
     )
 
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_events[0],
         message_events[1],
         condensation,
@@ -524,7 +526,7 @@ def test_summary_event_with_zero_offset() -> None:
         summary_offset=0,
     )
 
-    events: list[Event] = [
+    events: list[EventBase] = [
         message_events[0],  # Will be forgotten
         message_events[1],
         condensation,

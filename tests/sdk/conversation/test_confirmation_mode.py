@@ -20,22 +20,24 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import ActionEvent, Event, MessageEvent, ObservationEvent
+from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
-from openhands.sdk.tool import Tool, ToolExecutor
+from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.tool import Tool
 
 
-class MockAction(ActionBase):
+class MockConfirmationModeAction(ActionBase):
     """Mock action schema for testing."""
 
     command: str
 
 
-class MockObservation(ObservationBase):
+class MockConfirmationModeObservation(ObservationBase):
     """Mock observation schema for testing."""
 
     result: str
@@ -76,15 +78,21 @@ class TestConfirmationMode:
         )
         self.mock_llm.metrics.get_snapshot.return_value = mock_metrics_snapshot
 
-        class TestExecutor(ToolExecutor[MockAction, MockObservation]):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result=f"Executed: {action.command}")
+        class TestExecutor(
+            ToolExecutor[MockConfirmationModeAction, MockConfirmationModeObservation]
+        ):
+            def __call__(
+                self, action: MockConfirmationModeAction
+            ) -> MockConfirmationModeObservation:
+                return MockConfirmationModeObservation(
+                    result=f"Executed: {action.command}"
+                )
 
         test_tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            action_type=MockConfirmationModeAction,
+            observation_type=MockConfirmationModeObservation,
             executor=TestExecutor(),
         )
 
@@ -210,7 +218,7 @@ class TestConfirmationMode:
 
     def _create_test_action(self, call_id="call_1", command="test_command"):
         """Helper to create test action events."""
-        action = MockAction(command=command)
+        action = MockConfirmationModeAction(command=command)
 
         tool_call = ChatCompletionMessageToolCall(
             id=call_id,
@@ -229,6 +237,25 @@ class TestConfirmationMode:
             tool_call=tool_call,
             llm_response_id="response_1",
         )
+
+    def test_mock_observation(self):
+        # First test a round trip in the context of ObservationBase
+        obs = MockConfirmationModeObservation(result="executed")
+
+        # Now test embeddding this into an ObservationEvent
+        event = ObservationEvent(
+            observation=obs,
+            action_id="action_id",
+            tool_name="hammer",
+            tool_call_id="tool_call_id",
+        )
+        dumped_event = event.model_dump()
+        assert dumped_event["observation"]["kind"] == "MockConfirmationModeObservation"
+        assert dumped_event["observation"]["result"] == "executed"
+        loaded_event = event.model_validate(dumped_event)
+        loaded_obs = loaded_event.observation
+        assert isinstance(loaded_obs, MockConfirmationModeObservation)
+        assert loaded_obs.result == "executed"
 
     def test_confirmation_mode_basic_functionality(self):
         """Test basic confirmation mode operations."""
@@ -258,7 +285,7 @@ class TestConfirmationMode:
         """Test getting unmatched events (actions without observations)."""
         # Create test action
         action_event = self._create_test_action()
-        events: list[Event] = [action_event]
+        events: list[EventBase] = [action_event]
 
         # Test: action without observation should be pending
         unmatched = get_unmatched_actions(events)
@@ -266,7 +293,7 @@ class TestConfirmationMode:
         assert unmatched[0].id == action_event.id
 
         # Add observation for the action
-        obs = MockObservation(result="test result")
+        obs = MockConfirmationModeObservation(result="test result")
 
         obs_event = ObservationEvent(
             source="environment",

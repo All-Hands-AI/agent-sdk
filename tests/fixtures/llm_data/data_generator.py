@@ -16,13 +16,13 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
     Message,
     TextContent,
-    Tool,
     get_logger,
 )
+from openhands.sdk.tool.tool import ToolBase
 from openhands.tools import BashTool, FileEditorTool
 
 
@@ -56,7 +56,7 @@ def create_llm(
     return LLM(**llm_kwargs)
 
 
-def create_tools(working_dir: Optional[str] = None) -> List[Tool]:
+def create_tools(working_dir: Optional[str] = None) -> List[ToolBase]:
     """Create standard tools for testing."""
     cwd = working_dir or os.getcwd()
     return [BashTool.create(working_dir=cwd), FileEditorTool.create()]
@@ -78,7 +78,7 @@ def run_conversation(
 
     llm_messages = []
 
-    def conversation_callback(event: Event):
+    def conversation_callback(event: EventBase):
         logger.info(f"Found a conversation message: {str(event)[:200]}...")
         if isinstance(event, LLMConvertibleEvent):
             llm_messages.append(event.to_llm_message().to_llm_dict())

@@ -4,8 +4,9 @@ import json
 
 from pydantic import BaseModel
 
-from openhands.sdk.tool import Tool, ToolType
+from openhands.sdk.tool import Tool
 from openhands.sdk.tool.builtins import FinishTool, ThinkTool
+from openhands.sdk.tool.tool import ToolBase
 
 
 def test_tool_serialization_deserialization() -> None:
@@ -93,14 +94,14 @@ def test_tool_fallback_behavior_json() -> None:
     tool_dict = {
         "name": "test-tool",
         "description": "A test tool",
-        "action_type": "openhands.sdk.tool.builtins.finish.FinishAction",
+        "action_type": "FinishAction",
         "observation_type": None,
         "kind": "UnknownToolType",
     }
     tool_json = json.dumps(tool_dict)
 
     # Should fall back to base Tool type
-    deserialized_tool = Tool.model_validate_json(tool_json)
+    deserialized_tool = ToolBase.model_validate_json(tool_json)
     assert isinstance(deserialized_tool, Tool)
     assert deserialized_tool.name == "test-tool"
     assert deserialized_tool.description == "A test tool"
@@ -113,7 +114,7 @@ def test_tool_type_annotation_works_json() -> None:
 
     # Use ToolType annotation
     class TestModel(BaseModel):
-        tool: ToolType
+        tool: Tool
 
     model = TestModel(tool=tool)
 
@@ -135,7 +136,7 @@ def test_tool_kind_field_json() -> None:
 
     # Check kind field
     assert hasattr(tool, "kind")
-    expected_kind = f"{tool.__class__.__module__}.{tool.__class__.__name__}"
+    expected_kind = tool.__class__.__name__
     assert tool.kind == expected_kind
 
     # Serialize to JSON

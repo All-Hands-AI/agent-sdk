@@ -1,14 +1,14 @@
+from abc import ABC
 from collections.abc import Sequence
-from typing import Annotated, Any, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.llm.message import content_to_str
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
 )
 from openhands.sdk.utils.visualize import display_dict
 
@@ -164,7 +164,7 @@ class Schema(BaseModel):
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class ActionBase(Schema, DiscriminatedUnionMixin):
+class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for input action."""
 
     @property
@@ -190,19 +190,8 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
         return content
 
 
-Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
-"""Type annotation for values that can be any implementation of ActionBase.
-
-In most situations, this is equivalent to ActionBase. However, when used in Pydantic
-BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
-discriminator resolution until runtime.
-"""
-
-
-class ObservationBase(Schema, DiscriminatedUnionMixin):
+class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for output observation."""
-
-    model_config = ConfigDict(extra="allow", frozen=True)
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
@@ -224,12 +213,3 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
         else:
             content.append("[no text content]", style="dim")
         return content
-
-
-Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
-"""Type annotation for values that can be any implementation of ObservationBase.
-
-In most situations, this is equivalent to ObservationBase. However, when used in
-Pydantic BaseModels as a field annotation, it enables polymorphic deserialization by
-delaying the discriminator resolution until runtime.
-"""

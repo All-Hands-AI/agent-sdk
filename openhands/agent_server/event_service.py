@@ -7,7 +7,6 @@ from openhands.agent_server.models import (
     ConfirmationResponseRequest,
     EventPage,
     EventSortOrder,
-    EventType,
     StoredConversation,
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
@@ -15,6 +14,7 @@ from openhands.agent_server.utils import utc_now
 from openhands.sdk import (
     Agent,
     Conversation,
+    EventBase,
     LocalFileStore,
     Message,
 )
@@ -44,7 +44,7 @@ class EventService:
         meta_file = self.file_store_path / "meta.json"
         meta_file.write_text(self.stored.model_dump_json())
 
-    async def get_event(self, event_id: str) -> EventType | None:
+    async def get_event(self, event_id: str) -> EventBase | None:
         if not self._conversation:
             raise ValueError("inactive_service")
         with self._conversation.state as state:
@@ -105,11 +105,6 @@ class EventService:
                 break
             items.append(all_events[i])
 
-        if items:
-            from pydantic import TypeAdapter
-
-            ta = TypeAdapter(EventType)
-            ta.dump_json(items[0])
         return EventPage(items=items, next_page_id=next_page_id)
 
     async def count_events(
@@ -134,7 +129,7 @@ class EventService:
 
         return count
 
-    async def batch_get_events(self, event_ids: list[str]) -> list[EventType | None]:
+    async def batch_get_events(self, event_ids: list[str]) -> list[EventBase | None]:
         """Given a list of ids, get events (Or none for any which were not found)"""
         results = []
         for event_id in event_ids:

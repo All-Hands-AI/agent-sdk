@@ -22,7 +22,7 @@ class MockSchema(Schema):
     optional_field: Optional[str] = Field(default=None, description="Optional field")
 
 
-class MockAction(ActionBase):
+class TestSchemaImmutabilityMockAction(ActionBase):
     """Mock action class for testing."""
 
     command: str = Field(description="Command to execute")
@@ -39,7 +39,7 @@ class MockMCPAction(MCPToolAction):
     )
 
 
-class MockObservation(ObservationBase):
+class TestSchemaImmutabilityMockObservation(ObservationBase):
     """Mock observation class for testing."""
 
     result: str = Field(description="Result of the action")
@@ -69,7 +69,9 @@ def test_schema_is_frozen():
 
 def test_action_base_is_frozen():
     """Test that ActionBase instances are frozen and cannot be modified."""
-    action = MockAction(command="test_command", args=["arg1", "arg2"])
+    action = TestSchemaImmutabilityMockAction(
+        command="test_command", args=["arg1", "arg2"]
+    )
 
     # Test that we cannot modify any field
     with pytest.raises(ValidationError, match="Instance is frozen"):
@@ -96,7 +98,9 @@ def test_mcp_action_base_is_frozen():
 
 def test_observation_base_is_frozen():
     """Test that ObservationBase instances are frozen and cannot be modified."""
-    observation = MockObservation(result="test_result", status="completed")
+    observation = TestSchemaImmutabilityMockObservation(
+        result="test_result", status="completed"
+    )
 
     # Test that we cannot modify any field
     with pytest.raises(ValidationError, match="Instance is frozen"):
@@ -130,7 +134,7 @@ def test_schema_model_copy_creates_new_instance():
 
 def test_action_model_copy_creates_new_instance():
     """Test that ActionBase model_copy creates a new instance with updated fields."""
-    original = MockAction(command="original_cmd", args=["arg1"])
+    original = TestSchemaImmutabilityMockAction(command="original_cmd", args=["arg1"])
 
     # Create a copy with updated fields
     updated = original.model_copy(
@@ -175,7 +179,9 @@ def test_observation_model_copy_creates_new_instance():
 
     Creates a new instance with updated fields.
     """
-    original = MockObservation(result="original_result", status="pending")
+    original = TestSchemaImmutabilityMockObservation(
+        result="original_result", status="pending"
+    )
 
     # Create a copy with updated fields
     updated = original.model_copy(
@@ -197,10 +203,14 @@ def test_observation_model_copy_creates_new_instance():
 def test_schema_immutability_prevents_mutation_bugs():
     """Test a practical scenario where immutability prevents mutation bugs."""
     # Create an action that might be shared across multiple contexts
-    shared_action = MockAction(command="shared_cmd", args=["shared_arg"])
+    shared_action = TestSchemaImmutabilityMockAction(
+        command="shared_cmd", args=["shared_arg"]
+    )
 
     # Simulate two different contexts trying to modify the action
-    def context_a_processing(action: MockAction) -> MockAction:
+    def context_a_processing(
+        action: TestSchemaImmutabilityMockAction,
+    ) -> TestSchemaImmutabilityMockAction:
         # Context A wants to reassign the args field - this should fail
         with pytest.raises(ValidationError, match="Instance is frozen"):
             action.args = action.args + ["context_a_arg"]
@@ -208,7 +218,9 @@ def test_schema_immutability_prevents_mutation_bugs():
         # Context A should use model_copy instead
         return action.model_copy(update={"args": action.args + ["context_a_arg"]})
 
-    def context_b_processing(action: MockAction) -> MockAction:
+    def context_b_processing(
+        action: TestSchemaImmutabilityMockAction,
+    ) -> TestSchemaImmutabilityMockAction:
         # Context B wants to change the command - this should fail
         with pytest.raises(ValidationError, match="Instance is frozen"):
             action.command = "context_b_cmd"
@@ -245,7 +257,7 @@ def test_all_schema_classes_are_frozen():
         schema.name = "changed"
 
     # Test ActionBase
-    action = MockAction(command="test")
+    action = TestSchemaImmutabilityMockAction(command="test")
     with pytest.raises(ValidationError, match="Instance is frozen"):
         action.command = "changed"
 
@@ -255,7 +267,7 @@ def test_all_schema_classes_are_frozen():
         mcp_action.operation = "changed"
 
     # Test ObservationBase
-    observation = MockObservation(result="test")
+    observation = TestSchemaImmutabilityMockObservation(result="test")
     with pytest.raises(ValidationError, match="Instance is frozen"):
         observation.result = "changed"
 
@@ -263,10 +275,10 @@ def test_all_schema_classes_are_frozen():
 def test_schema_inheritance_preserves_immutability():
     """Test that classes inheriting from schema bases are also immutable."""
 
-    class CustomAction(ActionBase):
+    class TestSchemaImmutabilityCustomAction(ActionBase):
         custom_field: str = Field(description="Custom field")
 
-    class CustomObservation(ObservationBase):
+    class TestSchemaImmutabilityCustomObservation(ObservationBase):
         custom_result: str = Field(description="Custom result")
 
         @property
@@ -274,10 +286,10 @@ def test_schema_inheritance_preserves_immutability():
             return [TextContent(text=self.custom_result)]
 
     # Test that custom classes are also frozen
-    custom_action = CustomAction(custom_field="test")
+    custom_action = TestSchemaImmutabilityCustomAction(custom_field="test")
     with pytest.raises(ValidationError, match="Instance is frozen"):
         custom_action.custom_field = "changed"
 
-    custom_obs = CustomObservation(custom_result="test")
+    custom_obs = TestSchemaImmutabilityCustomObservation(custom_result="test")
     with pytest.raises(ValidationError, match="Instance is frozen"):
         custom_obs.custom_result = "changed"

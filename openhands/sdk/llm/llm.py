@@ -87,7 +87,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     openrouter_app_name: str = Field(default="OpenHands")
 
     num_retries: int = Field(default=5)
-    retry_multiplier: float = Field(default=8)
+    retry_multiplier: float = Field(default=8.0)
     retry_min_wait: int = Field(default=8)
     retry_max_wait: int = Field(default=64)
 

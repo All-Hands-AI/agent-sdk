@@ -36,9 +36,9 @@ from openhands.sdk.tool import (
     ActionBase,
     FinishTool,
     ObservationBase,
-    Tool,
 )
 from openhands.sdk.tool.builtins import FinishAction
+from openhands.sdk.tool.tool import ToolBase
 
 
 logger = get_logger(__name__)
@@ -47,10 +47,10 @@ logger = get_logger(__name__)
 class Agent(AgentBase):
     @field_validator("tools", mode="before")
     @classmethod
-    def _normalize_tools(cls, v: Any) -> dict[str, "Tool"]:
-        # Fast path: already a dict[str, Tool]
-        if isinstance(v, dict) and all(isinstance(t, Tool) for t in v.values()):
-            user_tools = cast(dict[str, Tool], v)
+    def _normalize_tools(cls, v: Any) -> dict[str, "ToolBase"]:
+        # Fast path: already a dict[str, ToolBase]
+        if isinstance(v, dict) and all(isinstance(t, ToolBase) for t in v.values()):
+            user_tools = cast(dict[str, ToolBase], v)
         else:
             # Accept Mapping[str, Tool|dict]
             if isinstance(v, dict):
@@ -58,21 +58,22 @@ class Agent(AgentBase):
             # Accept Iterable[Tool|dict]
             elif isinstance(v, list):
                 items = (
-                    (t.name if isinstance(t, Tool) else t.get("name"), t) for t in v
+                    (t.name if isinstance(t, ToolBase) else t.get("name"), t) for t in v
                 )
             else:
                 raise TypeError(
-                    "`tools` must be a dict[str, Tool|dict] or an iterable of Tool|dict"
+                    "`tools` must be a dict[str, ToolBase|dict] "
+                    "or an iterable of ToolBase|dict"
                 )
 
-            user_tools: dict[str, Tool] = {}
+            user_tools: dict[str, ToolBase] = {}
             for name, payload in items:
                 if not name or not isinstance(name, str):
                     raise ValueError("Each tool must have a non-empty string `name`")
                 tool = (
                     payload
-                    if isinstance(payload, Tool)
-                    else Tool.model_validate(payload)
+                    if isinstance(payload, ToolBase)
+                    else ToolBase.model_validate(payload)
                 )
                 if name in user_tools:
                     raise ValueError(f"Duplicate tool name: {name}")

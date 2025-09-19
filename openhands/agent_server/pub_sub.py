@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
-from openhands.sdk.event import Event
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.logger import get_logger
 
 
@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 class Subscriber(ABC):
     @abstractmethod
-    async def __call__(self, event: Event):
+    async def __call__(self, event: EventBase):
         """Invoke this subscriber"""
 
     async def close(self):
@@ -58,7 +58,7 @@ class PubSub:
             )
             return False
 
-    async def __call__(self, event: Event) -> None:
+    async def __call__(self, event: EventBase) -> None:
         """Invoke all registered callbacks with the given event.
         Each callback is invoked in its own try/catch block to prevent
         one failing callback from affecting others.
