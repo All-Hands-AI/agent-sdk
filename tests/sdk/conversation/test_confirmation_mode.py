@@ -47,10 +47,6 @@ class MockConfirmationModeObservation(ObservationBase):
         return [TextContent(text=self.result)]
 
 
-# ObservationBase.model_rebuild(force=True)
-# ObservationEvent.model_rebuild(force=True)
-
-
 class TestConfirmationMode:
     """Test suite for confirmation mode functionality."""
 
