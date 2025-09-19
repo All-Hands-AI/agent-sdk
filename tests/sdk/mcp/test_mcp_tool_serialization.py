@@ -52,7 +52,7 @@ def test_mcp_tool_polymorphic_behavior() -> None:
     # Create MCPTool instance
     mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
 
-    # Should be instance of Tool
+    # Should be instance of ToolBase
     assert isinstance(mcp_tool, ToolBase)
     assert isinstance(mcp_tool, MCPTool)
 
