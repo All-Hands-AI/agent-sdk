@@ -48,9 +48,6 @@ class _RuntimeTools(dict[str, "ToolBase"]):
 
 
 class Agent(AgentBase):
-    def initialize(self) -> None:
-        super().initialize()
-
     @property
     def _add_security_risk_prediction(self) -> bool:
         return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
