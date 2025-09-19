@@ -59,9 +59,6 @@ def test_agent_spec_expose_secrets_context_works(llm_with_secrets):
     assert "dummy-aws-access-key" in json_str
     assert "dummy-aws-secret-key" in json_str
 
-    condenser_llm = json_data["condenser"]["llm"]
-    condenser_llm["api_key"] == "dummy-api-key-123"
-
 
 def test_agent_spec_model_dump_masks_secrets(llm_with_secrets):
     """Test that AgentSpec model_dump also masks secrets by default."""
