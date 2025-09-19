@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from typing import Any
 
 import mcp.types
-from pydantic import ConfigDict, Field
+from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
