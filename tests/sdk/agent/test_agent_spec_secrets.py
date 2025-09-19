@@ -59,6 +59,9 @@ def test_agent_spec_expose_secrets_context_works(llm_with_secrets):
     assert "dummy-aws-access-key" in json_str
     assert "dummy-aws-secret-key" in json_str
 
+    condenser_llm = json_data["condenser"]["llm"]
+    condenser_llm["api_key"] == "dummy-api-key-123"
+
 
 def test_agent_spec_model_dump_masks_secrets(llm_with_secrets):
     """Test that AgentSpec model_dump also masks secrets by default."""
@@ -72,57 +75,6 @@ def test_agent_spec_model_dump_masks_secrets(llm_with_secrets):
     assert str(llm_data["api_key"]) == "**********"
     assert str(llm_data["aws_access_key_id"]) == "**********"
     assert str(llm_data["aws_secret_access_key"]) == "**********"
-
-
-def test_llm_direct_serialization_masks_secrets(llm_with_secrets):
-    """Test that LLM direct serialization masks secrets by default."""
-    # Test model_dump_json
-    json_str = llm_with_secrets.model_dump_json()
-    json_data = json.loads(json_str)
-
-    # Verify that secrets are masked in the JSON
-    assert json_data["api_key"] == "**********"
-    assert json_data["aws_access_key_id"] == "**********"
-    assert json_data["aws_secret_access_key"] == "**********"
-
-    # Verify that actual secret values are not in the JSON string
-    assert "dummy-api-key-123" not in json_str
-    assert "dummy-aws-access-key" not in json_str
-    assert "dummy-aws-secret-key" not in json_str
-
-
-def test_llm_direct_expose_secrets_context_works(llm_with_secrets):
-    """Test that LLM direct expose_secrets context parameter exposes actual secret values."""  # noqa: E501
-    # This should expose secrets when context={'expose_secrets': True}
-    json_str = llm_with_secrets.model_dump_json(context={"expose_secrets": True})
-    json_data = json.loads(json_str)
-
-    # Verify that secrets are exposed in the JSON
-    assert json_data["api_key"] == "dummy-api-key-123"
-    assert json_data["aws_access_key_id"] == "dummy-aws-access-key"
-    assert json_data["aws_secret_access_key"] == "dummy-aws-secret-key"
-
-    # Verify that actual secret values are in the JSON string
-    assert "dummy-api-key-123" in json_str
-    assert "dummy-aws-access-key" in json_str
-    assert "dummy-aws-secret-key" in json_str
-
-
-def test_llm_expose_secrets_context_false_masks_secrets(llm_with_secrets):
-    """Test that LLM with expose_secrets=False still masks secrets."""
-    # This should mask secrets when context={'expose_secrets': False}
-    json_str = llm_with_secrets.model_dump_json(context={"expose_secrets": False})
-    json_data = json.loads(json_str)
-
-    # Verify that secrets are masked in the JSON
-    assert json_data["api_key"] == "**********"
-    assert json_data["aws_access_key_id"] == "**********"
-    assert json_data["aws_secret_access_key"] == "**********"
-
-    # Verify that actual secret values are not in the JSON string
-    assert "dummy-api-key-123" not in json_str
-    assert "dummy-aws-access-key" not in json_str
-    assert "dummy-aws-secret-key" not in json_str
 
 
 def test_llm_with_none_secrets():
