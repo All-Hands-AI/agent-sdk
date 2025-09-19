@@ -16,7 +16,7 @@ class RandomRouter(RouterLLM):
 
     router_name: str = "random_router"
 
-    def _select_llm(self, messages: list[Message]) -> str:
+    def select_llm(self, messages: list[Message]) -> str:
         selected_llm_name = random.choice(list(self.llms_for_routing.keys()))
         logger.info(f"Randomly selected LLM: {selected_llm_name}")
         return selected_llm_name

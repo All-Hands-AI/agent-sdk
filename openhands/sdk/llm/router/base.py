@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from typing import Any, cast
 
 from litellm import ChatCompletionToolParam
 from litellm.types.utils import (
@@ -28,7 +27,7 @@ class RouterLLM(LLM):
     Key features:
     - Works with multiple LLMs configured via llms_for_routing
     - Delegates all other operations/properties to the selected LLM
-    - Provides routing interface through _select_llm() method
+    - Provides routing interface through select_llm() method
     """
 
     router_name: str = Field(default="base_router", description="Name of the router")
@@ -50,23 +49,17 @@ class RouterLLM(LLM):
 
     def completion(
         self,
-        messages: list[dict[str, Any]] | list[Message],
+        messages: list[Message],
         tools: list[ChatCompletionToolParam] | None = None,
         return_metrics: bool = False,
         **kwargs,
     ) -> ModelResponse:
         """
         This method intercepts completion calls and routes them to the appropriate
-        underlying LLM based on the routing logic implemented in _select_llm().
+        underlying LLM based on the routing logic implemented in select_llm().
         """
-        # Assert that messages are Message instances (required for routing)
-        assert messages and all(isinstance(msg, Message) for msg in messages), (
-            "RouterLLM requires Message instances for routing logic"
-        )
-        messages = cast(list[Message], messages)
-
         # Select appropriate LLM
-        selected_model = self._select_llm(messages)
+        selected_model = self.select_llm(messages)
         self.active_llm = self.llms_for_routing[selected_model]
 
         logger.info(f"RouterLLM routing to {selected_model}...")
@@ -77,7 +70,7 @@ class RouterLLM(LLM):
         )
 
     @abstractmethod
-    def _select_llm(self, messages: list[Message]) -> str:
+    def select_llm(self, messages: list[Message]) -> str:
         """
         Select which LLM to use based on messages and events.
         """

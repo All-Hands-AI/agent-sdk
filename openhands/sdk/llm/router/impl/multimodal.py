@@ -30,7 +30,7 @@ class MultimodalRouter(RouterLLM):
         super().__init__(**data)
         self._max_token_exceeded = False
 
-    def _select_llm(self, messages: list[Message]) -> str:
+    def select_llm(self, messages: list[Message]) -> str:
         """Select LLM based on multimodal content and token limits."""
         route_to_primary = False
 
