@@ -10,6 +10,7 @@ from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
+from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.utils.discriminated_union import DiscriminatedFieldsMixin
 
@@ -110,6 +111,10 @@ class ActionEvent(LLMConvertibleEvent, DiscriminatedFieldsMixin):
             "Snapshot of LLM metrics (token counts and costs). Only attached "
             "to the last action when multiple actions share the same LLM response."
         ),
+    )
+    security_risk: risk.SecurityRisk = Field(
+        default=risk.SecurityRisk.UNKNOWN,
+        description="The LLM's assessment of the safety risk of this action.",
     )
 
     @property

@@ -217,7 +217,7 @@ def test_real_create_mcp_tools_dict_config():
     tools = create_mcp_tools(mcp_config)
     assert len(tools) == 1
     assert tools[0].name == "fetch"
-    input_schema = tools[0].input_schema
+    input_schema = tools[0].action_type.to_mcp_schema()
 
     assert "type" in input_schema
     assert input_schema["type"] == "object"
@@ -227,10 +227,9 @@ def test_real_create_mcp_tools_dict_config():
     assert "required" in input_schema
     assert "url" in input_schema["required"]
 
-    # attribute from ActionBase is added to the MCP input schema
+    # security_risk should NOT be in the schema when no security analyzer is enabled
     assert "security_risk" not in input_schema["required"]
-    assert "security_risk" in input_schema["properties"]
-    assert list(input_schema["properties"].keys())[-1] == "security_risk"
+    assert "security_risk" not in input_schema["properties"]
 
     mcp_tool = tools[0].to_mcp_tool()
     assert mcp_tool["inputSchema"] == input_schema
@@ -245,9 +244,8 @@ def test_real_create_mcp_tools_dict_config():
     assert "url" in parameters["required"]
     assert openai_tool["function"]["name"] == "fetch"
 
+    # security_risk should NOT be in the OpenAI tool schema when no security analyzer is enabled  # noqa: E501
     assert "security_risk" not in parameters["required"]
-    assert "security_risk" in parameters["properties"]
-    # The security_risk should be added to the end of the properties
-    assert list(parameters["properties"].keys())[-1] == "security_risk"
+    assert "security_risk" not in parameters["properties"]
 
     assert tools[0].executor is not None

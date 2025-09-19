@@ -116,8 +116,7 @@ class TestHelloWorld:
                                     "name": "str_replace_editor",
                                     "arguments": f'{{"command": "create", '
                                     f'"path": "{hello_path}", '
-                                    f'"file_text": "print(\\"Hello, World!\\")", '
-                                    f'"security_risk": "LOW"}}',
+                                    f'"file_text": "print(\\"Hello, World!\\")"}}',
                                 },
                             }
                         ],
