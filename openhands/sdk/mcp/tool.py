@@ -1,7 +1,6 @@
 """Utility functions for MCP integration."""
 
 import re
-from uuid import uuid4
 
 import mcp.types
 from pydantic import Field, ValidationError
@@ -85,7 +84,7 @@ class MCPTool(ToolBase[MCPActionBase, MCPToolObservation]):
             )
 
             MCPActionType = MCPActionBase.from_mcp_schema(
-                f"{to_camel_case(mcp_tool.name)}{uuid4().hex}",
+                f"{to_camel_case(mcp_tool.name)}",
                 mcp_tool.inputSchema,
             )
 

@@ -10,7 +10,6 @@ from pydantic import (
     Field,
     Tag,
     TypeAdapter,
-    model_validator,
 )
 
 
@@ -177,6 +176,7 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     def model_validate(cls, obj: Any, **kwargs) -> Self:
         if _is_abstract(cls):
             resolved = cls.resolve_kind(kind_of(obj))
+            obj["kind"] = resolved.__name__
         else:
             resolved = super()
         result = resolved.model_validate(obj, **kwargs)
@@ -191,21 +191,11 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         data = json.loads(json_data)
         if _is_abstract(cls):
             resolved = cls.resolve_kind(kind_of(data))
+            data["kind"] = resolved.__name__
         else:
             resolved = super()
         result = resolved.model_validate(data, **kwargs)
         return result  # type: ignore
-
-    @model_validator(mode="before")
-    @classmethod
-    def _set_kind(cls, data):
-        """For some cases (like models with a default fallback), the incoming
-        kind may not match the value so we set it."""
-        if not isinstance(data, dict):
-            return
-        data = dict(data)
-        data["kind"] = cls.__name__
-        return data
 
     def __init_subclass__(cls, **kwargs):
         # Check for duplicates

@@ -14,6 +14,7 @@ from openhands.sdk.utils.visualize import display_dict
 
 
 S = TypeVar("S", bound="Schema")
+_mcp_model_types = {}
 
 
 def py_type(spec: dict[str, Any]) -> Any:
@@ -134,6 +135,10 @@ class Schema(BaseModel):
         assert isinstance(schema, dict), "Schema must be a dict"
         assert schema.get("type") == "object", "Only object schemas are supported"
 
+        model_type: type["S"] = _mcp_model_types.get(model_name)  # type: ignore
+        if model_type:
+            return model_type
+
         props: dict[str, Any] = schema.get("properties", {}) or {}
         required = set(schema.get("required", []) or [])
 
@@ -161,7 +166,10 @@ class Schema(BaseModel):
                 else Field(default=default),
             )
 
-        return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
+        model_type = create_model(model_name, __base__=cls, **fields)
+        _mcp_model_types[model_name] = model_type
+
+        return model_type  # type: ignore[return-value]
 
 
 class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
