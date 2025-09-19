@@ -5,7 +5,6 @@ from openhands.sdk.event import Event
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.tool.schema import Action
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -26,15 +25,15 @@ class SecurityAnalyzerBase(DiscriminatedUnionMixin, ABC):
     """
 
     @abstractmethod
-    def security_risk(self, action: Action) -> SecurityRisk:
-        """Evaluate the security risk of an action.
+    def security_risk(self, action: ActionEvent) -> SecurityRisk:
+        """Evaluate the security risk of an ActionEvent.
 
-        This is the core method that analyzes an action and returns its risk level.
+        This is the core method that analyzes an ActionEvent and returns its risk level.
         Implementations should examine the action's content, context, and potential
         impact to determine the appropriate risk level.
 
         Args:
-            action: The action to analyze for security risks
+            action: The ActionEvent to analyze for security risks
 
         Returns:
             ActionSecurityRisk enum indicating the risk level
@@ -54,7 +53,7 @@ class SecurityAnalyzerBase(DiscriminatedUnionMixin, ABC):
             ActionSecurityRisk if event is an action, None otherwise
         """
         if isinstance(event, ActionEvent):
-            return self.security_risk(event.action)
+            return self.security_risk(event)
         return None
 
     def should_require_confirmation(
@@ -103,7 +102,7 @@ class SecurityAnalyzerBase(DiscriminatedUnionMixin, ABC):
 
         for action_event in pending_actions:
             try:
-                risk = self.security_risk(action_event.action)
+                risk = self.security_risk(action_event)
                 analyzed_actions.append((action_event, risk))
                 logger.debug(f"Action {action_event} analyzed with risk level: {risk}")
             except Exception as e:

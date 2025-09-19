@@ -10,6 +10,7 @@ from pydantic import (
     field_validator,
 )
 
+from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
@@ -105,16 +106,6 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         """
         raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
-    @computed_field(return_type=dict[str, Any], alias="input_schema")
-    @property
-    def input_schema(self) -> dict[str, Any]:
-        return self.action_type.to_mcp_schema()
-
-    @computed_field(return_type=dict[str, Any] | None, alias="output_schema")
-    @property
-    def output_schema(self) -> dict[str, Any] | None:
-        return self.observation_type.to_mcp_schema() if self.observation_type else None
-
     @computed_field(return_type=str, alias="title")
     @property
     def title(self) -> str:
@@ -190,24 +181,47 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         out = {
             "name": self.name,
             "description": self.description,
-            "inputSchema": self.input_schema,
+            "inputSchema": self.action_type.to_mcp_schema(),
         }
         if self.annotations:
             out["annotations"] = self.annotations
         if self.meta is not None:
             out["_meta"] = self.meta
-        if self.output_schema:
-            out["outputSchema"] = self.output_schema
+        if self.observation_type:
+            out["outputSchema"] = self.observation_type.to_mcp_schema()
         return out
 
-    def to_openai_tool(self) -> ChatCompletionToolParam:
-        """Convert an MCP tool to an OpenAI tool."""
+    def to_openai_tool(
+        self,
+        add_security_risk_prediction: bool = False,
+    ) -> ChatCompletionToolParam:
+        """Convert a Tool to an OpenAI tool.
+
+        Args:
+            add_security_risk_prediction: Whether to add a `security_risk` field
+                to the action schema for LLM to predict. This is useful for
+                tools that may have safety risks, so the LLM can reason about
+                the risk level before calling the tool.
+        """
+
+        class ActionTypeWithRisk(self.action_type):
+            security_risk: risk.SecurityRisk = Field(
+                default=risk.SecurityRisk.UNKNOWN,
+                description="The LLM's assessment of the safety risk of this action.",
+            )
+
+        # We only add security_risk if the tool is not read-only
+        add_security_risk_prediction = add_security_risk_prediction and (
+            self.annotations is None or (not self.annotations.readOnlyHint)
+        )
         return ChatCompletionToolParam(
             type="function",
             function=ChatCompletionToolParamFunctionChunk(
                 name=self.name,
                 description=self.description,
-                parameters=self.input_schema,
+                parameters=ActionTypeWithRisk.to_mcp_schema()
+                if add_security_risk_prediction
+                else self.action_type.to_mcp_schema(),
             ),
         )
 
