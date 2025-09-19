@@ -216,3 +216,20 @@ def _get_all_subclasses(cls) -> set[Type]:
         result.add(subclass)
         result.update(_get_all_subclasses(subclass))
     return result
+
+
+# This is a really ugly hack - (If you are reading this then I am probably more
+# upset about it that you are.) - Pydantic type adapters silently take a copy
+# of the schema, serializer, and validator from a model, meaning they can
+# be created in a state where the models have not yet been updated with
+# polymorphic data. I monkey patched a hook in here as unobtrusibley as possible
+
+_orig_type_adapter_init = TypeAdapter.__init__
+
+
+def _init_with_hook(*args, **kwargs):
+    _rebuild_if_required()
+    _orig_type_adapter_init(*args, **kwargs)
+
+
+TypeAdapter.__init__ = _init_with_hook

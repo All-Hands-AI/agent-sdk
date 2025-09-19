@@ -19,11 +19,6 @@ from openhands.agent_server.middleware import (
     LocalhostCORSMiddleware,
     ValidateSessionAPIKeyMiddleware,
 )
-from openhands.sdk.utils.discriminated_union import rebuild_all
-
-
-# TODO: This is a hack - it would be nice to pick up changes automatically
-rebuild_all()
 
 
 @asynccontextmanager

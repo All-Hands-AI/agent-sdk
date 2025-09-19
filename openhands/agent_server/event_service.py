@@ -22,11 +22,6 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 
 
-# TODO: This is a hack - it would be nice to pick up changes automatically
-EventBase.model_rebuild()
-EventPage.model_rebuild()
-
-
 @dataclass
 class EventService:
     """
