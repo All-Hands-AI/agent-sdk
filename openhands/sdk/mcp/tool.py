@@ -70,10 +70,10 @@ class MCPToolExecutor(ToolExecutor):
         )
 
 
-_mcp_dynamic_action_type: dict[mcp.types.Tool, type[ActionBase]] = {}
+_mcp_dynamic_action_type: dict[str, type[ActionBase]] = {}
 
 
-def _create_mcp_action_type(name: str, action_type: mcp.types.Tool) -> type[ActionBase]:
+def _create_mcp_action_type(action_type: mcp.types.Tool) -> type[ActionBase]:
     """Dynamically create a Pydantic model for MCP tool action from schema.
 
     We create from "ActionBase" instead of "MCPToolAction" because
@@ -89,14 +89,15 @@ def _create_mcp_action_type(name: str, action_type: mcp.types.Tool) -> type[Acti
     which is not what we want.
     """
 
-    mcp_action_type = _mcp_dynamic_action_type.get(action_type)
+    # Tool.name should be unique, so we can cache the created types.
+    mcp_action_type = _mcp_dynamic_action_type.get(action_type.name)
     if mcp_action_type:
         return mcp_action_type
 
     mcp_action_type = ActionBase.from_mcp_schema(
-        f"{to_camel_case(name)}Action", action_type.inputSchema
+        f"{to_camel_case(action_type.name)}Action", action_type.inputSchema
     )
-    _mcp_dynamic_action_type[action_type] = mcp_action_type
+    _mcp_dynamic_action_type[action_type.name] = mcp_action_type
     return mcp_action_type
 
 
@@ -117,7 +118,8 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
         Returns:
             The observation result from executing the action.
         """
-        mcp_action_type = _create_mcp_action_type(self.name, self.mcp_tool)
+        assert self.name == self.mcp_tool.name
+        mcp_action_type = _create_mcp_action_type(self.mcp_tool)
         mcp_action_type.model_validate(action.data)
 
         return super().__call__(action)
@@ -209,7 +211,8 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
                 "MCPTool.to_openai_tool does not support overriding action_type"
             )
 
-        mcp_action_type = _create_mcp_action_type(self.name, self.mcp_tool)
+        assert self.name == self.mcp_tool.name
+        mcp_action_type = _create_mcp_action_type(self.mcp_tool)
         return super().to_openai_tool(
             add_security_risk_prediction=add_security_risk_prediction,
             action_type=mcp_action_type,
