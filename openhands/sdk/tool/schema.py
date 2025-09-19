@@ -4,7 +4,6 @@ from typing import Annotated, Any, TypeVar
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from rich.text import Text
 
-import openhands.sdk.security.risk as risk
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.llm.message import content_to_str
 from openhands.sdk.utils.discriminated_union import (
@@ -168,14 +167,6 @@ class Schema(BaseModel):
 class ActionBase(Schema, DiscriminatedUnionMixin):
     """Base schema for input action."""
 
-    # NOTE: We make it optional since some weaker
-    # LLMs may not be able to fill it out correctly.
-    # https://github.com/All-Hands-AI/OpenHands/issues/10797
-    security_risk: risk.SecurityRisk = Field(
-        default=risk.SecurityRisk.UNKNOWN,
-        description="The LLM's assessment of the safety risk of this action.",
-    )
-
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this action.
@@ -197,23 +188,6 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
         content.append(display_dict(action_fields))
 
         return content
-
-    @classmethod
-    def to_mcp_schema(cls) -> dict[str, Any]:
-        """Convert to JSON schema format compatible with MCP."""
-        schema = super().to_mcp_schema()
-
-        # We need to move the fields from ActionBase to the END of the properties
-        # We use these properties to generate the llm schema for tool calling
-        # and we want the ActionBase fields to be at the end
-        # e.g. LLM should already outputs the argument for tools
-        # BEFORE it predicts security_risk
-        assert "properties" in schema, "Schema must have properties"
-        for field_name in ActionBase.model_fields.keys():
-            if field_name in schema["properties"]:
-                v = schema["properties"].pop(field_name)
-                schema["properties"][field_name] = v
-        return schema
 
 
 class MCPActionBase(ActionBase):

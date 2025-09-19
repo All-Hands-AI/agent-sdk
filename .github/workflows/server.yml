@@ -123,18 +123,30 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - name: amd64
+                    # Python + Node.js variant
+                    - name: python
                       runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64
-                    - name: arm64
-                      runner: blacksmith-8vcpu-ubuntu-2404-arm
-                      platforms: linux/arm64
+                      platforms: linux/amd64,linux/arm64
+                      base_image: nikolaik/python-nodejs:python3.12-nodejs22
+
+                    # Java variant (OpenJDK base)
+                    - name: java
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64,linux/arm64
+                      base_image: eclipse-temurin:17-jdk
+
+                    # Golang variant (Go base)
+                    - name: golang
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64,linux/arm64
+                      base_image: golang:1.21-bookworm
 
         runs-on: ${{ matrix.runner }}
 
         env:
             IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
-            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || 'nikolaik/python-nodejs:python3.12-nodejs22' }}
+            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
+            VARIANT_NAME: ${{ matrix.name }}
             TARGET: binary
             PLATFORMS: ${{ matrix.platforms }}
             GITHUB_SHA: ${{ github.sha }}

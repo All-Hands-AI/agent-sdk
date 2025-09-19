@@ -1,7 +1,7 @@
+from openhands.sdk.event import ActionEvent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.analyzer import SecurityAnalyzer
 from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.tool.schema import Action
 
 
 logger = get_logger(__name__)
@@ -17,7 +17,7 @@ class LLMSecurityAnalyzer(SecurityAnalyzer):
     understanding of action context and potential risks.
     """
 
-    def security_risk(self, action: Action) -> SecurityRisk:
+    def security_risk(self, action: ActionEvent) -> SecurityRisk:
         """Evaluate security risk based on LLM-provided assessment.
 
         This method checks if the action has a security_risk attribute set by the LLM

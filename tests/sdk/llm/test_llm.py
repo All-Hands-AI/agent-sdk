@@ -36,6 +36,11 @@ def test_llm_init_with_default_config(default_llm):
     assert default_llm.metrics.model_name == "gpt-4o"
 
 
+def test_base_url_for_openhands_provider():
+    llm = LLM(model="openhands/claude-sonnet-4-20250514", api_key=SecretStr("test-key"))
+    assert llm.base_url == "https://llm-proxy.app.all-hands.dev/"
+
+
 def test_token_usage_add():
     """Test that TokenUsage instances can be added together."""
     # Create two TokenUsage instances

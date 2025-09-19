@@ -79,7 +79,7 @@ class FileEditor:
                 )
             self._cwd = workspace_path
         else:
-            self._cwd = None  # type: ignore
+            self._cwd = os.path.abspath(os.getcwd())
 
     def __call__(
         self,
