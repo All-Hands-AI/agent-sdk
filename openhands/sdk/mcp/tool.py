@@ -70,6 +70,23 @@ class MCPToolExecutor(ToolExecutor):
         )
 
 
+_mcp_dynamic_action_type: dict[mcp.types.Tool, type[ActionBase]] = {}
+
+
+def _create_mcp_action_type(name: str, action_type: mcp.types.Tool) -> type[ActionBase]:
+    """Dynamically create a Pydantic model for MCP tool action from schema."""
+
+    mcp_action_type = _mcp_dynamic_action_type.get(action_type)
+    if mcp_action_type:
+        return mcp_action_type
+
+    mcp_action_type = MCPToolAction.from_mcp_schema(
+        f"{to_camel_case(name)}Action", action_type.inputSchema
+    )
+    _mcp_dynamic_action_type[action_type] = mcp_action_type
+    return mcp_action_type
+
+
 class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
@@ -87,10 +104,8 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
         Returns:
             The observation result from executing the action.
         """
-        DynamicMCPActionType = MCPToolAction.from_mcp_schema(
-            f"{to_camel_case(self.name)}Action", self.mcp_tool.inputSchema
-        )
-        DynamicMCPActionType.model_validate(action.data)
+        mcp_action_type = _create_mcp_action_type(self.name, self.mcp_tool)
+        mcp_action_type.model_validate(action.data)
 
         return super().__call__(action)
 
