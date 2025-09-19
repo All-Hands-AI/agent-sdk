@@ -193,6 +193,11 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
     ) -> ChatCompletionToolParam:
         """Convert a Tool to an OpenAI tool.
 
+        For MCP, we dynamically create the action_type (type: ActionBase)
+        from the MCP tool input schema, and pass it to the parent method.
+        It will use the .model_fields from this pydantic model to
+        generate the OpenAI-compatible tool schema.
+
         Args:
             add_security_risk_prediction: Whether to add a `security_risk` field
                 to the action schema for LLM to predict. This is useful for
