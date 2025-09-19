@@ -20,7 +20,7 @@ from openhands.sdk.llm import (
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import MCPClient, MCPTool, MCPToolObservation, create_mcp_tools
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolSpec
-from openhands.sdk.tool.registry import register_openhands_tools, register_tool
+from openhands.sdk.tool.registry import register_tool
 
 
 try:
@@ -59,6 +59,5 @@ __all__ = [
     "FileStore",
     "LocalFileStore",
     "register_tool",
-    "register_openhands_tools",
     "__version__",
 ]

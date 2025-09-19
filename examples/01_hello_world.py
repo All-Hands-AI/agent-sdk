@@ -12,7 +12,9 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.sdk.preset.default import get_default_tools
+from openhands.sdk.tool.registry import register_tool
+from openhands.sdk.tool.spec import ToolSpec
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
 logger = get_logger(__name__)
@@ -26,19 +28,24 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-# Tools
 cwd = os.getcwd()
-tools = get_default_tools(working_dir=cwd)  # Use our default openhands experience
-# Or you can define your own tools like this:
-# from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
-# tools = [
-#     BashTool.create(working_dir=cwd),
-#     FileEditorTool.create(),
-#     TaskTrackerTool.create(save_dir=cwd),
-# ]
 
-# Agent
-agent = Agent(llm=llm, tools=tools)
+# Explicitly register tool factories into the global registry.
+# This keeps initialization explicit (no hidden auto-registration).
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+register_tool("TaskTrackerTool", TaskTrackerTool)
+
+# Provide ToolSpec so Agent can lazily materialize tools at runtime.
+agent = Agent(
+    llm=llm,
+    tools=[],  # backward-compat path unused here
+    tool_specs=[
+        ToolSpec(name="BashTool", params={"working_dir": cwd}),
+        ToolSpec(name="FileEditorTool", params={}),
+        ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+    ],
+)
 
 llm_messages = []  # collect raw LLM messages
 

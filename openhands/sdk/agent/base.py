@@ -148,6 +148,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 f"{[tool.name for tool in tools]}",
             )
 
+        # Always include built-in tools; not subject to filtering
+        tools.extend(BUILT_IN_TOOLS)
+
         return cls(
             llm=spec.llm,
             agent_context=spec.agent_context,
@@ -264,8 +267,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if self._tools:
             return
         # Backward-compatible path: explicit Tool instances provided
-        if isinstance(self.tools, dict) and all(
-            isinstance(t, Tool) for t in self.tools.values()
+        if (
+            isinstance(self.tools, dict)
+            and len(self.tools) > 0
+            and all(isinstance(t, Tool) for t in self.tools.values())
         ):
             user_tools = cast(dict[str, Tool], self.tools)
             self._tools.update(self._merge_with_builtins(dict(user_tools)))
@@ -273,12 +278,11 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         # ToolSpec-based path
         specs = getattr(self, "tool_specs", None)
         if specs:
-            from openhands.sdk.tool.registry import (
-                register_openhands_tools,
-                resolve_many,
-            )
+            from openhands.sdk.tool.registry import resolve_many
+            # NOTE: We no longer auto-register openhands.tools. Callers must
+            # explicitly register factories via register_tool(...) before using
+            # ToolSpec. This keeps initialization predictable and explicit.
 
-            register_openhands_tools()
             resolved = resolve_many(specs)
             user_tools: dict[str, Tool] = {}
             for t in resolved:

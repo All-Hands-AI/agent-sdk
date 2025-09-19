@@ -105,36 +105,6 @@ def resolve_many(specs: Iterable[ToolSpec]) -> list[Tool]:
     return out
 
 
-def register_openhands_tools() -> None:
-    """Register commonly used tools from openhands.tools.
-
-    This is idempotent and safe to call multiple times.
-    Only registers high-level Tool classes/toolsets that expose .create.
-    """
-    try:
-        import openhands.tools as tools_mod  # lazy import
-    except Exception:
-        return
-
-    # Explicit allowlist to avoid registering non-Tool objects
-    names = [
-        "BashTool",
-        "FileEditorTool",
-        "TaskTrackerTool",
-        "BrowserToolSet",
-    ]
-    for n in names:
-        try:
-            factory = getattr(tools_mod, n)
-        except AttributeError:
-            continue
-        try:
-            register_tool(n, factory)
-        except Exception:
-            # Best-effort; ignore if already registered or invalid
-            continue
-
-
 # Optional: helper for introspection
 class _RegistrySnapshot(BaseModel):
     names: list[str]

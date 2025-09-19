@@ -1,8 +1,8 @@
 import pytest
 
-from openhands.sdk import register_openhands_tools, register_tool
+from openhands.sdk import register_tool
 from openhands.sdk.tool import Tool
-from openhands.sdk.tool.registry import list_registered, resolve
+from openhands.sdk.tool.registry import resolve
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import ToolExecutor
@@ -46,9 +46,7 @@ def test_register_tool_instance_rejects_params():
         resolve(ToolSpec(name="say_hello_instance", params={"x": 1}))
 
 
-def test_register_openhands_tools_is_idempotent():
-    register_openhands_tools()
-    before = set(list_registered())
-    register_openhands_tools()
-    after = set(list_registered())
-    assert before == after
+def test_register_openhands_tools_removed():
+    # The helper for auto-registering openhands.tools has been removed on purpose.
+    # Users should explicitly register desired tools using register_tool().
+    assert True

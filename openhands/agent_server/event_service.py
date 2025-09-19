@@ -17,7 +17,6 @@ from openhands.sdk import (
     Conversation,
     LocalFileStore,
     Message,
-    register_openhands_tools,
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
@@ -163,11 +162,7 @@ class EventService:
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         loop = asyncio.get_running_loop()
-        # Ensure openhands.tools are registered prior to creating the agent
-        try:
-            register_openhands_tools()
-        except Exception:
-            pass
+        # Explicit registration: callers should register tools beforehand if needed.
         agent = await loop.run_in_executor(None, Agent.from_spec, self.stored)
         conversation = Conversation(
             agent=agent,
