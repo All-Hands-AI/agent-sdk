@@ -26,10 +26,6 @@ class MultimodalRouter(RouterLLM):
     PRIMARY_MODEL_KEY: ClassVar[str] = "primary"
     SECONDARY_MODEL_KEY: ClassVar[str] = "secondary"
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        self._max_token_exceeded = False
-
     def select_llm(self, messages: list[Message]) -> str:
         """Select LLM based on multimodal content and token limits."""
         route_to_primary = False
@@ -43,9 +39,6 @@ class MultimodalRouter(RouterLLM):
                 )
                 route_to_primary = True
 
-        if not route_to_primary and self._max_token_exceeded:
-            route_to_primary = True
-
         # Check if `messages` exceeds context window of the secondary model
         # Assuming the secondary model has a lower context window limit
         # compared to the primary model
@@ -58,7 +51,6 @@ class MultimodalRouter(RouterLLM):
                 f"Messages having {secondary_llm.get_token_count(messages)} tokens, exceeded secondary model's max input tokens ({secondary_llm.max_input_tokens} tokens). "  # noqa: E501
                 "Routing to the primary model."
             )
-            self._max_token_exceeded = True
             route_to_primary = True
 
         if route_to_primary:
