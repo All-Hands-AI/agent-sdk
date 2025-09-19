@@ -158,20 +158,20 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
             )
             raise e
 
-    def to_mcp_tool(self) -> dict[str, Any]:
-        """Convert to MCP tool format using the original MCP tool schema."""
-        out = {
-            "name": self.name,
-            "description": self.description,
-            "inputSchema": self.mcp_tool.inputSchema,
-        }
-        if self.annotations:
-            out["annotations"] = self.annotations
-        if self.meta is not None:
-            out["_meta"] = self.meta
-        if self.observation_type:
-            out["outputSchema"] = self.observation_type.to_mcp_schema()
-        return out
+    def to_mcp_tool(
+        self,
+        input_schema: dict[str, Any] | None = None,
+        output_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if input_schema is not None or output_schema is not None:
+            raise ValueError("MCPTool.to_mcp_tool does not support overriding schemas")
+
+        return super().to_mcp_tool(
+            input_schema=self.mcp_tool.inputSchema,
+            output_schema=self.observation_type.to_mcp_schema()
+            if self.observation_type
+            else None,
+        )
 
     def to_openai_tool(
         self,

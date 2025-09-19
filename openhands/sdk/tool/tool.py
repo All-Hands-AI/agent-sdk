@@ -195,18 +195,38 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
                 "Output must be dict or BaseModel when no output schema is defined"
             )
 
-    def to_mcp_tool(self) -> dict[str, Any]:
+    def to_mcp_tool(
+        self,
+        input_schema: dict[str, Any] | None = None,
+        output_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Convert a Tool to an MCP tool definition.
+
+        Allow overriding input/output schemas (usually by subclasses).
+
+        Args:
+            input_schema: Optionally override the input schema.
+            output_schema: Optionally override the output schema.
+        """
         out = {
             "name": self.name,
             "description": self.description,
-            "inputSchema": self.action_type.to_mcp_schema(),
+            "inputSchema": input_schema or self.action_type.to_mcp_schema(),
         }
         if self.annotations:
             out["annotations"] = self.annotations
         if self.meta is not None:
             out["_meta"] = self.meta
-        if self.observation_type:
-            out["outputSchema"] = self.observation_type.to_mcp_schema()
+
+        derived_output = (
+            output_schema
+            if output_schema is not None
+            else (
+                self.observation_type.to_mcp_schema() if self.observation_type else None
+            )
+        )
+        if derived_output is not None:
+            out["outputSchema"] = derived_output
         return out
 
     def to_openai_tool(
