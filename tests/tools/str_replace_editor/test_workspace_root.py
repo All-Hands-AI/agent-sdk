@@ -64,7 +64,7 @@ def test_relative_workspace_root_raises_error(tmp_path, monkeypatch):
     assert "workspace_root must be an absolute path" in error_message
 
 
-def test_no_suggestion_when_no_workspace_root(tmp_path, monkeypatch):
+def test_suggestion_when_no_workspace_root(tmp_path, monkeypatch):
     """Test that no path suggestion is made when workspace_root is not provided."""
     # Create a temporary file in the current directory
     current_dir = tmp_path / "current_dir"
@@ -78,14 +78,15 @@ def test_no_suggestion_when_no_workspace_root(tmp_path, monkeypatch):
     # Initialize editor without workspace_root
     editor = FileEditor()
 
-    # Test that no path suggestion is made, even for existing files
+    # Test path suggestion should exists for existing files
     relative_path = "test.txt"
     with pytest.raises(EditorToolParameterInvalidError) as exc_info:
         editor(command="view", path=relative_path)
 
     error_message = str(exc_info.value.message)
     assert "The path should be an absolute path" in error_message
-    assert "Maybe you meant" not in error_message
+    assert "Maybe you meant" in error_message
+    assert str(current_dir) in error_message
 
     # Test with a non-existent file (should also have no suggestion)
     non_existent_path = "non_existent.txt"
