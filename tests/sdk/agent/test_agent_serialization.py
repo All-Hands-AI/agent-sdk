@@ -11,7 +11,7 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.tool import MCPTool
-from openhands.sdk.tool.tool import Tool
+from openhands.sdk.tool.tool import ToolBase
 
 
 def create_mock_mcp_tool(name: str = "test_tool") -> MCPTool:
@@ -52,7 +52,7 @@ def test_agent_supports_polymorphic_json_serialization() -> None:
 def test_mcp_tool_serialization():
     tool = create_mock_mcp_tool()
     dumped = tool.model_dump_json()
-    loaded = Tool.model_validate_json(dumped)
+    loaded = ToolBase.model_validate_json(dumped)
     assert loaded.model_dump_json() == dumped
 
 

@@ -74,6 +74,12 @@ class DiscriminatedFieldsMixin(BaseModel):
         _rebuild_if_required()
         return super().model_json_schema(*args, **kwargs)
 
+    def model_dump_json(self, **kwargs):
+        # This was overridden because it seems there is a bug where sometimes
+        # duplicate fields are produced by model_dump_json which does not appear
+        # in model_dump
+        return json.dumps(self.model_dump(**kwargs))
+
     def __init_subclass__(cls, **kwargs):
         """
         When a new subclass is defined, mark that we will need
