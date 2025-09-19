@@ -248,7 +248,7 @@ class MCPActionBase(ActionBase):
 class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for output observation."""
 
-    model_config = ConfigDict(extra="allow", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:

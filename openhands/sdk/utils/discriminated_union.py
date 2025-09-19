@@ -14,11 +14,43 @@ from pydantic import (
 
 
 class DiscriminatedFieldsMixin(BaseModel):
-    """Any class where a field may be a DiscriminatedUnion,
-    and so may need to have its schema regenerated when a new
-    DiscriminatedUnion is loaded"""
+    """Tags a class where the fields may include a discriminated union"""
 
-    pass
+    def __init__(self, *args, **kwargs):
+        self.__class__._rebuild_for_polymorphism()
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def _rebuild_for_polymorphism(cls):
+        if getattr(cls, '_has_discriminator', False):
+            return
+        cls.model_rebuild()
+        setattr(cls, '_has_discriminator', True)
+
+    @classmethod
+    def model_validate(
+        cls,
+        *args,
+        **kwargs
+    ) -> Self:
+        cls._rebuild_for_polymorphism()
+        return super().model_validate(*args, **kwargs)
+
+    @classmethod
+    def model_validate_json(cls, *args, **kwargs) -> Self:
+        cls._rebuild_for_polymorphism()
+        return super().model_validate_json(*args, **kwargs)
+    
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        cls._rebuild_for_polymorphism()
+        return super().model_json_schema(*args, **kwargs)
+    
+    # Need to run for 
+    #self.core_schema = _getattr_no_parents(self._type, '__pydantic_core_schema__')
+    #self.validator = _getattr_no_parents(self._type, '__pydantic_validator__')
+    #self.serializer = _getattr_no_parents(self._type, '__pydantic_serializer__')
+
 
 
 def kind_of(obj) -> str:
@@ -30,7 +62,7 @@ def kind_of(obj) -> str:
     return obj.__name__
 
 
-class DiscriminatedUnionMixin(BaseModel, ABC):
+class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
     """A Base class for members of tagged unions discriminated by the class name.
 
     This class provides automatic subclass registration and discriminated union
@@ -80,11 +112,13 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
             _parent_namespace_depth=_parent_namespace_depth,
             _types_namespace=_types_namespace,
         )
-
+    '''
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if _is_abstract(cls):
             return
+        
+        stahp = cls.__name__ == "MockConfirmationModeObservation"
 
         # First we rebuild the model for any abstract discriminated superclass...
         for superclass in cls.mro()[1:]:
@@ -93,13 +127,20 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
                 and issubclass(superclass, DiscriminatedUnionMixin)
                 and not superclass == DiscriminatedUnionMixin
             ):
-                superclass.model_rebuild()
+                if stahp and 'ObservationBase' == superclass.__name__:
+                    print(json.dumps(superclass.model_json_schema()))
+                # ERROR : THIS DOES NOT HAVE PROPERTIES IN ITS SCHEMA YET.
+                # SO THE PROPERTIES ARE EMPTY 
+                superclass.model_rebuild(force=True)
 
         # Because of polymorphic associations are cached within schemas,
         # we need to rebuild all schemas after all subclasses have loaded.
         all_models = get_known_concrete_subclasses(DiscriminatedFieldsMixin)
         for model in all_models:
+            if stahp and 'ObservationEvent' == superclass.__name__:
+                print(json.dumps(model.model_json_schema()))
             model.model_rebuild(force=True)
+    '''
 
     @classmethod
     def get_serializable_type(cls) -> Type:
@@ -123,98 +164,27 @@ class DiscriminatedUnionMixin(BaseModel, ABC):
         return serializable_type  # type: ignore
 
     @classmethod
-    def model_validate(
-        cls,
-        obj: Any,
-        *,
-        strict: bool | None = None,
-        from_attributes: bool | None = None,
-        context: Any | None = None,
-        by_alias: bool | None = None,
-        by_name: bool | None = None,
-    ) -> Self:
+    def model_validate(cls, obj: Any, **kwargs) -> Self:
         if _is_abstract(cls):
             resolved = cls.resolve_kind(kind_of(obj))
         else:
             resolved = super()
-        result = resolved.model_validate(
-            obj,
-            strict=strict,
-            from_attributes=from_attributes,
-            context=context,
-            by_alias=by_alias,
-            by_name=by_name,
-        )
+        result = resolved.model_validate(obj, **kwargs)
         return result  # type: ignore
 
     @classmethod
     def model_validate_json(
         cls,
         json_data: str | bytes | bytearray,
-        *,
-        strict: bool | None = None,
-        from_attributes: bool | None = None,
-        context: Any | None = None,
-        by_alias: bool | None = None,
-        by_name: bool | None = None,
+        **kwargs,
     ) -> Self:
         data = json.loads(json_data)
         if _is_abstract(cls):
             resolved = cls.resolve_kind(kind_of(data))
         else:
             resolved = super()
-        result = resolved.model_validate(
-            data,
-            strict=strict,
-            from_attributes=from_attributes,
-            context=context,
-            by_alias=by_alias,
-            by_name=by_name,
-        )
+        result = resolved.model_validate(data, **kwargs)
         return result  # type: ignore
-
-    def model_dump(
-        self,
-        *,
-        mode: Literal["json", "python"] | str = "python",
-        include=None,
-        exclude=None,
-        context: Any | None = None,
-        by_alias: bool | None = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False,
-        round_trip: bool = False,
-        warnings: bool | Literal["none", "warn", "error"] = True,
-        fallback: Callable[[Any], Any] | None = None,
-        serialize_as_any: bool = False,
-    ):
-        if self.__class__.__name__ == "MockObservation":
-            print("zzz")
-        result = super().model_dump(
-            mode=mode,
-            include=include,
-            exclude=exclude,
-            context=context,
-            by_alias=by_alias,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
-            round_trip=round_trip,
-            warnings=warnings,
-            fallback=fallback,
-            serialize_as_any=serialize_as_any,
-        )
-        return result
-
-    """
-    @model_validator(mode="before")
-    @classmethod
-    def _process_kind(cls, data):
-        data = dict(data)
-        data["kind"] = cls.__name__
-        return data
-    """
 
     @model_validator(mode="before")
     @classmethod
