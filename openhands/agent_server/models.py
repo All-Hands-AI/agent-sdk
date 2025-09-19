@@ -70,6 +70,7 @@ class StartConversationRequest(AgentSpec):
     )
     max_iterations: int = Field(
         default=500,
+        ge=1,
         description="If set, the max number of iterations the agent will run "
         "before stopping. This is useful to prevent infinite loops.",
     )
