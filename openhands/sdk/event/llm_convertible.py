@@ -3,7 +3,7 @@ import json
 from collections.abc import Sequence
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
-from pydantic import ConfigDict, Field, computed_field, model_validator
+from pydantic import ConfigDict, Field
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
@@ -236,20 +236,9 @@ class MessageEvent(LLMConvertibleEvent):
         default_factory=list, description="List of content added by agent context"
     )
 
-    @computed_field
     @property
     def reasoning_content(self) -> str:
         return self.llm_message.reasoning_content or ""
-
-    @model_validator(mode="before")
-    @classmethod
-    def _remove_reasoning_content(cls, data):
-        # Remove the genus from input as it is generated
-        if not isinstance(data, dict):
-            return
-        data = dict(data)
-        data.pop("reasoning_content", None)
-        return data
 
     @property
     def visualize(self) -> Text:
