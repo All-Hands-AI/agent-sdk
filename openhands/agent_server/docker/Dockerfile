@@ -52,11 +52,17 @@ ARG USERNAME UID GID PORT
 # since the agent might use it to perform other work (e.g. tools that use Python)
 COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
-RUN (getent group ${GID} || groupadd -g ${GID} ${USERNAME}) && \
-    (id -u ${USERNAME} >/dev/null 2>&1 || useradd -m -u ${UID} -g ${GID} -s /usr/sbin/nologin ${USERNAME}) && \
-    (command -v apt-get >/dev/null && apt-get update && \
-     apt-get install -y --no-install-recommends ca-certificates && \
-     rm -rf /var/lib/apt/lists/*) || true
+# Install base packages and create user
+RUN set -eux; \
+    # Install base packages (works for both Debian-based images)
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl wget; \
+    \
+    # Create user and group
+    (getent group ${GID} || groupadd -g ${GID} ${USERNAME}); \
+    (id -u ${USERNAME} >/dev/null 2>&1 || useradd -m -u ${UID} -g ${GID} -s /usr/sbin/nologin ${USERNAME}); \
+    \
+    rm -rf /var/lib/apt/lists/*
 USER ${USERNAME}
 WORKDIR /agent-server
 EXPOSE ${PORT}
