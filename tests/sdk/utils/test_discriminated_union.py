@@ -128,6 +128,8 @@ def test_serialize_single_model() -> None:
 
 
 def test_serialize_single_model_with_type_adapter() -> None:
+    # Hack - in a multi threaded context Animal may never have been rebuilt
+    Animal.model_rebuild()
     type_adapter = TypeAdapter(Animal)
     original = Cat(name="Felix")
     dumped = type_adapter.dump_python(original)
@@ -139,6 +141,8 @@ def test_serialize_single_model_with_type_adapter() -> None:
 
 
 def test_serialize_model_list() -> None:
+    # Hack - in a multi threaded context Animal may never have been rebuilt
+    Animal.model_rebuild()
     type_adapter = TypeAdapter(list[Animal])
     original = [Cat(name="Felix"), Dog(name="Fido", barking=True), Wolf(name="Bitey")]
     dumped = type_adapter.dump_python(original)
