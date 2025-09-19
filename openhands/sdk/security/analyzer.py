@@ -4,7 +4,7 @@ from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
 )
 

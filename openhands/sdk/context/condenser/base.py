@@ -3,7 +3,7 @@ from logging import getLogger
 
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
 )
 

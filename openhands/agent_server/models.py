@@ -15,7 +15,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-from openhands.sdk.utils.discriminated_union import DiscriminatedFieldsMixin
+from openhands.sdk.utils.models import OpenHandsModel
 
 
 class ConversationSortOrder(str, Enum):
@@ -111,6 +111,6 @@ class Success(BaseModel):
     success: bool = True
 
 
-class EventPage(DiscriminatedFieldsMixin):
+class EventPage(OpenHandsModel):
     items: list[EventBase]
     next_page_id: str | None = None

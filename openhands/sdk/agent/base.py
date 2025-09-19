@@ -14,7 +14,7 @@ from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolBase
-from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 

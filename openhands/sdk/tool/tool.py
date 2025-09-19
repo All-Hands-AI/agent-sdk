@@ -14,7 +14,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
     get_known_concrete_subclasses,
     kind_of,

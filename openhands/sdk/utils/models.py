@@ -22,7 +22,7 @@ def rebuild_all():
     """Rebuild all polymorphic classes."""
     global _rebuild_required
     _rebuild_required = False
-    for cls in _get_all_subclasses(DiscriminatedFieldsMixin):
+    for cls in _get_all_subclasses(OpenHandsModel):
         cls.model_rebuild(force=True)
     for cls in _get_all_subclasses(DiscriminatedUnionMixin):
         cls.model_rebuild(force=True)
@@ -49,7 +49,7 @@ def get_known_concrete_subclasses(cls) -> set[Type]:
     return result
 
 
-class DiscriminatedFieldsMixin(BaseModel):
+class OpenHandsModel(BaseModel):
     """
     Tags a class where the which may be a discriminated union or contain fields
     which contain a discriminated union. The first time an instance is initialized,
@@ -94,7 +94,7 @@ class DiscriminatedFieldsMixin(BaseModel):
         return super().__init_subclass__(**kwargs)
 
 
-class DiscriminatedUnionMixin(DiscriminatedFieldsMixin, ABC):
+class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     """A Base class for members of tagged unions discriminated by the class name.
 
     This class provides automatic subclass registration and discriminated union

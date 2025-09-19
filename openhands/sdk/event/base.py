@@ -8,7 +8,7 @@ from rich.text import Text
 
 from openhands.sdk.event.types import EventID, SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 if TYPE_CHECKING:

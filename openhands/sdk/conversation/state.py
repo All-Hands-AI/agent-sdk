@@ -14,7 +14,7 @@ from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.discriminated_union import DiscriminatedFieldsMixin
+from openhands.sdk.utils.models import OpenHandsModel
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
-class ConversationState(DiscriminatedFieldsMixin):
+class ConversationState(OpenHandsModel):
     # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
 

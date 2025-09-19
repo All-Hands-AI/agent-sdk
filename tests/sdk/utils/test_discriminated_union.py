@@ -13,7 +13,7 @@ from pydantic import (
     model_validator,
 )
 
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
     kind_of,
 )

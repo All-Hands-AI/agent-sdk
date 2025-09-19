@@ -6,10 +6,10 @@ from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import ToolSpec
-from openhands.sdk.utils.discriminated_union import DiscriminatedFieldsMixin
+from openhands.sdk.utils.models import OpenHandsModel
 
 
-class AgentSpec(DiscriminatedFieldsMixin):
+class AgentSpec(OpenHandsModel):
     """Everything needed for creating an agent.
 
     This is used to create an agent in the server via one API request.
