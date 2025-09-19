@@ -5,6 +5,7 @@ description = "OpenHands SDK - Core functionality for building AI agents"
 
 requires-python = ">=3.12"
 dependencies = [
+    "claude-code-sdk>=0.0.23",
     "fastmcp>=2.11.3",
     "litellm>=1.75.9",
     "pydantic>=2.11.7",
