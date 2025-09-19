@@ -148,9 +148,12 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         if not _is_abstract(cls):
             return cls
 
-        subclasses = get_known_concrete_subclasses(cls)
-        if len(subclasses) < 2:
+        subclasses = list(get_known_concrete_subclasses(cls))
+        if not subclasses:
             return cls
+
+        if len(subclasses) == 1:
+            return subclasses[0]
 
         serializable_type = Annotated[
             Union[tuple(Annotated[t, Tag(t.__name__)] for t in subclasses)],

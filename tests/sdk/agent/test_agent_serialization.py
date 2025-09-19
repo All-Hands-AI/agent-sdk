@@ -4,6 +4,7 @@ import json
 from unittest.mock import Mock
 
 import mcp.types
+import pytest
 from pydantic import BaseModel
 
 from openhands.sdk.agent import Agent
@@ -12,6 +13,7 @@ from openhands.sdk.llm import LLM
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.tool import MCPTool
 from openhands.sdk.tool.tool import ToolBase
+from openhands.sdk.utils.models import OpenHandsModel
 
 
 def create_mock_mcp_tool(name: str) -> MCPTool:
@@ -149,6 +151,7 @@ def test_agent_model_validate_json_dict() -> None:
     deserialized_agent = AgentBase.model_validate(agent_dict)
 
     assert deserialized_agent.model_dump() == agent.model_dump()
+    assert isinstance(deserialized_agent, Agent)
 
 
 def test_agent_fallback_behavior_json() -> None:
@@ -157,10 +160,9 @@ def test_agent_fallback_behavior_json() -> None:
     agent_dict = {"llm": {"model": "test-model"}, "kind": "UnknownAgentType"}
     agent_json = json.dumps(agent_dict)
 
-    # Should fall back to base Agent type
-    deserialized_agent = AgentBase.model_validate_json(agent_json)
-    assert isinstance(deserialized_agent, Agent)
-    assert deserialized_agent.llm.model == "test-model"
+    # Should throw validation error
+    with pytest.raises(ValueError):
+        AgentBase.model_validate_json(agent_json)
 
 
 def test_agent_preserves_pydantic_parameters_json() -> None:
@@ -176,9 +178,34 @@ def test_agent_preserves_pydantic_parameters_json() -> None:
     deserialized_agent = AgentBase.model_validate_json(agent_json)
 
     assert deserialized_agent.model_dump() == agent.model_dump()
+    assert isinstance(deserialized_agent, Agent)
 
 
 def test_agent_type_annotation_works_json() -> None:
+    """Test that AgentType annotation works correctly with JSON."""
+    # Create agent
+    llm = LLM(model="test-model")
+    agent = Agent(llm=llm, tools={})
+
+    # Use AgentType annotation
+    class TestModel(OpenHandsModel):
+        agent: AgentBase
+
+    model = TestModel(agent=agent)
+
+    # Serialize to JSON
+    model_json = model.model_dump_json()
+
+    # Deserialize from JSON
+    deserialized_model = TestModel.model_validate_json(model_json)
+
+    # Should work correctly
+    assert isinstance(deserialized_model.agent, Agent)
+    assert deserialized_model.agent.model_dump() == agent.model_dump()
+    assert deserialized_model.model_dump() == model.model_dump()
+
+
+def test_agent_type_annotation_on_basemodel_works_json() -> None:
     """Test that AgentType annotation works correctly with JSON."""
     # Create agent
     llm = LLM(model="test-model")
@@ -199,3 +226,4 @@ def test_agent_type_annotation_works_json() -> None:
     # Should work correctly
     assert isinstance(deserialized_model.agent, Agent)
     assert deserialized_model.agent.model_dump() == agent.model_dump()
+    assert deserialized_model.model_dump() == model.model_dump()
