@@ -12,11 +12,11 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands.sdk.tool import (
-    ActionBase,
     ObservationBase,
     ToolAnnotations,
     ToolExecutor,
 )
+from openhands.sdk.tool.schema import Schema
 from openhands.sdk.tool.tool import ToolBase
 
 
@@ -70,23 +70,22 @@ class MCPToolExecutor(ToolExecutor):
         )
 
 
-_mcp_dynamic_action_type: dict[str, type[ActionBase]] = {}
+_mcp_dynamic_action_type: dict[str, type[Schema]] = {}
 
 
-def _create_mcp_action_type(action_type: mcp.types.Tool) -> type[ActionBase]:
+def _create_mcp_action_type(action_type: mcp.types.Tool) -> type[Schema]:
     """Dynamically create a Pydantic model for MCP tool action from schema.
 
-    We create from "ActionBase" instead of "MCPToolAction" because
-    MCPToolAction has a "data" field that wraps all dynamic fields,
-    while ActionBase directly defines the fields.
+    We create from "Schema" instead of:
+    - "MCPToolAction" because MCPToolAction has a "data" field that
+      wraps all dynamic fields, which we don't want here.
+    - "ActionBase" because ActionBase inherits from DiscriminatedUnionMixin,
+      which includes `kind` field that is not needed here.
 
     .from_mcp_schema simply defines a new Pydantic model class
     that inherits from the given base class.
-
     We may want to use the returned class to convert fields definitions
-    to openai tool schema. If we use MCPToolAction as base,
-    the generated schema will have an additional "data" field,
-    which is not what we want.
+    to openai tool schema.
     """
 
     # Tool.name should be unique, so we can cache the created types.
@@ -94,7 +93,7 @@ def _create_mcp_action_type(action_type: mcp.types.Tool) -> type[ActionBase]:
     if mcp_action_type:
         return mcp_action_type
 
-    mcp_action_type = ActionBase.from_mcp_schema(
+    mcp_action_type = Schema.from_mcp_schema(
         f"{to_camel_case(action_type.name)}Action", action_type.inputSchema
     )
     _mcp_dynamic_action_type[action_type.name] = mcp_action_type
@@ -191,11 +190,11 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
     def to_openai_tool(
         self,
         add_security_risk_prediction: bool = False,
-        action_type: type[ActionBase] | None = None,
+        action_type: type[Schema] | None = None,
     ) -> ChatCompletionToolParam:
         """Convert a Tool to an OpenAI tool.
 
-        For MCP, we dynamically create the action_type (type: ActionBase)
+        For MCP, we dynamically create the action_type (type: Schema)
         from the MCP tool input schema, and pass it to the parent method.
         It will use the .model_fields from this pydantic model to
         generate the OpenAI-compatible tool schema.

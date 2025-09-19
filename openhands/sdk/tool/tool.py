@@ -13,7 +13,7 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.security import risk
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import ActionBase, ObservationBase, Schema
 from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
     get_known_concrete_subclasses,
@@ -232,7 +232,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     def to_openai_tool(
         self,
         add_security_risk_prediction: bool = False,
-        action_type: type[ActionBase] | None = None,
+        action_type: type[Schema] | None = None,
     ) -> ChatCompletionToolParam:
         """Convert a Tool to an OpenAI tool.
 
