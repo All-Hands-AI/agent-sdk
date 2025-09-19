@@ -14,6 +14,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 from openhands.tools import BashTool
 
 
@@ -35,7 +36,7 @@ tools = [BashTool.create(working_dir=cwd)]
 # Agent and Conversation with confirmation mode enabled
 agent = Agent(llm=llm, tools=tools)
 conversation = Conversation(agent=agent)
-conversation.set_confirmation_mode(True)
+conversation.set_confirmation_policy(AlwaysConfirm())
 
 # Make ^C a clean exit instead of a stack trace
 signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
@@ -214,7 +215,7 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
     conversation.run()
 
 print("\n4) Disable confirmation mode and run a command…")
-conversation.set_confirmation_mode(False)
+conversation.set_confirmation_policy(NeverConfirm())
 conversation.send_message(
     message=Message(
         role="user",

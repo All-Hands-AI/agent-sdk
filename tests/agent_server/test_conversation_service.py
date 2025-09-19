@@ -14,6 +14,7 @@ from openhands.agent_server.models import (
 )
 from openhands.sdk import LLM
 from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.security.confirmation_policy import NeverConfirm
 
 
 @pytest.fixture
@@ -32,7 +33,7 @@ def sample_stored_conversation():
         tools=[],
         mcp_config={},
         agent_context=None,
-        confirmation_mode=False,
+        confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
         created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
@@ -110,7 +111,7 @@ class TestConversationServiceSearchConversations:
                 tools=[],
                 mcp_config={},
                 agent_context=None,
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
@@ -157,7 +158,7 @@ class TestConversationServiceSearchConversations:
                 tools=[],
                 mcp_config={},
                 agent_context=None,
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(
@@ -229,7 +230,7 @@ class TestConversationServiceSearchConversations:
                 tools=[],
                 mcp_config={},
                 agent_context=None,
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
@@ -294,7 +295,7 @@ class TestConversationServiceSearchConversations:
                 tools=[],
                 mcp_config={},
                 agent_context=None,
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=created_at,
@@ -392,7 +393,7 @@ class TestConversationServiceCountConversations:
                 tools=[],
                 mcp_config={},
                 agent_context=None,
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
