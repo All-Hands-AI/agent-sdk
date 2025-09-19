@@ -13,7 +13,7 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.security import risk
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import ActionBase, ObservationBase, Schema
 from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
     get_known_concrete_subclasses,
@@ -152,7 +152,21 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
 
-    def call(self, action: ActionT) -> ObservationBase:
+    def action_from_arguments(self, arguments: dict[str, Any]) -> ActionBase:
+        """Create an action from parsed arguments.
+
+        This method can be overridden by subclasses to provide custom logic
+        for creating actions from arguments (e.g., for MCP tools).
+
+        Args:
+            arguments: The parsed arguments from the tool call.
+
+        Returns:
+            The action instance created from the arguments.
+        """
+        return self.action_type.model_validate(arguments)
+
+    def __call__(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
 
         We always return some ObservationBase subclass, but not always the
@@ -181,23 +195,44 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
                 "Output must be dict or BaseModel when no output schema is defined"
             )
 
-    def to_mcp_tool(self) -> dict[str, Any]:
+    def to_mcp_tool(
+        self,
+        input_schema: dict[str, Any] | None = None,
+        output_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Convert a Tool to an MCP tool definition.
+
+        Allow overriding input/output schemas (usually by subclasses).
+
+        Args:
+            input_schema: Optionally override the input schema.
+            output_schema: Optionally override the output schema.
+        """
         out = {
             "name": self.name,
             "description": self.description,
-            "inputSchema": self.action_type.to_mcp_schema(),
+            "inputSchema": input_schema or self.action_type.to_mcp_schema(),
         }
         if self.annotations:
             out["annotations"] = self.annotations
         if self.meta is not None:
             out["_meta"] = self.meta
-        if self.observation_type:
-            out["outputSchema"] = self.observation_type.to_mcp_schema()
+
+        derived_output = (
+            output_schema
+            if output_schema is not None
+            else (
+                self.observation_type.to_mcp_schema() if self.observation_type else None
+            )
+        )
+        if derived_output is not None:
+            out["outputSchema"] = derived_output
         return out
 
     def to_openai_tool(
         self,
         add_security_risk_prediction: bool = False,
+        action_type: type[Schema] | None = None,
     ) -> ChatCompletionToolParam:
         """Convert a Tool to an OpenAI tool.
 
@@ -206,7 +241,11 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
                 to the action schema for LLM to predict. This is useful for
                 tools that may have safety risks, so the LLM can reason about
                 the risk level before calling the tool.
+            action_type: Optionally override the action_type to use for the schema.
+                This is useful for MCPTool to use a dynamically created action type
+                based on the tool's input schema.
         """
+        action_type = action_type or self.action_type
 
         action_type_with_risk = _create_action_type_with_risk(self.action_type)
 
@@ -221,7 +260,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
                 description=self.description,
                 parameters=action_type_with_risk.to_mcp_schema()
                 if add_security_risk_prediction
-                else self.action_type.to_mcp_schema(),
+                else action_type.to_mcp_schema(),
             ),
         )
 

@@ -47,9 +47,9 @@ async def _list_tools(client: MCPClient) -> list[ToolBase]:
 def create_mcp_tools(
     config: dict | MCPConfig,
     timeout: float = 30.0,
-) -> list[ToolBase]:
+) -> list[MCPTool]:
     """Create MCP tools from MCP configuration."""
-    tools: list[ToolBase] = []
+    tools: list[MCPTool] = []
     if isinstance(config, dict):
         config = MCPConfig.model_validate(config)
     client = MCPClient(config, log_handler=log_handler)
