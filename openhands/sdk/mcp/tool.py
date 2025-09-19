@@ -12,6 +12,7 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands.sdk.tool import (
+    ActionBase,
     ObservationBase,
     ToolAnnotations,
     ToolExecutor,
@@ -105,7 +106,7 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
 
-    def __call__(self, action: MCPToolAction) -> ObservationBase:
+    def __call__(self, action: ActionBase) -> ObservationBase:
         """Execute the tool action using the MCP client.
 
         We dynamically create a new MCPToolAction class with
@@ -117,6 +118,10 @@ class MCPTool(ToolBase[MCPToolAction, MCPToolObservation]):
         Returns:
             The observation result from executing the action.
         """
+        if not isinstance(action, MCPToolAction):
+            raise ValueError(
+                f"MCPTool can only execute MCPToolAction actions, got {type(action)}",
+            )
         assert self.name == self.mcp_tool.name
         mcp_action_type = _create_mcp_action_type(self.mcp_tool)
         mcp_action_type.model_validate(action.data)
