@@ -201,3 +201,5 @@ cache
 
 .conversations*
 workspace/
+openapi.json
+.client/
