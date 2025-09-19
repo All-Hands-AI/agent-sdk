@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Type, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -22,6 +22,7 @@ from openhands.sdk.utils.discriminated_union import (
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
 ObservationT = TypeVar("ObservationT", bound=ObservationBase)
+_action_types_with_risk: dict[Type, Type] = {}
 
 
 class ToolAnnotations(BaseModel):
@@ -206,11 +207,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
                 the risk level before calling the tool.
         """
 
-        class ActionTypeWithRisk(self.action_type):
-            security_risk: risk.SecurityRisk = Field(
-                default=risk.SecurityRisk.UNKNOWN,
-                description="The LLM's assessment of the safety risk of this action.",
-            )
+        action_type_with_risk = _create_action_type_with_risk(self.action_type)
 
         # We only add security_risk if the tool is not read-only
         add_security_risk_prediction = add_security_risk_prediction and (
@@ -221,7 +218,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
             function=ChatCompletionToolParamFunctionChunk(
                 name=self.name,
                 description=self.description,
-                parameters=ActionTypeWithRisk.to_mcp_schema()
+                parameters=action_type_with_risk.to_mcp_schema()
                 if add_security_risk_prediction
                 else self.action_type.to_mcp_schema(),
             ),
@@ -230,3 +227,18 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
 
 class Tool(ToolBase):
     pass
+
+
+def _create_action_type_with_risk(action_type: Type[ActionBase]) -> Type[ActionBase]:
+    action_type_with_risk = _action_types_with_risk.get(action_type)
+    if action_type_with_risk:
+        return action_type_with_risk
+
+    class ActionTypeWithRisk(action_type):
+        security_risk: risk.SecurityRisk = Field(
+            default=risk.SecurityRisk.UNKNOWN,
+            description="The LLM's assessment of the safety risk of this action.",
+        )
+
+    _action_types_with_risk[action_type] = ActionTypeWithRisk
+    return ActionTypeWithRisk
