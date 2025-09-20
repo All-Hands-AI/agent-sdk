@@ -10,7 +10,6 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Message,
     TextContent,
-    create_mcp_tools,
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -37,17 +36,9 @@ tool_specs = [
     ToolSpec(name="FileEditorTool", params={}),
 ]
 
-# Add MCP Tools
 mcp_config = {
     "mcpServers": {"Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"}}
 }
-mcp_tools = create_mcp_tools(mcp_config, timeout=30)
-logger.info(f"Added {len(mcp_tools)} MCP tools")
-for tool in mcp_tools:
-    logger.info(f"  - {tool.name}: {tool.description.split('\n')[0][:100]}...")
-
-
-# Agent
 agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
