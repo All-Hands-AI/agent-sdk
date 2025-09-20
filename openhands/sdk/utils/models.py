@@ -10,7 +10,6 @@ from pydantic import (
     Field,
     Tag,
     TypeAdapter,
-    model_validator,
 )
 
 
@@ -141,10 +140,6 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
             cls.__pydantic_validator__ = type_adapter.validator
             cls.__pydantic_serializer__ = type_adapter.serializer
             return
-        else:
-            kind_field = cls.model_fields["kind"]
-            kind_field.annotation = Literal[cls.__name__]  # type: ignore
-            kind_field.default = cls.__name__
 
         return super().model_rebuild(
             force=force,
@@ -202,16 +197,6 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
             resolved = super()
         result = resolved.model_validate(data, **kwargs)
         return result  # type: ignore
-
-    @model_validator(mode="before")
-    @classmethod
-    def _set_kind(cls, data):
-        """Ensure the kind field matches the subclass when validating."""
-        if not isinstance(data, dict):
-            return
-        data = dict(data)
-        data["kind"] = cls.__name__
-        return data
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
