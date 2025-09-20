@@ -273,7 +273,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         return Tool
 
 
-class Tool(ToolBase):
+class Tool(ToolBase[ActionT, ObservationT], Generic[ActionT, ObservationT]):
     pass
 
 

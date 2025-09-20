@@ -12,7 +12,7 @@ from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import MCPTool, create_mcp_tools
+from openhands.sdk.mcp import create_mcp_tools
 from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolSpec, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
@@ -132,7 +132,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     )
 
     # Runtime materialized tools; private and non-serializable
-    _tools: dict[str, Tool | MCPTool] = PrivateAttr(default_factory=dict)
+    _tools: dict[str, Tool] = PrivateAttr(default_factory=dict)
 
     def initialize(self):
         """Create an AgentBase instance from an AgentSpec."""
@@ -142,7 +142,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 "cannot re-initialize"
             )
 
-        tools: list[Tool | MCPTool] = []
+        tools: list[Tool] = []
         for tool_spec in self.tools:
             tools.extend(resolve_tool(tool_spec))
 
@@ -282,7 +282,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         return dumped
 
     @property
-    def tools_map(self) -> dict[str, Tool | MCPTool]:
+    def tools_map(self) -> dict[str, Tool]:
         """Get the initialized tools map.
         Raises:
             RuntimeError: If the agent has not been initialized.

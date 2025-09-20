@@ -2,8 +2,8 @@ import inspect
 from threading import RLock
 from typing import Any, Callable
 
-from openhands.sdk.tool import Tool, ToolBase
 from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.tool import Tool, ToolBase
 
 
 # A resolver produces Tool instances for given params.
