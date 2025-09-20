@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "openhands-agent-server",
+    "openhands-runtime-server",
     "openhands-sdk",
     "openhands-tools",
 ]
@@ -1750,6 +1751,27 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2" },
     { name = "uvicorn", specifier = ">=0.31.1" },
     { name = "websockets", specifier = ">=12" },
+]
+
+[[package]]
+name = "openhands-runtime-server"
+version = "0.1.0"
+source = { editable = "openhands/runtime_server" }
+dependencies = [
+    { name = "docker" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "docker", specifier = ">=7.1,<8" },
+    { name = "fastapi", specifier = ">=0.104" },
+    { name = "httpx", specifier = ">=0.27,<0.29" },
+    { name = "pydantic", specifier = ">=2" },
+    { name = "uvicorn", specifier = ">=0.31.1" },
 ]
 
 [[package]]
