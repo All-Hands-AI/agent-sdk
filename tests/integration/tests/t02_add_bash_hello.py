@@ -3,8 +3,9 @@
 import os
 
 from openhands.sdk import get_logger
-from openhands.sdk.tool.tool import ToolBase
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
 
 
@@ -20,13 +21,15 @@ class BashHelloTest(BaseIntegrationTest):
     INSTRUCTION = INSTRUCTION
 
     @property
-    def tools(self) -> list[ToolBase]:
+    def tools(self) -> list[ToolSpec]:
         """List of tools available to the agent."""
         if self.cwd is None:
             raise ValueError("CWD must be set before accessing tools")
+        register_tool("BashTool", BashTool)
+        register_tool("FileEditorTool", FileEditorTool)
         return [
-            BashTool.create(working_dir=self.cwd),
-            FileEditorTool.create(workspace_root=self.cwd),
+            ToolSpec(name="BashTool", params={"working_dir": self.cwd}),
+            ToolSpec(name="FileEditorTool", params={"workspace_root": self.cwd}),
         ]
 
     def setup(self) -> None:

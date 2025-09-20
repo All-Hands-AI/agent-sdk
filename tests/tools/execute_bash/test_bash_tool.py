@@ -2,8 +2,11 @@
 
 import tempfile
 
-from openhands.tools import BashTool
-from openhands.tools.execute_bash import ExecuteBashAction, ExecuteBashObservation
+from openhands.tools.execute_bash import (
+    BashTool,
+    ExecuteBashAction,
+    ExecuteBashObservation,
+)
 
 
 def test_bash_tool_initialization():

@@ -28,7 +28,14 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
+from openhands.sdk.tool import (
+    ActionBase,
+    ObservationBase,
+    Tool,
+    ToolExecutor,
+    ToolSpec,
+    register_tool,
+)
 
 
 class TestPauseFunctionalityMockAction(ActionBase):
@@ -85,15 +92,21 @@ class TestPauseFunctionality:
                     result=f"Executed: {action.command}"
                 )
 
-        test_tool = Tool(
-            name="test_tool",
-            description="A test tool",
-            action_type=TestPauseFunctionalityMockAction,
-            observation_type=TestPauseFunctionalityMockObservation,
-            executor=TestExecutor(),
-        )
+        def _make_tool() -> Tool:
+            return Tool(
+                name="test_tool",
+                description="A test tool",
+                action_type=TestPauseFunctionalityMockAction,
+                observation_type=TestPauseFunctionalityMockObservation,
+                executor=TestExecutor(),
+            )
 
-        self.agent = Agent(llm=self.llm, tools=[test_tool])
+        register_tool("test_tool", _make_tool)
+
+        self.agent = Agent(
+            llm=self.llm,
+            tools=[ToolSpec(name="test_tool")],
+        )
         self.conversation = Conversation(agent=self.agent)
 
     def test_pause_basic_functionality(self):
@@ -271,14 +284,21 @@ class TestPauseFunctionality:
     @patch("openhands.sdk.llm.llm.litellm_completion")
     def test_pause_while_running_continuous_actions(self, mock_completion):
         step_entered = threading.Event()
-        blocking_tool = Tool(
-            name="test_tool",
-            description="Blocking tool for pause test",
-            action_type=TestPauseFunctionalityMockAction,
-            observation_type=TestPauseFunctionalityMockObservation,
-            executor=BlockingExecutor(step_entered),
+
+        def _make_blocking_tool() -> Tool:
+            return Tool(
+                name="test_tool",
+                description="Blocking tool for pause test",
+                action_type=TestPauseFunctionalityMockAction,
+                observation_type=TestPauseFunctionalityMockObservation,
+                executor=BlockingExecutor(step_entered),
+            )
+
+        register_tool("test_tool", _make_blocking_tool)
+        agent = Agent(
+            llm=self.llm,
+            tools=[ToolSpec(name="test_tool")],
         )
-        agent = Agent(llm=self.llm, tools=[blocking_tool])
         conversation = Conversation(agent=agent)
 
         # Swap them in for this test only

@@ -11,7 +11,7 @@ from openhands.sdk.llm import LLM, Message, TextContent
 class TestSendMessageDummyAgent(AgentBase):
     def __init__(self):
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
-        super().__init__(llm=llm, tools={})
+        super().__init__(llm=llm, tools=[])
 
     def init_state(
         self, state: ConversationState, on_event: ConversationCallbackType

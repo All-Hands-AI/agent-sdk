@@ -19,7 +19,7 @@ from openhands.agent_server.config import WebhookSpec
 from openhands.agent_server.conversation_service import WebhookSubscriber
 from openhands.agent_server.event_service import EventService
 from openhands.agent_server.models import StoredConversation
-from openhands.sdk import LLM
+from openhands.sdk import LLM, Agent
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm.message import Message, TextContent
 
@@ -32,10 +32,13 @@ def mock_event_service():
         service = EventService(
             stored=StoredConversation(
                 id=uuid4(),
-                llm=LLM(
-                    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                    base_url="https://llm-proxy.staging.all-hands.dev",
-                    api_key=SecretStr("fake-secret"),
+                agent=Agent(
+                    llm=LLM(
+                        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                        base_url="https://llm-proxy.staging.all-hands.dev",
+                        api_key=SecretStr("fake-secret"),
+                    ),
+                    tools=[],
                 ),
             ),
             file_store_path=temp_path / "file_store",

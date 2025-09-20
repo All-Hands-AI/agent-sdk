@@ -13,9 +13,8 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)
@@ -40,7 +39,8 @@ llm = llm_registry.get("main_agent")
 
 # Tools
 cwd = os.getcwd()
-tools = [BashTool.create(working_dir=cwd)]
+register_tool("BashTool", BashTool)
+tools = [ToolSpec(name="BashTool", params={"working_dir": cwd})]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -55,12 +55,7 @@ def conversation_callback(event: EventBase):
 
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Please echo 'Hello!'")],
-    )
-)
+conversation.send_message("Please echo 'Hello!'")
 conversation.run()
 
 print("=" * 100)

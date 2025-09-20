@@ -3,35 +3,30 @@
 import pytest
 
 
-def test_valid_import_from_tools():
-    """Test that valid imports from openhands.tools work correctly."""
-    from openhands.tools import BashTool, FileEditorTool
+def test_submodule_imports_work():
+    """Tools should be imported via explicit submodules."""
+    from openhands.tools.browser_use import BrowserToolSet
+    from openhands.tools.execute_bash import BashTool
+    from openhands.tools.str_replace_editor import FileEditorTool
+    from openhands.tools.task_tracker import TaskTrackerTool
 
-    # These should be importable without error
     assert BashTool is not None
     assert FileEditorTool is not None
+    assert TaskTrackerTool is not None
+    assert BrowserToolSet is not None
 
 
-def test_invalid_import_raises_attribute_error():
-    """Test that importing a non-existent attribute raises AttributeError."""
+def test_tools_module_has_no_direct_exports():
+    """Accessing tools via openhands.tools should fail."""
     import openhands.tools
 
-    with pytest.raises(
-        AttributeError,
-        match=r"module 'openhands\.tools' has no attribute 'NonExistentTool'",
-    ):
-        _ = openhands.tools.NonExistentTool
+    assert not hasattr(openhands.tools, "BashTool")
+    with pytest.raises(AttributeError):
+        _ = openhands.tools.BashTool  # type: ignore[attr-defined]
 
 
-def test_lazy_import_caching():
-    """Test that lazy imports are cached after first access."""
-    import openhands.tools
+def test_from_import_raises_import_error():
+    """`from openhands.tools import X` should fail fast."""
 
-    # First access should trigger import and caching
-    bash_tool_1 = openhands.tools.BashTool
-
-    # Second access should use cached value
-    bash_tool_2 = openhands.tools.BashTool
-
-    # Should be the same object (cached)
-    assert bash_tool_1 is bash_tool_2
+    with pytest.raises(ImportError):
+        from openhand.tools import BashTool  # type: ignore[import] # noqa: F401

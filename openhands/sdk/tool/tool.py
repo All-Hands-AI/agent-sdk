@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, Type, TypeVar
+from typing import Any, Generic, Self, Type, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -102,7 +102,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "ToolBase | list[ToolBase]":
+    def create(cls, *args, **kwargs) -> "Self | list[Self]":
         """Create a Tool instance OR a list of them. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
@@ -148,7 +148,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         )
         return v
 
-    def set_executor(self, executor: ToolExecutor) -> "ToolBase":
+    def set_executor(self, executor: ToolExecutor) -> Self:
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
 
@@ -273,7 +273,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         return Tool
 
 
-class Tool(ToolBase):
+class Tool(ToolBase[ActionT, ObservationT], Generic[ActionT, ObservationT]):
     pass
 
 

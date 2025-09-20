@@ -81,7 +81,7 @@ browser_navigate_tool = Tool(
 )
 
 
-class BrowserNavigateTool(ToolBase[BrowserNavigateAction, BrowserObservation]):
+class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
     """Tool for browser navigation."""
 
     @classmethod
@@ -138,7 +138,7 @@ browser_click_tool = Tool(
 )
 
 
-class BrowserClickTool(ToolBase[BrowserClickAction, BrowserObservation]):
+class BrowserClickTool(Tool[BrowserClickAction, BrowserObservation]):
     """Tool for clicking browser elements."""
 
     @classmethod
@@ -192,7 +192,7 @@ browser_type_tool = Tool(
 )
 
 
-class BrowserTypeTool(ToolBase[BrowserTypeAction, BrowserObservation]):
+class BrowserTypeTool(Tool[BrowserTypeAction, BrowserObservation]):
     """Tool for typing text into browser elements."""
 
     @classmethod
@@ -243,7 +243,7 @@ browser_get_state_tool = Tool(
 )
 
 
-class BrowserGetStateTool(ToolBase[BrowserGetStateAction, BrowserObservation]):
+class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
     """Tool for getting browser state."""
 
     @classmethod
@@ -295,7 +295,7 @@ browser_get_content_tool = Tool(
 )
 
 
-class BrowserGetContentTool(ToolBase[BrowserGetContentAction, BrowserObservation]):
+class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
     """Tool for getting page content in markdown."""
 
     @classmethod
@@ -346,7 +346,7 @@ browser_scroll_tool = Tool(
 )
 
 
-class BrowserScrollTool(ToolBase[BrowserScrollAction, BrowserObservation]):
+class BrowserScrollTool(Tool[BrowserScrollAction, BrowserObservation]):
     """Tool for scrolling the browser page."""
 
     @classmethod
@@ -391,7 +391,7 @@ browser_go_back_tool = Tool(
 )
 
 
-class BrowserGoBackTool(ToolBase[BrowserGoBackAction, BrowserObservation]):
+class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
     """Tool for going back in browser history."""
 
     @classmethod
@@ -436,7 +436,7 @@ browser_list_tabs_tool = Tool(
 )
 
 
-class BrowserListTabsTool(ToolBase[BrowserListTabsAction, BrowserObservation]):
+class BrowserListTabsTool(Tool[BrowserListTabsAction, BrowserObservation]):
     """Tool for listing browser tabs."""
 
     @classmethod
@@ -486,7 +486,7 @@ browser_switch_tab_tool = Tool(
 )
 
 
-class BrowserSwitchTabTool(ToolBase[BrowserSwitchTabAction, BrowserObservation]):
+class BrowserSwitchTabTool(Tool[BrowserSwitchTabAction, BrowserObservation]):
     """Tool for switching browser tabs."""
 
     @classmethod
@@ -535,7 +535,7 @@ browser_close_tab_tool = Tool(
 )
 
 
-class BrowserCloseTabTool(ToolBase[BrowserCloseTabAction, BrowserObservation]):
+class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
     """Tool for closing browser tabs."""
 
     @classmethod

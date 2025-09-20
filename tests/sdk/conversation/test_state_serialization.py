@@ -14,7 +14,13 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
+
+
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
 
 
 def test_conversation_state_basic_serialization():
@@ -264,8 +270,8 @@ def test_conversation_with_different_agent_tools_raises_error():
 
         # Create and save conversation with original agent
         original_tools = [
-            BashTool.create(working_dir=temp_dir),
-            FileEditorTool.create(),
+            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         original_agent = Agent(llm=llm, tools=original_tools)
@@ -286,7 +292,7 @@ def test_conversation_with_different_agent_tools_raises_error():
 
         # Try to create new conversation with different tools (only bash tool)
         different_tools = [
-            BashTool.create(working_dir=temp_dir)
+            ToolSpec(name="BashTool", params={"working_dir": temp_dir})
         ]  # Missing FileEditorTool
         llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         different_agent = Agent(llm=llm2, tools=different_tools)
@@ -309,7 +315,10 @@ def test_conversation_with_same_agent_succeeds():
         file_store = LocalFileStore(temp_dir)
 
         # Create and save conversation
-        tools = [BashTool.create(working_dir=temp_dir), FileEditorTool.create()]
+        tools = [
+            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="FileEditorTool"),
+        ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         original_agent = Agent(llm=llm, tools=tools)
         conversation = Conversation(
@@ -328,7 +337,10 @@ def test_conversation_with_same_agent_succeeds():
         del conversation
 
         # Create new conversation with same agent configuration
-        same_tools = [BashTool.create(working_dir=temp_dir), FileEditorTool.create()]
+        same_tools = [
+            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="FileEditorTool"),
+        ]
         llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         same_agent = Agent(llm=llm2, tools=same_tools)
 
@@ -357,7 +369,10 @@ def test_conversation_persistence_lifecycle(mock_completion):
 
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
-        tools = [BashTool.create(working_dir=temp_dir), FileEditorTool.create()]
+        tools = [
+            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="FileEditorTool"),
+        ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=tools)
 
@@ -521,7 +536,7 @@ def test_agent_resolve_diff_from_deserialized():
     """Test agent's resolve_diff_from_deserialized method."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create original agent
-        tools = [BashTool.create(working_dir=temp_dir)]
+        tools = [ToolSpec(name="BashTool", params={"working_dir": temp_dir})]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         original_agent = Agent(llm=llm, tools=tools)
 

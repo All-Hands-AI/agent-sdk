@@ -8,12 +8,11 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
-    create_mcp_tools,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -28,24 +27,17 @@ llm = LLM(
 )
 
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+tool_specs = [
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool"),
 ]
 
-# Add MCP Tools
 mcp_config = {
     "mcpServers": {"Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"}}
 }
-mcp_tools = create_mcp_tools(mcp_config, timeout=30)
-tools.extend(mcp_tools)
-logger.info(f"Added {len(mcp_tools)} MCP tools")
-for tool in mcp_tools:
-    logger.info(f"  - {tool.name}: {tool.description.split('\n')[0][:100]}...")
-
-
-# Agent
-agent = Agent(llm=llm, tools=tools)
+agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
 
@@ -61,16 +53,8 @@ conversation = Conversation(
     callbacks=[conversation_callback],
 )
 
-# Example message that can use MCP tools if available
-message = Message(
-    role="user",
-    content=[
-        TextContent(text="Can you search about OpenHands V1 in my notion workspace.")
-    ],
-)
-
 logger.info("Starting conversation with MCP integration...")
-response = conversation.send_message(message)
+conversation.send_message("Can you search about OpenHands V1 in my notion workspace?")
 conversation.run()
 
 print("=" * 100)

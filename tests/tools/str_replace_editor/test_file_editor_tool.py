@@ -3,8 +3,8 @@
 import os
 import tempfile
 
-from openhands.tools import FileEditorTool
 from openhands.tools.str_replace_editor import (
+    FileEditorTool,
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
 )

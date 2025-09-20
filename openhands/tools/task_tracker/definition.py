@@ -13,7 +13,6 @@ from openhands.sdk.tool import (
     ObservationBase,
     Tool,
     ToolAnnotations,
-    ToolBase,
     ToolExecutor,
 )
 
@@ -394,7 +393,7 @@ task_tracker_tool = Tool(
 )
 
 
-class TaskTrackerTool(ToolBase[TaskTrackerAction, TaskTrackerObservation]):
+class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
     """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
 
     @classmethod

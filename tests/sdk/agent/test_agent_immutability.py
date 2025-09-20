@@ -16,7 +16,7 @@ class TestAgentImmutability:
 
     def test_agent_is_frozen(self):
         """Test that Agent instances are frozen (immutable)."""
-        agent = Agent(llm=self.llm, tools={})
+        agent = Agent(llm=self.llm, tools=[])
 
         # Test that we cannot modify core fields after creation
         with pytest.raises(ValidationError, match="Instance is frozen"):
@@ -81,7 +81,7 @@ class TestAgentImmutability:
         # Test inherited properties from AgentBase
         assert agent.llm == self.llm
 
-        assert isinstance(agent.tools, dict)
+        assert isinstance(agent.tools, list)
         assert agent.agent_context is None
         assert agent.name == "Agent"
         assert isinstance(agent.prompt_dir, str)

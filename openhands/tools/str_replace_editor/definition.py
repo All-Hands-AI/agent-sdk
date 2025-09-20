@@ -8,7 +8,6 @@ from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
-from openhands.sdk.tool.tool import ToolBase
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
@@ -194,7 +193,7 @@ str_replace_editor_tool = Tool(
 )
 
 
-class FileEditorTool(ToolBase[StrReplaceEditorAction, StrReplaceEditorObservation]):
+class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
