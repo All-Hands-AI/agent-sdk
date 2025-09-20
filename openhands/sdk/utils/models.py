@@ -201,13 +201,13 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
-        # If concrete, stamp kind Literal and collision check (your code)
+        # If concrete, stamp kind Literal and collision check
         if not _is_abstract(cls):
             # 1) Stamp discriminator
             cls.kind = cls.__name__
             cls.__annotations__["kind"] = Literal[cls.__name__]
 
-            # 2) Collision check (your logic, ideally with deterministic ordering)
+            # 2) Collision check
             mro = cls.mro()
             union_class = mro[mro.index(DiscriminatedUnionMixin) - 1]
             concretes = get_known_concrete_subclasses(union_class)  # sorted list
