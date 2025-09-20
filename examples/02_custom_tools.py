@@ -13,7 +13,6 @@ from openhands.sdk import (
     EventBase,
     ImageContent,
     LLMConvertibleEvent,
-    Message,
     TextContent,
     Tool,
     get_logger,
@@ -169,27 +168,13 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Hello! Can you use the grep tool to find all files "
-                    "containing the word 'class' in this project, then create a summary file listing them? "  # noqa: E501
-                    "Use the pattern 'class' to search and include only Python files with '*.py'."  # noqa: E501
-                )
-            )
-        ],
-    )
+    "Hello! Can you use the grep tool to find all files "
+    "containing the word 'class' in this project, then create a summary file listing them? "  # noqa: E501
+    "Use the pattern 'class' to search and include only Python files with '*.py'."  # noqa: E501
 )
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 print("=" * 100)

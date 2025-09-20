@@ -11,7 +11,6 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Message,
     TextContent,
-    create_mcp_tools,
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -40,11 +39,6 @@ tool_specs = [
 
 # Add MCP Tools
 mcp_config = {"mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}}}
-mcp_tools = create_mcp_tools(mcp_config, timeout=30)
-logger.info(f"Added {len(mcp_tools)} MCP tools")
-for tool in mcp_tools:
-    logger.info(f"  - {tool.name}: {tool.description}")
-
 
 # Agent
 agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)

@@ -9,8 +9,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.context import (
@@ -79,22 +77,12 @@ conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 print("=" * 100)
 print("Checking if the repo microagent is activated.")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Hey are you a grumpy cat?")],
-    )
-)
+conversation.send_message("Hey are you a grumpy cat?")
 conversation.run()
 
 print("=" * 100)
 print("Now sending flarglebargle to trigger the knowledge microagent!")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="flarglebargle!")],
-    )
-)
+conversation.send_message("flarglebargle!")
 conversation.run()
 
 print("=" * 100)
