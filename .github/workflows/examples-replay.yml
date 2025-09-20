@@ -1,0 +1,85 @@
+---
+name: examples-replay
+
+on:
+    pull_request:
+        branches: ['**']
+
+permissions:
+    contents: read
+    actions: read
+
+jobs:
+    replay:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with: {fetch-depth: 0}
+
+            - name: Setup uv
+              uses: astral-sh/setup-uv@v6
+
+            - name: Install deps (repo)
+              run: uv sync --frozen --group dev
+
+            - name: Install LiteLLM Proxy
+              run: uv tool install "litellm[proxy,caching]>=1.76.0"
+
+            - name: Download cache artifact
+              uses: dawidd6/action-download-artifact@v8
+              with:
+                  workflow: examples-record.yml
+                  branch: main
+                  name: litellm-cache
+                  path: .litellm_cache
+                  if_no_artifact_found: fail
+
+            - name: Write LiteLLM config (cache-only)
+              run: |
+                  cat > litellm-config.yaml <<'YAML'
+                  litellm_settings:
+                    cache: true
+                    cache_params:
+                      type: disk
+                      disk_cache_dir: ./.litellm_cache
+                      ttl: 2592000 # 30 days
+                  model_list:
+                    - model_name: anthropic/claude-sonnet-4-20250514
+                      litellm_params:
+                        model: anthropic/claude-sonnet-4-20250514
+                  general_settings:
+                    master_key: sk-dummy
+                    cache_responses: true
+                  YAML
+
+            - name: Start LiteLLM Proxy (cache-only)
+              env:
+          # Deliberately no provider keys: forces cache-only behavior
+                  LITELLM_LOG: DEBUG
+              run: |
+                  nohup litellm --port 4000 --config litellm-config.yaml > proxy.log 2>&1 &
+                  echo $! > proxy.pid
+                  sleep 3
+                  curl -sSf http://127.0.0.1:4000/health || (echo "Proxy failed to start" && tail -n +1 proxy.log && exit 1)
+
+            - name: Run examples from cache
+              env:
+                  LITELLM_API_KEY: dummy
+                  LITELLM_BASE_URL: http://127.0.0.1:4000
+                  LITELLM_MODEL: litellm_proxy/anthropic/claude-sonnet-4-20250514
+              run: |
+                  set -e
+                  for f in examples/*.py; do
+                    echo "Running $f";
+                    uv run python "$f" || { echo "Example failed (likely cache miss): $f"; exit 1; };
+                  done
+
+            - name: Stop proxy
+              if: always()
+              run: |
+                  if [ -f proxy.pid ]; then kill $(cat proxy.pid) || true; fi
+                  sleep 1
+                  rm -f proxy.pid
+                  echo "Proxy logs:" && tail -n 200 proxy.log || true

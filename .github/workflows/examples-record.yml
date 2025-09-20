@@ -1,0 +1,95 @@
+---
+name: examples-record
+
+on:
+    workflow_dispatch:
+        inputs:
+            model:
+                description: Model to use via LiteLLM Proxy
+                required: false
+                default: anthropic/claude-sonnet-4-20250514
+            ttl_days:
+                description: Disk cache TTL in days
+                required: false
+                default: '14'
+    schedule:
+        - cron: 0 6 * * * # daily at 06:00 UTC
+
+permissions:
+    contents: read
+
+jobs:
+    record:
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with: {fetch-depth: 0}
+
+            - name: Setup uv
+              uses: astral-sh/setup-uv@v6
+
+            - name: Install deps (repo)
+              run: uv sync --frozen --group dev
+
+            - name: Install LiteLLM Proxy
+              run: uv tool install "litellm[proxy,caching]>=1.76.0"
+
+            - name: Prepare disk cache directory
+              run: |
+                  rm -rf .litellm_cache
+                  mkdir -p .litellm_cache
+
+            - name: Write LiteLLM config
+              shell: bash
+              run: |
+                  TTL_SEC=$(( 60 * 60 * 24 * ${{ inputs.ttl_days || 14 }} ))
+                  cat > litellm-config.yaml <<'YAML'
+                  litellm_settings:
+                    cache: true
+                    cache_params:
+                      type: disk
+                      disk_cache_dir: ./.litellm_cache
+                      ttl: TTL_PLACEHOLDER
+                  model_list:
+                    - model_name: anthropic/claude-sonnet-4-20250514
+                      litellm_params:
+                        model: anthropic/claude-sonnet-4-20250514
+                  YAML
+                  sed -i "s/TTL_PLACEHOLDER/$TTL_SEC/g" litellm-config.yaml
+
+            - name: Start LiteLLM Proxy (background)
+              env:
+                  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+              run: |
+                  nohup litellm --port 4000 --config litellm-config.yaml > proxy.log 2>&1 &
+                  echo $! > proxy.pid
+                  sleep 3
+                  curl -sSf http://127.0.0.1:4000/health || (echo "Proxy failed to start" && tail -n +1 proxy.log && exit 1)
+
+            - name: Run examples against proxy
+              env:
+                  LITELLM_API_KEY: dummy # not used when proxy has provider keys; required by examples
+                  LITELLM_BASE_URL: http://127.0.0.1:4000
+              run: |
+                  set -e
+                  for f in examples/*.py; do
+                    echo "Running $f";
+                    uv run python "$f" || { echo "Example failed: $f"; exit 1; };
+                  done
+
+            - name: Stop proxy
+              if: always()
+              run: |
+                  if [ -f proxy.pid ]; then kill $(cat proxy.pid) || true; fi
+                  sleep 1
+                  rm -f proxy.pid
+                  echo "Proxy logs:" && tail -n 200 proxy.log || true
+
+            - name: Upload cache artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: litellm-cache
+                  path: .litellm_cache
+                  if-no-files-found: error
