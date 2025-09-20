@@ -281,7 +281,12 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
 
-    def get_tools(self) -> dict[str, Tool | MCPTool]:
+    @property
+    def tools_map(self) -> dict[str, Tool | MCPTool]:
+        """Get the initialized tools map.
+        Raises:
+            RuntimeError: If the agent has not been initialized.
+        """
         if not self._tools:
             raise RuntimeError("Agent not initialized; call initialize() before use")
         return self._tools

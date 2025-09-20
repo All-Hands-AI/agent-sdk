@@ -35,16 +35,11 @@ from openhands.sdk.tool import (
     ActionBase,
     FinishTool,
     ObservationBase,
-    ToolBase,
 )
 from openhands.sdk.tool.builtins import FinishAction
 
 
 logger = get_logger(__name__)
-
-
-class _RuntimeTools(dict[str, "ToolBase"]):
-    pass
 
 
 class Agent(AgentBase):
@@ -57,7 +52,6 @@ class Agent(AgentBase):
         Configure bash tool with reference to secrets manager.
         Updated secrets automatically propagate.
         """
-        tools_map = self.get_tools()
 
         secrets_manager = state.secrets_manager
 
@@ -74,7 +68,7 @@ class Agent(AgentBase):
                 return ""
 
         execute_bash_exists = False
-        for tool in tools_map.values():
+        for tool in self.tools_map.values():
             if (
                 tool.name == "execute_bash"
                 and hasattr(tool, "executor")
@@ -111,7 +105,7 @@ class Agent(AgentBase):
                     t.to_openai_tool(
                         add_security_risk_prediction=self._add_security_risk_prediction
                     )
-                    for t in self.get_tools().values()
+                    for t in self.tools_map.values()
                 ],
             )
             on_event(event)
@@ -174,7 +168,7 @@ class Agent(AgentBase):
             tool.to_openai_tool(
                 add_security_risk_prediction=self._add_security_risk_prediction
             )
-            for tool in self.get_tools().values()
+            for tool in self.tools_map.values()
         ]
         response = self.llm.completion(
             messages=_messages,
@@ -311,10 +305,10 @@ class Agent(AgentBase):
         assert tool_call.type == "function"
         tool_name = tool_call.function.name
         assert tool_name is not None, "Tool call must have a name"
-        tool = self.get_tools().get(tool_name, None)
+        tool = self.tools_map.get(tool_name, None)
         # Handle non-existing tools
         if tool is None:
-            available = list(self.get_tools().keys())
+            available = list(self.tools_map.keys())
             err = f"Tool '{tool_name}' not found. Available: {available}"
             logger.error(err)
             event = AgentErrorEvent(
@@ -386,7 +380,7 @@ class Agent(AgentBase):
         It will call the tool's executor and update the state & call callback fn
         with the observation.
         """
-        tool = self.get_tools().get(action_event.tool_name, None)
+        tool = self.tools_map.get(action_event.tool_name, None)
         if tool is None:
             raise RuntimeError(
                 f"Tool '{action_event.tool_name}' not found. This should not happen "
