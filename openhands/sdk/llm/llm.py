@@ -3,7 +3,7 @@ import json
 import os
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, get_args, get_origin
+from typing import Any, Callable, Literal, Sequence, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -331,8 +331,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[Message],
-        tools: list[ChatCompletionToolParam] | None = None,
+        tools: Sequence[Any] | None = None,
         return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> ModelResponse:
         """Single entry point for LLM completion.
@@ -349,21 +350,33 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
         original_fncall_msgs = copy.deepcopy(formatted_messages)
-        use_mock_tools = self.should_mock_tool_calls(tools)
+
+        # Convert Tool objects to ChatCompletionToolParam once here
+        cc_tools: list[ChatCompletionToolParam] = []
+        if tools:
+            # Local import avoids top-level circulars in some environments
+
+            cc_tools = [
+                t.to_openai_tool(
+                    add_security_risk_prediction=add_security_risk_prediction
+                )
+                for t in tools
+            ]
+
+        use_mock_tools = self.should_mock_tool_calls(cc_tools)
         if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
             formatted_messages, kwargs = self.pre_request_prompt_mock(
-                formatted_messages, tools or [], kwargs
+                formatted_messages, cc_tools or [], kwargs
             )
 
         # 3) normalize provider params
-        kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        has_tools_flag = (
-            bool(tools) and use_native_fc
-        )  # only keep tools when native FC is active
+        # Only pass tools when native FC is active
+        kwargs["tools"] = cc_tools if (bool(cc_tools) and use_native_fc) else None
+        has_tools_flag = bool(cc_tools) and use_native_fc
         call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
@@ -398,7 +411,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
                 resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=formatted_messages, tools=tools or []
+                    resp, nonfncall_msgs=formatted_messages, tools=cc_tools
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
