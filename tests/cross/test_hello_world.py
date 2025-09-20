@@ -170,7 +170,7 @@ class TestHelloWorld:
         register_tool("FileEditorTool", FileEditorTool)
         tool_specs = [
             ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
-            ToolSpec(name="FileEditorTool", params={}),
+            ToolSpec(name="FileEditorTool"),
         ]
 
         # Agent setup
@@ -285,7 +285,7 @@ class TestHelloWorld:
         register_tool("FileEditorTool", FileEditorTool)
         tool_specs = [
             ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
-            ToolSpec(name="FileEditorTool", params={}),
+            ToolSpec(name="FileEditorTool"),
         ]
 
         # Create agent and conversation

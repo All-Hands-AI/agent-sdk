@@ -101,7 +101,7 @@ class TestConfirmationMode:
 
         self.agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool", params={})],
+            tools=[ToolSpec(name="test_tool")],
         )
         self.conversation = Conversation(agent=self.agent)
 

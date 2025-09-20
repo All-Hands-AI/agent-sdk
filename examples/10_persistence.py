@@ -34,7 +34,7 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tool_specs = [
     ToolSpec(name="BashTool", params={"working_dir": cwd}),
-    ToolSpec(name="FileEditorTool", params={}),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 # Add MCP Tools

@@ -150,7 +150,7 @@ register_tool("FileEditorTool", FileEditorTool)
 register_tool("BashAndGrepToolSet", _make_bash_and_grep_tools)
 
 tools = [
-    ToolSpec(name="FileEditorTool", params={}),
+    ToolSpec(name="FileEditorTool"),
     ToolSpec(name="BashAndGrepToolSet", params={"working_dir": cwd}),
 ]
 

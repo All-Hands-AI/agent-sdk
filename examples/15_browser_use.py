@@ -34,8 +34,8 @@ register_tool("FileEditorTool", FileEditorTool)
 register_tool("BrowserToolSet", BrowserToolSet)
 tools = [
     ToolSpec(name="BashTool", params={"working_dir": cwd}),
-    ToolSpec(name="FileEditorTool", params={}),
-    ToolSpec(name="BrowserToolSet", params={}),
+    ToolSpec(name="FileEditorTool"),
+    ToolSpec(name="BrowserToolSet"),
 ]
 
 # If you need fine-grained browser control, you can manually register individual browser

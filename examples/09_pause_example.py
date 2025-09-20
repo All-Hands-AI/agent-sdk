@@ -29,7 +29,7 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
     ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
-    ToolSpec(name="FileEditorTool", params={}),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 # Agent

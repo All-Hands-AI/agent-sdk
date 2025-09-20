@@ -93,7 +93,7 @@ def test_tool_spec_different_tool_types():
     assert bash_spec.params["working_dir"] == "/workspace"
 
     # FileEditorTool
-    editor_spec = ToolSpec(name="FileEditorTool", params={})
+    editor_spec = ToolSpec(name="FileEditorTool")
     assert editor_spec.name == "FileEditorTool"
     assert editor_spec.params == {}
 

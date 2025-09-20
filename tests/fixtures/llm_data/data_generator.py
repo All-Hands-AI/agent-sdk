@@ -64,7 +64,7 @@ def create_tools(working_dir: Optional[str] = None) -> List[ToolSpec]:
     register_tool("FileEditorTool", FileEditorTool)
     return [
         ToolSpec(name="BashTool", params={"working_dir": cwd}),
-        ToolSpec(name="FileEditorTool", params={}),
+        ToolSpec(name="FileEditorTool"),
     ]
 
 

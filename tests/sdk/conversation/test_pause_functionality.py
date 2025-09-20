@@ -105,7 +105,7 @@ class TestPauseFunctionality:
 
         self.agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool", params={})],
+            tools=[ToolSpec(name="test_tool")],
         )
         self.conversation = Conversation(agent=self.agent)
 
@@ -297,7 +297,7 @@ class TestPauseFunctionality:
         register_tool("test_tool", _make_blocking_tool)
         agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool", params={})],
+            tools=[ToolSpec(name="test_tool")],
         )
         conversation = Conversation(agent=agent)
 

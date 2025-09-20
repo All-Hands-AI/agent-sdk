@@ -24,7 +24,7 @@ def get_default_tools(
 
     tool_specs = [
         ToolSpec(name="BashTool", params={"working_dir": working_dir}),
-        ToolSpec(name="FileEditorTool", params={}),
+        ToolSpec(name="FileEditorTool"),
         ToolSpec(
             name="TaskTrackerTool", params={"save_dir": f"{working_dir}/.openhands"}
         ),
@@ -33,7 +33,7 @@ def get_default_tools(
         from openhands.tools.browser_use import BrowserToolSet
 
         register_tool("BrowserToolSet", BrowserToolSet)
-        tool_specs.append(ToolSpec(name="BrowserToolSet", params={}))
+        tool_specs.append(ToolSpec(name="BrowserToolSet"))
     return tool_specs
 
 

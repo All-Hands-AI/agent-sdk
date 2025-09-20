@@ -271,7 +271,7 @@ def test_conversation_with_different_agent_tools_raises_error():
         # Create and save conversation with original agent
         original_tools = [
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
-            ToolSpec(name="FileEditorTool", params={}),
+            ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         original_agent = Agent(llm=llm, tools=original_tools)
@@ -317,7 +317,7 @@ def test_conversation_with_same_agent_succeeds():
         # Create and save conversation
         tools = [
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
-            ToolSpec(name="FileEditorTool", params={}),
+            ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         original_agent = Agent(llm=llm, tools=tools)
@@ -339,7 +339,7 @@ def test_conversation_with_same_agent_succeeds():
         # Create new conversation with same agent configuration
         same_tools = [
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
-            ToolSpec(name="FileEditorTool", params={}),
+            ToolSpec(name="FileEditorTool"),
         ]
         llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         same_agent = Agent(llm=llm2, tools=same_tools)
@@ -371,7 +371,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
         file_store = LocalFileStore(temp_dir)
         tools = [
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
-            ToolSpec(name="FileEditorTool", params={}),
+            ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=tools)
