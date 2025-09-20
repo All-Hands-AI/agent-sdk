@@ -28,10 +28,10 @@ class Telemetry(BaseModel):
         default=None, description="Directory to write logs if enabled"
     )
     input_cost_per_token: float | None = Field(
-        default=None, description="Custom Input cost per token (USD)"
+        default=None, ge=0, description="Custom Input cost per token (USD)"
     )
     output_cost_per_token: float | None = Field(
-        default=None, description="Custom Output cost per token (USD)"
+        default=None, ge=0, description="Custom Output cost per token (USD)"
     )
 
     metrics: Metrics = Field(..., description="Metrics collector instance")
