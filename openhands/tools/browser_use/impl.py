@@ -191,13 +191,42 @@ class BrowserToolExecutor(ToolExecutor):
     def close(self):
         """Close the browser executor and cleanup resources."""
         try:
-            # Run cleanup in the async executor with a shorter timeout
-            self._async_executor.run_async(self.cleanup, timeout=30.0)
+            if self._initialized:
+                # Mark as not initialized to prevent further operations
+                self._initialized = False
+
+                # Perform synchronous cleanup that doesn't create unawaited coroutines
+                self._sync_cleanup()
         except Exception as e:
             logging.warning(f"Error during browser cleanup: {e}")
         finally:
             # Always close the async executor
             self._async_executor.close()
+
+    def _sync_cleanup(self):
+        """Perform synchronous cleanup without creating unawaited coroutines."""
+        try:
+            # Try to perform async cleanup only if it's safe to do so
+            # Check if the async executor is in a good state
+            if (
+                hasattr(self._async_executor, "_loop")
+                and self._async_executor._loop is not None
+                and not self._async_executor._loop.is_closed()
+                and self._async_executor._loop.is_running()
+            ):
+                # Attempt the async cleanup with a short timeout
+                try:
+                    self._async_executor.run_async(self.cleanup, timeout=10.0)
+                    logging.debug("Browser async cleanup completed successfully")
+                except Exception as cleanup_error:
+                    # If async cleanup fails, log it but don't raise
+                    # This prevents unawaited coroutine warnings
+                    logging.warning(f"Browser async cleanup failed: {cleanup_error}")
+            else:
+                # If we can't safely run async cleanup, just log it
+                logging.debug("Skipping async cleanup - event loop not available")
+        except Exception as e:
+            logging.warning(f"Error during synchronous cleanup: {e}")
 
     def __del__(self):
         """Cleanup on deletion."""
