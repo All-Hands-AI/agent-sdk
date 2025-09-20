@@ -166,7 +166,12 @@ class Agent(AgentBase):
             event = SystemPromptEvent(
                 source="agent",
                 system_prompt=TextContent(text=self.system_message),
-                tools=[],
+                tools=[
+                    t.to_openai_tool(
+                        add_security_risk_prediction=self._add_security_risk_prediction
+                    )
+                    for t in self.tools.values()
+                ],
             )
             on_event(event)
 
