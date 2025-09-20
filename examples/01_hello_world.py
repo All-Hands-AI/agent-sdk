@@ -8,8 +8,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.tool.registry import register_tool
@@ -32,8 +30,6 @@ llm = LLM(
 
 cwd = os.getcwd()
 
-# Explicitly register tool factories into the global registry.
-# This keeps initialization explicit (no hidden auto-registration).
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 register_tool("TaskTrackerTool", TaskTrackerTool)
@@ -59,26 +55,11 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Read the current repo and "
-                    "write 3 facts about the project into FACTS.txt."
-                )
-            )
-        ],
-    )
+    "Read the current repo and write 3 facts about the project into FACTS.txt."
 )
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 
