@@ -44,9 +44,3 @@ def test_register_tool_instance_rejects_params():
     register_tool("say_hello_instance", t)
     with pytest.raises(ValueError):
         resolve_tool(ToolSpec(name="say_hello_instance", params={"x": 1}))
-
-
-def test_register_openhands_tools_removed():
-    # The helper for auto-registering openhands.tools has been removed on purpose.
-    # Users should explicitly register desired tools using register_tool().
-    assert True
