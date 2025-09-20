@@ -1,9 +1,10 @@
 """Tests for LLM completion functionality, configuration, and metrics tracking."""
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
@@ -66,7 +67,12 @@ def test_llm_completion_basic(mock_completion):
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    # Check that response is a CompletionResult with expected properties
+    assert response.raw_response == mock_response
+    assert response.message.role == "assistant"
+    assert isinstance(response.message.content[0], TextContent)
+    assert response.message.content[0].text == "Test response"
+    assert response.metrics.model_name == "gpt-4o"
     mock_completion.assert_called_once()
 
 
@@ -86,10 +92,10 @@ def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
     mock_response.choices[0].message.tool_calls = [  # type: ignore
-        MagicMock(
+        ChatCompletionMessageToolCall(
             id="call_123",
             type="function",
-            function=MagicMock(name="test_tool", arguments='{"param": "value"}'),
+            function={"name": "test_tool", "arguments": '{"param": "value"}'},
         )
     ]
     mock_completion.return_value = mock_response
@@ -121,7 +127,15 @@ def test_llm_completion_with_tools(mock_completion):
 
     response = llm.completion(messages=messages, tools=tools)
 
-    assert response == mock_response
+    # Check that response is a CompletionResult with expected properties
+    assert response.raw_response == mock_response
+    assert response.message.role == "assistant"
+    assert isinstance(response.message.content[0], TextContent)
+    assert response.message.content[0].text == "I'll use the tool"
+    assert response.message.tool_calls is not None
+    assert len(response.message.tool_calls) == 1
+    assert response.message.tool_calls[0].id == "call_123"
+    assert response.message.tool_calls[0].function.name == "test_tool"
     mock_completion.assert_called_once()
 
 
@@ -256,7 +270,11 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     ]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    # Check that response is a CompletionResult with expected properties
+    assert response.raw_response == mock_response
+    assert response.message.role == "assistant"
+    assert isinstance(response.message.content[0], TextContent)
+    assert response.message.content[0].text == "Custom response"
     mock_completion.assert_called_once()
 
     # Verify that custom parameters were used in the call
@@ -399,9 +417,11 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     response_non_native = llm_non_native.completion(messages=messages, tools=tools)
     non_native_call_kwargs = mock_completion.call_args[1]
 
-    # Both should return responses
-    assert response_native == mock_response
-    assert response_non_native == mock_response
+    # Both should return CompletionResult responses
+    assert response_native.raw_response == mock_response
+    assert response_native.message.role == "assistant"
+    assert response_non_native.raw_response == mock_response
+    assert response_non_native.message.role == "assistant"
 
     # But the underlying calls should be different:
     # Native mode should pass tools to the LLM

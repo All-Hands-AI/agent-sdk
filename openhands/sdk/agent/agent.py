@@ -1,11 +1,7 @@
 import json
 from typing import Any, cast
 
-from litellm.types.utils import (
-    ChatCompletionMessageToolCall,
-    Choices,
-    Message as LiteLLMMessage,
-)
+from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError, field_validator
 
 from openhands.sdk.agent.base import AgentBase
@@ -23,7 +19,6 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
-    Message,
     MetricsSnapshot,
     TextContent,
     get_llm_metadata,
@@ -237,7 +232,7 @@ class Agent(AgentBase):
             )
             for tool in self.tools.values()
         ]
-        response = self.llm.completion(
+        completion_result = self.llm.completion(
             messages=_messages,
             tools=tools,
             extra_body={
@@ -246,12 +241,9 @@ class Agent(AgentBase):
                 )
             },
         )
-        assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
-        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
-        message = Message.from_litellm_message(llm_message)
-
-        assert self.llm.metrics is not None, "LLM metrics should not be None"
-        metrics = self.llm.metrics.get_snapshot()  # take a snapshot of metrics
+        # CompletionResult already contains the converted message and metrics snapshot
+        message = completion_result.message
+        metrics = completion_result.metrics
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -283,7 +275,7 @@ class Agent(AgentBase):
                 action_event = self._get_action_events(
                     state,
                     tool_call,
-                    llm_response_id=response.id,
+                    llm_response_id=completion_result.raw_response.id,
                     on_event=on_event,
                     thought=thought_content
                     if i == 0

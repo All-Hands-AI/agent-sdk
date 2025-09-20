@@ -26,6 +26,9 @@ Metrics, RetryMixin, and Message conversion systems, and unlocks the possibility
 of having alternative language SDKs that stay very similar to the Python
 original.
 
+As a proof-point we will implement core elements of the SDK in typescript in
+another (private) repository in parallel with this PR.
+
 ## 2. Additional Context
 
 ### 2.1 Current Architecture is Decoupled (Mostly)
@@ -119,7 +122,7 @@ response = self.llm.completion(messages=_messages, tools=tools)
 3. `openhands/sdk/mcp/tool.py` - MCP tool integration
 4. `openhands/sdk/utils/json.py` - JSON utilities
 
-**Implementation Layer (Appropriate LiteLLM usage):**
+**Implementation Layer (Remaining LiteLLM usage):**
 
 1. `openhands/sdk/llm/llm.py` - Main LLM class
 2. `openhands/sdk/llm/message.py` - Message handling
@@ -367,31 +370,31 @@ result = self.llm.completion(messages=_messages, tools=tools)
 
 #### 4.1 CompletionResult Implementation
 
-- [ ] **Create CompletionResult type** (`openhands/sdk/llm/types.py`)
-  - [ ] Define `CompletionResult` dataclass with OpenHands types
-  - [ ] Add `has_tool_calls` property for convenience
-  - [ ] Include `raw_response` for debugging/advanced use cases
+- [x] **Create CompletionResult type** (`openhands/sdk/llm/completion_result.py`)
+  - [x] Define `CompletionResult` dataclass with OpenHands types
+  - [x] Add `has_tool_calls` property for convenience
+  - [x] Include `raw_response` for debugging/advanced use cases
 
-- [ ] **Update LLM.completion() method** (`openhands/sdk/llm/llm.py`)
-  - [ ] Modify return type to `CompletionResult`
-  - [ ] Use existing `Message.from_litellm_message()` for conversion
-  - [ ] Use existing `metrics.get_snapshot()` for metrics
-  - [ ] Preserve all existing internal logic
+- [x] **Update LLM.completion() method** (`openhands/sdk/llm/llm.py`)
+  - [x] Modify return type to `CompletionResult`
+  - [x] Use existing `Message.from_litellm_message()` for conversion
+  - [x] Use existing `metrics.get_snapshot()` for metrics
+  - [x] Preserve all existing internal logic
 
-- [ ] **Create CompletionResult tests**
-  (`tests/sdk/llm/test_completion_result.py`)
-  - [ ] Test `CompletionResult` creation and properties
-  - [ ] Test `has_tool_calls` property accuracy
-  - [ ] Test integration with existing `Message` and `MetricsSnapshot` types
+- [x] **Update CompletionResult tests**
+  (`tests/sdk/llm/test_llm_completion.py`)
+  - [x] Test `CompletionResult` creation and properties
+  - [x] Test `has_tool_calls` property accuracy
+  - [x] Test integration with existing `Message` and `MetricsSnapshot` types
 
 #### 4.2 Agent Integration
 
-- [ ] **Update Agent class** (`openhands/sdk/agent/agent.py`)
-  - [ ] Remove LiteLLM imports (`ChatCompletionMessageToolCall`, `Choices`,
+- [x] **Update Agent class** (`openhands/sdk/agent/agent.py`)
+  - [x] Remove LiteLLM imports (`ChatCompletionMessageToolCall`, `Choices`,
     `LiteLLMMessage`)
-  - [ ] Update completion call to use `CompletionResult`
-  - [ ] Remove manual type assertions and conversions
-  - [ ] Test agent functionality with new interface
+  - [x] Update completion call to use `CompletionResult`
+  - [x] Remove manual type assertions and conversions
+  - [x] Test agent functionality with new interface
 
 ### Phase 2: Tool Interface Completion
 
