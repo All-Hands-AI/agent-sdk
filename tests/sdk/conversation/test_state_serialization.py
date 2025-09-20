@@ -527,7 +527,7 @@ def test_agent_resolve_diff_from_deserialized():
 
         # Serialize and deserialize to simulate persistence
         serialized = original_agent.model_dump_json()
-        deserialized_agent = Agent.model_validate_json(serialized)
+        deserialized_agent = AgentBase.model_validate_json(serialized)
 
         # Create runtime agent with same configuration
         llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))

@@ -16,7 +16,7 @@ from openhands.sdk.tool.schema import ActionBase
 from openhands.sdk.tool.tool import ToolBase
 
 
-def create_mock_mcp_tool(name: str = "test_tool") -> mcp.types.Tool:
+def create_mock_mcp_tool(name: str) -> mcp.types.Tool:
     """Create a mock MCP tool for testing."""
     return mcp.types.Tool(
         name=name,
@@ -33,7 +33,9 @@ def create_mock_mcp_tool(name: str = "test_tool") -> mcp.types.Tool:
 
 def test_mcp_tool_json_serialization_deserialization() -> None:
     # Create mock MCP tool and client
-    mock_mcp_tool = create_mock_mcp_tool()
+    mock_mcp_tool = create_mock_mcp_tool(
+        "test_mcp_tool_json_serialization_deserialization"
+    )
     mock_client = Mock(spec=MCPClient)
     mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
 
@@ -47,7 +49,7 @@ def test_mcp_tool_json_serialization_deserialization() -> None:
 def test_mcp_tool_polymorphic_behavior() -> None:
     """Test MCPTool polymorphic behavior using Tool base class."""
     # Create mock MCP tool and client
-    mock_mcp_tool = create_mock_mcp_tool()
+    mock_mcp_tool = create_mock_mcp_tool("test_mcp_tool_polymorphic_behavior")
     mock_client = Mock(spec=MCPClient)
 
     # Create MCPTool instance
@@ -58,7 +60,7 @@ def test_mcp_tool_polymorphic_behavior() -> None:
     assert isinstance(mcp_tool, MCPTool)
 
     # Check basic properties
-    assert mcp_tool.name == "test_tool"
+    assert mcp_tool.name == "test_mcp_tool_polymorphic_behavior"
     assert "test MCP tool" in mcp_tool.description
     assert hasattr(mcp_tool, "mcp_tool")
 
@@ -66,7 +68,7 @@ def test_mcp_tool_polymorphic_behavior() -> None:
 def test_mcp_tool_kind_field() -> None:
     """Test that MCPTool kind field is correctly set."""
     # Create mock MCP tool and client
-    mock_mcp_tool = create_mock_mcp_tool()
+    mock_mcp_tool = create_mock_mcp_tool("test_mcp_tool_kind_field")
     mock_client = Mock(spec=MCPClient)
 
     # Create MCPTool instance
