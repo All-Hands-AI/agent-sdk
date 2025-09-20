@@ -6,7 +6,7 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.llm import LLM
-from openhands.sdk.preset.default import get_default_agent_spec
+from openhands.sdk.preset.default import get_default_agent
 from openhands.sdk.tool.spec import ToolSpec
 
 
@@ -16,9 +16,9 @@ def basic_llm():
     return LLM(model="test-model")
 
 
-def test_get_default_agent_spec_includes_browser_toolset(basic_llm):
+def test_get_default_agent_includes_browser_toolset(basic_llm):
     """Test that the default agent spec includes BrowserToolSet."""
-    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
 
     # Check that BrowserToolSet is in the tools
     tool_names = [tool.name for tool in agent.tools]
@@ -36,9 +36,9 @@ def test_get_default_agent_spec_includes_browser_toolset(basic_llm):
     assert browser_toolset_spec.params == {}
 
 
-def test_get_default_agent_spec_includes_expected_tools(basic_llm):
+def test_get_default_agent_includes_expected_tools(basic_llm):
     """Test that the default agent spec includes all expected tools."""
-    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
 
     tool_names = [tool.name for tool in agent.tools]
 
@@ -54,9 +54,9 @@ def test_get_default_agent_spec_includes_expected_tools(basic_llm):
         assert expected_tool in tool_names, f"Missing expected tool: {expected_tool}"
 
 
-def test_get_default_agent_spec_browser_toolset_parameters(basic_llm):
+def test_get_default_agent_browser_toolset_parameters(basic_llm):
     """Test that BrowserToolSet in default spec has correct parameters."""
-    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
 
     # Find the BrowserToolSet spec
     browser_toolset_spec = None
@@ -70,10 +70,10 @@ def test_get_default_agent_spec_browser_toolset_parameters(basic_llm):
     assert browser_toolset_spec.params == {}
 
 
-def test_get_default_agent_spec_with_custom_working_dir(basic_llm):
+def test_get_default_agent_with_custom_working_dir(basic_llm):
     """Test that custom working directory is passed to appropriate tools."""
     custom_dir = "/custom/workspace"
-    agent = get_default_agent_spec(llm=basic_llm, working_dir=custom_dir)
+    agent = get_default_agent(llm=basic_llm, working_dir=custom_dir)
 
     # Find BashTool and TaskTrackerTool to verify they get the working_dir
     bash_tool_spec = None
@@ -101,9 +101,9 @@ def test_get_default_agent_spec_with_custom_working_dir(basic_llm):
     assert browser_toolset_spec.params == {}
 
 
-def test_get_default_agent_spec_has_mcp_config(basic_llm):
+def test_get_default_agent_has_mcp_config(basic_llm):
     """Test that the default agent spec includes MCP configuration."""
-    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
 
     assert agent.mcp_config is not None
     assert "mcpServers" in agent.mcp_config
@@ -115,9 +115,9 @@ def test_get_default_agent_spec_has_mcp_config(basic_llm):
     assert fetch_config["args"] == ["mcp-server-fetch"]
 
 
-def test_get_default_agent_spec_basic_properties(basic_llm):
+def test_get_default_agent_basic_properties(basic_llm):
     """Test basic properties of the default agent spec."""
-    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
 
     # Should have the provided LLM
     assert agent.llm == basic_llm
@@ -134,9 +134,9 @@ def test_get_default_agent_spec_basic_properties(basic_llm):
     assert agent.filter_tools_regex is not None  # Has filtering for repomix tools
 
 
-def test_get_default_agent_spec_condenser_config(basic_llm):
+def test_get_default_agent_condenser_config(basic_llm):
     """Test that the default agent spec has proper condenser configuration."""
-    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
 
     assert agent.condenser is not None
     assert isinstance(agent.condenser, LLMSummarizingCondenser)
@@ -145,9 +145,9 @@ def test_get_default_agent_spec_condenser_config(basic_llm):
     assert agent.condenser.keep_first == 4
 
 
-def test_get_default_agent_spec_tool_order(basic_llm):
+def test_get_default_agent_tool_order(basic_llm):
     """Test that tools are in expected order in the default spec."""
-    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
 
     tool_names = [tool.name for tool in agent.tools]
 

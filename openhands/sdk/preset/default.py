@@ -9,9 +9,11 @@ from openhands.sdk.llm.llm import LLM
 from openhands.sdk.tool import ToolSpec, register_tool
 
 
-def get_default_tools(working_dir: str) -> list[ToolSpec]:
+def get_default_tools(
+    working_dir: str,
+    enable_browser: bool = True,
+) -> list[ToolSpec]:
     """Get the default set of tool specifications for the standard experience."""
-    from openhands.tools.browser_use import BrowserToolSet
     from openhands.tools.execute_bash import BashTool
     from openhands.tools.str_replace_editor import FileEditorTool
     from openhands.tools.task_tracker import TaskTrackerTool
@@ -19,16 +21,20 @@ def get_default_tools(working_dir: str) -> list[ToolSpec]:
     register_tool("BashTool", BashTool)
     register_tool("FileEditorTool", FileEditorTool)
     register_tool("TaskTrackerTool", TaskTrackerTool)
-    register_tool("BrowserToolSet", BrowserToolSet)
 
-    return [
+    tool_specs = [
         ToolSpec(name="BashTool", params={"working_dir": working_dir}),
         ToolSpec(name="FileEditorTool", params={}),
         ToolSpec(
             name="TaskTrackerTool", params={"save_dir": f"{working_dir}/.openhands"}
         ),
-        ToolSpec(name="BrowserToolSet", params={}),
     ]
+    if enable_browser:
+        from openhands.tools.browser_use import BrowserToolSet
+
+        register_tool("BrowserToolSet", BrowserToolSet)
+        tool_specs.append(ToolSpec(name="BrowserToolSet", params={}))
+    return tool_specs
 
 
 def get_default_condenser(llm: LLM) -> CondenserBase:
@@ -40,12 +46,16 @@ def get_default_condenser(llm: LLM) -> CondenserBase:
     return condenser
 
 
-def get_default_agent_spec(
+def get_default_agent(
     llm: LLM,
     working_dir: str,
     cli_mode: bool = False,
 ) -> Agent:
-    tool_specs = get_default_tools(working_dir=working_dir)
+    tool_specs = get_default_tools(
+        working_dir=working_dir,
+        # Disable browser tools in CLI mode
+        enable_browser=not cli_mode,
+    )
     agent = Agent(
         llm=llm,
         tools=tool_specs,
@@ -57,6 +67,6 @@ def get_default_agent_spec(
         },
         filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
         system_prompt_kwargs={"cli_mode": cli_mode},
-        condenser=LLMSummarizingCondenser(llm=llm, max_size=80, keep_first=4),
+        condenser=get_default_condenser(llm=llm),
     )
     return agent
