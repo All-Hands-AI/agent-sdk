@@ -230,16 +230,10 @@ class Agent(AgentBase):
         )
         assert isinstance(self.tools, dict)
 
-        tools = [
-            # add llm security risk prediction if analyzer is present
-            tool.to_openai_tool(
-                add_security_risk_prediction=self._add_security_risk_prediction
-            )
-            for tool in self.tools.values()
-        ]
         response = self.llm.completion(
             messages=_messages,
-            tools=tools,
+            tools=list(self.tools.values()),
+            add_security_risk_prediction=self._add_security_risk_prediction,
             extra_body={
                 "metadata": get_llm_metadata(
                     model_name=self.llm.model, agent_name=self.name

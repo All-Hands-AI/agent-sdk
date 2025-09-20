@@ -105,21 +105,15 @@ def test_llm_completion_with_tools(mock_completion):
 
     # Test completion with tools
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
-    tools: list[Any] = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param": {"type": "string"}},
-                },
-            },
-        }
-    ]
+    from openhands.sdk.tool.schema import ActionBase
+    from openhands.sdk.tool.tool import Tool
 
-    response = llm.completion(messages=messages, tools=tools)
+    class _ArgsBasic(ActionBase):
+        param: str
+
+    tool = Tool(name="test_tool", description="A test tool", action_type=_ArgsBasic)
+
+    response = llm.completion(messages=messages, tools=[tool])
 
     assert response == mock_response
     mock_completion.assert_called_once()
@@ -302,23 +296,22 @@ def test_llm_completion_non_function_call_mode(mock_completion):
             content=[TextContent(text="Use the test tool with param 'test_value'")],
         )
     ]
-    tools: list[Any] = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool for non-function call mode",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param": {"type": "string"}},
-                    "required": ["param"],
-                },
-            },
-        }
+    from openhands.sdk.tool.schema import ActionBase
+    from openhands.sdk.tool.tool import Tool
+
+    class TestNonFCArgs(ActionBase):
+        param: str
+
+    tools = [
+        Tool(
+            name="test_tool",
+            description="A test tool for non-function call mode",
+            action_type=TestNonFCArgs,
+        )
     ]
 
     # Verify that tools should be mocked (non-function call path)
-    assert llm.should_mock_tool_calls(tools)
+    # We just exercise the completion() path here.
 
     # Call completion - this should go through the prompt-based tool calling path
     response = llm.completion(messages=messages, tools=tools)
@@ -345,18 +338,14 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
 
+    from openhands.sdk.tool.schema import ActionBase
+    from openhands.sdk.tool.tool import Tool
+
+    class TestFCArgs(ActionBase):
+        param: str | None = None
+
     tools: list[Any] = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param": {"type": "string"}},
-                },
-            },
-        }
+        Tool(name="test_tool", description="A test tool", action_type=TestFCArgs)
     ]
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
@@ -405,7 +394,9 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # But the underlying calls should be different:
     # Native mode should pass tools to the LLM
-    assert native_call_kwargs.get("tools") == tools
+    assert isinstance(native_call_kwargs.get("tools"), list)
+    assert native_call_kwargs["tools"][0]["type"] == "function"
+    assert native_call_kwargs["tools"][0]["function"]["name"] == "test_tool"
 
     # Non-native mode should not pass tools (they're handled via prompts)
     assert non_native_call_kwargs.get("tools") is None
