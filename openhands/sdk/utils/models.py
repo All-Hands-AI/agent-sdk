@@ -7,8 +7,10 @@ from typing import Annotated, Any, Literal, Self, Type, Union
 from pydantic import (
     BaseModel,
     Discriminator,
+    Field,
     Tag,
     TypeAdapter,
+    model_validator,
 )
 
 
@@ -38,10 +40,9 @@ def kind_of(obj) -> str:
 def get_known_concrete_subclasses(cls) -> list[type]:
     """Recursively finds and returns all (loaded) subclasses of a given class.
 
-    We sort the subclasses by name to ensure a consistent order
-    for schema generation.
-    Pydantic caches schema generation keyed (in part) by type nesting/ordering,
-    so different oneOf orderings → distinct schemas → more duplicate component attempts.
+    We sort the subclasses by name to ensure a consistent order for schema generation.
+    Pydantic caches schema generation keyed (in part) by type nesting/ordering, so
+    different oneOf orderings → distinct schemas → more duplicate component attempts.
     """
     out: dict[str, type] = {}
     for subclass in cls.__subclasses__():
@@ -49,9 +50,9 @@ def get_known_concrete_subclasses(cls) -> list[type]:
             out[f"{subclass.__module__}.{subclass.__name__}"] = subclass
         for sub in get_known_concrete_subclasses(subclass):
             out[f"{sub.__module__}.{sub.__name__}"] = sub
-    # make sure subclasses are always in a consistent order
-    # otherwise the schema generation can be non-deterministic
-    return [out[k] for k in sorted(out)]
+    # make sure subclasses are always in a consistent order otherwise schema generation
+    # can become non-deterministic.
+    return [out[key] for key in sorted(out)]
 
 
 class OpenHandsModel(BaseModel):
@@ -110,7 +111,7 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     discriminator for union types.
     """
 
-    kind: str = ""  # We dynamically update on a per class basis
+    kind: str = Field(default="")  # We dynamically update on a per class basis
 
     @classmethod
     def resolve_kind(cls, kind: str) -> Type:
@@ -131,11 +132,22 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         if cls == DiscriminatedUnionMixin:
             pass
         if _is_abstract(cls):
+            subclasses = get_known_concrete_subclasses(cls)
+            kinds = [subclass.__name__ for subclass in subclasses]
+            if kinds:
+                kind_field = cls.model_fields["kind"]
+                kind_field.annotation = Literal[tuple(kinds)]  # type: ignore
+                kind_field.default = kinds[0]
+
             type_adapter = TypeAdapter(cls.get_serializable_type())
             cls.__pydantic_core_schema__ = type_adapter.core_schema
             cls.__pydantic_validator__ = type_adapter.validator
             cls.__pydantic_serializer__ = type_adapter.serializer
             return
+        else:
+            kind_field = cls.model_fields["kind"]
+            kind_field.annotation = Literal[cls.__name__]  # type: ignore
+            kind_field.default = cls.__name__
 
         return super().model_rebuild(
             force=force,
@@ -175,7 +187,6 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     def model_validate(cls, obj: Any, **kwargs) -> Self:
         if _is_abstract(cls):
             resolved = cls.resolve_kind(kind_of(obj))
-            obj["kind"] = resolved.__name__
         else:
             resolved = super()
         result = resolved.model_validate(obj, **kwargs)
@@ -190,32 +201,55 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         data = json.loads(json_data)
         if _is_abstract(cls):
             resolved = cls.resolve_kind(kind_of(data))
-            data["kind"] = resolved.__name__
         else:
             resolved = super()
         result = resolved.model_validate(data, **kwargs)
         return result  # type: ignore
 
+    @model_validator(mode="before")
+    @classmethod
+    def _set_kind(cls, data):
+        """Ensure the kind field matches the subclass when validating."""
+        if not isinstance(data, dict):
+            return
+        data = dict(data)
+        data["kind"] = cls.__name__
+        return data
+
     def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        # If concrete, stamp kind Literal and collision check (your code)
         if not _is_abstract(cls):
-            # Set kind
+            # 1) Stamp discriminator
             cls.kind = cls.__name__
             cls.__annotations__["kind"] = Literal[cls.__name__]
 
-            # Check for collisions
+            # 2) Collision check (your logic, ideally with deterministic ordering)
             mro = cls.mro()
             union_class = mro[mro.index(DiscriminatedUnionMixin) - 1]
-            classes = get_known_concrete_subclasses(union_class)
-            kinds = {}
-            for subclass in classes:
-                kind = kind_of(subclass)
-                if kind in kinds:
+            concretes = get_known_concrete_subclasses(union_class)  # sorted list
+            kinds: dict[str, type] = {}
+            for sub in concretes:
+                k = kind_of(sub)
+                if k in kinds and kinds[k] is not sub:
                     raise ValueError(
-                        f"Duplicate kind detected for {union_class} : {cls}, {subclass}"
+                        f"Duplicate kind detected for {union_class} : {cls}, {sub}"
                     )
-                kinds[kind] = subclass
+                kinds[k] = sub
 
-        return super().__init_subclass__(**kwargs)
+        # Rebuild any abstract union owners in the MRO that rely on subclass sets
+        for base in cls.mro():
+            # Stop when we pass ourselves
+            if base is cls:
+                continue
+            # Only rebuild abstract DiscriminatedUnion owners
+            if (
+                isinstance(base, type)
+                and issubclass(base, DiscriminatedUnionMixin)
+                and _is_abstract(base)
+            ):
+                base.model_rebuild(force=True)
 
 
 def _rebuild_if_required():
