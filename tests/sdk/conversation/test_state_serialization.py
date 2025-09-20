@@ -344,8 +344,9 @@ def test_conversation_with_same_agent_succeeds():
         assert len(new_conversation.state.events) > 0
 
 
+@patch("openhands.sdk.llm.llm.litellm_responses")
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_conversation_persistence_lifecycle(mock_completion):
+def test_conversation_persistence_lifecycle(mock_completion, mock_responses):
     """Test full conversation persistence lifecycle similar to examples/10_persistence.py."""  # noqa: E501
     from tests.conftest import create_mock_litellm_response
 
@@ -354,6 +355,16 @@ def test_conversation_persistence_lifecycle(mock_completion):
         content="I'll help you with that task.", finish_reason="stop"
     )
     mock_completion.return_value = mock_response
+
+    from types import SimpleNamespace
+
+    mock_responses.return_value = SimpleNamespace(
+        id="resp_mock",
+        model="o1-preview",
+        created_at=123,
+        output=[],
+        usage=SimpleNamespace(input_tokens=0, output_tokens=0, total_tokens=0),
+    )
 
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)

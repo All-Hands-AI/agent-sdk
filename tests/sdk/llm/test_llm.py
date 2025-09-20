@@ -415,7 +415,7 @@ def test_llm_no_response_error(mock_completion):
     # Test that empty response raises LLMNoResponseError
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     with pytest.raises(LLMNoResponseError):
-        llm.completion(messages=messages)
+        llm.completion(messages=messages, force_chat_completions=True)
 
 
 def test_response_latency_tracking(default_llm):

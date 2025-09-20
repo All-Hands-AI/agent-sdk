@@ -248,6 +248,13 @@ class MessageEvent(LLMConvertibleEvent):
         """Return Rich Text representation of this message event."""
         content = Text()
 
+        # Display reasoning content first if available (from reasoning models)
+        reasoning_content = self.llm_message.reasoning_content or ""
+        if reasoning_content:
+            content.append("Reasoning:\n", style="bold")
+            content.append(reasoning_content)
+            content.append("\n\n")
+
         text_parts = content_to_str(self.llm_message.content)
         if text_parts:
             full_content = "".join(text_parts)
