@@ -7,10 +7,8 @@ from typing import Annotated, Any, Literal, Self, Type, Union
 from pydantic import (
     BaseModel,
     Discriminator,
-    Field,
     Tag,
     TypeAdapter,
-    model_validator,
 )
 
 
@@ -105,7 +103,7 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     discriminator for union types.
     """
 
-    kind: str = Field(default="")  # We dynamically update on a per class basis
+    kind: str = ""  # We dynamically update on a per class basis
 
     @classmethod
     def resolve_kind(cls, kind: str) -> Type:
@@ -126,24 +124,11 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         if cls == DiscriminatedUnionMixin:
             pass
         if _is_abstract(cls):
-            subclasses = get_known_concrete_subclasses(cls)
-            kinds = [subclass.__name__ for subclass in subclasses]
-            if kinds:
-                kind = cls.model_fields["kind"]
-                kind.annotation = Literal[tuple(kinds)]  # type: ignore
-                kind.default = kinds[0]
-
-            # Update kind to be specific - not just str...
             type_adapter = TypeAdapter(cls.get_serializable_type())
             cls.__pydantic_core_schema__ = type_adapter.core_schema
             cls.__pydantic_validator__ = type_adapter.validator
             cls.__pydantic_serializer__ = type_adapter.serializer
             return
-        else:
-            # Update the kind field to be a literal.
-            kind = cls.model_fields["kind"]
-            kind.annotation = Literal[cls.__name__]  # type: ignore
-            kind.default = cls.__name__
 
         return super().model_rebuild(
             force=force,
@@ -183,6 +168,7 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     def model_validate(cls, obj: Any, **kwargs) -> Self:
         if _is_abstract(cls):
             resolved = cls.resolve_kind(kind_of(obj))
+            obj["kind"] = resolved.__name__
         else:
             resolved = super()
         result = resolved.model_validate(obj, **kwargs)
@@ -197,25 +183,19 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         data = json.loads(json_data)
         if _is_abstract(cls):
             resolved = cls.resolve_kind(kind_of(data))
+            data["kind"] = resolved.__name__
         else:
             resolved = super()
         result = resolved.model_validate(data, **kwargs)
         return result  # type: ignore
 
-    @model_validator(mode="before")
-    @classmethod
-    def _set_kind(cls, data):
-        """For some cases (like models with a default fallback), the incoming
-        kind may not match the value so we set it."""
-        if not isinstance(data, dict):
-            return
-        data = dict(data)
-        data["kind"] = cls.__name__
-        return data
-
     def __init_subclass__(cls, **kwargs):
-        # Check for duplicates
-        if DiscriminatedUnionMixin not in cls.__bases__:
+        if not _is_abstract(cls):
+            # Set kind
+            cls.kind = cls.__name__
+            cls.__annotations__["kind"] = Literal[cls.__name__]
+
+            # Check for collisions
             mro = cls.mro()
             union_class = mro[mro.index(DiscriminatedUnionMixin) - 1]
             classes = get_known_concrete_subclasses(union_class)
