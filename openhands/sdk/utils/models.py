@@ -153,6 +153,9 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
             return cls
 
         if len(subclasses) == 1:
+            # Returning the concrete type ensures Pydantic instantiates the subclass
+            # (e.g. Agent) rather than the abstract base (e.g. AgentBase) when there is
+            # only ONE concrete subclass.
             return subclasses[0]
 
         serializable_type = Annotated[
