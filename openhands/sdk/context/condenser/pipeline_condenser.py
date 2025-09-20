@@ -1,4 +1,4 @@
-from openhands.sdk.context.condenser.base import CondenserBase
+from openhands.sdk.context.condenser.base import CondenserBase, PipelinableCondenserBase
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
 
@@ -38,7 +38,7 @@ class PipelineCondenser(CondenserBase):
         assert result == other_result
     """
 
-    condensers: list[CondenserBase]
+    condensers: list[PipelinableCondenserBase]
     """The list of condensers to apply in order."""
 
     def condense(self, view: View) -> View | Condensation:
