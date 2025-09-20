@@ -48,8 +48,7 @@ def test_agent_initializes_tools_from_toolspec_locally(monkeypatch):
         convo.send_message("hi")
         assert hasattr(agent, "initialize")
         agent.initialize()  # idempotent
-        get_tools = getattr(agent, "get_tools")
-        runtime_tools = get_tools()
+        runtime_tools = agent.tools_map
         assert "upper" in runtime_tools
         assert "finish" in runtime_tools
         assert "think" in runtime_tools

@@ -151,10 +151,8 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     def initialize(self):
         """Create an AgentBase instance from an AgentSpec."""
         if self._tools:
-            raise RuntimeError(
-                "Agent already initialized (self._tools is not empty); "
-                "cannot re-initialize"
-            )
+            logger.warning("Agent already initialized; skipping re-initialization.")
+            return
 
         tools: list[Tool] = []
         for tool_spec in self.tools:
