@@ -20,7 +20,7 @@ class SystemPromptEvent(LLMConvertibleEvent):
     source: SourceType = "agent"
     system_prompt: TextContent = Field(..., description="The system prompt text")
     tools: list[ChatCompletionToolParam] = Field(
-        default_factory=list, description="List of tools in OpenAI tool format"
+        ..., description="List of tools in OpenAI tool format"
     )
 
     @property
