@@ -4,17 +4,12 @@ from pydantic import SecretStr
 
 from openhands.sdk import (
     LLM,
-    Agent,
     Conversation,
     EventBase,
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool.registry import register_tool
-from openhands.sdk.tool.spec import ToolSpec
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
+from openhands.sdk.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -29,20 +24,28 @@ llm = LLM(
 )
 
 cwd = os.getcwd()
+agent = get_default_agent(llm=llm, working_dir=cwd)
 
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
-register_tool("TaskTrackerTool", TaskTrackerTool)
+# # Alternatively, you can manually register tools and provide ToolSpecs to Agent.
+# from openhands.sdk import Agent
+# from openhands.sdk.tool.registry import register_tool
+# from openhands.sdk.tool.spec import ToolSpec
+# from openhands.tools.execute_bash import BashTool
+# from openhands.tools.str_replace_editor import FileEditorTool
+# from openhands.tools.task_tracker import TaskTrackerTool
+# register_tool("BashTool", BashTool)
+# register_tool("FileEditorTool", FileEditorTool)
+# register_tool("TaskTrackerTool", TaskTrackerTool)
 
-# Provide ToolSpec so Agent can lazily materialize tools at runtime.
-agent = Agent(
-    llm=llm,
-    tools=[
-        ToolSpec(name="BashTool", params={"working_dir": cwd}),
-        ToolSpec(name="FileEditorTool"),
-        ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
-    ],
-)
+# # Provide ToolSpec so Agent can lazily materialize tools at runtime.
+# agent = Agent(
+#     llm=llm,
+#     tools=[
+#         ToolSpec(name="BashTool", params={"working_dir": cwd}),
+#         ToolSpec(name="FileEditorTool"),
+#         ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+#     ],
+# )
 
 llm_messages = []  # collect raw LLM messages
 
