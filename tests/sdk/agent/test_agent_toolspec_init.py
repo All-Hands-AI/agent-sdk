@@ -38,16 +38,13 @@ def test_agent_initializes_tools_from_toolspec_locally(monkeypatch):
     llm = LLM(model="test-model")
     agent = Agent(llm=llm, tools=[ToolSpec(name="upper")])
 
-    # Build a conversation; this should call agent.initialize() internally
-    convo = Conversation(agent=agent, visualize=False)
+    # Build a conversation; this should call agent._initialize() internally
+    Conversation(agent=agent, visualize=False)
 
     # Access the agent's runtime tools via a small shim
     # (We don't rely on private internals; we verify init_state produced a system prompt
     # with tools included by checking that agent.step can access tools without error.)
     with patch.object(Agent, "step", wraps=agent.step):
-        convo.send_message("hi")
-        assert hasattr(agent, "initialize")
-        agent.initialize()  # idempotent
         runtime_tools = agent.tools_map
         assert "upper" in runtime_tools
         assert "finish" in runtime_tools

@@ -32,7 +32,9 @@ def tools(tmp_path) -> list[ToolSpec]:
 
 @pytest.fixture
 def agent(llm: LLM, tools: list[ToolSpec]) -> Agent:
-    return Agent(llm=llm, tools=tools)
+    agent = Agent(llm=llm, tools=tools)
+    agent._initialize()
+    return agent
 
 
 @pytest.fixture
@@ -42,11 +44,7 @@ def conversation(agent: Agent) -> Conversation:
 
 @pytest.fixture
 def bash_executor(agent: Agent) -> BashExecutor:
-    try:
-        tools_map = agent.tools_map
-    except RuntimeError:
-        agent.initialize()
-        tools_map = agent.tools_map
+    tools_map = agent.tools_map
     bash_tool = tools_map["execute_bash"]
     return cast(BashExecutor, bash_tool.executor)
 

@@ -134,51 +134,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     # Runtime materialized tools; private and non-serializable
     _tools: dict[str, Tool] = PrivateAttr(default_factory=dict)
 
-    def initialize(self):
-        """Create an AgentBase instance from an AgentSpec."""
-        if self._tools:
-            logger.warning("Agent already initialized; skipping re-initialization.")
-            return
-
-        tools: list[Tool] = []
-        for tool_spec in self.tools:
-            tools.extend(resolve_tool(tool_spec))
-
-        # Add MCP tools if configured
-        if self.mcp_config:
-            mcp_tools = create_mcp_tools(self.mcp_config, timeout=30)
-            tools.extend(mcp_tools)
-
-        logger.info(
-            f"Loaded {len(tools)} tools from spec: {[tool.name for tool in tools]}"
-        )
-        if self.filter_tools_regex:
-            pattern = re.compile(self.filter_tools_regex)
-            tools = [tool for tool in tools if pattern.match(tool.name)]
-            logger.info(
-                f"Filtered to {len(tools)} tools after applying regex filter: "
-                f"{[tool.name for tool in tools]}",
-            )
-
-        # Always include built-in tools; not subject to filtering
-        tools.extend(BUILT_IN_TOOLS)
-
-        # Check tool types
-        for tool in tools:
-            if not isinstance(tool, Tool):
-                raise ValueError(
-                    f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
-                )
-
-        # Check name duplicates
-        tool_names = [tool.name for tool in tools]
-        if len(tool_names) != len(set(tool_names)):
-            duplicates = set(name for name in tool_names if tool_names.count(name) > 1)
-            raise ValueError(f"Duplicate tool names found: {duplicates}")
-
-        # Store tools in a dict for easy access
-        self._tools = {tool.name: tool for tool in tools}
-
     @property
     def prompt_dir(self) -> str:
         """Returns the directory where this class's module file is located."""
@@ -224,7 +179,52 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         NOTE: state will be mutated in-place.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
+        self._initialize()
+
+    def _initialize(self):
+        """Create an AgentBase instance from an AgentSpec."""
+        if self._tools:
+            logger.warning("Agent already initialized; skipping re-initialization.")
+            return
+
+        tools: list[Tool] = []
+        for tool_spec in self.tools:
+            tools.extend(resolve_tool(tool_spec))
+
+        # Add MCP tools if configured
+        if self.mcp_config:
+            mcp_tools = create_mcp_tools(self.mcp_config, timeout=30)
+            tools.extend(mcp_tools)
+
+        logger.info(
+            f"Loaded {len(tools)} tools from spec: {[tool.name for tool in tools]}"
+        )
+        if self.filter_tools_regex:
+            pattern = re.compile(self.filter_tools_regex)
+            tools = [tool for tool in tools if pattern.match(tool.name)]
+            logger.info(
+                f"Filtered to {len(tools)} tools after applying regex filter: "
+                f"{[tool.name for tool in tools]}",
+            )
+
+        # Always include built-in tools; not subject to filtering
+        tools.extend(BUILT_IN_TOOLS)
+
+        # Check tool types
+        for tool in tools:
+            if not isinstance(tool, Tool):
+                raise ValueError(
+                    f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
+                )
+
+        # Check name duplicates
+        tool_names = [tool.name for tool in tools]
+        if len(tool_names) != len(set(tool_names)):
+            duplicates = set(name for name in tool_names if tool_names.count(name) > 1)
+            raise ValueError(f"Duplicate tool names found: {duplicates}")
+
+        # Store tools in a dict for easy access
+        self._tools = {tool.name: tool for tool in tools}
 
     def step(
         self,

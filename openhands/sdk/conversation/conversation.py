@@ -84,7 +84,6 @@ class Conversation:
         self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
-        self.agent.initialize()
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
 
