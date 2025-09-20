@@ -15,8 +15,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
@@ -77,68 +75,26 @@ conversation = Conversation(
 print("Sending multiple messages to demonstrate LLM Summarizing Condenser...")
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Hello! Can you create a Python file named math_utils.py with "
-                    "functions for basic arithmetic operations (add, subtract, "
-                    "multiply, divide)?"
-                )
-            )
-        ],
-    )
+    "Hello! Can you create a Python file named math_utils.py with functions for "
+    "basic arithmetic operations (add, subtract, multiply, divide)?"
 )
 conversation.run()
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text="Great! Now add a function to calculate the factorial of a number."
-            )
-        ],
-    )
+    "Great! Now add a function to calculate the factorial of a number."
+)
+conversation.run()
+
+conversation.send_message("Add a function to check if a number is prime.")
+conversation.run()
+
+conversation.send_message(
+    "Add a function to calculate the greatest common divisor (GCD) of two numbers."
 )
 conversation.run()
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Add a function to check if a number is prime.")],
-    )
-)
-conversation.run()
-
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Add a function to calculate the greatest common divisor (GCD) "
-                    "of two numbers."
-                )
-            )
-        ],
-    )
-)
-conversation.run()
-
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Now create a test file to verify all these functions work "
-                    "correctly."
-                )
-            )
-        ],
-    )
+    "Now create a test file to verify all these functions work correctly."
 )
 conversation.run()
 
@@ -160,12 +116,7 @@ conversation = Conversation(
 )
 
 print("Sending message to deserialized conversation...")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Finally, clean up by deleting both files.")],
-    )
-)
+conversation.send_message("Finally, clean up by deleting both files.")
 conversation.run()
 
 

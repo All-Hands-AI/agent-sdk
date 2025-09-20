@@ -8,8 +8,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -55,16 +53,8 @@ conversation = Conversation(
     callbacks=[conversation_callback],
 )
 
-# Example message that can use MCP tools if available
-message = Message(
-    role="user",
-    content=[
-        TextContent(text="Can you search about OpenHands V1 in my notion workspace.")
-    ],
-)
-
 logger.info("Starting conversation with MCP integration...")
-response = conversation.send_message(message)
+conversation.send_message("Can you search about OpenHands V1 in my notion workspace?")
 conversation.run()
 
 print("=" * 100)

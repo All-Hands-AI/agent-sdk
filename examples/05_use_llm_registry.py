@@ -55,12 +55,7 @@ def conversation_callback(event: EventBase):
 
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Please echo 'Hello!'")],
-    )
-)
+conversation.send_message("Please echo 'Hello!'")
 conversation.run()
 
 print("=" * 100)

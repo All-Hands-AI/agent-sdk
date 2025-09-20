@@ -81,7 +81,7 @@ uv run python examples/01_hello_world.py
 ```python
 import os
 from pydantic import SecretStr
-from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
+from openhands.sdk import LLM, Agent, Conversation
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -107,12 +107,7 @@ agent = Agent(llm=llm, tools=tools)
 conversation = Conversation(agent=agent)
 
 # Send message and run
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text="Create a Python file that prints 'Hello, World!'")]
-    )
-)
+conversation.send_message("Create a Python file that prints 'Hello, World!'")
 conversation.run()
 ```
 
@@ -235,14 +230,12 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
 Conversations manage the interaction flow between users and agents:
 
 ```python
-from openhands.sdk import Conversation, Message, TextContent
+from openhands.sdk import Conversation
 
 conversation = Conversation(agent=agent)
 
 # Send messages
-conversation.send_message(
-    Message(role="user", content=[TextContent(text="Your request here")])
-)
+conversation.send_message("Your request here")
 
 # Execute the conversation until the agent enters "await user input" state
 conversation.run()

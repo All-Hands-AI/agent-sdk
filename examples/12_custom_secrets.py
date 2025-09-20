@@ -6,8 +6,6 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Message,
-    TextContent,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools.execute_bash import BashTool
@@ -43,20 +41,10 @@ conversation.update_secrets(
     {"SECRET_TOKEN": "my-secret-token-value", "SECRET_FUNCTION_TOKEN": output_token}
 )
 
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text="just echo $SECRET_TOKEN")],
-    )
-)
+conversation.send_message("just echo $SECRET_TOKEN")
 
 conversation.run()
 
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text="just echo $SECRET_FUNCTION_TOKEN")],
-    )
-)
+conversation.send_message("just echo $SECRET_FUNCTION_TOKEN")
 
 conversation.run()

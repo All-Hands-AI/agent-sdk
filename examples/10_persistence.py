@@ -10,8 +10,6 @@ from openhands.sdk import (
     EventBase,
     LLMConvertibleEvent,
     LocalFileStore,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -66,26 +64,12 @@ conversation = Conversation(
     conversation_id=conversation_id,
 )
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Read https://github.com/All-Hands-AI/OpenHands. "
-                    "Then write 3 facts about the project into FACTS.txt."
-                )
-            )
-        ],
-    )
+    "Read https://github.com/All-Hands-AI/OpenHands. Then write 3 facts "
+    "about the project into FACTS.txt."
 )
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 print("=" * 100)
@@ -108,12 +92,5 @@ conversation = Conversation(
 )
 
 print("Sending message to deserialized conversation...")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(text="Hey what did you create? Return an agent finish action")
-        ],
-    )
-)
+conversation.send_message("Hey what did you create? Return an agent finish action")
 conversation.run()

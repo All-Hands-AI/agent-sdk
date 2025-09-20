@@ -15,8 +15,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.conversation.types import ConversationCallbackType
@@ -66,27 +64,12 @@ def run_conversation(callback: ConversationCallbackType):
     conversation = Conversation(agent=agent, callbacks=[callback])
 
     conversation.send_message(
-        message=Message(
-            role="user",
-            content=[
-                TextContent(
-                    text=(
-                        "Hello! Can you create a new Python file named hello.py"
-                        " that prints 'Hello, World!'? Use task tracker to plan"
-                        " your steps."
-                    )
-                )
-            ],
-        )
+        "Hello! Can you create a new Python file named hello.py that prints "
+        "'Hello, World!'? Use task tracker to plan your steps."
     )
     conversation.run()
 
-    conversation.send_message(
-        message=Message(
-            role="user",
-            content=[TextContent(text=("Great! Now delete that file."))],
-        )
-    )
+    conversation.send_message("Great! Now delete that file.")
     conversation.run()
 
 

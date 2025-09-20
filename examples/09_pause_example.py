@@ -8,8 +8,6 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Message,
-    TextContent,
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -42,12 +40,7 @@ conversation = Conversation(agent)
 print("Simple pause example - Press Ctrl+C to pause")
 
 # Send a message to get the conversation started
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text="repeatedly say hello world and don't stop")],
-    )
-)
+conversation.send_message("repeatedly say hello world and don't stop")
 
 # Start the agent in a background thread
 thread = threading.Thread(target=conversation.run)
@@ -60,12 +53,7 @@ try:
         and conversation.state.agent_status != AgentExecutionStatus.PAUSED
     ):
         # Send encouraging messages periodically
-        conversation.send_message(
-            Message(
-                role="user",
-                content=[TextContent(text="keep going! you can do it!")],
-            )
-        )
+        conversation.send_message("keep going! you can do it!")
         time.sleep(1)
 except KeyboardInterrupt:
     conversation.pause()

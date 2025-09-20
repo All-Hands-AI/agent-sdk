@@ -8,8 +8,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -58,17 +56,8 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Could you go to https://all-hands.dev/ blog page and "
-                    "summarize main points of the latest blog?"
-                )
-            )
-        ],
-    )
+    "Could you go to https://all-hands.dev/ blog page and summarize main "
+    "points of the latest blog?"
 )
 conversation.run()
 

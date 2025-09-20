@@ -8,8 +8,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -52,17 +50,8 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Enter python interactive mode by directly running `python3`, "
-                    "then tell me the current time, and exit python interactive mode."
-                )
-            )
-        ],
-    )
+    "Enter python interactive mode by directly running `python3`, then tell me "
+    "the current time, and exit python interactive mode."
 )
 conversation.run()
 

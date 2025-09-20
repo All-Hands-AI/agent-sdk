@@ -9,8 +9,6 @@ from openhands.sdk import (
     EventBase,
     EventWithMetrics,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -60,27 +58,14 @@ conversation = Conversation(
     callbacks=[conversation_callback],
 )
 
-# Example message that can use MCP tools if available
-message = Message(
-    role="user",
-    content=[
-        TextContent(
-            text="Read https://github.com/All-Hands-AI/OpenHands and "
-            + "write 3 facts about the project into FACTS.txt."
-        )
-    ],
-)
-
 logger.info("Starting conversation with MCP integration...")
-response = conversation.send_message(message)
+conversation.send_message(
+    "Read https://github.com/All-Hands-AI/OpenHands and write 3 facts "
+    "about the project into FACTS.txt."
+)
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 print("=" * 100)
