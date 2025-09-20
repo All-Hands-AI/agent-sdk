@@ -38,21 +38,18 @@ def kind_of(obj) -> str:
 
 
 def get_known_concrete_subclasses(cls) -> list[type]:
-    """Recursively finds and returns all (loaded) subclasses of a given class.
+    """Recursively returns all concrete subclasses in a stable order,
+    without deduping classes that share the same (module, name)."""
+    out: list[type] = []
+    for sub in cls.__subclasses__():
+        # Recurse first so deeper classes appear after their parents
+        out.extend(get_known_concrete_subclasses(sub))
+        if not _is_abstract(sub):
+            out.append(sub)
 
-    We sort the subclasses by name to ensure a consistent order for schema generation.
-    Pydantic caches schema generation keyed (in part) by type nesting/ordering, so
-    different oneOf orderings → distinct schemas → more duplicate component attempts.
-    """
-    out: dict[str, type] = {}
-    for subclass in cls.__subclasses__():
-        if not _is_abstract(subclass):
-            out[f"{subclass.__module__}.{subclass.__name__}"] = subclass
-        for sub in get_known_concrete_subclasses(subclass):
-            out[f"{sub.__module__}.{sub.__name__}"] = sub
-    # make sure subclasses are always in a consistent order otherwise schema generation
-    # can become non-deterministic.
-    return [out[key] for key in sorted(out)]
+    # Use qualname to distinguish nested/local classes (like test-local Cat)
+    out.sort(key=lambda t: (t.__module__, getattr(t, "__qualname__", t.__name__)))
+    return out
 
 
 class OpenHandsModel(BaseModel):
