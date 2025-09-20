@@ -74,7 +74,7 @@ jobs:
 
     check-openapi-schema:
         name: Check OpenAPI Schema
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-2vcpu-ubuntu-2404
 
         steps:
             - name: Checkout PR branch
@@ -116,7 +116,7 @@ jobs:
 
     check-docker-changes:
         name: Check Docker Changes
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-2vcpu-ubuntu-2404
         outputs:
             docker-changed: ${{ steps.changes.outputs.docker }}
         steps:
@@ -225,7 +225,7 @@ jobs:
         needs: build-and-push-image
         # Only on PRs, and only if the build actually ran and succeeded
         if: github.event_name == 'pull_request' && needs.build-and-push-image.result == 'success'
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-2vcpu-ubuntu-2404
         permissions:
             contents: read
             pull-requests: write
