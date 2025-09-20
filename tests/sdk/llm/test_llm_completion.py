@@ -8,6 +8,8 @@ from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelRespons
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.tool.tool import Tool
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -54,6 +56,7 @@ def test_llm_completion_basic(mock_completion):
     mock_completion.return_value = mock_response
 
     # Create LLM after the patch is applied
+
     llm = LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
@@ -105,8 +108,6 @@ def test_llm_completion_with_tools(mock_completion):
 
     # Test completion with tools
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
-    from openhands.sdk.tool.schema import ActionBase
-    from openhands.sdk.tool.tool import Tool
 
     class _ArgsBasic(ActionBase):
         param: str
@@ -296,8 +297,6 @@ def test_llm_completion_non_function_call_mode(mock_completion):
             content=[TextContent(text="Use the test tool with param 'test_value'")],
         )
     ]
-    from openhands.sdk.tool.schema import ActionBase
-    from openhands.sdk.tool.tool import Tool
 
     class TestNonFCArgs(ActionBase):
         param: str
@@ -337,9 +336,6 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     """Test the difference between function call mode and non-function call mode."""
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
-
-    from openhands.sdk.tool.schema import ActionBase
-    from openhands.sdk.tool.tool import Tool
 
     class TestFCArgs(ActionBase):
         param: str | None = None
