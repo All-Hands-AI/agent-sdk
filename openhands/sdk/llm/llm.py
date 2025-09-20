@@ -356,8 +356,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Convert Tool objects to ChatCompletionToolParam once here
         cc_tools: list[ChatCompletionToolParam] = []
         if tools:
-            # Local import avoids top-level circulars in some environments
-
             cc_tools = [
                 t.to_openai_tool(
                     add_security_risk_prediction=add_security_risk_prediction
