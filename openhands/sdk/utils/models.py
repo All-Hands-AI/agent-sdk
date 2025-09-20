@@ -35,16 +35,23 @@ def kind_of(obj) -> str:
     return obj.__name__
 
 
-def get_known_concrete_subclasses(cls) -> set[Type]:
+def get_known_concrete_subclasses(cls) -> list[type]:
+    """Recursively finds and returns all (loaded) subclasses of a given class.
+
+    We sort the subclasses by name to ensure a consistent order
+    for schema generation.
+    Pydantic caches schema generation keyed (in part) by type nesting/ordering,
+    so different oneOf orderings → distinct schemas → more duplicate component attempts.
     """
-    Recursively finds and returns all (loaded) subclasses of a given class.
-    """
-    result = set()
+    out: dict[str, type] = {}
     for subclass in cls.__subclasses__():
         if not _is_abstract(subclass):
-            result.add(subclass)
-        result.update(get_known_concrete_subclasses(subclass))
-    return result
+            out[f"{subclass.__module__}.{subclass.__name__}"] = subclass
+        for sub in get_known_concrete_subclasses(subclass):
+            out[f"{sub.__module__}.{sub.__name__}"] = sub
+    # make sure subclasses are always in a consistent order
+    # otherwise the schema generation can be non-deterministic
+    return [out[k] for k in sorted(out)]
 
 
 class OpenHandsModel(BaseModel):
@@ -233,20 +240,3 @@ def _get_all_subclasses(cls) -> set[Type]:
         result.add(subclass)
         result.update(_get_all_subclasses(subclass))
     return result
-
-
-# This is a really ugly hack - (If you are reading this then I am probably more
-# upset about it that you are.) - Pydantic type adapters silently take a copy
-# of the schema, serializer, and validator from a model, meaning they can
-# be created in a state where the models have not yet been updated with
-# polymorphic data. I monkey patched a hook in here as unobtrusibley as possible
-
-_orig_type_adapter_init = TypeAdapter.__init__
-
-
-def _init_with_hook(*args, **kwargs):
-    _rebuild_if_required()
-    _orig_type_adapter_init(*args, **kwargs)
-
-
-TypeAdapter.__init__ = _init_with_hook
