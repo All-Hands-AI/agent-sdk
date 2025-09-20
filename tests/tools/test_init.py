@@ -29,4 +29,4 @@ def test_from_import_raises_import_error():
     """`from openhands.tools import X` should fail fast."""
 
     with pytest.raises(ImportError):
-        __import__("openhands.tools", fromlist=["BashTool"])
+        from openhand.tools import BashTool  # type: ignore[import] # noqa: F401
