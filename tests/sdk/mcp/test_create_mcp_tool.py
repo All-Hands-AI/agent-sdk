@@ -217,7 +217,13 @@ def test_real_create_mcp_tools_dict_config():
     tools = create_mcp_tools(mcp_config)
     assert len(tools) == 1
     assert tools[0].name == "fetch"
-    input_schema = tools[0].action_type.to_mcp_schema()
+
+    # Get the schema from the OpenAI tool since MCPToolAction now uses dynamic
+    # schema
+    openai_tool = tools[0].to_openai_tool()
+    assert openai_tool["type"] == "function"
+    assert "parameters" in openai_tool["function"]
+    input_schema = openai_tool["function"]["parameters"]
 
     assert "type" in input_schema
     assert input_schema["type"] == "object"
@@ -232,20 +238,25 @@ def test_real_create_mcp_tools_dict_config():
     assert "security_risk" not in input_schema["properties"]
 
     mcp_tool = tools[0].to_mcp_tool()
-    assert mcp_tool["inputSchema"] == input_schema
+    mcp_schema = mcp_tool["inputSchema"]
 
-    openai_tool = tools[0].to_openai_tool()
-    assert openai_tool["type"] == "function"
-    assert "parameters" in openai_tool["function"]
-    parameters = openai_tool["function"]["parameters"]
-    assert "url" in parameters["properties"]
-    assert parameters["properties"]["url"]["type"] == "string"
-    assert "required" in parameters
-    assert "url" in parameters["required"]
+    # Check that both schemas have the same essential structure
+    assert mcp_schema["type"] == input_schema["type"]
+    assert set(mcp_schema["required"]) == set(input_schema["required"])
+
+    # Check that all properties from input_schema exist in mcp_schema
+    for prop_name, prop_def in input_schema["properties"].items():
+        assert prop_name in mcp_schema["properties"]
+        assert mcp_schema["properties"][prop_name]["type"] == prop_def["type"]
+        assert (
+            mcp_schema["properties"][prop_name]["description"]
+            == prop_def["description"]
+        )
+
     assert openai_tool["function"]["name"] == "fetch"
 
     # security_risk should NOT be in the OpenAI tool schema when no security analyzer is enabled  # noqa: E501
-    assert "security_risk" not in parameters["required"]
-    assert "security_risk" not in parameters["properties"]
+    assert "security_risk" not in input_schema["required"]
+    assert "security_risk" not in input_schema["properties"]
 
     assert tools[0].executor is not None

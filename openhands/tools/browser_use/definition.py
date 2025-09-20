@@ -103,7 +103,7 @@ class BrowserClickAction(ActionBase):
     """Schema for clicking elements."""
 
     index: int = Field(
-        description="The index of the element to click (from browser_get_state)"
+        ge=0, description="The index of the element to click (from browser_get_state)"
     )
     new_tab: bool = Field(
         default=False,
@@ -160,7 +160,7 @@ class BrowserTypeAction(ActionBase):
     """Schema for typing text into elements."""
 
     index: int = Field(
-        description="The index of the input element (from browser_get_state)"
+        ge=0, description="The index of the input element (from browser_get_state)"
     )
     text: str = Field(description="The text to type")
 
@@ -270,6 +270,7 @@ class BrowserGetContentAction(ActionBase):
     )
     start_from_char: int = Field(
         default=0,
+        ge=0,
         description="Character index to start from in the page content (default: 0)",
     )
 
