@@ -24,8 +24,14 @@ llm = LLM(
 )
 
 cwd = os.getcwd()
-agent = get_default_agent(llm=llm, working_dir=cwd)
-
+agent = get_default_agent(
+    llm=llm,
+    working_dir=cwd,
+    # CLI mode will disable any browser tools
+    # which requires dependency like playwright that may not be
+    # available in all environments.
+    cli_mode=True,
+)
 # # Alternatively, you can manually register tools and provide ToolSpecs to Agent.
 # from openhands.sdk import Agent
 # from openhands.sdk.tool.registry import register_tool
