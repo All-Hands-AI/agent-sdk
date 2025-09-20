@@ -36,7 +36,7 @@ def test_agent_initializes_tools_from_toolspec_locally(monkeypatch):
     register_tool("upper", _make_tool)
 
     llm = LLM(model="test-model")
-    agent = Agent(llm=llm, tool_specs=[ToolSpec(name="upper")])
+    agent = Agent(llm=llm, tools=[ToolSpec(name="upper")])
 
     # Build a conversation; this should call agent.initialize() internally
     convo = Conversation(agent=agent, visualize=False)

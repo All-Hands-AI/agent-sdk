@@ -44,6 +44,23 @@ def _resolver_from_instance(name: str, tool: Tool) -> Resolver:
     return _resolve
 
 
+def _resolver_from_callable(
+    name: str, factory: Callable[..., Tool | list[Tool]]
+) -> Resolver:
+    def _resolve(params: dict[str, Any]) -> list[Tool]:
+        try:
+            created = factory(**params)
+        except TypeError as exc:
+            raise TypeError(
+                f"Unable to resolve tool '{name}': factory could not be called with "
+                f"params {params}."
+            ) from exc
+        tools = _ensure_tool_list(name, created)
+        return tools
+
+    return _resolve
+
+
 def _is_abstract_method(cls: type, name: str) -> bool:
     try:
         attr = inspect.getattr_static(cls, name)
@@ -74,7 +91,9 @@ def _resolver_from_subclass(name: str, cls: type[ToolBase]) -> Resolver:
     return _resolve
 
 
-def register_tool(name: str, factory: Tool | type[ToolBase]) -> None:
+def register_tool(
+    name: str, factory: Tool | type[ToolBase] | Callable[..., Tool | list[Tool]]
+) -> None:
     if not isinstance(name, str) or not name.strip():
         raise ValueError("Tool name must be a non-empty string")
 
@@ -82,10 +101,13 @@ def register_tool(name: str, factory: Tool | type[ToolBase]) -> None:
         resolver = _resolver_from_instance(name, factory)
     elif isinstance(factory, type) and issubclass(factory, ToolBase):
         resolver = _resolver_from_subclass(name, factory)
+    elif callable(factory):
+        resolver = _resolver_from_callable(name, factory)
     else:
         raise TypeError(
-            "register(...) only accepts: (1) a Tool instance with .executor, or "
-            "(2) a Tool subclass with .create(**params)"
+            "register_tool(...) only accepts: (1) a Tool instance with .executor, "
+            "(2) a Tool subclass with .create(**params), or (3) a callable factory "
+            "returning a Tool or list[Tool]"
         )
 
     with _LOCK:
@@ -95,8 +117,10 @@ def register_tool(name: str, factory: Tool | type[ToolBase]) -> None:
 def resolve_tool(tool_spec: ToolSpec) -> list[Tool]:
     with _LOCK:
         resolver = _REG.get(tool_spec.name)
+
     if resolver is None:
         raise KeyError(f"Tool '{tool_spec.name}' is not registered")
+
     return resolver(tool_spec.params)
 
 

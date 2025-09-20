@@ -9,10 +9,8 @@ from openhands.sdk import (
     Message,
     TextContent,
 )
-from openhands.tools import (
-    BashTool,
-    FileEditorTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools import BashTool, FileEditorTool
 
 
 # Configure LLM
@@ -24,9 +22,11 @@ llm = LLM(
 )
 
 # Tools
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    BashTool.create(working_dir=os.getcwd()),
-    FileEditorTool.create(),
+    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
+    ToolSpec(name="FileEditorTool", params={}),
 ]
 
 # Agent

@@ -14,6 +14,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools import BashTool
 
 
@@ -30,7 +31,8 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools = [BashTool.create(working_dir=cwd)]
+register_tool("BashTool", BashTool)
+tools = [ToolSpec(name="BashTool", params={"working_dir": cwd})]
 
 # Agent and Conversation with confirmation mode enabled
 agent = Agent(llm=llm, tools=tools)

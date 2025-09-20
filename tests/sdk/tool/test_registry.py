@@ -2,7 +2,7 @@ import pytest
 
 from openhands.sdk import register_tool
 from openhands.sdk.tool import Tool
-from openhands.sdk.tool.registry import resolve
+from openhands.sdk.tool.registry import resolve_tool
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import ToolExecutor
@@ -33,7 +33,7 @@ def _hello_tool_factory() -> Tool:
 
 def test_register_and_resolve_callable_factory():
     register_tool("say_hello", _hello_tool_factory)
-    tools = resolve(ToolSpec(name="say_hello"))
+    tools = resolve_tool(ToolSpec(name="say_hello"))
     assert len(tools) == 1
     assert isinstance(tools[0], Tool)
     assert tools[0].name == "say_hello"
@@ -43,7 +43,7 @@ def test_register_tool_instance_rejects_params():
     t = _hello_tool_factory()
     register_tool("say_hello_instance", t)
     with pytest.raises(ValueError):
-        resolve(ToolSpec(name="say_hello_instance", params={"x": 1}))
+        resolve_tool(ToolSpec(name="say_hello_instance", params={"x": 1}))
 
 
 def test_register_openhands_tools_removed():

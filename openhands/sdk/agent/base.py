@@ -4,7 +4,7 @@ import sys
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
-from pydantic import ConfigDict, Field, PrivateAttr
+from pydantic import AliasChoices, ConfigDict, Field, PrivateAttr, model_validator
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
@@ -48,6 +48,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     )
     tools: list[ToolSpec] = Field(
         default_factory=list,
+        validation_alias=AliasChoices("tools", "tool_specs"),
         description="List of tools to initialize for the agent.",
         examples=[
             {"name": "BashTool", "params": {"working_dir": "/workspace"}},
@@ -133,6 +134,19 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     # Runtime materialized tools; private and non-serializable
     _tools: dict[str, Tool] = PrivateAttr(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_tool_specs(cls, values: Any):
+        if (
+            isinstance(values, dict)
+            and "tool_specs" in values
+            and "tools" not in values
+        ):
+            updated = dict(values)
+            updated["tools"] = updated.pop("tool_specs")
+            return updated
+        return values
 
     def initialize(self):
         """Create an AgentBase instance from an AgentSpec."""

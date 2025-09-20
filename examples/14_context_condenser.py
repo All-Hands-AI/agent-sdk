@@ -21,7 +21,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.io.local import LocalFileStore
-from openhands.sdk.tool.tool import ToolBase
+from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
@@ -38,10 +38,13 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[ToolBase] = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-    TaskTrackerTool.create(save_dir=cwd),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+register_tool("TaskTrackerTool", TaskTrackerTool)
+tools = [
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool", params={}),
+    ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
 ]
 
 # Create a condenser to manage the context. The condenser will automatically truncate

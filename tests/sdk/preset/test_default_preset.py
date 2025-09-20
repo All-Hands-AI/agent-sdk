@@ -18,15 +18,15 @@ def basic_llm():
 
 def test_get_default_agent_spec_includes_browser_toolset(basic_llm):
     """Test that the default agent spec includes BrowserToolSet."""
-    spec = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
 
     # Check that BrowserToolSet is in the tools
-    tool_names = [tool.name for tool in spec.tools]
+    tool_names = [tool.name for tool in agent.tools]
     assert "BrowserToolSet" in tool_names
 
     # Find the BrowserToolSet spec
     browser_toolset_spec = None
-    for tool in spec.tools:
+    for tool in agent.tools:
         if tool.name == "BrowserToolSet":
             browser_toolset_spec = tool
             break
@@ -38,9 +38,9 @@ def test_get_default_agent_spec_includes_browser_toolset(basic_llm):
 
 def test_get_default_agent_spec_includes_expected_tools(basic_llm):
     """Test that the default agent spec includes all expected tools."""
-    spec = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
 
-    tool_names = [tool.name for tool in spec.tools]
+    tool_names = [tool.name for tool in agent.tools]
 
     # Expected tools based on the default preset
     expected_tools = [
@@ -56,11 +56,11 @@ def test_get_default_agent_spec_includes_expected_tools(basic_llm):
 
 def test_get_default_agent_spec_browser_toolset_parameters(basic_llm):
     """Test that BrowserToolSet in default spec has correct parameters."""
-    spec = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
 
     # Find the BrowserToolSet spec
     browser_toolset_spec = None
-    for tool in spec.tools:
+    for tool in agent.tools:
         if tool.name == "BrowserToolSet":
             browser_toolset_spec = tool
             break
@@ -73,14 +73,14 @@ def test_get_default_agent_spec_browser_toolset_parameters(basic_llm):
 def test_get_default_agent_spec_with_custom_working_dir(basic_llm):
     """Test that custom working directory is passed to appropriate tools."""
     custom_dir = "/custom/workspace"
-    spec = get_default_agent_spec(llm=basic_llm, working_dir=custom_dir)
+    agent = get_default_agent_spec(llm=basic_llm, working_dir=custom_dir)
 
     # Find BashTool and TaskTrackerTool to verify they get the working_dir
     bash_tool_spec = None
     task_tracker_spec = None
     browser_toolset_spec = None
 
-    for tool in spec.tools:
+    for tool in agent.tools:
         if tool.name == "BashTool":
             bash_tool_spec = tool
         elif tool.name == "TaskTrackerTool":
@@ -103,53 +103,53 @@ def test_get_default_agent_spec_with_custom_working_dir(basic_llm):
 
 def test_get_default_agent_spec_has_mcp_config(basic_llm):
     """Test that the default agent spec includes MCP configuration."""
-    spec = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
 
-    assert spec.mcp_config is not None
-    assert "mcpServers" in spec.mcp_config
+    assert agent.mcp_config is not None
+    assert "mcpServers" in agent.mcp_config
 
     # Should have fetch server configured
-    assert "fetch" in spec.mcp_config["mcpServers"]
-    fetch_config = spec.mcp_config["mcpServers"]["fetch"]
+    assert "fetch" in agent.mcp_config["mcpServers"]
+    fetch_config = agent.mcp_config["mcpServers"]["fetch"]
     assert fetch_config["command"] == "uvx"
     assert fetch_config["args"] == ["mcp-server-fetch"]
 
 
 def test_get_default_agent_spec_basic_properties(basic_llm):
     """Test basic properties of the default agent spec."""
-    spec = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
 
     # Should have the provided LLM
-    assert spec.llm == basic_llm
+    assert agent.llm == basic_llm
 
     # Should have tools
-    assert len(spec.tools) > 0
+    assert len(agent.tools) > 0
 
     # Should have MCP config
-    assert spec.mcp_config is not None
+    assert agent.mcp_config is not None
 
     # Other properties should have reasonable defaults
-    assert spec.agent_context is None  # No custom agent context by default
-    assert spec.condenser is not None  # Has condenser by default
-    assert spec.filter_tools_regex is not None  # Has filtering for repomix tools
+    assert agent.agent_context is None  # No custom agent context by default
+    assert agent.condenser is not None  # Has condenser by default
+    assert agent.filter_tools_regex is not None  # Has filtering for repomix tools
 
 
 def test_get_default_agent_spec_condenser_config(basic_llm):
     """Test that the default agent spec has proper condenser configuration."""
-    spec = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
 
-    assert spec.condenser is not None
-    assert isinstance(spec.condenser, LLMSummarizingCondenser)
-    assert spec.condenser.llm == basic_llm
-    assert spec.condenser.max_size == 80
-    assert spec.condenser.keep_first == 4
+    assert agent.condenser is not None
+    assert isinstance(agent.condenser, LLMSummarizingCondenser)
+    assert agent.condenser.llm == basic_llm
+    assert agent.condenser.max_size == 80
+    assert agent.condenser.keep_first == 4
 
 
 def test_get_default_agent_spec_tool_order(basic_llm):
     """Test that tools are in expected order in the default spec."""
-    spec = get_default_agent_spec(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent_spec(llm=basic_llm, working_dir="/test")
 
-    tool_names = [tool.name for tool in spec.tools]
+    tool_names = [tool.name for tool in agent.tools]
 
     # BrowserToolSet should be the last tool in the list
     assert tool_names[-1] == "BrowserToolSet"

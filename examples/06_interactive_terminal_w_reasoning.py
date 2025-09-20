@@ -12,9 +12,8 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools import BashTool
 
 
 logger = get_logger(__name__)
@@ -31,8 +30,12 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
+register_tool("BashTool", BashTool)
 tools = [
-    BashTool.create(working_dir=cwd, no_change_timeout_seconds=3),
+    ToolSpec(
+        name="BashTool",
+        params={"working_dir": cwd, "no_change_timeout_seconds": 3},
+    )
 ]
 
 # Agent

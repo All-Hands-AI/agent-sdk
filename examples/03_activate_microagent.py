@@ -17,12 +17,8 @@ from openhands.sdk.context import (
     KnowledgeMicroagent,
     RepoMicroagent,
 )
-from openhands.tools import (
-    BashExecutor,
-    FileEditorExecutor,
-    execute_bash_tool,
-    str_replace_editor_tool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools import BashTool, FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -38,11 +34,11 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-bash = BashExecutor(working_dir=cwd)
-file_editor = FileEditorExecutor()
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    execute_bash_tool.set_executor(executor=bash),
-    str_replace_editor_tool.set_executor(executor=file_editor),
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool", params={}),
 ]
 
 agent_context = AgentContext(

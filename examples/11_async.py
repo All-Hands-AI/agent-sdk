@@ -20,6 +20,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.conversation.types import ConversationCallbackType
+from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
@@ -37,10 +38,13 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+register_tool("TaskTrackerTool", TaskTrackerTool)
 tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-    TaskTrackerTool.create(save_dir=cwd),
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool", params={}),
+    ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
 ]
 
 # Agent

@@ -6,7 +6,6 @@ from pydantic import SecretStr
 
 from openhands.sdk import (
     LLM,
-    Agent,
     Conversation,
     EventBase,
     LLMConvertibleEvent,
@@ -31,12 +30,17 @@ llm = LLM(
 # Tools
 cwd = os.getcwd()
 
-# Using the default agent spec preset
-agent_spec = get_default_agent_spec(llm=llm, working_dir=cwd, cli_mode=True)
+# Using the default agent preset helper
+agent = get_default_agent_spec(llm=llm, working_dir=cwd, cli_mode=True)
 # Or define it explicitly like this:
-# from openhands.sdk import AgentSpec, ToolSpec
+# from openhands.sdk import ToolSpec
 # from openhands.sdk.context.condenser import LLMSummarizingCondenser
-# agent_spec = AgentSpec(
+# from openhands.sdk.tool import register_tool
+# from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+# register_tool("BashTool", BashTool)
+# register_tool("FileEditorTool", FileEditorTool)
+# register_tool("TaskTrackerTool", TaskTrackerTool)
+# agent = Agent(
 #     llm=llm,
 #     tools=[
 #         ToolSpec(name="BashTool", params={"working_dir": cwd}),
@@ -53,7 +57,6 @@ agent_spec = get_default_agent_spec(llm=llm, working_dir=cwd, cli_mode=True)
 #     system_prompt_kwargs={"cli_mode": True},
 #     condenser=LLMSummarizingCondenser(llm=llm, max_size=80, keep_first=4),
 # )
-agent = Agent.from_spec(agent_spec)
 
 llm_messages = []  # collect raw LLM messages
 

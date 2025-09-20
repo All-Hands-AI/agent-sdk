@@ -15,10 +15,8 @@ from openhands.sdk import (
     create_mcp_tools,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-    FileEditorTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools import BashTool, FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -34,9 +32,11 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+tool_specs = [
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool", params={}),
 ]
 
 # Add MCP Tools
@@ -46,13 +46,12 @@ mcp_config = {
     }
 }
 mcp_tools = create_mcp_tools(mcp_config, timeout=30)
-tools.extend(mcp_tools)
 logger.info(f"Added {len(mcp_tools)} MCP tools")
 for tool in mcp_tools:
     logger.info(f"  - {tool.name}: {tool.description}")
 
 # Agent
-agent = Agent(llm=llm, tools=tools)
+agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
 

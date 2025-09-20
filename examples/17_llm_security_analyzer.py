@@ -13,7 +13,7 @@ from openhands.sdk import LLM, Agent, Conversation, LocalFileStore, Message, Tex
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool.tool import ToolBase
+from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools import BashTool, FileEditorTool
 
 
@@ -29,9 +29,11 @@ llm = LLM(
 )
 
 # Tools
-tools: list[ToolBase] = [
-    BashTool.create(working_dir=os.getcwd()),
-    FileEditorTool.create(),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+tools = [
+    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
+    ToolSpec(name="FileEditorTool", params={}),
 ]
 
 # Create agent with security analyzer
