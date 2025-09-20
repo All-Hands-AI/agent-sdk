@@ -13,7 +13,9 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools import BashTool, BrowserToolSet, FileEditorTool
+from openhands.tools.browser_use import BrowserToolSet
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)

@@ -11,12 +11,10 @@ from openhands.sdk.tool import ToolSpec, register_tool
 
 def get_default_tools(working_dir: str) -> list[ToolSpec]:
     """Get the default set of tool specifications for the standard experience."""
-    from openhands.tools import (
-        BashTool,
-        BrowserToolSet,
-        FileEditorTool,
-        TaskTrackerTool,
-    )
+    from openhands.tools.browser_use import BrowserToolSet
+    from openhands.tools.execute_bash import BashTool
+    from openhands.tools.str_replace_editor import FileEditorTool
+    from openhands.tools.task_tracker import TaskTrackerTool
 
     register_tool("BashTool", BashTool)
     register_tool("FileEditorTool", FileEditorTool)

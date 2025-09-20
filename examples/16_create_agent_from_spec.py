@@ -36,7 +36,9 @@ agent = get_default_agent_spec(llm=llm, working_dir=cwd, cli_mode=True)
 # from openhands.sdk import ToolSpec
 # from openhands.sdk.context.condenser import LLMSummarizingCondenser
 # from openhands.sdk.tool import register_tool
-# from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+# from openhands.tools.execute_bash import BashTool
+# from openhands.tools.str_replace_editor import FileEditorTool
+# from openhands.tools.task_tracker import TaskTrackerTool
 # register_tool("BashTool", BashTool)
 # register_tool("FileEditorTool", FileEditorTool)
 # register_tool("TaskTrackerTool", TaskTrackerTool)

@@ -15,7 +15,7 @@ from openhands.sdk import (
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools import BashTool
+from openhands.tools.execute_bash import BashTool
 
 
 print("=== OpenHands Agent SDK — Confirmation Mode Example ===")

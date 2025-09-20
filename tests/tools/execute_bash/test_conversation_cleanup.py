@@ -11,7 +11,7 @@ from unittest.mock import Mock
 
 from openhands.sdk import Agent, Conversation
 from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools import BashExecutor, BashTool
+from openhands.tools.execute_bash import BashExecutor, BashTool
 
 
 def test_conversation_close_calls_executor_close(mock_llm):

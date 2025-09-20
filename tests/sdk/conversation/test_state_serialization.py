@@ -15,7 +15,8 @@ from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationS
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools import BashTool, FileEditorTool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 register_tool("BashTool", BashTool)

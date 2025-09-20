@@ -25,12 +25,12 @@ from openhands.sdk.tool import (
     ToolSpec,
     register_tool,
 )
-from openhands.tools import (
+from openhands.tools.execute_bash import (
     BashExecutor,
     ExecuteBashAction,
-    FileEditorTool,
     execute_bash_tool,
 )
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)

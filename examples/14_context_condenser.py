@@ -22,7 +22,9 @@ from openhands.sdk import (
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.io.local import LocalFileStore
 from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
 
 
 logger = get_logger(__name__)

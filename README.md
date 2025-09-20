@@ -82,7 +82,9 @@ uv run python examples/01_hello_world.py
 import os
 from pydantic import SecretStr
 from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
 
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
@@ -122,7 +124,8 @@ Agents are the central orchestrators that coordinate between LLMs and tools:
 
 ```python
 from openhands.sdk import Agent, LLM
-from openhands.tools import BashTool, FileEditorTool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 agent = Agent(
     llm=llm,
@@ -159,7 +162,9 @@ Tools provide agents with capabilities to interact with the environment:
 
 ```python
 from openhands.sdk import TextContent, ImageContent
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
 
 # Direct instantiation with simplified API
 tools = [
@@ -174,7 +179,7 @@ tools = [
 We explicitly define a `BashExecutor` in this example:
 
 ```python
-from openhands.tools import BashExecutor, execute_bash_tool
+from openhands.tools.execute_bash import BashExecutor, execute_bash_tool
 
 # Explicit executor creation for reuse or customization
 bash_executor = BashExecutor(working_dir=os.getcwd())

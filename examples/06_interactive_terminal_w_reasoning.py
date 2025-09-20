@@ -13,7 +13,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools import BashTool
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)
