@@ -84,15 +84,7 @@ class Conversation:
         self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
-        # Ensure tools are initialized before first use
-        try:
-            # Not all Agent implementations may have initialize; be defensive
-            initialize = getattr(self.agent, "initialize", None)
-            if callable(initialize):
-                initialize()
-        except Exception as e:
-            logger.warning(f"Agent initialization failed: {e}")
-
+        self.agent.initialize()
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
 
@@ -282,12 +274,7 @@ class Conversation:
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
-        try:
-            tools_map = self.agent.get_tools()
-        except Exception as e:
-            logger.warning(f"Skipping tool cleanup; agent not initialized: {e}")
-            tools_map = {}
-        for tool in tools_map.values():
+        for tool in self.agent.tools_map.values():
             if tool.executor is not None:
                 try:
                     tool.executor.close()
