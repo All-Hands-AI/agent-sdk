@@ -242,12 +242,12 @@ def test_create_operation(temp_file):
 def test_view_operation_truncation(temp_file):
     """Test that view operation truncates large files correctly."""
     from openhands.tools.str_replace_editor.utils.constants import (
-        MAX_RESPONSE_LEN_CHAR,
+        MAX_RESPONSE_LEN_TOKENS,
         TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
     )
 
     # Create a large file that exceeds the str_replace_editor's truncation limit
-    large_content = "A" * (MAX_RESPONSE_LEN_CHAR + 1000)
+    large_content = "A" * (MAX_RESPONSE_LEN_TOKENS * 10)  # Much larger than token limit
     with open(temp_file, "w") as f:
         f.write(large_content)
 
@@ -264,7 +264,7 @@ def test_view_operation_truncation(temp_file):
     assert TEXT_FILE_CONTENT_TRUNCATED_NOTICE in result.output
 
     # The content should be truncated before line numbers are added
-    # So the final output will be longer than MAX_RESPONSE_LEN_CHAR due to formatting
+    # So the final output will be longer than MAX_RESPONSE_LEN_TOKENS due to formatting
     # but the original content was truncated
     assert "Here's the result of running `cat -n`" in result.output
 

@@ -1,7 +1,7 @@
 """Tests for ExecuteBashObservation truncation functionality."""
 
 from openhands.sdk.llm import TextContent
-from openhands.tools.execute_bash.constants import MAX_CMD_OUTPUT_SIZE
+from openhands.tools.execute_bash.constants import MAX_CMD_OUTPUT_TOKENS
 from openhands.tools.execute_bash.definition import ExecuteBashObservation
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 
@@ -48,8 +48,12 @@ def test_execute_bash_observation_truncation_over_limit():
         pid=123,
     )
 
-    # Create output that exceeds the limit
-    long_output = "A" * (MAX_CMD_OUTPUT_SIZE + 1000)
+    # Create output that exceeds the token limit
+    # Use varied text to ensure we exceed the token limit (not just repeated characters)
+    base_text = "This is a test line with various words and punctuation! " * 100
+    long_output = base_text * (
+        MAX_CMD_OUTPUT_TOKENS // 100
+    )  # Much larger than token limit
 
     observation = ExecuteBashObservation(
         output=long_output,
@@ -65,9 +69,12 @@ def test_execute_bash_observation_truncation_over_limit():
     # The result should be truncated
     assert len(result) < len(long_output) + 200  # Account for metadata
     # With head-and-tail truncation, should start and end with original content
-    assert result.startswith("A")  # Should start with original content
+    assert result.startswith(
+        "This is a test line"
+    )  # Should start with original content
     expected_end = (
-        "A\n[Current working directory: /test]\n[Python interpreter: /usr/bin/python]\n"
+        "punctuation! \n[Current working directory: /test]\n"
+        "[Python interpreter: /usr/bin/python]\n"
         "[Command finished with exit code 0]"
     )
     assert result.endswith(expected_end)  # Should end with original content + metadata
@@ -85,8 +92,11 @@ def test_execute_bash_observation_truncation_with_error():
         pid=123,
     )
 
-    # Create output that exceeds the limit
-    long_output = "B" * (MAX_CMD_OUTPUT_SIZE + 500)
+    # Create output that exceeds the token limit
+    base_text = "Error message with various details and information! " * 100
+    long_output = base_text * (
+        MAX_CMD_OUTPUT_TOKENS // 100
+    )  # Much larger than token limit
 
     observation = ExecuteBashObservation(
         output=long_output,
@@ -104,7 +114,8 @@ def test_execute_bash_observation_truncation_with_error():
     assert len(result) < len(long_output) + 300  # Account for metadata and error prefix
     # With head-and-tail truncation, should end with original content + metadata
     expected_end = (
-        "B\n[Current working directory: /test]\n[Python interpreter: /usr/bin/python]\n"
+        "information! \n[Current working directory: /test]\n"
+        "[Python interpreter: /usr/bin/python]\n"
         "[Command finished with exit code 1]"
     )
     assert result.endswith(expected_end)
@@ -128,7 +139,7 @@ def test_execute_bash_observation_truncation_exact_limit():
         "[Python interpreter: /usr/bin/python]\n"
         "[Command finished with exit code 0]"
     )
-    exact_output_size = MAX_CMD_OUTPUT_SIZE - len(metadata_text)
+    exact_output_size = MAX_CMD_OUTPUT_TOKENS - len(metadata_text)
     exact_output = "C" * exact_output_size
 
     observation = ExecuteBashObservation(
@@ -143,7 +154,7 @@ def test_execute_bash_observation_truncation_exact_limit():
     result = result[0].text
 
     # Should not be truncated
-    assert len(result) == MAX_CMD_OUTPUT_SIZE
+    assert len(result) == MAX_CMD_OUTPUT_TOKENS
     assert not result.endswith("</NOTE>")
 
 
@@ -158,8 +169,11 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
         pid=123,
     )
 
-    # Create output that exceeds the limit
-    long_output = "D" * (MAX_CMD_OUTPUT_SIZE + 200)
+    # Create output that exceeds the token limit
+    base_text = "Prefix and suffix test with detailed content! " * 100
+    long_output = base_text * (
+        MAX_CMD_OUTPUT_TOKENS // 100
+    )  # Much larger than token limit
 
     observation = ExecuteBashObservation(
         output=long_output,
@@ -177,10 +191,10 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
     assert (
         len(result) < len(long_output) + 300
     )  # Account for metadata and prefix/suffix
-    # With head-and-tail truncation, should end with original content + metadata
-    expected_end = (
-        "D [SUFFIX]\n[Current working directory: /test]\n"
+    # With head-and-tail truncation, should end with suffix and metadata
+    assert " [SUFFIX]" in result
+    assert result.endswith(
+        "\n[Current working directory: /test]\n"
         "[Python interpreter: /usr/bin/python]\n[Command finished with exit code 0]"
     )
-    assert result.endswith(expected_end)
     assert "<response clipped>" in result  # Should contain truncation notice

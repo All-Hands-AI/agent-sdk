@@ -5,14 +5,14 @@ import time
 from openhands.sdk.utils.truncate import maybe_truncate
 from openhands.tools.str_replace_editor.utils.constants import (
     CONTENT_TRUNCATED_NOTICE,
-    MAX_RESPONSE_LEN_CHAR,
+    MAX_RESPONSE_LEN_TOKENS,
 )
 
 
 def run_shell_cmd(
     cmd: str,
     timeout: float | None = 120.0,  # seconds
-    truncate_after: int | None = MAX_RESPONSE_LEN_CHAR,
+    truncate_after: int | None = MAX_RESPONSE_LEN_TOKENS,
     truncate_notice: str = CONTENT_TRUNCATED_NOTICE,
 ) -> tuple[int, str, str]:
     """Run a shell command synchronously with a timeout.
@@ -20,7 +20,7 @@ def run_shell_cmd(
     Args:
         cmd: The shell command to run.
         timeout: The maximum time to wait for the command to complete.
-        truncate_after: The maximum number of characters to return for stdout
+        truncate_after: The maximum number of tokens to return for stdout
             and stderr.
 
     Returns:
@@ -40,12 +40,16 @@ def run_shell_cmd(
         return (
             process.returncode or 0,
             maybe_truncate(
-                stdout, truncate_after=truncate_after, truncate_notice=truncate_notice
+                stdout,
+                truncate_after=truncate_after,
+                truncate_notice=truncate_notice,
+                use_tokens=True,
             ),
             maybe_truncate(
                 stderr,
                 truncate_after=truncate_after,
                 truncate_notice=CONTENT_TRUNCATED_NOTICE,
+                use_tokens=True,
             ),  # Use generic notice for stderr
         )
     except subprocess.TimeoutExpired:

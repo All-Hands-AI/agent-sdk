@@ -1,5 +1,7 @@
 import re
 
+from openhands.sdk.utils import DEFAULT_TOKEN_LIMIT
+
 
 CMD_OUTPUT_PS1_BEGIN = "\n###PS1JSON###\n"
 CMD_OUTPUT_PS1_END = "\n###PS1END###"
@@ -8,10 +10,9 @@ CMD_OUTPUT_METADATA_PS1_REGEX = re.compile(
     re.DOTALL | re.MULTILINE,
 )
 
-# Default max size for command output content
+# Use token-based limit instead of character-based for command output
 # to prevent too large observations from being saved in the stream
-# This matches the default max_message_chars in LLM class
-MAX_CMD_OUTPUT_SIZE: int = 30000
+MAX_CMD_OUTPUT_TOKENS: int = DEFAULT_TOKEN_LIMIT
 
 
 # Common timeout message that can be used across different timeout scenarios

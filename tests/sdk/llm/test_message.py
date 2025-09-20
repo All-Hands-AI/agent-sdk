@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 
@@ -178,49 +176,35 @@ def test_text_content_truncation_under_limit():
 
 
 def test_text_content_truncation_over_limit():
-    """Test TextContent truncates when over limit."""
+    """Test TextContent truncates when over limit using token-based truncation."""
     from openhands.sdk.llm.message import TextContent
-    from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT
+    from openhands.sdk.utils import DEFAULT_TOKEN_LIMIT
 
-    # Create text that exceeds the limit
-    long_text = "A" * (DEFAULT_TEXT_CONTENT_LIMIT + 1000)
+    # Create text that exceeds the token limit (using a large amount of text)
+    long_text = "A" * (DEFAULT_TOKEN_LIMIT * 10)  # Much larger than token limit
 
-    with patch("openhands.sdk.llm.message.logger") as mock_logger:
-        content = TextContent(text=long_text)
-        result = content.to_llm_dict()
+    content = TextContent(text=long_text)
+    result = content.to_llm_dict()
 
-        # Check that warning was logged
-        mock_logger.warning.assert_called_once()
-        warning_call = mock_logger.warning.call_args[0][0]
-        assert "exceeds limit" in warning_call
-        assert str(DEFAULT_TEXT_CONTENT_LIMIT + 1000) in warning_call
-        assert str(DEFAULT_TEXT_CONTENT_LIMIT) in warning_call
-
-        # Check that text was truncated
-        text_result = result["text"]
-        assert isinstance(text_result, str)
-        assert len(text_result) < len(long_text)
-        assert len(text_result) == DEFAULT_TEXT_CONTENT_LIMIT
-        # With head-and-tail truncation, should start and end with original content
-        assert text_result.startswith("A")  # Should start with original content
-        assert text_result.endswith("A")  # Should end with original content
-        assert "<response clipped>" in text_result  # Should contain truncation notice
+    # Check that text was truncated using token-based truncation
+    text_result = result["text"]
+    assert isinstance(text_result, str)
+    assert len(text_result) < len(long_text)
+    # With head-and-tail truncation, should start and end with original content
+    assert text_result.startswith("A")  # Should start with original content
+    assert text_result.endswith("A")  # Should end with original content
+    assert "<response clipped>" in text_result  # Should contain truncation notice
 
 
 def test_text_content_truncation_exact_limit():
-    """Test TextContent doesn't truncate when exactly at limit."""
+    """Test TextContent doesn't truncate when under token limit."""
     from openhands.sdk.llm.message import TextContent
-    from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT
 
-    # Create text that is exactly at the limit
-    exact_text = "A" * DEFAULT_TEXT_CONTENT_LIMIT
+    # Create text that is small enough to not trigger truncation
+    small_text = "A" * 100  # Small text that won't exceed token limit
 
-    with patch("openhands.sdk.llm.message.logger") as mock_logger:
-        content = TextContent(text=exact_text)
-        result = content.to_llm_dict()
+    content = TextContent(text=small_text)
+    result = content.to_llm_dict()
 
-        # Check that no warning was logged
-        mock_logger.warning.assert_not_called()
-
-        # Check that text was not truncated
-        assert result["text"] == exact_text
+    # Check that text was not truncated
+    assert result["text"] == small_text

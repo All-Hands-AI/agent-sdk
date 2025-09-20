@@ -22,7 +22,7 @@ from openhands.tools.str_replace_editor.utils.config import SNIPPET_CONTEXT_WIND
 from openhands.tools.str_replace_editor.utils.constants import (
     BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
     DIRECTORY_CONTENT_TRUNCATED_NOTICE,
-    MAX_RESPONSE_LEN_CHAR,
+    MAX_RESPONSE_LEN_TOKENS,
     TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
 )
 from openhands.tools.str_replace_editor.utils.encoding import (
@@ -662,8 +662,9 @@ class FileEditor:
         if is_converted_markdown:
             snippet_content = maybe_truncate(
                 snippet_content,
-                truncate_after=MAX_RESPONSE_LEN_CHAR,
+                truncate_after=MAX_RESPONSE_LEN_TOKENS,
                 truncate_notice=BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
+                use_tokens=True,
             )
             return (
                 f"Here's the content of the file {snippet_description} displayed in "
@@ -672,8 +673,9 @@ class FileEditor:
 
         snippet_content = maybe_truncate(
             snippet_content,
-            truncate_after=MAX_RESPONSE_LEN_CHAR,
+            truncate_after=MAX_RESPONSE_LEN_TOKENS,
             truncate_notice=TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
+            use_tokens=True,
         )
 
         snippet_content = "\n".join(

@@ -3,11 +3,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openhands.tools.str_replace_editor.utils.config import (
-    MAX_RESPONSE_LEN_CHAR,
-)
 from openhands.tools.str_replace_editor.utils.constants import (
     CONTENT_TRUNCATED_NOTICE,
+    MAX_RESPONSE_LEN_TOKENS,
 )
 from openhands.tools.str_replace_editor.utils.shell import (
     check_tool_installed,
@@ -41,7 +39,7 @@ def test_run_shell_cmd_timeout(mock_popen):
 @patch("subprocess.Popen")
 def test_run_shell_cmd_truncation(mock_popen):
     """Test that stdout and stderr are truncated correctly."""
-    long_output = "a" * (MAX_RESPONSE_LEN_CHAR + 10)
+    long_output = "a" * (MAX_RESPONSE_LEN_TOKENS + 10)
     mock_process = MagicMock()
     mock_process.communicate.return_value = (long_output, long_output)
     mock_process.returncode = 0
@@ -50,8 +48,8 @@ def test_run_shell_cmd_truncation(mock_popen):
     returncode, stdout, stderr = run_shell_cmd("echo long_output")
 
     assert returncode == 0
-    assert len(stdout) <= MAX_RESPONSE_LEN_CHAR + len(CONTENT_TRUNCATED_NOTICE)
-    assert len(stderr) <= MAX_RESPONSE_LEN_CHAR + len(CONTENT_TRUNCATED_NOTICE)
+    assert len(stdout) <= MAX_RESPONSE_LEN_TOKENS + len(CONTENT_TRUNCATED_NOTICE)
+    assert len(stderr) <= MAX_RESPONSE_LEN_TOKENS + len(CONTENT_TRUNCATED_NOTICE)
 
 
 def test_check_tool_installed_python():

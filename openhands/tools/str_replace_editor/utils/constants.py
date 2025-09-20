@@ -1,4 +1,8 @@
-MAX_RESPONSE_LEN_CHAR: int = 16000
+from openhands.sdk.utils import DEFAULT_TOKEN_LIMIT
+
+
+# Use token-based limit instead of character-based
+MAX_RESPONSE_LEN_TOKENS: int = DEFAULT_TOKEN_LIMIT
 
 CONTENT_TRUNCATED_NOTICE = "<response clipped><NOTE>Due to the max output limit, only part of the full response has been shown to you.</NOTE>"  # noqa: E501
 
