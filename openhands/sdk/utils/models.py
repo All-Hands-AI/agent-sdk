@@ -10,7 +10,6 @@ from pydantic import (
     Field,
     Tag,
     TypeAdapter,
-    model_validator,
 )
 
 
@@ -37,16 +36,19 @@ def kind_of(obj) -> str:
     return obj.__name__
 
 
-def get_known_concrete_subclasses(cls) -> set[Type]:
-    """
-    Recursively finds and returns all (loaded) subclasses of a given class.
-    """
-    result = set()
-    for subclass in cls.__subclasses__():
-        if not _is_abstract(subclass):
-            result.add(subclass)
-        result.update(get_known_concrete_subclasses(subclass))
-    return result
+def get_known_concrete_subclasses(cls) -> list[type]:
+    """Recursively returns all concrete subclasses in a stable order,
+    without deduping classes that share the same (module, name)."""
+    out: list[type] = []
+    for sub in cls.__subclasses__():
+        # Recurse first so deeper classes appear after their parents
+        out.extend(get_known_concrete_subclasses(sub))
+        if not _is_abstract(sub):
+            out.append(sub)
+
+    # Use qualname to distinguish nested/local classes (like test-local Cat)
+    out.sort(key=lambda t: (t.__module__, getattr(t, "__qualname__", t.__name__)))
+    return out
 
 
 class OpenHandsModel(BaseModel):
@@ -129,21 +131,15 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
             subclasses = get_known_concrete_subclasses(cls)
             kinds = [subclass.__name__ for subclass in subclasses]
             if kinds:
-                kind = cls.model_fields["kind"]
-                kind.annotation = Literal[tuple(kinds)]  # type: ignore
-                kind.default = kinds[0]
+                kind_field = cls.model_fields["kind"]
+                kind_field.annotation = Literal[tuple(kinds)]  # type: ignore
+                kind_field.default = kinds[0]
 
-            # Update kind to be specific - not just str...
             type_adapter = TypeAdapter(cls.get_serializable_type())
             cls.__pydantic_core_schema__ = type_adapter.core_schema
             cls.__pydantic_validator__ = type_adapter.validator
             cls.__pydantic_serializer__ = type_adapter.serializer
             return
-        else:
-            # Update the kind field to be a literal.
-            kind = cls.model_fields["kind"]
-            kind.annotation = Literal[cls.__name__]  # type: ignore
-            kind.default = cls.__name__
 
         return super().model_rebuild(
             force=force,
@@ -202,33 +198,40 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         result = resolved.model_validate(data, **kwargs)
         return result  # type: ignore
 
-    @model_validator(mode="before")
-    @classmethod
-    def _set_kind(cls, data):
-        """For some cases (like models with a default fallback), the incoming
-        kind may not match the value so we set it."""
-        if not isinstance(data, dict):
-            return
-        data = dict(data)
-        data["kind"] = cls.__name__
-        return data
-
     def __init_subclass__(cls, **kwargs):
-        # Check for duplicates
-        if DiscriminatedUnionMixin not in cls.__bases__:
+        super().__init_subclass__(**kwargs)
+
+        # If concrete, stamp kind Literal and collision check
+        if not _is_abstract(cls):
+            # 1) Stamp discriminator
+            cls.kind = cls.__name__
+            cls.__annotations__["kind"] = Literal[cls.__name__]
+
+            # 2) Collision check
             mro = cls.mro()
             union_class = mro[mro.index(DiscriminatedUnionMixin) - 1]
-            classes = get_known_concrete_subclasses(union_class)
-            kinds = {}
-            for subclass in classes:
-                kind = kind_of(subclass)
-                if kind in kinds:
+            concretes = get_known_concrete_subclasses(union_class)  # sorted list
+            kinds: dict[str, type] = {}
+            for sub in concretes:
+                k = kind_of(sub)
+                if k in kinds and kinds[k] is not sub:
                     raise ValueError(
-                        f"Duplicate kind detected for {union_class} : {cls}, {subclass}"
+                        f"Duplicate kind detected for {union_class} : {cls}, {sub}"
                     )
-                kinds[kind] = subclass
+                kinds[k] = sub
 
-        return super().__init_subclass__(**kwargs)
+        # Rebuild any abstract union owners in the MRO that rely on subclass sets
+        for base in cls.mro():
+            # Stop when we pass ourselves
+            if base is cls:
+                continue
+            # Only rebuild abstract DiscriminatedUnion owners
+            if (
+                isinstance(base, type)
+                and issubclass(base, DiscriminatedUnionMixin)
+                and _is_abstract(base)
+            ):
+                base.model_rebuild(force=True)
 
 
 def _rebuild_if_required():
@@ -253,20 +256,3 @@ def _get_all_subclasses(cls) -> set[Type]:
         result.add(subclass)
         result.update(_get_all_subclasses(subclass))
     return result
-
-
-# This is a really ugly hack - (If you are reading this then I am probably more
-# upset about it that you are.) - Pydantic type adapters silently take a copy
-# of the schema, serializer, and validator from a model, meaning they can
-# be created in a state where the models have not yet been updated with
-# polymorphic data. I monkey patched a hook in here as unobtrusibley as possible
-
-_orig_type_adapter_init = TypeAdapter.__init__
-
-
-def _init_with_hook(*args, **kwargs):
-    _rebuild_if_required()
-    _orig_type_adapter_init(*args, **kwargs)
-
-
-TypeAdapter.__init__ = _init_with_hook

@@ -1,5 +1,5 @@
-# OpenHands V1 Makefile
-# Minimal Makefile for OpenHands V1 using uv
+SHELL := /usr/bin/env bash
+.SHELLFLAGS := -eu -o pipefail -c
 
 # Colors for output
 GREEN := \033[32m

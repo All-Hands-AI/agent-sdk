@@ -93,26 +93,10 @@ jobs:
                   uv sync --frozen --dev
 
             - name: Check OpenAPI JSON and build client
-              shell: bash
               env:
                   PYTHONPATH: .
               run: |
-                  set -euo pipefail
-                  export SCHEMA_PATH="$RUNNER_TEMP/openhands-openapi.json"
-
-                  # Generate OpenAPI JSON inline (no file left in repo)
-                  uv run python -m openhands.agent_server.openapi
-
-                  # Generate client from the temp schema and **fail on any warnings** to check
-                  uv run openapi-python-client generate \
-                    --path "$SCHEMA_PATH" \
-                    --output-path "$RUNNER_TEMP/openhands-client" \
-                    --meta uv \
-                    --overwrite \
-                    --fail-on-warning
-
-                  # Clean up temp schema
-                  rm -f "$SCHEMA_PATH"
+                  make test-server-schema
 
     check-docker-changes:
         name: Check Docker Changes
