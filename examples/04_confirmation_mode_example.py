@@ -5,16 +5,11 @@ import signal
 
 from pydantic import SecretStr
 
-from openhands.sdk import (
-    LLM,
-    Agent,
-    Conversation,
-    Message,
-    TextContent,
-)
+from openhands.sdk import LLM, Agent, Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.tools import BashTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
 
 
 print("=== OpenHands Agent SDK — Confirmation Mode Example ===")
@@ -30,7 +25,8 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools = [BashTool.create(working_dir=cwd)]
+register_tool("BashTool", BashTool)
+tools = [ToolSpec(name="BashTool", params={"working_dir": cwd})]
 
 # Agent and Conversation with confirmation mode enabled
 agent = Agent(llm=llm, tools=tools)
@@ -41,16 +37,7 @@ conversation.set_confirmation_mode(True)
 signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
 
 print("\n1) Command that will likely create actions…")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text="Please list the files in the current directory using ls -la"
-            )
-        ],
-    )
-)
+conversation.send_message("Please list the files in the current directory using ls -la")
 
 # Run conversation with confirmation handling
 while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
@@ -104,12 +91,7 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
     conversation.run()
 
 print("\n2) Command the user may choose to reject…")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Please create a file called 'dangerous_file.txt'")],
-    )
-)
+conversation.send_message("Please create a file called 'dangerous_file.txt'")
 
 # Run conversation with confirmation handling
 while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
@@ -159,12 +141,7 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
     conversation.run()
 
 print("\n3) Simple greeting (no actions expected)…")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Just say hello to me")],
-    )
-)
+conversation.send_message("Just say hello to me")
 
 # Run conversation with confirmation handling
 while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
@@ -215,27 +192,11 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
 
 print("\n4) Disable confirmation mode and run a command…")
 conversation.set_confirmation_mode(False)
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(text="Please echo 'Hello from confirmation mode example!'")
-        ],
-    )
-)
+conversation.send_message("Please echo 'Hello from confirmation mode example!'")
 conversation.run()
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Please delete any file that was created during this conversation."
-                )
-            )
-        ],
-    )
+    "Please delete any file that was created during this conversation."
 )
 conversation.run()
 

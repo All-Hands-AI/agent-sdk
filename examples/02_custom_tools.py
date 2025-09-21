@@ -13,18 +13,23 @@ from openhands.sdk import (
     EventBase,
     ImageContent,
     LLMConvertibleEvent,
-    Message,
     TextContent,
     Tool,
     get_logger,
 )
-from openhands.sdk.tool import ActionBase, ObservationBase, ToolExecutor
-from openhands.tools import (
+from openhands.sdk.tool import (
+    ActionBase,
+    ObservationBase,
+    ToolExecutor,
+    ToolSpec,
+    register_tool,
+)
+from openhands.tools.execute_bash import (
     BashExecutor,
     ExecuteBashAction,
-    FileEditorTool,
     execute_bash_tool,
 )
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -122,27 +127,31 @@ llm = LLM(
 # Tools - demonstrating both simplified and advanced patterns
 cwd = os.getcwd()
 
-# Advanced pattern: explicit executor creation and reuse
-bash_executor = BashExecutor(working_dir=cwd)
-bash_tool_advanced = execute_bash_tool.set_executor(executor=bash_executor)
 
-# Create the grep tool using explicit executor that reuses the bash executor
-grep_executor = GrepExecutor(bash_executor)
-grep_tool = Tool(
-    name="grep",
-    description=_GREP_DESCRIPTION,
-    action_type=GrepAction,
-    observation_type=GrepObservation,
-    executor=grep_executor,
-)
+def _make_bash_and_grep_tools(working_dir: str) -> list[Tool]:
+    """Create execute_bash and custom grep tools sharing one executor."""
+
+    bash_executor = BashExecutor(working_dir=working_dir)
+    bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
+
+    grep_executor = GrepExecutor(bash_executor)
+    grep_tool = Tool(
+        name="grep",
+        description=_GREP_DESCRIPTION,
+        action_type=GrepAction,
+        observation_type=GrepObservation,
+        executor=grep_executor,
+    )
+
+    return [bash_tool, grep_tool]
+
+
+register_tool("FileEditorTool", FileEditorTool)
+register_tool("BashAndGrepToolSet", _make_bash_and_grep_tools)
 
 tools = [
-    # Simplified pattern
-    FileEditorTool.create(),
-    # Advanced pattern with explicit executor
-    bash_tool_advanced,
-    # Custom tool with explicit executor
-    grep_tool,
+    ToolSpec(name="FileEditorTool"),
+    ToolSpec(name="BashAndGrepToolSet", params={"working_dir": cwd}),
 ]
 
 # Agent
@@ -159,27 +168,13 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Hello! Can you use the grep tool to find all files "
-                    "containing the word 'class' in this project, then create a summary file listing them? "  # noqa: E501
-                    "Use the pattern 'class' to search and include only Python files with '*.py'."  # noqa: E501
-                )
-            )
-        ],
-    )
+    "Hello! Can you use the grep tool to find all files "
+    "containing the word 'class' in this project, then create a summary file listing them? "  # noqa: E501
+    "Use the pattern 'class' to search and include only Python files with '*.py'."  # noqa: E501
 )
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 print("=" * 100)

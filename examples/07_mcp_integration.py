@@ -8,12 +8,11 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
-    create_mcp_tools,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -28,22 +27,28 @@ llm = LLM(
 )
 
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+tool_specs = [
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 # Add MCP Tools
-mcp_config = {"mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}}}
-mcp_tools = create_mcp_tools(mcp_config, timeout=30)
-tools.extend(mcp_tools)
-logger.info(f"Added {len(mcp_tools)} MCP tools")
-for tool in mcp_tools:
-    logger.info(f"  - {tool.name}: {tool.description}")
-
-
+mcp_config = {
+    "mcpServers": {
+        "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
+        "repomix": {"command": "npx", "args": ["-y", "repomix@1.4.2", "--mcp"]},
+    }
+}
 # Agent
-agent = Agent(llm=llm, tools=tools)
+agent = Agent(
+    llm=llm,
+    tools=tool_specs,
+    mcp_config=mcp_config,
+    # This regex filters out all repomix tools except pack_codebase
+    filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
+)
 
 llm_messages = []  # collect raw LLM messages
 
@@ -59,27 +64,14 @@ conversation = Conversation(
     callbacks=[conversation_callback],
 )
 
-# Example message that can use MCP tools if available
-message = Message(
-    role="user",
-    content=[
-        TextContent(
-            text="Read https://github.com/All-Hands-AI/OpenHands and "
-            + "write 3 facts about the project into FACTS.txt."
-        )
-    ],
-)
-
 logger.info("Starting conversation with MCP integration...")
-response = conversation.send_message(message)
+conversation.send_message(
+    "Read https://github.com/All-Hands-AI/OpenHands and write 3 facts "
+    "about the project into FACTS.txt."
+)
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 print("=" * 100)
