@@ -1,6 +1,5 @@
 import copy
 import time
-from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -83,10 +82,10 @@ class MetricsSnapshot(BaseModel):
     accumulated_cost: float = Field(
         default=0.0, ge=0.0, description="Total accumulated cost, must be non-negative"
     )
-    max_budget_per_task: Optional[float] = Field(
+    max_budget_per_task: float | None = Field(
         default=None, description="Maximum budget per task"
     )
-    accumulated_token_usage: Optional[TokenUsage] = Field(
+    accumulated_token_usage: TokenUsage | None = Field(
         default=None, description="Accumulated token usage across all calls"
     )
 

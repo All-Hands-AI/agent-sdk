@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import SecretStr
 
 from openhands.sdk.agent.base import AgentBase
@@ -36,7 +34,7 @@ class TestConversationDefaultCallbackDummyAgent(AgentBase):
 
 def test_default_callback_appends_on_init():
     agent = TestConversationDefaultCallbackDummyAgent()
-    events_seen: List[str] = []
+    events_seen: list[str] = []
 
     conversation = Conversation(
         agent=agent, callbacks=[lambda e: events_seen.append(e.id)]
@@ -49,7 +47,7 @@ def test_default_callback_appends_on_init():
 
 def test_send_message_appends_once():
     agent = TestConversationDefaultCallbackDummyAgent()
-    seen_ids: List[str] = []
+    seen_ids: list[str] = []
 
     def user_cb(event):
         seen_ids.append(event.id)

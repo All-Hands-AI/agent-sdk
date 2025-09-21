@@ -63,7 +63,7 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
     @classmethod
     def load(
         cls,
-        path: Union[str, Path],
+        path: str | Path,
         microagent_dir: Path | None = None,
         file_content: str | None = None,
     ) -> "BaseMicroagent":

@@ -11,7 +11,6 @@ import threading
 import time
 import uuid
 from collections import deque
-from typing import Deque
 
 from openhands.sdk.logger import get_logger
 from openhands.tools.execute_bash.constants import (
@@ -53,7 +52,7 @@ class SubprocessTerminal(TerminalInterface):
         self._pty_master_fd: int | None = None
         # Use a slightly larger buffer to match tmux behavior which seems to keep
         # ~10,001 lines instead of exactly 10,000
-        self.output_buffer: Deque[str] = deque(
+        self.output_buffer: deque[str] = deque(
             maxlen=HISTORY_LIMIT + 50
         )  # Circular buffer
         self.output_lock = threading.Lock()

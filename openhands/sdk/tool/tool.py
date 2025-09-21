@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, Self, Type, TypeVar
+from typing import Any, Generic, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -23,7 +23,7 @@ from openhands.sdk.utils.models import (
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
 ObservationT = TypeVar("ObservationT", bound=ObservationBase)
-_action_types_with_risk: dict[Type, Type] = {}
+_action_types_with_risk: dict[type, type] = {}
 
 
 class ToolAnnotations(BaseModel):
@@ -265,7 +265,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         )
 
     @classmethod
-    def resolve_kind(cls, kind: str) -> Type:
+    def resolve_kind(cls, kind: str) -> type:
         for subclass in get_known_concrete_subclasses(cls):
             if subclass.__name__ == kind:
                 return subclass
@@ -277,7 +277,7 @@ class Tool(ToolBase[ActionT, ObservationT], Generic[ActionT, ObservationT]):
     pass
 
 
-def _create_action_type_with_risk(action_type: Type[ActionBase]) -> Type[ActionBase]:
+def _create_action_type_with_risk(action_type: type[ActionBase]) -> type[ActionBase]:
     action_type_with_risk = _action_types_with_risk.get(action_type)
     if action_type_with_risk:
         return action_type_with_risk

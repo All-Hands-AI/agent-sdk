@@ -8,7 +8,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import SecretStr
 
@@ -30,7 +30,7 @@ from openhands.tools.str_replace_editor import FileEditorTool
 logger = get_logger(__name__)
 
 
-def get_output_dir(output_dir: Optional[Path] = None) -> Path:
+def get_output_dir(output_dir: Path | None = None) -> Path:
     """Get output directory, creating if needed."""
     dir_path = Path(__file__).parent
     dir_path.mkdir(parents=True, exist_ok=True)
@@ -41,7 +41,7 @@ def create_llm(
     api_key: str,
     base_url: str,
     model: str,
-    log_completions_folder: Optional[str] = None,
+    log_completions_folder: str | None = None,
     **kwargs,
 ) -> LLM:
     """Create an LLM instance for data generation."""
@@ -57,7 +57,7 @@ def create_llm(
     return LLM(**llm_kwargs)
 
 
-def create_tools(working_dir: Optional[str] = None) -> List[ToolSpec]:
+def create_tools(working_dir: str | None = None) -> list[ToolSpec]:
     """Create standard tool specifications for testing."""
     cwd = working_dir or os.getcwd()
     register_tool("BashTool", BashTool)
@@ -75,8 +75,8 @@ def run_conversation(
     user_message: str,
     output_dir: Path,
     output_filename: str,
-    log_completions_folder: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    log_completions_folder: str | None = None,
+) -> list[dict[str, Any]]:
     """Run a conversation and collect LLM messages."""
     llm = create_llm(api_key, base_url, model, log_completions_folder)
     tools = create_tools()
@@ -109,7 +109,7 @@ def generate_test_data(
     user_message: str,
     output_dir: Path,
     is_function_calling: bool,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Generate test data for a specific model type."""
     data_type = "function calling" if is_function_calling else "non-function calling"
     logger.info(f"Generating {data_type} data with model: {model}")
@@ -213,14 +213,14 @@ def validate_generated_data(output_dir: Path) -> bool:
 def generate_all_test_data(
     api_key: str,
     base_url: str = "https://llm-proxy.eval.all-hands.dev",
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
     fncall_model: str = "litellm_proxy/anthropic/claude-sonnet-4-20250514",
     nonfncall_model: str = "litellm_proxy/deepseek/deepseek-chat",
     user_message: str = (
         "Hello! Can you create a new Python file named hello.py that prints "
         "'Hello, World!'?"
     ),
-) -> Dict[str, List[Dict[str, Any]]]:
+) -> dict[str, list[dict[str, Any]]]:
     """Generate all test data."""
     logger.info("Generating all test data...")
 
