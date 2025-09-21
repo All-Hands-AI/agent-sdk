@@ -312,10 +312,6 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     ]
 
     # Verify that tools should be mocked (non-function call path)
-    # Note: should_mock_tool_calls() expects provider tool dicts;
-    # we just validate behavior below.
-
-    # We just exercise the completion() path here.
     # Call completion - this should go through the prompt-based tool calling path
     response = llm.completion(messages=messages, tools=tools)
 
