@@ -198,10 +198,20 @@ The simplified pattern eliminates the need for manual executor instantiation and
     - `fn = t.get("function", {})` followed by multiple `hasattr`/`getattr` fallbacks.
     - `if hasattr(obj, "field"): ... else: ...` when `obj` is a typed Pydantic model with `field` guaranteed.
   - Preferred:
+
     - Access typed attributes directly: `fn_obj = t.function` (skip if None only when type allows), then read `fn_obj.name`, `fn_obj.parameters`.
     - Convert inputs up front into a single canonical shape (e.g., Pydantic model or dict schema) and operate on that shape without scattered guards.
 - Principle: pick one canonical shape per boundary and delete fallbacks. Eliminate special cases rather than handling them everywhere.
 
+
+
+<STYLE>
+
+- Use real newlines in commit messages; do not write literal "\n". Use an editor or multiple -m flags: `git commit -m "Subject" -m "Body"`.
+- Separate subject and body with one blank line. Keep the subject short and imperative.
+- Put trailers (e.g., `Co-authored-by: openhands <openhands@all-hands.dev>`) on their own lines at the end.
+
+</STYLE>
 
 <TESTING>
 - AFTER you edit ONE file, you should run pre-commit hook on that file via `uv run pre-commit run --files [filepath]` to make sure you didn't break it.
