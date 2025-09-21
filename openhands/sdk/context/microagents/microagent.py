@@ -153,7 +153,7 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
             # No triggers, default to REPO
             mcp_tools_raw = metadata_dict.get("mcp_tools")
             # Type cast to satisfy type checker - validation happens in RepoMicroagent
-            mcp_tools = cast(MCPConfig | dict[str, Any] | None, mcp_tools_raw)
+            mcp_tools = cast(dict[str, Any] | None, mcp_tools_raw)
             return RepoMicroagent(
                 name=agent_name, content=content, source=str(path), mcp_tools=mcp_tools
             )
@@ -202,20 +202,22 @@ class RepoMicroagent(BaseMicroagent):
     """
 
     type: MicroagentType = "repo"
-    mcp_tools: MCPConfig | dict | None = Field(
+    mcp_tools: dict | None = Field(
         default=None,
-        description="MCP tools configuration for the microagent",
+        description="MCP tools configuration for the microagent. "
+        "It should conform to the MCPConfig schema: "
+        "https://gofastmcp.com/clients/client#configuration-format",
     )
 
     # Field-level validation for mcp_tools
     @field_validator("mcp_tools")
     @classmethod
-    def _validate_mcp_tools(cls, v: MCPConfig | dict | None, info):
+    def _validate_mcp_tools(cls, v: dict | None, info):
         if v is None:
             return v
         if isinstance(v, dict):
             try:
-                v = MCPConfig.model_validate(v)
+                MCPConfig.model_validate(v)
             except Exception as e:
                 raise MicroagentValidationError(
                     f"Invalid MCPConfig dictionary: {e}"
