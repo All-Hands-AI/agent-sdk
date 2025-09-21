@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Annotated
+from typing import Annotated, Union
 
 import pytest
 from litellm import BaseModel
@@ -82,9 +82,11 @@ class AnimalPack(BaseModel):
 def test_serializable_type_expected() -> None:
     serializable_type = Animal.get_serializable_type()
     expected_serializable_type = Annotated[
-        Annotated[Cat, Tag("Cat")]
-        | Annotated[Dog, Tag("Dog")]
-        | Annotated[Wolf, Tag("Wolf")],
+        Union[
+            Annotated[Cat, Tag("Cat")],
+            Annotated[Dog, Tag("Dog")],
+            Annotated[Wolf, Tag("Wolf")],
+        ],
         Discriminator(kind_of),
     ]
     assert serializable_type == expected_serializable_type
