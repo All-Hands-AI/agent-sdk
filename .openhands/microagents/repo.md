@@ -206,11 +206,7 @@ The simplified pattern eliminates the need for manual executor instantiation and
 
 
 <STYLE>
-
-- Use real newlines in commit messages; do not write literal "\n". Use an editor or multiple -m flags: `git commit -m "Subject" -m "Body"`.
-- Separate subject and body with one blank line. Keep the subject short and imperative.
-- Put trailers (e.g., `Co-authored-by: openhands <openhands@all-hands.dev>`) on their own lines at the end.
-
+- Use real newlines in commit messages; do not write literal "\n".
 </STYLE>
 
 <TESTING>
