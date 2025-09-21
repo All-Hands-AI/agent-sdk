@@ -180,10 +180,6 @@ The simplified pattern eliminates the need for manual executor instantiation and
 </DEV_SETUP>
 
 <CODE>
-- Prefer type hints and validated models over runtime shape checks.
-- Avoid broad try/except unless upstream returns multiple shapes.
-- Prefer accessing typed attributes directly and convert inputs up front into one canonical shape per boundary; delete fallbacks.
-
 - Avoid hacky trick like `sys.path.insert` when resolving package dependency
 - Use existing packages/libraries instead of implementing yourselves whenever possible.
 - Avoid using # type: ignore. Treat it only as a last resort. In most cases, issues should be resolved by improving type annotations, adding assertions, or adjusting code/tests—rather than silencing the type checker.
