@@ -1,9 +1,15 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
 VALID_MICROAGENT_TYPES = ["knowledge", "repo", "task"]
+MicroagentType = Literal[
+    "knowledge",
+    "repo",
+    "task",
+]
 
 
 class InputMetadata(BaseModel):

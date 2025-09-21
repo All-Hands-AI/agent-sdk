@@ -3,24 +3,26 @@ import re
 from abc import ABC
 from itertools import chain
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, Union, cast
+from typing import Any, ClassVar, Union, cast
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from openhands.sdk.context.microagents.exceptions import MicroagentValidationError
 from openhands.sdk.context.microagents.types import (
     VALID_MICROAGENT_TYPES,
     InputMetadata,
+    MicroagentType,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 logger = get_logger(__name__)
 
 
-class BaseMicroagent(BaseModel, ABC):
+class BaseMicroagent(DiscriminatedUnionMixin, ABC):
     """Base class for all microagents."""
 
     name: str
@@ -32,6 +34,7 @@ class BaseMicroagent(BaseModel, ABC):
             "When it is None, it is treated as a programmatically defined microagent."
         ),
     )
+    type: MicroagentType = "repo"
 
     PATH_TO_THIRD_PARTY_MICROAGENT_NAME: ClassVar[dict[str, str]] = {
         ".cursorrules": "cursorrules",
@@ -167,7 +170,7 @@ class KnowledgeMicroagent(BaseMicroagent):
     - Tool usage
     """
 
-    type: Literal["knowledge"] = Field(default="knowledge")
+    type: MicroagentType = "knowledge"
     triggers: list[str] = Field(
         default_factory=list, description="List of triggers for the microagent"
     )
@@ -198,7 +201,7 @@ class RepoMicroagent(BaseMicroagent):
         - Custom documentation references
     """
 
-    type: Literal["repo"] = Field(default="repo")
+    type: MicroagentType = "repo"
     mcp_tools: MCPConfig | dict | None = Field(
         default=None,
         description="MCP tools configuration for the microagent",
@@ -235,7 +238,7 @@ class TaskMicroagent(KnowledgeMicroagent):
     and will prompt the user for any required inputs before proceeding.
     """
 
-    type: Literal["task"] = Field(default="task")  # type: ignore[assignment]
+    type: MicroagentType = "task"
     inputs: list[InputMetadata] = Field(
         default_factory=list,
         description=(
@@ -256,7 +259,7 @@ class TaskMicroagent(KnowledgeMicroagent):
         )
 
         # Avoid duplicating the prompt if content already includes it
-        if getattr(self, "content", None) is not None and prompt not in self.content:
+        if self.content and prompt not in self.content:
             self.content += prompt
 
         return self
@@ -342,9 +345,3 @@ def load_microagents_from_dir(
         f"{[*repo_agents.keys(), *knowledge_agents.keys()]}"
     )
     return repo_agents, knowledge_agents
-
-
-MicroagentUnion = Annotated[
-    RepoMicroagent | KnowledgeMicroagent | TaskMicroagent,
-    Field(discriminator="type"),
-]
