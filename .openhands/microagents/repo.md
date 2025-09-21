@@ -186,7 +186,9 @@ The simplified pattern eliminates the need for manual executor instantiation and
   - Please AVOID using # type: ignore[attr-defined] unless absolutely necessary. If the issue can be addressed by adding a few extra assert statements to verify types, prefer that approach instead!
   - For issue like # type: ignore[call-arg]: if you discover that the argument doesn’t actually exist, do not try to mock it again in tests. Instead, simply remove it.
 - Avoid doing in-line imports unless absolutely necessary (e.g., circular dependency).
-- Avoid getattr/hasattr guards and instead enforce type correctness by relying on explicit type assertions and proper object usage, ensuring functions only receive the expected Pydantic models or typed inputs.
+- Avoid getattr/hasattr guards and instead enforce type correctness by relying on explicit type assertions and proper object usage, ensuring functions only receive the expected Pydantic models or typed inputs. Prefer type hints and validated models over runtime shape checks.
+- Prefer accessing typed attributes directly. If necessary, convert inputs up front into a canonical shape; avoid purely hypothetical fallbacks.
+- Use real newlines in commit messages; do not write literal "\n".
 </CODE>
 
 <TESTING>
