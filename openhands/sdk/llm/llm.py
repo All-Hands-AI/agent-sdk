@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import copy
 import json
 import os
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, Sequence, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Callable, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -18,7 +20,10 @@ from pydantic import (
 )
 from pydantic.json_schema import SkipJsonSchema
 
-from openhands.sdk.tool.tool import ToolBase
+
+if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
+    from openhands.sdk.tool.tool import ToolBase
+
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
@@ -333,7 +338,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[Message],
-        tools: Sequence[ToolBase] | None = None,
+        tools: list[ToolBase] | None = None,
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
