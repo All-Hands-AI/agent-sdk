@@ -8,11 +8,12 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
-from openhands.tools import BashTool, BrowserToolSet, FileEditorTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.browser_use import BrowserToolSet
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -28,37 +29,18 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-# This will create a set of browser tools with a shared executor
-browser_use_tools = BrowserToolSet.create()
-# If you want to customize the browser tools, you can do it like this:
-# from openhands.tools.browser_use import (
-#     BrowserToolExecutor,
-#     browser_click_tool,
-#     browser_close_tab_tool,
-#     browser_get_content_tool,
-#     browser_get_state_tool,
-#     browser_go_back_tool,
-#     browser_list_tabs_tool,
-#     browser_navigate_tool,
-#     browser_scroll_tool,
-#     browser_switch_tab_tool,
-#     browser_type_tool,
-# )
-# browser_executor = BrowserToolExecutor()
-# browser_use_tools = [
-#     browser_navigate_tool.set_executor(browser_executor),
-#     browser_click_tool.set_executor(browser_executor),
-#     browser_get_state_tool.set_executor(browser_executor),
-#     browser_get_content_tool.set_executor(browser_executor),
-#     browser_type_tool.set_executor(browser_executor),
-#     browser_scroll_tool.set_executor(browser_executor),
-#     browser_go_back_tool.set_executor(browser_executor),
-#     browser_list_tabs_tool.set_executor(browser_executor),
-#     browser_switch_tab_tool.set_executor(browser_executor),
-#     browser_close_tab_tool.set_executor(browser_executor),
-# ]
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+register_tool("BrowserToolSet", BrowserToolSet)
+tools = [
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool"),
+    ToolSpec(name="BrowserToolSet"),
+]
 
-tools = [BashTool.create(working_dir=cwd), FileEditorTool.create(), *browser_use_tools]
+# If you need fine-grained browser control, you can manually register individual browser
+# tools by creating a BrowserToolExecutor and providing factories that return customized
+# Tool instances before constructing the Agent.
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -74,17 +56,8 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Could you go to https://all-hands.dev/ blog page and "
-                    "summarize main points of the latest blog?"
-                )
-            )
-        ],
-    )
+    "Could you go to https://all-hands.dev/ blog page and summarize main "
+    "points of the latest blog?"
 )
 conversation.run()
 

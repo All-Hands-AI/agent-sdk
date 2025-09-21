@@ -14,7 +14,6 @@ from openhands.sdk import (
     Conversation,
     Message,
     TextContent,
-    ToolBase,
     get_logger,
 )
 from openhands.sdk.event.base import EventBase
@@ -23,12 +22,9 @@ from openhands.sdk.event.llm_convertible import (
     MessageEvent,
     ObservationEvent,
 )
-from openhands.tools import (
-    BashExecutor,
-    FileEditorExecutor,
-    execute_bash_tool,
-    str_replace_editor_tool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 class TestHelloWorld:
@@ -170,15 +166,15 @@ class TestHelloWorld:
         )
 
         # Tools setup with temporary directory
-        bash = BashExecutor(working_dir=self.temp_dir)
-        file_editor = FileEditorExecutor()
-        tools: List[ToolBase] = [
-            execute_bash_tool.set_executor(executor=bash),
-            str_replace_editor_tool.set_executor(executor=file_editor),
+        register_tool("BashTool", BashTool)
+        register_tool("FileEditorTool", FileEditorTool)
+        tool_specs = [
+            ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
+            ToolSpec(name="FileEditorTool"),
         ]
 
         # Agent setup
-        agent = Agent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tool_specs)
 
         # Conversation setup
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
@@ -285,15 +281,15 @@ class TestHelloWorld:
         )
 
         # Tools setup with temporary directory
-        bash = BashExecutor(working_dir=self.temp_dir)
-        file_editor = FileEditorExecutor()
-        tools: List[ToolBase] = [
-            execute_bash_tool.set_executor(executor=bash),
-            str_replace_editor_tool.set_executor(executor=file_editor),
+        register_tool("BashTool", BashTool)
+        register_tool("FileEditorTool", FileEditorTool)
+        tool_specs = [
+            ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
+            ToolSpec(name="FileEditorTool"),
         ]
 
         # Create agent and conversation
-        agent = Agent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tool_specs)
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
 
         # Capture logged completion data by monitoring the LLM calls

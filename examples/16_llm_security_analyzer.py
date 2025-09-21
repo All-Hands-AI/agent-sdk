@@ -9,12 +9,13 @@ import uuid
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, Conversation, LocalFileStore, Message, TextContent
+from openhands.sdk import LLM, Agent, Conversation, LocalFileStore
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool.tool import ToolBase
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 print("=== LLM Security Analyzer Example ===")
@@ -29,9 +30,11 @@ llm = LLM(
 )
 
 # Tools
-tools: list[ToolBase] = [
-    BashTool.create(working_dir=os.getcwd()),
-    FileEditorTool.create(),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+tools = [
+    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 # Create agent with security analyzer
@@ -45,30 +48,12 @@ conversation = Conversation(
 )
 
 print("\n1) Safe command (LOW risk - should execute automatically)...")
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text="List files in the current directory")],
-    )
-)
+conversation.send_message("List files in the current directory")
 conversation.run()
 
 print("\n2) Potentially risky command (may require confirmation)...")
 conversation.send_message(
-    Message(
-        role="user",
-        content=[
-            TextContent(
-                # The LLM is responsible for setting the security risk when generating
-                # tool calls, so one way to get a HIGH risk action without actually
-                # doing anything risky is to just tell the LLM to label it high risk
-                text=(
-                    "Create a temporary file called 'security_test.txt' -- "
-                    "THIS IS A HIGH RISK ACTION"
-                )
-            )
-        ],
-    )
+    "Create a temporary file called 'security_test.txt' -- THIS IS A HIGH RISK ACTION"
 )
 
 # Handle security analyzer blocking high-risk actions
@@ -132,12 +117,7 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
     conversation.run()
 
 print("\n3) Cleanup...")
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text="Remove any test files created")],
-    )
-)
+conversation.send_message("Remove any test files created")
 conversation.run()
 
 print("\n=== Example Complete ===")

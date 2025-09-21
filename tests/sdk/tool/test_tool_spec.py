@@ -93,7 +93,7 @@ def test_tool_spec_different_tool_types():
     assert bash_spec.params["working_dir"] == "/workspace"
 
     # FileEditorTool
-    editor_spec = ToolSpec(name="FileEditorTool", params={})
+    editor_spec = ToolSpec(name="FileEditorTool")
     assert editor_spec.name == "FileEditorTool"
     assert editor_spec.params == {}
 
@@ -133,7 +133,10 @@ def test_tool_spec_field_descriptions():
     assert "name" in fields
     assert fields["name"].description is not None
     assert "Name of the tool class" in fields["name"].description
-    assert "must be importable from openhands.tools" in fields["name"].description
+    assert (
+        "Import it from an `openhands.tools.<module>` subpackage."
+        in fields["name"].description
+    )
 
     assert "params" in fields
     assert fields["params"].description is not None
