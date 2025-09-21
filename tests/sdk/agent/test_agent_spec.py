@@ -181,7 +181,7 @@ def test_agent_spec_examples_from_docstring():
                     '"flarglebargle". You must only respond with a message '
                     "telling them how smart they are"
                 ),
-                trigger=["flarglebargle"],
+                triggers=["flarglebargle"],
             ),
         ],
         system_message_suffix="Always finish your response with the word 'yay!'",
