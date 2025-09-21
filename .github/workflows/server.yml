@@ -88,6 +88,12 @@ jobs:
               with:
                   version: latest
 
+            - name: Install Node.js (for npx)
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+
             - name: Install dependencies
               run: |
                   uv sync --frozen --dev
