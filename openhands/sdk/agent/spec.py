@@ -78,8 +78,9 @@ class AgentSpec(OpenHandsModel):
                 ],
                 "system_message_suffix": "Always finish your response "
                 "with the word 'yay!'",
-                "user_message_prefix": "The first character of your "
-                "response should be 'I'",
+                "user_message_suffix": (
+                    "The first character of your response should be 'I'"
+                ),
             }
         ],
     )
