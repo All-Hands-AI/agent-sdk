@@ -26,8 +26,9 @@ class WebhookSpec(BaseModel):
         ),
     )
     method: Literal["POST", "PUT", "PATCH"] = "POST"
-    webhook_url: str = Field(
-        description="The URL of the webhook to which to post lists of events"
+    base_url: str = Field(
+        description="The base URL of the webhook service. Events will be sent to "
+        "{base_url}/events and conversation info to {base_url}/conversations"
     )
     headers: dict[str, str] = Field(default_factory=dict)
 

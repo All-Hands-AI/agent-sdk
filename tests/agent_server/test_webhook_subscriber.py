@@ -19,6 +19,7 @@ from openhands.agent_server.config import WebhookSpec
 from openhands.agent_server.conversation_service import WebhookSubscriber
 from openhands.agent_server.event_service import EventService
 from openhands.agent_server.models import StoredConversation
+from openhands.agent_server.utils import utc_now
 from openhands.sdk import LLM
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm.message import Message, TextContent
@@ -48,7 +49,7 @@ def mock_event_service():
 def webhook_spec():
     """Create a WebhookSpec for testing."""
     return WebhookSpec(
-        webhook_url="https://example.com/webhook",
+        base_url="https://example.com",
         event_buffer_size=3,
         method="POST",
         headers={"Content-Type": "application/json", "Authorization": "Bearer token"},
@@ -60,7 +61,7 @@ def webhook_spec():
 @pytest.fixture
 def minimal_webhook_spec():
     """Create a minimal WebhookSpec for testing."""
-    return WebhookSpec(webhook_url="https://example.com/webhook")
+    return WebhookSpec(base_url="https://example.com")
 
 
 @pytest.fixture
@@ -242,7 +243,7 @@ class TestWebhookSubscriberPostEvents:
         # Verify HTTP request was made correctly
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/webhook",
+            url="https://example.com/events",
             json=[event.model_dump() for event in sample_events[:3]],
             headers={
                 "Content-Type": "application/json",
@@ -286,7 +287,7 @@ class TestWebhookSubscriberPostEvents:
         }
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/webhook",
+            url="https://example.com/events",
             json=[event.model_dump() for event in sample_events[:2]],
             headers=expected_headers,
             timeout=30.0,
@@ -427,7 +428,7 @@ class TestWebhookSubscriberPostEvents:
         # Verify __dict__ is used when model_dump is not available
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/webhook",
+            url="https://example.com/events",
             json=[{"type": "test", "data": "value"}],
             headers={
                 "Content-Type": "application/json",
@@ -615,3 +616,158 @@ class TestWebhookSubscriberErrorHandling:
 
         # Events should be re-queued after failure
         assert len(subscriber.queue) == 1
+
+
+class TestConversationWebhookSubscriber:
+    """Test cases for ConversationWebhookSubscriber class."""
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_post_conversation_info_success(
+        self, mock_client_class, webhook_spec, mock_event_service
+    ):
+        """Test successful posting of conversation info."""
+        from openhands.agent_server.conversation_service import (
+            ConversationWebhookSubscriber,
+        )
+        from openhands.agent_server.models import ConversationInfo
+        from openhands.sdk.conversation.state import AgentExecutionStatus
+
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = ConversationWebhookSubscriber(
+            spec=webhook_spec,
+        )
+
+        # Create sample conversation info
+        conversation_info = ConversationInfo(
+            id=uuid4(),
+            llm=mock_event_service.stored.llm,
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            status=AgentExecutionStatus.RUNNING,
+        )
+
+        await subscriber.post_conversation_info(conversation_info)
+
+        # Verify HTTP request was made correctly
+        mock_client.request.assert_called_once_with(
+            method="POST",
+            url="https://example.com/conversations",
+            json=conversation_info.model_dump(),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer token",
+            },
+            timeout=30.0,
+        )
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_post_conversation_info_with_session_api_key(
+        self, mock_client_class, webhook_spec, mock_event_service
+    ):
+        """Test posting conversation info with session API key."""
+        from openhands.agent_server.conversation_service import (
+            ConversationWebhookSubscriber,
+        )
+        from openhands.agent_server.models import ConversationInfo
+        from openhands.sdk.conversation.state import AgentExecutionStatus
+
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = ConversationWebhookSubscriber(
+            spec=webhook_spec,
+            session_api_key="test_session_key",
+        )
+
+        # Create sample conversation info
+        conversation_info = ConversationInfo(
+            id=uuid4(),
+            llm=mock_event_service.stored.llm,
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            status=AgentExecutionStatus.PAUSED,
+        )
+
+        await subscriber.post_conversation_info(conversation_info)
+
+        # Verify session API key is added to headers
+        expected_headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer token",
+            "X-Session-API-Key": "test_session_key",
+        }
+        mock_client.request.assert_called_once_with(
+            method="POST",
+            url="https://example.com/conversations",
+            json=conversation_info.model_dump(),
+            headers=expected_headers,
+            timeout=30.0,
+        )
+
+    @pytest.mark.asyncio
+    async def test_post_conversation_info_http_error_with_retries(
+        self, webhook_spec, mock_event_service
+    ):
+        """Test HTTP error handling with retry logic for conversation webhooks."""
+        from openhands.agent_server.conversation_service import (
+            ConversationWebhookSubscriber,
+        )
+        from openhands.agent_server.models import ConversationInfo
+        from openhands.sdk.conversation.state import AgentExecutionStatus
+
+        subscriber = ConversationWebhookSubscriber(
+            spec=webhook_spec,
+        )
+
+        # Create sample conversation info
+        conversation_info = ConversationInfo(
+            id=uuid4(),
+            llm=mock_event_service.stored.llm,
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            status=AgentExecutionStatus.FINISHED,
+        )
+
+        # Track retry attempts
+        retry_attempts = []
+        sleep_calls = []
+
+        # Mock the HTTP client and sleep
+        async def mock_request(*args, **kwargs):
+            retry_attempts.append(len(retry_attempts) + 1)
+            if len(retry_attempts) <= 2:  # Fail first two attempts
+                raise httpx.HTTPStatusError(
+                    "Server Error", request=MagicMock(), response=MagicMock()
+                )
+            # Third attempt succeeds - return a mock response
+            response = AsyncMock()
+            response.raise_for_status.return_value = None
+            return response
+
+        async def mock_sleep(delay):
+            sleep_calls.append(delay)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request = mock_request
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            with patch("asyncio.sleep", side_effect=mock_sleep):
+                await subscriber.post_conversation_info(conversation_info)
+
+        # Verify retries were attempted
+        assert len(retry_attempts) == 3
+        assert len(sleep_calls) == 2  # Sleep between retries
+        assert all(delay == webhook_spec.retry_delay for delay in sleep_calls)
