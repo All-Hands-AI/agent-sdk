@@ -57,7 +57,7 @@ class TaskTrackerAction(ActionBase):
 
         # Show task count if planning
         if self.command == "plan" and self.task_list:
-            content.append(f" ({len(self.task_list)} tasks)", style="dim")
+            content.append(f" ({len(self.task_list)} tasks)")
 
         return content
 
@@ -126,13 +126,13 @@ class TaskTrackerObservation(ObservationBase):
 
                 # NEW: show notes under the title if present
                 if task.notes:
-                    content.append("\n   Notes: " + task.notes, style="italic dim")
+                    content.append("\n   Notes: " + task.notes, style="italic")
 
                 if i < len(self.task_list):
                     content.append("\n")
         else:
             content.append("📝 ", style="blue")
-            content.append("Task list is empty", style="dim")
+            content.append("Task list is empty")
 
         return content
 

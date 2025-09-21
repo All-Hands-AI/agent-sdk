@@ -164,16 +164,10 @@ class Agent(AgentBase):
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        tools = [
-            # add llm security risk prediction if analyzer is present
-            tool.to_openai_tool(
-                add_security_risk_prediction=self._add_security_risk_prediction
-            )
-            for tool in self.tools_map.values()
-        ]
         response = self.llm.completion(
             messages=_messages,
-            tools=tools,
+            tools=list(self.tools_map.values()),
+            add_security_risk_prediction=self._add_security_risk_prediction,
             extra_body={
                 "metadata": get_llm_metadata(
                     model_name=self.llm.model, agent_name=self.name
