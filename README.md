@@ -140,10 +140,13 @@ Agents are the central orchestrators that coordinate between LLMs and tools:
 ```python
 import os
 from openhands.sdk import Agent
-from openhands.sdk.preset.default import get_default_tools
+from openhands.tools import BashTool, FileEditorTool
 
-# Build a standard OpenHands toolset (bash + editor + task tracker + MCP tools)
-tools = get_default_tools(working_dir=os.getcwd())
+# Explicit minimal toolset (bash + editor)
+tools = [
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
+]
 
 agent = Agent(
     llm=llm,
