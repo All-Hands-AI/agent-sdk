@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from abc import ABC
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Literal, Self, Union
 
 from pydantic import (
     BaseModel,
@@ -170,7 +170,7 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
             return subclasses[0]
 
         serializable_type = Annotated[
-            tuple(Annotated[t, Tag(t.__name__)] for t in subclasses),
+            Union[tuple(Annotated[t, Tag(t.__name__)] for t in subclasses)],
             Discriminator(kind_of),
         ]
         return serializable_type  # type: ignore
