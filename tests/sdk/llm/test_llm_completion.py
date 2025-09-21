@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from litellm import ChatCompletionToolParam
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
@@ -53,7 +54,6 @@ def test_llm_completion_basic(mock_completion):
     """Test basic LLM completion functionality."""
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
-
     # Create LLM after the patch is applied
 
     llm = LLM(
@@ -70,6 +70,11 @@ def test_llm_completion_basic(mock_completion):
 
     assert response == mock_response
     mock_completion.assert_called_once()
+
+    # Additionally, verify the pre-check helper recognizes provider-style tools
+    # (use an empty list of tools here just to exercise the path)
+    cc_tools: list[ChatCompletionToolParam] = []
+    assert not llm.should_mock_tool_calls(cc_tools)
 
 
 def test_llm_streaming_not_supported(default_config):
@@ -269,12 +274,12 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Create a mock response that looks like a non-function call response
     # but contains tool usage in text format
     mock_response = create_mock_response(
-        "I'll help you with that. Let me use the test tool.\n\n"
-        "<function_calls>\n"
-        '<invoke name="test_tool">\n'
-        '<parameter name="param">test_value</parameter>\n'
-        "</invoke>\n"
-        "</function_calls>"
+        (
+            "I'll help you with that.\n"
+            "<function=test_tool>\n"
+            "<parameter=param>test_value</parameter>\n"
+            "</function>"
+        )
     )
     mock_completion.return_value = mock_response
 
@@ -312,12 +317,39 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     ]
 
     # Verify that tools should be mocked (non-function call path)
+    cc_tools: list[ChatCompletionToolParam] = [
+        t.to_openai_tool(add_security_risk_prediction=False) for t in tools
+    ]
+    assert llm.should_mock_tool_calls(cc_tools)
+
     # Call completion - this should go through the prompt-based tool calling path
     response = llm.completion(messages=messages, tools=tools)
 
     # Verify the response
     assert response is not None
     mock_completion.assert_called_once()
+    # And that post-response conversion produced a tool_call
+    # Pyright: choices can include StreamingChoices; assert/guard for message presence
+    choice0 = response.choices[0]
+    assert hasattr(choice0, "message")
+    msg = choice0.message  # type: ignore[attr-defined]
+    # Guard for optional attribute in typeshed: treat None as failure explicitly
+    assert getattr(msg, "tool_calls", None) is not None, (
+        "Expected tool_calls after post-mock"
+    )
+    # At this point, typeshed doesn't narrow tool_calls to non-None; assert explicitly
+    assert msg.tool_calls is not None
+    tc = msg.tool_calls[0]
+    assert tc.type == "function"
+    assert tc.function.name == "test_tool"
+    # Ensure function-call markup was stripped from assistant content
+    if isinstance(msg.content, str):
+        assert "<function=" not in msg.content
+    assert tc.type == "function"
+    assert tc.function.name == "test_tool"
+    # Ensure function-call markup was stripped from assistant content
+    if isinstance(msg.content, str):
+        assert "<function=" not in msg.content
 
     # Verify that the call was made without native tools parameter
     # (since we're using prompt-based tool calling)
