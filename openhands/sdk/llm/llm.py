@@ -5,7 +5,7 @@ import json
 import os
 import warnings
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Literal, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -338,7 +338,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[Message],
-        tools: list[ToolBase] | None = None,
+        tools: Sequence[ToolBase] | None = None,
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
