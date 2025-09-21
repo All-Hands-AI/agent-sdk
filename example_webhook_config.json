@@ -1,0 +1,20 @@
+{
+  "session_api_key": "your-session-api-key-here",
+  "allow_cors_origins": ["*"],
+  "conversations_path": "workspace/conversations",
+  "workspace_path": "workspace/project",
+  "webhooks": [
+    {
+      "base_url": "https://work-1-dbjenoisiscqlihs.prod-runtime.all-hands.dev",
+      "event_buffer_size": 5,
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer your-webhook-token",
+        "X-Custom-Header": "webhook-test"
+      },
+      "num_retries": 3,
+      "retry_delay": 2
+    }
+  ]
+}
