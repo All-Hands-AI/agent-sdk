@@ -13,10 +13,6 @@ class ConfirmationPolicyBase(DiscriminatedUnionMixin, ABC):
         pass
 
 
-# Type alias maintained for backwards compatibility with previous Annotated pattern
-ConfirmationPolicy = ConfirmationPolicyBase
-
-
 class AlwaysConfirm(ConfirmationPolicyBase):
     def should_confirm(self, risk: SecurityRisk = SecurityRisk.UNKNOWN) -> bool:
         return True

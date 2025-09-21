@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -9,15 +9,11 @@ from openhands.agent_server.utils import utc_now
 from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicy, NeverConfirm
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
 from openhands.sdk.utils.models import OpenHandsModel
-
-
-# Give pydantic / fastapi some help when serializing
-if TYPE_CHECKING:
-    EventType = EventBase
-else:
-    EventType = EventBase.get_serializable_type()
 
 
 class ConversationSortOrder(str, Enum):
@@ -61,7 +57,7 @@ class StartConversationRequest(BaseModel):
     """
 
     agent: AgentBase
-    confirmation_policy: ConfirmationPolicy = Field(
+    confirmation_policy: ConfirmationPolicyBase = Field(
         default=NeverConfirm(),
         description="Controls when the conversation will prompt the user before "
         "continuing. Defaults to never.",

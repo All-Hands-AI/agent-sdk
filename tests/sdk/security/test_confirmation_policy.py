@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from openhands.sdk.security.confirmation_policy import (
     AlwaysConfirm,
-    ConfirmationPolicy,
     ConfirmationPolicyBase,
     NeverConfirm,
 )
@@ -31,7 +30,7 @@ class TestConfirmationPolicyBase:
         """
 
         class PolicyContainer(BaseModel):
-            policy: ConfirmationPolicy
+            policy: ConfirmationPolicyBase
 
         container = PolicyContainer(policy=cls())
 
@@ -63,7 +62,7 @@ class TestAlwaysConfirm:
         """Test polymorphic serialization and deserialization. This requires we
         deserialize using the base class.
         """
-        policy: ConfirmationPolicy = AlwaysConfirm()
+        policy: ConfirmationPolicyBase = AlwaysConfirm()
         policy_dict = policy.model_dump_json()
         restored_policy = ConfirmationPolicyBase.model_validate_json(policy_dict)
 
@@ -91,7 +90,7 @@ class TestNeverConfirm:
         """Test polymorphic serialization and deserialization. This requires we
         deserialize using the base class.
         """
-        policy: ConfirmationPolicy = NeverConfirm()
+        policy: ConfirmationPolicyBase = NeverConfirm()
         policy_dict = policy.model_dump_json()
         restored_policy = ConfirmationPolicyBase.model_validate_json(policy_dict)
 

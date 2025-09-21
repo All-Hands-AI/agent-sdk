@@ -1,11 +1,5 @@
 import uuid
-from typing import TYPE_CHECKING, Iterable
-
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicy
-
-
-if TYPE_CHECKING:
-    pass
+from typing import Iterable
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
@@ -23,6 +17,7 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 
 
 logger = get_logger(__name__)
@@ -199,7 +194,7 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
-    def set_confirmation_policy(self, policy: ConfirmationPolicy) -> None:
+    def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
         with self.state:
             self.state.confirmation_policy = policy
