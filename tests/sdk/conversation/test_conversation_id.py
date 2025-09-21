@@ -14,7 +14,7 @@ from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfi
 class TestConversationIdDummyAgent(AgentBase):
     def __init__(self):
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
-        super().__init__(llm=llm, tools={})
+        super().__init__(llm=llm, tools=[])
 
     def init_state(
         self, state: ConversationState, on_event: ConversationCallbackType

@@ -12,7 +12,7 @@ from openhands.agent_server.models import (
     ConversationSortOrder,
     StoredConversation,
 )
-from openhands.sdk import LLM
+from openhands.sdk import LLM, Agent
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 
@@ -29,10 +29,7 @@ def sample_stored_conversation():
     """Create a sample StoredConversation for testing."""
     return StoredConversation(
         id=uuid4(),
-        llm=LLM(model="gpt-4"),
-        tools=[],
-        mcp_config={},
-        agent_context=None,
+        agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
         confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
@@ -107,10 +104,7 @@ class TestConversationServiceSearchConversations:
         ):
             stored_conv = StoredConversation(
                 id=uuid4(),
-                llm=LLM(model="gpt-4"),
-                tools=[],
-                mcp_config={},
-                agent_context=None,
+                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -154,10 +148,7 @@ class TestConversationServiceSearchConversations:
         for i in range(3):
             stored_conv = StoredConversation(
                 id=uuid4(),
-                llm=LLM(model="gpt-4"),
-                tools=[],
-                mcp_config={},
-                agent_context=None,
+                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -226,10 +217,7 @@ class TestConversationServiceSearchConversations:
         for i in range(5):
             stored_conv = StoredConversation(
                 id=uuid4(),
-                llm=LLM(model="gpt-4"),
-                tools=[],
-                mcp_config={},
-                agent_context=None,
+                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -291,10 +279,7 @@ class TestConversationServiceSearchConversations:
         for status, created_at in conversations_data:
             stored_conv = StoredConversation(
                 id=uuid4(),
-                llm=LLM(model="gpt-4"),
-                tools=[],
-                mcp_config={},
-                agent_context=None,
+                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -389,10 +374,7 @@ class TestConversationServiceCountConversations:
         for i, status in enumerate(statuses):
             stored_conv = StoredConversation(
                 id=uuid4(),
-                llm=LLM(model="gpt-4"),
-                tools=[],
-                mcp_config={},
-                agent_context=None,
+                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,

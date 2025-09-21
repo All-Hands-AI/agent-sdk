@@ -47,13 +47,10 @@ class SystemPromptEvent(LLMConvertibleEvent):
                 content.append(
                     f"\n  - {tool_fn['name']}: "
                     f"{tool_fn['description'].split('\n')[0][:100]}...\n",
-                    style="dim",
                 )
-                content.append(f"  Parameters: {params_str}", style="dim")
+                content.append(f"  Parameters: {params_str}")
             else:
-                content.append(
-                    f"\n  - Cannot access .function for {tool_display}", style="dim"
-                )
+                content.append(f"\n  - Cannot access .function for {tool_display}")
         return content
 
     def to_llm_message(self) -> Message:
@@ -253,13 +250,12 @@ class MessageEvent(LLMConvertibleEvent):
             full_content = "".join(text_parts)
             content.append(full_content)
         else:
-            content.append("[no text content]", style="dim")
+            content.append("[no text content]")
 
         # Add microagent information if present
         if self.activated_microagents:
             content.append(
                 f"\nActivated Microagents: {', '.join(self.activated_microagents)}",
-                style="dim",
             )
 
         # Add extended content if available
@@ -268,7 +264,7 @@ class MessageEvent(LLMConvertibleEvent):
                 isinstance(c, ImageContent) for c in self.extended_content
             ), "Extended content should not contain images"
             text_parts = content_to_str(self.extended_content)
-            content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
+            content.append("\nPrompt Extension based on Agent Context:\n")
             content.append(" ".join(text_parts))
 
         return content

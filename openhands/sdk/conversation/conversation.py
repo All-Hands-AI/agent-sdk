@@ -171,11 +171,6 @@ class Conversation:
         iteration = 0
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
-            # TODO(openhands): we should add a testcase that test IF:
-            # 1. a loop is running
-            # 2. in a separate thread .send_message is called
-            # and check will we be able to execute .send_message
-            # BEFORE the .run loop finishes?
             with self.state:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
@@ -279,8 +274,7 @@ class Conversation:
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
-        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
-        for tool in self.agent.tools.values():
+        for tool in self.agent.tools_map.values():
             if tool.executor is not None:
                 try:
                     tool.executor.close()

@@ -1,5 +1,4 @@
 import re
-from typing import Dict
 
 from rich.console import Console
 from rich.panel import Panel
@@ -53,7 +52,7 @@ class ConversationVisualizer:
 
     def __init__(
         self,
-        highlight_regex: Dict[str, str] | None = None,
+        highlight_regex: dict[str, str] | None = None,
         skip_user_messages: bool = False,
     ):
         """Initialize the visualizer.
@@ -68,7 +67,7 @@ class ConversationVisualizer:
         """
         self._console = Console()
         self._skip_user_messages = skip_user_messages
-        self._highlight_patterns: Dict[str, str] = highlight_regex or {}
+        self._highlight_patterns: dict[str, str] = highlight_regex or {}
 
     def on_event(self, event: EventBase) -> None:
         """Main event handler that displays events with Rich formatting."""
@@ -249,7 +248,7 @@ class ConversationVisualizer:
 
 
 def create_default_visualizer(
-    highlight_regex: Dict[str, str] | None = None, **kwargs
+    highlight_regex: dict[str, str] | None = None, **kwargs
 ) -> ConversationVisualizer:
     """Create a default conversation visualizer instance.
 

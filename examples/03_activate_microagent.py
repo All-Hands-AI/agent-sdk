@@ -9,20 +9,15 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.context import (
     KnowledgeMicroagent,
     RepoMicroagent,
 )
-from openhands.tools import (
-    BashExecutor,
-    FileEditorExecutor,
-    execute_bash_tool,
-    str_replace_editor_tool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -38,11 +33,11 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-bash = BashExecutor(working_dir=cwd)
-file_editor = FileEditorExecutor()
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    execute_bash_tool.set_executor(executor=bash),
-    str_replace_editor_tool.set_executor(executor=file_editor),
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 agent_context = AgentContext(
@@ -82,22 +77,12 @@ conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 print("=" * 100)
 print("Checking if the repo microagent is activated.")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Hey are you a grumpy cat?")],
-    )
-)
+conversation.send_message("Hey are you a grumpy cat?")
 conversation.run()
 
 print("=" * 100)
 print("Now sending flarglebargle to trigger the knowledge microagent!")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="flarglebargle!")],
-    )
-)
+conversation.send_message("flarglebargle!")
 conversation.run()
 
 print("=" * 100)

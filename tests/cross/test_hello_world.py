@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import patch
 
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
@@ -14,7 +14,6 @@ from openhands.sdk import (
     Conversation,
     Message,
     TextContent,
-    ToolBase,
     get_logger,
 )
 from openhands.sdk.event.base import EventBase
@@ -23,12 +22,9 @@ from openhands.sdk.event.llm_convertible import (
     MessageEvent,
     ObservationEvent,
 )
-from openhands.tools import (
-    BashExecutor,
-    FileEditorExecutor,
-    execute_bash_tool,
-    str_replace_editor_tool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 class TestHelloWorld:
@@ -38,8 +34,8 @@ class TestHelloWorld:
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
         self.logger = get_logger(__name__)
-        self.collected_events: List[EventBase] = []
-        self.llm_messages: List[Dict[str, Any]] = []
+        self.collected_events: list[EventBase] = []
+        self.llm_messages: list[dict[str, Any]] = []
 
         # Clean up any existing hello.py files
         import os
@@ -155,11 +151,7 @@ class TestHelloWorld:
 
         # Always use mock responses for consistent behavior
         # Real fixture data may have different tool call sequences than current agent
-        if not real_responses:
-            real_responses = self.create_mock_llm_responses()
-        else:
-            # Use mock responses to ensure consistent test behavior
-            real_responses = self.create_mock_llm_responses()
+        real_responses = self.create_mock_llm_responses()
 
         mock_completion.side_effect = real_responses
 
@@ -169,16 +161,16 @@ class TestHelloWorld:
             api_key=SecretStr("mock-api-key"),
         )
 
-        # Tools setup with temporary directory
-        bash = BashExecutor(working_dir=self.temp_dir)
-        file_editor = FileEditorExecutor()
-        tools: List[ToolBase] = [
-            execute_bash_tool.set_executor(executor=bash),
-            str_replace_editor_tool.set_executor(executor=file_editor),
+        # Tools setup with temporary directory - use registry + ToolSpec as in runtime
+        register_tool("BashTool", BashTool)
+        register_tool("FileEditorTool", FileEditorTool)
+        tool_specs = [
+            ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
+            ToolSpec(name="FileEditorTool"),
         ]
 
         # Agent setup
-        agent = Agent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tool_specs)
 
         # Conversation setup
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
@@ -284,16 +276,16 @@ class TestHelloWorld:
             api_key=SecretStr("mock-api-key"),
         )
 
-        # Tools setup with temporary directory
-        bash = BashExecutor(working_dir=self.temp_dir)
-        file_editor = FileEditorExecutor()
-        tools: List[ToolBase] = [
-            execute_bash_tool.set_executor(executor=bash),
-            str_replace_editor_tool.set_executor(executor=file_editor),
+        # Tools setup with temporary directory - use registry + ToolSpec as in runtime
+        register_tool("BashTool", BashTool)
+        register_tool("FileEditorTool", FileEditorTool)
+        tool_specs = [
+            ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
+            ToolSpec(name="FileEditorTool"),
         ]
 
         # Create agent and conversation
-        agent = Agent(llm=llm, tools=tools)
+        agent = Agent(llm=llm, tools=tool_specs)
         conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
 
         # Capture logged completion data by monitoring the LLM calls

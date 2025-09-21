@@ -1,4 +1,4 @@
-from typing import Union, get_args, get_type_hints
+from typing import get_args, get_type_hints
 
 from pydantic import BaseModel
 
@@ -25,7 +25,7 @@ for cls in EVENT_CLASSES:
     ann = hints.get("metrics")
     assert ann in (
         MetricsSnapshot,
-        Union[MetricsSnapshot, None],
+        MetricsSnapshot | None,
     ), (
         f"{cls.__name__}.metrics must be MetricsSnapshot "
         f"or MetricsSnapshot|None, found {ann!r}"
