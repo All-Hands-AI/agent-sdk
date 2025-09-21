@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import Agent, EventBase, ImageContent, Message, TextContent
+from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.utils.models import OpenHandsModel
@@ -52,7 +52,7 @@ class StartConversationRequest(BaseModel):
     Contains an Agent configuration along with conversation-specific options.
     """
 
-    agent: Agent
+    agent: AgentBase
     confirmation_mode: bool = Field(
         default=False,
         description="If true, the agent will enter confirmation mode, "
