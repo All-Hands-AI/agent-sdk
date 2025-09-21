@@ -187,27 +187,16 @@ The simplified pattern eliminates the need for manual executor instantiation and
   - For issue like # type: ignore[call-arg]: if you discover that the argument doesn’t actually exist, do not try to mock it again in tests. Instead, simply remove it.
 - Avoid doing in-line imports unless absolutely necessary (e.g., circular dependency).
 - Avoid getattr/hasattr guards and instead enforce type correctness by relying on explicit type assertions and proper object usage, ensuring functions only receive the expected Pydantic models or typed inputs.
+- Use real newlines in commit messages; do not write literal "\n".
 </CODE>
 
 ### Avoid overly defensive code
 
-- Prefer relying on type hints and validated models over runtime shape checks.
-- Do not add getattr/hasattr guards or broad try/except unless there is a real, demonstrated need (e.g., upstream library returns multiple shapes).
-- Examples to avoid:
-  - Overly defensive:
-    - `fn = t.get("function", {})` followed by multiple `hasattr`/`getattr` fallbacks.
-    - `if hasattr(obj, "field"): ... else: ...` when `obj` is a typed Pydantic model with `field` guaranteed.
-  - Preferred:
+- Prefer type hints and validated models over runtime shape checks.
+- Avoid getattr/hasattr guards or broad try/except unless upstream returns multiple shapes.
+- Prefer accessing typed attributes directly and converting inputs up front into one canonical shape.
+- Principle: pick one canonical shape per boundary and delete fallbacks.
 
-    - Access typed attributes directly: `fn_obj = t.function` (skip if None only when type allows), then read `fn_obj.name`, `fn_obj.parameters`.
-    - Convert inputs up front into a single canonical shape (e.g., Pydantic model or dict schema) and operate on that shape without scattered guards.
-- Principle: pick one canonical shape per boundary and delete fallbacks. Eliminate special cases rather than handling them everywhere.
-
-
-
-<STYLE>
-- Use real newlines in commit messages; do not write literal "\n".
-</STYLE>
 
 <TESTING>
 - AFTER you edit ONE file, you should run pre-commit hook on that file via `uv run pre-commit run --files [filepath]` to make sure you didn't break it.
