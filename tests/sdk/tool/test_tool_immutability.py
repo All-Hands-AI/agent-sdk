@@ -1,6 +1,6 @@
 """Tests for the Tool class in openhands.sdk.runtime.tool."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pytest
 from pydantic import Field, ValidationError
@@ -18,16 +18,16 @@ class TestToolImmutabilityMockAction(ActionBase):
     """Mock action class for testing."""
 
     command: str = Field(description="Command to execute")
-    optional_field: Optional[str] = Field(default=None, description="Optional field")
-    nested: Dict[str, Any] = Field(default_factory=dict, description="Nested object")
-    array_field: List[int] = Field(default_factory=list, description="Array field")
+    optional_field: str | None = Field(default=None, description="Optional field")
+    nested: dict[str, Any] = Field(default_factory=dict, description="Nested object")
+    array_field: list[int] = Field(default_factory=list, description="Array field")
 
 
 class TestToolImmutabilityMockObservation(ObservationBase):
     """Mock observation class for testing."""
 
     result: str = Field(description="Result of the action")
-    extra_field: Optional[str] = Field(default=None, description="Extra field")
+    extra_field: str | None = Field(default=None, description="Extra field")
 
 
 class TestToolImmutability:

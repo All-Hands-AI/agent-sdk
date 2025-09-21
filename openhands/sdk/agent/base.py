@@ -2,7 +2,8 @@ import os
 import re
 import sys
 from abc import ABC
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from pydantic import ConfigDict, Field
 

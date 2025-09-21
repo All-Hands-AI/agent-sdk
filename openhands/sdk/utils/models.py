@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from abc import ABC
-from typing import Annotated, Any, Literal, Self, Type, Union
+from typing import Annotated, Any, Literal, Self, Union
 
 from pydantic import (
     BaseModel,
@@ -110,7 +110,7 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     kind: str = Field(default="")  # We dynamically update on a per class basis
 
     @classmethod
-    def resolve_kind(cls, kind: str) -> Type:
+    def resolve_kind(cls, kind: str) -> type:
         for subclass in get_known_concrete_subclasses(cls):
             if subclass.__name__ == kind:
                 return subclass
@@ -149,7 +149,7 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         )
 
     @classmethod
-    def get_serializable_type(cls) -> Type:
+    def get_serializable_type(cls) -> type:
         """
         Custom method to get the union of all currently loaded
         non absract subclasses
@@ -169,10 +169,12 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
             # only ONE concrete subclass.
             return subclasses[0]
 
-        serializable_type = Annotated[
-            Union[tuple(Annotated[t, Tag(t.__name__)] for t in subclasses)],
-            Discriminator(kind_of),
-        ]
+        # Build a tagged union type of all subclasses.
+        # Each member is annotated with a Tag so Pydantic can discriminate.
+        annotated_members = tuple(Annotated[t, Tag(t.__name__)] for t in subclasses)
+        union_type = Union[annotated_members]  # type: ignore[misc]
+        # Annotate the union with a discriminator function.
+        serializable_type = Annotated[union_type, Discriminator(kind_of)]
         return serializable_type  # type: ignore
 
     @classmethod
@@ -239,7 +241,7 @@ def _rebuild_if_required():
         rebuild_all()
 
 
-def _is_abstract(type_: Type) -> bool:
+def _is_abstract(type_: type) -> bool:
     """Determine whether the class directly extends ABC or contains abstract methods"""
     try:
         return inspect.isabstract(type_) or ABC in type_.__bases__
@@ -247,7 +249,7 @@ def _is_abstract(type_: Type) -> bool:
         return False
 
 
-def _get_all_subclasses(cls) -> set[Type]:
+def _get_all_subclasses(cls) -> set[type]:
     """
     Recursively finds and returns all (loaded) subclasses of a given class.
     """

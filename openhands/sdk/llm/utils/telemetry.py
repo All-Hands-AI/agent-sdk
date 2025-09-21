@@ -2,7 +2,7 @@ import json
 import os
 import time
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
@@ -24,7 +24,7 @@ class Telemetry(BaseModel):
     # --- Config fields ---
     model_name: str = Field(default="unknown", description="Name of the LLM model")
     log_enabled: bool = Field(default=False, description="Whether to log completions")
-    log_dir: Optional[str] = Field(
+    log_dir: str | None = Field(
         default=None, description="Directory to write logs if enabled"
     )
     input_cost_per_token: float | None = Field(
@@ -143,7 +143,7 @@ class Telemetry(BaseModel):
             response_id=response_id,
         )
 
-    def _compute_cost(self, resp: ModelResponse) -> Optional[float]:
+    def _compute_cost(self, resp: ModelResponse) -> float | None:
         """Try provider header → litellm direct. Return None on failure."""
         extra_kwargs = {}
         if (
@@ -185,7 +185,7 @@ class Telemetry(BaseModel):
     def _log_completion(
         self,
         resp: ModelResponse,
-        cost: Optional[float],
+        cost: float | None,
         raw_resp: ModelResponse | None = None,
     ) -> None:
         if not self.log_dir:

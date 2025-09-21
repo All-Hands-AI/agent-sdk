@@ -1,4 +1,5 @@
-from typing import Iterator, Protocol, SupportsIndex, TypeVar, overload
+from collections.abc import Iterator
+from typing import Protocol, SupportsIndex, TypeVar, overload
 
 
 T = TypeVar("T")

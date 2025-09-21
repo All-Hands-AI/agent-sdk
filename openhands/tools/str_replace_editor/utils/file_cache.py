@@ -3,7 +3,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from openhands.sdk.logger import get_logger
 
@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 
 class FileCache:
-    def __init__(self, directory: str, size_limit: Optional[int] = None):
+    def __init__(self, directory: str, size_limit: int | None = None):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.size_limit = size_limit
@@ -83,7 +83,7 @@ class FileCache:
             file_path, (time.time(), time.time())
         )  # Update access and modification time
 
-    def _evict_oldest(self, exclude_path: Optional[Path] = None):
+    def _evict_oldest(self, exclude_path: Path | None = None):
         oldest_file = min(
             (
                 f

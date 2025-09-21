@@ -1,6 +1,7 @@
 # state.py
 import operator
-from typing import Iterator, SupportsIndex, overload
+from collections.abc import Iterator
+from typing import SupportsIndex, overload
 
 from openhands.sdk.conversation.persistence_const import (
     EVENT_FILE_PATTERN,
