@@ -49,8 +49,6 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Message,
-    TextContent,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools.execute_bash import BashTool
@@ -88,18 +86,11 @@ print("=== Send Message While Processing Example ===")
 
 # Step 1: Send initial message
 start_time = timestamp()
-initial_message = (
+conversation.send_message(
     f"Create a file called document.txt and write this first sentence: "
     f"'Message 1 sent at {start_time}, written at [CURRENT_TIME].' "
     f"Replace [CURRENT_TIME] with the actual current time when you write the line. "
     f"Then wait 3 seconds and write 'Message 2 sent at {start_time}, written at [CURRENT_TIME].'"  # noqa
-)
-
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text=initial_message)],
-    )
 )
 
 # Step 2: Start agent processing in background
@@ -110,17 +101,11 @@ thread.start()
 time.sleep(2)  # Give agent time to start working
 
 second_time = timestamp()
-second_message = (
+
+conversation.send_message(
     f"Please also add this second sentence to document.txt: "
     f"'Message 3 sent at {second_time}, written at [CURRENT_TIME].' "
     f"Replace [CURRENT_TIME] with the actual current time when you write this line."
-)
-
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text=second_message)],
-    )
 )
 
 # Wait for completion
