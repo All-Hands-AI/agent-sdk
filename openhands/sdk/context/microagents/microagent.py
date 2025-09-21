@@ -2,7 +2,7 @@ import io
 import re
 from itertools import chain
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Union, cast
+from typing import Annotated, Any, ClassVar, Literal, Union, cast
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
@@ -12,7 +12,6 @@ from openhands.sdk.context.microagents.exceptions import MicroagentValidationErr
 from openhands.sdk.context.microagents.types import (
     VALID_MICROAGENT_TYPES,
     InputMetadata,
-    MicroagentType,
 )
 from openhands.sdk.logger import get_logger
 
@@ -32,7 +31,7 @@ class BaseMicroagent(BaseModel):
             "When it is None, it is treated as a programmatically defined microagent."
         ),
     )
-    type: MicroagentType = "repo"
+    type: Literal["repo", "knowledge", "task"] = Field(default="repo")
 
     PATH_TO_THIRD_PARTY_MICROAGENT_NAME: ClassVar[dict[str, str]] = {
         ".cursorrules": "cursorrules",
@@ -168,7 +167,7 @@ class KnowledgeMicroagent(BaseMicroagent):
     - Tool usage
     """
 
-    type: MicroagentType = "knowledge"
+    type: Literal["knowledge"] = Field(default="knowledge")  # type: ignore[assignment]
     triggers: list[str] = Field(
         default_factory=list, description="List of triggers for the microagent"
     )
@@ -202,7 +201,7 @@ class RepoMicroagent(BaseMicroagent):
         - Custom documentation references
     """
 
-    type: MicroagentType = "repo"
+    type: Literal["repo"] = Field(default="repo")  # type: ignore[assignment]
     mcp_tools: MCPConfig | dict | None = Field(
         default=None,
         description="MCP tools configuration for the microagent",
@@ -239,7 +238,7 @@ class TaskMicroagent(KnowledgeMicroagent):
     and will prompt the user for any required inputs before proceeding.
     """
 
-    type: MicroagentType = "task"
+    type: Literal["task"] = Field(default="task")  # type: ignore[assignment]
     inputs: list[InputMetadata] = Field(
         default_factory=list,
         description=(
@@ -346,7 +345,7 @@ def load_microagents_from_dir(
     return repo_agents, knowledge_agents
 
 
-MicroagentType = Annotated[
+MicroagentUnion = Annotated[
     RepoMicroagent | KnowledgeMicroagent | TaskMicroagent,
     Field(discriminator="type"),
 ]
