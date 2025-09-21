@@ -2,7 +2,8 @@
 
 import json
 
-from pydantic import BaseModel
+import pytest
+from pydantic import BaseModel, ValidationError
 
 from openhands.sdk.tool import Tool
 from openhands.sdk.tool.builtins import FinishTool, ThinkTool
@@ -88,7 +89,7 @@ def test_tool_model_validate_json_dict() -> None:
     assert tool.model_dump() == deserialized_tool.model_dump()
 
 
-def test_tool_fallback_behavior_json() -> None:
+def test_tool_no_fallback_behavior_json() -> None:
     """Test that Tool handles unknown types gracefully in JSON."""
     # Create JSON with unknown kind
     tool_dict = {
@@ -100,11 +101,8 @@ def test_tool_fallback_behavior_json() -> None:
     }
     tool_json = json.dumps(tool_dict)
 
-    # Should fall back to base Tool type
-    deserialized_tool = ToolBase.model_validate_json(tool_json)
-    assert isinstance(deserialized_tool, Tool)
-    assert deserialized_tool.name == "test-tool"
-    assert deserialized_tool.description == "A test tool"
+    with pytest.raises(ValidationError):
+        ToolBase.model_validate_json(tool_json)
 
 
 def test_tool_type_annotation_works_json() -> None:
