@@ -6,7 +6,6 @@ from openhands.sdk.context.microagents import (
     BaseMicroagent,
     KnowledgeMicroagent,
     MicroagentKnowledge,
-    MicroagentType,
     RepoMicroagent,
 )
 from openhands.sdk.context.prompts import render_template
@@ -41,7 +40,7 @@ class AgentContext(BaseModel):
     LLM interactions.
     """  # noqa: E501
 
-    microagents: list[MicroagentType] = Field(
+    microagents: list[BaseMicroagent] = Field(
         default_factory=list,
         description="List of available microagents that can extend the user's input.",
     )
