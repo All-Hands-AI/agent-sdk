@@ -10,8 +10,7 @@ import copy
 import json
 import re
 import sys
-from collections.abc import Iterable
-from typing import Literal, NotRequired, TypedDict, cast
+from typing import Iterable, Literal, NotRequired, TypedDict, cast
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 

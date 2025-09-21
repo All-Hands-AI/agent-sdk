@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Callable
+from typing import Callable
 
 from openhands.sdk.event.base import EventBase
 
