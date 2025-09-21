@@ -15,8 +15,8 @@ MicroagentType = Literal[
 class InputMetadata(BaseModel):
     """Metadata for task microagent inputs."""
 
-    name: str = Field(..., description="Name of the input parameter")
-    description: str = Field(..., description="Description of the input parameter")
+    name: str = Field(description="Name of the input parameter")
+    description: str = Field(description="Description of the input parameter")
 
 
 class MicroagentKnowledge(BaseModel):

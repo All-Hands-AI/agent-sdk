@@ -172,9 +172,6 @@ class KnowledgeMicroagent(BaseMicroagent):
         default_factory=list, description="List of triggers for the microagent"
     )
 
-    def __init__(self, **data):
-        super().__init__(**data)
-
     def match_trigger(self, message: str) -> str | None:
         """Match a trigger in the message.
 
@@ -246,21 +243,23 @@ class TaskMicroagent(KnowledgeMicroagent):
         ),
     )
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        self._append_missing_variables_prompt()
-
-    def _append_missing_variables_prompt(self) -> None:
-        """Append a prompt to ask for missing variables."""
-        # Check if the content contains any variables or has inputs defined
+    @model_validator(mode="after")
+    def _append_missing_variables_prompt(self):
+        """Append a prompt to ask for missing variables after model construction."""
+        # If no variables and no inputs, nothing to do
         if not self.requires_user_input() and not self.inputs:
-            return
+            return self
 
         prompt = (
             "\n\nIf the user didn't provide any of these variables, ask the user to "
             "provide them first before the agent can proceed with the task."
         )
-        self.content += prompt
+
+        # Avoid duplicating the prompt if content already includes it
+        if getattr(self, "content", None) is not None and prompt not in self.content:
+            self.content += prompt
+
+        return self
 
     def extract_variables(self, content: str) -> list[str]:
         """Extract variables from the content.
