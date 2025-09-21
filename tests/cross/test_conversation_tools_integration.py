@@ -1,14 +1,13 @@
 """Test ConversationState integration with tools from openhands.tools package."""
 
 import tempfile
-import uuid
 from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation, LocalFileStore
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.agent import AgentBase
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools.execute_bash import BashTool
@@ -46,42 +45,42 @@ def test_conversation_with_different_agent_tools_raises_error():
         # Delete conversation to simulate restart
         del conversation
 
-        # Try to load with agent that has different tools
+        # Try to create new conversation with different tools (only bash tool)
         different_tools = [
             ToolSpec(name="BashTool", params={"working_dir": temp_dir})
         ]  # Missing FileEditorTool
-        different_agent = Agent(llm=llm, tools=different_tools)
+        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        different_agent = Agent(llm=llm2, tools=different_tools)
 
-        # This should raise ValueError due to tool mismatch
+        # This should raise ValueError due to tool differences
         with pytest.raises(
-            ValueError,
-            match="The Agent provided is different from the one in persisted state",
+            ValueError, match="different from the one in persisted state"
         ):
             Conversation(
                 agent=different_agent,
                 persist_filestore=file_store,
-                conversation_id=conversation_id,
+                conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
                 visualize=False,
             )
 
 
 def test_conversation_with_same_agent_succeeds():
-    """Test that using an agent with same tools succeeds."""
+    """Test that using the same agent configuration succeeds."""
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
 
-        # Create and save conversation with original agent
-        original_tools = [
+        # Create and save conversation
+        tools = [
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
             ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
-        original_agent = Agent(llm=llm, tools=original_tools)
+        original_agent = Agent(llm=llm, tools=tools)
         conversation = Conversation(
             agent=original_agent, persist_filestore=file_store, visualize=False
         )
 
-        # Send a message to create some state
+        # Send a message
         conversation.send_message(
             Message(role="user", content=[TextContent(text="test message")])
         )
@@ -89,35 +88,42 @@ def test_conversation_with_same_agent_succeeds():
         # Get the conversation ID for reuse
         conversation_id = conversation.state.id
 
-        # Delete conversation to simulate restart
+        # Delete conversation
         del conversation
 
-        # Load with agent that has same tools - should succeed
-        same_agent = Agent(llm=llm, tools=original_tools)
-        reloaded_conversation = Conversation(
+        # Create new conversation with same agent configuration
+        same_tools = [
+            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="FileEditorTool"),
+        ]
+        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        same_agent = Agent(llm=llm2, tools=same_tools)
+
+        # This should succeed
+        new_conversation = Conversation(
             agent=same_agent,
             persist_filestore=file_store,
-            conversation_id=conversation_id,
+            conversation_id=conversation_id,  # Use same ID
             visualize=False,
         )
 
-        # Should have the same state
-        assert reloaded_conversation.state.id == conversation_id
-        assert len(reloaded_conversation.state.events) > 0
+        # Verify state was loaded
+        assert len(new_conversation.state.events) > 0
 
 
-@patch("openhands.sdk.llm.llm.LLM.completion")
+@patch("openhands.sdk.llm.llm.litellm_completion")
 def test_conversation_persistence_lifecycle(mock_completion):
-    """Test complete conversation persistence lifecycle with tools."""
-    # Mock the LLM completion
-    mock_completion.return_value = Message(
-        role="assistant", content=[TextContent(text="Hello! I'm ready to help.")]
+    """Test full conversation persistence lifecycle similar to examples/10_persistence.py."""  # noqa: E501
+    from tests.conftest import create_mock_litellm_response
+
+    # Mock the LLM completion call
+    mock_response = create_mock_litellm_response(
+        content="I'll help you with that task.", finish_reason="stop"
     )
+    mock_completion.return_value = mock_response
 
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
-
-        # Create conversation with tools
         tools = [
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
             ToolSpec(name="FileEditorTool"),
@@ -125,65 +131,80 @@ def test_conversation_persistence_lifecycle(mock_completion):
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=tools)
 
-        # Create conversation
+        # Create conversation and send messages
         conversation = Conversation(
             agent=agent, persist_filestore=file_store, visualize=False
         )
-        original_id = conversation.state.id
 
-        # Send multiple messages
+        # Send first message
         conversation.send_message(
             Message(role="user", content=[TextContent(text="First message")])
         )
+        conversation.run()
+
+        # Send second message
         conversation.send_message(
             Message(role="user", content=[TextContent(text="Second message")])
         )
+        conversation.run()
 
-        # Verify events were created
-        assert (
-            len(conversation.state.events) >= 3
-        )  # system + 2 user (assistant may not respond)
+        # Store conversation ID and event count
+        original_id = conversation.id
+        original_event_count = len(conversation.state.events)
+        original_state_dump = conversation.state.model_dump(
+            mode="json", exclude={"events"}
+        )
 
-        # Delete conversation
+        # Delete conversation to simulate restart
         del conversation
 
-        # Reload conversation
-        reloaded_conversation = Conversation(
+        # Create new conversation (should load from persistence)
+        new_conversation = Conversation(
             agent=agent,
             persist_filestore=file_store,
-            conversation_id=original_id,
+            conversation_id=original_id,  # Use same ID to load existing state
             visualize=False,
         )
 
-        # Verify state was preserved
-        assert reloaded_conversation.state.id == original_id
-        assert len(reloaded_conversation.state.events) >= 3
+        # Verify state was restored
+        assert new_conversation.id == original_id
+        # When loading from persistence, the state should be exactly the same
+        assert len(new_conversation.state.events) == original_event_count
+        # Test model_dump equality (excluding events which may have different timestamps)  # noqa: E501
+        new_dump = new_conversation.state.model_dump(mode="json", exclude={"events"})
+        assert new_dump == original_state_dump
 
-        # Send another message
-        reloaded_conversation.send_message(
+        # Send another message to verify conversation continues
+        new_conversation.send_message(
             Message(role="user", content=[TextContent(text="Third message")])
         )
+        new_conversation.run()
 
-        # Verify new events were added
-        assert len(reloaded_conversation.state.events) >= 4
+        # Verify new event was added
+        # We expect: original_event_count + 1 (system prompt from init) + 2
+        # (user message + agent response)
+        assert len(new_conversation.state.events) >= original_event_count + 2
 
 
-def test_agent_state_serialization_with_tools():
-    """Test that agent state with tools can be serialized and deserialized."""
+def test_agent_resolve_diff_from_deserialized():
+    """Test agent's resolve_diff_from_deserialized method."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create agent with tools
+        # Create original agent
         tools = [ToolSpec(name="BashTool", params={"working_dir": temp_dir})]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         original_agent = Agent(llm=llm, tools=tools)
 
-        # Create state
-        conversation_id = uuid.uuid4()
-        state = ConversationState.create(id=conversation_id, agent=original_agent)
+        # Serialize and deserialize to simulate persistence
+        serialized = original_agent.model_dump_json()
+        deserialized_agent = AgentBase.model_validate_json(serialized)
 
-        # Serialize and deserialize
-        serialized = state.model_dump_json()
-        deserialized_state = ConversationState.model_validate_json(serialized)
+        # Create runtime agent with same configuration
+        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        runtime_agent = Agent(llm=llm2, tools=tools)
 
-        # Verify the deserialized state has the same agent configuration
-        assert deserialized_state.agent.tools == original_agent.tools
-        assert deserialized_state.agent.llm.model == original_agent.llm.model
+        # Should resolve successfully
+        resolved = runtime_agent.resolve_diff_from_deserialized(deserialized_agent)
+        # Test model_dump equality
+        assert resolved.model_dump(mode="json") == runtime_agent.model_dump(mode="json")
+        assert resolved.llm.model == runtime_agent.llm.model
+        assert resolved.__class__ == runtime_agent.__class__
