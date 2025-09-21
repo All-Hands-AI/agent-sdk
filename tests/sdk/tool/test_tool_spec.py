@@ -8,18 +8,18 @@ from openhands.sdk.tool.spec import ToolSpec
 
 def test_tool_spec_minimal():
     """Test creating ToolSpec with minimal required fields."""
-    spec = ToolSpec(name="BashTool")
+    spec = ToolSpec(name="TestTool")
 
-    assert spec.name == "BashTool"
+    assert spec.name == "TestTool"
     assert spec.params == {}
 
 
 def test_tool_spec_with_params():
     """Test creating ToolSpec with parameters."""
     params = {"working_dir": "/workspace", "timeout": 30}
-    spec = ToolSpec(name="BashTool", params=params)
+    spec = ToolSpec(name="TestTool", params=params)
 
-    assert spec.name == "BashTool"
+    assert spec.name == "TestTool"
     assert spec.params == params
 
 
@@ -33,9 +33,9 @@ def test_tool_spec_complex_params():
         "debug": True,
     }
 
-    spec = ToolSpec(name="BashTool", params=params)
+    spec = ToolSpec(name="TestTool", params=params)
 
-    assert spec.name == "BashTool"
+    assert spec.name == "TestTool"
     assert spec.params == params
     assert spec.params["env_vars"]["PATH"] == "/usr/bin"
     assert spec.params["debug"] is True
@@ -44,11 +44,11 @@ def test_tool_spec_complex_params():
 def test_tool_spec_serialization():
     """Test ToolSpec serialization and deserialization."""
     params = {"working_dir": "/test", "timeout": 45}
-    spec = ToolSpec(name="BashTool", params=params)
+    spec = ToolSpec(name="TestTool", params=params)
 
     # Test model_dump
     spec_dict = spec.model_dump()
-    assert spec_dict["name"] == "BashTool"
+    assert spec_dict["name"] == "TestTool"
     assert spec_dict["params"] == params
 
     # Test model_dump_json
@@ -57,7 +57,7 @@ def test_tool_spec_serialization():
 
     # Test deserialization
     spec_restored = ToolSpec.model_validate_json(spec_json)
-    assert spec_restored.name == "BashTool"
+    assert spec_restored.name == "TestTool"
     assert spec_restored.params == params
 
 
@@ -70,7 +70,7 @@ def test_tool_spec_validation_requires_name():
 def test_tool_spec_examples_from_docstring():
     """Test the examples provided in ToolSpec docstring."""
     # Test the examples from the docstring
-    examples = ["BashTool", "FileEditorTool", "TaskTrackerTool"]
+    examples = ["TestTool", "AnotherTool", "TaskTrackerTool"]
 
     for example_name in examples:
         spec = ToolSpec(name=example_name)
@@ -78,24 +78,24 @@ def test_tool_spec_examples_from_docstring():
         assert spec.params == {}
 
     # Test with params example
-    spec_with_params = ToolSpec(name="BashTool", params={"working_dir": "/workspace"})
-    assert spec_with_params.name == "BashTool"
+    spec_with_params = ToolSpec(name="TestTool", params={"working_dir": "/workspace"})
+    assert spec_with_params.name == "TestTool"
     assert spec_with_params.params == {"working_dir": "/workspace"}
 
 
 def test_tool_spec_different_tool_types():
     """Test creating ToolSpec for different tool types."""
-    # BashTool
-    bash_spec = ToolSpec(
-        name="BashTool", params={"working_dir": "/workspace", "timeout": 30}
+    # TestTool
+    test_spec = ToolSpec(
+        name="TestTool", params={"working_dir": "/workspace", "timeout": 30}
     )
-    assert bash_spec.name == "BashTool"
-    assert bash_spec.params["working_dir"] == "/workspace"
+    assert test_spec.name == "TestTool"
+    assert test_spec.params["working_dir"] == "/workspace"
 
-    # FileEditorTool
-    editor_spec = ToolSpec(name="FileEditorTool")
-    assert editor_spec.name == "FileEditorTool"
-    assert editor_spec.params == {}
+    # AnotherTool
+    another_spec = ToolSpec(name="AnotherTool")
+    assert another_spec.name == "AnotherTool"
+    assert another_spec.params == {}
 
     # TaskTrackerTool
     tracker_spec = ToolSpec(
