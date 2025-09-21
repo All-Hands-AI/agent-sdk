@@ -14,12 +14,12 @@ agent-sdk/
 ├── pyproject.toml                      # Workspace configuration
 ├── uv.lock                             # Dependency lock file
 ├── examples/                           # Usage examples
-│   ├── 01_hello_world.py               # Basic agent setup
-│   ├── 02_custom_tools.py              # Custom tool implementation
+│   ├── 01_hello_world.py               # Basic agent setup (default tools preset)
+│   ├── 02_custom_tools.py              # Custom tool implementation with explicit executor
 │   ├── 03_activate_microagent.py       # Microagent usage
-│   ├── 04_confirmation_mode_example.py # Interactive mode
+│   ├── 04_confirmation_mode_example.py # Interactive confirmation mode
 │   ├── 05_use_llm_registry.py          # LLM registry usage
-│   ├── 06_interactive_terminal_w_reasoning.py # Terminal interaction with reasoning
+│   ├── 06_interactive_terminal_w_reasoning.py # Terminal interaction with reasoning models
 │   ├── 07_mcp_integration.py           # MCP integration
 │   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
 │   ├── 09_pause_example.py             # Pause and resume agent execution
@@ -28,7 +28,9 @@ agent-sdk/
 │   ├── 12_custom_secrets.py            # Custom secrets management
 │   ├── 13_get_llm_metrics.py           # LLM metrics and monitoring
 │   ├── 14_context_condenser.py         # Context condensation
-│   └── 15_llm_security_analyzer.py     # LLM security analysis
+│   ├── 15_browser_use.py               # Browser automation tools
+│   ├── 16_create_agent_from_spec.py    # Build agent from AgentSpec preset
+│   └── 17_llm_security_analyzer.py     # LLM security analysis
 ├── openhands/              # Main SDK packages
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
@@ -46,6 +48,7 @@ agent-sdk/
 │       ├── execute_bash/   # Bash execution tool
 │       ├── str_replace_editor/  # File editing tool
 │       ├── task_tracker/   # Task tracking tool
+│       ├── browser_use/    # Browser automation tools
 │       ├── utils/          # Tool utilities
 │       └── pyproject.toml  # Tools package configuration
 └── tests/                  # Test suites
@@ -82,7 +85,7 @@ uv run python examples/01_hello_world.py
 import os
 from pydantic import SecretStr
 from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.sdk.preset.default import get_default_tools
 
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
@@ -93,22 +96,36 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-# Setup tools
+# Setup tools (use OpenHands default experience)
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-]
+tools = get_default_tools(working_dir=cwd)
+# Or define your own tools:
+# from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+# tools = [
+#     BashTool.create(working_dir=cwd),
+#     FileEditorTool.create(),
+#     TaskTrackerTool.create(save_dir=cwd),
+# ]
 
 # Create agent and conversation
 agent = Agent(llm=llm, tools=tools)
 conversation = Conversation(agent=agent)
 
-# Send message and run
+# Send messages and run
 conversation.send_message(
     Message(
         role="user",
-        content=[TextContent(text="Create a Python file that prints 'Hello, World!'")]
+        content=[TextContent(text=(
+            "Read the current repo and write 3 facts about the project into FACTS.txt."
+        ))],
+    )
+)
+conversation.run()
+
+conversation.send_message(
+    Message(
+        role="user",
+        content=[TextContent(text="Great! Now delete that file.")],
     )
 )
 conversation.run()
@@ -121,12 +138,19 @@ conversation.run()
 Agents are the central orchestrators that coordinate between LLMs and tools:
 
 ```python
-from openhands.sdk import Agent, LLM
+import os
+from openhands.sdk import Agent
 from openhands.tools import BashTool, FileEditorTool
+
+# Explicit minimal toolset (bash + editor)
+tools = [
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
+]
 
 agent = Agent(
     llm=llm,
-    tools=[BashTool.create(), FileEditorTool.create()],
+    tools=tools,
     # Optional: custom context, microagents, etc.
 )
 ```
@@ -148,20 +172,29 @@ llm = LLM(
 
 # Using LLM registry for shared configurations
 registry = LLMRegistry()
-llm = registry.get_llm("default")
+registry.add("default", llm)
+llm = registry.get("default")
 ```
 
 ### Tools
 
-Tools provide agents with capabilities to interact with the environment:
+Tools provide agents with capabilities to interact with the environment.
 
 #### Simplified Pattern (Recommended)
 
+Use the preset to get a production-ready default toolset (bash + editor + task tracker + curated MCP tools):
+
 ```python
-from openhands.sdk import TextContent, ImageContent
+from openhands.sdk.preset.default import get_default_tools
+
+tools = get_default_tools(working_dir=os.getcwd())
+```
+
+Or construct the basic tools yourself:
+
+```python
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
-# Direct instantiation with simplified API
 tools = [
     BashTool.create(working_dir=os.getcwd()),
     FileEditorTool.create(),
@@ -171,7 +204,7 @@ tools = [
 
 #### Advanced Pattern (For explicitly maintained tool executor)
 
-We explicitly define a `BashExecutor` in this example:
+We explicitly define a `BashExecutor` in this example and reuse it for custom tools:
 
 ```python
 from openhands.tools import BashExecutor, execute_bash_tool
@@ -221,7 +254,7 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
         else:
             cmd = f"grep -rHnE {pat} {root_q} 2>/dev/null | head -100"
 
-        result = self.bash(ExecuteBashAction(command=cmd, security_risk="LOW"))
+        result = self.bash(ExecuteBashAction(command=cmd))
         return GrepObservation(output=result.output.strip() or '')
 ```
 
@@ -255,6 +288,7 @@ Context is automatically managed but you can customize your context with:
 
 ```python
 from openhands.sdk import AgentContext
+from openhands.sdk.context import RepoMicroagent, KnowledgeMicroagent
 
 context = AgentContext(
     microagents=[
