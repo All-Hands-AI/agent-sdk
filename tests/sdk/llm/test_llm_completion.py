@@ -358,7 +358,6 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     # Verify function calling is active
     assert llm_native.is_function_calling_active()
     # Should not mock tools when native function calling is active
-    # should_mock_tool_calls requires provider tool dicts; skip direct assert here
 
     # Test with native function calling disabled
     llm_non_native = LLM(
