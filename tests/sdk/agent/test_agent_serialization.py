@@ -38,7 +38,7 @@ def test_agent_supports_polymorphic_json_serialization() -> None:
     """Test that Agent supports polymorphic JSON serialization/deserialization."""
     # Create a simple LLM instance and agent with empty tools
     llm = LLM(model="test-model")
-    agent = Agent(llm=llm, tools={})
+    agent = Agent(llm=llm, tools=[])
 
     # Serialize to JSON (excluding non-serializable fields)
     agent_json = agent.model_dump_json()
@@ -61,23 +61,16 @@ def test_mcp_tool_serialization():
 def test_agent_serialization_should_include_mcp_tool() -> None:
     # Create a simple LLM instance and agent with empty tools
     llm = LLM(model="test-model")
-    agent = Agent(
-        llm=llm,
-        tools={
-            "test_agent_serialization_should_include_mcp_tool": create_mock_mcp_tool(
-                "test_agent_serialization_should_include_mcp_tool"
-            )
-        },
-    )
+    mcp_config = {
+        "mcpServers": {
+            "dummy": {"command": "echo", "args": ["dummy-mcp"]},
+        }
+    }
+    agent = Agent(llm=llm, tools=[], mcp_config=mcp_config)
 
     # Serialize to JSON (excluding non-serializable fields)
     agent_dump = agent.model_dump()
-    assert "tools" in agent_dump and isinstance(agent_dump["tools"], dict)
-    assert "test_agent_serialization_should_include_mcp_tool" in agent_dump["tools"]
-    assert (
-        "mcp_tool"
-        in agent_dump["tools"]["test_agent_serialization_should_include_mcp_tool"]
-    )
+    assert agent_dump.get("mcp_config") == mcp_config
     agent_json = agent.model_dump_json()
 
     # Deserialize from JSON using the base class
@@ -96,7 +89,7 @@ def test_agent_supports_polymorphic_field_json_serialization() -> None:
 
     # Create container with agent
     llm = LLM(model="test-model")
-    agent = Agent(llm=llm, tools={})
+    agent = Agent(llm=llm, tools=[])
     container = Container(agent=agent)
 
     # Serialize to JSON (excluding non-serializable fields)
@@ -119,8 +112,8 @@ def test_agent_supports_nested_polymorphic_json_serialization() -> None:
     # Create container with multiple agents
     llm1 = LLM(model="model-1")
     llm2 = LLM(model="model-2")
-    agent1 = Agent(llm=llm1, tools={})
-    agent2 = Agent(llm=llm2, tools={})
+    agent1 = Agent(llm=llm1, tools=[])
+    agent2 = Agent(llm=llm2, tools=[])
     container = NestedContainer(agents=[agent1, agent2])
 
     # Serialize to JSON (excluding non-serializable fields)
@@ -141,7 +134,7 @@ def test_agent_model_validate_json_dict() -> None:
     """Test that Agent.model_validate works with dict from JSON."""
     # Create agent
     llm = LLM(model="test-model")
-    agent = Agent(llm=llm, tools={})
+    agent = Agent(llm=llm, tools=[])
 
     # Serialize to JSON, then parse to dict
     agent_json = agent.model_dump_json()
@@ -169,7 +162,7 @@ def test_agent_preserves_pydantic_parameters_json() -> None:
     """Test that Agent preserves Pydantic parameters through JSON serialization."""
     # Create agent with extra data
     llm = LLM(model="test-model")
-    agent = Agent(llm=llm, tools={})
+    agent = Agent(llm=llm, tools=[])
 
     # Serialize to JSON
     agent_json = agent.model_dump_json()
@@ -185,7 +178,7 @@ def test_agent_type_annotation_works_json() -> None:
     """Test that AgentType annotation works correctly with JSON."""
     # Create agent
     llm = LLM(model="test-model")
-    agent = Agent(llm=llm, tools={})
+    agent = Agent(llm=llm, tools=[])
 
     # Use AgentType annotation
     class TestModel(OpenHandsModel):
@@ -209,7 +202,7 @@ def test_agent_type_annotation_on_basemodel_works_json() -> None:
     """Test that AgentType annotation works correctly with JSON."""
     # Create agent
     llm = LLM(model="test-model")
-    agent = Agent(llm=llm, tools={})
+    agent = Agent(llm=llm, tools=[])
 
     # Use AgentType annotation
     class TestModel(BaseModel):

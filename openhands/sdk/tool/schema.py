@@ -197,5 +197,5 @@ class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
             full_content = "".join(text_parts)
             content.append(full_content)
         else:
-            content.append("[no text content]", style="dim")
+            content.append("[no text content]")
         return content

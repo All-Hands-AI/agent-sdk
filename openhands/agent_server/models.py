@@ -6,15 +6,13 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import (
-    AgentSpec,
-    EventBase,
-    ImageContent,
-    Message,
-    TextContent,
-)
+from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
 from openhands.sdk.utils.models import OpenHandsModel
 
 
@@ -52,18 +50,17 @@ class SendMessageRequest(BaseModel):
         return message
 
 
-class StartConversationRequest(AgentSpec):
+class StartConversationRequest(BaseModel):
     """Payload to create a new conversation.
 
-    It inherits from AgentSpec which contains everything needed
-    to start a new conversation.
+    Contains an Agent configuration along with conversation-specific options.
     """
 
-    # These are two conversation specific fields
-    confirmation_mode: bool = Field(
-        default=False,
-        description="If true, the agent will enter confirmation mode, "
-        "requiring user approval for actions.",
+    agent: AgentBase
+    confirmation_policy: ConfirmationPolicyBase = Field(
+        default=NeverConfirm(),
+        description="Controls when the conversation will prompt the user before "
+        "continuing. Defaults to never.",
     )
     initial_message: SendMessageRequest | None = Field(
         default=None, description="Initial message to pass to the LLM"

@@ -3,8 +3,10 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Body, HTTPException, Query, status
+from pydantic import SecretStr
 
+from openhands.agent_server.config import get_default_config
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
@@ -12,14 +14,41 @@ from openhands.agent_server.models import (
     ConversationInfo,
     ConversationPage,
     ConversationSortOrder,
+    SendMessageRequest,
     StartConversationRequest,
     Success,
 )
+from openhands.sdk import LLM, Agent, TextContent, ToolSpec
 from openhands.sdk.conversation.state import AgentExecutionStatus
 
 
 router = APIRouter(prefix="/conversations")
 conversation_service = get_default_conversation_service()
+config = get_default_config()
+
+# Examples
+
+START_CONVERSATION_EXAMPLES = [
+    StartConversationRequest(
+        agent=Agent(
+            llm=LLM(
+                model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                base_url="https://llm-proxy.app.all-hands.dev",
+                api_key=SecretStr("secret"),
+            ),
+            tools=[
+                ToolSpec(
+                    name="BashTool", params={"working_dir": config.workspace_path}
+                ),
+                ToolSpec(name="FileEditor"),
+                ToolSpec(name="TaskTracker"),
+            ],
+        ),
+        initial_message=SendMessageRequest(
+            role="user", content=[TextContent(text="Flip a coin!")]
+        ),
+    ).model_dump(exclude_defaults=True)
+]
 
 
 # Read methods
@@ -44,7 +73,7 @@ async def search_conversations(
         Query(title="Sort order for conversations"),
     ] = ConversationSortOrder.CREATED_AT_DESC,
 ) -> ConversationPage:
-    """Search / List local conversations"""
+    """Search / List conversations"""
     assert limit > 0
     assert limit <= 100
     return await conversation_service.search_conversations(
@@ -59,14 +88,14 @@ async def count_conversations(
         Query(title="Optional filter by agent execution status"),
     ] = None,
 ) -> int:
-    """Count local conversations matching the given filters"""
+    """Count conversations matching the given filters"""
     count = await conversation_service.count_conversations(status)
     return count
 
 
 @router.get("/{conversation_id}", responses={404: {"description": "Item not found"}})
 async def get_conversation(conversation_id: UUID) -> ConversationInfo:
-    """Get a local conversation given an id"""
+    """Given an id, get a conversation"""
     conversation = await conversation_service.get_conversation(conversation_id)
     if conversation is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
@@ -77,7 +106,7 @@ async def get_conversation(conversation_id: UUID) -> ConversationInfo:
 async def batch_get_conversations(
     ids: Annotated[list[UUID], Query()],
 ) -> list[ConversationInfo | None]:
-    """Get a batch of local conversations given their ids, returning null for
+    """Get a batch of conversations given their ids, returning null for
     any missing item"""
     assert len(ids) < 100
     conversations = await conversation_service.batch_get_conversations(ids)
@@ -89,9 +118,11 @@ async def batch_get_conversations(
 
 @router.post("/")
 async def start_conversation(
-    request: StartConversationRequest,
+    request: Annotated[
+        StartConversationRequest, Body(examples=START_CONVERSATION_EXAMPLES)
+    ],
 ) -> ConversationInfo:
-    """Start a local conversation"""
+    """Start a conversation in the local environment."""
     info = await conversation_service.start_conversation(request)
     return info
 
@@ -100,6 +131,7 @@ async def start_conversation(
     "/{conversation_id}/pause", responses={404: {"description": "Item not found"}}
 )
 async def pause_conversation(conversation_id: UUID) -> Success:
+    """Pause a conversation, allowing it to be resumed later."""
     paused = await conversation_service.pause_conversation(conversation_id)
     if not paused:
         raise HTTPException(status.HTTP_400_BAD_REQUEST)
@@ -110,6 +142,7 @@ async def pause_conversation(conversation_id: UUID) -> Success:
     "/{conversation_id}/resume", responses={404: {"description": "Item not found"}}
 )
 async def resume_conversation(conversation_id: UUID) -> Success:
+    """Resume a paused conversation."""
     resumed = await conversation_service.resume_conversation(conversation_id)
     if not resumed:
         raise HTTPException(status.HTTP_400_BAD_REQUEST)
@@ -118,6 +151,7 @@ async def resume_conversation(conversation_id: UUID) -> Success:
 
 @router.delete("/{conversation_id}", responses={404: {"description": "Item not found"}})
 async def delete_conversation(conversation_id: UUID) -> Success:
+    """Permanently delete a conversation."""
     deleted = await conversation_service.delete_conversation(conversation_id)
     if not deleted:
         raise HTTPException(status.HTTP_400_BAD_REQUEST)

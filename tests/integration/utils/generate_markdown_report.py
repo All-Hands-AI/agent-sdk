@@ -6,7 +6,6 @@ Generate markdown report for PR comments from consolidated JSON results.
 import argparse
 import json
 import sys
-from typing import List
 
 from tests.integration.schemas import (
     ConsolidatedResults,
@@ -15,7 +14,7 @@ from tests.integration.schemas import (
 from tests.integration.utils.format_costs import format_cost
 
 
-def generate_model_summary_table(model_results: List[ModelTestResults]) -> str:
+def generate_model_summary_table(model_results: list[ModelTestResults]) -> str:
     """Generate a summary table for all models."""
 
     table_lines = [
@@ -39,7 +38,7 @@ def generate_model_summary_table(model_results: List[ModelTestResults]) -> str:
     return "\n".join(table_lines)
 
 
-def generate_detailed_results(model_results: List[ModelTestResults]) -> str:
+def generate_detailed_results(model_results: list[ModelTestResults]) -> str:
     """Generate detailed results for each model."""
 
     sections = []
