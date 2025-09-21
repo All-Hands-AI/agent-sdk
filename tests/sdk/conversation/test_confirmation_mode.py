@@ -26,7 +26,7 @@ from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
-from openhands.sdk.tool import ToolExecutor
+from openhands.sdk.tool import ToolExecutor, ToolSpec, register_tool
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.tool.tool import Tool
 
@@ -88,15 +88,21 @@ class TestConfirmationMode:
                     result=f"Executed: {action.command}"
                 )
 
-        test_tool = Tool(
-            name="test_tool",
-            description="A test tool",
-            action_type=MockConfirmationModeAction,
-            observation_type=MockConfirmationModeObservation,
-            executor=TestExecutor(),
-        )
+        def _make_tool() -> Tool:
+            return Tool(
+                name="test_tool",
+                description="A test tool",
+                action_type=MockConfirmationModeAction,
+                observation_type=MockConfirmationModeObservation,
+                executor=TestExecutor(),
+            )
 
-        self.agent = Agent(llm=self.llm, tools=[test_tool])
+        register_tool("test_tool", _make_tool)
+
+        self.agent = Agent(
+            llm=self.llm,
+            tools=[ToolSpec(name="test_tool")],
+        )
         self.conversation = Conversation(agent=self.agent)
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> MagicMock:

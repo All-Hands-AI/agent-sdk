@@ -273,8 +273,7 @@ class Conversation:
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
-        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
-        for tool in self.agent.tools.values():
+        for tool in self.agent.tools_map.values():
             if tool.executor is not None:
                 try:
                     tool.executor.close()
