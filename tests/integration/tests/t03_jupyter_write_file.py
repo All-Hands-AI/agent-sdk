@@ -3,7 +3,7 @@
 import os
 
 from openhands.sdk import get_logger
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool.tool import ToolBase
 from openhands.tools import BashTool, FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
 
@@ -23,7 +23,7 @@ class JupyterWriteFileTest(BaseIntegrationTest):
     INSTRUCTION = INSTRUCTION
 
     @property
-    def tools(self) -> list[Tool]:
+    def tools(self) -> list[ToolBase]:
         """List of tools available to the agent."""
         if self.cwd is None:
             raise ValueError("CWD must be set before accessing tools")

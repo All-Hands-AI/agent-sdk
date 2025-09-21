@@ -23,13 +23,13 @@ def get_tools_list(tools):
     return list(tools.values()) if isinstance(tools, dict) else list(tools)
 
 
-class MockAction(ActionBase):
+class TestAgentFromSpecMockAction(ActionBase):
     """Mock action for testing."""
 
     pass
 
 
-class MockObservation(ObservationBase):
+class TestAgentFromSpecMockObservation(ObservationBase):
     """Mock observation for testing."""
 
     pass
@@ -38,16 +38,18 @@ class MockObservation(ObservationBase):
 class MockExecutor(ToolExecutor):
     """Mock executor for testing."""
 
-    def __call__(self, action: MockAction) -> MockObservation:
-        return MockObservation()
+    def __call__(
+        self, action: TestAgentFromSpecMockAction
+    ) -> TestAgentFromSpecMockObservation:
+        return TestAgentFromSpecMockObservation()
 
 
 def create_mock_tool(name: str) -> Tool:
     """Create a mock tool that behaves like a Tool instance."""
     return Tool(
         name=name,
-        action_type=MockAction,
-        observation_type=MockObservation,
+        action_type=TestAgentFromSpecMockAction,
+        observation_type=TestAgentFromSpecMockObservation,
         description=f"Mock tool {name}",
         executor=MockExecutor(),
         annotations=ToolAnnotations(title=name),

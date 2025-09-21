@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
 from logging import getLogger
-from typing import Annotated
 
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
 )
 
 
@@ -46,16 +44,12 @@ class CondenserBase(DiscriminatedUnionMixin, ABC):
         """
 
 
-Condenser = Annotated[CondenserBase, DiscriminatedUnionType[CondenserBase]]
-"""Type annotation for values that can be any implementation of CondenserBase.
-
-In most situations, this is equivalent to CondenserBase. However, when used in Pydantic
-BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
-discriminator resolution until runtime.
-"""
+class PipelinableCondenserBase(CondenserBase):
+    """Abstract condenser interface which may be pipelined. (Since a pipeline
+    condenser should not nest another pipeline condenser)"""
 
 
-class RollingCondenser(CondenserBase, ABC):
+class RollingCondenser(PipelinableCondenserBase, ABC):
     """Base class for a specialized condenser strategy that applies condensation to a
     rolling history.
 

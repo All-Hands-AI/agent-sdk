@@ -32,13 +32,13 @@ from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
 
 
-class MockAction(ActionBase):
+class TestPauseFunctionalityMockAction(ActionBase):
     """Mock action schema for testing."""
 
     command: str
 
 
-class MockObservation(ObservationBase):
+class TestPauseFunctionalityMockObservation(ObservationBase):
     """Mock observation schema for testing."""
 
     result: str
@@ -48,14 +48,22 @@ class MockObservation(ObservationBase):
         return [TextContent(text=self.result)]
 
 
-class BlockingExecutor(ToolExecutor[MockAction, MockObservation]):
+class BlockingExecutor(
+    ToolExecutor[
+        TestPauseFunctionalityMockAction, TestPauseFunctionalityMockObservation
+    ]
+):
     def __init__(self, step_entered: threading.Event):
         self.step_entered = step_entered
 
-    def __call__(self, action: MockAction) -> MockObservation:
+    def __call__(
+        self, action: TestPauseFunctionalityMockAction
+    ) -> TestPauseFunctionalityMockObservation:
         # Signal we've entered tool execution for this step
         self.step_entered.set()
-        return MockObservation(result=f"Executed: {action.command}")
+        return TestPauseFunctionalityMockObservation(
+            result=f"Executed: {action.command}"
+        )
 
 
 class TestPauseFunctionality:
@@ -66,15 +74,23 @@ class TestPauseFunctionality:
 
         self.llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
 
-        class TestExecutor(ToolExecutor[MockAction, MockObservation]):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result=f"Executed: {action.command}")
+        class TestExecutor(
+            ToolExecutor[
+                TestPauseFunctionalityMockAction, TestPauseFunctionalityMockObservation
+            ]
+        ):
+            def __call__(
+                self, action: TestPauseFunctionalityMockAction
+            ) -> TestPauseFunctionalityMockObservation:
+                return TestPauseFunctionalityMockObservation(
+                    result=f"Executed: {action.command}"
+                )
 
         test_tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            action_type=TestPauseFunctionalityMockAction,
+            observation_type=TestPauseFunctionalityMockObservation,
             executor=TestExecutor(),
         )
 
@@ -259,8 +275,8 @@ class TestPauseFunctionality:
         blocking_tool = Tool(
             name="test_tool",
             description="Blocking tool for pause test",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            action_type=TestPauseFunctionalityMockAction,
+            observation_type=TestPauseFunctionalityMockObservation,
             executor=BlockingExecutor(step_entered),
         )
         agent = Agent(llm=self.llm, tools=[blocking_tool])

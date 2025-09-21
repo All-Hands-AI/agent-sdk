@@ -1,14 +1,13 @@
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
-from openhands.sdk.security.confirmation_policy import (
-    ConfirmationPolicy,
-)
+from openhands.sdk.security.confirmation_policy import ConfirmationPolicy
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.agent import AgentType
+    pass
 
+from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -43,7 +42,7 @@ def compose_callbacks(
 class Conversation:
     def __init__(
         self,
-        agent: "AgentType",
+        agent: AgentBase,
         persist_filestore: FileStore | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,

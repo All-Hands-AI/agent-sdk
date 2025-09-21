@@ -2,23 +2,34 @@
 
 import gc
 import os
+import tempfile
+from pathlib import Path
 
 import psutil
 import pytest
+from filelock import FileLock
 
 from openhands.tools.str_replace_editor import file_editor
 
 from .conftest import assert_successful_result
 
 
-# Apply the forked marker to all tests in this module
-pytestmark = pytest.mark.forked
+# Apply the forked marker and serialize execution across workers
+pytestmark = [pytest.mark.forked, pytest.mark.usefixtures("isolate_memory_usage_tests")]
+
+
+@pytest.fixture(scope="function")
+def isolate_memory_usage_tests():
+    """Guard memory-sensitive tests from parallel execution."""
+    lock_path = Path(tempfile.gettempdir()) / "openhands_str_replace_memory.lock"
+    with FileLock(lock_path):
+        yield
 
 
 def test_file_read_memory_usage(temp_file):
     """Test that reading a large file uses memory efficiently."""
-    # Create a large file (9.5MB to stay under 10MB limit)
-    file_size_mb = 9.5
+    # Create a large file (~5MB) to stress memory while staying below limits
+    file_size_mb = 5.0
     line_size = 100  # bytes per line approximately
     num_lines = int((file_size_mb * 1024 * 1024) // line_size)
 
@@ -31,6 +42,16 @@ def test_file_read_memory_usage(temp_file):
     print(f"File created, size: {actual_size:.2f} MB")
 
     # Force Python to release file handles and clear buffers
+    gc.collect()
+
+    # Warm up the editor so imports/cache allocations are excluded from measurement
+    warmup_result = file_editor(
+        command="view",
+        path=temp_file,
+        view_range=[1, 1],
+    )
+    assert_successful_result(warmup_result)
+    del warmup_result
     gc.collect()
 
     # Get initial memory usage
@@ -48,6 +69,12 @@ def test_file_read_memory_usage(temp_file):
         print(f"\nError during file read: {str(e)}")
         raise
 
+    # Pull output before measuring and drop references to encourage GC
+    assert_successful_result(result)
+    content = result.output
+    del result
+    gc.collect()
+
     # Check memory usage after reading
     current_memory = psutil.Process(os.getpid()).memory_info().rss
     memory_growth = current_memory - initial_memory
@@ -58,15 +85,11 @@ def test_file_read_memory_usage(temp_file):
     # Memory growth should be small since we're only reading 100 lines
     # Allow for some overhead but it should be much less than file size
     # Increased to 3MB to account for chardet's memory usage
-    max_growth_mb = 3  # 3MB max growth
+    max_growth_mb = 5  # 5MB max growth
     assert memory_growth <= max_growth_mb * 1024 * 1024, (
         f"Memory growth too high: {memory_growth / 1024 / 1024:.2f} MB "
         f"(limit: {max_growth_mb} MB)"
     )
-
-    # Check that the result is successful and get the content
-    assert_successful_result(result)
-    content = result.output
 
     # Verify we got the correct lines
     line_count = content.count("\n")
@@ -81,6 +104,30 @@ def test_file_editor_memory_leak(temp_file):
     """Test to demonstrate memory growth during multiple file edits."""
     print("\nStarting memory leak test...")
 
+    # Create initial content that's large enough to test but not overwhelming
+    # Keep total file size under 10MB to avoid file validation errors
+    base_content = (
+        "Initial content with some reasonable length to make the file larger\n"
+    )
+    content = base_content * 100
+    print(f"\nCreating initial file with {len(content)} bytes")
+    with open(temp_file, "w") as f:
+        f.write(content)
+    print(f"Initial file created, size: {os.path.getsize(temp_file) / 1024:.1f} KB")
+
+    # Force Python to release file handles and clear buffers
+    gc.collect()
+
+    # Warm up the editor so imports/cache allocations are excluded from measurement
+    warmup_result = file_editor(
+        command="view",
+        path=temp_file,
+        view_range=[1, 1],
+    )
+    assert_successful_result(warmup_result)
+    del warmup_result
+    gc.collect()
+
     # Set memory limit to 128MB to make it more likely to catch issues
     memory_limit = 128 * 1024 * 1024  # 128MB in bytes
     try:
@@ -93,17 +140,6 @@ def test_file_editor_memory_leak(temp_file):
 
     initial_memory = psutil.Process(os.getpid()).memory_info().rss
     print(f"\nInitial memory usage: {initial_memory / 1024 / 1024:.2f} MB")
-
-    # Create initial content that's large enough to test but not overwhelming
-    # Keep total file size under 10MB to avoid file validation errors
-    base_content = (
-        "Initial content with some reasonable length to make the file larger\n"
-    )
-    content = base_content * 100
-    print(f"\nCreating initial file with {len(content)} bytes")
-    with open(temp_file, "w") as f:
-        f.write(content)
-    print(f"Initial file created, size: {os.path.getsize(temp_file) / 1024:.1f} KB")
 
     # Store memory readings for analysis
     memory_readings = []

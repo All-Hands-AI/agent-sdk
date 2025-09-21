@@ -35,7 +35,7 @@ def test_file_editor_tool_create_file():
         )
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None
@@ -64,7 +64,7 @@ def test_file_editor_tool_view_file():
         action = StrReplaceEditorAction(command="view", path=test_file)
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None
@@ -95,7 +95,7 @@ def test_file_editor_tool_str_replace():
         )
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None
@@ -140,7 +140,7 @@ def test_file_editor_tool_view_directory():
         action = StrReplaceEditorAction(command="view", path=temp_dir)
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None

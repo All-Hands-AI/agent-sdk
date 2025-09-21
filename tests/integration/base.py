@@ -12,14 +12,14 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
     Message,
     TextContent,
 )
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool.tool import ToolBase
 
 
 class TestResult(BaseModel):
@@ -72,13 +72,13 @@ class BaseIntegrationTest(ABC):
 
         self.llm = LLM(**llm_kwargs)
         self.agent = Agent(llm=self.llm, tools=self.tools)
-        self.collected_events: list[Event] = []
+        self.collected_events: list[EventBase] = []
         self.llm_messages: list[dict[str, Any]] = []
         self.conversation: Conversation = Conversation(
             agent=self.agent, callbacks=[self.conversation_callback]
         )
 
-    def conversation_callback(self, event: Event):
+    def conversation_callback(self, event: EventBase):
         """Callback to collect conversation events."""
         self.collected_events.append(event)
         if isinstance(event, MessageEvent):
@@ -115,7 +115,7 @@ class BaseIntegrationTest(ABC):
 
     @property
     @abstractmethod
-    def tools(self) -> list[Tool]:
+    def tools(self) -> list[ToolBase]:
         """List of tools available to the agent."""
         pass
 

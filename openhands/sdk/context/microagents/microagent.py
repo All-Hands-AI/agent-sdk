@@ -1,12 +1,13 @@
 import io
 import re
+from abc import ABC
 from itertools import chain
 from pathlib import Path
 from typing import Any, ClassVar, Union, cast
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from openhands.sdk.context.microagents.exceptions import MicroagentValidationError
 from openhands.sdk.context.microagents.types import (
@@ -15,12 +16,13 @@ from openhands.sdk.context.microagents.types import (
     MicroagentType,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 logger = get_logger(__name__)
 
 
-class BaseMicroagent(BaseModel):
+class BaseMicroagent(DiscriminatedUnionMixin, ABC):
     """Base class for all microagents."""
 
     name: str
@@ -151,7 +153,7 @@ class BaseMicroagent(BaseModel):
             # No triggers, default to REPO
             mcp_tools_raw = metadata_dict.get("mcp_tools")
             # Type cast to satisfy type checker - validation happens in RepoMicroagent
-            mcp_tools = cast(MCPConfig | dict[str, Any] | None, mcp_tools_raw)
+            mcp_tools = cast(dict[str, Any] | None, mcp_tools_raw)
             return RepoMicroagent(
                 name=agent_name, content=content, source=str(path), mcp_tools=mcp_tools
             )
@@ -172,9 +174,6 @@ class KnowledgeMicroagent(BaseMicroagent):
     triggers: list[str] = Field(
         default_factory=list, description="List of triggers for the microagent"
     )
-
-    def __init__(self, **data):
-        super().__init__(**data)
 
     def match_trigger(self, message: str) -> str | None:
         """Match a trigger in the message.
@@ -203,20 +202,22 @@ class RepoMicroagent(BaseMicroagent):
     """
 
     type: MicroagentType = "repo"
-    mcp_tools: MCPConfig | dict | None = Field(
+    mcp_tools: dict | None = Field(
         default=None,
-        description="MCP tools configuration for the microagent",
+        description="MCP tools configuration for the microagent. "
+        "It should conform to the MCPConfig schema: "
+        "https://gofastmcp.com/clients/client#configuration-format",
     )
 
     # Field-level validation for mcp_tools
     @field_validator("mcp_tools")
     @classmethod
-    def _validate_mcp_tools(cls, v: MCPConfig | dict | None, info):
+    def _validate_mcp_tools(cls, v: dict | None, info):
         if v is None:
             return v
         if isinstance(v, dict):
             try:
-                v = MCPConfig.model_validate(v)
+                MCPConfig.model_validate(v)
             except Exception as e:
                 raise MicroagentValidationError(
                     f"Invalid MCPConfig dictionary: {e}"
@@ -247,21 +248,23 @@ class TaskMicroagent(KnowledgeMicroagent):
         ),
     )
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        self._append_missing_variables_prompt()
-
-    def _append_missing_variables_prompt(self) -> None:
-        """Append a prompt to ask for missing variables."""
-        # Check if the content contains any variables or has inputs defined
+    @model_validator(mode="after")
+    def _append_missing_variables_prompt(self):
+        """Append a prompt to ask for missing variables after model construction."""
+        # If no variables and no inputs, nothing to do
         if not self.requires_user_input() and not self.inputs:
-            return
+            return self
 
         prompt = (
             "\n\nIf the user didn't provide any of these variables, ask the user to "
             "provide them first before the agent can proceed with the task."
         )
-        self.content += prompt
+
+        # Avoid duplicating the prompt if content already includes it
+        if self.content and prompt not in self.content:
+            self.content += prompt
+
+        return self
 
     def extract_variables(self, content: str) -> list[str]:
         """Extract variables from the content.

@@ -5,10 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from openhands.agent_server.utils import (
-    get_serializable_polymorphic_type,
-    utc_now,
-)
+from openhands.agent_server.utils import utc_now
 from openhands.sdk import (
     AgentSpec,
     EventBase,
@@ -19,13 +16,14 @@ from openhands.sdk import (
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicy, NeverConfirm
+from openhands.sdk.utils.models import OpenHandsModel
 
 
 # Give pydantic / fastapi some help when serializing
 if TYPE_CHECKING:
     EventType = EventBase
 else:
-    EventType = get_serializable_polymorphic_type(EventBase)
+    EventType = EventBase.get_serializable_type()
 
 
 class ConversationSortOrder(str, Enum):
@@ -80,6 +78,7 @@ class StartConversationRequest(AgentSpec):
     )
     max_iterations: int = Field(
         default=500,
+        ge=1,
         description="If set, the max number of iterations the agent will run "
         "before stopping. This is useful to prevent infinite loops.",
     )
@@ -121,6 +120,6 @@ class Success(BaseModel):
     success: bool = True
 
 
-class EventPage(BaseModel):
-    items: list[EventType]
+class EventPage(OpenHandsModel):
+    items: list[EventBase]
     next_page_id: str | None = None

@@ -1,28 +1,26 @@
 import os
 import re
 import sys
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Annotated, Sequence
+from abc import ABC
+from typing import TYPE_CHECKING, Sequence
 
 from pydantic import ConfigDict, Field
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.agent.spec import AgentSpec
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import Condenser
+from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import Tool, ToolType
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
-)
+from openhands.sdk.tool.tool import ToolBase
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation import ConversationCallbackType, ConversationState
+    from openhands.sdk.conversation.state import ConversationState
+    from openhands.sdk.conversation.types import ConversationCallbackType
 
 logger = get_logger(__name__)
 
@@ -35,7 +33,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     llm: LLM
     agent_context: AgentContext | None = Field(default=None)
-    tools: dict[str, ToolType] | Sequence[ToolType] = Field(
+    tools: dict[str, ToolBase] | Sequence[ToolBase] = Field(
         default_factory=dict,
         description="Mapping of tool name to Tool instance that the agent can use."
         " If a list is provided, it should be converted to a mapping by tool name."
@@ -47,8 +45,8 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    security_analyzer: analyzer.SecurityAnalyzer | None = None
-    condenser: Condenser | None = Field(
+    security_analyzer: analyzer.SecurityAnalyzerBase | None = None
+    condenser: CondenserBase | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",
     )
@@ -59,13 +57,13 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         import openhands.tools  # avoid circular import
         from openhands.sdk.mcp import create_mcp_tools
 
-        tools: list[ToolType] = []
+        tools: list[ToolBase] = []
         for tool_spec in spec.tools:
-            if tool_spec.name not in openhands.tools.__dict__:
+            tool_class = getattr(openhands.tools, tool_spec.name, None)
+            if tool_class is None:
                 raise ValueError(
                     f"Unknown tool name: {tool_spec.name}. Not found in openhands.tools"
                 )
-            tool_class = openhands.tools.__dict__[tool_spec.name]
             tool_or_tools = tool_class.create(**tool_spec.params)
             if isinstance(tool_or_tools, list):
                 tools.extend(tool_or_tools)
@@ -74,7 +72,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         # Check tool types
         for tool in tools:
-            if not isinstance(tool, Tool):
+            if not isinstance(tool, ToolBase):
                 raise ValueError(
                     f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
                 )
@@ -137,7 +135,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 system_message += "\n\n" + _system_message_suffix
         return system_message
 
-    @abstractmethod
     def init_state(
         self,
         state: "ConversationState",
@@ -152,7 +149,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    @abstractmethod
     def step(
         self,
         state: "ConversationState",
@@ -172,7 +168,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def resolve_diff_from_deserialized(self, persisted: "AgentType") -> "AgentType":
+    def resolve_diff_from_deserialized(self, persisted: "AgentBase") -> "AgentBase":
         """
         Return a new AgentBase instance equivalent to `persisted` but with
         explicitly whitelisted fields (e.g. api_key) taken from `self`.
@@ -205,6 +201,3 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if "tools" in dumped and isinstance(dumped["tools"], dict):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
-
-
-AgentType = Annotated[AgentBase, DiscriminatedUnionType[AgentBase]]

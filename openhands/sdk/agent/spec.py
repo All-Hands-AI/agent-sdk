@@ -1,14 +1,15 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import Condenser
+from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import ToolSpec
+from openhands.sdk.utils.models import OpenHandsModel
 
 
-class AgentSpec(BaseModel):
+class AgentSpec(OpenHandsModel):
     """Everything needed for creating an agent.
 
     This is used to create an agent in the server via one API request.
@@ -77,8 +78,9 @@ class AgentSpec(BaseModel):
                 ],
                 "system_message_suffix": "Always finish your response "
                 "with the word 'yay!'",
-                "user_message_prefix": "The first character of your "
-                "response should be 'I'",
+                "user_message_suffix": (
+                    "The first character of your response should be 'I'"
+                ),
             }
         ],
     )
@@ -88,7 +90,7 @@ class AgentSpec(BaseModel):
         description="Optional kwargs to pass to render system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    condenser: Condenser | None = Field(
+    condenser: CondenserBase | None = Field(
         default=None,
         description="Optional condenser to use for condensing conversation history.",
         examples=[

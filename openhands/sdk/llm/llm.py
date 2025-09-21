@@ -12,6 +12,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    field_serializer,
     field_validator,
     model_validator,
 )
@@ -86,39 +87,44 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     openrouter_site_url: str = Field(default="https://docs.all-hands.dev/")
     openrouter_app_name: str = Field(default="OpenHands")
 
-    num_retries: int = Field(default=5)
-    retry_multiplier: float = Field(default=8)
-    retry_min_wait: int = Field(default=8)
-    retry_max_wait: int = Field(default=64)
+    num_retries: int = Field(default=5, ge=0)
+    retry_multiplier: float = Field(default=8.0, ge=0)
+    retry_min_wait: int = Field(default=8, ge=0)
+    retry_max_wait: int = Field(default=64, ge=0)
 
-    timeout: int | None = Field(default=None, description="HTTP timeout (s).")
+    timeout: int | None = Field(default=None, ge=0, description="HTTP timeout (s).")
 
     max_message_chars: int = Field(
         default=30_000,
+        ge=1,
         description="Approx max chars in each event/content sent to the LLM.",
     )
 
-    temperature: float | None = Field(default=0.0)
-    top_p: float | None = Field(default=1.0)
-    top_k: float | None = Field(default=None)
+    temperature: float | None = Field(default=0.0, ge=0)
+    top_p: float | None = Field(default=1.0, ge=0, le=1)
+    top_k: float | None = Field(default=None, ge=0)
 
     custom_llm_provider: str | None = Field(default=None)
     max_input_tokens: int | None = Field(
         default=None,
+        ge=1,
         description="The maximum number of input tokens. "
         "Note that this is currently unused, and the value at runtime is actually"
         " the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).",
     )
     max_output_tokens: int | None = Field(
         default=None,
+        ge=1,
         description="The maximum number of output tokens. This is sent to the LLM.",
     )
     input_cost_per_token: float | None = Field(
         default=None,
+        ge=0,
         description="The cost per input token. This will available in logs for user.",
     )
     output_cost_per_token: float | None = Field(
         default=None,
+        ge=0,
         description="The cost per output token. This will available in logs for user.",
     )
     ollama_base_url: str | None = Field(default=None)
@@ -293,6 +299,24 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             f"reasoning_effort={self.reasoning_effort}"
         )
         return self
+
+    # =========================================================================
+    # Serializers
+    # =========================================================================
+    @field_serializer(
+        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="json"
+    )
+    def _serialize_secrets(self, v: SecretStr | None, info):
+        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Check if the 'expose_secrets' flag is in the serialization context
+        if info.context and info.context.get("expose_secrets"):
+            return v.get_secret_value()
+
+        # Let Pydantic handle the default masking
+        return v
 
     # =========================================================================
     # Public API

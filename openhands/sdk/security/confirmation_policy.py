@@ -1,13 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Annotated
 
 from pydantic import field_validator
 
 from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
-)
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 class ConfirmationPolicyBase(DiscriminatedUnionMixin, ABC):
@@ -17,9 +13,8 @@ class ConfirmationPolicyBase(DiscriminatedUnionMixin, ABC):
         pass
 
 
-ConfirmationPolicy = Annotated[
-    ConfirmationPolicyBase, DiscriminatedUnionType[ConfirmationPolicyBase]
-]
+# Type alias maintained for backwards compatibility with previous Annotated pattern
+ConfirmationPolicy = ConfirmationPolicyBase
 
 
 class AlwaysConfirm(ConfirmationPolicyBase):

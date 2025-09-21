@@ -8,7 +8,7 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.llm import LLM
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolBase
 from openhands.tools import BashTool
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
@@ -25,12 +25,12 @@ def llm() -> LLM:
 
 
 @pytest.fixture
-def tools(tmp_path) -> list[Tool]:
+def tools(tmp_path) -> list[ToolBase]:
     return [BashTool.create(working_dir=str(tmp_path))]
 
 
 @pytest.fixture
-def agent(llm: LLM, tools: list[Tool]) -> Agent:
+def agent(llm: LLM, tools: list[ToolBase]) -> Agent:
     return Agent(llm=llm, tools=tools)
 
 
@@ -41,7 +41,7 @@ def conversation(agent: Agent) -> Conversation:
 
 @pytest.fixture
 def bash_executor(agent: Agent) -> BashExecutor:
-    tools_dict = cast(dict[str, Tool], agent.tools)
+    tools_dict = cast(dict[str, ToolBase], agent.tools)
     bash_tool = tools_dict["execute_bash"]
     return cast(BashExecutor, bash_tool.executor)
 
@@ -69,7 +69,7 @@ def test_agent_configures_bash_tools_env_provider(
     )
 
     # Get the bash tool from agent
-    tools_dict = cast(dict[str, Tool], agent.tools)
+    tools_dict = cast(dict[str, ToolBase], agent.tools)
     bash_tool = tools_dict["execute_bash"]
 
     assert bash_tool is not None

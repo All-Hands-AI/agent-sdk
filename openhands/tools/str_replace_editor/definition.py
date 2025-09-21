@@ -8,6 +8,7 @@ from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool.tool import ToolBase
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
@@ -40,6 +41,7 @@ class StrReplaceEditorAction(ActionBase):
     )
     insert_line: int | None = Field(
         default=None,
+        ge=1,
         description="Required parameter of `insert` command. The `new_str` will "
         "be inserted AFTER the line `insert_line` of `path`.",
     )
@@ -192,7 +194,7 @@ str_replace_editor_tool = Tool(
 )
 
 
-class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
+class FileEditorTool(ToolBase[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod

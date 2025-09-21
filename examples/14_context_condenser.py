@@ -13,15 +13,15 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
     Message,
     TextContent,
-    Tool,
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.io.local import LocalFileStore
+from openhands.sdk.tool.tool import ToolBase
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
@@ -38,7 +38,7 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [
+tools: list[ToolBase] = [
     BashTool.create(working_dir=cwd),
     FileEditorTool.create(),
     TaskTrackerTool.create(save_dir=cwd),
@@ -57,7 +57,7 @@ agent = Agent(llm=llm, tools=tools, condenser=condenser)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
