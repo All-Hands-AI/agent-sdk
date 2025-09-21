@@ -52,10 +52,9 @@ from openhands.sdk import (
     Message,
     TextContent,
 )
-from openhands.tools import (
-    BashTool,
-    FileEditorTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 # Configure LLM
@@ -68,9 +67,12 @@ llm = LLM(
 )
 
 # Tools
+cwd = os.getcwd()
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    BashTool.create(working_dir=os.getcwd()),
-    FileEditorTool.create(),
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 # Agent
@@ -125,7 +127,7 @@ conversation.send_message(
 thread.join()
 
 # Verification
-document_path = os.path.join(os.getcwd(), "document.txt")
+document_path = os.path.join(cwd, "document.txt")
 if os.path.exists(document_path):
     with open(document_path, "r") as f:
         content = f.read()
