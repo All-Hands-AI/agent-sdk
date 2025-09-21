@@ -2,9 +2,8 @@ import copy
 import json
 import os
 import warnings
-from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Literal, get_args, get_origin
+from typing import Any, Callable, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (

@@ -3,8 +3,7 @@
 import asyncio
 import inspect
 import threading
-from collections.abc import Callable
-from typing import Any
+from typing import Any, Callable
 
 
 class AsyncExecutor:

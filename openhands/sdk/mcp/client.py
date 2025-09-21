@@ -2,8 +2,7 @@
 
 import asyncio
 import inspect
-from collections.abc import Callable
-from typing import Any
+from typing import Any, Callable
 
 from fastmcp import Client as AsyncMCPClient
 

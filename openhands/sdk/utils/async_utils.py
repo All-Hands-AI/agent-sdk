@@ -5,8 +5,8 @@ of synchronous conversation handling.
 """
 
 import asyncio
-from collections.abc import Callable, Coroutine
-from typing import Any
+from collections.abc import Coroutine
+from typing import Any, Callable
 
 from openhands.sdk.event.base import EventBase
 
