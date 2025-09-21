@@ -1,0 +1,39 @@
+---
+version: '3.8'
+
+services:
+    agent-server:
+        build:
+            context: ../../
+            dockerfile: openhands/agent_server/docker/Dockerfile
+            target: source
+        ports:
+            - 8000:8000
+        environment:
+            - LITELLM_API_KEY=${LITELLM_API_KEY}
+            - OPENHANDS_AGENT_SERVER_CONFIG_PATH=/agent-server/config/agent_server_config.json
+        volumes:
+            - ./config:/agent-server/config:ro
+            - ./workspace:/agent-server/workspace
+        command: [/agent-server/.venv/bin/python, -m, openhands.agent_server, --host, 0.0.0.0, --port, '8000', --no-reload]
+        healthcheck:
+            test: [CMD, curl, -f, http://localhost:8000/docs]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+
+    web-frontend:
+        build:
+            context: .
+            dockerfile: Dockerfile.frontend
+        ports:
+            - ${WEB_PORT:-8080}:80
+        depends_on:
+            agent-server:
+                condition: service_healthy
+        environment:
+            - AGENT_SERVER_URL=http://agent-server:8000
+
+volumes:
+    workspace_data:
