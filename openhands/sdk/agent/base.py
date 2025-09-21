@@ -59,7 +59,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         tools: list[ToolBase] = []
         for tool_spec in spec.tools:
-            tool_class = getattr(openhands.tools, tool_spec.name, None)
+            tool_class: ToolBase | None = getattr(openhands.tools, tool_spec.name, None)
             if tool_class is None:
                 raise ValueError(
                     f"Unknown tool name: {tool_spec.name}. Not found in openhands.tools"

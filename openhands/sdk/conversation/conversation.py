@@ -165,11 +165,6 @@ class Conversation:
         iteration = 0
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
-            # TODO(openhands): we should add a testcase that test IF:
-            # 1. a loop is running
-            # 2. in a separate thread .send_message is called
-            # and check will we be able to execute .send_message
-            # BEFORE the .run loop finishes?
             with self.state:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
