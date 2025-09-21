@@ -40,7 +40,7 @@ def test_repo_microagent_serialization():
     # Test deserialization
     deserialized = BaseMicroagent.model_validate(serialized)
     assert isinstance(deserialized, RepoMicroagent)
-    assert deserialized == serialized
+    assert deserialized == repo_agent
 
 
 def test_knowledge_microagent_serialization():
