@@ -345,11 +345,6 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Ensure function-call markup was stripped from assistant content
     if isinstance(msg.content, str):
         assert "<function=" not in msg.content
-    assert tc.type == "function"
-    assert tc.function.name == "test_tool"
-    # Ensure function-call markup was stripped from assistant content
-    if isinstance(msg.content, str):
-        assert "<function=" not in msg.content
 
     # Verify that the call was made without native tools parameter
     # (since we're using prompt-based tool calling)
