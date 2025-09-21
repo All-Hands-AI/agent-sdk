@@ -4,7 +4,7 @@ import functools
 import inspect
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 import charset_normalizer
 from cachetools import LRUCache
@@ -23,7 +23,7 @@ class EncodingManager:
     def __init__(self, max_cache_size=None):
         # Cache detected encodings to avoid repeated detection on the same file
         # Format: {path_str: (encoding, mtime)}
-        self._encoding_cache: LRUCache[str, Tuple[str, float]] = LRUCache(
+        self._encoding_cache: LRUCache[str, tuple[str, float]] = LRUCache(
             maxsize=max_cache_size or self.DEFAULT_MAX_CACHE_SIZE
         )
         # Default fallback encoding

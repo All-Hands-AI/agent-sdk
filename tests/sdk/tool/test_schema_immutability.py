@@ -1,6 +1,7 @@
 """Tests for schema immutability in openhands.sdk.tool.schema."""
 
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import pytest
 from pydantic import Field, ValidationError
@@ -19,22 +20,22 @@ class MockSchema(Schema):
 
     name: str = Field(description="Name field")
     value: int = Field(description="Value field")
-    optional_field: Optional[str] = Field(default=None, description="Optional field")
+    optional_field: str | None = Field(default=None, description="Optional field")
 
 
 class TestSchemaImmutabilityMockAction(ActionBase):
     """Mock action class for testing."""
 
     command: str = Field(description="Command to execute")
-    args: List[str] = Field(default_factory=list, description="Command arguments")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadata")
+    args: list[str] = Field(default_factory=list, description="Command arguments")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Metadata")
 
 
 class MockMCPAction(MCPToolAction):
     """Mock MCP action class for testing."""
 
     operation: str = Field(description="Operation to perform")
-    parameters: Dict[str, str] = Field(
+    parameters: dict[str, str] = Field(
         default_factory=dict, description="Operation parameters"
     )
 
@@ -44,7 +45,7 @@ class TestSchemaImmutabilityMockObservation(ObservationBase):
 
     result: str = Field(description="Result of the action")
     status: str = Field(default="success", description="Status of the operation")
-    data: Optional[Dict[str, Any]] = Field(default=None, description="Result data")
+    data: dict[str, Any | None] | None = Field(default=None, description="Result data")
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:

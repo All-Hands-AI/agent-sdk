@@ -2,7 +2,7 @@
 import json
 from enum import Enum
 from threading import RLock, get_ident
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import Field, PrivateAttr
 
@@ -65,7 +65,7 @@ class ConversationState(OpenHandsModel):
 
     # ===== Private attrs (NOT Fields) =====
     _lock: RLock = PrivateAttr(default_factory=RLock)
-    _owner_tid: Optional[int] = PrivateAttr(default=None)
+    _owner_tid: int | None = PrivateAttr(default=None)
     _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
     _fs: FileStore = PrivateAttr()  # filestore for persistence
     _events: EventLog = PrivateAttr()  # now the storage for events

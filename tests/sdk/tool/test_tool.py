@@ -1,6 +1,6 @@
 """Tests for the Tool class in openhands.sdk.runtime.tool."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pytest
 from pydantic import Field
@@ -18,16 +18,16 @@ class TestToolMockAction(ActionBase):
     """Mock action class for testing."""
 
     command: str = Field(description="Command to execute")
-    optional_field: Optional[str] = Field(default=None, description="Optional field")
-    nested: Dict[str, Any] = Field(default_factory=dict, description="Nested object")
-    array_field: List[int] = Field(default_factory=list, description="Array field")
+    optional_field: str | None = Field(default=None, description="Optional field")
+    nested: dict[str, Any] = Field(default_factory=dict, description="Nested object")
+    array_field: list[int] = Field(default_factory=list, description="Array field")
 
 
 class TestToolMockObservation(ObservationBase):
     """Mock observation class for testing."""
 
     result: str = Field(description="Result of the action")
-    extra_field: Optional[str] = Field(default=None, description="Extra field")
+    extra_field: str | None = Field(default=None, description="Extra field")
 
 
 class TestTool:
@@ -355,7 +355,7 @@ class TestTool:
         """Test executor with complex return types."""
 
         class ComplexObservation(ObservationBase):
-            data: Dict[str, Any] = Field(
+            data: dict[str, Any] = Field(
                 default_factory=dict, description="Complex data"
             )
             count: int = Field(default=0, description="Count field")
@@ -452,7 +452,7 @@ class TestTool:
 
         class RequiredFieldAction(ActionBase):
             required_field: str = Field(description="This field is required")
-            optional_field: Optional[str] = Field(
+            optional_field: str | None = Field(
                 default=None, description="This field is optional"
             )
 
@@ -496,19 +496,19 @@ class TestTool:
             """Action with complex nested types for testing."""
 
             simple_string: str = Field(description="Simple string field")
-            optional_int: Optional[int] = Field(
+            optional_int: int | None = Field(
                 default=None, description="Optional integer"
             )
-            string_array: List[str] = Field(
+            string_array: list[str] = Field(
                 default_factory=list, description="Array of strings"
             )
-            int_array: List[int] = Field(
+            int_array: list[int] = Field(
                 default_factory=list, description="Array of integers"
             )
-            nested_dict: Dict[str, Any] = Field(
+            nested_dict: dict[str, Any] = Field(
                 default_factory=dict, description="Nested dictionary"
             )
-            optional_array: Optional[List[str]] = Field(
+            optional_array: list[str | None] | None = Field(
                 default=None, description="Optional array"
             )
 

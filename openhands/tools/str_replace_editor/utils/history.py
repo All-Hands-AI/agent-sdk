@@ -3,7 +3,6 @@
 import logging
 import tempfile
 from pathlib import Path
-from typing import List, Optional
 
 from openhands.tools.str_replace_editor.utils.file_cache import FileCache
 
@@ -11,9 +10,7 @@ from openhands.tools.str_replace_editor.utils.file_cache import FileCache
 class FileHistoryManager:
     """Manages file edit history with disk-based storage and memory constraints."""
 
-    def __init__(
-        self, max_history_per_file: int = 5, history_dir: Optional[Path] = None
-    ):
+    def __init__(self, max_history_per_file: int = 5, history_dir: Path | None = None):
         """Initialize the history manager.
 
         Args:
@@ -61,7 +58,7 @@ class FileHistoryManager:
 
         self.cache.set(metadata_key, metadata)
 
-    def pop_last_history(self, file_path: Path) -> Optional[str]:
+    def pop_last_history(self, file_path: Path) -> str | None:
         """Pop and return the most recent history entry for a file."""
         metadata_key = self._get_metadata_key(file_path)
         metadata = self.cache.get(metadata_key, {"entries": [], "counter": 0})
@@ -106,7 +103,7 @@ class FileHistoryManager:
         # Clear metadata
         self.cache.set(metadata_key, {"entries": [], "counter": 0})
 
-    def get_all_history(self, file_path: Path) -> List[str]:
+    def get_all_history(self, file_path: Path) -> list[str]:
         """Get all history entries for a file."""
         metadata_key = self._get_metadata_key(file_path)
         metadata = self.cache.get(metadata_key, {"entries": [], "counter": 0})
