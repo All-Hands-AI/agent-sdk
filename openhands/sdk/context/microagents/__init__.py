@@ -9,7 +9,6 @@ from openhands.sdk.context.microagents.microagent import (
 )
 from openhands.sdk.context.microagents.types import (
     MicroagentKnowledge,
-    MicroagentType,
 )
 
 
@@ -19,7 +18,6 @@ __all__ = [
     "MicroagentUnion",
     "RepoMicroagent",
     "TaskMicroagent",
-    "MicroagentType",
     "MicroagentKnowledge",
     "load_microagents_from_dir",
     "MicroagentValidationError",
