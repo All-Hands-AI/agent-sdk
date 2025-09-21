@@ -343,8 +343,7 @@ agent_spec = AgentSpec(
 )
 
 # Create agent from specification
-from openhands.sdk import Agent
-agent = Agent.from_spec(agent_spec)
+agent = AgentBase.from_spec(agent_spec)
 ```
 
 ### Tool Specifications
@@ -398,8 +397,7 @@ with open("agent_config.json", "r") as f:
     config = json.load(f)
 
 agent_spec = AgentSpec(**config)
-from openhands.sdk import Agent
-agent = Agent.from_spec(agent_spec)
+agent = AgentBase.from_spec(agent_spec)
 ```
 
 ## Documentation
