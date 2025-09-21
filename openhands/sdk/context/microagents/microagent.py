@@ -2,7 +2,7 @@ import io
 import re
 from itertools import chain
 from pathlib import Path
-from typing import Any, ClassVar, Union, cast
+from typing import Annotated, Any, ClassVar, Union, cast
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
@@ -344,3 +344,9 @@ def load_microagents_from_dir(
         f"{[*repo_agents.keys(), *knowledge_agents.keys()]}"
     )
     return repo_agents, knowledge_agents
+
+
+MicroagentType = Annotated[
+    RepoMicroagent | KnowledgeMicroagent | TaskMicroagent,
+    Field(discriminator="type"),
+]
