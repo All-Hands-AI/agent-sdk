@@ -193,7 +193,7 @@ The simplified pattern eliminates the need for manual executor instantiation and
 ### Avoid overly defensive code
 
 - Prefer type hints and validated models over runtime shape checks.
-- Avoid getattr/hasattr guards or broad try/except unless upstream returns multiple shapes.
+- Avoid broad try/except unless upstream returns multiple shapes.
 - Prefer accessing typed attributes directly and converting inputs up front into one canonical shape.
 - Principle: pick one canonical shape per boundary and delete fallbacks.
 
