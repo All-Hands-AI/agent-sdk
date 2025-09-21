@@ -180,6 +180,10 @@ The simplified pattern eliminates the need for manual executor instantiation and
 </DEV_SETUP>
 
 <CODE>
+- Prefer type hints and validated models over runtime shape checks.
+- Avoid broad try/except unless upstream returns multiple shapes.
+- Prefer accessing typed attributes directly and convert inputs up front into one canonical shape per boundary; delete fallbacks.
+
 - Avoid hacky trick like `sys.path.insert` when resolving package dependency
 - Use existing packages/libraries instead of implementing yourselves whenever possible.
 - Avoid using # type: ignore. Treat it only as a last resort. In most cases, issues should be resolved by improving type annotations, adding assertions, or adjusting code/tests—rather than silencing the type checker.
@@ -189,14 +193,6 @@ The simplified pattern eliminates the need for manual executor instantiation and
 - Avoid getattr/hasattr guards and instead enforce type correctness by relying on explicit type assertions and proper object usage, ensuring functions only receive the expected Pydantic models or typed inputs.
 - Use real newlines in commit messages; do not write literal "\n".
 </CODE>
-
-### Avoid overly defensive code
-
-- Prefer type hints and validated models over runtime shape checks.
-- Avoid broad try/except unless upstream returns multiple shapes.
-- Prefer accessing typed attributes directly and converting inputs up front into one canonical shape.
-- Principle: pick one canonical shape per boundary and delete fallbacks.
-
 
 <TESTING>
 - AFTER you edit ONE file, you should run pre-commit hook on that file via `uv run pre-commit run --files [filepath]` to make sure you didn't break it.
