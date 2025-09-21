@@ -104,6 +104,30 @@ def test_file_editor_memory_leak(temp_file):
     """Test to demonstrate memory growth during multiple file edits."""
     print("\nStarting memory leak test...")
 
+    # Create initial content that's large enough to test but not overwhelming
+    # Keep total file size under 10MB to avoid file validation errors
+    base_content = (
+        "Initial content with some reasonable length to make the file larger\n"
+    )
+    content = base_content * 100
+    print(f"\nCreating initial file with {len(content)} bytes")
+    with open(temp_file, "w") as f:
+        f.write(content)
+    print(f"Initial file created, size: {os.path.getsize(temp_file) / 1024:.1f} KB")
+
+    # Force Python to release file handles and clear buffers
+    gc.collect()
+
+    # Warm up the editor so imports/cache allocations are excluded from measurement
+    warmup_result = file_editor(
+        command="view",
+        path=temp_file,
+        view_range=[1, 1],
+    )
+    assert_successful_result(warmup_result)
+    del warmup_result
+    gc.collect()
+
     # Set memory limit to 128MB to make it more likely to catch issues
     memory_limit = 128 * 1024 * 1024  # 128MB in bytes
     try:
@@ -116,17 +140,6 @@ def test_file_editor_memory_leak(temp_file):
 
     initial_memory = psutil.Process(os.getpid()).memory_info().rss
     print(f"\nInitial memory usage: {initial_memory / 1024 / 1024:.2f} MB")
-
-    # Create initial content that's large enough to test but not overwhelming
-    # Keep total file size under 10MB to avoid file validation errors
-    base_content = (
-        "Initial content with some reasonable length to make the file larger\n"
-    )
-    content = base_content * 100
-    print(f"\nCreating initial file with {len(content)} bytes")
-    with open(temp_file, "w") as f:
-        f.write(content)
-    print(f"Initial file created, size: {os.path.getsize(temp_file) / 1024:.1f} KB")
 
     # Store memory readings for analysis
     memory_readings = []
