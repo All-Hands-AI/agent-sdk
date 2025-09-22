@@ -46,7 +46,7 @@ def get_default_tools(
     persistence_path = persistence_dir or os.path.join(working_dir, ".openhands")
     tool_specs = [
         ToolSpec(name="BashTool", params={"working_dir": working_dir}),
-        ToolSpec(name="FileEditorTool"),
+        ToolSpec(name="FileEditorTool", params={"workspace_root": working_dir}),
         ToolSpec(name="TaskTrackerTool", params={"save_dir": persistence_path}),
     ]
     if enable_browser:
