@@ -30,6 +30,7 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
     ActionBase,
@@ -272,6 +273,17 @@ class Agent(AgentBase):
             2. Every action requires confirmation
             3. A single `FinishAction` never requires confirmation
         """
+        if self._add_security_risk_prediction and isinstance(
+            state.confirmation_policy, NeverConfirm
+        ):
+            # If security analyzer is enabled, we always need a policy that is not
+            # NeverConfirm, otherwise we are just predicting risks without using them,
+            # and waste tokens!
+            logger.warning(
+                "LLM security analyzer is enabled but confirmation "
+                "policy is set to NeverConfirm"
+            )
+
         # A single `FinishAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
             action_events[0].action, FinishAction
