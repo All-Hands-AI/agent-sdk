@@ -28,7 +28,14 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import MessageEvent
 from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
+from openhands.sdk.tool import (
+    ActionBase,
+    ObservationBase,
+    Tool,
+    ToolExecutor,
+    ToolSpec,
+    register_tool,
+)
 
 
 # Custom sleep tool for testing timing scenarios
@@ -84,13 +91,19 @@ class SleepExecutor(ToolExecutor):
         return SleepObservation(message=action.message)
 
 
-SLEEP_TOOL = Tool(
-    name="sleep_tool",
-    action_type=SleepAction,
-    observation_type=SleepObservation,
-    description="Sleep for specified duration and return a message",
-    executor=SleepExecutor(),
-)
+def _make_sleep_tool() -> Tool:
+    """Create sleep tool for testing."""
+    return Tool(
+        name="sleep_tool",
+        action_type=SleepAction,
+        observation_type=SleepObservation,
+        description="Sleep for specified duration and return a message",
+        executor=SleepExecutor(),
+    )
+
+
+# Register the tool
+register_tool("SleepTool", _make_sleep_tool)
 
 
 class TestMessageWhileFinishing:
@@ -101,7 +114,7 @@ class TestMessageWhileFinishing:
         # Use gpt-4o which supports native function calling and multiple tool calls
         self.llm = LLM(model="gpt-4o", native_tool_calling=True)
         self.llm_completion_calls = []
-        self.agent = Agent(llm=self.llm, tools=[SLEEP_TOOL])
+        self.agent = Agent(llm=self.llm, tools=[ToolSpec(name="SleepTool")])
         self.step_count = 0
         self.final_step_started = False
         self.timestamps = []  # Track key timing events
@@ -223,9 +236,11 @@ class TestMessageWhileFinishing:
         self.test_start_time = time.time()
 
         # Set the test start time reference for the sleep executor
-        if SLEEP_TOOL.executor is not None:
-            setattr(SLEEP_TOOL.executor, "test_start_time", self.test_start_time)
-            setattr(SLEEP_TOOL.executor, "test_instance", self)
+        # Access the actual tool instances from the agent's _tools dict
+        sleep_tool = self.agent._tools.get("sleep_tool")
+        if sleep_tool and sleep_tool.executor is not None:
+            setattr(sleep_tool.executor, "test_start_time", self.test_start_time)
+            setattr(sleep_tool.executor, "test_instance", self)
 
         conversation = Conversation(agent=self.agent)
         # Store conversation reference for use in mock LLM
