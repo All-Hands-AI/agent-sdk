@@ -35,6 +35,16 @@ class SecurityRisk(str, Enum):
     def __str__(self) -> str:
         return self.name
 
+    def get_color(self) -> str:
+        """Get the color for displaying this risk level in Rich text."""
+        color_map = {
+            SecurityRisk.LOW: "green",
+            SecurityRisk.MEDIUM: "yellow",
+            SecurityRisk.HIGH: "red",
+            SecurityRisk.UNKNOWN: "white",
+        }
+        return color_map.get(self, "white")
+
     def is_riskier(self, other: SecurityRisk, reflexive: bool = True) -> bool:
         """Check if this risk level is riskier than another.
 

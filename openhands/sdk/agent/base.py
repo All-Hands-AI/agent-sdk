@@ -155,7 +155,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         # Prepare template kwargs, including cli_mode if available
         template_kwargs = dict(self.system_prompt_kwargs)
         if self.security_analyzer:
-            template_kwargs["llm_risk_analyzer"] = bool(
+            template_kwargs["llm_security_analyzer"] = bool(
                 isinstance(self.security_analyzer, LLMSecurityAnalyzer)
             )
 
