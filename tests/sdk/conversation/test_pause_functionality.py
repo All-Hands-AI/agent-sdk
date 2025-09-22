@@ -300,7 +300,7 @@ class TestPauseFunctionality:
             llm=self.llm,
             tools=[ToolSpec(name="test_tool")],
         )
-        conversation = Conversation(agent=agent)
+        conversation = Conversation(agent=agent, stuck_detection=False)
 
         # Swap them in for this test only
         self.agent = agent
