@@ -593,7 +593,7 @@ class OpenHandsWebChat {
     }
 
     getDefaultJsonParameters() {
-        // Based on the first example from START_CONVERSATION_EXAMPLES
+        // Based on the first example from START_CONVERSATION_EXAMPLES (without initial_message)
         return JSON.stringify({
             agent: {
                 llm: {
@@ -606,10 +606,6 @@ class OpenHandsWebChat {
                     { name: "FileEditorTool", params: { workspace_root: "/workspace" } },
                     { name: "TaskTrackerTool", params: { save_dir: "/conversations" } }
                 ]
-            },
-            initial_message: {
-                role: "user",
-                content: [{ text: "Flip a coin!" }]
             }
         }, null, 2);
     }
@@ -690,6 +686,7 @@ class OpenHandsWebChat {
                 requestBody = JSON.parse(this.getDefaultJsonParameters());
             }
             
+            // Always build initial_message from UI input if provided
             if (initialMessage) {
                 requestBody.initial_message = {
                     role: "user",
