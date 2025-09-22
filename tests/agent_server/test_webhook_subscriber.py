@@ -662,7 +662,7 @@ class TestConversationWebhookSubscriber:
         mock_client.request.assert_called_once_with(
             method="POST",
             url="https://example.com/conversations",
-            json=conversation_info.model_dump(),
+            json=conversation_info.model_dump(mode="json"),
             headers={
                 "Content-Type": "application/json",
                 "Authorization": "Bearer token",
@@ -714,7 +714,7 @@ class TestConversationWebhookSubscriber:
         mock_client.request.assert_called_once_with(
             method="POST",
             url="https://example.com/conversations",
-            json=conversation_info.model_dump(),
+            json=conversation_info.model_dump(mode="json"),
             headers=expected_headers,
             timeout=30.0,
         )
