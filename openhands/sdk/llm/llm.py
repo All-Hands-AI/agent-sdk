@@ -311,7 +311,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Serializers
     # =========================================================================
     @field_serializer(
-        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="json"
+        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="always"
     )
     def _serialize_secrets(self, v: SecretStr | None, info):
         """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
@@ -757,7 +757,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Args:
             filepath: Path where the JSON file should be stored.
         """
-        data = self.model_dump_with_secrets()
+        data = self.model_dump(context={"expose_secrets": True})
 
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
@@ -873,12 +873,3 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
             )
         return reconciled
-
-    def model_dump_with_secrets(self) -> dict[str, Any]:
-        """Dump the model including secrets (normally excluded)."""
-        data = self.model_dump()
-        for field in self.OVERRIDE_ON_SERIALIZE:
-            attr = getattr(self, field)
-            if attr is not None and isinstance(attr, SecretStr):
-                data[field] = attr.get_secret_value()
-        return data
