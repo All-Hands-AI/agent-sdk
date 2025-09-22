@@ -1,4 +1,4 @@
-"""OpenHands Agent SDK — LLM Security Analyzer Example (Simplified)
+"""OpenHands Agent SDK — LLM Security Analyzer Example
 
 This example shows how to use the LLMSecurityAnalyzer to automatically
 evaluate security risks of actions before execution.
