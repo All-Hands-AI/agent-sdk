@@ -64,14 +64,7 @@ class ActionEvent(LLMConvertibleEvent):
         content = Text()
 
         if self.security_risk != risk.SecurityRisk.UNKNOWN:
-            content.append(
-                "Predicted Security Risk: ",
-                style="bold",
-            )
-            content.append(
-                f"{self.security_risk.value}\n\n",
-                style=f"bold {self.security_risk.get_color()}",
-            )
+            content.append(self.security_risk.visualize)
 
         # Display reasoning content first if available
         if self.reasoning_content:
