@@ -54,6 +54,9 @@ class ValidateSessionAPIKeyMiddleware(BaseHTTPMiddleware):
         if request.url.path not in ["/alive", "/health", "/server_info"]:
             session_api_key = request.headers.get("X-Session-API-Key")
             if session_api_key != self.session_api_key:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Unauthorized: Invalid or missing X-Session-API-Key header",
+                )
         response = await call_next(request)
         return response

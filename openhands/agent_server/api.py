@@ -47,6 +47,32 @@ api = FastAPI(
 
 @api.exception_handler(Exception)
 async def _unhandled_exception_handler(request: Request, exc: Exception):
+    # Check if this is an HTTPException that should be handled by the HTTPException
+    # handler. This can happen when HTTPExceptions from middleware are unwrapped by
+    # Starlette
+    if isinstance(exc, HTTPException):
+        return await _http_exception_handler(request, exc)
+
+    # Check if this is an HTTPException wrapped in an ExceptionGroup (from middleware)
+    # ExceptionGroup/BaseExceptionGroup has an 'exceptions' attribute
+    if hasattr(exc, "exceptions"):
+        exceptions = getattr(exc, "exceptions", [])
+        if len(exceptions) == 1 and isinstance(exceptions[0], HTTPException):
+            return await _http_exception_handler(request, exceptions[0])
+
+    # Also check for BaseExceptionGroup (Python 3.11+)
+    if exc.__class__.__name__ in ("ExceptionGroup", "BaseExceptionGroup"):
+        try:
+            # Try to access the exceptions attribute directly
+            if hasattr(exc, "exceptions"):
+                exceptions_attr = getattr(exc, "exceptions", [])
+                if len(exceptions_attr) == 1:
+                    inner_exc = exceptions_attr[0]
+                    if isinstance(inner_exc, HTTPException):
+                        return await _http_exception_handler(request, inner_exc)
+        except (AttributeError, IndexError):
+            pass
+
     # Logs full stack trace for any unhandled error that FastAPI would turn into a 500
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
@@ -54,9 +80,17 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 
 @api.exception_handler(HTTPException)
 async def _http_exception_handler(request: Request, exc: HTTPException):
-    # Also log explicit HTTPExceptions that are 5xx (sometimes raised intentionally)
-    if exc.status_code >= 500:
-        # exc_info=True ensures a traceback is emitted from here
+    # Log 4xx errors at info level (expected client errors like auth failures)
+    if 400 <= exc.status_code < 500:
+        logger.info(
+            "HTTPException %d on %s %s: %s",
+            exc.status_code,
+            request.method,
+            request.url.path,
+            exc.detail,
+        )
+    # Log 5xx errors at error level with full traceback (server errors)
+    elif exc.status_code >= 500:
         logger.error(
             "HTTPException %d on %s %s: %s",
             exc.status_code,
@@ -69,7 +103,8 @@ async def _http_exception_handler(request: Request, exc: HTTPException):
             status_code=exc.status_code,
             content={"detail": "Internal Server Error\n" + str(exc.detail)},
         )
-    # Let non-5xx behave normally (but still return JSON)
+
+    # Return clean JSON response for all HTTP exceptions
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
