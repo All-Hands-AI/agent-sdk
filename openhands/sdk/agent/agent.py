@@ -21,7 +21,7 @@ from openhands.sdk.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.event.condenser import Condensation
+from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
@@ -164,16 +164,35 @@ class Agent(AgentBase):
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        response = self.llm.completion(
-            messages=_messages,
-            tools=list(self.tools_map.values()),
-            add_security_risk_prediction=self._add_security_risk_prediction,
-            extra_body={
-                "metadata": get_llm_metadata(
-                    model_name=self.llm.model, agent_name=self.name
+
+        try:
+            response = self.llm.completion(
+                messages=_messages,
+                tools=list(self.tools_map.values()),
+                extra_body={
+                    "metadata": get_llm_metadata(
+                        model_name=self.llm.model, agent_name=self.name
+                    )
+                },
+            )
+        except Exception as e:
+            # If there is a condenser registered and the exception is a context window
+            # exceeded, we can recover by triggering a condensation request.
+            if (
+                self.condenser is not None
+                and self.condenser.handles_condensation_requests()
+                and self.llm.is_context_window_exceeded_exception(e)
+            ):
+                logger.warning(
+                    "LLM raised context window exceeded error, triggering condensation"
                 )
-            },
-        )
+                on_event(CondensationRequest())
+                return
+
+            # If the error isn't recoverable, keep propagating it up the stack.
+            else:
+                raise e
+
         assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
         llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
         message = Message.from_litellm_message(llm_message)
