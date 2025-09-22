@@ -386,7 +386,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         *,
         kind: CallKind,
-        messages: list[Message] | list[dict[str, Any]] | None,
+        messages: list[Message] | None,
         input: str | ResponseInputParam | None,
         tools: Sequence[ToolBase] | None,
         add_security_risk_prediction: bool = False,
@@ -432,14 +432,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             assert isinstance(messages, list)
             if len(messages) == 0:
                 raise ValueError("messages cannot be an empty list")
-            # Accept both our Message objects and dict-typed messages
-            if messages and isinstance(messages[0], Message):
-                converted_messages = self.format_messages_for_llm(
-                    cast(list[Message], messages)
-                )
-            else:
-                # Already dict-typed; cast to AllMessageValues-like for converter
-                converted_messages = cast(list[AllMessageValues], messages)
+            converted_messages = self.format_messages_for_llm(
+                cast(list[Message], messages)
+            )
             input = cast(
                 ResponseInputParam, messages_to_responses_items(converted_messages)
             )
@@ -531,7 +526,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     def responses(
         self,
-        messages: list[dict[str, Any]] | list[Message] | str | None = None,
+        messages: list[Message] | str | None = None,
         input: str | ResponseInputParam | None = None,
         tools: Sequence[ToolBase] | None = None,
         add_security_risk_prediction: bool = False,
@@ -554,9 +549,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             raise ValueError("Either messages or input must be provided")
 
         # Use unified pre-normalization for responses
-        msgs, input, tools_dicts = self._pre_normalize(
+        msgs, inp, tools_dicts = self._pre_normalize(
             kind="responses",
-            messages=cast(list[dict[str, Any]] | list[Message] | None, messages),
+            messages=cast(list[Message] | None, messages),
             input=input,
             tools=tools,
             add_security_risk_prediction=add_security_risk_prediction,
@@ -565,7 +560,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return self._unified_request(
             kind="responses",
             messages=msgs,
-            input=input,
+            input=inp,
             tools=cast(
                 list[dict[str, Any]] | list[ChatCompletionToolParam] | None, tools_dicts
             ),

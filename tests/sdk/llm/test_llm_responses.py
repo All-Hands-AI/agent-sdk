@@ -95,9 +95,11 @@ def test_responses_method_with_messages_dict(mock_litellm_responses):
     mock_litellm_responses.return_value = mock_response
 
     llm = LLM(model="o1-preview")
+    from openhands.sdk.llm.message import TextContent
+
     messages = [
-        {"role": "user", "content": "What is 2+2?"},
-        {"role": "assistant", "content": "2+2 equals 4."},
+        Message(role="user", content=[TextContent(text="What is 2+2?")]),
+        Message(role="assistant", content=[TextContent(text="2+2 equals 4.")]),
     ]
 
     with patch.object(llm, "_telemetry") as mock_telemetry:
@@ -191,7 +193,11 @@ def test_responses_method_with_string_messages(mock_litellm_responses):
 def test_responses_method_input_takes_precedence():
     """Test that input parameter takes precedence over messages."""
     llm = LLM(model="o1-preview")
-    messages = [{"role": "user", "content": "This should be ignored"}]
+    from openhands.sdk.llm.message import TextContent
+
+    messages = [
+        Message(role="user", content=[TextContent(text="This should be ignored")])
+    ]
 
     with patch("openhands.sdk.llm.llm.litellm_responses") as mock_litellm_responses:
         mock_response = Mock()
