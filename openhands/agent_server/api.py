@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from openhands.agent_server.config import (
@@ -69,6 +70,19 @@ def create_app(config: Config | None = None) -> FastAPI:
             StaticFiles(directory=str(config.static_files_path)),
             name="static",
         )
+
+        # Add root redirect to static files
+        @app.get("/")
+        async def root_redirect():
+            """Redirect root endpoint to static files directory."""
+            # Check if index.html exists in the static directory
+            # We know static_files_path is not None here due to the outer condition
+            assert config.static_files_path is not None
+            index_path = config.static_files_path / "index.html"
+            if index_path.exists():
+                return RedirectResponse(url="/static/index.html", status_code=302)
+            else:
+                return RedirectResponse(url="/static/", status_code=302)
 
     # Add middleware
     app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
