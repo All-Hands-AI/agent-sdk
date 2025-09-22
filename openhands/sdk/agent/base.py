@@ -300,18 +300,28 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
             if isinstance(obj, LLM):
                 out: list[LLM] = []
-                # Yield this LLM if we haven't seen it before
-                if oid not in seen_llms:
+
+                # Check if this is a RouterLLM (which contains other LLMs)
+                from openhands.sdk.llm.router.base import RouterLLM
+
+                is_router = isinstance(obj, RouterLLM)
+
+                # Only yield non-router LLMs if we haven't seen them before
+                if not is_router and oid not in seen_llms:
                     seen_llms.add(oid)
                     out.append(obj)
 
-                # Also traverse its fields (LLM might contain other LLMs)
-                for name in type(obj).model_fields:
-                    try:
-                        val = getattr(obj, name)
-                    except Exception:
-                        continue
-                    out.extend(_walk(val))
+                # Always traverse fields for routers, and for regular LLMs that might
+                # contain other LLMs
+                if is_router or oid not in seen_llms:
+                    if not is_router:
+                        seen_llms.add(oid)
+                    for name in type(obj).model_fields:
+                        try:
+                            val = getattr(obj, name)
+                        except Exception:
+                            continue
+                        out.extend(_walk(val))
                 return out
 
             # Pydantic models: iterate declared fields

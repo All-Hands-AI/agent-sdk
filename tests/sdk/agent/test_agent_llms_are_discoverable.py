@@ -85,8 +85,7 @@ def test_automatic_llm_discovery_with_multimodal_router():
     # Get all LLMs and verify they are discovered
     llms = list(agent.get_all_llms())
 
-    # The router itself should be found, plus the two LLMs inside it
-    assert len(llms) == 3
-    assert check_service_id_exists("default", llms)  # The router's service_id
+    # Only the raw LLMs inside the router should be found (not the router itself)
+    assert len(llms) == 2
     assert check_service_id_exists(primary_service_id, llms)
     assert check_service_id_exists(secondary_service_id, llms)
