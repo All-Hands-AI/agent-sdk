@@ -13,7 +13,6 @@ for message injection, proving that:
 
 import threading
 import time
-from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from litellm import ChatCompletionMessageToolCall
@@ -30,10 +29,6 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.event import MessageEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
-
-
-if TYPE_CHECKING:
-    from tests.sdk.agent.test_message_while_finishing import TestMessageWhileFinishing
 
 
 # Custom sleep tool for testing timing scenarios
@@ -65,9 +60,10 @@ class SleepExecutor(ToolExecutor):
         )
 
         # Track final step timing if this is the final sleep
-        if hasattr(self, "test_instance") and "Final sleep" in action.message:
-            self.test_instance.timestamps.append(("final_step_start", start_time))
+        if "Final sleep" in action.message:
             print(f"[+{elapsed:.3f}s] FINAL STEP STARTED")
+            if hasattr(self, "test_instance"):
+                self.test_instance.timestamps.append(("final_step_start", start_time))
 
         time.sleep(action.duration)
 
@@ -80,9 +76,10 @@ class SleepExecutor(ToolExecutor):
         )
 
         # Track final step end timing
-        if hasattr(self, "test_instance") and "Final sleep" in action.message:
-            self.test_instance.timestamps.append(("final_step_end", end_time))
+        if "Final sleep" in action.message:
             print(f"[+{end_elapsed:.3f}s] FINAL STEP ENDED")
+            if hasattr(self, "test_instance"):
+                self.test_instance.timestamps.append(("final_step_end", end_time))
 
         return SleepObservation(message=action.message)
 
@@ -101,7 +98,8 @@ class TestMessageWhileFinishing:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.llm = LLM(model="gpt-4")
+        # Use gpt-4o which supports native function calling and multiple tool calls
+        self.llm = LLM(model="gpt-4o", native_tool_calling=True)
         self.llm_completion_calls = []
         self.agent = Agent(llm=self.llm, tools=[SLEEP_TOOL])
         self.step_count = 0
@@ -150,53 +148,6 @@ class TestMessageWhileFinishing:
         else:
             # Step 2: Final step - sleep AND finish (multiple tool calls)
             self.final_step_started = True
-
-            # Send butterfly message in a separate thread while we're still
-            # in the LLM call
-            def send_butterfly_now():
-                time.sleep(
-                    0.05
-                )  # Give a tiny delay to ensure LLM response is processed
-                elapsed = time.time() - self.test_start_time
-                print(
-                    f"[+{elapsed:.3f}s] Butterfly thread started from within "
-                    "LLM response..."
-                )
-
-                # Check agent status - this should be RUNNING
-                current_status = self.conversation.state.agent_status
-                elapsed = time.time() - self.test_start_time
-                print(
-                    f"[+{elapsed:.3f}s] Agent status during LLM response: "
-                    f"{current_status}"
-                )
-
-                # Send butterfly message regardless of status - this represents the user
-                # sending a message during what they think is an ongoing operation
-                butterfly_send_time = time.time()
-                self.timestamps.append(("butterfly_sent", butterfly_send_time))
-                elapsed = butterfly_send_time - self.test_start_time
-                print(
-                    f"[+{elapsed:.3f}s] BUTTERFLY MESSAGE SENT "
-                    f"(status: {current_status})"
-                )
-
-                self.conversation.send_message(
-                    Message(
-                        role="user",
-                        content=[
-                            TextContent(
-                                text="Please add the word 'butterfly' to your "
-                                "next message"
-                            )
-                        ],
-                    )
-                )
-
-            import threading
-
-            butterfly_thread = threading.Thread(target=send_butterfly_now)
-            butterfly_thread.start()
 
             response_content = "Now I'll sleep for a longer time and then finish"
             sleep_message = "Final sleep completed"
@@ -274,7 +225,6 @@ class TestMessageWhileFinishing:
         # Set the test start time reference for the sleep executor
         if SLEEP_TOOL.executor is not None:
             setattr(SLEEP_TOOL.executor, "test_start_time", self.test_start_time)
-            # Pass test instance to executor for timestamp tracking
             setattr(SLEEP_TOOL.executor, "test_instance", self)
 
         conversation = Conversation(agent=self.agent)
@@ -328,12 +278,44 @@ class TestMessageWhileFinishing:
                 )
             )
 
-            # The butterfly message is now sent from within the LLM response
+            # Send butterfly message when final step starts
+            def send_butterfly_when_final_step_starts():
+                # Wait for final step to start
+                while not self.final_step_started:
+                    time.sleep(0.01)  # Small sleep to avoid busy waiting
+
+                # Add a small delay to ensure we're in the middle of final step
+                # execution
+                time.sleep(0.1)
+
+                butterfly_send_time = time.time()
+                self.timestamps.append(("butterfly_sent", butterfly_send_time))
+                elapsed = butterfly_send_time - self.test_start_time
+                print(f"[+{elapsed:.3f}s] BUTTERFLY MESSAGE SENT DURING FINAL STEP")
+
+                conversation.send_message(
+                    Message(
+                        role="user",
+                        content=[
+                            TextContent(
+                                text="Please add the word 'butterfly' to your next "
+                                "message"
+                            )
+                        ],
+                    )
+                )
+
+            butterfly_thread = threading.Thread(
+                target=send_butterfly_when_final_step_starts
+            )
+            butterfly_thread.start()
+
             # Wait for conversation to complete
             print(f"{elapsed_time()} Waiting for conversation to complete...")
 
             # Wait for completion
             thread.join(timeout=10)
+            butterfly_thread.join(timeout=5)
 
         # Debug: Print what we got
         print(f"\nDEBUG: Made {len(self.llm_completion_calls)} LLM calls")
