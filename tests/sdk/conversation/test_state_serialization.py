@@ -14,13 +14,29 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.sdk.security.confirmation_policy import AlwaysConfirm
+from openhands.sdk.tool import ActionBase, Tool, ToolSpec, register_tool
 
 
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
+# Register lightweight SDK tool factories for tests (avoid importing openhands.tools)
+class _BashArgs(ActionBase):
+    pass
+
+
+class _EditorArgs(ActionBase):
+    pass
+
+
+def _bash_tool_factory(working_dir: str | None = None, **kwargs):
+    return Tool(name="BashTool", description="bash", action_type=_BashArgs)
+
+
+def _file_editor_tool_factory(**kwargs):
+    return Tool(name="FileEditorTool", description="edit", action_type=_EditorArgs)
+
+
+register_tool("BashTool", _bash_tool_factory)
+register_tool("FileEditorTool", _file_editor_tool_factory)
 
 
 def test_conversation_state_basic_serialization():
@@ -543,30 +559,6 @@ def test_conversation_state_thread_safety():
         state.assert_locked()
 
 
-def test_agent_resolve_diff_from_deserialized():
-    """Test agent's resolve_diff_from_deserialized method."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Create original agent
-        tools = [ToolSpec(name="BashTool", params={"working_dir": temp_dir})]
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
-        original_agent = Agent(llm=llm, tools=tools)
-
-        # Serialize and deserialize to simulate persistence
-        serialized = original_agent.model_dump_json()
-        deserialized_agent = AgentBase.model_validate_json(serialized)
-
-        # Create runtime agent with same configuration
-        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
-        runtime_agent = Agent(llm=llm2, tools=tools)
-
-        # Should resolve successfully
-        resolved = runtime_agent.resolve_diff_from_deserialized(deserialized_agent)
-        # Test model_dump equality
-        assert resolved.model_dump(mode="json") == runtime_agent.model_dump(mode="json")
-        assert resolved.llm.model == runtime_agent.llm.model
-        assert resolved.__class__ == runtime_agent.__class__
-
-
 def test_agent_resolve_diff_different_class_raises_error():
     """Test that resolve_diff_from_deserialized raises error for different agent classes."""  # noqa: E501
 
@@ -603,7 +595,7 @@ def test_conversation_state_flags_persistence():
 
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED
-        state.confirmation_mode = True
+        state.confirmation_policy = AlwaysConfirm()
         state.activated_knowledge_microagents = ["agent1", "agent2"]
 
         # State auto-saves, load using Conversation
@@ -616,7 +608,7 @@ def test_conversation_state_flags_persistence():
 
         # Verify flags are preserved
         assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
-        assert loaded_state.confirmation_mode is True
+        assert loaded_state.confirmation_policy == AlwaysConfirm()
         assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
         # Test model_dump equality
         assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")

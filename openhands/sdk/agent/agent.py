@@ -8,6 +8,7 @@ from litellm.types.utils import (
 )
 from pydantic import ValidationError
 
+import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
@@ -29,7 +30,6 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security import risk
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
     ActionBase,
@@ -262,26 +262,24 @@ class Agent(AgentBase):
         if len(action_events) == 0:
             return False
 
-        # If a security analyzer is registered, use it to check the action events and
-        # see if confirmation is needed.
+        # If a security analyzer is registered, use it to grab the risks of the actions
+        # involved. If not, we'll set the risks to UNKNOWN.
         if self.security_analyzer is not None:
-            risks = self.security_analyzer.analyze_pending_actions(action_events)
-            for _, risk in risks:
-                if self.security_analyzer.should_require_confirmation(
-                    risk, state.confirmation_mode
-                ):
-                    state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-                    return True
-            # If the security analyzer doesn't tell us to stop, we shouldn't stop, even
-            # if the confirmation mode is on.
-            return False
+            risks = [
+                risk
+                for _, risk in self.security_analyzer.analyze_pending_actions(
+                    action_events
+                )
+            ]
+        else:
+            risks = [risk.SecurityRisk.UNKNOWN] * len(action_events)
 
-        # If confirmation mode is disabled, no confirmation is needed
-        if not state.confirmation_mode:
-            return False
+        # Grab the confirmation policy from the state and pass in the risks.
+        if any(state.confirmation_policy.should_confirm(risk) for risk in risks):
+            state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+            return True
 
-        state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-        return True
+        return False
 
     def _get_action_events(
         self,

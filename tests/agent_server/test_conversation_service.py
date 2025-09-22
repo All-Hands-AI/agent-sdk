@@ -14,6 +14,7 @@ from openhands.agent_server.models import (
 )
 from openhands.sdk import LLM, Agent
 from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.security.confirmation_policy import NeverConfirm
 
 
 @pytest.fixture
@@ -29,7 +30,7 @@ def sample_stored_conversation():
     return StoredConversation(
         id=uuid4(),
         agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
-        confirmation_mode=False,
+        confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
         created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
@@ -104,7 +105,7 @@ class TestConversationServiceSearchConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
@@ -148,7 +149,7 @@ class TestConversationServiceSearchConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(
@@ -217,7 +218,7 @@ class TestConversationServiceSearchConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
@@ -279,7 +280,7 @@ class TestConversationServiceSearchConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=created_at,
@@ -374,7 +375,7 @@ class TestConversationServiceCountConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
-                confirmation_mode=False,
+                confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),

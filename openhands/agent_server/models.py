@@ -9,6 +9,10 @@ from openhands.agent_server.utils import utc_now
 from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
 from openhands.sdk.utils.models import OpenHandsModel
 
 
@@ -53,10 +57,10 @@ class StartConversationRequest(BaseModel):
     """
 
     agent: AgentBase
-    confirmation_mode: bool = Field(
-        default=False,
-        description="If true, the agent will enter confirmation mode, "
-        "requiring user approval for actions.",
+    confirmation_policy: ConfirmationPolicyBase = Field(
+        default=NeverConfirm(),
+        description="Controls when the conversation will prompt the user before "
+        "continuing. Defaults to never.",
     )
     initial_message: SendMessageRequest | None = Field(
         default=None, description="Initial message to pass to the LLM"

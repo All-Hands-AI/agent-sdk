@@ -6,7 +6,31 @@ from openhands.sdk.context.condenser import (
 )
 from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm.llm import LLM
+from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import ToolSpec, register_tool
+
+
+logger = get_logger(__name__)
+
+
+def register_default_tools(enable_browser: bool = True) -> None:
+    """Register the default set of tools."""
+    from openhands.tools.execute_bash import BashTool
+    from openhands.tools.str_replace_editor import FileEditorTool
+    from openhands.tools.task_tracker import TaskTrackerTool
+
+    register_tool("BashTool", BashTool)
+    logger.debug("Tool: BashTool registered.")
+    register_tool("FileEditorTool", FileEditorTool)
+    logger.debug("Tool: FileEditorTool registered.")
+    register_tool("TaskTrackerTool", TaskTrackerTool)
+    logger.debug("Tool: TaskTrackerTool registered.")
+
+    if enable_browser:
+        from openhands.tools.browser_use import BrowserToolSet
+
+        register_tool("BrowserToolSet", BrowserToolSet)
+        logger.debug("Tool: BrowserToolSet registered.")
 
 
 def get_default_tools(
@@ -14,13 +38,7 @@ def get_default_tools(
     enable_browser: bool = True,
 ) -> list[ToolSpec]:
     """Get the default set of tool specifications for the standard experience."""
-    from openhands.tools.execute_bash import BashTool
-    from openhands.tools.str_replace_editor import FileEditorTool
-    from openhands.tools.task_tracker import TaskTrackerTool
-
-    register_tool("BashTool", BashTool)
-    register_tool("FileEditorTool", FileEditorTool)
-    register_tool("TaskTrackerTool", TaskTrackerTool)
+    register_default_tools(enable_browser=enable_browser)
 
     tool_specs = [
         ToolSpec(name="BashTool", params={"working_dir": working_dir}),
@@ -30,9 +48,6 @@ def get_default_tools(
         ),
     ]
     if enable_browser:
-        from openhands.tools.browser_use import BrowserToolSet
-
-        register_tool("BrowserToolSet", BrowserToolSet)
         tool_specs.append(ToolSpec(name="BrowserToolSet"))
     return tool_specs
 

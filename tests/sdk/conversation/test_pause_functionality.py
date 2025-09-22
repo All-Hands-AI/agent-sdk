@@ -28,6 +28,7 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
+from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
     ActionBase,
     ObservationBase,
@@ -211,7 +212,7 @@ class TestPauseFunctionality:
     def test_pause_with_confirmation_mode(self, mock_completion):
         """Test that pause before run() with confirmation mode - pause is reset and agent waits for confirmation."""  # noqa: E501
         # Enable confirmation mode
-        self.conversation.set_confirmation_mode(True)
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
         self.conversation.pause()
         assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 

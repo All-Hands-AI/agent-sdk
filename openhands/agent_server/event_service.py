@@ -173,7 +173,7 @@ class EventService:
         )
 
         # Set confirmation mode if enabled
-        conversation.set_confirmation_mode(self.stored.confirmation_mode)
+        conversation.set_confirmation_policy(self.stored.confirmation_policy)
         self._conversation = conversation
 
     async def run(self):

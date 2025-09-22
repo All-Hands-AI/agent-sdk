@@ -14,6 +14,10 @@ from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
 from openhands.sdk.utils.models import OpenHandsModel
 from openhands.sdk.utils.protocol import ListLike
 
@@ -54,9 +58,7 @@ class ConversationState(OpenHandsModel):
 
     # Enum-based state management
     agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
-    confirmation_mode: bool = Field(
-        default=False
-    )  # Keep this as it's a configuration setting
+    confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
 
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list,

@@ -8,6 +8,7 @@ from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.event.llm_convertible import SystemPromptEvent
 from openhands.sdk.llm import LLM, TextContent
+from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 
 
 class TestConversationIdDummyAgent(AgentBase):
@@ -63,8 +64,8 @@ def test_conversation_id_persists():
     original_id = conversation.id
 
     # Perform some operations that might affect the conversation
-    conversation.set_confirmation_mode(True)
-    conversation.set_confirmation_mode(False)
+    conversation.set_confirmation_policy(AlwaysConfirm())
+    conversation.set_confirmation_policy(NeverConfirm())
 
     # Check that the ID hasn't changed
     assert conversation.id == original_id
