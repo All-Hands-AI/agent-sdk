@@ -70,8 +70,10 @@ class ActionEvent(LLMConvertibleEvent):
                 risk.SecurityRisk.HIGH: "red",
             }.get(self.security_risk, "white")
             content.append(
-                f"[Predicted Security Risk: {self.security_risk.value}]\n", style=color
+                "Predicted Security Risk: ",
+                style="bold",
             )
+            content.append(f"{self.security_risk.value}\n\n", style=f"bold {color}")
 
         # Display reasoning content first if available
         if self.reasoning_content:
