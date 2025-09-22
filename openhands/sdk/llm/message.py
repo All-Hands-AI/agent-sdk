@@ -146,7 +146,6 @@ class Message(BaseModel):
 
     def _list_serializer(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
-        role_tool_with_prompt_caching = False
 
         for item in self.content:
             # Serialize with the subclass-specific return type
@@ -157,7 +156,6 @@ class Message(BaseModel):
             if isinstance(item, TextContent):
                 d = cast(dict[str, Any], raw)
                 if self.role == "tool" and item.cache_prompt:
-                    role_tool_with_prompt_caching = True
                     d.pop("cache_control", None)
                 content.append(d)
 
@@ -165,14 +163,15 @@ class Message(BaseModel):
                 # ImageContent.model_dump() always returns a list of dicts
                 d_list = cast(list[dict[str, Any]], raw)
                 if self.role == "tool" and item.cache_prompt:
-                    role_tool_with_prompt_caching = True
                     for elem in d_list:
                         elem.pop("cache_control", None)
                 content.extend(d_list)
 
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
-        if role_tool_with_prompt_caching:
-            message_dict["cache_control"] = {"type": "ephemeral"}
+        # Avoid adding message-level cache_control for tool messages; LiteLLM models
+        # do not accept it on ChatCompletionToolMessage
+        # if role_tool_with_prompt_caching:
+        #     message_dict["cache_control"] = {"type": "ephemeral"}
 
         return self._add_tool_call_keys(message_dict)
 
@@ -197,11 +196,7 @@ class Message(BaseModel):
 
         # an observation message with tool response
         if self.tool_call_id is not None:
-            assert self.name is not None, (
-                "name is required when tool_call_id is not None"
-            )
             message_dict["tool_call_id"] = self.tool_call_id
-            message_dict["name"] = self.name
 
         return message_dict
 
