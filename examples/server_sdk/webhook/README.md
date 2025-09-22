@@ -28,7 +28,7 @@ python webhook_logging_server.py --port 8001
 ### 2. Start the OpenHands Agent Server
 
 ```bash
-OPENHANDS_CONFIG_FILE=openhands_agent_server_config.json python -m openhands.agent_server --port 8000
+OPENHANDS_AGENT_SERVER_CONFIG_PATH=openhands_agent_server_config.json python -m openhands.agent_server --port 8000
 ```
 
 ## Configuration

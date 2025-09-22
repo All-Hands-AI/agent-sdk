@@ -404,7 +404,7 @@ class ConversationWebhookSubscriber:
         conversations_url = f"{self.spec.base_url.rstrip('/')}/conversations"
 
         # Convert conversation info to serializable format
-        conversation_data = conversation_info.model_dump()
+        conversation_data = conversation_info.model_dump(mode="json")
 
         # Retry logic
         for attempt in range(self.spec.num_retries + 1):

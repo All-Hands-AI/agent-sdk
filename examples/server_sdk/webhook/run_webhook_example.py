@@ -261,7 +261,7 @@ Examples:
 
         # Set environment variable for config file
         env = os.environ.copy()
-        env["OPENHANDS_CONFIG_FILE"] = str(config_path)
+        env["OPENHANDS_AGENT_SERVER_CONFIG_PATH"] = str(config_path)
 
         manager.start_process(
             agent_cmd, f"OpenHands Agent Server (port {args.agent_port})", env=env
