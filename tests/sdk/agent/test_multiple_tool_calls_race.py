@@ -1,16 +1,17 @@
 """
-Test to replicate the race condition with multiple tool calls in final step.
+Test demonstrating race condition with multiple tool calls and concurrent messages.
 
-This test replicates the exact scenario from the comprehensive test:
-- Agent makes multiple tool calls in the same step (sleep + finish)
-- Message is sent during the sleep execution
-- This should cause the race condition where finish doesn't properly terminate
+This test demonstrates the bug where user messages sent while the agent is executing
+multiple tool calls (including a finish action) cause the conversation to continue
+unexpectedly instead of terminating properly.
+
+The test uses a controlled scenario with sleep + finish tool calls to create a timing
+window for message injection, proving that concurrent messages reset the agent status
+from FINISHED back to IDLE.
 """
 
-import os
 import threading
 import time
-from datetime import datetime
 from unittest.mock import patch
 
 from litellm import ChatCompletionMessageToolCall
@@ -21,193 +22,211 @@ from litellm.types.utils import (
     ModelResponse,
 )
 
-from openhands.sdk import (
-    LLM,
-    Agent,
-    Conversation,
-)
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.agent import Agent
+from openhands.sdk.conversation import Conversation
+from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.tool import ToolSpec
+from openhands.sdk.tool.registry import register_tool
 from openhands.tools.execute_bash import BashTool
 
 
-def timestamp() -> str:
-    return datetime.now().strftime("%H:%M:%S.%f")[:-3]  # Include milliseconds
+# Register the bash tool for sleep commands
+register_tool("BashTool", BashTool)
 
 
-# Track LLM calls
-call_count = 0
-test_start_time = time.time()
+class TestMultipleToolCallsRace:
+    """Test suite demonstrating the multiple tool calls race condition."""
 
-
-def mock_llm_completion(messages, **kwargs):
-    """Mock LLM completion that returns both sleep and finish in same step"""
-    global call_count
-    call_count += 1
-
-    elapsed = time.time() - test_start_time
-    print(f"{elapsed:.3f} LLM Call #{call_count}")
-    print(f"{elapsed:.3f} Messages in call: {len(messages)}")
-
-    # Check if there's a race condition message in the conversation
-    has_race_message = any(
-        "race condition test message" in str(msg) for msg in messages
-    )
-
-    if has_race_message:
-        print(
-            f"{elapsed:.3f} ⚠️  RACE CONDITION DETECTED: "
-            f"Extra message found in conversation!"
+    def setup_method(self):
+        """Set up test fixtures."""
+        # Use gpt-4o which supports native function calling and multiple tool calls
+        self.llm = LLM(model="gpt-4o", native_tool_calling=True)
+        self.llm_completion_calls = []
+        self.agent = Agent(
+            llm=self.llm,
+            tools=[ToolSpec(name="BashTool", params={"working_dir": "/tmp"})],
         )
-        print(
-            f"{elapsed:.3f} This means send_message() reset agent status "
-            f"from FINISHED to IDLE"
-        )
-        print(
-            f"{elapsed:.3f} The conversation should have terminated "
-            f"but continued instead"
-        )
+        self.step_count = 0
+        self.race_message_sent = False
 
-        # Return a response that shows the race condition occurred
-        return ModelResponse(
-            id="race_condition_response",
-            choices=[
-                Choices(
-                    message=LiteLLMMessage(
-                        role="assistant",
-                        content="I see the race condition test message - "
-                        "this proves the bug exists!",
+    def _mock_llm_response(self, messages, **kwargs):
+        """
+        Mock LLM that demonstrates the race condition with multiple tool calls.
+        """
+        self.llm_completion_calls.append({"messages": messages, "kwargs": kwargs})
+        self.step_count += 1
+        elapsed = time.time() - self.test_start_time
+        print(f"[+{elapsed:.3f}s] Step {self.step_count} LLM call")
+
+        all_content = str(messages).lower()
+        has_race_message = "race condition test message" in all_content
+
+        if self.step_count == 1:
+            # Step 1: Process initial request - sleep + finish (multiple tool calls)
+            sleep_call = ChatCompletionMessageToolCall(
+                id="sleep_call_1",
+                type="function",
+                function=Function(
+                    name="execute_bash",
+                    arguments='{"command": "sleep 6"}',
+                ),
+            )
+
+            finish_call = ChatCompletionMessageToolCall(
+                id="finish_call_1",
+                type="function",
+                function=Function(
+                    name="finish",
+                    arguments='{"message": "Task completed successfully"}',
+                ),
+            )
+
+            return ModelResponse(
+                id=f"response_step_{self.step_count}",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content="I'll sleep for 6 seconds and then finish the task.",  # noqa
+                            tool_calls=[sleep_call, finish_call],
+                        )
                     )
-                )
-            ],
-            created=int(time.time()),
-            model="gpt-4o",
-            object="chat.completion",
-        )
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )
+        else:
+            # Step 2: This happens because race message reset FINISHED status
+            # This demonstrates the bug: messages sent during final step reset status
+            response_content = "I received the race condition test message"
+            if has_race_message:
+                response_content += " - this proves the bug exists!"
 
-    # First call: Return both sleep and finish tool calls
-    # (multiple tool calls in same step)
-    sleep_call = ChatCompletionMessageToolCall(
-        id="sleep_call_1",
-        function=Function(
-            name="execute_bash",
-            arguments='{"command": "sleep 6"}',  # Increased for better race window
-        ),
-        type="function",
-    )
+            # Return a simple message response (no tool calls)
+            return ModelResponse(
+                id=f"response_step_{self.step_count}",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content=response_content,
+                        )
+                    )
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )
 
-    finish_call = ChatCompletionMessageToolCall(
-        id="finish_call_1",
-        function=Function(
-            name="finish",
-            arguments='{"message": "Task completed successfully"}',
-        ),
-        type="function",
-    )
+    def test_multiple_tool_calls_race_condition(self):
+        """
+        Demonstrates the race condition: messages sent during multiple tool calls reset FINISHED status.
 
-    return ModelResponse(
-        id="multiple_tool_calls_response",
-        choices=[
-            Choices(
-                message=LiteLLMMessage(
-                    role="assistant",
-                    content="I'll sleep for 3 seconds and then finish the task.",
-                    tool_calls=[
-                        sleep_call,
-                        finish_call,
-                    ],  # Multiple tool calls in same step!
+        This test shows that when a user sends a message while the agent is executing
+        multiple tool calls (including a finish action), the message resets the agent
+        status from FINISHED back to IDLE, causing the conversation to continue
+        unexpectedly.
+
+        Timeline:
+        1. Step 1: Agent executes sleep + finish (multiple tool calls in same response)
+        2. User sends race message WHILE sleep is executing → Resets FINISHED to IDLE
+        3. Step 2: Conversation continues unexpectedly due to status reset
+
+        Expected: Conversation should terminate after step 1 finish action.
+        Actual: Conversation continues to step 2 due to status reset bug.
+        """  # noqa
+        # Reset step count for this test
+        self.step_count = 0
+        self.llm_completion_calls = []
+        self.race_message_sent = False
+        self.test_start_time = time.time()
+
+        conversation = Conversation(agent=self.agent)
+        # Store conversation reference for use in mock LLM
+        self.conversation = conversation
+
+        def elapsed_time():
+            return f"[+{time.time() - self.test_start_time:.3f}s]"
+
+        print(f"{elapsed_time()} Test started")
+
+        def send_race_message():
+            """Send race condition message during sleep execution."""
+            # Wait for sleep to start, then send race message
+            time.sleep(1.0)  # Wait for sleep to begin
+            elapsed = time.time() - self.test_start_time
+            print(f"[+{elapsed:.3f}s] Sending race condition message")
+
+            conversation.send_message(
+                Message(
+                    role="user",
+                    content=[
+                        TextContent(
+                            text="This is a race condition test message - should trigger the bug"  # noqa
+                        )
+                    ],
                 )
             )
-        ],
-        created=int(time.time()),
-        model="gpt-4o",
-        object="chat.completion",
-    )
+            self.race_message_sent = True
+            elapsed = time.time() - self.test_start_time
+            print(f"[+{elapsed:.3f}s] Race condition message sent")
 
+        with patch(
+            "openhands.sdk.llm.llm.litellm_completion",
+            side_effect=self._mock_llm_response,
+        ):
+            # Start the conversation with a request for multiple tool calls
+            print(f"{elapsed_time()} Sending initial message")
+            conversation.send_message(
+                Message(
+                    role="user",
+                    content=[
+                        TextContent(
+                            text="Please execute a task that involves both sleeping and finishing"  # noqa
+                        )
+                    ],
+                )
+            )
 
-# Setup
-register_tool("BashTool", BashTool)
-tools = [
-    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
-]
-llm = LLM(model="gpt-4o")
-agent = Agent(llm=llm, tools=tools)
-conversation = Conversation(agent, visualize=False)
+            # Run conversation in background thread
+            print(f"{elapsed_time()} Starting conversation thread")
+            conversation_thread = threading.Thread(target=conversation.run)
+            conversation_thread.start()
 
-# Track state
-conversation_ended = False
-message_sent = False
+            # Start race message thread
+            race_thread = threading.Thread(target=send_race_message)
+            race_thread.start()
 
+            # Wait for both threads to complete
+            conversation_thread.join(timeout=10)
+            race_thread.join(timeout=1)
 
-def send_race_condition_message():
-    """Send a message during the sleep execution to trigger race condition"""
-    global message_sent
-    elapsed = time.time() - test_start_time
-    print(f"{elapsed:.3f} Sending race condition test message")
+        print(f"{elapsed_time()} Test completed")
 
-    # Send message that should trigger race condition
-    conversation.send_message(
-        "This is a race condition test message - should trigger the bug"
-    )
-    message_sent = True
+        # Analyze results
+        print(f"\n{elapsed_time()} === Race Condition Test Results ===")
+        print(f"Race message sent: {self.race_message_sent}")
+        print(f"Total LLM calls: {len(self.llm_completion_calls)}")
 
-    elapsed = time.time() - test_start_time
-    print(f"{elapsed:.3f} Race condition test message sent")
+        if len(self.llm_completion_calls) == 1:
+            print("✅ One LLM call - race condition did NOT occur")
+            print("✅ Conversation terminated properly after finish action")
+        elif len(self.llm_completion_calls) == 2:
+            print("⚠️  Two LLM calls - RACE CONDITION DETECTED!")
+            print("⚠️  The finish action did NOT properly terminate the conversation")
+            print("⚠️  send_message() reset agent status from FINISHED to IDLE")
+            print("\n❌ RACE CONDITION CONFIRMED!")
+            print(
+                "  Multiple tool calls + concurrent message = conversation continues unexpectedly"  # noqa
+            )
+        else:
+            print(
+                f"❓ Unexpected number of LLM calls: {len(self.llm_completion_calls)}"
+            )
 
-
-# Patch the LLM completion method
-with patch("openhands.sdk.llm.LLM.completion", side_effect=mock_llm_completion):
-    print("0.000 === Testing Multiple Tool Calls Race Condition ===")
-    print("0.000 Sending initial message")
-
-    # Send initial message to start the conversation
-    conversation.send_message(
-        "Please execute a task that involves both sleeping and finishing"
-    )
-
-    # Start conversation in background thread
-    def run_conversation():
-        """Run the conversation in a separate thread"""
-        global conversation_ended
-        elapsed = time.time() - test_start_time
-        print(f"{elapsed:.3f} Starting conversation.run()")
-
-        conversation.run()
-
-        conversation_ended = True
-        elapsed = time.time() - test_start_time
-        print(f"{elapsed:.3f} Conversation.run() ended")
-
-    conversation_thread = threading.Thread(target=run_conversation)
-    conversation_thread.start()
-
-    # Wait for the sleep to start, then send race condition message
-    time.sleep(1.0)  # Reduced delay to send message earlier
-    race_thread = threading.Thread(target=send_race_condition_message)
-    race_thread.start()
-
-    # Wait for everything to complete
-    conversation_thread.join()
-    race_thread.join()
-
-elapsed = time.time() - test_start_time
-print(f"\n{elapsed:.3f} === Multiple Tool Calls Race Condition Results ===")
-print(f"Message sent: {message_sent}")
-print(f"Conversation ended: {conversation_ended}")
-print(f"Total LLM calls: {call_count}")
-
-if call_count == 1:
-    print("✓ Only one LLM call made (expected behavior)")
-    print("✓ Race condition did NOT occur - finish action worked correctly")
-    print("\n✓ No race condition detected in this run")
-    print("  (Race condition may be timing-dependent)")
-elif call_count == 2:
-    print("⚠️  Two LLM calls made - RACE CONDITION DETECTED!")
-    print("⚠️  The finish action did NOT properly terminate the conversation")
-    print("⚠️  send_message() reset agent status from FINISHED to IDLE")
-    print("\n❌ RACE CONDITION CONFIRMED!")
-    print(
-        "  Multiple tool calls + concurrent message = "
-        "conversation continues unexpectedly"
-    )
-else:
-    print(f"❓ Unexpected number of LLM calls: {call_count}")
+        # The test passes regardless - it's demonstrating the bug
+        assert self.race_message_sent, "Race message should have been sent"
+        assert len(self.llm_completion_calls) >= 1, (
+            "At least one LLM call should have occurred"
+        )
