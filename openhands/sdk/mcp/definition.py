@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Sequence
+from typing import Any
 
 import mcp.types
 from pydantic import Field
@@ -12,6 +13,7 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     ObservationBase,
 )
+from openhands.sdk.tool.schema import ActionBase
 from openhands.sdk.utils.visualize import display_dict
 
 
@@ -20,6 +22,30 @@ logger = get_logger(__name__)
 
 # NOTE: We don't define MCPToolAction because it
 # will be dynamically created from the MCP tool schema.
+
+
+class MCPToolAction(ActionBase):
+    """Schema for MCP input action.
+
+    It is just a thin wrapper around raw JSON and does
+    not do any validation.
+
+    Validation will be performed by MCPTool.__call__
+    by constructing dynamically created Pydantic model
+    from the MCP tool input schema.
+    """
+
+    data: dict[str, Any] = Field(
+        default_factory=dict, description="Dynamic data fields from the tool call"
+    )
+
+    def to_mcp_arguments(self) -> dict:
+        """Return the data field as MCP tool call arguments.
+
+        This is used to convert this action to MCP tool call arguments.
+        The data field contains the dynamic fields from the tool call.
+        """
+        return self.data
 
 
 class MCPToolObservation(ObservationBase):

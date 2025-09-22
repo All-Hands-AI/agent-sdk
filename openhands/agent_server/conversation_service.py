@@ -17,8 +17,9 @@ from openhands.agent_server.models import (
     StoredConversation,
 )
 from openhands.agent_server.pub_sub import Subscriber
+from openhands.agent_server.server_details_router import update_last_execution_time
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import Event, Message
+from openhands.sdk import EventBase, Message
 from openhands.sdk.conversation.state import AgentExecutionStatus
 
 
@@ -32,8 +33,8 @@ class ConversationService:
     all event_services are loaded into memory, and stored when it stops.
     """
 
-    event_services_path: Path = field(default=Path("workspace/event_services"))
-    workspace_path: Path = field(default=Path("workspace/project"))
+    event_services_path: Path = field()
+    workspace_path: Path = field()
     webhook_specs: list[WebhookSpec] = field(default_factory=list)
     session_api_key: str | None = field(default=None)
     _event_services: dict[UUID, EventService] | None = field(default=None, init=False)
@@ -262,8 +263,9 @@ class ConversationService:
 class _EventSubscriber(Subscriber):
     service: EventService
 
-    async def __call__(self, event: Event):
+    async def __call__(self, event: EventBase):
         self.service.stored.updated_at = utc_now()
+        update_last_execution_time()
 
 
 @dataclass
@@ -271,9 +273,9 @@ class WebhookSubscriber(Subscriber):
     service: EventService
     spec: WebhookSpec
     session_api_key: str | None = None
-    queue: list[Event] = field(default_factory=list)
+    queue: list[EventBase] = field(default_factory=list)
 
-    async def __call__(self, event: Event):
+    async def __call__(self, event: EventBase):
         """Add event to queue and post to webhook when buffer size is reached."""
         self.queue.append(event)
 

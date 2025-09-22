@@ -20,6 +20,7 @@ class WebhookSpec(BaseModel):
     # General parameters
     event_buffer_size: int = Field(
         default=10,
+        ge=1,
         description=(
             "The number of events to buffer locally before posting to the webhook"
         ),
@@ -33,9 +34,10 @@ class WebhookSpec(BaseModel):
     # Retry parameters
     num_retries: int = Field(
         default=3,
+        ge=0,
         description="The number of times to retry if the post operation fails",
     )
-    retry_delay: int = Field(default=5, description="The delay between retries")
+    retry_delay: int = Field(default=5, ge=0, description="The delay between retries")
 
 
 class Config(BaseModel):
@@ -67,7 +69,8 @@ class Config(BaseModel):
     workspace_path: Path = Field(
         default=Path("workspace/project"),
         description=(
-            "The location of the workspace directory where the agent reads/writes."
+            "The location of the project directory where the agent reads/writes. "
+            "Defaults to 'workspace/project'."
         ),
     )
     webhooks: list[WebhookSpec] = Field(

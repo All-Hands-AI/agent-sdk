@@ -2,18 +2,23 @@
 import json
 from enum import Enum
 from threading import RLock, get_ident
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import Field, PrivateAttr
 
-from openhands.sdk.agent.base import AgentType
+from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationID
-from openhands.sdk.event import Event
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
+from openhands.sdk.utils.models import OpenHandsModel
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -37,11 +42,11 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
-class ConversationState(BaseModel):
+class ConversationState(OpenHandsModel):
     # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
 
-    agent: AgentType = Field(
+    agent: AgentBase = Field(
         ...,
         description=(
             "The agent running in the conversation. "
@@ -53,9 +58,7 @@ class ConversationState(BaseModel):
 
     # Enum-based state management
     agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
-    confirmation_mode: bool = Field(
-        default=False
-    )  # Keep this as it's a configuration setting
+    confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
 
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list,
@@ -64,7 +67,7 @@ class ConversationState(BaseModel):
 
     # ===== Private attrs (NOT Fields) =====
     _lock: RLock = PrivateAttr(default_factory=RLock)
-    _owner_tid: Optional[int] = PrivateAttr(default=None)
+    _owner_tid: int | None = PrivateAttr(default=None)
     _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
     _fs: FileStore = PrivateAttr()  # filestore for persistence
     _events: EventLog = PrivateAttr()  # now the storage for events
@@ -74,7 +77,7 @@ class ConversationState(BaseModel):
 
     # ===== Public "events" facade (ListLike[Event]) =====
     @property
-    def events(self) -> ListLike[Event]:
+    def events(self) -> ListLike[EventBase]:
         return self._events
 
     # ===== Lock/guard API =====
@@ -116,7 +119,7 @@ class ConversationState(BaseModel):
     def create(
         cls: type["ConversationState"],
         id: ConversationID,
-        agent: AgentType,
+        agent: AgentBase,
         file_store: FileStore | None = None,
     ) -> "ConversationState":
         """

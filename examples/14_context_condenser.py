@@ -13,16 +13,16 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
-    Tool,
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.io.local import LocalFileStore
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
 
 
 logger = get_logger(__name__)
@@ -38,10 +38,13 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-    TaskTrackerTool.create(save_dir=cwd),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+register_tool("TaskTrackerTool", TaskTrackerTool)
+tools = [
+    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="FileEditorTool"),
+    ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
 ]
 
 # Create a condenser to manage the context. The condenser will automatically truncate
@@ -57,7 +60,7 @@ agent = Agent(llm=llm, tools=tools, condenser=condenser)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -72,68 +75,26 @@ conversation = Conversation(
 print("Sending multiple messages to demonstrate LLM Summarizing Condenser...")
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Hello! Can you create a Python file named math_utils.py with "
-                    "functions for basic arithmetic operations (add, subtract, "
-                    "multiply, divide)?"
-                )
-            )
-        ],
-    )
+    "Hello! Can you create a Python file named math_utils.py with functions for "
+    "basic arithmetic operations (add, subtract, multiply, divide)?"
 )
 conversation.run()
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text="Great! Now add a function to calculate the factorial of a number."
-            )
-        ],
-    )
+    "Great! Now add a function to calculate the factorial of a number."
+)
+conversation.run()
+
+conversation.send_message("Add a function to check if a number is prime.")
+conversation.run()
+
+conversation.send_message(
+    "Add a function to calculate the greatest common divisor (GCD) of two numbers."
 )
 conversation.run()
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Add a function to check if a number is prime.")],
-    )
-)
-conversation.run()
-
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Add a function to calculate the greatest common divisor (GCD) "
-                    "of two numbers."
-                )
-            )
-        ],
-    )
-)
-conversation.run()
-
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Now create a test file to verify all these functions work "
-                    "correctly."
-                )
-            )
-        ],
-    )
+    "Now create a test file to verify all these functions work correctly."
 )
 conversation.run()
 
@@ -155,12 +116,7 @@ conversation = Conversation(
 )
 
 print("Sending message to deserialized conversation...")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Finally, clean up by deleting both files.")],
-    )
-)
+conversation.send_message("Finally, clean up by deleting both files.")
 conversation.run()
 
 

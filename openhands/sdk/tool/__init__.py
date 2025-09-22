@@ -1,34 +1,36 @@
 """OpenHands runtime package."""
 
 from openhands.sdk.tool.builtins import BUILT_IN_TOOLS, FinishTool, ThinkTool
+from openhands.sdk.tool.registry import (
+    list_registered_tools,
+    register_tool,
+    resolve_tool,
+)
 from openhands.sdk.tool.schema import (
-    Action,
     ActionBase,
-    MCPActionBase,
-    Observation,
     ObservationBase,
 )
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import (
     Tool,
     ToolAnnotations,
+    ToolBase,
     ToolExecutor,
-    ToolType,
 )
 
 
 __all__ = [
     "Tool",
-    "ToolType",
+    "ToolBase",
     "ToolSpec",
     "ToolAnnotations",
     "ToolExecutor",
     "ActionBase",
-    "MCPActionBase",
-    "Action",
     "ObservationBase",
-    "Observation",
     "FinishTool",
     "ThinkTool",
     "BUILT_IN_TOOLS",
+    "register_tool",
+    "resolve_tool",
+    "list_registered_tools",
 ]

@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import copy
 import json
 import os
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -12,10 +14,15 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    field_serializer,
     field_validator,
     model_validator,
 )
 from pydantic.json_schema import SkipJsonSchema
+
+
+if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
+    from openhands.sdk.tool.tool import ToolBase
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -55,6 +62,7 @@ logger = get_logger(__name__)
 
 __all__ = ["LLM"]
 
+
 # Exceptions we retry on
 LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     APIConnectionError,
@@ -86,39 +94,44 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     openrouter_site_url: str = Field(default="https://docs.all-hands.dev/")
     openrouter_app_name: str = Field(default="OpenHands")
 
-    num_retries: int = Field(default=5)
-    retry_multiplier: float = Field(default=8)
-    retry_min_wait: int = Field(default=8)
-    retry_max_wait: int = Field(default=64)
+    num_retries: int = Field(default=5, ge=0)
+    retry_multiplier: float = Field(default=8.0, ge=0)
+    retry_min_wait: int = Field(default=8, ge=0)
+    retry_max_wait: int = Field(default=64, ge=0)
 
-    timeout: int | None = Field(default=None, description="HTTP timeout (s).")
+    timeout: int | None = Field(default=None, ge=0, description="HTTP timeout (s).")
 
     max_message_chars: int = Field(
         default=30_000,
+        ge=1,
         description="Approx max chars in each event/content sent to the LLM.",
     )
 
-    temperature: float | None = Field(default=0.0)
-    top_p: float | None = Field(default=1.0)
-    top_k: float | None = Field(default=None)
+    temperature: float | None = Field(default=0.0, ge=0)
+    top_p: float | None = Field(default=1.0, ge=0, le=1)
+    top_k: float | None = Field(default=None, ge=0)
 
     custom_llm_provider: str | None = Field(default=None)
     max_input_tokens: int | None = Field(
         default=None,
+        ge=1,
         description="The maximum number of input tokens. "
         "Note that this is currently unused, and the value at runtime is actually"
         " the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).",
     )
     max_output_tokens: int | None = Field(
         default=None,
+        ge=1,
         description="The maximum number of output tokens. This is sent to the LLM.",
     )
     input_cost_per_token: float | None = Field(
         default=None,
+        ge=0,
         description="The cost per input token. This will available in logs for user.",
     )
     output_cost_per_token: float | None = Field(
         default=None,
+        ge=0,
         description="The cost per output token. This will available in logs for user.",
     )
     ollama_base_url: str | None = Field(default=None)
@@ -295,6 +308,24 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return self
 
     # =========================================================================
+    # Serializers
+    # =========================================================================
+    @field_serializer(
+        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="json"
+    )
+    def _serialize_secrets(self, v: SecretStr | None, info):
+        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Check if the 'expose_secrets' flag is in the serialization context
+        if info.context and info.context.get("expose_secrets"):
+            return v.get_secret_value()
+
+        # Let Pydantic handle the default masking
+        return v
+
+    # =========================================================================
     # Public API
     # =========================================================================
     @property
@@ -307,8 +338,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[Message],
-        tools: list[ChatCompletionToolParam] | None = None,
+        tools: Sequence[ToolBase] | None = None,
         return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> ModelResponse:
         """Single entry point for LLM completion.
@@ -325,21 +357,31 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
         original_fncall_msgs = copy.deepcopy(formatted_messages)
-        use_mock_tools = self.should_mock_tool_calls(tools)
+
+        # Convert Tool objects to ChatCompletionToolParam once here
+        cc_tools: list[ChatCompletionToolParam] = []
+        if tools:
+            cc_tools = [
+                t.to_openai_tool(
+                    add_security_risk_prediction=add_security_risk_prediction
+                )
+                for t in tools
+            ]
+
+        use_mock_tools = self.should_mock_tool_calls(cc_tools)
         if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
             formatted_messages, kwargs = self.pre_request_prompt_mock(
-                formatted_messages, tools or [], kwargs
+                formatted_messages, cc_tools or [], kwargs
             )
 
         # 3) normalize provider params
-        kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        has_tools_flag = (
-            bool(tools) and use_native_fc
-        )  # only keep tools when native FC is active
+        # Only pass tools when native FC is active
+        kwargs["tools"] = cc_tools if (bool(cc_tools) and use_native_fc) else None
+        has_tools_flag = bool(cc_tools) and use_native_fc
         call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
@@ -374,7 +416,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
                 resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=formatted_messages, tools=tools or []
+                    resp, nonfncall_msgs=formatted_messages, tools=cc_tools
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)

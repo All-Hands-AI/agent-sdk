@@ -8,7 +8,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import List
 
 from tests.integration.schemas import (
     ConsolidatedResults,
@@ -16,7 +15,7 @@ from tests.integration.schemas import (
 )
 
 
-def find_json_results(results_dir: str) -> List[Path]:
+def find_json_results(results_dir: str) -> list[Path]:
     """Find all JSON result files in the results directory."""
     results_path = Path(results_dir)
     if not results_path.exists():
@@ -34,7 +33,7 @@ def find_json_results(results_dir: str) -> List[Path]:
     return json_files
 
 
-def load_and_validate_results(json_files: List[Path]) -> List[ModelTestResults]:
+def load_and_validate_results(json_files: list[Path]) -> list[ModelTestResults]:
     """Load and validate JSON result files."""
     model_results = []
 
@@ -58,7 +57,7 @@ def load_and_validate_results(json_files: List[Path]) -> List[ModelTestResults]:
     return model_results
 
 
-def consolidate_results(model_results: List[ModelTestResults]) -> ConsolidatedResults:
+def consolidate_results(model_results: list[ModelTestResults]) -> ConsolidatedResults:
     """Consolidate individual model results into a single structure."""
     print(f"\nConsolidating {len(model_results)} model results...")
 

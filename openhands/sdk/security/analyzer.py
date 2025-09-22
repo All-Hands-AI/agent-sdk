@@ -1,13 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Annotated
 
-from openhands.sdk.event import Event
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
 )
 
 
@@ -40,7 +38,7 @@ class SecurityAnalyzerBase(DiscriminatedUnionMixin, ABC):
         """
         pass
 
-    def analyze_event(self, event: Event) -> SecurityRisk | None:
+    def analyze_event(self, event: EventBase) -> SecurityRisk | None:
         """Analyze an event for security risks.
 
         This is a convenience method that checks if the event is an action
@@ -111,8 +109,3 @@ class SecurityAnalyzerBase(DiscriminatedUnionMixin, ABC):
                 analyzed_actions.append((action_event, SecurityRisk.HIGH))
 
         return analyzed_actions
-
-
-SecurityAnalyzer = Annotated[
-    SecurityAnalyzerBase, DiscriminatedUnionType[SecurityAnalyzerBase]
-]

@@ -34,7 +34,6 @@ from openhands.tools.browser_use.definition import (
     browser_switch_tab_tool,
     browser_type_tool,
 )
-from openhands.tools.browser_use.impl import BrowserToolExecutor
 
 
 __all__ = [
@@ -73,7 +72,5 @@ __all__ = [
     "BrowserCloseTabAction",
     # Observations
     "BrowserObservation",
-    # Executor
-    "BrowserToolExecutor",
     "BrowserToolSet",
 ]

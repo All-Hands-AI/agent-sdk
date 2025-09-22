@@ -1,13 +1,19 @@
 """Browser-use tool implementation for web automation."""
 
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
-from openhands.tools.browser_use.impl import BrowserToolExecutor
+
+
+# Lazy import to avoid hanging during module import
+if TYPE_CHECKING:
+    from openhands.tools.browser_use.impl import BrowserToolExecutor
 
 
 # Maximum output size for browser observations
@@ -84,7 +90,7 @@ class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
     """Tool for browser navigation."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_navigate_tool.name,
             description=BROWSER_NAVIGATE_DESCRIPTION,
@@ -102,7 +108,7 @@ class BrowserClickAction(ActionBase):
     """Schema for clicking elements."""
 
     index: int = Field(
-        description="The index of the element to click (from browser_get_state)"
+        ge=0, description="The index of the element to click (from browser_get_state)"
     )
     new_tab: bool = Field(
         default=False,
@@ -141,7 +147,7 @@ class BrowserClickTool(Tool[BrowserClickAction, BrowserObservation]):
     """Tool for clicking browser elements."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_click_tool.name,
             description=BROWSER_CLICK_DESCRIPTION,
@@ -159,7 +165,7 @@ class BrowserTypeAction(ActionBase):
     """Schema for typing text into elements."""
 
     index: int = Field(
-        description="The index of the input element (from browser_get_state)"
+        ge=0, description="The index of the input element (from browser_get_state)"
     )
     text: str = Field(description="The text to type")
 
@@ -195,7 +201,7 @@ class BrowserTypeTool(Tool[BrowserTypeAction, BrowserObservation]):
     """Tool for typing text into browser elements."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_type_tool.name,
             description=BROWSER_TYPE_DESCRIPTION,
@@ -246,7 +252,7 @@ class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
     """Tool for getting browser state."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_get_state_tool.name,
             description=BROWSER_GET_STATE_DESCRIPTION,
@@ -269,6 +275,7 @@ class BrowserGetContentAction(ActionBase):
     )
     start_from_char: int = Field(
         default=0,
+        ge=0,
         description="Character index to start from in the page content (default: 0)",
     )
 
@@ -297,7 +304,7 @@ class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
     """Tool for getting page content in markdown."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_get_content_tool.name,
             description=BROWSER_GET_CONTENT_DESCRIPTION,
@@ -348,7 +355,7 @@ class BrowserScrollTool(Tool[BrowserScrollAction, BrowserObservation]):
     """Tool for scrolling the browser page."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_scroll_tool.name,
             description=BROWSER_SCROLL_DESCRIPTION,
@@ -393,7 +400,7 @@ class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
     """Tool for going back in browser history."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_go_back_tool.name,
             description=BROWSER_GO_BACK_DESCRIPTION,
@@ -438,7 +445,7 @@ class BrowserListTabsTool(Tool[BrowserListTabsAction, BrowserObservation]):
     """Tool for listing browser tabs."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_list_tabs_tool.name,
             description=BROWSER_LIST_TABS_DESCRIPTION,
@@ -488,7 +495,7 @@ class BrowserSwitchTabTool(Tool[BrowserSwitchTabAction, BrowserObservation]):
     """Tool for switching browser tabs."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_switch_tab_tool.name,
             description=BROWSER_SWITCH_TAB_DESCRIPTION,
@@ -537,7 +544,7 @@ class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
     """Tool for closing browser tabs."""
 
     @classmethod
-    def create(cls, executor: BrowserToolExecutor):
+    def create(cls, executor: "BrowserToolExecutor"):
         return cls(
             name=browser_close_tab_tool.name,
             description=BROWSER_CLOSE_TAB_DESCRIPTION,
@@ -548,7 +555,7 @@ class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
         )
 
 
-class BrowserToolSet(Tool):
+class BrowserToolSet(ToolBase):
     """A set of all browser tools.
 
     This tool set includes all available browser-related tools
@@ -556,7 +563,11 @@ class BrowserToolSet(Tool):
     """
 
     @classmethod
-    def create(cls) -> list[Tool]:
+    def create(cls) -> list[ToolBase]:
+        # Import executor only when actually needed to
+        # avoid hanging during module import
+        from openhands.tools.browser_use.impl import BrowserToolExecutor
+
         executor = BrowserToolExecutor()
         return [
             browser_navigate_tool.set_executor(executor),

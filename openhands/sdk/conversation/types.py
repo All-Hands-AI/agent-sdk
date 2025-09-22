@@ -1,10 +1,10 @@
 import uuid
 from typing import Callable
 
-from openhands.sdk.event import Event
+from openhands.sdk.event.base import EventBase
 
 
-ConversationCallbackType = Callable[[Event], None]
+ConversationCallbackType = Callable[[EventBase], None]
 
 ConversationID = uuid.UUID
 """Type alias for conversation IDs."""
