@@ -14,6 +14,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import OpenHandsModel
+from openhands.tools.execute_bash import ExecuteBashAction, ExecuteBashObservation
 
 
 class ConversationSortOrder(str, Enum):
@@ -111,4 +112,14 @@ class Success(BaseModel):
 
 class EventPage(OpenHandsModel):
     items: list[EventBase]
+    next_page_id: str | None = None
+
+
+# Workspace-related models
+
+
+class BashEventPage(BaseModel):
+    """Page of bash events."""
+
+    items: list[ExecuteBashAction | ExecuteBashObservation]
     next_page_id: str | None = None

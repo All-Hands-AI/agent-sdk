@@ -93,6 +93,13 @@ class Config(BaseModel):
         default_factory=list,
         description="Webhooks to invoke in response to events",
     )
+    bash_events_path: Path = Field(
+        default=Path("workspace/bash_events.json"),
+        description=(
+            "The location of the file where bash command events and observations "
+            "are stored. Defaults to 'workspace/bash_events.json'."
+        ),
+    )
     model_config = {"frozen": True}
 
     @classmethod
@@ -118,6 +125,8 @@ class Config(BaseModel):
             and config_data["static_files_path"] is not None
         ):
             config_data["static_files_path"] = Path(config_data["static_files_path"])
+        if "bash_events_path" in config_data:
+            config_data["bash_events_path"] = Path(config_data["bash_events_path"])
 
         return cls(**config_data)
 

@@ -25,6 +25,10 @@ from openhands.agent_server.middleware import (
 )
 from openhands.agent_server.server_details_router import router as server_details_router
 from openhands.agent_server.tool_router import router as tool_router
+from openhands.agent_server.workspace_router import router as workspace_router
+from openhands.agent_server.workspace_service import (
+    get_default_workspace_service,
+)
 from openhands.sdk.logger import get_logger
 
 
@@ -33,9 +37,13 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
-    service = get_default_conversation_service()
-    async with service:
-        yield
+    conversation_service = get_default_conversation_service()
+    workspace_service = get_default_workspace_service()
+    async with conversation_service:
+        try:
+            yield
+        finally:
+            await workspace_service.close()
 
 
 def _create_fastapi_instance() -> FastAPI:
@@ -63,6 +71,7 @@ def _add_api_routes(app: FastAPI) -> None:
     app.include_router(conversation_router)
     app.include_router(server_details_router)
     app.include_router(tool_router)
+    app.include_router(workspace_router)
 
 
 def _setup_static_files(app: FastAPI, config: Config) -> None:
