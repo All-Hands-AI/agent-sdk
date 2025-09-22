@@ -1,9 +1,10 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.requests import Request
 
 from openhands.agent_server.config import (
     Config,
@@ -24,6 +25,10 @@ from openhands.agent_server.middleware import (
 )
 from openhands.agent_server.server_details_router import router as server_details_router
 from openhands.agent_server.tool_router import router as tool_router
+from openhands.sdk.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -113,6 +118,40 @@ def _add_middleware(app: FastAPI, config: Config) -> None:
         )
 
 
+def _add_exception_handlers(api: FastAPI) -> None:
+    @api.exception_handler(Exception)
+    async def _unhandled_exception_handler(request: Request, exc: Exception):
+        # Logs full stack trace for any unhandled error that FastAPI would
+        # turn into a 500
+        logger.exception(
+            "Unhandled exception on %s %s", request.method, request.url.path
+        )
+        return JSONResponse(
+            status_code=500, content={"detail": "Internal Server Error"}
+        )
+
+    @api.exception_handler(HTTPException)
+    async def _http_exception_handler(request: Request, exc: HTTPException):
+        # Also log explicit HTTPExceptions that are 5xx
+        # (sometimes raised intentionally)
+        if exc.status_code >= 500:
+            # exc_info=True ensures a traceback is emitted from here
+            logger.error(
+                "HTTPException %d on %s %s: %s",
+                exc.status_code,
+                request.method,
+                request.url.path,
+                exc.detail,
+                exc_info=True,
+            )
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": "Internal Server Error\n" + str(exc.detail)},
+            )
+        # Let non-5xx behave normally (but still return JSON)
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
 def create_app(config: Config | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -124,18 +163,11 @@ def create_app(config: Config | None = None) -> FastAPI:
     """
     if config is None:
         config = get_default_config()
-
-    # Create the basic FastAPI instance
     app = _create_fastapi_instance()
-
-    # Add all API routes
     _add_api_routes(app)
-
-    # Set up static file serving if configured
     _setup_static_files(app, config)
-
-    # Add middleware
     _add_middleware(app, config)
+    _add_exception_handlers(app)
 
     return app
 

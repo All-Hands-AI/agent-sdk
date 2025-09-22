@@ -50,8 +50,10 @@ class ValidateSessionAPIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        session_api_key = request.headers.get("X-Session-API-Key")
-        if session_api_key != self.session_api_key:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+        # Skip authentication for health check and server info endpoints
+        if request.url.path not in ["/alive", "/health", "/server_info"]:
+            session_api_key = request.headers.get("X-Session-API-Key")
+            if session_api_key != self.session_api_key:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED)
         response = await call_next(request)
         return response
