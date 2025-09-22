@@ -299,10 +299,20 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             visited.add(oid)
 
             if isinstance(obj, LLM):
+                out: list[LLM] = []
+                # Yield this LLM if we haven't seen it before
                 if oid not in seen_llms:
                     seen_llms.add(oid)
-                    return (obj,)
-                return ()
+                    out.append(obj)
+
+                # Also traverse its fields (LLM might contain other LLMs)
+                for name in type(obj).model_fields:
+                    try:
+                        val = getattr(obj, name)
+                    except Exception:
+                        continue
+                    out.extend(_walk(val))
+                return out
 
             # Pydantic models: iterate declared fields
             if isinstance(obj, BaseModel):

@@ -1,4 +1,5 @@
 from openhands.sdk import LLM, Agent, LLMSummarizingCondenser
+from openhands.sdk.llm.router import MultimodalRouter
 
 
 def check_service_id_exists(service_id: str, llms: list[LLM]):
@@ -62,3 +63,30 @@ def test_automatic_llm_discovery_for_custom_agent_with_duplicates():
     assert check_service_id_exists(router_service_id, llms)
     assert check_service_id_exists(router_service_id_2, llms)
     assert check_service_id_exists(condenser_service_id, llms)
+
+
+def test_automatic_llm_discovery_with_multimodal_router():
+    """Test that LLMs inside a MultimodalRouter are discovered correctly."""
+    primary_service_id = "primary-llm"
+    secondary_service_id = "secondary-llm"
+
+    # Create LLMs for the router
+    primary_llm = LLM(model="test-primary-model", service_id=primary_service_id)
+    secondary_llm = LLM(model="test-secondary-model", service_id=secondary_service_id)
+
+    # Create MultimodalRouter with the LLMs
+    multimodal_router = MultimodalRouter(
+        llms_for_routing={"primary": primary_llm, "secondary": secondary_llm}
+    )
+
+    # Create agent with the router
+    agent = Agent(llm=multimodal_router)
+
+    # Get all LLMs and verify they are discovered
+    llms = list(agent.get_all_llms())
+
+    # The router itself should be found, plus the two LLMs inside it
+    assert len(llms) == 3
+    assert check_service_id_exists("default", llms)  # The router's service_id
+    assert check_service_id_exists(primary_service_id, llms)
+    assert check_service_id_exists(secondary_service_id, llms)
