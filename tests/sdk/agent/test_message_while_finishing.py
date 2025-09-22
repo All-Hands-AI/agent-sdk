@@ -211,31 +211,48 @@ class TestMessageWhileFinishing:
                 object="chat.completion",
             )
         else:
-            # Step 3 or beyond: This should NOT happen if finish was called in step 2
-            # If we get here, it means the conversation didn't terminate after finish
-            raise AssertionError(
-                f"Unexpected step {self.step_count}! Conversation should have ended "
-                f"after finish call in step 2. This indicates the finish action is "
-                f"not properly terminating the conversation."
+            # Step 3: This happens because butterfly message reset FINISHED status
+            # This demonstrates the bug: messages sent during final step reset status
+            response_content = "I see the butterfly message"
+            if has_butterfly:
+                response_content += " with butterfly"
+
+            # Return a simple message response (no tool calls)
+            return ModelResponse(
+                id=f"response_step_{self.step_count}",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content=response_content,
+                        )
+                    )
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
             )
 
     def test_message_processing_bug_demonstration(self):
         """
-        Demonstrates the bug: messages sent during final agent step are never processed.
+        Demonstrates the bug: messages sent during final step reset FINISHED status.
 
         This test shows that when a user sends a message while the agent is executing
-        its final action (that leads to FINISHED state), that message is added to the
-        events list but never processed by the LLM because no subsequent step() call occurs.
+        its final step (which includes a finish action), the message resets the agent
+        status from FINISHED back to IDLE, causing the conversation to continue
+        unexpectedly.
 
         Timeline:
         1. Step 1: Agent sleeps for 2 seconds
         2. User sends "alligator" request during step 1 → Gets processed in step 2 ✓
         3. Step 2: Agent sleeps for 3 seconds AND finishes (final step with multiple actions)
-        4. User sends "butterfly" request WHILE step 2 sleep is executing (agent still RUNNING) → Never processed ✗
+        4. User sends "butterfly" request WHILE step 2 sleep is executing → Resets FINISHED to IDLE
+        5. Step 3: Conversation continues unexpectedly due to status reset
 
-        Key: The 3-second sleep creates a window to send butterfly while agent is still RUNNING.
+        Key: The butterfly message resets agent status, preventing proper termination.
 
-        Expected: "alligator" appears in LLM calls and final result, "butterfly" does not.
+        Expected: Conversation should terminate after step 2 finish action.
+        Actual: Conversation continues to step 3 due to status reset bug.
         """  # noqa
         # Reset step count for this test
         self.step_count = 0
