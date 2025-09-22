@@ -361,7 +361,7 @@ class WebhookSubscriber(Subscriber):
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.request(
-                        method=self.spec.method,
+                        method="POST",
                         url=events_url,
                         json=event_data,
                         headers=headers,
@@ -411,7 +411,7 @@ class ConversationWebhookSubscriber:
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.request(
-                        method=self.spec.method,
+                        method="POST",
                         url=conversations_url,
                         json=conversation_data,
                         headers=headers,

@@ -54,7 +54,6 @@ def webhook_spec():
     return WebhookSpec(
         base_url="https://example.com",
         event_buffer_size=3,
-        method="POST",
         headers={"Content-Type": "application/json", "Authorization": "Bearer token"},
         num_retries=2,
         retry_delay=1,
