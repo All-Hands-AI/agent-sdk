@@ -39,7 +39,6 @@ class OpenHandsWebChat {
         this.newConversationModal = document.getElementById('new-conversation-modal');
         this.newConversationForm = document.getElementById('new-conversation-form');
         this.initialMessageInput = document.getElementById('initial-message');
-        this.maxIterationsInput = document.getElementById('max-iterations');
         this.jsonParametersInput = document.getElementById('json-parameters');
         this.jsonValidationError = document.getElementById('json-validation-error');
         this.resetJsonBtn = document.getElementById('reset-json-btn');
@@ -567,7 +566,6 @@ class OpenHandsWebChat {
     saveDialogSettings() {
         const settings = {
             initialMessage: this.initialMessageInput.value,
-            maxIterations: this.maxIterationsInput.value,
             jsonParameters: this.jsonParametersInput.value
         };
         localStorage.setItem('openhandsDialogSettings', JSON.stringify(settings));
@@ -579,28 +577,39 @@ class OpenHandsWebChat {
             if (saved) {
                 const settings = JSON.parse(saved);
                 this.initialMessageInput.value = settings.initialMessage || '';
-                this.maxIterationsInput.value = settings.maxIterations || '500';
                 this.jsonParametersInput.value = settings.jsonParameters || '';
+                this.validateJsonParameters();
+            } else {
+                // If no saved settings, use the first example from START_CONVERSATION_EXAMPLES
+                this.jsonParametersInput.value = this.getDefaultJsonParameters();
                 this.validateJsonParameters();
             }
         } catch (error) {
             console.warn('Failed to load dialog settings from localStorage:', error);
+            // Fallback to default if localStorage fails
+            this.jsonParametersInput.value = this.getDefaultJsonParameters();
+            this.validateJsonParameters();
         }
     }
 
     getDefaultJsonParameters() {
+        // Based on the first example from START_CONVERSATION_EXAMPLES
         return JSON.stringify({
             agent: {
                 llm: {
                     model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                    base_url: "https://llm-proxy.eval.all-hands.dev",
-                    api_key: "placeholder"
+                    base_url: "https://llm-proxy.app.all-hands.dev",
+                    api_key: "secret"
                 },
                 tools: [
                     { name: "BashTool", params: { working_dir: "/workspace" } },
-                    { name: "FileEditor" },
-                    { name: "TaskTracker" }
+                    { name: "FileEditorTool", params: { workspace_root: "/workspace" } },
+                    { name: "TaskTrackerTool", params: { save_dir: "/conversations" } }
                 ]
+            },
+            initial_message: {
+                role: "user",
+                content: [{ text: "Flip a coin!" }]
             }
         }, null, 2);
     }
@@ -661,7 +670,6 @@ class OpenHandsWebChat {
         }
 
         const initialMessage = this.initialMessageInput.value.trim();
-        const maxIterations = parseInt(this.maxIterationsInput.value) || 500;
         const jsonParameters = this.jsonParametersInput.value.trim();
         
         try {
@@ -673,29 +681,13 @@ class OpenHandsWebChat {
                 // Use custom JSON parameters
                 try {
                     requestBody = JSON.parse(jsonParameters);
-                    // Ensure max_iterations is set
-                    requestBody.max_iterations = maxIterations;
                 } catch (error) {
                     this.showError('Invalid JSON parameters: ' + error.message);
                     return;
                 }
             } else {
-                // Use default parameters
-                requestBody = {
-                    agent: {
-                        llm: {
-                            model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                            base_url: "https://llm-proxy.eval.all-hands.dev",
-                            api_key: "placeholder" // This should be set via environment variable
-                        },
-                        tools: [
-                            { name: "BashTool", params: { working_dir: "/workspace" } },
-                            { name: "FileEditor" },
-                            { name: "TaskTracker" }
-                        ]
-                    },
-                    max_iterations: maxIterations
-                };
+                // Use default parameters based on START_CONVERSATION_EXAMPLES
+                requestBody = JSON.parse(this.getDefaultJsonParameters());
             }
             
             if (initialMessage) {
