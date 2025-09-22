@@ -1,12 +1,12 @@
 import json
-from typing import Any, cast
+from typing import cast
 
 from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message as LiteLLMMessage,
 )
-from pydantic import ValidationError, field_validator
+from pydantic import ValidationError
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
@@ -29,12 +29,12 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security import risk
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
-    BUILT_IN_TOOLS,
     ActionBase,
     FinishTool,
     ObservationBase,
-    Tool,
 )
 from openhands.sdk.tool.builtins import FinishAction
 
@@ -43,72 +43,15 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
-    @field_validator("tools", mode="before")
-    @classmethod
-    def _normalize_tools(cls, v: Any) -> dict[str, "Tool"]:
-        # Fast path: already a dict[str, Tool]
-        if isinstance(v, dict) and all(isinstance(t, Tool) for t in v.values()):
-            user_tools = cast(dict[str, Tool], v)
-        else:
-            # Accept Mapping[str, Tool|dict]
-            if isinstance(v, dict):
-                items = v.items()
-            # Accept Iterable[Tool|dict]
-            elif isinstance(v, list):
-                items = (
-                    (t.name if isinstance(t, Tool) else t.get("name"), t) for t in v
-                )
-            else:
-                raise TypeError(
-                    "`tools` must be a dict[str, Tool|dict] or an iterable of Tool|dict"
-                )
-
-            user_tools: dict[str, Tool] = {}
-            for name, payload in items:
-                if not name or not isinstance(name, str):
-                    raise ValueError("Each tool must have a non-empty string `name`")
-                tool = (
-                    payload
-                    if isinstance(payload, Tool)
-                    else Tool.model_validate(payload)
-                )
-                if name in user_tools:
-                    raise ValueError(f"Duplicate tool name: {name}")
-                # Trust the tool's own name; also ensure it
-                # matches the key if coming from a dict
-                if tool.name != name:
-                    raise ValueError(
-                        f"Tool key/name mismatch: key={name} vs tool.name={tool.name}"
-                    )
-                user_tools[name] = tool
-
-        # Make it idempotent:
-        # 1) If user provided a tool identical to a built-in, drop the user copy.
-        # 2) If user tries to override a built-in with different contents, error.
-        builtin_map = {t.name: t for t in BUILT_IN_TOOLS}
-        to_delete: list[str] = []
-        for name in set(user_tools) & set(builtin_map):
-            user_tool = user_tools[name]
-            builtin_tool = builtin_map[name]
-            # Compare meaningful fields; avoid identity. Use model_dump() to be explicit
-            if user_tool.model_dump() == builtin_tool.model_dump():
-                to_delete.append(name)  # keep canonical built-in
-            else:
-                raise ValueError(f"Tool '{name}' is built-in and cannot be overridden.")
-
-        for name in to_delete:
-            del user_tools[name]
-
-        # Built-ins last; ensures no duplicates
-        return {**user_tools, **builtin_map}
+    @property
+    def _add_security_risk_prediction(self) -> bool:
+        return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
 
     def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
         """
         Configure bash tool with reference to secrets manager.
         Updated secrets automatically propagate.
         """
-        if not isinstance(self.tools, dict):
-            return
 
         secrets_manager = state.secrets_manager
 
@@ -125,7 +68,7 @@ class Agent(AgentBase):
                 return ""
 
         execute_bash_exists = False
-        for tool in self.tools.values():
+        for tool in self.tools_map.values():
             if (
                 tool.name == "execute_bash"
                 and hasattr(tool, "executor")
@@ -144,6 +87,7 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        super().init_state(state, on_event=on_event)
         # TODO(openhands): we should add test to test this init_state will actually
         # modify state in-place
 
@@ -154,12 +98,16 @@ class Agent(AgentBase):
             event for event in state.events if isinstance(event, LLMConvertibleEvent)
         ]
         if len(llm_convertible_messages) == 0:
-            assert isinstance(self.tools, dict)
             # Prepare system message
             event = SystemPromptEvent(
                 source="agent",
                 system_prompt=TextContent(text=self.system_message),
-                tools=[t.to_openai_tool() for t in self.tools.values()],
+                tools=[
+                    t.to_openai_tool(
+                        add_security_risk_prediction=self._add_security_risk_prediction
+                    )
+                    for t in self.tools_map.values()
+                ],
             )
             on_event(event)
 
@@ -216,11 +164,10 @@ class Agent(AgentBase):
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        assert isinstance(self.tools, dict)
-        tools = list(self.tools.values())
         response = self.llm.completion(
             messages=_messages,
-            tools=tools,
+            tools=list(self.tools_map.values()),
+            add_security_risk_prediction=self._add_security_risk_prediction,
             extra_body={
                 "metadata": get_llm_metadata(
                     model_name=self.llm.model, agent_name=self.name
@@ -305,14 +252,31 @@ class Agent(AgentBase):
             2. Every action requires confirmation
             3. A single `FinishAction` never requires confirmation
         """
-        if len(action_events) == 0:
-            return False
-
+        # A single `FinishAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
             action_events[0].action, FinishAction
         ):
             return False
 
+        # If there are no actions there is nothing to confirm
+        if len(action_events) == 0:
+            return False
+
+        # If a security analyzer is registered, use it to check the action events and
+        # see if confirmation is needed.
+        if self.security_analyzer is not None:
+            risks = self.security_analyzer.analyze_pending_actions(action_events)
+            for _, risk in risks:
+                if self.security_analyzer.should_require_confirmation(
+                    risk, state.confirmation_mode
+                ):
+                    state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                    return True
+            # If the security analyzer doesn't tell us to stop, we shouldn't stop, even
+            # if the confirmation mode is on.
+            return False
+
+        # If confirmation mode is disabled, no confirmation is needed
         if not state.confirmation_mode:
             return False
 
@@ -336,11 +300,11 @@ class Agent(AgentBase):
         assert tool_call.type == "function"
         tool_name = tool_call.function.name
         assert tool_name is not None, "Tool call must have a name"
-        assert isinstance(self.tools, dict)
-        tool = self.tools.get(tool_name, None)
+        tool = self.tools_map.get(tool_name, None)
         # Handle non-existing tools
         if tool is None:
-            err = f"Tool '{tool_name}' not found. Available: {list(self.tools.keys())}"
+            available = list(self.tools_map.keys())
+            err = f"Tool '{tool_name}' not found. Available: {available}"
             logger.error(err)
             event = AgentErrorEvent(
                 error=err,
@@ -351,10 +315,28 @@ class Agent(AgentBase):
             return
 
         # Validate arguments
+        security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
-            action: ActionBase = tool.action_type.model_validate(
-                json.loads(tool_call.function.arguments)
-            )
+            arguments = json.loads(tool_call.function.arguments)
+
+            # if the tool has a security_risk field (when security analyzer = LLM),
+            # pop it out as it's not part of the tool's action schema
+            if (_predicted_risk := arguments.pop("security_risk", None)) is not None:
+                if not isinstance(self.security_analyzer, LLMSecurityAnalyzer):
+                    raise RuntimeError(
+                        "LLM provided a security_risk but no security analyzer is "
+                        "configured - THIS SHOULD NOT HAPPEN!"
+                    )
+                try:
+                    security_risk = risk.SecurityRisk(_predicted_risk)
+                except ValueError:
+                    logger.warning(
+                        f"Invalid security_risk value from LLM: {_predicted_risk}"
+                    )
+
+            # Arguments we passed in should not contains `security_risk`
+            # as a field
+            action: ActionBase = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -377,6 +359,7 @@ class Agent(AgentBase):
             tool_call=tool_call,
             llm_response_id=llm_response_id,
             metrics=metrics,
+            security_risk=security_risk,
         )
         on_event(action_event)
         return action_event
@@ -392,8 +375,7 @@ class Agent(AgentBase):
         It will call the tool's executor and update the state & call callback fn
         with the observation.
         """
-        assert isinstance(self.tools, dict)
-        tool = self.tools.get(action_event.tool_name, None)
+        tool = self.tools_map.get(action_event.tool_name, None)
         if tool is None:
             raise RuntimeError(
                 f"Tool '{action_event.tool_name}' not found. This should not happen "
@@ -401,9 +383,7 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        if tool.executor is None:
-            raise RuntimeError(f"Tool '{tool.name}' has no executor")
-        observation: ObservationBase = tool.executor(action_event.action)
+        observation: ObservationBase = tool(action_event.action)
         assert isinstance(observation, ObservationBase), (
             f"Tool '{tool.name}' executor must return an ObservationBase"
         )

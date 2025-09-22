@@ -21,6 +21,7 @@ class Condensation(EventBase):
 
     summary_offset: int | None = Field(
         default=None,
+        ge=0,
         description="An optional offset to the start of the resulting view"
         " indicating where the summary should be inserted.",
     )

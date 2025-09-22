@@ -3,14 +3,15 @@ import json
 from collections.abc import Sequence
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
-from pydantic import ConfigDict, Field, computed_field
+from pydantic import ConfigDict, Field
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-from openhands.sdk.tool import Action, Observation
+from openhands.sdk.security import risk
+from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
@@ -81,7 +82,9 @@ class ActionEvent(LLMConvertibleEvent):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
-    action: Action = Field(..., description="Single action (tool call) returned by LLM")
+    action: ActionBase = Field(
+        ..., description="Single action (tool call) returned by LLM"
+    )
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"
@@ -91,6 +94,9 @@ class ActionEvent(LLMConvertibleEvent):
         description=(
             "The tool call received from the LLM response. We keep a copy of it "
             "so it is easier to construct it into LLM message"
+            "This could be different from `action`: e.g., `tool_call` may contain "
+            "`security_risk` field predicted by LLM when LLM risk analyzer is enabled"
+            ", while `action` does not."
         ),
     )
     llm_response_id: EventID = Field(
@@ -107,6 +113,10 @@ class ActionEvent(LLMConvertibleEvent):
             "Snapshot of LLM metrics (token counts and costs). Only attached "
             "to the last action when multiple actions share the same LLM response."
         ),
+    )
+    security_risk: risk.SecurityRisk = Field(
+        default=risk.SecurityRisk.UNKNOWN,
+        description="The LLM's assessment of the safety risk of this action.",
     )
 
     @property
@@ -156,7 +166,7 @@ class ActionEvent(LLMConvertibleEvent):
 
 class ObservationEvent(LLMConvertibleEvent):
     source: SourceType = "environment"
-    observation: Observation = Field(
+    observation: ObservationBase = Field(
         ..., description="The observation (tool call) sent to LLM"
     )
 
@@ -207,7 +217,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    model_config = ConfigDict(extra="ignore", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     source: SourceType
     llm_message: Message = Field(
@@ -229,7 +239,7 @@ class MessageEvent(LLMConvertibleEvent):
         default_factory=list, description="List of content added by agent context"
     )
 
-    @computed_field
+    @property
     def reasoning_content(self) -> str:
         return self.llm_message.reasoning_content or ""
 

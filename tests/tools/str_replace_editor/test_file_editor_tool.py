@@ -3,8 +3,8 @@
 import os
 import tempfile
 
-from openhands.tools import FileEditorTool
 from openhands.tools.str_replace_editor import (
+    FileEditorTool,
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
 )
@@ -32,11 +32,10 @@ def test_file_editor_tool_create_file():
             command="create",
             path=test_file,
             file_text="Hello, World!",
-            security_risk="LOW",
         )
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None
@@ -62,12 +61,10 @@ def test_file_editor_tool_view_file():
             f.write("Line 1\nLine 2\nLine 3")
 
         # Create an action to view the file
-        action = StrReplaceEditorAction(
-            command="view", path=test_file, security_risk="LOW"
-        )
+        action = StrReplaceEditorAction(command="view", path=test_file)
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None
@@ -95,11 +92,10 @@ def test_file_editor_tool_str_replace():
             path=test_file,
             old_str="World",
             new_str="Universe",
-            security_risk="LOW",
         )
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None
@@ -141,12 +137,10 @@ def test_file_editor_tool_view_directory():
             f.write("File 2 content")
 
         # Create an action to view the directory
-        action = StrReplaceEditorAction(
-            command="view", path=temp_dir, security_risk="LOW"
-        )
+        action = StrReplaceEditorAction(command="view", path=temp_dir)
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None

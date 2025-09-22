@@ -256,13 +256,13 @@ def test_model_matches_with_provider_pattern():
         ("o3-2024-12-17", True),
         # OpenAI o4-mini models (native Responses API support)
         ("o4-mini", True),
-        # OpenAI gpt-4o models (native Responses API support)
-        ("gpt-4o", True),
-        ("gpt-4o-mini", True),
-        ("gpt-4o-2024-11-20", True),
-        # OpenAI gpt-4.1 models (native Responses API support)
-        ("gpt-4.1", True),
-        ("gpt-4.1-mini", True),
+        # OpenAI gpt-4o models (do NOT use Responses API in this branch)
+        ("gpt-4o", False),
+        ("gpt-4o-mini", False),
+        ("gpt-4o-2024-11-20", False),
+        # OpenAI gpt-4.1 models (do NOT use Responses API in this branch)
+        ("gpt-4.1", False),
+        ("gpt-4.1-mini", False),
         # OpenAI gpt-5 models (native Responses API support)
         ("gpt-5", True),
         ("gpt-5-mini", True),
@@ -299,11 +299,9 @@ def test_responses_api_support_with_provider_prefixes():
     supported_models = [
         "openai/o1-preview",
         "openai/o3-mini",
-        "openai/gpt-4o",
-        "openai/gpt-4.1",
+        # Keep Responses limited to GPT-5 for GPT family in this branch
         "openai/gpt-5",
         "azure/o1-preview",
-        "azure/gpt-4o",
     ]
     for model in supported_models:
         features = get_features(model)
@@ -315,6 +313,9 @@ def test_responses_api_support_with_provider_prefixes():
     unsupported_models = [
         "openai/gpt-3.5-turbo",
         "openai/gpt-4",
+        "openai/gpt-4.1",
+        "openai/gpt-4o",
+        "azure/gpt-4o",
         "anthropic/claude-3-5-sonnet-20241022",
         "anthropic/claude-2",
         "vertex_ai/gemini-2.0-flash-exp",
@@ -333,8 +334,8 @@ def test_responses_api_backward_compatibility():
     model = "gpt-4o"
     features = get_features(model)
 
-    # Should support Responses API
-    assert features.supports_responses_api
+    # Should NOT support Responses API in this branch
+    assert not features.supports_responses_api
 
     # Should still have other expected features
     assert features.supports_function_calling

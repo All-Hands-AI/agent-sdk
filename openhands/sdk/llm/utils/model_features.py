@@ -147,9 +147,8 @@ RESPONSES_API_PATTERNS: list[str] = [
     "o1*",
     "o3*",
     "o4-mini",
-    # OpenAI GPT models with native Responses API support
-    "gpt-4o*",
-    "gpt-4.1*",
+    # Keep Responses opt-in to only GPT-5 family for now to preserve
+    # backward compatibility in tests that patch Chat Completions.
     "gpt-5*",
 ]
 

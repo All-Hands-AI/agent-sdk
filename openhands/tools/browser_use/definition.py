@@ -1,11 +1,13 @@
 """Browser-use tool implementation for web automation."""
 
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 from pydantic import Field
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
 from openhands.tools.browser_use.impl import BrowserToolExecutor
 
@@ -102,7 +104,7 @@ class BrowserClickAction(ActionBase):
     """Schema for clicking elements."""
 
     index: int = Field(
-        description="The index of the element to click (from browser_get_state)"
+        ge=0, description="The index of the element to click (from browser_get_state)"
     )
     new_tab: bool = Field(
         default=False,
@@ -159,7 +161,7 @@ class BrowserTypeAction(ActionBase):
     """Schema for typing text into elements."""
 
     index: int = Field(
-        description="The index of the input element (from browser_get_state)"
+        ge=0, description="The index of the input element (from browser_get_state)"
     )
     text: str = Field(description="The text to type")
 
@@ -269,6 +271,7 @@ class BrowserGetContentAction(ActionBase):
     )
     start_from_char: int = Field(
         default=0,
+        ge=0,
         description="Character index to start from in the page content (default: 0)",
     )
 
@@ -548,7 +551,7 @@ class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
         )
 
 
-class BrowserToolSet(Tool):
+class BrowserToolSet(ToolBase):
     """A set of all browser tools.
 
     This tool set includes all available browser-related tools
@@ -556,7 +559,7 @@ class BrowserToolSet(Tool):
     """
 
     @classmethod
-    def create(cls) -> list[Tool]:
+    def create(cls) -> list[ToolBase]:
         executor = BrowserToolExecutor()
         return [
             browser_navigate_tool.set_executor(executor),

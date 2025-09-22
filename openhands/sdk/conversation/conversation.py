@@ -1,10 +1,7 @@
 import uuid
-from typing import TYPE_CHECKING, Iterable
+from typing import Iterable
 
-
-if TYPE_CHECKING:
-    from openhands.sdk.agent import AgentType
-
+from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -39,7 +36,7 @@ def compose_callbacks(
 class Conversation:
     def __init__(
         self,
-        agent: "AgentType",
+        agent: AgentBase,
         persist_filestore: FileStore | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -95,8 +92,17 @@ class Conversation:
         """Get the unique ID of the conversation."""
         return self.state.id
 
-    def send_message(self, message: Message) -> None:
-        """Sending messages to the agent."""
+    def send_message(self, message: str | Message) -> None:
+        """Send a message to the agent.
+
+        Args:
+            message: Either a string (which will be converted to a user message)
+                    or a Message object
+        """
+        # Convert string to Message if needed
+        if isinstance(message, str):
+            message = Message(role="user", content=[TextContent(text=message)])
+
         assert message.role == "user", (
             "Only user messages are allowed to be sent to the agent."
         )
@@ -267,8 +273,7 @@ class Conversation:
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
-        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
-        for tool in self.agent.tools.values():
+        for tool in self.agent.tools_map.values():
             if tool.executor is not None:
                 try:
                     tool.executor.close()

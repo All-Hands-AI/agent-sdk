@@ -25,10 +25,15 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    field_serializer,
     field_validator,
     model_validator,
 )
 from pydantic.json_schema import SkipJsonSchema
+
+
+if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
+    from openhands.sdk.tool.tool import ToolBase
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -75,12 +80,13 @@ from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.tool import Tool
+    from openhands.sdk.tool import ToolBase
 
 logger = get_logger(__name__)
 CallKind = Literal["chat", "responses"]
 
 __all__ = ["LLM"]
+
 
 # Exceptions we retry on
 LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -144,39 +150,44 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     openrouter_site_url: str = Field(default="https://docs.all-hands.dev/")
     openrouter_app_name: str = Field(default="OpenHands")
 
-    num_retries: int = Field(default=5)
-    retry_multiplier: float = Field(default=8)
-    retry_min_wait: int = Field(default=8)
-    retry_max_wait: int = Field(default=64)
+    num_retries: int = Field(default=5, ge=0)
+    retry_multiplier: float = Field(default=8.0, ge=0)
+    retry_min_wait: int = Field(default=8, ge=0)
+    retry_max_wait: int = Field(default=64, ge=0)
 
-    timeout: int | None = Field(default=None, description="HTTP timeout (s).")
+    timeout: int | None = Field(default=None, ge=0, description="HTTP timeout (s).")
 
     max_message_chars: int = Field(
         default=30_000,
+        ge=1,
         description="Approx max chars in each event/content sent to the LLM.",
     )
 
-    temperature: float | None = Field(default=0.0)
-    top_p: float | None = Field(default=1.0)
-    top_k: float | None = Field(default=None)
+    temperature: float | None = Field(default=0.0, ge=0)
+    top_p: float | None = Field(default=1.0, ge=0, le=1)
+    top_k: float | None = Field(default=None, ge=0)
 
     custom_llm_provider: str | None = Field(default=None)
     max_input_tokens: int | None = Field(
         default=None,
+        ge=1,
         description="The maximum number of input tokens. "
         "Note that this is currently unused, and the value at runtime is actually"
         " the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).",
     )
     max_output_tokens: int | None = Field(
         default=None,
+        ge=1,
         description="The maximum number of output tokens. This is sent to the LLM.",
     )
     input_cost_per_token: float | None = Field(
         default=None,
+        ge=0,
         description="The cost per input token. This will available in logs for user.",
     )
     output_cost_per_token: float | None = Field(
         default=None,
+        ge=0,
         description="The cost per output token. This will available in logs for user.",
     )
     ollama_base_url: str | None = Field(default=None)
@@ -304,7 +315,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if model_val.startswith("openhands/"):
             model_name = model_val.removeprefix("openhands/")
             d["model"] = f"litellm_proxy/{model_name}"
-            d.setdefault("base_url", "https://llm-proxy.app.all-hands.dev/")
+            d["base_url"] = "https://llm-proxy.app.all-hands.dev/"
 
         # HF doesn't support the OpenAI default value for top_p (1)
         if model_val.startswith("huggingface"):
@@ -359,14 +370,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def _select_kind(self, kwargs: dict[str, Any], tools: Any | None) -> CallKind:
         """Decide which transport to use for a completion-style request.
 
-        - Use Responses API when model supports it, function-calling is active,
-          and caller did not force Chat Completions.
+        - Prefer Responses API for models that support it unless explicitly forced.
         - Otherwise, use Chat Completions.
         """
+        feats = get_features(self.model)
         if (
-            get_features(self.model).supports_responses_api
+            feats.supports_responses_api
+            and feats.supports_reasoning_effort
             and not kwargs.get("force_chat_completions", False)
-            and self.is_function_calling_active()
         ):
             return "responses"
         return "chat"
@@ -378,6 +389,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         messages: list[Message] | None,
         input: str | None,
         tools: Sequence["Tool"] | None,
+        add_security_risk_prediction: bool = False,
     ) -> tuple[
         list[AllMessageValues] | None,
         str | list[dict[str, Any]] | None,
@@ -388,21 +400,26 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Returns (messages, input, tools) normalized for the selected path.
         """
         # Local import to avoid TYPE_CHECKING branch issues
-        from openhands.sdk.tool import Tool
+        from openhands.sdk.tool import ToolBase
 
         if kind == "chat":
             # Messages: ensure list[dict]
-            assert messages is not None and isinstance(messages, list)
+            assert messages is not None and (
+                isinstance(messages, list)
+                and (not messages or isinstance(messages[0], Message))
+            ), "chat path expects list[Message]"
             converted_messages = self.format_messages_for_llm(messages)
 
             # Tools: Tool -> ChatCompletionToolParam
             tools_cc: list[ChatCompletionToolParam] = []
             if tools:
-                first = tools[0]
-                assert isinstance(first, Tool), \
-                    f"tools must be list of Tool or dict, got {type(first)}"
-                tools_cc = [cast(Tool, t).to_openai_tool() for t in tools]
-            return converted_messages, None, tools_cc
+                tools_cc = [
+                    cast(ToolBase, t).to_openai_tool(
+                        add_security_risk_prediction=add_security_risk_prediction
+                    )
+                    for t in tools
+                ]  # type: ignore[arg-type]
+            return messages, None, tools_cc
 
         assert kind == "responses"
         # Input/messages handling
@@ -421,42 +438,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         tools_dicts: list[dict[str, Any]] = []
         if tools:
             for t in tools:
-                if isinstance(t, Tool):
-                    tools_dicts.append(cast(Any, t).to_responses_tool())
-                    continue
-                if isinstance(t, dict):
-                    # If provided in Chat Completions shape, flatten to Responses
-                    if "function" in t:
-                        fn = cast(dict, t.get("function") or {})
-                        item: dict[str, Any] = {
-                            "type": "function",
-                            "name": fn.get("name"),
-                        }
-                        desc = fn.get("description")
-                        if desc is not None:
-                            item["description"] = desc
-                        params = fn.get("parameters")
-                        if params is not None:
-                            item["parameters"] = params
-                        tools_dicts.append(item)
-                    else:
-                        tools_dicts.append(cast(dict, t))
-                    continue
-                # Fallback for ChatCompletionToolParam-like objects
-                fn_obj = getattr(t, "function", None)
-                if fn_obj is None:
-                    continue
-                item2: dict[str, Any] = {
-                    "type": "function",
-                    "name": getattr(fn_obj, "name"),
-                }
-                desc2 = getattr(fn_obj, "description", None)
-                if desc2 is not None:
-                    item2["description"] = desc2
-                params2 = getattr(fn_obj, "parameters", None)
-                if params2 is not None:
-                    item2["parameters"] = params2
-                tools_dicts.append(item2)
+                tools_dicts.append(
+                    cast(Any, t).to_responses_tool(
+                        add_security_risk_prediction=add_security_risk_prediction
+                    )
+                )
 
         return None, input, tools_dicts
 
@@ -467,17 +453,39 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     # Routing + pre-normalization helpers
 
+    # Serializers
+    # =========================================================================
+    @field_serializer(
+        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="json"
+    )
+    def _serialize_secrets(self, v: SecretStr | None, info):
+        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Check if the 'expose_secrets' flag is in the serialization context
+        if info.context and info.context.get("expose_secrets"):
+            return v.get_secret_value()
+
+        # Let Pydantic handle the default masking
+        return v
+
+    # =========================================================================
     # Public API
     # =========================================================================
     @property
-    def metrics(self) -> Metrics | None:
+    def metrics(self) -> Metrics:
+        assert self._metrics is not None, (
+            "Metrics should be initialized after model validation"
+        )
         return self._metrics
 
     def completion(
         self,
         messages: list[Message],
-        tools: list[ChatCompletionToolParam] | list["Tool"] | None = None,
+        tools: Sequence[ToolBase] | None = None,
         return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> ModelResponse:
         """Get a completion from the LLM.
@@ -491,7 +499,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Decide route once, then pre-normalize for unified engine
         kind = self._select_kind(kwargs, tools)
         msgs, inp, ttools = self._pre_normalize(
-            kind=kind, messages=messages, input=None, tools=tools
+            kind=kind,
+            messages=messages,
+            input=None,
+            tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
         )
         return self._unified_request(
             kind=kind,
@@ -505,8 +517,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         messages: list[dict[str, Any]] | list[Message] | str | None = None,
         input: str | list[dict[str, Any]] | None = None,
-        tools: Sequence[dict[str, Any] | "Tool" | ChatCompletionToolParam]
-        | None = None,
+        tools: Sequence[ToolBase] | None = None,
+        add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> ModelResponse:
         if not get_features(self.model).supports_responses_api:
@@ -523,6 +535,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             messages=cast(list[dict[str, Any]] | list[Message], messages),
             input=input,
             tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
         )
 
         return self._unified_request(
@@ -680,7 +693,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Reasoning-model quirks
         if get_features(self.model).supports_reasoning_effort:
-            if self.reasoning_effort is not None:
+            # Only include top-level reasoning_effort for chat.
+            # Responses API uses reasoning.effort
+            if kind == "chat" and self.reasoning_effort is not None:
                 out["reasoning_effort"] = (
                     self.reasoning_effort
                     if self.reasoning_effort not in (None, "none")
@@ -698,10 +713,18 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Responses API specific!
         if kind == "responses":
-            out.setdefault(
-                "reasoning",
-                {"effort": out.get("reasoning_effort", "low"), "summary": "detailed"},
-            )
+            effort_val = None
+            if get_features(self.model).supports_reasoning_effort:
+                if self.reasoning_effort not in (None, "none"):
+                    effort_val = self.reasoning_effort
+                else:
+                    effort_val = "low"
+            if effort_val is not None:
+                out.setdefault(
+                    "reasoning",
+                    {"effort": effort_val, "summary": "detailed"},
+                )
+            out.pop("reasoning_effort", None)
             out.setdefault("store", True)
 
         # Mistral / Gemini safety

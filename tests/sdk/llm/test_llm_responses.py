@@ -3,7 +3,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.message import Message
@@ -243,14 +242,18 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
 
     with patch.object(llm, "_telemetry") as mock_telemetry:
         mock_telemetry.log_enabled = False
+
+        from openhands.sdk.tool.schema import ActionBase
+        from openhands.sdk.tool.tool import Tool
+
+        class _Args(ActionBase):
+            pass
+
+        tool = Tool(name="test", description="desc", action_type=_Args)
+
         llm.responses(
             input="Test input",
-            tools=[
-                ChatCompletionToolParam(
-                    type="function",
-                    function=ChatCompletionToolParamFunctionChunk(name="test"),
-                )
-            ],
+            tools=[tool],
             stop=["STOP"],  # Should be removed
         )
 
@@ -258,9 +261,11 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
     call_args = mock_litellm_responses.call_args
     kwargs = call_args[1]
 
-    # Should have reasoning_effort for o1 models
-    assert "reasoning_effort" in kwargs
-    assert kwargs["reasoning_effort"] == "medium"
+    # Responses API should use nested reasoning.effort
+    assert "reasoning" in kwargs
+    assert isinstance(kwargs["reasoning"], dict)
+    assert kwargs["reasoning"].get("effort") == "medium"
+    assert "reasoning_effort" not in kwargs
 
     # Should have max_output_tokens
     assert "max_output_tokens" in kwargs
@@ -268,8 +273,10 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
 
     # Should have tools (supported by Responses API) but NOT stop (not supported)
     assert "tools" in kwargs
-    # Responses API expects a flattened tool schema with top-level name
-    assert kwargs["tools"] == [{"type": "function", "name": "test"}]
+    # Responses API expects flattened tool dicts with function name; don't over-specify
+    assert isinstance(kwargs["tools"], list) and len(kwargs["tools"]) == 1
+    assert kwargs["tools"][0]["type"] == "function"
+    assert kwargs["tools"][0]["name"] == "test"
     assert "stop" not in kwargs
 
     # Temperature should be removed for reasoning models

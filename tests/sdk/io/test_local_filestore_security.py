@@ -91,6 +91,13 @@ def test_root_normalization():
             os.chdir(temp_dir)
             store = LocalFileStore("./relative_root")
             assert os.path.isabs(store.root)
+
+            # Prevent test error in some mac environments
+            if store.root.startswith("/private/") and not temp_dir.startswith(
+                "/private/"
+            ):
+                temp_dir = f"/private{temp_dir}"
+
             assert store.root.startswith(temp_dir)
         finally:
             os.chdir(original_cwd)

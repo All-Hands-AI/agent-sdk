@@ -1,7 +1,7 @@
 """Tests for SystemPromptEvent.visualize method."""
 
 import copy
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 from litellm import ChatCompletionToolParam
 
@@ -12,7 +12,7 @@ from openhands.sdk.llm import TextContent
 def test_visualize_no_data_mutation():
     """Test that visualize does not mutate the original event data."""
     # Create tool with long type field (edge case)
-    original_tool: Dict[str, Any] = {
+    original_tool: dict[str, Any] = {
         "type": "function_with_very_long_type_name_exceeding_thirty_characters",
         "function": {
             "name": "test_tool",
@@ -53,7 +53,7 @@ def test_visualize_parameter_truncation():
         "required": [f"param_{i}" for i in range(25)],
     }
 
-    tool: Dict[str, Any] = {
+    tool: dict[str, Any] = {
         "type": "function",
         "function": {
             "name": "test_tool",
@@ -87,7 +87,7 @@ def test_visualize_parameter_truncation():
 def test_visualize_string_truncation_logic():
     """Test the string truncation logic for tool fields."""
     # Create tool with long string fields that would be truncated
-    tool: Dict[str, Any] = {
+    tool: dict[str, Any] = {
         "type": "function_with_very_long_type_name_that_exceeds_thirty_characters",
         "function": {
             "name": "test_tool_with_very_long_name_exceeding_limit",
