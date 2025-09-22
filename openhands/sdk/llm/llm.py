@@ -111,7 +111,7 @@ class _BaseCtxModel(BaseModel):
 
 class ChatCtx(_BaseCtxModel):
     kind: Literal["chat"]
-    messages: list[dict[str, Any]]
+    messages: list[AllMessageValues]
     # tools used only in chat path
     tools: list[ChatCompletionToolParam] = Field(default_factory=list)
 
@@ -403,7 +403,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         from openhands.sdk.tool import ToolBase
 
         if kind == "chat":
-            # Messages: ensure list[dict]
+            # Messages: ensure list[Message]
             assert messages is not None and (
                 isinstance(messages, list)
                 and (not messages or isinstance(messages[0], Message))
@@ -419,7 +419,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     )
                     for t in tools
                 ]  # type: ignore[arg-type]
-            return messages, None, tools_cc
+            return converted_messages, None, tools_cc
 
         assert kind == "responses"
         # Input/messages handling
@@ -431,8 +431,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 cast(list[Message], messages)
             )
             input = messages_to_responses_items(converted_messages)
-            else:
-                raise ValueError("Either messages or input must be provided")
+        else:
+            raise ValueError("Either messages or input must be provided")
 
         # Tools: normalize to Responses tool dicts
         tools_dicts: list[dict[str, Any]] = []
@@ -556,7 +556,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         *,
         kind: CallKind,
-        messages: list[dict[str, Any]] | None = None,
+        messages: list[AllMessageValues] | None = None,
         input: str | list[dict[str, Any]] | None = None,
         tools: list[dict[str, Any]] | list[ChatCompletionToolParam] | None = None,
         **kwargs,
@@ -614,7 +614,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         *,
         kind: CallKind,
-        messages: list[dict[str, Any]] | None,
+        messages: list[AllMessageValues] | None,
         input: str | list[dict[str, Any]] | None,
         tools: list[dict[str, Any]] | list[ChatCompletionToolParam] | None,
         opts: dict[str, Any],
@@ -631,8 +631,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
+            # When mocking, we need raw dict messages; convert AllMessageValues to dict
+            raw_msgs: list[dict] = [m.model_dump() for m in (messages or [])]
             nonfn_msgs, opts = self.pre_request_prompt_mock(
-                messages or [], cast(list[ChatCompletionToolParam], tools) or [], opts
+                raw_msgs, cast(list[ChatCompletionToolParam], tools) or [], opts
             )
 
         has_tools = bool(tools) and (kind == "chat") and not use_mock_tools
@@ -781,7 +783,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         timeout=self.timeout,
                         drop_params=self.drop_params,
                         seed=self.seed,
-                        messages=ctx.messages,  # type: ignore[attr-defined]
+                        messages=ctx.messages,
                         **ctx.call_kwargs,
                     )
                     assert isinstance(ret, ModelResponse)
