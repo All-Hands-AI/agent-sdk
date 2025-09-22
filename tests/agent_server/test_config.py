@@ -31,6 +31,7 @@ class TestConfig:
         assert config.allow_cors_origins == []
         assert config.conversations_path == Path("workspace/conversations")
         assert config.workspace_path == Path("workspace/project")
+        assert config.static_files_path is None
 
     def test_config_with_custom_values(self):
         """Test Config creation with custom values."""
@@ -39,12 +40,14 @@ class TestConfig:
             allow_cors_origins=["https://example.com"],
             conversations_path=Path("custom/conversations"),
             workspace_path=Path("custom/workspace"),
+            static_files_path=Path("custom/static"),
         )
 
         assert config.session_api_key == "test-key"
         assert config.allow_cors_origins == ["https://example.com"]
         assert config.conversations_path == Path("custom/conversations")
         assert config.workspace_path == Path("custom/workspace")
+        assert config.static_files_path == Path("custom/static")
 
     def test_config_immutable(self):
         """Test that Config is immutable (frozen)."""
@@ -67,6 +70,7 @@ class TestConfig:
             assert config.allow_cors_origins == []
             assert config.conversations_path == Path("workspace/conversations")
             assert config.workspace_path == Path("workspace/project")
+            assert config.static_files_path is None
 
     def test_from_json_file_empty_file(self):
         """Test loading from an empty JSON file returns defaults."""
@@ -85,6 +89,7 @@ class TestConfig:
                 assert config.allow_cors_origins == []
                 assert config.conversations_path == Path("workspace/conversations")
                 assert config.workspace_path == Path("workspace/project")
+                assert config.static_files_path is None
         finally:
             temp_path.unlink()
 
@@ -95,6 +100,7 @@ class TestConfig:
             "allow_cors_origins": ["https://json.com", "https://test.com"],
             "conversations_path": "json/conversations",
             "workspace_path": "json/workspace",
+            "static_files_path": "json/static",
         }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -115,6 +121,7 @@ class TestConfig:
                 ]
                 assert config.conversations_path == Path("json/conversations")
                 assert config.workspace_path == Path("json/workspace")
+                assert config.static_files_path == Path("json/static")
         finally:
             temp_path.unlink()
 
@@ -125,6 +132,7 @@ class TestConfig:
             "allow_cors_origins": ["https://json.com"],
             "conversations_path": "json/conversations",
             "workspace_path": "json/workspace",
+            "static_files_path": "json/static",
         }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -141,6 +149,7 @@ class TestConfig:
                 assert config.allow_cors_origins == ["https://json.com"]
                 assert config.conversations_path == Path("json/conversations")
                 assert config.workspace_path == Path("json/workspace")
+                assert config.static_files_path == Path("json/static")
         finally:
             temp_path.unlink()
 
@@ -155,6 +164,7 @@ class TestConfig:
             assert config.allow_cors_origins == []
             assert config.conversations_path == Path("workspace/conversations")
             assert config.workspace_path == Path("workspace/project")
+            assert config.static_files_path is None
 
     def test_from_json_file_partial_json(self):
         """Test loading from JSON file with only some values specified."""
@@ -180,6 +190,7 @@ class TestConfig:
                 # Should use defaults for unspecified values
                 assert config.conversations_path == Path("workspace/conversations")
                 assert config.workspace_path == Path("workspace/project")
+                assert config.static_files_path is None
         finally:
             temp_path.unlink()
 
@@ -204,6 +215,7 @@ class TestGetDefaultConfig:
                 assert config.allow_cors_origins == []
                 assert config.conversations_path == Path("workspace/conversations")
                 assert config.workspace_path == Path("workspace/project")
+                assert config.static_files_path is None
 
     def test_get_default_config_with_default_file(self):
         """Test get_default_config using the default config file."""
@@ -212,6 +224,7 @@ class TestGetDefaultConfig:
             "allow_cors_origins": ["https://default.com"],
             "conversations_path": "default/conversations",
             "workspace_path": "default/workspace",
+            "static_files_path": "default/static",
         }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -230,6 +243,7 @@ class TestGetDefaultConfig:
                     assert config.allow_cors_origins == ["https://default.com"]
                     assert config.conversations_path == Path("default/conversations")
                     assert config.workspace_path == Path("default/workspace")
+                    assert config.static_files_path == Path("default/static")
         finally:
             temp_path.unlink()
 
@@ -240,6 +254,7 @@ class TestGetDefaultConfig:
             "allow_cors_origins": ["https://custom.com"],
             "conversations_path": "custom/conversations",
             "workspace_path": "custom/workspace",
+            "static_files_path": "custom/static",
         }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -258,6 +273,7 @@ class TestGetDefaultConfig:
                 assert config.allow_cors_origins == ["https://custom.com"]
                 assert config.conversations_path == Path("custom/conversations")
                 assert config.workspace_path == Path("custom/workspace")
+                assert config.static_files_path == Path("custom/static")
         finally:
             temp_path.unlink()
 
@@ -268,6 +284,7 @@ class TestGetDefaultConfig:
             "allow_cors_origins": ["https://file.com"],
             "conversations_path": "file/conversations",
             "workspace_path": "file/workspace",
+            "static_files_path": "file/static",
         }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -290,6 +307,7 @@ class TestGetDefaultConfig:
                 assert config.allow_cors_origins == ["https://file.com"]
                 assert config.conversations_path == Path("file/conversations")
                 assert config.workspace_path == Path("file/workspace")
+                assert config.static_files_path == Path("file/static")
         finally:
             temp_path.unlink()
 
@@ -348,6 +366,7 @@ class TestGetDefaultConfig:
             assert config.allow_cors_origins == []
             assert config.conversations_path == Path("workspace/conversations")
             assert config.workspace_path == Path("workspace/project")
+            assert config.static_files_path is None
 
     def test_get_default_config_env_override_only(self):
         """Test get_default_config with only environment variable override."""
@@ -359,6 +378,7 @@ class TestGetDefaultConfig:
                 assert config.allow_cors_origins == []
                 assert config.conversations_path == Path("workspace/conversations")
                 assert config.workspace_path == Path("workspace/project")
+                assert config.static_files_path is None
 
     def test_get_default_config_complex_json(self):
         """Test get_default_config with complex JSON structure."""
@@ -371,6 +391,7 @@ class TestGetDefaultConfig:
             ],
             "conversations_path": "data/conversations",
             "workspace_path": "data/workspace",
+            "static_files_path": "data/static",
         }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -397,6 +418,7 @@ class TestGetDefaultConfig:
                 assert "https://*.staging.example.com" in config.allow_cors_origins
                 assert config.conversations_path == Path("data/conversations")
                 assert config.workspace_path == Path("data/workspace")
+                assert config.static_files_path == Path("data/static")
         finally:
             temp_path.unlink()
 

@@ -2,8 +2,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from openhands.agent_server.config import (
+    Config,
     get_default_config,
 )
 from openhands.agent_server.conversation_router import (
@@ -30,25 +32,53 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
         yield
 
 
-api = FastAPI(
-    title="OpenHands Agent Server",
-    description=(
-        "OpenHands Agent Server - REST/WebSocket interface for OpenHands AI Agent"
-    ),
-    lifespan=api_lifespan,
-)
-config = get_default_config()
+def create_app(config: Config | None = None) -> FastAPI:
+    """Create and configure the FastAPI application.
 
+    Args:
+        config: Configuration object. If None, uses default config.
 
-# Add routers
-api.include_router(conversation_event_router)
-api.include_router(conversation_router)
-api.include_router(server_details_router)
-api.include_router(tool_router)
+    Returns:
+        Configured FastAPI application.
+    """
+    if config is None:
+        config = get_default_config()
 
-# Add middleware
-api.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
-if config.session_api_key:
-    api.add_middleware(
-        ValidateSessionAPIKeyMiddleware, session_api_key=config.session_api_key
+    app = FastAPI(
+        title="OpenHands Agent Server",
+        description=(
+            "OpenHands Agent Server - REST/WebSocket interface for OpenHands AI Agent"
+        ),
+        lifespan=api_lifespan,
     )
+
+    # Add routers
+    app.include_router(conversation_event_router)
+    app.include_router(conversation_router)
+    app.include_router(server_details_router)
+    app.include_router(tool_router)
+
+    # Mount static files if configured and directory exists
+    if (
+        config.static_files_path
+        and config.static_files_path.exists()
+        and config.static_files_path.is_dir()
+    ):
+        app.mount(
+            "/static",
+            StaticFiles(directory=str(config.static_files_path)),
+            name="static",
+        )
+
+    # Add middleware
+    app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
+    if config.session_api_key:
+        app.add_middleware(
+            ValidateSessionAPIKeyMiddleware, session_api_key=config.session_api_key
+        )
+
+    return app
+
+
+# Create the default app instance
+api = create_app()
