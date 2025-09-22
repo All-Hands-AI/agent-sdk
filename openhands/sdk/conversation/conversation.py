@@ -109,9 +109,16 @@ class Conversation:
         )
         with self.state:
             if self.state.agent_status == AgentExecutionStatus.FINISHED:
-                self.state.agent_status = (
-                    AgentExecutionStatus.IDLE
-                )  # now we have a new message
+                if getattr(self.state, "_run_in_progress", False):
+                    logger.info(
+                        "User message during active run while FINISHED; "
+                        "keeping FINISHED to avoid race. Message appended, no exec."
+                    )
+                else:
+                    logger.info(
+                        "User message after conversation finished; resetting to IDLE."
+                    )
+                    self.state.agent_status = AgentExecutionStatus.IDLE
 
             # TODO: We should add test cases for all these scenarios
             activated_microagent_names: list[str] = []
@@ -159,40 +166,60 @@ class Conversation:
         Can be paused between steps
         """
 
+        logger.debug("Conversation run() starting")
         with self.state:
+            # indicate that a run loop is actively progressing; used to guard against
+            # concurrent user messages flipping FINISHED->IDLE mid-run
+            self.state._run_in_progress = True
             if self.state.agent_status == AgentExecutionStatus.PAUSED:
                 self.state.agent_status = AgentExecutionStatus.RUNNING
 
-        iteration = 0
-        while True:
-            logger.debug(f"Conversation run iteration {iteration}")
-            with self.state:
-                # Pause attempts to acquire the state lock
-                # Before value can be modified step can be taken
-                # Ensure step conditions are checked when lock is already acquired
-                if self.state.agent_status in [
-                    AgentExecutionStatus.FINISHED,
-                    AgentExecutionStatus.PAUSED,
-                ]:
-                    break
+        try:
+            iteration = 0
+            while True:
+                logger.debug(f"Conversation run iteration {iteration}")
+                with self.state:
+                    # Pause attempts to acquire the state lock
+                    # Before value can be modified step can be taken
+                    # Ensure step conditions are checked when lock is already acquired
+                    if self.state.agent_status in [
+                        AgentExecutionStatus.FINISHED,
+                        AgentExecutionStatus.PAUSED,
+                    ]:
+                        logger.debug(
+                            f"Breaking run loop on status={self.state.agent_status}"
+                        )
+                        break
 
-                # clear the flag before calling agent.step() (user approved)
+                    # clear the flag before calling agent.step() (user approved)
+                    if (
+                        self.state.agent_status
+                        == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                    ):
+                        self.state.agent_status = AgentExecutionStatus.RUNNING
+
+                    # step must mutate the SAME state object
+                    self.agent.step(self.state, on_event=self._on_event)
+
+                # In confirmation mode, stop after one iteration if waiting for
+                # confirmation
                 if (
                     self.state.agent_status
                     == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
                 ):
-                    self.state.agent_status = AgentExecutionStatus.RUNNING
+                    logger.debug("Stopping run loop to wait for confirmation")
+                    break
 
-                # step must mutate the SAME state object
-                self.agent.step(self.state, on_event=self._on_event)
-
-            # In confirmation mode, stop after one iteration if waiting for confirmation
-            if self.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
-                break
-
-            iteration += 1
-            if iteration >= self.max_iteration_per_run:
-                break
+                iteration += 1
+                if iteration >= self.max_iteration_per_run:
+                    logger.warning(
+                        f"Stopping run loop after reaching max iterations: {iteration}"
+                    )
+                    break
+        finally:
+            with self.state:
+                self.state._run_in_progress = False
+            logger.debug("Conversation run() finished")
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
