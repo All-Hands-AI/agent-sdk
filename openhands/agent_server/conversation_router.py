@@ -22,7 +22,7 @@ from openhands.sdk import LLM, Agent, TextContent, ToolSpec
 from openhands.sdk.conversation.state import AgentExecutionStatus
 
 
-router = APIRouter(prefix="/conversations")
+router = APIRouter(prefix="/api/conversations")
 conversation_service = get_default_conversation_service()
 config = get_default_config()
 
