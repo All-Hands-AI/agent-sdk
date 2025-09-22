@@ -326,6 +326,8 @@ class Agent(AgentBase):
             event = AgentErrorEvent(
                 error=err,
                 metrics=metrics,
+                tool_name=tool_name,
+                tool_call_id=tool_call.id,
             )
             on_event(event)
             state.agent_status = AgentExecutionStatus.FINISHED
@@ -362,6 +364,8 @@ class Agent(AgentBase):
             event = AgentErrorEvent(
                 error=err,
                 metrics=metrics,
+                tool_name=tool_name,
+                tool_call_id=tool_call.id,
             )
             on_event(event)
             return
