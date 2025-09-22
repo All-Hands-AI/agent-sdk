@@ -73,6 +73,14 @@ class Config(BaseModel):
             "Defaults to 'workspace/project'."
         ),
     )
+    static_files_path: Path | None = Field(
+        default=None,
+        description=(
+            "The location of the directory containing static files to serve. "
+            "If specified and the directory exists, static files will be served "
+            "at the /static/ endpoint."
+        ),
+    )
     webhooks: list[WebhookSpec] = Field(
         default_factory=list,
         description="Webhooks to invoke in response to events",
@@ -97,6 +105,11 @@ class Config(BaseModel):
             config_data["conversations_path"] = Path(config_data["conversations_path"])
         if "workspace_path" in config_data:
             config_data["workspace_path"] = Path(config_data["workspace_path"])
+        if (
+            "static_files_path" in config_data
+            and config_data["static_files_path"] is not None
+        ):
+            config_data["static_files_path"] = Path(config_data["static_files_path"])
 
         return cls(**config_data)
 

@@ -13,7 +13,7 @@ on:
             base_image:
                 description: Base runtime image
                 type: string
-                default: nikolaik/python-nodejs:python3.12-nodejs22
+                default: nikolaik/python-nodejs:python3.12-nodejs22-slim
             image:
                 description: GHCR image name
                 type: string
