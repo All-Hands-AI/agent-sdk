@@ -114,6 +114,26 @@
                         >
                         <small>Maximum number of agent iterations before stopping</small>
                     </div>
+                    <div class="form-group">
+                        <label for="json-parameters">
+                            JSON Parameters (optional):
+                            <button type="button" id="reset-json-btn" class="btn-link" title="Reset to default">
+                                <i class="fas fa-undo"></i> Reset
+                            </button>
+                        </label>
+                        <textarea 
+                            id="json-parameters" 
+                            placeholder="Enter custom JSON parameters for the conversation..."
+                            rows="8"
+                            class="json-textarea"
+                        ></textarea>
+                        <small>
+                            Custom JSON configuration for agent, tools, and other parameters. 
+                            Leave empty to use defaults.
+                            <a href="#" id="show-json-help" class="help-link">Show example</a>
+                        </small>
+                        <div id="json-validation-error" class="validation-error" style="display: none;"></div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">

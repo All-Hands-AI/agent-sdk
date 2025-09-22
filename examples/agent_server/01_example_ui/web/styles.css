@@ -553,6 +553,60 @@ body {
     font-size: 0.8rem;
 }
 
+/* JSON textarea specific styles */
+.json-textarea {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 120px;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #3498db;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px 4px;
+    margin-left: 8px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.btn-link:hover {
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+.help-link {
+    color: #3498db;
+    text-decoration: none;
+    font-size: 0.8rem;
+}
+
+.help-link:hover {
+    text-decoration: underline;
+}
+
+.validation-error {
+    background-color: #fdf2f2;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 0.85rem;
+}
+
+.form-group label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
 /* Loading overlay */
 .loading-overlay {
     position: fixed;

@@ -40,6 +40,10 @@ class OpenHandsWebChat {
         this.newConversationForm = document.getElementById('new-conversation-form');
         this.initialMessageInput = document.getElementById('initial-message');
         this.maxIterationsInput = document.getElementById('max-iterations');
+        this.jsonParametersInput = document.getElementById('json-parameters');
+        this.jsonValidationError = document.getElementById('json-validation-error');
+        this.resetJsonBtn = document.getElementById('reset-json-btn');
+        this.showJsonHelpBtn = document.getElementById('show-json-help');
         
         // Loading overlay
         this.loadingOverlay = document.getElementById('loading-overlay');
@@ -88,6 +92,21 @@ class OpenHandsWebChat {
             if (e.target === this.newConversationModal) {
                 this.hideNewConversationModal();
             }
+        });
+
+        // JSON parameters controls
+        this.resetJsonBtn.addEventListener('click', () => {
+            this.resetJsonParameters();
+        });
+
+        this.showJsonHelpBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showJsonExample();
+        });
+
+        // JSON validation on input
+        this.jsonParametersInput.addEventListener('input', () => {
+            this.validateJsonParameters();
         });
     }
 
@@ -544,7 +563,88 @@ class OpenHandsWebChat {
         }
     }
 
+    // Local storage functions for dialog settings
+    saveDialogSettings() {
+        const settings = {
+            initialMessage: this.initialMessageInput.value,
+            maxIterations: this.maxIterationsInput.value,
+            jsonParameters: this.jsonParametersInput.value
+        };
+        localStorage.setItem('openhandsDialogSettings', JSON.stringify(settings));
+    }
+
+    loadDialogSettings() {
+        try {
+            const saved = localStorage.getItem('openhandsDialogSettings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                this.initialMessageInput.value = settings.initialMessage || '';
+                this.maxIterationsInput.value = settings.maxIterations || '500';
+                this.jsonParametersInput.value = settings.jsonParameters || '';
+                this.validateJsonParameters();
+            }
+        } catch (error) {
+            console.warn('Failed to load dialog settings from localStorage:', error);
+        }
+    }
+
+    getDefaultJsonParameters() {
+        return JSON.stringify({
+            agent: {
+                llm: {
+                    model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                    base_url: "https://llm-proxy.eval.all-hands.dev",
+                    api_key: "placeholder"
+                },
+                tools: [
+                    { name: "BashTool", params: { working_dir: "/workspace" } },
+                    { name: "FileEditor" },
+                    { name: "TaskTracker" }
+                ]
+            }
+        }, null, 2);
+    }
+
+    resetJsonParameters() {
+        this.jsonParametersInput.value = this.getDefaultJsonParameters();
+        this.validateJsonParameters();
+    }
+
+    showJsonExample() {
+        const example = this.getDefaultJsonParameters();
+        if (!this.jsonParametersInput.value.trim()) {
+            this.jsonParametersInput.value = example;
+            this.validateJsonParameters();
+        } else {
+            // Show example in a simple alert for now
+            alert('Example JSON Parameters:\n\n' + example);
+        }
+    }
+
+    validateJsonParameters() {
+        const jsonText = this.jsonParametersInput.value.trim();
+        
+        // Clear previous error
+        this.jsonValidationError.style.display = 'none';
+        this.jsonParametersInput.style.borderColor = '';
+        
+        if (!jsonText) {
+            return true; // Empty is valid (will use defaults)
+        }
+        
+        try {
+            JSON.parse(jsonText);
+            return true;
+        } catch (error) {
+            this.jsonValidationError.textContent = `Invalid JSON: ${error.message}`;
+            this.jsonValidationError.style.display = 'block';
+            this.jsonParametersInput.style.borderColor = '#e74c3c';
+            return false;
+        }
+    }
+
     showNewConversationModal() {
+        this.loadDialogSettings();
         this.newConversationModal.style.display = 'block';
         this.initialMessageInput.focus();
     }
@@ -555,27 +655,48 @@ class OpenHandsWebChat {
     }
 
     async createNewConversation() {
+        // Validate JSON parameters first
+        if (!this.validateJsonParameters()) {
+            return;
+        }
+
         const initialMessage = this.initialMessageInput.value.trim();
         const maxIterations = parseInt(this.maxIterationsInput.value) || 500;
+        const jsonParameters = this.jsonParametersInput.value.trim();
         
         try {
             this.showLoading();
             
-            const requestBody = {
-                agent: {
-                    llm: {
-                        model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                        base_url: "https://llm-proxy.eval.all-hands.dev",
-                        api_key: "placeholder" // This should be set via environment variable
+            let requestBody;
+            
+            if (jsonParameters) {
+                // Use custom JSON parameters
+                try {
+                    requestBody = JSON.parse(jsonParameters);
+                    // Ensure max_iterations is set
+                    requestBody.max_iterations = maxIterations;
+                } catch (error) {
+                    this.showError('Invalid JSON parameters: ' + error.message);
+                    return;
+                }
+            } else {
+                // Use default parameters
+                requestBody = {
+                    agent: {
+                        llm: {
+                            model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                            base_url: "https://llm-proxy.eval.all-hands.dev",
+                            api_key: "placeholder" // This should be set via environment variable
+                        },
+                        tools: [
+                            { name: "BashTool", params: { working_dir: "/workspace" } },
+                            { name: "FileEditor" },
+                            { name: "TaskTracker" }
+                        ]
                     },
-                    tools: [
-                        { name: "BashTool", params: { working_dir: "/workspace" } },
-                        { name: "FileEditor" },
-                        { name: "TaskTracker" }
-                    ]
-                },
-                max_iterations: maxIterations
-            };
+                    max_iterations: maxIterations
+                };
+            }
             
             if (initialMessage) {
                 requestBody.initial_message = {
@@ -589,6 +710,9 @@ class OpenHandsWebChat {
                 method: 'POST',
                 body: JSON.stringify(requestBody)
             });
+            
+            // Save settings to localStorage
+            this.saveDialogSettings();
             
             this.hideNewConversationModal();
             
