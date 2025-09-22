@@ -3,7 +3,7 @@ Script which demonstrates the use of the agent server with another server
 acting as an example to accept webhook callbacks.
 
 Start a conversation at:
-http://localhost:8000/docs#/default/start_conversation_conversations__post
+http://localhost:8000/docs#/default/start_conversation_api_conversations__post
 
 The current webhook requests are visible at:
 http://localhost:8001/requests
