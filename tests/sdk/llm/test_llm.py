@@ -318,7 +318,15 @@ def test_llm_openhands_provider_rewrite(default_llm):
     # use dict access for TypedDict-based message type
     first = formatted[0]
     assert first["role"] == "user"
-    assert first["content"] == "Hello"
+    content = first["content"]
+    if isinstance(content, str):
+        assert content == "Hello"
+    else:
+        assert isinstance(content, list)
+        assert len(content) >= 1
+        first_part = content[0]
+        assert first_part.get("type") == "text"
+        assert first_part.get("text") == "Hello"
 
     # Test with list of Message objects
     messages = [
@@ -332,8 +340,20 @@ def test_llm_openhands_provider_rewrite(default_llm):
     second = formatted[1]
     assert first["role"] == "user"
     assert second["role"] == "assistant"
-    assert first["content"] == "Hello"
-    assert second["content"] == "Hi there!"
+    # first content
+    first_content = first["content"]
+    if isinstance(first_content, str):
+        assert first_content == "Hello"
+    else:
+        assert isinstance(first_content, list)
+        assert first_content and first_content[0].get("text") == "Hello"
+    # second content
+    second_content = second["content"]
+    if isinstance(second_content, str):
+        assert second_content == "Hi there!"
+    else:
+        assert isinstance(second_content, list)
+        assert second_content and second_content[0].get("text") == "Hi there!"
 
 
 def test_metrics_copy():

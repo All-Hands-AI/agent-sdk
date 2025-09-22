@@ -141,9 +141,6 @@ class Message(BaseModel):
         )
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 
-        # Include tool response name if provided
-        if self.role == "tool" and self.name:
-            message_dict["name"] = self.name
         # add tool call keys if we have a tool call or response
         return self._add_tool_call_keys(message_dict)
 
@@ -153,32 +150,16 @@ class Message(BaseModel):
         for item in self.content:
             # Serialize with the subclass-specific return type
             raw = item.to_llm_dict()
-            # We have to remove cache_prompt for tool content and move it up to the
-            # message level
-            # See discussion here for details: https://github.com/BerriAI/litellm/issues/6422#issuecomment-2438765472
             if isinstance(item, TextContent):
                 d = cast(dict[str, Any], raw)
-                if self.role == "tool" and item.cache_prompt:
-                    d.pop("cache_control", None)
                 content.append(d)
 
             elif isinstance(item, ImageContent) and self.vision_enabled:
                 # ImageContent.model_dump() always returns a list of dicts
                 d_list = cast(list[dict[str, Any]], raw)
-                if self.role == "tool" and item.cache_prompt:
-                    for elem in d_list:
-                        elem.pop("cache_control", None)
                 content.extend(d_list)
 
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
-
-        # For tool role with any cache_prompt=True content, move cache control to
-        # message level and ensure content items do not carry it.
-        if self.role == "tool" and any(
-            isinstance(it, (TextContent, ImageContent)) and it.cache_prompt
-            for it in self.content
-        ):
-            message_dict["cache_control"] = {"type": "ephemeral"}
 
         return self._add_tool_call_keys(message_dict)
 

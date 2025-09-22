@@ -663,31 +663,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 raw_msgs, cast(list[ChatCompletionToolParam], tools) or [], opts
             )
 
-        # Sanitize for ChatCtx: ensure tool messages don't carry fields some LiteLLM
-        # models forbid (e.g., cache_control/name). Convert tool messages to dicts and
-        # drop those keys so Pydantic union resolves cleanly.
-        if kind == "chat" and messages:
-            sanitized_msgs: list[AllMessageValues] = []
-            for m in messages:
-                if isinstance(m, dict):
-                    if m.get("role") == "tool":
-                        d: dict[str, Any] = dict(m)
-                        d.pop("cache_control", None)
-                        d.pop("name", None)
-                        sanitized_msgs.append(cast(AllMessageValues, d))
-                    else:
-                        sanitized_msgs.append(m)
-                else:
-                    mm = cast(Any, m)
-                    if getattr(mm, "role", None) == "tool":
-                        d2: dict[str, Any] = cast(dict[str, Any], mm.model_dump())
-                        d2.pop("cache_control", None)
-                        d2.pop("name", None)
-                        sanitized_msgs.append(cast(AllMessageValues, d2))
-                    else:
-                        sanitized_msgs.append(m)
-            messages = sanitized_msgs
-
         has_tools = bool(tools) and (kind == "chat") and not use_mock_tools
         call_kwargs = self._normalize_kwargs(kind, opts, has_tools=has_tools)
 
