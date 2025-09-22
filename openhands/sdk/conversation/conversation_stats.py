@@ -18,10 +18,8 @@ class ConversationStats(BaseModel):
         default_factory=dict,
         description="Active service metrics tracked by the registry",
     )
-    restored_metrics: dict[str, Metrics] = Field(
-        default_factory=dict,
-        description="Metrics restored from storage before services are registered",
-    )
+
+    _restored_services: set = PrivateAttr(default_factory=set)
 
     # Private attributes that won't be serialized
     _file_store: Optional[FileStore] = PrivateAttr(default=None)
@@ -89,9 +87,13 @@ class ConversationStats(BaseModel):
         llm = event.llm
         service_id = event.service_id
 
-        if service_id in self.restored_metrics:
-            llm.restore_metrics(self.restored_metrics[service_id].deep_copy())
-            del self.restored_metrics[service_id]
+        # Service costs exists but has not been restored yet
+        if (
+            service_id in self.service_to_metrics
+            and service_id not in self._restored_services
+        ):
+            llm.restore_metrics(self.service_to_metrics[service_id])
 
-        if llm.metrics:
+        # Service is new, track its metrics
+        if service_id not in self.service_to_metrics and llm.metrics:
             self.service_to_metrics[service_id] = llm.metrics
