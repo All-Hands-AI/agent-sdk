@@ -30,7 +30,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("webhook_test_server.log"),
+        logging.FileHandler("webhook_logging_server.log"),
     ],
 )
 
@@ -325,7 +325,7 @@ if __name__ == "__main__":
         "--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
     )
     parser.add_argument(
-        "--port", type=int, default=12000, help="Port to bind to (default: 12000)"
+        "--port", type=int, default=8001, help="Port to bind to (default: 8001)"
     )
     parser.add_argument(
         "--session-key",
@@ -353,7 +353,7 @@ if __name__ == "__main__":
 
     # Run the server
     uvicorn.run(
-        "webhook_test_server:app",
+        "webhook_logging_server:app",
         host=args.host,
         port=args.port,
         log_level=args.log_level.lower(),
