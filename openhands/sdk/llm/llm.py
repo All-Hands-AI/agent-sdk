@@ -585,7 +585,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         f"Got model info from litellm proxy: {self._model_info}"
                     )
             except Exception as e:
-                logger.info(f"Error fetching model info from proxy: {e}")
+                logger.debug(f"Error fetching model info from proxy: {e}")
 
         # Fallbacks: try base name variants
         if not self._model_info:
@@ -620,7 +620,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Function-calling capabilities
         feats = get_features(self.model)
-        logger.info(f"Model features for {self.model}: {feats}")
+        logger.debug(f"Model features for {self.model}: {feats}")
         self._function_calling_active = (
             self.native_tool_calling
             if self.native_tool_calling is not None
@@ -716,7 +716,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return [message.to_llm_dict() for message in messages]
 
     def get_token_count(self, messages: list[Message]) -> int:
-        logger.info(
+        logger.debug(
             "Message objects now include serialized tool calls in token counting"
         )
         formatted_messages = self.format_messages_for_llm(messages)
