@@ -9,7 +9,6 @@ from rich.text import Text
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
-from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
@@ -102,13 +101,6 @@ class ActionEvent(LLMConvertibleEvent):
             "Groups related actions from same LLM response. This helps in tracking "
             "and managing results of parallel function calling from the same LLM "
             "response."
-        ),
-    )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs). Only attached "
-            "to the last action when multiple actions share the same LLM response."
         ),
     )
     security_risk: risk.SecurityRisk = Field(
@@ -219,13 +211,6 @@ class MessageEvent(LLMConvertibleEvent):
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
-    )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs) for this message. "
-            "Only attached to messages from agent."
-        ),
     )
 
     # context extensions stuff / microagent can go here
@@ -356,13 +341,6 @@ class AgentErrorEvent(LLMConvertibleEvent):
 
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs). Only attached "
-            "to the last action when multiple actions share the same LLM response."
-        ),
-    )
 
     @property
     def visualize(self) -> Text:

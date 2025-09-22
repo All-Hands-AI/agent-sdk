@@ -12,7 +12,6 @@ from openhands.sdk.event.llm_convertible import (
     SystemPromptEvent,
     UserRejectObservation,
 )
-from openhands.sdk.event.metric_events import EventWithMetrics
 from openhands.sdk.event.types import EventID, ToolCallID
 from openhands.sdk.event.user_action import PauseEvent
 
@@ -30,7 +29,6 @@ __all__ = [
     "Condensation",
     "CondensationRequest",
     "CondensationSummaryEvent",
-    "EventWithMetrics",
     "EventID",
     "ToolCallID",
 ]

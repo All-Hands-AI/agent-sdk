@@ -77,7 +77,9 @@ class Conversation:
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
-            self._visualizer = create_default_visualizer()
+            self._visualizer = create_default_visualizer(
+                conversation_stats=self.state.stats
+            )
             composed_list = [self._visualizer.on_event] + composed_list
             # visualize should happen first for visibility
         else:

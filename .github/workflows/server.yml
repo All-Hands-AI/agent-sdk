@@ -99,8 +99,6 @@ jobs:
                   uv sync --frozen --dev
 
             - name: Check OpenAPI JSON and build client
-              env:
-                  PYTHONPATH: .
               run: |
                   make test-server-schema
 
