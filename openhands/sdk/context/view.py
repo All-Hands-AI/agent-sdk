@@ -179,7 +179,7 @@ class View(BaseModel):
                     break
 
         if summary is not None and summary_offset is not None:
-            logger.info(f"Inserting summary at offset {summary_offset}")
+            logger.debug(f"Inserting summary at offset {summary_offset}")
 
             _new_summary_event = CondensationSummaryEvent(summary=summary)
             kept_events.insert(summary_offset, _new_summary_event)
