@@ -13,7 +13,7 @@ on:
             base_image:
                 description: Base runtime image
                 type: string
-                default: nikolaik/python-nodejs:python3.12-nodejs22
+                default: nikolaik/python-nodejs:python3.12-nodejs22-slim
             image:
                 description: GHCR image name
                 type: string
@@ -104,34 +104,12 @@ jobs:
               run: |
                   make test-server-schema
 
-    check-docker-changes:
-        name: Check Docker Changes
-        runs-on: blacksmith-2vcpu-ubuntu-2404
-        outputs:
-            docker-changed: ${{ steps.changes.outputs.docker }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v5
-              with:
-                  fetch-depth: 0
-
-            - name: Check for Docker changes
-              uses: dorny/paths-filter@v3
-              id: changes
-              with:
-                  filters: |
-                      docker:
-                        - 'openhands/agent_server/docker/**'
-                        - '.github/workflows/server.yml'
-
     build-and-push-image:
         name: Build & Push
-        needs: check-docker-changes
-        # Run only on main branch, 'build-docker' tag, or when Docker files/workflow are changed
+        # Run on all commits (push events and pull requests)
         if: >
-            github.ref == 'refs/heads/main' ||
-            (github.ref_type == 'tag' && github.ref_name == 'build-docker') ||
-            needs.check-docker-changes.outputs.docker-changed == 'true'
+            github.event_name == 'push' ||
+            github.event_name == 'pull_request'
         outputs:
             image: ${{ steps.build.outputs.image }}
             short_sha: ${{ steps.build.outputs.short_sha }}
