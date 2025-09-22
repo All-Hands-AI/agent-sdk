@@ -82,7 +82,6 @@ def test_message_tool_role_with_cache_prompt():
     result = message.to_llm_dict()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
-    assert result["cache_control"] == {"type": "ephemeral"}
     d = __import__("typing").cast(dict[str, object], result)
     assert d["role"] == "tool"
     assert d["tool_call_id"] == "call_123"

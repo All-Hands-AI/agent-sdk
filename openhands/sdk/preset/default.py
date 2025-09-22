@@ -14,23 +14,51 @@ logger = get_logger(__name__)
 
 
 def register_default_tools(enable_browser: bool = True) -> None:
-    """Register the default set of tools."""
+    """Register the default set of tools.
+
+    If a tool name is already registered, we do not override it. This allows
+    callers (e.g., tests) to inject lightweight factories without being
+    clobbered by the default preset registration.
+    """
+    from openhands.sdk.tool import list_registered_tools
     from openhands.tools.execute_bash import BashTool
     from openhands.tools.str_replace_editor import FileEditorTool
     from openhands.tools.task_tracker import TaskTrackerTool
 
-    register_tool("BashTool", BashTool)
-    logger.debug("Tool: BashTool registered.")
-    register_tool("FileEditorTool", FileEditorTool)
-    logger.debug("Tool: FileEditorTool registered.")
-    register_tool("TaskTrackerTool", TaskTrackerTool)
-    logger.debug("Tool: TaskTrackerTool registered.")
+    already = set(list_registered_tools())
+
+    if "BashTool" not in already:
+        register_tool("BashTool", BashTool)
+        logger.debug("Tool: BashTool registered.")
+    else:
+        logger.debug("Tool: BashTool already registered - skipping preset override.")
+
+    if "FileEditorTool" not in already:
+        register_tool("FileEditorTool", FileEditorTool)
+        logger.debug("Tool: FileEditorTool registered.")
+    else:
+        logger.debug(
+            "Tool: FileEditorTool already registered - skipping preset override."
+        )
+
+    if "TaskTrackerTool" not in already:
+        register_tool("TaskTrackerTool", TaskTrackerTool)
+        logger.debug("Tool: TaskTrackerTool registered.")
+    else:
+        logger.debug(
+            "Tool: TaskTrackerTool already registered - skipping preset override."
+        )
 
     if enable_browser:
         from openhands.tools.browser_use import BrowserToolSet
 
-        register_tool("BrowserToolSet", BrowserToolSet)
-        logger.debug("Tool: BrowserToolSet registered.")
+        if "BrowserToolSet" not in already:
+            register_tool("BrowserToolSet", BrowserToolSet)
+            logger.debug("Tool: BrowserToolSet registered.")
+        else:
+            logger.debug(
+                "Tool: BrowserToolSet already registered - skipping preset override."
+            )
 
 
 def get_default_tools(
