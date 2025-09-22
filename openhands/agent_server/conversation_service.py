@@ -33,8 +33,8 @@ class ConversationService:
     all event_services are loaded into memory, and stored when it stops.
     """
 
-    event_services_path: Path = field(default=Path("workspace/event_services"))
-    workspace_path: Path = field(default=Path("workspace/project"))
+    event_services_path: Path = field()
+    workspace_path: Path = field()
     webhook_specs: list[WebhookSpec] = field(default_factory=list)
     session_api_key: str | None = field(default=None)
     _event_services: dict[UUID, EventService] | None = field(default=None, init=False)

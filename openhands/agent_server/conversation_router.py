@@ -40,8 +40,16 @@ START_CONVERSATION_EXAMPLES = [
                 ToolSpec(
                     name="BashTool", params={"working_dir": config.workspace_path}
                 ),
-                ToolSpec(name="FileEditor"),
-                ToolSpec(name="TaskTracker"),
+                ToolSpec(
+                    name="FileEditorTool",
+                    params={"workspace_root": config.workspace_path},
+                ),
+                ToolSpec(
+                    name="TaskTrackerTool",
+                    # task tracker json is a type of metadata,
+                    # so we save it in conversations_path
+                    params={"save_dir": f"{config.conversations_path}"},
+                ),
             ],
         ),
         initial_message=SendMessageRequest(

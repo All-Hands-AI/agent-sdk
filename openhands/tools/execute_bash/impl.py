@@ -47,6 +47,11 @@ class BashExecutor(ToolExecutor):
         self.session.initialize()
         self.env_provider = env_provider
         self.env_masker = env_masker
+        logger.info(
+            f"BashExecutor initialized with working_dir: {working_dir}, "
+            f"username: {username}, "
+            f"terminal_type: {terminal_type or self.session.__class__.__name__}"
+        )
 
     def _export_envs(self, action: ExecuteBashAction) -> None:
         if not self.env_provider:
