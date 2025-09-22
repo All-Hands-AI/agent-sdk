@@ -12,7 +12,9 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.tools import (
+from openhands.sdk.tool.registry import register_tool
+from openhands.sdk.tool.spec import ToolSpec
+from openhands.tools.execute_bash import (
     BashTool,
 )
 
@@ -38,13 +40,18 @@ llm_condenser = LLM(
 )
 
 # Tools
-cwd = os.getcwd()
-tools = [BashTool.create(working_dir=cwd)]
+register_tool("BashTool", BashTool)
 
 condenser = LLMSummarizingCondenser(llm=llm_condenser, max_size=10, keep_first=2)
 
-# Agent
-agent = Agent(llm=llm, tools=tools, condenser=condenser)
+cwd = os.getcwd()
+agent = Agent(
+    llm=llm,
+    tools=[
+        ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ],
+    condenser=condenser,
+)
 
 conversation = Conversation(agent=agent)
 conversation.send_message(

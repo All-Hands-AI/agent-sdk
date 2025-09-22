@@ -29,6 +29,7 @@ class ExecuteBashAction(ActionBase):
     )
     timeout: float | None = Field(
         default=None,
+        ge=0,
         description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa
     )
 
@@ -44,16 +45,16 @@ class ExecuteBashAction(ActionBase):
         if self.command:
             content.append(self.command, style="white")
         else:
-            content.append("[empty command]", style="dim italic")
+            content.append("[empty command]", style="italic")
 
         # Add metadata if present
         if self.is_input:
             content.append(" ", style="white")
-            content.append("(input to running process)", style="dim yellow")
+            content.append("(input to running process)", style="yellow")
 
         if self.timeout is not None:
             content.append(" ", style="white")
-            content.append(f"[timeout: {self.timeout}s]", style="dim cyan")
+            content.append(f"[timeout: {self.timeout}s]", style="cyan")
 
         return content
 
@@ -127,7 +128,7 @@ class ExecuteBashObservation(ObservationBase):
                     ):
                         content.append(line, style="yellow")
                     elif line.startswith("+ "):  # bash -x output
-                        content.append(line, style="dim cyan")
+                        content.append(line, style="cyan")
                     else:
                         content.append(line, style="white")
                 content.append("\n")
@@ -137,14 +138,14 @@ class ExecuteBashObservation(ObservationBase):
             if self.metadata.working_dir:
                 content.append("\n📁 ", style="blue")
                 content.append(
-                    f"Working directory: {self.metadata.working_dir}", style="dim blue"
+                    f"Working directory: {self.metadata.working_dir}", style="blue"
                 )
 
             if self.metadata.py_interpreter_path:
                 content.append("\n🐍 ", style="green")
                 content.append(
                     f"Python interpreter: {self.metadata.py_interpreter_path}",
-                    style="dim green",
+                    style="green",
                 )
 
             if (

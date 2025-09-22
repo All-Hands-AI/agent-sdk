@@ -1,12 +1,7 @@
 import uuid
-from typing import TYPE_CHECKING, Iterable
+from typing import Iterable
 
-from openhands.sdk.llm.llm_registry import LLMRegistry
-
-
-if TYPE_CHECKING:
-    from openhands.sdk.agent import AgentType
-
+from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -21,7 +16,9 @@ from openhands.sdk.event import (
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 
 
 logger = get_logger(__name__)
@@ -41,7 +38,7 @@ def compose_callbacks(
 class Conversation:
     def __init__(
         self,
-        agent: "AgentType",
+        agent: AgentBase,
         persist_filestore: FileStore | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -108,8 +105,17 @@ class Conversation:
     def conversation_stats(self):
         return self.state.stats
 
-    def send_message(self, message: Message) -> None:
-        """Sending messages to the agent."""
+    def send_message(self, message: str | Message) -> None:
+        """Send a message to the agent.
+
+        Args:
+            message: Either a string (which will be converted to a user message)
+                    or a Message object
+        """
+        # Convert string to Message if needed
+        if isinstance(message, str):
+            message = Message(role="user", content=[TextContent(text=message)])
+
         assert message.role == "user", (
             "Only user messages are allowed to be sent to the agent."
         )
@@ -172,11 +178,6 @@ class Conversation:
         iteration = 0
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
-            # TODO(openhands): we should add a testcase that test IF:
-            # 1. a loop is running
-            # 2. in a separate thread .send_message is called
-            # and check will we be able to execute .send_message
-            # BEFORE the .run loop finishes?
             with self.state:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
@@ -205,11 +206,11 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
-    def set_confirmation_mode(self, enabled: bool) -> None:
-        """Enable or disable confirmation mode and store it in conversation state."""
+    def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
+        """Set the confirmation policy and store it in conversation state."""
         with self.state:
-            self.state.confirmation_mode = enabled
-        logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
+            self.state.confirmation_policy = policy
+        logger.info(f"Confirmation policy set to: {policy}")
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         """Reject all pending actions from the agent.
@@ -280,8 +281,7 @@ class Conversation:
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
-        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
-        for tool in self.agent.tools.values():
+        for tool in self.agent.tools_map.values():
             if tool.executor is not None:
                 try:
                     tool.executor.close()

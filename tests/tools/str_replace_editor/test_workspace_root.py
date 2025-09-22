@@ -46,7 +46,7 @@ def test_workspace_root_as_cwd(tmp_path):
     assert "Maybe you meant" not in error_message
 
 
-def test_relative_workspace_root_raises_error(tmp_path, monkeypatch):
+def test_relative_workspace_root_do_not_raises_error(tmp_path, monkeypatch):
     """Test that a relative workspace_root raises a ValueError."""
     # Set up a directory structure
     current_dir = tmp_path / "current_dir"
@@ -55,16 +55,12 @@ def test_relative_workspace_root_raises_error(tmp_path, monkeypatch):
     # Change to the current directory
     monkeypatch.chdir(current_dir)
 
-    # Initialize editor with a relative workspace_root should raise ValueError
-    with pytest.raises(ValueError) as exc_info:
-        FileEditor(workspace_root="workspace")
-
-    # Check error message
-    error_message = str(exc_info.value)
-    assert "workspace_root must be an absolute path" in error_message
+    # Initialize editor with a relative workspace_root should not raise ValueError
+    editor = FileEditor(workspace_root="workspace")
+    assert editor._cwd == current_dir / "workspace"
 
 
-def test_no_suggestion_when_no_workspace_root(tmp_path, monkeypatch):
+def test_suggestion_when_no_workspace_root(tmp_path, monkeypatch):
     """Test that no path suggestion is made when workspace_root is not provided."""
     # Create a temporary file in the current directory
     current_dir = tmp_path / "current_dir"
@@ -78,14 +74,15 @@ def test_no_suggestion_when_no_workspace_root(tmp_path, monkeypatch):
     # Initialize editor without workspace_root
     editor = FileEditor()
 
-    # Test that no path suggestion is made, even for existing files
+    # Test path suggestion should exists for existing files
     relative_path = "test.txt"
     with pytest.raises(EditorToolParameterInvalidError) as exc_info:
         editor(command="view", path=relative_path)
 
     error_message = str(exc_info.value.message)
     assert "The path should be an absolute path" in error_message
-    assert "Maybe you meant" not in error_message
+    assert "Maybe you meant" in error_message
+    assert str(current_dir) in error_message
 
     # Test with a non-existent file (should also have no suggestion)
     non_existent_path = "non_existent.txt"

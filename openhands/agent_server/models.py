@@ -1,30 +1,19 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from openhands.agent_server.utils import (
-    get_serializable_polymorphic_type,
-    utc_now,
-)
-from openhands.sdk import (
-    AgentSpec,
-    EventBase,
-    ImageContent,
-    Message,
-    TextContent,
-)
+from openhands.agent_server.utils import utc_now
+from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-
-
-# Give pydantic / fastapi some help when serializing
-if TYPE_CHECKING:
-    EventType = EventBase
-else:
-    EventType = get_serializable_polymorphic_type(EventBase)
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
+from openhands.sdk.utils.models import OpenHandsModel
 
 
 class ConversationSortOrder(str, Enum):
@@ -61,24 +50,24 @@ class SendMessageRequest(BaseModel):
         return message
 
 
-class StartConversationRequest(AgentSpec):
+class StartConversationRequest(BaseModel):
     """Payload to create a new conversation.
 
-    It inherits from AgentSpec which contains everything needed
-    to start a new conversation.
+    Contains an Agent configuration along with conversation-specific options.
     """
 
-    # These are two conversation specific fields
-    confirmation_mode: bool = Field(
-        default=False,
-        description="If true, the agent will enter confirmation mode, "
-        "requiring user approval for actions.",
+    agent: AgentBase
+    confirmation_policy: ConfirmationPolicyBase = Field(
+        default=NeverConfirm(),
+        description="Controls when the conversation will prompt the user before "
+        "continuing. Defaults to never.",
     )
     initial_message: SendMessageRequest | None = Field(
         default=None, description="Initial message to pass to the LLM"
     )
     max_iterations: int = Field(
         default=500,
+        ge=1,
         description="If set, the max number of iterations the agent will run "
         "before stopping. This is useful to prevent infinite loops.",
     )
@@ -120,6 +109,6 @@ class Success(BaseModel):
     success: bool = True
 
 
-class EventPage(BaseModel):
-    items: list[EventType]
+class EventPage(OpenHandsModel):
+    items: list[EventBase]
     next_page_id: str | None = None

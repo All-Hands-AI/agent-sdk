@@ -24,14 +24,14 @@ from openhands.sdk.llm.utils.metrics import MetricsSnapshot, TokenUsage
 from openhands.sdk.tool import ActionBase
 
 
-class MockAction(ActionBase):
+class TestVisualizerMockAction(ActionBase):
     """Mock action for testing."""
 
     command: str = "test command"
     working_dir: str = "/tmp"
 
 
-class CustomAction(ActionBase):
+class TestVisualizerCustomAction(ActionBase):
     """Custom action with overridden visualize method."""
 
     task_list: list[dict] = []
@@ -60,14 +60,14 @@ def create_tool_call(
 
 def test_action_base_visualize():
     """Test that ActionBase has a visualize property."""
-    action = MockAction(command="echo hello", working_dir="/home")
+    action = TestVisualizerMockAction(command="echo hello", working_dir="/home")
 
     result = action.visualize
     assert isinstance(result, Text)
 
     # Check that it contains action name and fields
     text_content = result.plain
-    assert "MockAction" in text_content
+    assert "TestVisualizerMockAction" in text_content
     assert "command" in text_content
     assert "echo hello" in text_content
     assert "working_dir" in text_content
@@ -80,7 +80,7 @@ def test_custom_action_visualize():
         {"title": "Task 1", "status": "todo"},
         {"title": "Task 2", "status": "done"},
     ]
-    action = CustomAction(task_list=tasks)
+    action = TestVisualizerCustomAction(task_list=tasks)
 
     result = action.visualize
     assert isinstance(result, Text)
@@ -120,7 +120,7 @@ def test_system_prompt_event_visualize():
 
 def test_action_event_visualize():
     """Test ActionEvent visualization."""
-    action = MockAction(command="ls -la", working_dir="/tmp")
+    action = TestVisualizerMockAction(command="ls -la", working_dir="/tmp")
     tool_call = create_tool_call("call_123", "bash", {"command": "ls -la"})
     event = ActionEvent(
         thought=[TextContent(text="I need to list files")],
@@ -140,7 +140,7 @@ def test_action_event_visualize():
     assert "Let me check the directory contents" in text_content
     assert "Thought:" in text_content
     assert "I need to list files" in text_content
-    assert "MockAction" in text_content
+    assert "TestVisualizerMockAction" in text_content
     assert "ls -la" in text_content
 
 
@@ -148,14 +148,14 @@ def test_observation_event_visualize():
     """Test ObservationEvent visualization."""
     from openhands.sdk.tool import ObservationBase
 
-    class MockObservation(ObservationBase):
+    class TestVisualizerMockObservation(ObservationBase):
         content: str = "Command output"
 
         @property
         def agent_observation(self) -> Sequence[TextContent | ImageContent]:
             return [TextContent(text=self.content)]
 
-    observation = MockObservation(
+    observation = TestVisualizerMockObservation(
         content="total 4\ndrwxr-xr-x 2 user user 4096 Jan 1 12:00 ."
     )
     event = ObservationEvent(
@@ -241,7 +241,7 @@ def test_visualizer_event_panel_creation():
     visualizer = ConversationVisualizer()
 
     # Test with a simple action event
-    action = MockAction(command="test")
+    action = TestVisualizerMockAction(command="test")
     tool_call = create_tool_call("call_1", "test", {})
     event = ActionEvent(
         thought=[TextContent(text="Testing")],
@@ -262,7 +262,7 @@ def test_metrics_formatting():
     visualizer = ConversationVisualizer()
 
     # Create an event with metrics
-    action = MockAction(command="test")
+    action = TestVisualizerMockAction(command="test")
     metrics = MetricsSnapshot(
         accumulated_token_usage=TokenUsage(
             prompt_tokens=1500,

@@ -233,15 +233,18 @@ class TestMCPTool:
         assert self.tool.name == "test_tool"
         assert self.tool.description == "A test tool"
 
-        assert len(self.tool.input_schema["properties"]) == 2
-        assert "security_risk" in self.tool.input_schema["properties"]
+        # Get the schema from the OpenAI tool since MCPToolAction now uses dynamic
+        # schema
+        openai_tool = self.tool.to_openai_tool()
+        function_def = openai_tool["function"]
+        assert "parameters" in function_def
+        input_schema = function_def["parameters"]
 
-        # Create a copy to avoid modifying the frozen object
-        expected_schema = self.tool.input_schema.copy()
-        expected_schema["properties"] = expected_schema["properties"].copy()
-        expected_schema["properties"].pop("security_risk")
+        # Since security_risk was removed from ActionBase, it should not be in schema
+        assert len(input_schema["properties"]) == 1
+        assert "security_risk" not in input_schema["properties"]
 
-        assert expected_schema == {
+        assert input_schema == {
             "type": "object",
             "properties": {"param": {"type": "string"}},
         }
