@@ -127,11 +127,12 @@ jobs:
     build-and-push-image:
         name: Build & Push
         needs: check-docker-changes
-        # Run only on main branch, 'build-docker' tag, or when Docker files/workflow are changed
+        # Run on all commits (push events and pull requests)
         if: >
-            github.ref == 'refs/heads/main' ||
+            github.event_name == 'push' ||
+            github.event_name == 'pull_request' ||
             (github.ref_type == 'tag' && github.ref_name == 'build-docker') ||
-            needs.check-docker-changes.outputs.docker-changed == 'true'
+            github.event_name == 'workflow_dispatch'
         outputs:
             image: ${{ steps.build.outputs.image }}
             short_sha: ${{ steps.build.outputs.short_sha }}
