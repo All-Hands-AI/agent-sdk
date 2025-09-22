@@ -141,6 +141,9 @@ class Message(BaseModel):
         )
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 
+        # Include tool response name if provided
+        if self.role == "tool" and self.name:
+            message_dict["name"] = self.name
         # add tool call keys if we have a tool call or response
         return self._add_tool_call_keys(message_dict)
 
@@ -168,10 +171,14 @@ class Message(BaseModel):
                 content.extend(d_list)
 
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
-        # Avoid adding message-level cache_control for tool messages; LiteLLM models
-        # do not accept it on ChatCompletionToolMessage
-        # if role_tool_with_prompt_caching:
-        #     message_dict["cache_control"] = {"type": "ephemeral"}
+
+        # For tool role with any cache_prompt=True content, move cache control to
+        # message level and ensure content items do not carry it.
+        if self.role == "tool" and any(
+            isinstance(it, (TextContent, ImageContent)) and it.cache_prompt
+            for it in self.content
+        ):
+            message_dict["cache_control"] = {"type": "ephemeral"}
 
         return self._add_tool_call_keys(message_dict)
 

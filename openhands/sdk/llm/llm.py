@@ -655,12 +655,43 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
+
             # When mocking, we need raw dict messages; convert AllMessageValues to dict
-            # AllMessageValues are Pydantic models in LiteLLM; ensure dicts for mock
-            raw_msgs: list[dict] = [cast(Any, m).model_dump() for m in (messages or [])]
+            def _to_raw_dict(x: AllMessageValues | dict[str, Any]) -> dict[str, Any]:
+                if isinstance(x, dict):
+                    return cast(dict[str, Any], x)
+                # x is a Pydantic message model; convert to dict
+                return cast(dict[str, Any], cast(Any, x).model_dump())
+
+            raw_msgs: list[dict[str, Any]] = [_to_raw_dict(m) for m in (messages or [])]
             nonfn_msgs, opts = self.pre_request_prompt_mock(
                 raw_msgs, cast(list[ChatCompletionToolParam], tools) or [], opts
             )
+
+        # Sanitize for ChatCtx: ensure tool messages don't carry fields some LiteLLM
+        # models forbid (e.g., cache_control/name). Convert tool messages to dicts and
+        # drop those keys so Pydantic union resolves cleanly.
+        if kind == "chat" and messages:
+            sanitized_msgs: list[AllMessageValues] = []
+            for m in messages:
+                if isinstance(m, dict):
+                    if m.get("role") == "tool":
+                        d: dict[str, Any] = dict(m)
+                        d.pop("cache_control", None)
+                        d.pop("name", None)
+                        sanitized_msgs.append(cast(AllMessageValues, d))
+                    else:
+                        sanitized_msgs.append(m)
+                else:
+                    mm = cast(Any, m)
+                    if getattr(mm, "role", None) == "tool":
+                        d2: dict[str, Any] = cast(dict[str, Any], mm.model_dump())
+                        d2.pop("cache_control", None)
+                        d2.pop("name", None)
+                        sanitized_msgs.append(cast(AllMessageValues, d2))
+                    else:
+                        sanitized_msgs.append(m)
+            messages = sanitized_msgs
 
         has_tools = bool(tools) and (kind == "chat") and not use_mock_tools
         call_kwargs = self._normalize_kwargs(kind, opts, has_tools=has_tools)
