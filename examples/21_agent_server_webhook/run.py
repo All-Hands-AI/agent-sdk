@@ -60,7 +60,7 @@ def main():
     # Run agent server
     port = args.port
     env = {**os.environ}
-    env["OPENHANDS_AGENT_SERVER_CONFIG_PATH"] = "21_agent_server_webhook_config.json"
+    env["OPENHANDS_AGENT_SERVER_CONFIG_PATH"] = "config.json"
     subprocess.Popen(
         [
             sys.executable,
