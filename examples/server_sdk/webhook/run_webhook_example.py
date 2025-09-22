@@ -153,8 +153,8 @@ This script demonstrates the OpenHands webhook protocol by starting:
 Use Ctrl+C to stop both servers.
 
 Examples:
-  python run_webhook_demo.py                    # Use default ports
-  python run_webhook_demo.py --webhook-port 9001 --agent-port 9000
+  python run_webhook_example.py                    # Use default ports
+  python run_webhook_example.py --webhook-port 9001 --agent-port 9000
         """,
     )
 

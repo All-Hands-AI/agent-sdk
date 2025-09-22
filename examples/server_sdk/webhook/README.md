@@ -10,7 +10,7 @@ This example demonstrates the OpenHands Webhook protocol by running two servers:
 Run the complete demo with a single command:
 
 ```bash
-python run_webhook_demo.py
+python run_webhook_example.py
 ```
 
 This will start both servers and display their URLs. Use Ctrl+C to stop both servers.
