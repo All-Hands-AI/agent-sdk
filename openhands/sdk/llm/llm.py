@@ -311,7 +311,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Serializers
     # =========================================================================
     @field_serializer(
-        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="json"
+        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="always"
     )
     def _serialize_secrets(self, v: SecretStr | None, info):
         """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
@@ -744,29 +744,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Serialization helpers
     # =========================================================================
     @classmethod
-    def deserialize(cls, data: dict[str, Any]) -> "LLM":
-        return cls(**data)
-
-    def serialize(self) -> dict[str, Any]:
-        """Serialize the LLM instance to a dictionary."""
-        return self.model_dump()
-
-    def store_to_json(self, filepath: str) -> None:
-        """Store the LLM instance to a JSON file with secrets exposed.
-
-        Args:
-            filepath: Path where the JSON file should be stored.
-        """
-        data = self.model_dump_with_secrets()
-
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
-
-    @classmethod
     def load_from_json(cls, json_path: str) -> "LLM":
         with open(json_path, "r") as f:
             data = json.load(f)
-        return cls.deserialize(data)
+        return cls(**data)
 
     @classmethod
     def load_from_env(cls, prefix: str = "LLM_") -> "LLM":
@@ -821,7 +802,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             v = _cast_value(value, fields[field_name])
             if v is not None:
                 data[field_name] = v
-        return cls.deserialize(data)
+        return cls(**data)
 
     @classmethod
     def load_from_toml(cls, toml_path: str) -> "LLM":
@@ -836,7 +817,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             data = tomllib.load(f)
         if "llm" in data:
             data = data["llm"]
-        return cls.deserialize(data)
+        return cls(**data)
 
     def resolve_diff_from_deserialized(self, persisted: "LLM") -> "LLM":
         """Resolve differences between a deserialized LLM and the current instance.
@@ -873,12 +854,3 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
             )
         return reconciled
-
-    def model_dump_with_secrets(self) -> dict[str, Any]:
-        """Dump the model including secrets (normally excluded)."""
-        data = self.model_dump()
-        for field in self.OVERRIDE_ON_SERIALIZE:
-            attr = getattr(self, field)
-            if attr is not None and isinstance(attr, SecretStr):
-                data[field] = attr.get_secret_value()
-        return data

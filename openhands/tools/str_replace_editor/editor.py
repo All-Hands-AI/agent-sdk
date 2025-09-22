@@ -7,6 +7,7 @@ from typing import get_args
 
 from binaryornot.check import is_binary
 
+from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.truncate import maybe_truncate
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
@@ -31,6 +32,9 @@ from openhands.tools.str_replace_editor.utils.encoding import (
 )
 from openhands.tools.str_replace_editor.utils.history import FileHistoryManager
 from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
+
+
+logger = get_logger(__name__)
 
 
 class FileEditor:
@@ -74,12 +78,11 @@ class FileEditor:
             workspace_path = Path(workspace_root)
             # Ensure workspace_root is an absolute path
             if not workspace_path.is_absolute():
-                raise ValueError(
-                    f"workspace_root must be an absolute path, got: {workspace_root}"
-                )
+                workspace_path = workspace_path.resolve()
             self._cwd = workspace_path
         else:
             self._cwd = os.path.abspath(os.getcwd())
+        logger.info(f"FileEditor initialized with cwd: {self._cwd}")
 
     def __call__(
         self,

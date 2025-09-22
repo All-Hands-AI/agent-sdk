@@ -148,6 +148,7 @@ class TaskTrackerExecutor(ToolExecutor):
                      persisted to save_dir/TASKS.md
         """
         self.save_dir = Path(save_dir) if save_dir else None
+        logger.info(f"TaskTrackerExecutor initialized with save_dir: {self.save_dir}")
         self._task_list: list[TaskItem] = []
 
         # Load existing tasks if save_dir is provided and file exists
