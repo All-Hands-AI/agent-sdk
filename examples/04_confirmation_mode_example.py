@@ -6,12 +6,11 @@ from typing import Callable
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, Conversation
+from openhands.sdk import LLM, Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.preset.default import get_default_agent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
-from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools.execute_bash import BashTool
 
 
 # Make ^C a clean exit instead of a stack trace
@@ -78,8 +77,6 @@ def run_until_finished(conversation: Conversation, confirmer: Callable) -> None:
         conversation.run()
 
 
-print("=== OpenHands Agent SDK — Confirmation Mode Example ===")
-
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
@@ -89,13 +86,7 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-# Tools
-cwd = os.getcwd()
-register_tool("BashTool", BashTool)
-tools = [ToolSpec(name="BashTool", params={"working_dir": cwd})]
-
-# Agent and Conversation with confirmation mode enabled
-agent = Agent(llm=llm, tools=tools)
+agent = get_default_agent(llm=llm, working_dir=os.getcwd())
 conversation = Conversation(agent=agent)
 
 # 1) Confirmation mode ON
