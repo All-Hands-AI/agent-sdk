@@ -11,9 +11,9 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.base import EventBase, EventID
 from openhands.sdk.event.llm_convertible import (
-    ActionEvent,
-    ObservationEvent,
+    ToolCallEventType,
     ToolCallID,
+    ToolObservationEventType,
 )
 from openhands.sdk.utils.protocol import ListLike
 
@@ -94,7 +94,7 @@ class View(BaseModel):
     ) -> list[LLMConvertibleEvent]:
         """Filter out unmatched tool call events.
 
-        Removes ActionEvents and ObservationEvents that have tool_call_ids
+        Removes ToolCallEventTypes and ObservationEvents that have tool_call_ids
         but don't have matching pairs.
         """
         action_tool_call_ids = View._get_action_tool_call_ids(events)
@@ -110,10 +110,10 @@ class View(BaseModel):
 
     @staticmethod
     def _get_action_tool_call_ids(events: list[LLMConvertibleEvent]) -> set[ToolCallID]:
-        """Extract tool_call_ids from ActionEvents."""
+        """Extract tool_call_ids from ToolCallEventTypes."""
         tool_call_ids = set()
         for event in events:
-            if isinstance(event, ActionEvent) and event.tool_call_id is not None:
+            if isinstance(event, ToolCallEventType) and event.tool_call_id is not None:
                 tool_call_ids.add(event.tool_call_id)
         return tool_call_ids
 
@@ -124,7 +124,10 @@ class View(BaseModel):
         """Extract tool_call_ids from ObservationEvents."""
         tool_call_ids = set()
         for event in events:
-            if isinstance(event, ObservationEvent) and event.tool_call_id is not None:
+            if (
+                isinstance(event, ToolObservationEventType)
+                and event.tool_call_id is not None
+            ):
                 tool_call_ids.add(event.tool_call_id)
         return tool_call_ids
 
@@ -135,9 +138,9 @@ class View(BaseModel):
         observation_tool_call_ids: set[ToolCallID],
     ) -> bool:
         """Determine if an event should be kept based on tool call matching."""
-        if isinstance(event, ObservationEvent):
+        if isinstance(event, ToolObservationEventType):
             return event.tool_call_id in action_tool_call_ids
-        elif isinstance(event, ActionEvent):
+        elif isinstance(event, ToolCallEventType):
             return event.tool_call_id in observation_tool_call_ids
         else:
             return True
