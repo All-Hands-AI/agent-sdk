@@ -1,6 +1,6 @@
 from abc import abstractmethod
+from typing import Sequence
 
-from litellm import ChatCompletionToolParam
 from litellm.types.utils import (
     ModelResponse,
 )
@@ -13,6 +13,7 @@ from pydantic import (
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.message import Message
 from openhands.sdk.logger import get_logger
+from openhands.sdk.tool.tool import ToolBase
 
 
 logger = get_logger(__name__)
@@ -50,8 +51,9 @@ class RouterLLM(LLM):
     def completion(
         self,
         messages: list[Message],
-        tools: list[ChatCompletionToolParam] | None = None,
+        tools: Sequence[ToolBase] | None = None,
         return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> ModelResponse:
         """
@@ -66,7 +68,11 @@ class RouterLLM(LLM):
 
         # Delegate to selected LLM
         return self.active_llm.completion(
-            messages=messages, tools=tools, return_metrics=return_metrics, **kwargs
+            messages=messages,
+            tools=tools,
+            return_metrics=return_metrics,
+            add_security_risk_prediction=add_security_risk_prediction,
+            **kwargs,
         )
 
     @abstractmethod
