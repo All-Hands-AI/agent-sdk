@@ -34,24 +34,33 @@ Actual Behavior (Bug):
     Concurrent messages reset agent status, causing additional LLM calls and continued execution.
 """  # noqa
 
-import threading
-import time
-from unittest.mock import patch
+import os
+import sys
 
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import (
+
+# Ensure repo root on sys.path when running this file as a script
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+import threading  # noqa: E402
+import time  # noqa: E402
+from unittest.mock import patch  # noqa: E402
+
+from litellm import ChatCompletionMessageToolCall  # noqa: E402
+from litellm.types.utils import (  # noqa: E402
     Choices,
     Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
 
-from openhands.sdk.agent import Agent
-from openhands.sdk.conversation import Conversation
-from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.tool import ToolSpec
-from openhands.sdk.tool.registry import register_tool
-from openhands.tools.execute_bash import BashTool
+from openhands.sdk.agent import Agent  # noqa: E402
+from openhands.sdk.conversation import Conversation  # noqa: E402
+from openhands.sdk.llm import LLM, Message, TextContent  # noqa: E402
+from openhands.sdk.tool import ToolSpec  # noqa: E402
+from openhands.sdk.tool.registry import register_tool  # noqa: E402
+from openhands.tools.execute_bash import BashTool  # noqa: E402
 
 
 # Register the bash tool for sleep commands
@@ -305,3 +314,102 @@ class TestMultipleToolCallsRace:
         assert len(self.llm_completion_calls) >= 1, (
             "At least one LLM call should have occurred"
         )
+
+
+# Utility: run this test many times in parallel when executed as a script
+# Example:
+#   python tests/sdk/agent/test_multiple_tool_calls_race.py --runs 50 --concurrency 50
+# This will invoke pytest for this test N times in parallel and summarize results.
+
+
+def _run_parallel_main():  # pragma: no cover - helper for manual stress testing
+    import argparse
+    import os
+    import shutil
+    import subprocess
+    import sys
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from datetime import datetime
+
+    # Compute repo root (three levels up from tests/sdk/agent)
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+    test_rel = os.path.relpath(__file__, repo_root)
+    default_node = (
+        f"{test_rel}::"
+        "TestMultipleToolCallsRace::test_multiple_tool_calls_race_condition"
+    )
+
+    parser = argparse.ArgumentParser(
+        description="Run this race test many times in parallel"
+    )
+    parser.add_argument("--nodeid", default=default_node, help="Pytest node id")
+    parser.add_argument("--runs", type=int, default=50, help="Total runs")
+    parser.add_argument("--concurrency", type=int, default=50, help="Max parallel runs")
+    parser.add_argument(
+        "--no-uv", action="store_true", help="Run pytest directly (no 'uv run')"
+    )
+    parser.add_argument(
+        "--pytest-args", nargs=argparse.REMAINDER, help="Extra args passed to pytest"
+    )
+    args = parser.parse_args()
+
+    use_uv = not args.no_uv
+    extra_args = args.pytest_args if args.pytest_args else []
+
+    print(
+        "Running {} {} times with concurrency={} (uv={})".format(
+            args.nodeid, args.runs, args.concurrency, use_uv
+        )
+    )
+
+    def run_one(idx: int) -> tuple[int, int, str]:
+        cmd: list[str] = []
+        if use_uv and shutil.which("uv"):
+            cmd.extend(["uv", "run"])  # prefer uv if available
+        cmd.extend(["pytest", "-q", args.nodeid])
+        if extra_args:
+            cmd.extend(extra_args)
+
+        env = os.environ.copy()
+        start = datetime.now()
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            cwd=repo_root,
+            env=env,
+            text=True,
+        )
+        duration = (datetime.now() - start).total_seconds()
+        out = f"[run {idx:02d}] rc={proc.returncode} dur={duration:.2f}s\n" + (
+            proc.stdout or ""
+        )
+        return idx, proc.returncode, out
+
+    failures: list[tuple[int, int, str]] = []
+    with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
+        futures = [ex.submit(run_one, i + 1) for i in range(args.runs)]
+        for fut in as_completed(futures):
+            idx, rc, output = fut.result()
+            status = "PASS" if rc == 0 else "FAIL"
+            print(f"[run {idx:02d}] {status}")
+            if rc != 0:
+                failures.append((idx, rc, output))
+
+    print("\nSummary:")
+    print(
+        "Total: {}, Passed: {}, Failed: {}".format(
+            args.runs, args.runs - len(failures), len(failures)
+        )
+    )
+    if failures:
+        print("\n--- Failure outputs (first 3) ---")
+        for i, (_idx, _rc, out) in enumerate(failures[:3], 1):
+            print(f"\n[Failure {i}]\n{out}")
+        sys.exit(1)
+
+    print("All runs passed ✅")
+
+
+if __name__ == "__main__":  # pragma: no cover - manual invocation only
+    _run_parallel_main()
