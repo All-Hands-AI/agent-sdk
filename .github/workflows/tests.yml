@@ -13,7 +13,7 @@ permissions:
 
 jobs:
     sdk-tests:
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-2vcpu-ubuntu-2404
         steps:
             - name: Checkout
               uses: actions/checkout@v5
@@ -39,6 +39,18 @@ jobs:
             - name: Install deps
               if: steps.changed.outputs.any_changed == 'true'
               run: uv sync --frozen --group dev
+
+            - name: Check for openhands.tools imports in sdk tests
+              if: steps.changed.outputs.any_changed == 'true'
+              run: |
+                  echo "Checking for openhands.tools imports in tests/sdk..."
+                  if grep -r "from openhands\.tools" tests/sdk/ || grep -r "import openhands\.tools" tests/sdk/; then
+                    echo "ERROR: Found openhands.tools imports in tests/sdk/"
+                    echo "SDK tests should only import from openhands.sdk"
+                    echo "Please move tests that use openhands.tools to tests/cross/"
+                    exit 1
+                  fi
+                  echo "✓ No openhands.tools imports found in tests/sdk/"
 
             - name: Run sdk tests with coverage
               if: steps.changed.outputs.any_changed == 'true'
@@ -67,7 +79,7 @@ jobs:
                   if-no-files-found: warn
 
     tools-tests:
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-2vcpu-ubuntu-2404
         steps:
             - name: Checkout
               uses: actions/checkout@v5
@@ -121,7 +133,7 @@ jobs:
                   if-no-files-found: warn
 
     agent-server-tests:
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-2vcpu-ubuntu-2404
         steps:
             - name: Checkout
               uses: actions/checkout@v5
@@ -175,7 +187,7 @@ jobs:
                   if-no-files-found: warn
 
     cross-tests:
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-2vcpu-ubuntu-2404
         steps:
             - name: Checkout
               uses: actions/checkout@v5
@@ -231,7 +243,7 @@ jobs:
                   if-no-files-found: warn
 
     coverage-report:
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-2vcpu-ubuntu-2404
         needs: [sdk-tests, tools-tests, agent-server-tests, cross-tests]
         if: always() && github.event_name == 'pull_request'
         steps:

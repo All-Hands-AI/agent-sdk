@@ -21,6 +21,7 @@ class Condensation(EventBase):
 
     summary_offset: int | None = Field(
         default=None,
+        ge=0,
         description="An optional offset to the start of the resulting view"
         " indicating where the summary should be inserted.",
     )
@@ -38,7 +39,7 @@ class Condensation(EventBase):
 
         text.append("Auto Conversation Condensation Triggered.\n", style="bold")
 
-        text.append(f"Forgetting {len(self.forgotten_event_ids)} events\n", style="dim")
+        text.append(f"Forgetting {len(self.forgotten_event_ids)} events\n")
         if self.summary:
             text.append("\n[Summary of Events Being Forgotten]\n", style="bold")
             text.append(f"{self.summary}\n")

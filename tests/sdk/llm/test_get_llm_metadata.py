@@ -24,10 +24,10 @@ def test_get_llm_metadata_basic():
 
 
 def test_get_llm_metadata_without_tools_module():
-    """Test metadata generation when openhands.tools module is not available."""
+    """Test metadata generation when tools module is not available."""
     from openhands.sdk.llm.metadata import get_llm_metadata
 
-    # Mock builtins.__import__ to raise ModuleNotFoundError for openhands.tools
+    # Mock builtins.__import__ to raise ModuleNotFoundError for tools module
     original_import = __import__
 
     def mock_import(name, *args, **kwargs):
@@ -43,10 +43,10 @@ def test_get_llm_metadata_without_tools_module():
 
 
 def test_get_llm_metadata_with_tools_module():
-    """Test metadata generation when openhands.tools module is available."""
+    """Test metadata generation when tools module is available."""
     from openhands.sdk.llm.metadata import get_llm_metadata
 
-    # Since the real openhands.tools module exists, just test that it works
+    # Since the real tools module exists, just test that it works
     metadata = get_llm_metadata(model_name="gpt-4o", agent_name="test-agent")
 
     tags = metadata["tags"]

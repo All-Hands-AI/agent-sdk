@@ -8,9 +8,10 @@ from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.event.llm_convertible import SystemPromptEvent
 from openhands.sdk.llm import LLM, TextContent
+from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 
 
-class DummyAgent(AgentBase):
+class TestConversationIdDummyAgent(AgentBase):
     def __init__(self):
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         super().__init__(llm=llm, tools=[])
@@ -31,7 +32,7 @@ class DummyAgent(AgentBase):
 
 def test_conversation_has_unique_id():
     """Test that each conversation gets a unique UUID."""
-    agent = DummyAgent()
+    agent = TestConversationIdDummyAgent()
     conversation = Conversation(agent=agent)
 
     # Check that id exists and is a UUID
@@ -41,8 +42,8 @@ def test_conversation_has_unique_id():
 
 def test_conversation_ids_are_unique():
     """Test that different conversations get different IDs."""
-    agent1 = DummyAgent()
-    agent2 = DummyAgent()
+    agent1 = TestConversationIdDummyAgent()
+    agent2 = TestConversationIdDummyAgent()
 
     conversation1 = Conversation(agent=agent1)
     conversation2 = Conversation(agent=agent2)
@@ -57,14 +58,14 @@ def test_conversation_ids_are_unique():
 
 def test_conversation_id_persists():
     """Test that the conversation ID doesn't change during the conversation lifecycle."""  # noqa: E501
-    agent = DummyAgent()
+    agent = TestConversationIdDummyAgent()
     conversation = Conversation(agent=agent)
 
     original_id = conversation.id
 
     # Perform some operations that might affect the conversation
-    conversation.set_confirmation_mode(True)
-    conversation.set_confirmation_mode(False)
+    conversation.set_confirmation_policy(AlwaysConfirm())
+    conversation.set_confirmation_policy(NeverConfirm())
 
     # Check that the ID hasn't changed
     assert conversation.id == original_id

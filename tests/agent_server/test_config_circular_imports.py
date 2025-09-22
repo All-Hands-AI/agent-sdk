@@ -5,12 +5,11 @@ to prevent circular dependencies.
 
 import ast
 from pathlib import Path
-from typing import Set
 
 from openhands.agent_server import config
 
 
-def get_imports_from_file(file_path: Path) -> Set[str]:
+def get_imports_from_file(file_path: Path) -> set[str]:
     """
     Parse a Python file and extract all import statements.
 

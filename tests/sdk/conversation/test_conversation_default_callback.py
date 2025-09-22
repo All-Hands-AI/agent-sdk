@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import SecretStr
 
 from openhands.sdk.agent.base import AgentBase
@@ -10,7 +8,7 @@ from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 
 
-class DummyAgent(AgentBase):
+class TestConversationDefaultCallbackDummyAgent(AgentBase):
     def __init__(self):
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         super().__init__(llm=llm, tools=[])
@@ -35,8 +33,8 @@ class DummyAgent(AgentBase):
 
 
 def test_default_callback_appends_on_init():
-    agent = DummyAgent()
-    events_seen: List[str] = []
+    agent = TestConversationDefaultCallbackDummyAgent()
+    events_seen: list[str] = []
 
     conversation = Conversation(
         agent=agent, callbacks=[lambda e: events_seen.append(e.id)]
@@ -48,8 +46,8 @@ def test_default_callback_appends_on_init():
 
 
 def test_send_message_appends_once():
-    agent = DummyAgent()
-    seen_ids: List[str] = []
+    agent = TestConversationDefaultCallbackDummyAgent()
+    seen_ids: list[str] = []
 
     def user_cb(event):
         seen_ids.append(event.id)

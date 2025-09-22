@@ -11,8 +11,10 @@ class ToolSpec(BaseModel):
 
     name: str = Field(
         ...,
-        description="Name of the tool class, e.g., 'BashTool', "
-        "must be importable from openhands.tools",
+        description=(
+            "Name of the tool class, e.g., 'BashTool'. "
+            "Import it from an `openhands.tools.<module>` subpackage."
+        ),
         examples=["BashTool", "FileEditorTool", "TaskTrackerTool"],
     )
     params: dict[str, Any] = Field(

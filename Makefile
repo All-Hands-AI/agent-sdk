@@ -1,5 +1,5 @@
-# OpenHands V1 Makefile
-# Minimal Makefile for OpenHands V1 using uv
+SHELL := /usr/bin/env bash
+.SHELLFLAGS := -eu -o pipefail -c
 
 # Colors for output
 GREEN := \033[32m
@@ -75,18 +75,10 @@ build-server: check-uv-version
 	@echo "$(GREEN)Build complete! Executable is in dist/agent-server/$(RESET)"
 
 test-server-schema: check-uv-version
-	set -e
+	set -euo pipefail;
 	# Generate OpenAPI JSON inline (no file left in repo)
 	uv run python -c 'import os,json; from openhands.agent_server.api import api; open("openapi.json","w").write(json.dumps(api.openapi(), indent=2))'
-
-	# Generate client from the temp schema and **fail on any warnings** to check
-	uv run openapi-python-client generate \
-	--path "openapi.json" \
-	--output-path ".client" \
-	--meta uv \
-	--overwrite \
-	--fail-on-warning
-	
+	npx --yes @apidevtools/swagger-cli@^4 validate openapi.json
 	# Clean up temp schema
 	rm -f openapi.json
 	rm -rf .client

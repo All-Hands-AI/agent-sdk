@@ -81,7 +81,7 @@ class TestAgentImmutability:
         # Test inherited properties from AgentBase
         assert agent.llm == self.llm
 
-        assert isinstance(agent.tools, dict)
+        assert isinstance(agent.tools, list)
         assert agent.agent_context is None
         assert agent.name == "Agent"
         assert isinstance(agent.prompt_dir, str)

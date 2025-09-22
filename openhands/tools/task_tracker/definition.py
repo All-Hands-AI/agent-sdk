@@ -57,7 +57,7 @@ class TaskTrackerAction(ActionBase):
 
         # Show task count if planning
         if self.command == "plan" and self.task_list:
-            content.append(f" ({len(self.task_list)} tasks)", style="dim")
+            content.append(f" ({len(self.task_list)} tasks)")
 
         return content
 
@@ -126,13 +126,13 @@ class TaskTrackerObservation(ObservationBase):
 
                 # NEW: show notes under the title if present
                 if task.notes:
-                    content.append("\n   Notes: " + task.notes, style="italic dim")
+                    content.append("\n   Notes: " + task.notes, style="italic")
 
                 if i < len(self.task_list):
                     content.append("\n")
         else:
             content.append("📝 ", style="blue")
-            content.append("Task list is empty", style="dim")
+            content.append("Task list is empty")
 
         return content
 
@@ -148,6 +148,7 @@ class TaskTrackerExecutor(ToolExecutor):
                      persisted to save_dir/TASKS.md
         """
         self.save_dir = Path(save_dir) if save_dir else None
+        logger.info(f"TaskTrackerExecutor initialized with save_dir: {self.save_dir}")
         self._task_list: list[TaskItem] = []
 
         # Load existing tasks if save_dir is provided and file exists

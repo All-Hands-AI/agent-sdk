@@ -7,10 +7,9 @@ from openhands.sdk.event import (
     Condensation,
     CondensationRequest,
     CondensationSummaryEvent,
-    Event,
     LLMConvertibleEvent,
 )
-from openhands.sdk.event.base import EventID
+from openhands.sdk.event.base import EventBase, EventID
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     ObservationEvent,
@@ -144,7 +143,7 @@ class View(BaseModel):
             return True
 
     @staticmethod
-    def from_events(events: ListLike[Event]) -> "View":
+    def from_events(events: ListLike[EventBase]) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """

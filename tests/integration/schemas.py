@@ -3,7 +3,7 @@ JSON schemas for structured integration test results.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -19,7 +19,7 @@ class TestResultData(BaseModel):
     """Individual test result data."""
 
     success: bool
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class TestInstanceResult(BaseModel):
@@ -28,7 +28,7 @@ class TestInstanceResult(BaseModel):
     instance_id: str
     test_result: TestResultData
     cost: float = 0.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class ModelTestResults(BaseModel):
@@ -37,11 +37,11 @@ class ModelTestResults(BaseModel):
     # Metadata
     model_name: str
     run_suffix: str
-    llm_config: Dict[str, Any]
+    llm_config: dict[str, Any]
     timestamp: datetime = Field(default_factory=datetime.now)
 
     # Test execution data
-    test_instances: List[TestInstanceResult]
+    test_instances: list[TestInstanceResult]
 
     # Summary statistics
     total_tests: int
@@ -50,19 +50,19 @@ class ModelTestResults(BaseModel):
     total_cost: float
 
     # Additional metadata
-    eval_note: Optional[str] = None
-    artifact_url: Optional[str] = None
+    eval_note: str | None = None
+    artifact_url: str | None = None
     status: str = "completed"
 
     @classmethod
     def from_eval_outputs(
         cls,
-        eval_outputs: List[Any],  # List[EvalOutput]
+        eval_outputs: list[Any],  # list[EvalOutput]
         model_name: str,
         run_suffix: str,
-        llm_config: Dict[str, Any],
-        eval_note: Optional[str] = None,
-        artifact_url: Optional[str] = None,
+        llm_config: dict[str, Any],
+        eval_note: str | None = None,
+        artifact_url: str | None = None,
     ) -> "ModelTestResults":
         """Create ModelTestResults from list of EvalOutput objects."""
 
@@ -109,7 +109,7 @@ class ConsolidatedResults(BaseModel):
     total_models: int
 
     # Individual model results
-    model_results: List[ModelTestResults]
+    model_results: list[ModelTestResults]
 
     # Overall statistics
     overall_success_rate: float
@@ -117,7 +117,7 @@ class ConsolidatedResults(BaseModel):
 
     @classmethod
     def from_model_results(
-        cls, model_results: List[ModelTestResults]
+        cls, model_results: list[ModelTestResults]
     ) -> "ConsolidatedResults":
         """Create ConsolidatedResults from list of ModelTestResults."""
 

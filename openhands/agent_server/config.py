@@ -20,6 +20,7 @@ class WebhookSpec(BaseModel):
     # General parameters
     event_buffer_size: int = Field(
         default=10,
+        ge=1,
         description=(
             "The number of events to buffer locally before posting to the webhook"
         ),
@@ -33,9 +34,10 @@ class WebhookSpec(BaseModel):
     # Retry parameters
     num_retries: int = Field(
         default=3,
+        ge=0,
         description="The number of times to retry if the post operation fails",
     )
-    retry_delay: int = Field(default=5, description="The delay between retries")
+    retry_delay: int = Field(default=5, ge=0, description="The delay between retries")
 
 
 class Config(BaseModel):
@@ -67,7 +69,16 @@ class Config(BaseModel):
     workspace_path: Path = Field(
         default=Path("workspace/project"),
         description=(
-            "The location of the workspace directory where the agent reads/writes."
+            "The location of the project directory where the agent reads/writes. "
+            "Defaults to 'workspace/project'."
+        ),
+    )
+    static_files_path: Path | None = Field(
+        default=None,
+        description=(
+            "The location of the directory containing static files to serve. "
+            "If specified and the directory exists, static files will be served "
+            "at the /static/ endpoint."
         ),
     )
     webhooks: list[WebhookSpec] = Field(
@@ -94,6 +105,11 @@ class Config(BaseModel):
             config_data["conversations_path"] = Path(config_data["conversations_path"])
         if "workspace_path" in config_data:
             config_data["workspace_path"] = Path(config_data["workspace_path"])
+        if (
+            "static_files_path" in config_data
+            and config_data["static_files_path"] is not None
+        ):
+            config_data["static_files_path"] = Path(config_data["static_files_path"])
 
         return cls(**config_data)
 

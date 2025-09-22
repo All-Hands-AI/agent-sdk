@@ -20,22 +20,25 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import ActionEvent, Event, MessageEvent, ObservationEvent
+from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
-from openhands.sdk.tool import Tool, ToolExecutor
+from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
+from openhands.sdk.tool import ToolExecutor, ToolSpec, register_tool
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.tool import Tool
 
 
-class MockAction(ActionBase):
+class MockConfirmationModeAction(ActionBase):
     """Mock action schema for testing."""
 
     command: str
 
 
-class MockObservation(ObservationBase):
+class MockConfirmationModeObservation(ObservationBase):
     """Mock observation schema for testing."""
 
     result: str
@@ -76,19 +79,31 @@ class TestConfirmationMode:
         )
         self.mock_llm.metrics.get_snapshot.return_value = mock_metrics_snapshot
 
-        class TestExecutor(ToolExecutor[MockAction, MockObservation]):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result=f"Executed: {action.command}")
+        class TestExecutor(
+            ToolExecutor[MockConfirmationModeAction, MockConfirmationModeObservation]
+        ):
+            def __call__(
+                self, action: MockConfirmationModeAction
+            ) -> MockConfirmationModeObservation:
+                return MockConfirmationModeObservation(
+                    result=f"Executed: {action.command}"
+                )
 
-        test_tool = Tool(
-            name="test_tool",
-            description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
-            executor=TestExecutor(),
+        def _make_tool() -> Tool:
+            return Tool(
+                name="test_tool",
+                description="A test tool",
+                action_type=MockConfirmationModeAction,
+                observation_type=MockConfirmationModeObservation,
+                executor=TestExecutor(),
+            )
+
+        register_tool("test_tool", _make_tool)
+
+        self.agent = Agent(
+            llm=self.llm,
+            tools=[ToolSpec(name="test_tool")],
         )
-
-        self.agent = Agent(llm=self.llm, tools=[test_tool])
         self.conversation = Conversation(agent=self.agent)
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> MagicMock:
@@ -107,7 +122,7 @@ class TestConfirmationMode:
 
     def _make_pending_action(self) -> None:
         """Enable confirmation mode and produce a single pending action."""
-        self.conversation.set_confirmation_mode(True)
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
         mock_completion = self._mock_action_once()
         with patch(
             "openhands.sdk.llm.llm.litellm_completion",
@@ -117,7 +132,7 @@ class TestConfirmationMode:
                 Message(role="user", content=[TextContent(text="execute a command")])
             )
             self.conversation.run()
-        assert self.conversation.state.confirmation_mode is True
+        assert self.conversation.state.confirmation_policy == AlwaysConfirm()
         assert (
             self.conversation.state.agent_status
             == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
@@ -210,7 +225,7 @@ class TestConfirmationMode:
 
     def _create_test_action(self, call_id="call_1", command="test_command"):
         """Helper to create test action events."""
-        action = MockAction(command=command)
+        action = MockConfirmationModeAction(command=command)
 
         tool_call = ChatCompletionMessageToolCall(
             id=call_id,
@@ -230,20 +245,39 @@ class TestConfirmationMode:
             llm_response_id="response_1",
         )
 
+    def test_mock_observation(self):
+        # First test a round trip in the context of ObservationBase
+        obs = MockConfirmationModeObservation(result="executed")
+
+        # Now test embeddding this into an ObservationEvent
+        event = ObservationEvent(
+            observation=obs,
+            action_id="action_id",
+            tool_name="hammer",
+            tool_call_id="tool_call_id",
+        )
+        dumped_event = event.model_dump()
+        assert dumped_event["observation"]["kind"] == "MockConfirmationModeObservation"
+        assert dumped_event["observation"]["result"] == "executed"
+        loaded_event = event.model_validate(dumped_event)
+        loaded_obs = loaded_event.observation
+        assert isinstance(loaded_obs, MockConfirmationModeObservation)
+        assert loaded_obs.result == "executed"
+
     def test_confirmation_mode_basic_functionality(self):
         """Test basic confirmation mode operations."""
         # Test initial state
-        assert self.conversation.state.confirmation_mode is False
+        assert self.conversation.state.confirmation_policy == NeverConfirm()
         assert self.conversation.state.agent_status == AgentExecutionStatus.IDLE
         assert get_unmatched_actions(self.conversation.state.events) == []
 
         # Enable confirmation mode
-        self.conversation.set_confirmation_mode(True)
-        assert self.conversation.state.confirmation_mode is True
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
+        assert self.conversation.state.confirmation_policy == AlwaysConfirm()
 
         # Disable confirmation mode
-        self.conversation.set_confirmation_mode(False)
-        assert self.conversation.state.confirmation_mode is False
+        self.conversation.set_confirmation_policy(NeverConfirm())
+        assert self.conversation.state.confirmation_policy == NeverConfirm()
 
         # Test rejecting when no actions exist doesn't raise error
         self.conversation.reject_pending_actions("Nothing to reject")
@@ -258,7 +292,7 @@ class TestConfirmationMode:
         """Test getting unmatched events (actions without observations)."""
         # Create test action
         action_event = self._create_test_action()
-        events: list[Event] = [action_event]
+        events: list[EventBase] = [action_event]
 
         # Test: action without observation should be pending
         unmatched = get_unmatched_actions(events)
@@ -266,7 +300,7 @@ class TestConfirmationMode:
         assert unmatched[0].id == action_event.id
 
         # Add observation for the action
-        obs = MockObservation(result="test result")
+        obs = MockConfirmationModeObservation(result="test result")
 
         obs_event = ObservationEvent(
             source="environment",
@@ -308,7 +342,7 @@ class TestConfirmationMode:
 
     def test_message_only_in_confirmation_mode_does_not_wait(self):
         """Don't confirm agent messages."""
-        self.conversation.set_confirmation_mode(True)
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
         mock_completion = self._mock_message_only("Hello, how can I help you?")
         with patch(
             "openhands.sdk.llm.llm.litellm_completion",
@@ -384,7 +418,7 @@ class TestConfirmationMode:
     def test_single_finish_action_skips_confirmation_entirely(self):
         """Test that a single FinishAction skips confirmation entirely."""
         # Enable confirmation mode
-        self.conversation.set_confirmation_mode(True)
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
 
         # Mock LLM to return a single FinishAction
         mock_completion = self._mock_finish_action("Task completed successfully!")
@@ -405,7 +439,7 @@ class TestConfirmationMode:
 
         # Single FinishAction should skip confirmation entirely
         assert (
-            self.conversation.state.confirmation_mode is True
+            self.conversation.state.confirmation_policy == AlwaysConfirm()
         )  # Still in confirmation mode
         assert (
             self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
@@ -425,7 +459,7 @@ class TestConfirmationMode:
     def test_multiple_actions_with_finish_still_require_confirmation(self):
         """Test that multiple actions (including FinishAction) still require confirmation."""  # noqa: E501
         # Enable confirmation mode
-        self.conversation.set_confirmation_mode(True)
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
 
         # Mock LLM to return both a regular action and a FinishAction
         mock_completion = self._mock_multiple_actions_with_finish()
@@ -446,7 +480,7 @@ class TestConfirmationMode:
             self.conversation.run()
 
         # Multiple actions should all wait for confirmation (including FinishAction)
-        assert self.conversation.state.confirmation_mode is True
+        assert self.conversation.state.confirmation_policy == AlwaysConfirm()
         assert (
             self.conversation.state.agent_status
             == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
@@ -480,7 +514,7 @@ class TestConfirmationMode:
             self.conversation.state.agent_status
             == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
         )
-        assert self.conversation.state.confirmation_mode is True
+        assert self.conversation.state.confirmation_policy == AlwaysConfirm()
 
         # Call pause() while in WAITING_FOR_CONFIRMATION state
         self.conversation.pause()

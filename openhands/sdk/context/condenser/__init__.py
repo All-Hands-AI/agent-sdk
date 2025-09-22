@@ -1,5 +1,4 @@
 from openhands.sdk.context.condenser.base import (
-    Condenser,
     CondenserBase,
     RollingCondenser,
 )
@@ -12,7 +11,6 @@ from openhands.sdk.context.condenser.pipeline_condenser import PipelineCondenser
 
 __all__ = [
     "CondenserBase",
-    "Condenser",
     "RollingCondenser",
     "NoOpCondenser",
     "PipelineCondenser",
