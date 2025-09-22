@@ -1,5 +1,6 @@
 """Test LLM JSON storage and loading functionality."""
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -26,7 +27,12 @@ def test_llm_store_and_load_json():
     # Store to JSON and load back
     with tempfile.TemporaryDirectory() as temp_dir:
         filepath = Path(temp_dir) / "test_llm.json"
-        original_llm.store_to_json(str(filepath))
+
+        # Store to JSON with secrets exposed
+        data = original_llm.model_dump(context={"expose_secrets": True})
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+
         loaded_llm = LLM.load_from_json(str(filepath))
 
         # Verify all fields remain unchanged

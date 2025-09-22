@@ -143,7 +143,7 @@ EXPOSE ${PORT}
 FROM base-image AS source
 ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
-ENTRYPOINT ["/agent-server/.venv/bin/python","-m","openhands.agent_server","--no-reload"]
+ENTRYPOINT ["/agent-server/.venv/bin/python","-m","openhands.agent_server"]
 
 
 ############################
@@ -156,4 +156,4 @@ ARG USERNAME
 
 COPY --chown=${USERNAME}:${USERNAME} --from=build-binary /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
 RUN chmod +x /usr/local/bin/openhands-agent-server
-ENTRYPOINT ["/usr/local/bin/openhands-agent-server", "--no-reload"]
+ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
