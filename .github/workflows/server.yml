@@ -104,35 +104,12 @@ jobs:
               run: |
                   make test-server-schema
 
-    check-docker-changes:
-        name: Check Docker Changes
-        runs-on: blacksmith-2vcpu-ubuntu-2404
-        outputs:
-            docker-changed: ${{ steps.changes.outputs.docker }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v5
-              with:
-                  fetch-depth: 0
-
-            - name: Check for Docker changes
-              uses: dorny/paths-filter@v3
-              id: changes
-              with:
-                  filters: |
-                      docker:
-                        - 'openhands/agent_server/docker/**'
-                        - '.github/workflows/server.yml'
-
     build-and-push-image:
         name: Build & Push
-        needs: check-docker-changes
         # Run on all commits (push events and pull requests)
         if: >
             github.event_name == 'push' ||
-            github.event_name == 'pull_request' ||
-            (github.ref_type == 'tag' && github.ref_name == 'build-docker') ||
-            github.event_name == 'workflow_dispatch'
+            github.event_name == 'pull_request'
         outputs:
             image: ${{ steps.build.outputs.image }}
             short_sha: ${{ steps.build.outputs.short_sha }}
