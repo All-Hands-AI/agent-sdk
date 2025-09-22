@@ -26,17 +26,20 @@ class ConversationStats(BaseModel):
     _conversation_id: Optional[ConversationID] = PrivateAttr(default=None)
     _metrics_file_name: str = PrivateAttr(default="conversation_stats.pkl")
 
-    def __init__(
-        self,
+    @classmethod
+    def create(
+        cls,
         file_store: FileStore | None = None,
         conversation_id: ConversationID | None = None,
-    ):
-        super().__init__()
-        self._file_store = file_store
-        self._conversation_id = conversation_id
+    ) -> "ConversationStats":
+        instance = cls()
+        instance._file_store = file_store
+        instance._conversation_id = conversation_id
 
         # Always attempt to restore registry if it exists
-        self.maybe_restore_metrics()
+        instance.maybe_restore_metrics()
+
+        return instance
 
     @property
     def file_store(self) -> Optional[FileStore]:

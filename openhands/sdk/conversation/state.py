@@ -162,7 +162,9 @@ class ConversationState(OpenHandsModel):
             state._autosave_enabled = True
             state.agent = resolved
 
-            state.stats = ConversationStats(file_store=file_store, conversation_id=id)
+            state.stats = ConversationStats.create(
+                file_store=file_store, conversation_id=id
+            )
 
             logger.info(
                 f"Resumed conversation {state.id} from persistent storage.\n"
@@ -182,7 +184,9 @@ class ConversationState(OpenHandsModel):
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
 
         # Initialize ConversationStats for new conversation
-        state.stats = ConversationStats(file_store=file_store, conversation_id=id)
+        state.stats = ConversationStats.create(
+            file_store=file_store, conversation_id=id
+        )
 
         state._save_base_state(file_store)  # initial snapshot
         state._autosave_enabled = True
