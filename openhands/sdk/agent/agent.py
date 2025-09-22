@@ -174,6 +174,7 @@ class Agent(AgentBase):
                         model_name=self.llm.model, agent_name=self.name
                     )
                 },
+                add_security_risk_prediction=self._add_security_risk_prediction,
             )
         except Exception as e:
             # If there is a condenser registered and the exception is a context window
