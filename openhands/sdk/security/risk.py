@@ -1,4 +1,4 @@
-"""Security risk levels for action analysis."""
+from __future__ import annotations
 
 from enum import Enum
 
@@ -34,3 +34,41 @@ class SecurityRisk(str, Enum):
 
     def __str__(self) -> str:
         return self.name
+
+    def is_riskier(self, other: SecurityRisk, reflexive: bool = True) -> bool:
+        """Check if this risk level is riskier than another.
+
+        Risk levels follow the natural ordering: LOW is less risky than MEDIUM, which is
+        less risky than HIGH. UNKNOWN is not comparable to any other level.
+
+        To make this act like a standard well-ordered domain, we reflexively consider
+        risk levels to be riskier than themselves. That is:
+
+            for risk_level in list(SecurityRisk):
+                assert risk_level.is_riskier(risk_level)
+
+            # More concretely:
+            assert SecurityRisk.HIGH.is_riskier(SecurityRisk.HIGH)
+            assert SecurityRisk.MEDIUM.is_riskier(SecurityRisk.MEDIUM)
+            assert SecurityRisk.LOW.is_riskier(SecurityRisk.LOW)
+
+        This can be disabled by setting the `reflexive` parameter to False.
+
+        Args:
+            other (SecurityRisk): The other risk level to compare against.
+            reflexive (bool): Whether the relationship is reflexive.
+
+        Raises:
+            ValueError: If either risk level is UNKNOWN.
+        """
+        if self.value == SecurityRisk.UNKNOWN or other.value == SecurityRisk.UNKNOWN:
+            raise ValueError("Cannot compare unknown risk levels.")
+
+        # Map risk levels to a well-ordered domain for comparison. No need to map
+        # UNKNOWN since we'll already have raised an error by now if either is UNKNOWN.
+        risk_order = {
+            SecurityRisk.LOW: 1,
+            SecurityRisk.MEDIUM: 2,
+            SecurityRisk.HIGH: 3,
+        }
+        return risk_order[self] > risk_order[other] or (reflexive and self == other)

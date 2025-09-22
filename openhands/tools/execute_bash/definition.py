@@ -9,7 +9,6 @@ from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
-from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
 from openhands.tools.execute_bash.constants import (
     MAX_CMD_OUTPUT_SIZE,
@@ -46,16 +45,16 @@ class ExecuteBashAction(ActionBase):
         if self.command:
             content.append(self.command, style="white")
         else:
-            content.append("[empty command]", style="dim italic")
+            content.append("[empty command]", style="italic")
 
         # Add metadata if present
         if self.is_input:
             content.append(" ", style="white")
-            content.append("(input to running process)", style="dim yellow")
+            content.append("(input to running process)", style="yellow")
 
         if self.timeout is not None:
             content.append(" ", style="white")
-            content.append(f"[timeout: {self.timeout}s]", style="dim cyan")
+            content.append(f"[timeout: {self.timeout}s]", style="cyan")
 
         return content
 
@@ -129,7 +128,7 @@ class ExecuteBashObservation(ObservationBase):
                     ):
                         content.append(line, style="yellow")
                     elif line.startswith("+ "):  # bash -x output
-                        content.append(line, style="dim cyan")
+                        content.append(line, style="cyan")
                     else:
                         content.append(line, style="white")
                 content.append("\n")
@@ -139,14 +138,14 @@ class ExecuteBashObservation(ObservationBase):
             if self.metadata.working_dir:
                 content.append("\n📁 ", style="blue")
                 content.append(
-                    f"Working directory: {self.metadata.working_dir}", style="dim blue"
+                    f"Working directory: {self.metadata.working_dir}", style="blue"
                 )
 
             if self.metadata.py_interpreter_path:
                 content.append("\n🐍 ", style="green")
                 content.append(
                     f"Python interpreter: {self.metadata.py_interpreter_path}",
-                    style="dim green",
+                    style="green",
                 )
 
             if (
@@ -212,7 +211,7 @@ execute_bash_tool = Tool(
 )
 
 
-class BashTool(ToolBase[ExecuteBashAction, ExecuteBashObservation]):
+class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
     """A Tool subclass that automatically initializes a BashExecutor with auto-detection."""  # noqa: E501
 
     @classmethod

@@ -8,13 +8,10 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)
@@ -31,8 +28,12 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
+register_tool("BashTool", BashTool)
 tools = [
-    BashTool.create(working_dir=cwd, no_change_timeout_seconds=3),
+    ToolSpec(
+        name="BashTool",
+        params={"working_dir": cwd, "no_change_timeout_seconds": 3},
+    )
 ]
 
 # Agent
@@ -49,17 +50,8 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Enter python interactive mode by directly running `python3`, "
-                    "then tell me the current time, and exit python interactive mode."
-                )
-            )
-        ],
-    )
+    "Enter python interactive mode by directly running `python3`, then tell me "
+    "the current time, and exit python interactive mode."
 )
 conversation.run()
 

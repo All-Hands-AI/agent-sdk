@@ -153,11 +153,10 @@ class EventService:
         return self._pub_sub.unsubscribe(subscriber_id)
 
     async def start(self, conversation_id: UUID):
-        # self.stored is a subclass of AgentSpec so we can create an agent from it
+        # self.stored contains an Agent configuration we can instantiate
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
-        loop = asyncio.get_running_loop()
-        agent = await loop.run_in_executor(None, Agent.from_spec, self.stored)
+        agent = Agent.model_validate(self.stored.agent.model_dump())
         conversation = Conversation(
             agent=agent,
             persist_filestore=LocalFileStore(
@@ -174,7 +173,7 @@ class EventService:
         )
 
         # Set confirmation mode if enabled
-        conversation.set_confirmation_mode(self.stored.confirmation_mode)
+        conversation.set_confirmation_policy(self.stored.confirmation_policy)
         self._conversation = conversation
 
     async def run(self):

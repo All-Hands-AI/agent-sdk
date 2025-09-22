@@ -17,6 +17,7 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 
 
 logger = get_logger(__name__)
@@ -165,11 +166,6 @@ class Conversation:
         iteration = 0
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
-            # TODO(openhands): we should add a testcase that test IF:
-            # 1. a loop is running
-            # 2. in a separate thread .send_message is called
-            # and check will we be able to execute .send_message
-            # BEFORE the .run loop finishes?
             with self.state:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
@@ -198,11 +194,11 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
-    def set_confirmation_mode(self, enabled: bool) -> None:
-        """Enable or disable confirmation mode and store it in conversation state."""
+    def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
+        """Set the confirmation policy and store it in conversation state."""
         with self.state:
-            self.state.confirmation_mode = enabled
-        logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
+            self.state.confirmation_policy = policy
+        logger.info(f"Confirmation policy set to: {policy}")
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         """Reject all pending actions from the agent.
@@ -273,8 +269,7 @@ class Conversation:
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
-        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
-        for tool in self.agent.tools.values():
+        for tool in self.agent.tools_map.values():
             if tool.executor is not None:
                 try:
                     tool.executor.close()

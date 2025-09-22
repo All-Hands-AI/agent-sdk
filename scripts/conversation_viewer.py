@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any, Iterable
 
 import streamlit as st
 
@@ -41,16 +42,16 @@ st.set_page_config(page_title="OpenHands Agent-SDK Conversation Viewer", layout=
 class Conversation:
     identifier: str
     path: Path
-    base_state: Dict[str, Any]
-    events: List[Dict[str, Any]]
+    base_state: dict[str, Any]
+    events: list[dict[str, Any]]
 
 
-def load_json(path: Path) -> Dict[str, Any]:
+def load_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
-def add_filename(event: Dict[str, Any], filename: str) -> Dict[str, Any]:
+def add_filename(event: dict[str, Any], filename: str) -> dict[str, Any]:
     event_copy = dict(event)
     event_copy["_filename"] = filename
     return event_copy
@@ -61,7 +62,7 @@ def load_conversation(path_str: str) -> Conversation:
     path = Path(path_str)
     identifier = path.name
 
-    base_state: Dict[str, Any] = {}
+    base_state: dict[str, Any] = {}
     base_state_path = path / "base_state.json"
     if base_state_path.exists():
         try:
@@ -70,7 +71,7 @@ def load_conversation(path_str: str) -> Conversation:
             base_state = {"error": f"Failed to parse base_state.json: {exc}"}
 
     events_dir = path / "events"
-    events: List[Dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
     if events_dir.exists():
         for event_file in sorted(events_dir.glob("*.json")):
             try:
@@ -92,13 +93,13 @@ def load_conversation(path_str: str) -> Conversation:
     )
 
 
-def conversation_dirs(root: Path) -> List[Path]:
+def conversation_dirs(root: Path) -> list[Path]:
     """Return sorted conversation sub-directories under ``root``."""
     return sorted((p for p in root.iterdir() if p.is_dir()), key=lambda item: item.name)
 
 
 def extract_text_blocks(blocks: Iterable[Any] | None) -> str:
-    pieces: List[str] = []
+    pieces: list[str] = []
     for block in blocks or []:
         if isinstance(block, dict):
             block_type = block.get("type")
@@ -113,13 +114,13 @@ def extract_text_blocks(blocks: Iterable[Any] | None) -> str:
     return "\n".join(piece for piece in pieces if piece)
 
 
-def get_event_text(event: Dict[str, Any]) -> str:
+def get_event_text(event: dict[str, Any]) -> str:
     kind = event.get("kind")
     if kind == "MessageEvent":
         message = event.get("llm_message", {})
         return extract_text_blocks(message.get("content", []))
     if kind == "ActionEvent":
-        segments: List[str] = []
+        segments: list[str] = []
         segments.append(extract_text_blocks(event.get("thought", [])))
         action = event.get("action", {})
         if isinstance(action, dict):
@@ -147,8 +148,8 @@ def truncate(text: str, limit: int = 160) -> str:
     return cleaned[: limit - 1] + "\u2026"
 
 
-def event_summary_rows(events: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]:
-    rows: List[Dict[str, str]] = []
+def event_summary_rows(events: Sequence[dict[str, Any]]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
     for idx, event in enumerate(events):
         kind = event.get("kind", "")
         source = event.get("source", "")
@@ -170,7 +171,7 @@ def event_summary_rows(events: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]
     return rows
 
 
-def draw_base_state(base_state: Dict[str, Any]) -> None:
+def draw_base_state(base_state: dict[str, Any]) -> None:
     if not base_state:
         st.info("No base_state.json found for this conversation.")
         return
@@ -187,7 +188,7 @@ def draw_base_state(base_state: Dict[str, Any]) -> None:
         st.json(base_state)
 
 
-def draw_event_detail(event: Dict[str, Any]) -> None:
+def draw_event_detail(event: dict[str, Any]) -> None:
     meta_cols = st.columns(4)
     meta_cols[0].markdown(f"**File**\n{event.get('_filename', '—')}")
     meta_cols[1].markdown(f"**Kind**\n{event.get('kind', '—')}")
@@ -283,7 +284,7 @@ def main() -> None:
     search_term = st.sidebar.text_input("Search across events", value="")
     lowered = search_term.lower()
 
-    filtered_events: List[Dict[str, Any]] = []
+    filtered_events: list[dict[str, Any]] = []
     for event in events:
         if selected_kinds and event.get("kind", "Unknown") not in selected_kinds:
             continue
