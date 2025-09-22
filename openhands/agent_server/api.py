@@ -33,6 +33,86 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
         yield
 
 
+def _create_fastapi_instance() -> FastAPI:
+    """Create the basic FastAPI application instance.
+
+    Returns:
+        Basic FastAPI application with title, description, and lifespan.
+    """
+    return FastAPI(
+        title="OpenHands Agent Server",
+        description=(
+            "OpenHands Agent Server - REST/WebSocket interface for OpenHands AI Agent"
+        ),
+        lifespan=api_lifespan,
+    )
+
+
+def _add_api_routes(app: FastAPI) -> None:
+    """Add all API routes to the FastAPI application.
+
+    Args:
+        app: FastAPI application instance to add routes to.
+    """
+    app.include_router(conversation_event_router)
+    app.include_router(conversation_router)
+    app.include_router(server_details_router)
+    app.include_router(tool_router)
+
+
+def _setup_static_files(app: FastAPI, config: Config) -> None:
+    """Set up static file serving and root redirect if configured.
+
+    Args:
+        app: FastAPI application instance.
+        config: Configuration object containing static files settings.
+    """
+    # Only proceed if static files are configured and directory exists
+    if not (
+        config.static_files_path
+        and config.static_files_path.exists()
+        and config.static_files_path.is_dir()
+    ):
+        return
+
+    # Mount static files directory
+    app.mount(
+        "/static",
+        StaticFiles(directory=str(config.static_files_path)),
+        name="static",
+    )
+
+    # Add root redirect to static files
+    @app.get("/")
+    async def root_redirect():
+        """Redirect root endpoint to static files directory."""
+        # Check if index.html exists in the static directory
+        # We know static_files_path is not None here due to the outer condition
+        assert config.static_files_path is not None
+        index_path = config.static_files_path / "index.html"
+        if index_path.exists():
+            return RedirectResponse(url="/static/index.html", status_code=302)
+        else:
+            return RedirectResponse(url="/static/", status_code=302)
+
+
+def _add_middleware(app: FastAPI, config: Config) -> None:
+    """Add middleware to the FastAPI application.
+
+    Args:
+        app: FastAPI application instance.
+        config: Configuration object containing middleware settings.
+    """
+    # Add CORS middleware
+    app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
+
+    # Add session API key validation middleware if configured
+    if config.session_api_key:
+        app.add_middleware(
+            ValidateSessionAPIKeyMiddleware, session_api_key=config.session_api_key
+        )
+
+
 def create_app(config: Config | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -45,51 +125,17 @@ def create_app(config: Config | None = None) -> FastAPI:
     if config is None:
         config = get_default_config()
 
-    app = FastAPI(
-        title="OpenHands Agent Server",
-        description=(
-            "OpenHands Agent Server - REST/WebSocket interface for OpenHands AI Agent"
-        ),
-        lifespan=api_lifespan,
-    )
+    # Create the basic FastAPI instance
+    app = _create_fastapi_instance()
 
-    # Add routers
-    app.include_router(conversation_event_router)
-    app.include_router(conversation_router)
-    app.include_router(server_details_router)
-    app.include_router(tool_router)
+    # Add all API routes
+    _add_api_routes(app)
 
-    # Mount static files if configured and directory exists
-    if (
-        config.static_files_path
-        and config.static_files_path.exists()
-        and config.static_files_path.is_dir()
-    ):
-        app.mount(
-            "/static",
-            StaticFiles(directory=str(config.static_files_path)),
-            name="static",
-        )
-
-        # Add root redirect to static files
-        @app.get("/")
-        async def root_redirect():
-            """Redirect root endpoint to static files directory."""
-            # Check if index.html exists in the static directory
-            # We know static_files_path is not None here due to the outer condition
-            assert config.static_files_path is not None
-            index_path = config.static_files_path / "index.html"
-            if index_path.exists():
-                return RedirectResponse(url="/static/index.html", status_code=302)
-            else:
-                return RedirectResponse(url="/static/", status_code=302)
+    # Set up static file serving if configured
+    _setup_static_files(app, config)
 
     # Add middleware
-    app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
-    if config.session_api_key:
-        app.add_middleware(
-            ValidateSessionAPIKeyMiddleware, session_api_key=config.session_api_key
-        )
+    _add_middleware(app, config)
 
     return app
 
