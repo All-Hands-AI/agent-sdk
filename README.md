@@ -6,6 +6,14 @@ A clean, modular SDK for building AI agents with OpenHands. This project represe
 
 The OpenHands Agent SDK provides a streamlined framework for creating AI agents that can interact with tools, manage conversations, and integrate with various LLM providers.
 
+## Packages
+
+This repository contains three main packages:
+
+- **`openhands-sdk`**: Core SDK functionality including agents, conversations, LLM integration, and tool system
+- **`openhands-tools`**: Runtime tool implementations (BashTool, FileEditorTool, TaskTrackerTool, BrowserToolSet)
+- **`openhands-agent-server`**: REST API and WebSocket server for remote agent interactions
+
 ## Repository Structure
 
 ```plain
@@ -14,12 +22,12 @@ agent-sdk/
 ├── pyproject.toml                      # Workspace configuration
 ├── uv.lock                             # Dependency lock file
 ├── examples/                           # Usage examples
-│   ├── 01_hello_world.py               # Basic agent setup
-│   ├── 02_custom_tools.py              # Custom tool implementation
+│   ├── 01_hello_world.py               # Basic agent setup (default tools preset)
+│   ├── 02_custom_tools.py              # Custom tool implementation with explicit executor
 │   ├── 03_activate_microagent.py       # Microagent usage
-│   ├── 04_confirmation_mode_example.py # Interactive mode
+│   ├── 04_confirmation_mode_example.py # Interactive confirmation mode
 │   ├── 05_use_llm_registry.py          # LLM registry usage
-│   ├── 06_interactive_terminal_w_reasoning.py # Terminal interaction with reasoning
+│   ├── 06_interactive_terminal_w_reasoning.py # Terminal interaction with reasoning models
 │   ├── 07_mcp_integration.py           # MCP integration
 │   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
 │   ├── 09_pause_example.py             # Pause and resume agent execution
@@ -28,8 +36,15 @@ agent-sdk/
 │   ├── 12_custom_secrets.py            # Custom secrets management
 │   ├── 13_get_llm_metrics.py           # LLM metrics and monitoring
 │   ├── 14_context_condenser.py         # Context condensation
-│   └── 15_llm_security_analyzer.py     # LLM security analysis
+│   ├── 15_browser_use.py               # Browser automation tools
+│   ├── 16_llm_security_analyzer.py     # LLM security analysis
+│   └── 17_image_input.py               # Image input and vision support
 ├── openhands/              # Main SDK packages
+│   ├── agent_server/       # REST API and WebSocket server
+│   │   ├── api.py          # FastAPI application
+│   │   ├── config.py       # Server configuration
+│   │   ├── models.py       # API models
+│   │   └── pyproject.toml  # Agent server package configuration
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
 │   │   ├── context/        # Context management system
@@ -38,6 +53,8 @@ agent-sdk/
 │   │   ├── io/             # I/O abstractions
 │   │   ├── llm/            # LLM integration layer
 │   │   ├── mcp/            # Model Context Protocol integration
+│   │   ├── preset/         # Default agent presets
+│   │   ├── security/       # Security analysis tools
 │   │   ├── tool/           # Tool system
 │   │   ├── utils/          # Core utilities
 │   │   ├── logger.py       # Logging configuration
@@ -46,11 +63,16 @@ agent-sdk/
 │       ├── execute_bash/   # Bash execution tool
 │       ├── str_replace_editor/  # File editing tool
 │       ├── task_tracker/   # Task tracking tool
+│       ├── browser_use/    # Browser automation tools
 │       ├── utils/          # Tool utilities
 │       └── pyproject.toml  # Tools package configuration
+├── scripts/                # Utility scripts
+│   └── conversation_viewer.py # Conversation visualization tool
 └── tests/                  # Test suites
+    ├── agent_server/       # Agent server tests
     ├── cross/              # Cross-package tests
     ├── fixtures/           # Test fixtures and data
+    ├── integration/        # Integration tests
     ├── sdk/                # SDK unit tests
     └── tools/              # Tools unit tests
 ```
@@ -81,8 +103,8 @@ uv run python examples/01_hello_world.py
 ```python
 import os
 from pydantic import SecretStr
-from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.sdk import LLM, Conversation
+from openhands.sdk.preset.default import get_default_agent
 
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
@@ -93,24 +115,19 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-# Setup tools
+# Create agent with default tools and configuration
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-]
+agent = get_default_agent(
+    llm=llm,
+    working_dir=cwd,
+    cli_mode=True,  # Disable browser tools for CLI environments
+)
 
-# Create agent and conversation
-agent = Agent(llm=llm, tools=tools)
+# Create conversation and interact with agent
 conversation = Conversation(agent=agent)
 
 # Send message and run
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text="Create a Python file that prints 'Hello, World!'")]
-    )
-)
+conversation.send_message("Create a Python file that prints 'Hello, World!'")
 conversation.run()
 ```
 
@@ -118,16 +135,43 @@ conversation.run()
 
 ### Agents
 
-Agents are the central orchestrators that coordinate between LLMs and tools:
+Agents are the central orchestrators that coordinate between LLMs and tools. The SDK provides two main approaches for creating agents:
+
+#### Using Default Presets (Recommended)
 
 ```python
-from openhands.sdk import Agent, LLM
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk.preset.default import get_default_agent
 
+# Get a fully configured agent with default tools and settings
+agent = get_default_agent(
+    llm=llm,
+    working_dir=os.getcwd(),
+    cli_mode=True,  # Disable browser tools for CLI environments
+)
+```
+
+#### Manual Agent Configuration
+
+```python
+from openhands.sdk import Agent
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
+
+# Register tools
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+register_tool("TaskTrackerTool", TaskTrackerTool)
+
+# Create agent with explicit tool specifications
 agent = Agent(
     llm=llm,
-    tools=[BashTool.create(), FileEditorTool.create()],
-    # Optional: custom context, microagents, etc.
+    tools=[
+        ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
+        ToolSpec(name="FileEditorTool"),
+        ToolSpec(name="TaskTrackerTool", params={"save_dir": os.getcwd()}),
+    ],
 )
 ```
 
@@ -148,81 +192,54 @@ llm = LLM(
 
 # Using LLM registry for shared configurations
 registry = LLMRegistry()
-llm = registry.get_llm("default")
+registry.add("default", llm)
+llm = registry.get("default")
 ```
 
 ### Tools
 
-Tools provide agents with capabilities to interact with the environment:
+Tools provide agents with capabilities to interact with the environment. The SDK includes several built-in tools:
 
-#### Simplified Pattern (Recommended)
+- **BashTool**: Execute bash commands in a persistent shell session
+- **FileEditorTool**: Create, edit, and manage files with advanced editing capabilities  
+- **TaskTrackerTool**: Organize and track development tasks systematically
+- **BrowserToolSet**: Automate web browser interactions (disabled in CLI mode)
+
+#### Using Default Preset (Recommended)
+
+The easiest way to get started is using the default agent preset, which includes all tools:
 
 ```python
-from openhands.sdk import TextContent, ImageContent
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.sdk.preset.default import get_default_agent
 
-# Direct instantiation with simplified API
+agent = get_default_agent(
+    llm=llm,
+    working_dir=os.getcwd(),
+    cli_mode=True,  # Disable browser tools for CLI environments
+)
+```
+
+#### Manual Tool Configuration
+
+For more control, you can configure tools explicitly:
+
+```python
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
+
+# Register tools
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+register_tool("TaskTrackerTool", TaskTrackerTool)
+
+# Create tool specifications
 tools = [
-    BashTool.create(working_dir=os.getcwd()),
-    FileEditorTool.create(),
-    TaskTrackerTool.create(save_dir=os.getcwd()),
+    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
+    ToolSpec(name="FileEditorTool"),
+    ToolSpec(name="TaskTrackerTool", params={"save_dir": os.getcwd()}),
 ]
-```
-
-#### Advanced Pattern (For explicitly maintained tool executor)
-
-We explicitly define a `BashExecutor` in this example:
-
-```python
-from openhands.tools import BashExecutor, execute_bash_tool
-
-# Explicit executor creation for reuse or customization
-bash_executor = BashExecutor(working_dir=os.getcwd())
-bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
-```
-
-And we can later re-use this bash terminal instance to define a custom tool:
-
-```python
-from collections.abc import Sequence
-from openhands.sdk.tool import ActionBase, ObservationBase, ToolExecutor
-
-class GrepAction(ActionBase):
-    pattern: str = Field(description="Regex to search for")
-    path: str = Field(
-        default=".", description="Directory to search (absolute or relative)"
-    )
-    include: str | None = Field(
-        default=None, description="Optional glob to filter files (e.g. '*.py')"
-    )
-
-
-class GrepObservation(ObservationBase):
-    output: str = Field(default='')
-
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.output)]
-
-# --- Executor ---
-class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
-    def __init__(self, bash: BashExecutor):
-        self.bash = bash
-
-    def __call__(self, action: GrepAction) -> GrepObservation:
-        root = os.path.abspath(action.path)
-        pat = shlex.quote(action.pattern)
-        root_q = shlex.quote(root)
-
-        # Use grep -r; add --include when provided
-        if action.include:
-            inc = shlex.quote(action.include)
-            cmd = f"grep -rHnE --include {inc} {pat} {root_q} 2>/dev/null | head -100"
-        else:
-            cmd = f"grep -rHnE {pat} {root_q} 2>/dev/null | head -100"
-
-        result = self.bash(ExecuteBashAction(command=cmd, security_risk="LOW"))
-        return GrepObservation(output=result.output.strip() or '')
 ```
 
 ### Conversations
@@ -230,14 +247,12 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
 Conversations manage the interaction flow between users and agents:
 
 ```python
-from openhands.sdk import Conversation, Message, TextContent
+from openhands.sdk import Conversation
 
 conversation = Conversation(agent=agent)
 
 # Send messages
-conversation.send_message(
-    Message(role="user", content=[TextContent(text="Your request here")])
-)
+conversation.send_message("Your request here")
 
 # Execute the conversation until the agent enters "await user input" state
 conversation.run()
@@ -255,6 +270,7 @@ Context is automatically managed but you can customize your context with:
 
 ```python
 from openhands.sdk import AgentContext
+from openhands.sdk.context import RepoMicroagent, KnowledgeMicroagent
 
 context = AgentContext(
     microagents=[
@@ -277,97 +293,34 @@ context = AgentContext(
 )
 ```
 
-## Spec System
+## Agent Server
 
-The OpenHands Agent SDK includes a powerful specification system that allows you to define and instantiate agents, tools, and condensers using declarative configuration. This system provides a clean, serializable way to configure complex agent setups.
-
-### Agent Specifications
-
-Define complete agent configurations using `AgentSpec`:
+The SDK includes a REST API and WebSocket server for remote agent interactions:
 
 ```python
-from openhands.sdk.agent import AgentSpec
-from openhands.sdk.tool import ToolSpec
-from openhands.sdk.context.condenser import LLMSummarizingCondenser
+from openhands.agent_server import create_app
+import uvicorn
 
-# Define an agent specification
-agent_spec = AgentSpec(
-    llm={
-        "model": "gpt-4",
-        "api_key": "your-api-key",
-        "base_url": "https://api.openai.com/v1"
-    },
-    tools=[
-        ToolSpec(name="BashTool", params={"working_dir": "/workspace"}),
-        ToolSpec(name="FileEditorTool"),
-    ],
-    condenser=LLMSummarizingCondenser(
-        llm={"model": "gpt-4", "api_key": "your-api-key"},
-        max_size=80,
-        keep_first=10
-    ),
-    agent_context={
-        "system_message_suffix": "Always be helpful and concise."
-    }
-)
+# Create FastAPI application
+app = create_app()
 
-# Create agent from specification
-agent = AgentBase.from_spec(agent_spec)
+# Run server
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 
-### Tool Specifications
+The agent server provides:
+- REST API endpoints for agent management
+- WebSocket connections for real-time conversations
+- Authentication and session management
+- Scalable deployment options
 
-Configure tools with `ToolSpec`:
+### API Endpoints
 
-```python
-from openhands.sdk.tool import ToolSpec
-
-# Simple tool specification
-bash_spec = ToolSpec(name="BashTool", params={"working_dir": "/app"})
-
-# Tool with complex parameters
-editor_spec = ToolSpec(
-    name="FileEditorTool",
-    params={
-        "max_file_size": 1000000,
-        "allowed_extensions": [".py", ".js", ".md"]
-    }
-)
-```
-
-### Benefits of the Spec System
-
-1. **Serializable Configuration**: Specs can be easily serialized to/from JSON, YAML, or other formats
-2. **Validation**: Built-in validation ensures configurations are correct before instantiation
-3. **Reusability**: Share and reuse agent configurations across different environments
-4. **Version Control**: Track agent configurations alongside your code
-5. **Dynamic Loading**: Load agent configurations from external sources at runtime
-
-### Example: Configuration File
-
-```python
-import json
-from openhands.sdk.agent import AgentSpec, AgentBase
-
-# Save configuration to file
-config = {
-    "llm": {"model": "gpt-4", "api_key": "your-key"},
-    "tools": [
-        {"name": "BashTool", "params": {"working_dir": "/workspace"}},
-        {"name": "FileEditorTool"}
-    ]
-}
-
-with open("agent_config.json", "w") as f:
-    json.dump(config, f)
-
-# Load and create agent from file
-with open("agent_config.json", "r") as f:
-    config = json.load(f)
-
-agent_spec = AgentSpec(**config)
-agent = AgentBase.from_spec(agent_spec)
-```
+- `POST /conversations` - Create new conversation
+- `GET /conversations/{id}` - Get conversation details
+- `POST /conversations/{id}/messages` - Send message to conversation
+- `WebSocket /ws/{conversation_id}` - Real-time conversation updates
 
 ## Documentation
 

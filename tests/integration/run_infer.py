@@ -12,7 +12,7 @@ import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -32,7 +32,7 @@ class TestInstance(BaseModel):
 
     instance_id: str
     file_path: str
-    test_class: Optional[BaseIntegrationTest] = None
+    test_class: BaseIntegrationTest | None = None
 
 
 class EvalOutput(BaseModel):
@@ -42,10 +42,10 @@ class EvalOutput(BaseModel):
     test_result: TestResult
     llm_model: str
     cost: float = 0.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
-def load_integration_tests() -> List[TestInstance]:
+def load_integration_tests() -> list[TestInstance]:
     """Load tests from python files under ./tests/integration"""
     test_dir = Path(__file__).parent / "tests"
     test_files = [
@@ -87,7 +87,7 @@ def load_test_class(file_path: str) -> type[BaseIntegrationTest]:
     raise ImportError(f"No BaseIntegrationTest subclass found in {file_path}")
 
 
-def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> EvalOutput:
+def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> EvalOutput:
     """Process a single test instance."""
     logger.info("Processing test: %s", instance.instance_id)
 
@@ -165,10 +165,10 @@ def process_instance(instance: TestInstance, llm_config: Dict[str, Any]) -> Eval
 
 
 def run_evaluation(
-    instances: List[TestInstance],
-    llm_config: Dict[str, Any],
+    instances: list[TestInstance],
+    llm_config: dict[str, Any],
     num_workers: int,
-) -> List[EvalOutput]:
+) -> list[EvalOutput]:
     """Run evaluation on all test instances and return results directly."""
     logger.info("Running %d tests with %d workers", len(instances), num_workers)
 
@@ -195,12 +195,12 @@ def run_evaluation(
 
 
 def generate_structured_results(
-    eval_outputs: List[EvalOutput],
+    eval_outputs: list[EvalOutput],
     output_dir: str,
     eval_note: str,
     model_name: str,
     run_suffix: str,
-    llm_config: Dict[str, Any],
+    llm_config: dict[str, Any],
 ) -> str:
     """Generate structured JSON results from evaluation outputs."""
 
