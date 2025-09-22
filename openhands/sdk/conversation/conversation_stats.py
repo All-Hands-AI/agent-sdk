@@ -31,6 +31,7 @@ class ConversationStats(BaseModel):
         file_store: FileStore | None = None,
         conversation_id: ConversationID | None = None,
     ):
+        super().__init__()
         self._file_store = file_store
         self._conversation_id = conversation_id
 
