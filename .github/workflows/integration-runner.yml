@@ -168,6 +168,7 @@ jobs:
                   PR_NUMBER: ${{ github.event.pull_request.number }}
                   MANUAL_REASON: ${{ github.event.inputs.reason }}
                   COMMIT_SHA: ${{ github.sha }}
+                  PYTHONPATH: ${{ github.workspace }}
               run: |
                   uv run python tests/integration/utils/consolidate_json_results.py \
                     --results-dir all_results \
