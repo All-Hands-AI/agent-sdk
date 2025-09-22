@@ -66,12 +66,7 @@ RUN set -eux; \
         ca-certificates curl wget sudo apt-utils git jq tmux build-essential \
         coreutils util-linux procps findutils grep sed \
         # Docker dependencies
-        apt-transport-https gnupg lsb-release \
-        # Playwright dependencies
-        libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 \
-        libxdamage1 libxrandr2 libgbm1 libxss1; \
-    # Install libasound2 - try new package name first (Ubuntu 24.04+), fallback to old name
-    (apt-get install -y --no-install-recommends libasound2t64 || apt-get install -y --no-install-recommends libasound2); \
+        apt-transport-https gnupg lsb-release; \
     \
     # Create user and group
     (getent group ${GID} || groupadd -g ${GID} ${USERNAME}); \
@@ -136,24 +131,6 @@ RUN set -eux; \
 # Configure Docker daemon with MTU 1450 to prevent packet fragmentation issues
 RUN mkdir -p /etc/docker && \
     echo '{"mtu": 1450}' > /etc/docker/daemon.json
-
-# Install Playwright browsers in shared location
-ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
-RUN set -eux; \
-    mkdir -p /opt/playwright-browsers; \
-    # Install Playwright using uv (since we have it available)
-    uv pip install --system playwright; \
-    playwright install --with-deps chromium; \
-    # Set proper permissions for shared access
-    chmod -R 755 /opt/playwright-browsers; \
-    # Create cache directories and symlinks for both users
-    mkdir -p /home/${USERNAME}/.cache; \
-    mkdir -p /root/.cache; \
-    ln -sf /opt/playwright-browsers /home/${USERNAME}/.cache/ms-playwright; \
-    ln -sf /opt/playwright-browsers /root/.cache/ms-playwright; \
-    chown -h ${USERNAME}:${USERNAME} /home/${USERNAME}/.cache/ms-playwright; \
-    # Set environment variable for all users
-    echo 'export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers' >> /etc/environment
 
 USER ${USERNAME}
 WORKDIR /agent-server
