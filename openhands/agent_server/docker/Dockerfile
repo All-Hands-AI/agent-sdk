@@ -56,7 +56,7 @@ COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 RUN set -eux; \
     # Install base packages (works for both Debian-based images)
     apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates curl wget; \
+    apt-get install -y --no-install-recommends sudo ca-certificates curl wget; \
     \
     # Create user and group
     (getent group ${GID} || groupadd -g ${GID} ${USERNAME}); \
