@@ -158,7 +158,7 @@ class TestMessageWhileFinishing:
                 object="chat.completion",
             )
 
-        else:
+        elif self.step_count == 2:
             # Step 2: Final step - sleep AND finish (multiple tool calls)
             self.final_step_started = True
 
@@ -209,6 +209,14 @@ class TestMessageWhileFinishing:
                 created=0,
                 model="test-model",
                 object="chat.completion",
+            )
+        else:
+            # Step 3 or beyond: This should NOT happen if finish was called in step 2
+            # If we get here, it means the conversation didn't terminate after finish
+            raise AssertionError(
+                f"Unexpected step {self.step_count}! Conversation should have ended "
+                f"after finish call in step 2. This indicates the finish action is "
+                f"not properly terminating the conversation."
             )
 
     def test_message_processing_bug_demonstration(self):
