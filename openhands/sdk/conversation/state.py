@@ -36,6 +36,7 @@ class AgentExecutionStatus(str, Enum):
     )
     FINISHED = "finished"  # Agent has completed the current task
     ERROR = "error"  # Agent encountered an error (optional for future use)
+    STUCK = "stuck"  # Agent is stuck in a loop or unable to proceed
 
 
 if TYPE_CHECKING:
