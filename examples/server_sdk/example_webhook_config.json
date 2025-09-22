@@ -1,0 +1,12 @@
+{
+  "conversations_path": "workspace/conversations",
+  "workspace_path": "workspace/project",
+  "webhooks": [
+    {
+      "base_url": "https://localhost:8001",
+      "event_buffer_size": 5,
+      "num_retries": 3,
+      "retry_delay": 2
+    }
+  ]
+}
