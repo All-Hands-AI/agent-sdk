@@ -650,7 +650,7 @@ class TestConversationWebhookSubscriber:
         # Create sample conversation info
         conversation_info = ConversationInfo(
             id=uuid4(),
-            llm=mock_event_service.stored.llm,
+            agent=mock_event_service.stored.agent,
             created_at=utc_now(),
             updated_at=utc_now(),
             status=AgentExecutionStatus.RUNNING,
@@ -697,7 +697,7 @@ class TestConversationWebhookSubscriber:
         # Create sample conversation info
         conversation_info = ConversationInfo(
             id=uuid4(),
-            llm=mock_event_service.stored.llm,
+            agent=mock_event_service.stored.agent,
             created_at=utc_now(),
             updated_at=utc_now(),
             status=AgentExecutionStatus.PAUSED,
@@ -737,7 +737,7 @@ class TestConversationWebhookSubscriber:
         # Create sample conversation info
         conversation_info = ConversationInfo(
             id=uuid4(),
-            llm=mock_event_service.stored.llm,
+            agent=mock_event_service.stored.agent,
             created_at=utc_now(),
             updated_at=utc_now(),
             status=AgentExecutionStatus.FINISHED,
