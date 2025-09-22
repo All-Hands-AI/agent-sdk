@@ -29,6 +29,15 @@ class WebhookSpec(BaseModel):
         "{base_url}/events and conversation info to {base_url}/conversations"
     )
     headers: dict[str, str] = Field(default_factory=dict)
+    flush_delay: float = Field(
+        default=30.0,
+        gt=0,
+        description=(
+            "The delay in seconds after which buffered events will be flushed to "
+            "the webhook, even if the buffer is not full. Timer is reset on each "
+            "new event."
+        ),
+    )
 
     # Retry parameters
     num_retries: int = Field(

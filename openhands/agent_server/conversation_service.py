@@ -321,16 +321,25 @@ class WebhookSubscriber(Subscriber):
     spec: WebhookSpec
     session_api_key: str | None = None
     queue: list[EventBase] = field(default_factory=list)
+    _flush_timer: asyncio.Task | None = field(default=None, init=False)
 
     async def __call__(self, event: EventBase):
         """Add event to queue and post to webhook when buffer size is reached."""
         self.queue.append(event)
 
         if len(self.queue) >= self.spec.event_buffer_size:
+            # Cancel timer since we're flushing due to buffer size
+            self._cancel_flush_timer()
             await self._post_events()
+        else:
+            # Reset the flush timer
+            self._reset_flush_timer()
 
     async def close(self):
         """Post any remaining items in the queue to the webhook."""
+        # Cancel any pending flush timer
+        self._cancel_flush_timer()
+
         if self.queue:
             await self._post_events()
 
@@ -384,6 +393,33 @@ class WebhookSubscriber(Subscriber):
                     )
                     # Re-queue events for potential retry later
                     self.queue.extend(events_to_post)
+
+    def _cancel_flush_timer(self):
+        """Cancel the current flush timer if it exists."""
+        if self._flush_timer and not self._flush_timer.done():
+            self._flush_timer.cancel()
+        self._flush_timer = None
+
+    def _reset_flush_timer(self):
+        """Reset the flush timer to trigger after flush_delay seconds."""
+        # Cancel existing timer
+        self._cancel_flush_timer()
+
+        # Create new timer
+        self._flush_timer = asyncio.create_task(self._flush_after_delay())
+
+    async def _flush_after_delay(self):
+        """Wait for flush_delay seconds then flush events if any exist."""
+        try:
+            await asyncio.sleep(self.spec.flush_delay)
+            # Only flush if there are events in the queue
+            if self.queue:
+                await self._post_events()
+        except asyncio.CancelledError:
+            # Timer was cancelled, which is expected behavior
+            pass
+        finally:
+            self._flush_timer = None
 
 
 @dataclass
