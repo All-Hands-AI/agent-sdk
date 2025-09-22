@@ -13,12 +13,13 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from openhands.agent_server.config import WebhookSpec
 from openhands.agent_server.conversation_service import WebhookSubscriber
 from openhands.agent_server.event_service import EventService
 from openhands.agent_server.models import StoredConversation
+from openhands.agent_server.utils import utc_now
 from openhands.sdk import LLM, Agent
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm.message import Message, TextContent
@@ -51,19 +52,19 @@ def mock_event_service():
 def webhook_spec():
     """Create a WebhookSpec for testing."""
     return WebhookSpec(
-        webhook_url="https://example.com/webhook",
+        base_url="https://example.com",
         event_buffer_size=3,
-        method="POST",
         headers={"Content-Type": "application/json", "Authorization": "Bearer token"},
         num_retries=2,
         retry_delay=1,
+        flush_delay=0.1,  # Short delay for testing
     )
 
 
 @pytest.fixture
 def minimal_webhook_spec():
     """Create a minimal WebhookSpec for testing."""
-    return WebhookSpec(webhook_url="https://example.com/webhook")
+    return WebhookSpec(base_url="https://example.com")
 
 
 @pytest.fixture
@@ -85,6 +86,45 @@ def sample_events():
         message_event = MessageEvent(source="user", llm_message=message)
         events.append(message_event)
     return events
+
+
+class TestWebhookSpecValidation:
+    """Test cases for WebhookSpec validation."""
+
+    def test_webhook_spec_default_flush_delay(self):
+        """Test that WebhookSpec has a default flush_delay value."""
+        spec = WebhookSpec(base_url="https://example.com")
+        assert spec.flush_delay == 30.0
+
+    def test_webhook_spec_custom_flush_delay(self):
+        """Test that WebhookSpec accepts custom flush_delay values."""
+        spec = WebhookSpec(base_url="https://example.com", flush_delay=60.0)
+        assert spec.flush_delay == 60.0
+
+    def test_webhook_spec_flush_delay_validation_positive(self):
+        """Test that flush_delay must be positive."""
+        with pytest.raises(ValidationError) as exc_info:
+            WebhookSpec(base_url="https://example.com", flush_delay=0.0)
+
+        errors = exc_info.value.errors()
+        assert len(errors) == 1
+        assert errors[0]["type"] == "greater_than"
+        assert "flush_delay" in errors[0]["loc"]
+
+    def test_webhook_spec_flush_delay_validation_negative(self):
+        """Test that flush_delay cannot be negative."""
+        with pytest.raises(ValidationError) as exc_info:
+            WebhookSpec(base_url="https://example.com", flush_delay=-1.0)
+
+        errors = exc_info.value.errors()
+        assert len(errors) == 1
+        assert errors[0]["type"] == "greater_than"
+        assert "flush_delay" in errors[0]["loc"]
+
+    def test_webhook_spec_flush_delay_validation_small_positive(self):
+        """Test that small positive flush_delay values are accepted."""
+        spec = WebhookSpec(base_url="https://example.com", flush_delay=0.1)
+        assert spec.flush_delay == 0.1
 
 
 class TestWebhookSubscriberInitialization:
@@ -245,7 +285,7 @@ class TestWebhookSubscriberPostEvents:
         # Verify HTTP request was made correctly
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/webhook",
+            url="https://example.com/events",
             json=[event.model_dump() for event in sample_events[:3]],
             headers={
                 "Content-Type": "application/json",
@@ -289,7 +329,7 @@ class TestWebhookSubscriberPostEvents:
         }
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/webhook",
+            url="https://example.com/events",
             json=[event.model_dump() for event in sample_events[:2]],
             headers=expected_headers,
             timeout=30.0,
@@ -430,7 +470,7 @@ class TestWebhookSubscriberPostEvents:
         # Verify __dict__ is used when model_dump is not available
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/webhook",
+            url="https://example.com/events",
             json=[{"type": "test", "data": "value"}],
             headers={
                 "Content-Type": "application/json",
@@ -618,3 +658,354 @@ class TestWebhookSubscriberErrorHandling:
 
         # Events should be re-queued after failure
         assert len(subscriber.queue) == 1
+
+
+class TestWebhookSubscriberFlushDelay:
+    """Test cases for flush_delay functionality in WebhookSubscriber."""
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_flush_delay_triggers_post(
+        self, mock_client_class, mock_event_service, webhook_spec, sample_event
+    ):
+        """Test that flush_delay triggers posting after the specified delay."""
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = WebhookSubscriber(
+            service=mock_event_service,
+            spec=webhook_spec,
+        )
+
+        # Add one event (below buffer size)
+        await subscriber(sample_event)
+        assert len(subscriber.queue) == 1
+
+        # Wait for flush_delay to trigger
+        await asyncio.sleep(webhook_spec.flush_delay + 0.05)
+
+        # Verify HTTP request was made and queue is cleared
+        mock_client.request.assert_called_once()
+        assert len(subscriber.queue) == 0
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_flush_delay_reset_on_new_event(
+        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+    ):
+        """Test that flush_delay timer is reset when new events are added."""
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = WebhookSubscriber(
+            service=mock_event_service,
+            spec=webhook_spec,
+        )
+
+        # Add first event
+        await subscriber(sample_events[0])
+        assert len(subscriber.queue) == 1
+
+        # Wait half the flush delay
+        await asyncio.sleep(webhook_spec.flush_delay / 2)
+
+        # Add second event (should reset timer)
+        await subscriber(sample_events[1])
+        assert len(subscriber.queue) == 2
+
+        # Wait another half delay (total time = flush_delay, but timer was reset)
+        await asyncio.sleep(webhook_spec.flush_delay / 2)
+
+        # Should not have posted yet since timer was reset
+        mock_client.request.assert_not_called()
+        assert len(subscriber.queue) == 2
+
+        # Wait for the full delay from the second event
+        await asyncio.sleep(webhook_spec.flush_delay / 2 + 0.05)
+
+        # Now it should have posted
+        mock_client.request.assert_called_once()
+        assert len(subscriber.queue) == 0
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_flush_delay_cancelled_on_buffer_full(
+        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+    ):
+        """Test that flush_delay timer is cancelled when buffer becomes full."""
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = WebhookSubscriber(
+            service=mock_event_service,
+            spec=webhook_spec,
+        )
+
+        # Add events up to buffer size - 1
+        for event in sample_events[:2]:
+            await subscriber(event)
+        assert len(subscriber.queue) == 2
+
+        # Add one more event to fill buffer (should trigger immediate post)
+        await subscriber(sample_events[2])
+
+        # Verify immediate post happened
+        mock_client.request.assert_called_once()
+        assert len(subscriber.queue) == 0
+
+        # Wait for flush_delay to ensure timer was cancelled
+        await asyncio.sleep(webhook_spec.flush_delay + 0.05)
+
+        # Should not have made additional requests
+        assert mock_client.request.call_count == 1
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_flush_delay_cancelled_on_close(
+        self, mock_client_class, mock_event_service, webhook_spec, sample_event
+    ):
+        """Test that flush_delay timer is cancelled when subscriber is closed."""
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = WebhookSubscriber(
+            service=mock_event_service,
+            spec=webhook_spec,
+        )
+
+        # Add one event
+        await subscriber(sample_event)
+        assert len(subscriber.queue) == 1
+
+        # Close subscriber before flush_delay elapses
+        await subscriber.close()
+
+        # Verify close triggered post
+        mock_client.request.assert_called_once()
+        assert len(subscriber.queue) == 0
+
+        # Wait for flush_delay to ensure timer was cancelled
+        await asyncio.sleep(webhook_spec.flush_delay + 0.05)
+
+        # Should not have made additional requests
+        assert mock_client.request.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_flush_delay_no_post_when_queue_empty(
+        self, mock_event_service, webhook_spec
+    ):
+        """Test that flush_delay doesn't trigger post when queue is empty."""
+        subscriber = WebhookSubscriber(
+            service=mock_event_service,
+            spec=webhook_spec,
+        )
+
+        # Don't add any events, but trigger timer reset
+        subscriber._reset_flush_timer()
+
+        # Wait for flush_delay
+        await asyncio.sleep(webhook_spec.flush_delay + 0.05)
+
+        # Should not have made any HTTP requests
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_class.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_flush_delay_triggers_on_timer(
+        self, mock_client_class, mock_event_service, webhook_spec, sample_event
+    ):
+        """Test that flush_delay timer triggers HTTP request."""
+        # Setup mock client to succeed
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = WebhookSubscriber(
+            service=mock_event_service,
+            spec=webhook_spec,
+        )
+
+        # Add one event
+        await subscriber(sample_event)
+        assert len(subscriber.queue) == 1
+
+        # Wait for flush_delay to trigger
+        await asyncio.sleep(webhook_spec.flush_delay + 0.05)
+
+        # Verify request was made and queue is cleared
+        mock_client.request.assert_called_once()
+        assert len(subscriber.queue) == 0
+
+
+class TestConversationWebhookSubscriber:
+    """Test cases for ConversationWebhookSubscriber class."""
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_post_conversation_info_success(
+        self, mock_client_class, webhook_spec, mock_event_service
+    ):
+        """Test successful posting of conversation info."""
+        from openhands.agent_server.conversation_service import (
+            ConversationWebhookSubscriber,
+        )
+        from openhands.agent_server.models import ConversationInfo
+        from openhands.sdk.conversation.state import AgentExecutionStatus
+
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = ConversationWebhookSubscriber(
+            spec=webhook_spec,
+        )
+
+        # Create sample conversation info
+        conversation_info = ConversationInfo(
+            id=uuid4(),
+            agent=mock_event_service.stored.agent,
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            status=AgentExecutionStatus.RUNNING,
+        )
+
+        await subscriber.post_conversation_info(conversation_info)
+
+        # Verify HTTP request was made correctly
+        mock_client.request.assert_called_once_with(
+            method="POST",
+            url="https://example.com/conversations",
+            json=conversation_info.model_dump(mode="json"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer token",
+            },
+            timeout=30.0,
+        )
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_post_conversation_info_with_session_api_key(
+        self, mock_client_class, webhook_spec, mock_event_service
+    ):
+        """Test posting conversation info with session API key."""
+        from openhands.agent_server.conversation_service import (
+            ConversationWebhookSubscriber,
+        )
+        from openhands.agent_server.models import ConversationInfo
+        from openhands.sdk.conversation.state import AgentExecutionStatus
+
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        subscriber = ConversationWebhookSubscriber(
+            spec=webhook_spec,
+            session_api_key="test_session_key",
+        )
+
+        # Create sample conversation info
+        conversation_info = ConversationInfo(
+            id=uuid4(),
+            agent=mock_event_service.stored.agent,
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            status=AgentExecutionStatus.PAUSED,
+        )
+
+        await subscriber.post_conversation_info(conversation_info)
+
+        # Verify session API key is added to headers
+        expected_headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer token",
+            "X-Session-API-Key": "test_session_key",
+        }
+        mock_client.request.assert_called_once_with(
+            method="POST",
+            url="https://example.com/conversations",
+            json=conversation_info.model_dump(mode="json"),
+            headers=expected_headers,
+            timeout=30.0,
+        )
+
+    @pytest.mark.asyncio
+    async def test_post_conversation_info_http_error_with_retries(
+        self, webhook_spec, mock_event_service
+    ):
+        """Test HTTP error handling with retry logic for conversation webhooks."""
+        from openhands.agent_server.conversation_service import (
+            ConversationWebhookSubscriber,
+        )
+        from openhands.agent_server.models import ConversationInfo
+        from openhands.sdk.conversation.state import AgentExecutionStatus
+
+        subscriber = ConversationWebhookSubscriber(
+            spec=webhook_spec,
+        )
+
+        # Create sample conversation info
+        conversation_info = ConversationInfo(
+            id=uuid4(),
+            agent=mock_event_service.stored.agent,
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            status=AgentExecutionStatus.FINISHED,
+        )
+
+        # Track retry attempts
+        retry_attempts = []
+        sleep_calls = []
+
+        # Mock the HTTP client and sleep
+        async def mock_request(*args, **kwargs):
+            retry_attempts.append(len(retry_attempts) + 1)
+            if len(retry_attempts) <= 2:  # Fail first two attempts
+                raise httpx.HTTPStatusError(
+                    "Server Error", request=MagicMock(), response=MagicMock()
+                )
+            # Third attempt succeeds - return a mock response
+            response = AsyncMock()
+            response.raise_for_status.return_value = None
+            return response
+
+        async def mock_sleep(delay):
+            sleep_calls.append(delay)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request = mock_request
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            with patch("asyncio.sleep", side_effect=mock_sleep):
+                await subscriber.post_conversation_info(conversation_info)
+
+        # Verify retries were attempted
+        assert len(retry_attempts) == 3
+        assert len(sleep_calls) == 2  # Sleep between retries
+        assert all(delay == webhook_spec.retry_delay for delay in sleep_calls)

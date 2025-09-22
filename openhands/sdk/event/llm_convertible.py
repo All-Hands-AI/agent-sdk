@@ -356,6 +356,14 @@ class AgentErrorEvent(LLMConvertibleEvent):
 
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
+    tool_name: str | None = Field(
+        default=None,
+        description="The tool name that this error is associated with, if any",
+    )
+    tool_call_id: ToolCallID | None = Field(
+        default=None,
+        description="The tool call id that this error is associated with, if any",
+    )
     metrics: MetricsSnapshot | None = Field(
         default=None,
         description=(
@@ -373,7 +381,12 @@ class AgentErrorEvent(LLMConvertibleEvent):
         return content
 
     def to_llm_message(self) -> Message:
-        return Message(role="user", content=[TextContent(text=self.error)])
+        return Message(
+            role="tool",
+            content=[TextContent(text=self.error)],
+            name=self.tool_name,
+            tool_call_id=self.tool_call_id,
+        )
 
     def __str__(self) -> str:
         """Plain text string representation for AgentErrorEvent."""
@@ -384,3 +397,13 @@ class AgentErrorEvent(LLMConvertibleEvent):
             else self.error
         )
         return f"{base_str}\n  Error: {error_preview}"
+
+
+ToolCallEventType = ActionEvent
+"""Type alias for all action events produced by LLM's tool call."""
+
+ToolObservationEventType = ObservationEvent | UserRejectObservation | AgentErrorEvent
+"""Type alias for all observation events produced as a result of tool calls.
+
+Either a normal observation, or user rejection, or an agent error.
+"""

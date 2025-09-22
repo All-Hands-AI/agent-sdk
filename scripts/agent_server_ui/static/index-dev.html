@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenHands Web Chat - Development</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar for conversation management -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-robot"></i> OpenHands</h2>
+                <button id="new-conversation-btn" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> New Chat
+                </button>
+            </div>
+            
+            <div class="conversations-list">
+                <div class="conversations-header">
+                    <h3>Conversations</h3>
+                    <button id="refresh-conversations" class="btn-icon" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div id="conversations-container">
+                    <!-- Conversations will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main chat area -->
+        <div class="main-content">
+            <div class="chat-header">
+                <div class="conversation-info">
+                    <h3 id="current-conversation-title">Select or create a conversation</h3>
+                    <span id="conversation-status" class="status-badge">No conversation</span>
+                </div>
+                <div class="chat-controls">
+                    <button id="pause-btn" class="btn btn-secondary" disabled>
+                        <i class="fas fa-pause"></i> Pause
+                    </button>
+                    <button id="resume-btn" class="btn btn-secondary" disabled>
+                        <i class="fas fa-play"></i> Resume
+                    </button>
+                    <button id="delete-conversation-btn" class="btn btn-danger" disabled>
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <div class="welcome-message">
+                    <div class="welcome-content">
+                        <i class="fas fa-robot welcome-icon"></i>
+                        <h2>Welcome to OpenHands</h2>
+                        <p>Start a new conversation or select an existing one to begin chatting with your AI agent.</p>
+                        <p>The agent can help you with coding, file operations, and various tasks using its built-in tools.</p>
+                        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
+                            <strong>Development Mode:</strong> Make sure the agent server is running on localhost:8000
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="message-input" 
+                        placeholder="Type your message here... (Press Ctrl+Enter to send)"
+                        rows="1"
+                        disabled
+                    ></textarea>
+                    <button id="send-btn" class="btn btn-primary" disabled>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="input-status">
+                    <span id="connection-status" class="connection-status">
+                        <i class="fas fa-circle"></i> Disconnected
+                    </span>
+                    <span id="typing-indicator" class="typing-indicator" style="display: none;">
+                        <i class="fas fa-circle-notch fa-spin"></i> Agent is thinking...
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for new conversation -->
+    <div id="new-conversation-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Start New Conversation</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="new-conversation-form">
+                    <div class="form-group">
+                        <label for="initial-message">Initial Message (optional):</label>
+                        <textarea 
+                            id="initial-message" 
+                            placeholder="Enter your first message to the agent..."
+                            rows="3"
+                        ></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="max-iterations">Max Iterations:</label>
+                        <input 
+                            type="number" 
+                            id="max-iterations" 
+                            value="500" 
+                            min="1" 
+                            max="1000"
+                        >
+                        <small>Maximum number of agent iterations before stopping</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-new-conversation">Cancel</button>
+                <button type="button" class="btn btn-primary" id="create-conversation">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <i class="fas fa-circle-notch fa-spin"></i>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <script src="app-dev.js"></script>
+</body>
+</html>
