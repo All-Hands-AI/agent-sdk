@@ -18,7 +18,9 @@ from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+)
 
 
 logger = get_logger(__name__)
