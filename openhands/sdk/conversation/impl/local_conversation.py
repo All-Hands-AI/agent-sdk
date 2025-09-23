@@ -1,4 +1,3 @@
-import time
 import uuid
 from typing import Iterable
 
@@ -64,10 +63,6 @@ class LocalConversation(BaseConversation):
         """
         self.agent = agent
         self._persist_filestore = persist_filestore
-
-        # Race condition detection: True when send_message() waits for state lock
-        # Prevents run loop from finishing while user message is being processed
-        self._message_send_in_progress = False
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
@@ -137,12 +132,7 @@ class LocalConversation(BaseConversation):
             "Only user messages are allowed to be sent to the agent."
         )
 
-        # Signal that send_message is waiting for the lock (race condition detection)
-        self._message_send_in_progress = True
-
         with self._state:
-            # Clear the flag immediately after acquiring the lock
-            self._message_send_in_progress = False
             if self._state.agent_status == AgentExecutionStatus.FINISHED:
                 self._state.agent_status = (
                     AgentExecutionStatus.IDLE
@@ -181,6 +171,44 @@ class LocalConversation(BaseConversation):
             )
             self._on_event(user_msg_event)
 
+    def _has_unattended_user_messages(self) -> bool:
+        """
+        Check if there are user messages that came after the last agent message.
+
+        This indicates messages that the agent hasn't processed yet.
+        Must be called while holding the state lock.
+
+        Returns:
+            True if there are unattended user messages, False otherwise.
+        """
+        self._state.assert_locked()
+
+        if not self._state.events:
+            return False
+
+        # Find the last agent message
+        last_agent_message_idx = -1
+        for i in range(len(self._state.events) - 1, -1, -1):
+            event = self._state.events[i]
+            if hasattr(event, "source") and event.source == "agent":
+                last_agent_message_idx = i
+                break
+
+        # If no agent messages, all user messages are unattended
+        if last_agent_message_idx == -1:
+            for event in self._state.events:
+                if hasattr(event, "source") and event.source == "user":
+                    return True
+            return False
+
+        # Check if there are user messages after the last agent message
+        for i in range(last_agent_message_idx + 1, len(self._state.events)):
+            event = self._state.events[i]
+            if hasattr(event, "source") and event.source == "user":
+                return True
+
+        return False
+
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
 
@@ -202,10 +230,6 @@ class LocalConversation(BaseConversation):
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
 
-            # Cooperative threading: yield to send_message() if waiting for lock
-            if self._message_send_in_progress:
-                time.sleep(0.001)  # Brief yield to allow send_message() to acquire lock
-
             with self._state:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
@@ -218,7 +242,7 @@ class LocalConversation(BaseConversation):
 
                 # Check for unattended user messages when finished
                 if self._state.agent_status == AgentExecutionStatus.FINISHED:
-                    if self._message_send_in_progress:
+                    if self._has_unattended_user_messages():
                         # There are unattended user messages, continue processing
                         logger.debug(
                             "Found unattended user messages, continuing run loop"
