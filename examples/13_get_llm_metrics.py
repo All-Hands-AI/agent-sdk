@@ -7,7 +7,6 @@ from openhands.sdk import (
     Agent,
     Conversation,
     EventBase,
-    EventWithMetrics,
     LLMConvertibleEvent,
     get_logger,
 )
@@ -47,9 +46,6 @@ llm_messages = []  # collect raw LLM messages
 def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
-    if isinstance(event, EventWithMetrics):
-        if event.metrics is not None:
-            logger.info(f"Metrics Snapshot: {event.metrics}")
 
 
 # Conversation

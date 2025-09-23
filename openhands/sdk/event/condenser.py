@@ -3,7 +3,7 @@ from rich.text import Text
 
 from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType
-from openhands.sdk.llm import Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm import Message, TextContent
 
 
 class Condensation(EventBase):
@@ -24,11 +24,6 @@ class Condensation(EventBase):
         ge=0,
         description="An optional offset to the start of the resulting view"
         " indicating where the summary should be inserted.",
-    )
-
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description="Snapshot of LLM metrics at the time of condensation",
     )
 
     source: SourceType = "environment"

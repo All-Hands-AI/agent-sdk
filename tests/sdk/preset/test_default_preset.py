@@ -140,7 +140,10 @@ def test_get_default_agent_condenser_config(basic_llm):
 
     assert agent.condenser is not None
     assert isinstance(agent.condenser, LLMSummarizingCondenser)
-    assert agent.condenser.llm == basic_llm
+    assert basic_llm.service_id != agent.condenser.llm.service_id
+    assert agent.condenser.llm == basic_llm.model_copy(
+        update={"service_id": "condenser"}
+    )  # Condenser LLM should have service_id set
     assert agent.condenser.max_size == 80
     assert agent.condenser.keep_first == 4
 
