@@ -12,6 +12,7 @@ from typing import Iterable
 from urllib.request import urlopen
 
 from openhands.sdk.logger import get_logger
+from openhands.sdk.sandbox.port_utils import find_available_tcp_port
 
 
 logger = get_logger(__name__)
@@ -27,13 +28,39 @@ def _run(
     else:
         cmd_list = cmd
     logger.info("$ %s", " ".join(shlex.quote(c) for c in cmd_list))
-    return subprocess.run(
+
+    proc = subprocess.Popen(
         cmd_list,
         cwd=cwd,
         env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        capture_output=True,
-        check=False,
+        bufsize=1,
+    )
+    if proc is None:
+        raise RuntimeError("Failed to start process")
+
+    # Read line by line, echo to parent stdout/stderr
+    stdout_lines: list[str] = []
+    stderr_lines: list[str] = []
+    if proc.stdout is None or proc.stderr is None:
+        raise RuntimeError("Failed to capture stdout/stderr")
+
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        stdout_lines.append(line)
+    for line in proc.stderr:
+        sys.stderr.write(line)
+        stderr_lines.append(line)
+
+    proc.wait()
+
+    return subprocess.CompletedProcess(
+        cmd_list,
+        proc.returncode,
+        "".join(stdout_lines),
+        "".join(stderr_lines),
     )
 
 
@@ -86,10 +113,10 @@ def _resolve_build_script() -> Path | None:
 
 
 def build_agent_server_image(
-    *,
+    base_image: str,
     target: str = "source",
-    variant_name: str = "python",
-    base_image: str | None = None,
+    variant_name: str = "custom",
+    platforms: str = "linux/amd64",
     extra_env: dict[str, str] | None = None,
     project_root: str | None = None,
 ) -> str:
@@ -100,21 +127,30 @@ def build_agent_server_image(
     by the script.
 
     If the script cannot be located, raise a helpful error. In that case,
-    users can manually provide an image to DockerAgentServer(image="...").
+    users can manually provide an image to DockerSandboxedAgentServer(image="...").
     """
     script_path = _resolve_build_script()
     if not script_path:
         raise FileNotFoundError(
             "Could not locate openhands/agent_server/docker/build.sh. "
             "Ensure you're running in the OpenHands repo or pass an explicit "
-            "image to DockerAgentServer(image=...)."
+            "image to DockerSandboxedAgentServer(image=...)."
         )
 
     env = os.environ.copy()
-    env.setdefault("TARGET", target)
-    env.setdefault("VARIANT_NAME", variant_name)
-    if base_image:
-        env.setdefault("BASE_IMAGE", base_image)
+    env["BASE_IMAGE"] = base_image
+    env["VARIANT_NAME"] = variant_name
+    env["TARGET"] = target
+    env["PLATFORMS"] = platforms
+    logger.info(
+        "Building agent-server image with base '%s', target '%s', "
+        "variant '%s' for platforms '%s'",
+        base_image,
+        target,
+        variant_name,
+        platforms,
+    )
+
     if extra_env:
         env.update(extra_env)
 
@@ -123,11 +159,6 @@ def build_agent_server_image(
         project_root = str(Path(__file__).resolve().parents[3])
 
     proc = _run(["bash", str(script_path)], env=env, cwd=project_root)
-
-    # Show stderr for visibility
-    if proc.stderr:
-        for ln in proc.stderr.splitlines():
-            logger.info("[build.sh:stderr] %s", ln)
 
     if proc.returncode != 0:
         msg = (
@@ -148,11 +179,11 @@ def build_agent_server_image(
     return image
 
 
-class DockerAgentServer:
+class DockerSandboxedAgentServer:
     """Run the Agent Server inside Docker for sandboxed development.
 
     Example:
-        with DockerAgentServer(host_port=8010) as server:
+        with DockerSandboxedAgentServer(host_port=8010) as server:
             # use server.base_url as the host for RemoteConversation
             ...
     """
@@ -160,27 +191,27 @@ class DockerAgentServer:
     def __init__(
         self,
         *,
-        host_port: int = 8010,
-        mount_dir: str | None = None,
-        image: str | None = None,
+        base_image: str,
+        host_port: int | None = None,
         host: str = "127.0.0.1",
         forward_env: Iterable[str] | None = None,
+        mount_dir: str | None = None,
         detach_logs: bool = True,
         target: str = "source",
     ) -> None:
-        self.host_port = int(host_port)
-        self.mount_dir = mount_dir or os.getcwd()
-        self._image = image
+        self.host_port = int(host_port) if host_port else find_available_tcp_port()
+        self._image = base_image
         self.host = host
         self.base_url = f"http://{host}:{self.host_port}"
         self.container_id: str | None = None
         self._logs_thread: threading.Thread | None = None
         self._stop_logs = threading.Event()
+        self.mount_dir = mount_dir
         self.detach_logs = detach_logs
         self._forward_env = list(forward_env or [])
         self._target = target
 
-    def __enter__(self) -> "DockerAgentServer":
+    def __enter__(self) -> "DockerSandboxedAgentServer":
         # Ensure docker exists
         docker_ver = _run(["docker", "version"]).returncode
         if docker_ver != 0:
@@ -189,15 +220,26 @@ class DockerAgentServer:
                 "Docker Desktop/daemon."
             )
 
-        # Build if no image provided
-        if not self._image:
-            self._image = build_agent_server_image(target=self._target)
+        # Build if base image is provided, BUT not if
+        # it's not an pre-built official image
+        if self._image and "ghcr.io/all-hands-ai/agent-server" not in self._image:
+            self._image = build_agent_server_image(
+                base_image=self._image, target=self._target
+            )
 
         # Prepare env flags
-        env_flags: list[str] = []
+        flags: list[str] = []
         for key in self._forward_env:
             if key in os.environ:
-                env_flags += ["-e", f"{key}={os.environ[key]}"]
+                flags += ["-e", f"{key}={os.environ[key]}"]
+
+        # Prepare mount flags
+        if self.mount_dir:
+            mount_path = "/workspace"
+            flags += ["-v", f"{self.mount_dir}:{mount_path}"]
+            logger.info(
+                "Mounting host dir %s to container path %s", self.mount_dir, mount_path
+            )
 
         # Run container
         run_cmd = [
@@ -209,9 +251,7 @@ class DockerAgentServer:
             f"agent-server-{int(time.time())}",
             "-p",
             f"{self.host_port}:8000",
-            "-v",
-            f"{self.mount_dir}:/workspace",
-            *env_flags,
+            *flags,
             self._image,
             "--host",
             "0.0.0.0",

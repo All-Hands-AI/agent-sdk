@@ -6,7 +6,7 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
-    DockerAgentServer,
+    DockerSandboxedAgentServer,
     get_logger,
 )
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
@@ -50,12 +50,15 @@ def main() -> None:
 
     # 2) Start the dev image in Docker via the SDK helper and wait for health
     #    Forward LITELLM_API_KEY into the container so remote tools can use it.
-    with DockerAgentServer(host_port=8010, forward_env=["LITELLM_API_KEY"]) as server:
+    with DockerSandboxedAgentServer(
+        base_image="swebench/sweb.eval.x86_64.astropy_1776_astropy-12907:latest",
+        host_port=8010,
+    ) as server:
         # 3) Create agent – IMPORTANT: working_dir must be the path inside container
         #    where we mounted the current repo.
         agent = get_default_agent(
             llm=llm,
-            working_dir="/workspace",
+            working_dir="/repo",
             cli_mode=True,
         )
 
@@ -100,27 +103,6 @@ def main() -> None:
             conversation.send_message("Great! Now delete that file.")
             conversation.run()
             logger.info("✅ Second task completed!")
-
-            # Demonstrate state.events
-            logger.info("\n" + "=" * 50)
-            logger.info("📊 Demonstrating State Events API")
-            logger.info("=" * 50)
-
-            total_events = len(conversation.state.events)
-            logger.info(f"📈 Total events in conversation: {total_events}")
-
-            logger.info("\n🔍 Getting last 5 events using state.events...")
-            all_events = conversation.state.events
-            recent_events = all_events[-5:] if len(all_events) >= 5 else all_events
-            for i, event in enumerate(recent_events, 1):
-                event_type = type(event).__name__
-                timestamp = getattr(event, "timestamp", "Unknown")
-                logger.info(f"  {i}. {event_type} at {timestamp}")
-
-            logger.info("\n🔍 Event types found:")
-            event_types = sorted({type(e).__name__ for e in recent_events})
-            for et in event_types:
-                logger.info(f"  - {et}")
         finally:
             print("\n🧹 Cleaning up conversation...")
             conversation.close()
