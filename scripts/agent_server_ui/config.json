@@ -1,4 +1,4 @@
 {
-  "static_files_path": "/workspace/project/agent-sdk/scripts/agent_server_ui/static",
+  "static_files_path": "static",
   "session_api_key": null
 }
