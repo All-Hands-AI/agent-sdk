@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import subprocess
+from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.utils.async_executor import AsyncExecutor
@@ -19,7 +20,26 @@ def _check_chromium_available() -> bool:
     for binary in ("chromium", "chromium-browser", "google-chrome", "chrome"):
         if shutil.which(binary):
             return True
-    logging.debug("No Chromium/Chrome binary found in PATH")
+
+    # Check Playwright-installed Chromium
+    playwright_cache = Path.home() / ".cache" / "ms-playwright"
+    if playwright_cache.exists():
+        chromium_dirs = list(playwright_cache.glob("chromium-*"))
+        for chromium_dir in chromium_dirs:
+            # Check platform-specific paths
+            possible_paths = [
+                chromium_dir / "chrome-linux" / "chrome",  # Linux
+                chromium_dir
+                / "chrome-mac"
+                / "Chromium.app"
+                / "Contents"
+                / "MacOS"
+                / "Chromium",  # macOS
+                chromium_dir / "chrome-win" / "chrome.exe",  # Windows
+            ]
+            if any(p.exists() for p in possible_paths):
+                return True
+
     return False
 
 
