@@ -1,5 +1,3 @@
-import base64
-import pickle
 import tempfile
 import uuid
 from unittest.mock import patch
@@ -27,10 +25,7 @@ def mock_file_store():
 @pytest.fixture
 def conversation_stats(mock_file_store):
     """Create a ConversationStats instance for testing."""
-    return ConversationStats.create(
-        file_store=mock_file_store,
-        conversation_id=TEST_CONVERSATION_ID,
-    )
+    return ConversationStats()
 
 
 @pytest.fixture
@@ -46,36 +41,6 @@ def connected_registry_and_stats(mock_llm_registry, conversation_stats):
     # Subscribe to LLM registry events to track metrics
     mock_llm_registry.subscribe(conversation_stats.register_llm)
     return mock_llm_registry, conversation_stats
-
-
-def test_maybe_restore_legacy_metrics_store(mock_file_store):
-    """Test that metrics are restored correctly."""
-    # Create metrics to save
-    service_id = "test-service"
-    metrics = Metrics(model_name="gpt-4")
-    metrics.add_cost(0.1)
-    service_to_metrics = {service_id: metrics}
-
-    # Serialize and save metrics
-    pickled = pickle.dumps(service_to_metrics)
-    serialized_metrics = base64.b64encode(pickled).decode("utf-8")
-
-    # Create a new ConversationStats with pre-populated file store
-    conversation_id = TEST_CONVERSATION_ID
-
-    # Write to the correct path (using the metrics_file_name)
-    mock_file_store.write(
-        f"{conversation_id}/conversation_stats.pkl", serialized_metrics
-    )
-
-    # Create ConversationStats which should restore metrics
-    stats = ConversationStats.create(
-        file_store=mock_file_store, conversation_id=conversation_id
-    )
-
-    # Verify metrics were restored
-    assert service_id in stats.service_to_metrics
-    assert stats.service_to_metrics[service_id].accumulated_cost == 0.1
 
 
 def test_get_combined_metrics(conversation_stats):

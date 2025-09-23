@@ -1,9 +1,5 @@
-from typing import Optional
-
 from pydantic import BaseModel, Field, PrivateAttr
 
-from openhands.sdk.conversation.types import ConversationID
-from openhands.sdk.io.base import FileStore
 from openhands.sdk.llm.llm_registry import RegistryEvent
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.logger import get_logger
@@ -20,59 +16,6 @@ class ConversationStats(BaseModel):
     )
 
     _restored_services: set = PrivateAttr(default_factory=set)
-
-    # Private attributes that won't be serialized
-    _file_store: Optional[FileStore] = PrivateAttr(default=None)
-    _conversation_id: Optional[ConversationID] = PrivateAttr(default=None)
-    _metrics_file_name: str = PrivateAttr(default="conversation_stats.pkl")
-
-    @classmethod
-    def create(
-        cls,
-        file_store: FileStore | None = None,
-        conversation_id: ConversationID | None = None,
-    ) -> "ConversationStats":
-        instance = cls()
-        instance._file_store = file_store
-        instance._conversation_id = conversation_id
-
-        if conversation_id:
-            instance._metrics_file_name = f"{conversation_id}/conversation_stats.pkl"
-
-        # Always attempt to restore registry if it exists
-        instance.maybe_restore_metrics()
-
-        return instance
-
-    @property
-    def file_store(self) -> Optional[FileStore]:
-        return self._file_store
-
-    @property
-    def conversation_id(self) -> Optional[ConversationID]:
-        return self._conversation_id
-
-    def maybe_restore_metrics(self):
-        # Used for backwards compatability with existing conversations
-        # that store conversation stats in a pickled object
-
-        # Note: future restorations will be handled by ConversationState deserialization
-
-        if not self.file_store or not self.conversation_id:
-            return
-
-        try:
-            import base64
-            import pickle
-
-            encoded = self.file_store.read(self._metrics_file_name)
-            pickled = base64.b64decode(encoded)
-            self.service_to_metrics = pickle.loads(pickled)
-            logger.info(f"restored metrics: {self.conversation_id}")
-        except FileNotFoundError:
-            pass
-        except Exception as e:
-            logger.warning(f"Failed to restore metrics from pickle format: {e}")
 
     def get_combined_metrics(self) -> Metrics:
         total_metrics = Metrics()
