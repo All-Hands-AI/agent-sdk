@@ -6,8 +6,8 @@ they requested it, preventing starvation that can occur with standard RLock.
 """
 
 import threading
+import time
 from collections import deque
-from threading import get_ident
 from typing import Any, Self
 
 
@@ -27,11 +27,12 @@ class FIFOLock:
     """
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()  # Protects internal state
-        self._owner_tid: int | None = None  # Current lock owner thread ID
-        self._count = 0  # Reentrancy count for current owner
-        self._waiters: deque[threading.Event] = deque()  # FIFO queue of waiting threads
-        self._waiter_events: dict[int, threading.Event] = {}  # Map thread ID to event
+        self._mutex = threading.Lock()  # Protects internal state
+        self._waiters: deque[threading.Condition] = (
+            deque()
+        )  # FIFO queue of waiting threads
+        self._owner: int | None = None  # Current lock owner thread ID
+        self._count = 0  # Reentrancy counter
 
     def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
         """
@@ -46,72 +47,39 @@ class FIFOLock:
         Returns:
             True if lock was acquired, False otherwise.
         """
-        current_tid = get_ident()
+        me = threading.Condition(self._mutex)
+        ident = threading.get_ident()
+        start = time.monotonic()
 
-        with self._lock:
-            # If we already own the lock, just increment count (reentrancy)
-            if self._owner_tid == current_tid:
+        with self._mutex:
+            # Reentrant case
+            if self._owner == ident:
                 self._count += 1
                 return True
 
-            # If lock is free, acquire it immediately
-            if self._owner_tid is None:
-                self._owner_tid = current_tid
-                self._count = 1
-                return True
+            # Add to wait queue
+            self._waiters.append(me)
 
-            # Lock is owned by another thread
-            if not blocking:
-                return False
+            while True:
+                # If I'm at the front of the queue and nobody owns it → acquire
+                if self._waiters[0] is me and self._owner is None:
+                    self._owner = ident
+                    self._count = 1
+                    return True
 
-            # Create event for this thread and add to FIFO queue
-            event = threading.Event()
-            self._waiters.append(event)
-            self._waiter_events[current_tid] = event
+                if not blocking:
+                    # Give up immediately
+                    self._waiters.remove(me)
+                    return False
 
-        # Wait for our turn (outside the internal lock)
-        try:
-            if timeout == -1:
-                event.wait()
-                acquired = True
-            else:
-                acquired = event.wait(timeout)
-
-            if acquired:
-                # We were signaled, so we now own the lock
-                with self._lock:
-                    # Clean up our event
-                    if current_tid in self._waiter_events:
-                        del self._waiter_events[current_tid]
-
-                    # Double-check we're the owner (should always be true)
-                    assert self._owner_tid == current_tid
-                    assert self._count == 1
-
-                return True
-            else:
-                # Timeout occurred, clean up
-                with self._lock:
-                    if current_tid in self._waiter_events:
-                        del self._waiter_events[current_tid]
-                    # Remove from waiters queue if still there
-                    try:
-                        self._waiters.remove(event)
-                    except ValueError:
-                        pass  # Already removed
-
-                return False
-
-        except Exception:
-            # Clean up on any exception
-            with self._lock:
-                if current_tid in self._waiter_events:
-                    del self._waiter_events[current_tid]
-                try:
-                    self._waiters.remove(event)
-                except ValueError:
-                    pass
-            raise
+                if timeout >= 0:
+                    remaining = timeout - (time.monotonic() - start)
+                    if remaining <= 0:
+                        self._waiters.remove(me)
+                        return False
+                    me.wait(remaining)
+                else:
+                    me.wait()
 
     def release(self) -> None:
         """
@@ -120,32 +88,17 @@ class FIFOLock:
         Raises:
             RuntimeError: If the current thread doesn't own the lock.
         """
-        current_tid = get_ident()
-
-        with self._lock:
-            if self._owner_tid != current_tid:
+        ident = threading.get_ident()
+        with self._mutex:
+            if self._owner != ident:
                 raise RuntimeError("Cannot release lock not owned by current thread")
 
             self._count -= 1
-
-            # If still reentrant, just return
-            if self._count > 0:
-                return
-
-            # Release the lock and wake up next waiter
-            self._owner_tid = None
-            self._count = 0
-
-            # Wake up the next thread in FIFO order
-            if self._waiters:
-                next_event = self._waiters.popleft()
-                # Find the thread ID for this event and set it as owner
-                for tid, event in self._waiter_events.items():
-                    if event is next_event:
-                        self._owner_tid = tid
-                        self._count = 1
-                        next_event.set()
-                        break
+            if self._count == 0:
+                self._owner = None
+                self._waiters.popleft()
+                if self._waiters:
+                    self._waiters[0].notify()
 
     def __enter__(self: Self) -> Self:
         """Context manager entry."""
@@ -160,12 +113,12 @@ class FIFOLock:
         """
         Return True if the lock is currently held by any thread.
         """
-        with self._lock:
-            return self._owner_tid is not None
+        with self._mutex:
+            return self._owner is not None
 
     def owned(self) -> bool:
         """
         Return True if the lock is currently held by the calling thread.
         """
-        with self._lock:
-            return self._owner_tid == get_ident()
+        with self._mutex:
+            return self._owner == threading.get_ident()
