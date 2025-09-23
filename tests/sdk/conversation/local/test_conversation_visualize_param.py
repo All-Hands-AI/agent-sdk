@@ -146,7 +146,7 @@ def test_conversation_callback_order(mock_agent):
     # Mock the visualizer to track when it's called
     with (
         patch(
-            "openhands.sdk.conversation.conversation.create_default_visualizer"
+            "openhands.sdk.conversation.impl.local_conversation.create_default_visualizer"
         ) as mock_create_viz,
         patch.object(Agent, "init_state") as mock_init_state,
     ):

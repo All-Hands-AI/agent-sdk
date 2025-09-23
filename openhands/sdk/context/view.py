@@ -10,11 +10,8 @@ from openhands.sdk.event import (
     LLMConvertibleEvent,
 )
 from openhands.sdk.event.base import EventBase, EventID
-from openhands.sdk.event.llm_convertible import (
-    ActionEvent,
-    ObservationEvent,
-    ToolCallID,
-)
+from openhands.sdk.event.llm_convertible import ActionEvent, ObservationBaseEvent
+from openhands.sdk.event.types import ToolCallID
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -124,7 +121,10 @@ class View(BaseModel):
         """Extract tool_call_ids from ObservationEvents."""
         tool_call_ids = set()
         for event in events:
-            if isinstance(event, ObservationEvent) and event.tool_call_id is not None:
+            if (
+                isinstance(event, ObservationBaseEvent)
+                and event.tool_call_id is not None
+            ):
                 tool_call_ids.add(event.tool_call_id)
         return tool_call_ids
 
@@ -135,7 +135,7 @@ class View(BaseModel):
         observation_tool_call_ids: set[ToolCallID],
     ) -> bool:
         """Determine if an event should be kept based on tool call matching."""
-        if isinstance(event, ObservationEvent):
+        if isinstance(event, ObservationBaseEvent):
             return event.tool_call_id in action_tool_call_ids
         elif isinstance(event, ActionEvent):
             return event.tool_call_id in observation_tool_call_ids
@@ -179,7 +179,7 @@ class View(BaseModel):
                     break
 
         if summary is not None and summary_offset is not None:
-            logger.info(f"Inserting summary at offset {summary_offset}")
+            logger.debug(f"Inserting summary at offset {summary_offset}")
 
             _new_summary_event = CondensationSummaryEvent(summary=summary)
             kept_events.insert(summary_offset, _new_summary_event)

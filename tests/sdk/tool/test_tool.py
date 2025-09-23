@@ -635,3 +635,59 @@ class TestTool:
         assert "parameters" in writable_no_risk_function
         writable_no_risk_params = writable_no_risk_function["parameters"]
         assert "security_risk" not in writable_no_risk_params["properties"]
+
+    def test_security_risk_is_required_field_in_schema(self):
+        """Test that _create_action_type_with_risk always makes security_risk a required field."""  # noqa: E501
+        from openhands.sdk.tool.tool import _create_action_type_with_risk
+
+        # Test with a simple action type
+        action_type_with_risk = _create_action_type_with_risk(TestToolMockAction)
+
+        # Get the schema and check that security_risk is in required fields
+        schema = action_type_with_risk.to_mcp_schema()
+        assert "security_risk" in schema["properties"]
+        assert "security_risk" in schema["required"]
+
+        # Test via to_openai_tool method
+        tool = Tool(
+            name="test_tool",
+            description="A test tool",
+            action_type=TestToolMockAction,
+            observation_type=TestToolMockObservation,
+        )
+
+        openai_tool = tool.to_openai_tool(add_security_risk_prediction=True)
+        function_chunk = openai_tool["function"]
+        assert "parameters" in function_chunk
+        function_params = function_chunk["parameters"]
+
+        # Verify security_risk is present in properties
+        assert "security_risk" in function_params["properties"]
+
+        # Verify security_risk is in the required fields list
+        assert "security_risk" in function_params["required"]
+
+        # Test with a tool that has annotations but is not read-only
+        writable_annotations = ToolAnnotations(
+            title="Writable Tool",
+            readOnlyHint=False,
+        )
+
+        writable_tool = Tool(
+            name="writable_tool",
+            description="A writable tool",
+            action_type=TestToolMockAction,
+            observation_type=TestToolMockObservation,
+            annotations=writable_annotations,
+        )
+
+        writable_openai_tool = writable_tool.to_openai_tool(
+            add_security_risk_prediction=True
+        )
+        writable_function_chunk = writable_openai_tool["function"]
+        assert "parameters" in writable_function_chunk
+        writable_function_params = writable_function_chunk["parameters"]
+
+        # Verify security_risk is present and required
+        assert "security_risk" in writable_function_params["properties"]
+        assert "security_risk" in writable_function_params["required"]

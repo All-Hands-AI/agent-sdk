@@ -20,10 +20,21 @@ from openhands.agent_server.pub_sub import Subscriber
 from openhands.agent_server.server_details_router import update_last_execution_time
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import EventBase, Message
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 
 
 logger = logging.getLogger(__name__)
+
+
+def _compose_conversation_info(
+    stored: StoredConversation, state: ConversationState
+) -> ConversationInfo:
+    return ConversationInfo(
+        **state.model_dump(),
+        metrics=stored.metrics,
+        created_at=stored.created_at,
+        updated_at=stored.updated_at,
+    )
 
 
 @dataclass
@@ -38,6 +49,9 @@ class ConversationService:
     webhook_specs: list[WebhookSpec] = field(default_factory=list)
     session_api_key: str | None = field(default=None)
     _event_services: dict[UUID, EventService] | None = field(default=None, init=False)
+    _conversation_webhook_subscribers: list["ConversationWebhookSubscriber"] = field(
+        default_factory=list, init=False
+    )
 
     async def get_conversation(self, conversation_id: UUID) -> ConversationInfo | None:
         if self._event_services is None:
@@ -45,14 +59,14 @@ class ConversationService:
         event_service = self._event_services.get(conversation_id)
         if event_service is None:
             return None
-        status = await event_service.get_status()
-        return ConversationInfo(**event_service.stored.model_dump(), status=status)
+        state = await event_service.get_state()
+        return _compose_conversation_info(event_service.stored, state)
 
     async def search_conversations(
         self,
         page_id: str | None = None,
         limit: int = 100,
-        status: AgentExecutionStatus | None = None,
+        agent_status: AgentExecutionStatus | None = None,
         sort_order: ConversationSortOrder = ConversationSortOrder.CREATED_AT_DESC,
     ) -> ConversationPage:
         if self._event_services is None:
@@ -61,13 +75,13 @@ class ConversationService:
         # Collect all conversations with their info
         all_conversations = []
         for id, event_service in self._event_services.items():
-            conversation_info = ConversationInfo(
-                **event_service.stored.model_dump(),
-                status=await event_service.get_status(),
-            )
-
+            state = await event_service.get_state()
+            conversation_info = _compose_conversation_info(event_service.stored, state)
             # Apply status filter if provided
-            if status is not None and conversation_info.status != status:
+            if (
+                agent_status is not None
+                and conversation_info.agent_status != agent_status
+            ):
                 continue
 
             all_conversations.append((id, conversation_info))
@@ -107,7 +121,7 @@ class ConversationService:
 
     async def count_conversations(
         self,
-        status: AgentExecutionStatus | None = None,
+        agent_status: AgentExecutionStatus | None = None,
     ) -> int:
         """Count conversations matching the given filters."""
         if self._event_services is None:
@@ -115,10 +129,10 @@ class ConversationService:
 
         count = 0
         for event_service in self._event_services.values():
-            conversation_status = await event_service.get_status()
+            state = await event_service.get_state()
 
             # Apply status filter if provided
-            if status is not None and conversation_status != status:
+            if agent_status is not None and state.agent_status != agent_status:
                 continue
 
             count += 1
@@ -135,6 +149,20 @@ class ConversationService:
             result = await self.get_conversation(id)
             results.append(result)
         return results
+
+    async def _notify_conversation_webhooks(self, conversation_info: ConversationInfo):
+        """Notify all conversation webhook subscribers about conversation changes."""
+        if not self._conversation_webhook_subscribers:
+            return
+
+        # Send notifications to all conversation webhook subscribers
+        await asyncio.gather(
+            *[
+                subscriber.post_conversation_info(conversation_info)
+                for subscriber in self._conversation_webhook_subscribers
+            ],
+            return_exceptions=True,  # Don't fail if one webhook fails
+        )
 
     # Write Methods
 
@@ -180,8 +208,13 @@ class ConversationService:
             )
             await event_service.send_message(message, run=initial_message.run)
 
-        status = await event_service.get_status()
-        return ConversationInfo(**event_service.stored.model_dump(), status=status)
+        state = await event_service.get_state()
+        conversation_info = _compose_conversation_info(event_service.stored, state)
+
+        # Notify conversation webhooks about the started conversation
+        await self._notify_conversation_webhooks(conversation_info)
+
+        return conversation_info
 
     async def pause_conversation(self, conversation_id: UUID) -> bool:
         if self._event_services is None:
@@ -189,6 +222,10 @@ class ConversationService:
         event_service = self._event_services.get(conversation_id)
         if event_service:
             await event_service.pause()
+            # Notify conversation webhooks about the paused conversation
+            state = await event_service.get_state()
+            conversation_info = _compose_conversation_info(event_service.stored, state)
+            await self._notify_conversation_webhooks(conversation_info)
         return bool(event_service)
 
     async def resume_conversation(self, conversation_id: UUID) -> bool:
@@ -204,6 +241,11 @@ class ConversationService:
             raise ValueError("inactive_service")
         event_service = self._event_services.pop(conversation_id, None)
         if event_service:
+            # Notify conversation webhooks about the stopped conversation before closing
+            state = await event_service.get_state()
+            conversation_info = _compose_conversation_info(event_service.stored, state)
+            await self._notify_conversation_webhooks(conversation_info)
+
             await event_service.close()
             shutil.rmtree(self.event_services_path / conversation_id.hex)
             shutil.rmtree(self.workspace_path / conversation_id.hex)
@@ -234,6 +276,16 @@ class ConversationService:
                 )
                 shutil.rmtree(event_service_dir)
         self._event_services = event_services
+
+        # Initialize conversation webhook subscribers
+        self._conversation_webhook_subscribers = [
+            ConversationWebhookSubscriber(
+                spec=webhook_spec,
+                session_api_key=self.session_api_key,
+            )
+            for webhook_spec in self.webhook_specs
+        ]
+
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -274,16 +326,25 @@ class WebhookSubscriber(Subscriber):
     spec: WebhookSpec
     session_api_key: str | None = None
     queue: list[EventBase] = field(default_factory=list)
+    _flush_timer: asyncio.Task | None = field(default=None, init=False)
 
     async def __call__(self, event: EventBase):
         """Add event to queue and post to webhook when buffer size is reached."""
         self.queue.append(event)
 
         if len(self.queue) >= self.spec.event_buffer_size:
+            # Cancel timer since we're flushing due to buffer size
+            self._cancel_flush_timer()
             await self._post_events()
+        else:
+            # Reset the flush timer
+            self._reset_flush_timer()
 
     async def close(self):
         """Post any remaining items in the queue to the webhook."""
+        # Cancel any pending flush timer
+        self._cancel_flush_timer()
+
         if self.queue:
             await self._post_events()
 
@@ -306,13 +367,16 @@ class WebhookSubscriber(Subscriber):
             for event in events_to_post
         ]
 
+        # Construct events URL
+        events_url = f"{self.spec.base_url.rstrip('/')}/events"
+
         # Retry logic
         for attempt in range(self.spec.num_retries + 1):
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.request(
-                        method=self.spec.method,
-                        url=self.spec.webhook_url,
+                        method="POST",
+                        url=events_url,
                         json=event_data,
                         headers=headers,
                         timeout=30.0,
@@ -320,7 +384,7 @@ class WebhookSubscriber(Subscriber):
                     response.raise_for_status()
                     logger.debug(
                         f"Successfully posted {len(event_data)} events "
-                        f"to webhook {self.spec.webhook_url}"
+                        f"to webhook {events_url}"
                     )
                     return
             except Exception as e:
@@ -329,11 +393,89 @@ class WebhookSubscriber(Subscriber):
                     await asyncio.sleep(self.spec.retry_delay)
                 else:
                     logger.error(
-                        f"Failed to post events to webhook {self.spec.webhook_url} "
+                        f"Failed to post events to webhook {events_url} "
                         f"after {self.spec.num_retries + 1} attempts"
                     )
                     # Re-queue events for potential retry later
                     self.queue.extend(events_to_post)
+
+    def _cancel_flush_timer(self):
+        """Cancel the current flush timer if it exists."""
+        if self._flush_timer and not self._flush_timer.done():
+            self._flush_timer.cancel()
+        self._flush_timer = None
+
+    def _reset_flush_timer(self):
+        """Reset the flush timer to trigger after flush_delay seconds."""
+        # Cancel existing timer
+        self._cancel_flush_timer()
+
+        # Create new timer
+        self._flush_timer = asyncio.create_task(self._flush_after_delay())
+
+    async def _flush_after_delay(self):
+        """Wait for flush_delay seconds then flush events if any exist."""
+        try:
+            await asyncio.sleep(self.spec.flush_delay)
+            # Only flush if there are events in the queue
+            if self.queue:
+                await self._post_events()
+        except asyncio.CancelledError:
+            # Timer was cancelled, which is expected behavior
+            pass
+        finally:
+            self._flush_timer = None
+
+
+@dataclass
+class ConversationWebhookSubscriber:
+    """Webhook subscriber for conversation lifecycle events (start, pause, stop)."""
+
+    spec: WebhookSpec
+    session_api_key: str | None = None
+
+    async def post_conversation_info(self, conversation_info: ConversationInfo):
+        """Post conversation info to the webhook immediately (no batching)."""
+        # Prepare headers
+        headers = self.spec.headers.copy()
+        if self.session_api_key:
+            headers["X-Session-API-Key"] = self.session_api_key
+
+        # Construct conversations URL
+        conversations_url = f"{self.spec.base_url.rstrip('/')}/conversations"
+
+        # Convert conversation info to serializable format
+        conversation_data = conversation_info.model_dump(mode="json")
+
+        # Retry logic
+        for attempt in range(self.spec.num_retries + 1):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.request(
+                        method="POST",
+                        url=conversations_url,
+                        json=conversation_data,
+                        headers=headers,
+                        timeout=30.0,
+                    )
+                    response.raise_for_status()
+                    logger.debug(
+                        f"Successfully posted conversation info "
+                        f"to webhook {conversations_url}"
+                    )
+                    return
+            except Exception as e:
+                logger.warning(
+                    f"Conversation webhook post attempt {attempt + 1} failed: {e}"
+                )
+                if attempt < self.spec.num_retries:
+                    await asyncio.sleep(self.spec.retry_delay)
+                else:
+                    logger.error(
+                        f"Failed to post conversation info to webhook "
+                        f"{conversations_url} after {self.spec.num_retries + 1} "
+                        "attempts"
+                    )
 
 
 _conversation_service: ConversationService | None = None

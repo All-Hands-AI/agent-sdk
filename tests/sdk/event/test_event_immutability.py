@@ -183,7 +183,9 @@ def test_user_reject_observation_is_frozen():
 
 def test_agent_error_event_is_frozen():
     """Test that AgentErrorEvent instances are frozen."""
-    event = AgentErrorEvent(error="Test error message")
+    event = AgentErrorEvent(
+        error="Test error message", tool_call_id="test_call_id", tool_name="test_tool"
+    )
 
     # Test that we cannot modify any field
     with pytest.raises(Exception):
