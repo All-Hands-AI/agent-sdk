@@ -15,8 +15,10 @@ from openhands.agent_server.models import (
     ConversationPage,
     ConversationSortOrder,
     SendMessageRequest,
+    SetConfirmationPolicyRequest,
     StartConversationRequest,
     Success,
+    UpdateSecretsRequest,
 )
 from openhands.sdk import LLM, Agent, TextContent, ToolSpec
 from openhands.sdk.conversation.state import AgentExecutionStatus
@@ -146,21 +148,73 @@ async def pause_conversation(conversation_id: UUID) -> Success:
     return Success()
 
 
-@router.post(
-    "/{conversation_id}/resume", responses={404: {"description": "Item not found"}}
-)
-async def resume_conversation(conversation_id: UUID) -> Success:
-    """Resume a paused conversation."""
-    resumed = await conversation_service.resume_conversation(conversation_id)
-    if not resumed:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST)
-    return Success()
-
-
 @router.delete("/{conversation_id}", responses={404: {"description": "Item not found"}})
 async def delete_conversation(conversation_id: UUID) -> Success:
     """Permanently delete a conversation."""
     deleted = await conversation_service.delete_conversation(conversation_id)
     if not deleted:
         raise HTTPException(status.HTTP_400_BAD_REQUEST)
+    return Success()
+
+
+@router.post(
+    "/{conversation_id}/run",
+    responses={
+        404: {"description": "Item not found"},
+        409: {"description": "Conversation is already running"},
+    },
+)
+async def run_conversation(conversation_id: UUID) -> Success:
+    """Start running the conversation in the background."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+    try:
+        await event_service.start_background_run()
+    except ValueError as e:
+        if str(e) == "conversation_already_running":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Conversation already running. Wait for completion or pause first."
+                ),
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    return Success()
+
+
+@router.post(
+    "/{conversation_id}/secrets", responses={404: {"description": "Item not found"}}
+)
+async def update_conversation_secrets(
+    conversation_id: UUID, request: UpdateSecretsRequest
+) -> Success:
+    """Update secrets for a conversation."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    # Strings are valid SecretValue (SecretValue = str | SecretProvider)
+    from typing import cast
+
+    from openhands.sdk.conversation.secrets_manager import SecretValue
+
+    secrets = cast(dict[str, SecretValue], request.secrets)
+    await event_service.update_secrets(secrets)
+    return Success()
+
+
+@router.post(
+    "/{conversation_id}/confirmation_policy",
+    responses={404: {"description": "Item not found"}},
+)
+async def set_conversation_confirmation_policy(
+    conversation_id: UUID, request: SetConfirmationPolicyRequest
+) -> Success:
+    """Set the confirmation policy for a conversation."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    await event_service.set_confirmation_policy(request.policy)
     return Success()

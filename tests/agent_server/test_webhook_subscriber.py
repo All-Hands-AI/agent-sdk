@@ -888,7 +888,7 @@ class TestConversationWebhookSubscriber:
             agent=mock_event_service.stored.agent,
             created_at=utc_now(),
             updated_at=utc_now(),
-            status=AgentExecutionStatus.RUNNING,
+            agent_status=AgentExecutionStatus.RUNNING,
         )
 
         await subscriber.post_conversation_info(conversation_info)
@@ -935,7 +935,7 @@ class TestConversationWebhookSubscriber:
             agent=mock_event_service.stored.agent,
             created_at=utc_now(),
             updated_at=utc_now(),
-            status=AgentExecutionStatus.PAUSED,
+            agent_status=AgentExecutionStatus.PAUSED,
         )
 
         await subscriber.post_conversation_info(conversation_info)
@@ -975,7 +975,7 @@ class TestConversationWebhookSubscriber:
             agent=mock_event_service.stored.agent,
             created_at=utc_now(),
             updated_at=utc_now(),
-            status=AgentExecutionStatus.FINISHED,
+            agent_status=AgentExecutionStatus.FINISHED,
         )
 
         # Track retry attempts

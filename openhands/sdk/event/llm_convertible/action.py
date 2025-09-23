@@ -63,6 +63,9 @@ class ActionEvent(LLMConvertibleEvent):
         """Return Rich Text representation of this action event."""
         content = Text()
 
+        if self.security_risk != risk.SecurityRisk.UNKNOWN:
+            content.append(self.security_risk.visualize)
+
         # Display reasoning content first if available
         if self.reasoning_content:
             content.append("Reasoning:\n", style="bold")

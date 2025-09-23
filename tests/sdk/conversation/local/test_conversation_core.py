@@ -43,7 +43,7 @@ def test_conversation_basic_creation():
     assert conv.id is not None
     assert isinstance(conv.id, uuid.UUID)  # UUID type
     assert conv.state is not None
-    assert conv.state.agent == agent
+    assert conv._state.agent == agent
 
 
 def test_conversation_event_log_functionality():

@@ -20,10 +20,21 @@ from openhands.agent_server.pub_sub import Subscriber
 from openhands.agent_server.server_details_router import update_last_execution_time
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import EventBase, Message
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 
 
 logger = logging.getLogger(__name__)
+
+
+def _compose_conversation_info(
+    stored: StoredConversation, state: ConversationState
+) -> ConversationInfo:
+    return ConversationInfo(
+        **state.model_dump(),
+        metrics=stored.metrics,
+        created_at=stored.created_at,
+        updated_at=stored.updated_at,
+    )
 
 
 @dataclass
@@ -48,14 +59,14 @@ class ConversationService:
         event_service = self._event_services.get(conversation_id)
         if event_service is None:
             return None
-        status = await event_service.get_status()
-        return ConversationInfo(**event_service.stored.model_dump(), status=status)
+        state = await event_service.get_state()
+        return _compose_conversation_info(event_service.stored, state)
 
     async def search_conversations(
         self,
         page_id: str | None = None,
         limit: int = 100,
-        status: AgentExecutionStatus | None = None,
+        agent_status: AgentExecutionStatus | None = None,
         sort_order: ConversationSortOrder = ConversationSortOrder.CREATED_AT_DESC,
     ) -> ConversationPage:
         if self._event_services is None:
@@ -64,13 +75,13 @@ class ConversationService:
         # Collect all conversations with their info
         all_conversations = []
         for id, event_service in self._event_services.items():
-            conversation_info = ConversationInfo(
-                **event_service.stored.model_dump(),
-                status=await event_service.get_status(),
-            )
-
+            state = await event_service.get_state()
+            conversation_info = _compose_conversation_info(event_service.stored, state)
             # Apply status filter if provided
-            if status is not None and conversation_info.status != status:
+            if (
+                agent_status is not None
+                and conversation_info.agent_status != agent_status
+            ):
                 continue
 
             all_conversations.append((id, conversation_info))
@@ -110,7 +121,7 @@ class ConversationService:
 
     async def count_conversations(
         self,
-        status: AgentExecutionStatus | None = None,
+        agent_status: AgentExecutionStatus | None = None,
     ) -> int:
         """Count conversations matching the given filters."""
         if self._event_services is None:
@@ -118,10 +129,10 @@ class ConversationService:
 
         count = 0
         for event_service in self._event_services.values():
-            conversation_status = await event_service.get_status()
+            state = await event_service.get_state()
 
             # Apply status filter if provided
-            if status is not None and conversation_status != status:
+            if agent_status is not None and state.agent_status != agent_status:
                 continue
 
             count += 1
@@ -197,10 +208,8 @@ class ConversationService:
             )
             await event_service.send_message(message, run=initial_message.run)
 
-        status = await event_service.get_status()
-        conversation_info = ConversationInfo(
-            **event_service.stored.model_dump(), status=status
-        )
+        state = await event_service.get_state()
+        conversation_info = _compose_conversation_info(event_service.stored, state)
 
         # Notify conversation webhooks about the started conversation
         await self._notify_conversation_webhooks(conversation_info)
@@ -214,10 +223,8 @@ class ConversationService:
         if event_service:
             await event_service.pause()
             # Notify conversation webhooks about the paused conversation
-            status = await event_service.get_status()
-            conversation_info = ConversationInfo(
-                **event_service.stored.model_dump(), status=status
-            )
+            state = await event_service.get_state()
+            conversation_info = _compose_conversation_info(event_service.stored, state)
             await self._notify_conversation_webhooks(conversation_info)
         return bool(event_service)
 
@@ -235,10 +242,8 @@ class ConversationService:
         event_service = self._event_services.pop(conversation_id, None)
         if event_service:
             # Notify conversation webhooks about the stopped conversation before closing
-            status = await event_service.get_status()
-            conversation_info = ConversationInfo(
-                **event_service.stored.model_dump(), status=status
-            )
+            state = await event_service.get_state()
+            conversation_info = _compose_conversation_info(event_service.stored, state)
             await self._notify_conversation_webhooks(conversation_info)
 
             await event_service.close()

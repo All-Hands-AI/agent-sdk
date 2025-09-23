@@ -4,6 +4,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent.agent import Agent
 from openhands.sdk.llm import LLM
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
 
 def test_security_policy_in_system_message():
@@ -69,3 +70,103 @@ def test_security_policy_template_rendering():
     # Verify it's properly formatted (no extra whitespace at start/end)
     assert not security_policy.startswith(" ")
     assert not security_policy.endswith(" ")
+
+
+def test_llm_security_analyzer_template_kwargs():
+    """Test that agent sets template_kwargs appropriately when security analyzer is LLMSecurityAnalyzer."""  # noqa: E501
+    # Create agent with LLMSecurityAnalyzer
+    agent = Agent(
+        llm=LLM(
+            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
+        ),
+        security_analyzer=LLMSecurityAnalyzer(),
+    )
+
+    # Access the system_message property to trigger template_kwargs computation
+    system_message = agent.system_message
+
+    # Verify that the security risk assessment section is included in the system prompt
+    assert "<SECURITY_RISK_ASSESSMENT>" in system_message
+    assert "# Security Risk Policy" in system_message
+    assert "When using tools that support the security_risk parameter" in system_message
+    # By default, cli_mode is True, so we should see the CLI mode version
+    assert "**LOW**: Safe, read-only actions" in system_message
+    assert "**MEDIUM**: Project-scoped edits or execution" in system_message
+    assert "**HIGH**: System-level or untrusted operations" in system_message
+    assert "**Global Rules**" in system_message
+
+
+def test_llm_security_analyzer_sandbox_mode():
+    """Test that agent includes sandbox mode security risk assessment when cli_mode=False."""  # noqa: E501
+    # Create agent with LLMSecurityAnalyzer and cli_mode=False
+    agent = Agent(
+        llm=LLM(
+            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
+        ),
+        security_analyzer=LLMSecurityAnalyzer(),
+        system_prompt_kwargs={"cli_mode": False},
+    )
+
+    # Access the system_message property to trigger template_kwargs computation
+    system_message = agent.system_message
+
+    # Verify that the security risk assessment section is included with sandbox mode content  # noqa: E501
+    assert "<SECURITY_RISK_ASSESSMENT>" in system_message
+    assert "# Security Risk Policy" in system_message
+    assert "When using tools that support the security_risk parameter" in system_message
+    # With cli_mode=False, we should see the sandbox mode version
+    assert "**LOW**: Read-only actions inside sandbox" in system_message
+    assert "**MEDIUM**: Container-scoped edits and installs" in system_message
+    assert "**HIGH**: Data exfiltration or privilege breaks" in system_message
+    assert "**Global Rules**" in system_message
+
+
+def test_no_security_analyzer_excludes_risk_assessment():
+    """Test that security risk assessment section is excluded when no security analyzer is set."""  # noqa: E501
+    # Create agent without security analyzer
+    agent = Agent(
+        llm=LLM(
+            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
+        )
+    )
+
+    # Get the system message
+    system_message = agent.system_message
+
+    # Verify that the security risk assessment section is NOT included
+    assert "<SECURITY_RISK_ASSESSMENT>" not in system_message
+    assert "# Security Risk Policy" not in system_message
+    assert (
+        "When using tools that support the security_risk parameter"
+        not in system_message
+    )
+
+
+def test_non_llm_security_analyzer_excludes_risk_assessment():
+    """Test that security risk assessment section is excluded when security analyzer is not LLMSecurityAnalyzer."""  # noqa: E501
+    from openhands.sdk.event import ActionEvent
+    from openhands.sdk.security.analyzer import SecurityAnalyzerBase
+    from openhands.sdk.security.risk import SecurityRisk
+
+    class MockSecurityAnalyzer(SecurityAnalyzerBase):
+        def security_risk(self, action: ActionEvent) -> SecurityRisk:
+            return SecurityRisk.LOW
+
+    # Create agent with non-LLM security analyzer
+    agent = Agent(
+        llm=LLM(
+            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
+        ),
+        security_analyzer=MockSecurityAnalyzer(),
+    )
+
+    # Get the system message
+    system_message = agent.system_message
+
+    # Verify that the security risk assessment section is NOT included
+    assert "<SECURITY_RISK_ASSESSMENT>" not in system_message
+    assert "# Security Risk Policy" not in system_message
+    assert (
+        "When using tools that support the security_risk parameter"
+        not in system_message
+    )
