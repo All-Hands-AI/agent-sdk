@@ -195,11 +195,22 @@ class LocalConversation(BaseConversation):
                 # Before value can be modified step can be taken
                 # Ensure step conditions are checked when lock is already acquired
                 if self._state.agent_status in [
-                    AgentExecutionStatus.FINISHED,
                     AgentExecutionStatus.PAUSED,
                     AgentExecutionStatus.STUCK,
                 ]:
                     break
+
+                # Check for unattended user messages when finished
+                if self._state.agent_status == AgentExecutionStatus.FINISHED:
+                    if self._has_unattended_user_messages():
+                        # There are unattended user messages, continue processing
+                        logger.debug(
+                            "Found unattended user messages, continuing run loop"
+                        )
+                        self._state.agent_status = AgentExecutionStatus.IDLE
+                    else:
+                        # No unattended messages, safe to finish
+                        break
 
                 # Check for stuck patterns if enabled
                 if self._stuck_detector:
@@ -230,6 +241,34 @@ class LocalConversation(BaseConversation):
             iteration += 1
             if iteration >= self.max_iteration_per_run:
                 break
+
+    def _has_unattended_user_messages(self) -> bool:
+        """Check if there are user messages that haven't been processed by the LLM.
+
+        Returns True if there are user messages in the events queue that came after
+        the last agent message, indicating they haven't been processed yet.
+        """
+        from openhands.sdk.event import MessageEvent
+
+        events = list(self._state.events)
+        if not events:
+            return False
+
+        # Find the index of the last agent message event
+        last_agent_message_idx = -1
+        for i in range(len(events) - 1, -1, -1):
+            event = events[i]
+            if isinstance(event, MessageEvent) and event.source == "agent":
+                last_agent_message_idx = i
+                break
+
+        # Check if there are any user messages after the last agent message
+        for i in range(last_agent_message_idx + 1, len(events)):
+            event = events[i]
+            if isinstance(event, MessageEvent) and event.source == "user":
+                return True
+
+        return False
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
