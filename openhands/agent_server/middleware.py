@@ -1,8 +1,9 @@
 from urllib.parse import urlparse
 
-from fastapi import HTTPException, Request, Response, status
+from fastapi import Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
 
@@ -43,9 +44,9 @@ class ValidateSessionAPIKeyMiddleware(BaseHTTPMiddleware):
     Note: the Session API key is occasionally sent to the client.
     """
 
-    def __init__(self, app: ASGIApp, session_api_key: str) -> None:
+    def __init__(self, app: ASGIApp, session_api_keys: list[str]) -> None:
         super().__init__(app)
-        self.session_api_key = session_api_key
+        self.session_api_keys = session_api_keys
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -53,7 +54,10 @@ class ValidateSessionAPIKeyMiddleware(BaseHTTPMiddleware):
         # Skip authentication for health check and server info endpoints
         if request.url.path not in ["/alive", "/health", "/server_info"]:
             session_api_key = request.headers.get("X-Session-API-Key")
-            if session_api_key != self.session_api_key:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+            if session_api_key not in self.session_api_keys:
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "Unauthorized"},
+                )
         response = await call_next(request)
         return response

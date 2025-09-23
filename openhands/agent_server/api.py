@@ -112,9 +112,9 @@ def _add_middleware(app: FastAPI, config: Config) -> None:
     app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
 
     # Add session API key validation middleware if configured
-    if config.session_api_key:
+    if config.session_api_keys:
         app.add_middleware(
-            ValidateSessionAPIKeyMiddleware, session_api_key=config.session_api_key
+            ValidateSessionAPIKeyMiddleware, session_api_keys=config.session_api_keys
         )
 
 
