@@ -1,19 +1,21 @@
 from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import Annotated, Literal, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Discriminator, Field, Tag
 
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.event.llm_convertible.action import ActionEvent
+from openhands.sdk.event.llm_convertible.observation import ObservationEvent
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.utils.models import OpenHandsModel
+from openhands.sdk.utils.models import OpenHandsModel, kind_of
 
 
 class ConversationSortOrder(str, Enum):
@@ -131,3 +133,17 @@ class SetConfirmationPolicyRequest(BaseModel):
     """Payload to set confirmation policy for a conversation."""
 
     policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
+
+
+TaskEvent = Annotated[
+    Union[
+        Annotated[ActionEvent, Tag("ActionEvent")],
+        Annotated[ObservationEvent, Tag("ObservationEvent")],
+    ],
+    Discriminator(kind_of),
+]
+
+
+class TaskEventPage(BaseModel):
+    items: list[TaskEvent]
+    next_page_id: str | None = None
