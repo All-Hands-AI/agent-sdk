@@ -313,11 +313,11 @@ class OpenHandsWebChat {
             this.scrollToBottom();
             
             // Update agent running status based on event type
-            if (data.event.type === 'agent_start') {
+            if (data.event.kind === 'agent_start') {
                 this.isAgentRunning = true;
                 this.showTypingIndicator();
                 this.updateConversationStatus('RUNNING');
-            } else if (data.event.type === 'agent_finish' || data.event.type === 'agent_error') {
+            } else if (data.event.kind === 'agent_finish' || data.event.kind === 'agent_error') {
                 this.isAgentRunning = false;
                 this.hideTypingIndicator();
                 this.updateConversationStatus('IDLE');
@@ -328,7 +328,7 @@ class OpenHandsWebChat {
     displayEvent(event) {
         const messageElement = document.createElement('div');
         
-        if (event.type === 'message') {
+        if (event.kind === 'message') {
             this.displayMessage(event, messageElement);
         } else {
             this.displaySystemEvent(event, messageElement);
@@ -359,7 +359,7 @@ class OpenHandsWebChat {
         let eventClass = '';
         let eventIcon = 'info-circle';
         
-        switch (event.type) {
+        switch (event.kind) {
             case 'tool_call':
                 eventClass = 'tool-call';
                 eventIcon = 'cog';
@@ -374,14 +374,16 @@ class OpenHandsWebChat {
                 break;
         }
         
-        messageElement.classList.add(eventClass);
+        if (eventClass) {
+            messageElement.classList.add(eventClass);
+        }
         
         const timestamp = new Date(event.timestamp).toLocaleTimeString();
         const content = this.formatEventContent(event);
         
         messageElement.innerHTML = `
             <div class="event-type">
-                <i class="fas fa-${eventIcon}"></i> ${event.type.replace('_', ' ')}
+                <i class="fas fa-${eventIcon}"></i> ${event.kind.replace('_', ' ')}
             </div>
             <div class="event-content">${content}</div>
             <div class="message-timestamp">${timestamp}</div>
