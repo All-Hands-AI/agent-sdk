@@ -64,6 +64,9 @@ class LocalConversation(BaseConversation):
         self.agent = agent
         self._persist_filestore = persist_filestore
 
+        # Counter for pending send_message calls (before they acquire the lock)
+        self._pending_messages = 0
+
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
         self._state = ConversationState.create(
@@ -131,44 +134,53 @@ class LocalConversation(BaseConversation):
         assert message.role == "user", (
             "Only user messages are allowed to be sent to the agent."
         )
-        with self._state:
-            if self._state.agent_status == AgentExecutionStatus.FINISHED:
-                self._state.agent_status = (
-                    AgentExecutionStatus.IDLE
-                )  # now we have a new message
 
-            # TODO: We should add test cases for all these scenarios
-            activated_microagent_names: list[str] = []
-            extended_content: list[TextContent] = []
+        # Signal that there's a pending message before taking the lock
+        # This allows the run loop to detect concurrent send_message calls
+        self._pending_messages += 1
 
-            # Handle per-turn user message (i.e., knowledge agent trigger)
-            if self.agent.agent_context:
-                ctx = self.agent.agent_context.get_user_message_suffix(
-                    user_message=message,
-                    # We skip microagents that were already activated
-                    skip_microagent_names=self._state.activated_knowledge_microagents,
+        try:
+            with self._state:
+                if self._state.agent_status == AgentExecutionStatus.FINISHED:
+                    self._state.agent_status = (
+                        AgentExecutionStatus.IDLE
+                    )  # now we have a new message
+
+                # TODO: We should add test cases for all these scenarios
+                activated_microagent_names: list[str] = []
+                extended_content: list[TextContent] = []
+
+                # Handle per-turn user message (i.e., knowledge agent trigger)
+                if self.agent.agent_context:
+                    ctx = self.agent.agent_context.get_user_message_suffix(
+                        user_message=message,
+                        # We skip microagents that were already activated
+                        skip_microagent_names=self._state.activated_knowledge_microagents,
+                    )
+                    # TODO(calvin): we need to update
+                    # self._state.activated_knowledge_microagents
+                    # so condenser can work
+                    if ctx:
+                        content, activated_microagent_names = ctx
+                        logger.debug(
+                            f"Got augmented user message content: {content}, "
+                            f"activated microagents: {activated_microagent_names}"
+                        )
+                        extended_content.append(content)
+                        self._state.activated_knowledge_microagents.extend(
+                            activated_microagent_names
+                        )
+
+                user_msg_event = MessageEvent(
+                    source="user",
+                    llm_message=message,
+                    activated_microagents=activated_microagent_names,
+                    extended_content=extended_content,
                 )
-                # TODO(calvin): we need to update
-                # self._state.activated_knowledge_microagents
-                # so condenser can work
-                if ctx:
-                    content, activated_microagent_names = ctx
-                    logger.debug(
-                        f"Got augmented user message content: {content}, "
-                        f"activated microagents: {activated_microagent_names}"
-                    )
-                    extended_content.append(content)
-                    self._state.activated_knowledge_microagents.extend(
-                        activated_microagent_names
-                    )
-
-            user_msg_event = MessageEvent(
-                source="user",
-                llm_message=message,
-                activated_microagents=activated_microagent_names,
-                extended_content=extended_content,
-            )
-            self._on_event(user_msg_event)
+                self._on_event(user_msg_event)
+        finally:
+            # Decrement the counter after the message has been processed
+            self._pending_messages -= 1
 
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
@@ -202,19 +214,7 @@ class LocalConversation(BaseConversation):
 
                 # Check for unattended user messages when finished
                 if self._state.agent_status == AgentExecutionStatus.FINISHED:
-                    # Check multiple times with brief delays to handle race conditions
-                    # where messages are sent during final step execution but haven't
-                    # been added to events yet due to thread scheduling delays
-                    import time
-
-                    has_unattended = False
-                    for _ in range(5):  # Check up to 5 times over 1 second
-                        if self._has_unattended_user_messages():
-                            has_unattended = True
-                            break
-                        time.sleep(0.2)  # 200ms delay between checks
-
-                    if has_unattended:
+                    if self._has_unattended_user_messages():
                         # There are unattended user messages, continue processing
                         logger.debug(
                             "Found unattended user messages, continuing run loop"
@@ -257,17 +257,21 @@ class LocalConversation(BaseConversation):
 
     def _has_unattended_user_messages(self) -> bool:
         """
-        Check if there are user messages in the state events that are
-        left unattended.
+        Check if there are user messages that are left unattended.
 
-        A user message is unattended if it was added to the events after the final
-        agent step call.
-        This is equivalent to checking if there are user messages that come after
-        the last agent message or finish action in the events list.
+        This includes:
+        1. User messages in the state events that came after the last agent
+           message/finish action
+        2. Pending send_message calls that are waiting to acquire the state lock
 
-        Returns True if there are user messages that came after the last
-        agent message or finish action, indicating they haven't been processed.
+        Returns True if there are unattended user messages, indicating they need
+        processing.
         """
+        # First check for pending send_message calls
+        if self._pending_messages > 0:
+            return True
+
+        # Then check for user messages in events that came after the last agent action
         from openhands.sdk.event import ActionEvent, MessageEvent
         from openhands.sdk.tool.builtins import FinishAction
 
