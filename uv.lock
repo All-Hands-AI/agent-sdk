@@ -20,7 +20,7 @@ dev = [
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pycodestyle", specifier = ">=2.12.0" },
     { name = "pyinstaller", specifier = ">=6.16.0" },
-    { name = "pyright", specifier = ">=1.1.405" },
+    { name = "pyright", extras = ["nodejs"], specifier = ">=1.1.405" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", specifier = ">=1.1.0" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
@@ -1583,6 +1583,22 @@ wheels = [
 ]
 
 [[package]]
+name = "nodejs-wheel-binaries"
+version = "22.19.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/ca/6033f80b7aebc23cb31ed8b09608b6308c5273c3522aedd043e8a0644d83/nodejs_wheel_binaries-22.19.0.tar.gz", hash = "sha256:e69b97ef443d36a72602f7ed356c6a36323873230f894799f4270a853932fdb3", size = 8060, upload-time = "2025-09-12T10:33:46.935Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/a2/0d055fd1d8c9a7a971c4db10cf42f3bba57c964beb6cf383ca053f2cdd20/nodejs_wheel_binaries-22.19.0-py2.py3-none-macosx_11_0_arm64.whl", hash = "sha256:43eca1526455a1fb4cb777095198f7ebe5111a4444749c87f5c2b84645aaa72a", size = 50902454, upload-time = "2025-09-12T10:33:18.3Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/f5/446f7b3c5be1d2f5145ffa3c9aac3496e06cdf0f436adeb21a1f95dd79a7/nodejs_wheel_binaries-22.19.0-py2.py3-none-macosx_11_0_x86_64.whl", hash = "sha256:feb06709e1320790d34babdf71d841ec7f28e4c73217d733e7f5023060a86bfc", size = 51837860, upload-time = "2025-09-12T10:33:21.599Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/4e/d0a036f04fd0f5dc3ae505430657044b8d9853c33be6b2d122bb171aaca3/nodejs_wheel_binaries-22.19.0-py2.py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:db9f5777292491430457c99228d3a267decf12a09d31246f0692391e3513285e", size = 57841528, upload-time = "2025-09-12T10:33:25.433Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/11/4811d27819f229cc129925c170db20c12d4f01ad366a0066f06d6eb833cf/nodejs_wheel_binaries-22.19.0-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1392896f1a05a88a8a89b26e182d90fdf3020b4598a047807b91b65731e24c00", size = 58368815, upload-time = "2025-09-12T10:33:29.083Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/94/df41416856b980e38a7ff280cfb59f142a77955ccdbec7cc4260d8ab2e78/nodejs_wheel_binaries-22.19.0-py2.py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:9164c876644f949cad665e3ada00f75023e18f381e78a1d7b60ccbbfb4086e73", size = 59690937, upload-time = "2025-09-12T10:33:32.771Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/39/8d0d5f84b7616bdc4eca725f5d64a1cfcac3d90cf3f30cae17d12f8e987f/nodejs_wheel_binaries-22.19.0-py2.py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:6b4b75166134010bc9cfebd30dc57047796a27049fef3fc22316216d76bc0af7", size = 60751996, upload-time = "2025-09-12T10:33:36.962Z" },
+    { url = "https://files.pythonhosted.org/packages/41/93/2d66b5b60055dd1de6e37e35bef563c15e4cafa5cfe3a6990e0ab358e515/nodejs_wheel_binaries-22.19.0-py2.py3-none-win_amd64.whl", hash = "sha256:3f271f5abfc71b052a6b074225eca8c1223a0f7216863439b86feaca814f6e5a", size = 40026140, upload-time = "2025-09-12T10:33:40.33Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/46/c9cf7ff7e3c71f07ca8331c939afd09b6e59fc85a2944ea9411e8b29ce50/nodejs_wheel_binaries-22.19.0-py2.py3-none-win_arm64.whl", hash = "sha256:666a355fe0c9bde44a9221cd543599b029045643c8196b8eedb44f28dc192e06", size = 38804500, upload-time = "2025-09-12T10:33:43.302Z" },
+]
+
+[[package]]
 name = "numpy"
 version = "2.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1785,6 +1801,7 @@ dependencies = [
     { name = "python-frontmatter" },
     { name = "python-json-logger" },
     { name = "tenacity" },
+    { name = "websockets" },
 ]
 
 [package.optional-dependencies]
@@ -1802,6 +1819,7 @@ requires-dist = [
     { name = "python-json-logger", specifier = ">=3.3.0" },
     { name = "tenacity", specifier = ">=9.1.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=1.2.0" },
+    { name = "websockets", specifier = ">=12" },
 ]
 provides-extras = ["boto3"]
 
@@ -5040,6 +5058,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fb/6c/ba4bbee22e76af700ea593a1d8701e3225080956753bee9750dcc25e2649/pyright-1.1.405.tar.gz", hash = "sha256:5c2a30e1037af27eb463a1cc0b9f6d65fec48478ccf092c1ac28385a15c55763", size = 4068319, upload-time = "2025-09-04T03:37:06.776Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d5/1a/524f832e1ff1962a22a1accc775ca7b143ba2e9f5924bb6749dce566784a/pyright-1.1.405-py3-none-any.whl", hash = "sha256:a2cb13700b5508ce8e5d4546034cb7ea4aedb60215c6c33f56cec7f53996035a", size = 5905038, upload-time = "2025-09-04T03:37:04.913Z" },
+]
+
+[package.optional-dependencies]
+nodejs = [
+    { name = "nodejs-wheel-binaries" },
 ]
 
 [[package]]

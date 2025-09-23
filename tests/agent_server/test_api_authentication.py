@@ -122,7 +122,8 @@ def test_api_protected_endpoints_require_auth(client_with_auth):
     """Test that API endpoints under /api prefix require authentication."""
     protected_endpoints = [
         "/api/conversations/",
-        "/api/tools/list",
+        "/api/tools/",
+        "/api/file/download/test.txt",
     ]
 
     for endpoint in protected_endpoints:

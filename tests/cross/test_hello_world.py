@@ -16,6 +16,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
@@ -430,6 +431,7 @@ class TestHelloWorld:
         ):
             # Create conversation and send a message
             conversation = Conversation(agent=agent)
+            assert isinstance(conversation, LocalConversation)
             conversation.send_message(
                 message=Message(
                     role="user",
@@ -522,6 +524,7 @@ class TestHelloWorld:
         ):
             # Create conversation and send a message
             conversation = Conversation(agent=agent)
+            assert isinstance(conversation, LocalConversation)
             conversation.send_message(
                 message=Message(
                     role="user",

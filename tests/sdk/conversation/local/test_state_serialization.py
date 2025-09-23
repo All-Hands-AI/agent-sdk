@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation, LocalFileStore
 from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
@@ -100,6 +101,7 @@ def test_conversation_state_persistence_save_load():
             persist_filestore=file_store,
             conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
         )
+        assert isinstance(conversation, LocalConversation)
         loaded_state = conversation._state
 
         # Verify loaded state matches original

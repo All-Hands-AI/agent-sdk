@@ -6,9 +6,9 @@ from openhands.sdk.context.condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.conversation import (
+    BaseConversation,
     Conversation,
     ConversationCallbackType,
-    ConversationType,
 )
 from openhands.sdk.event import EventBase, EventWithMetrics, LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import MessageEvent
@@ -61,7 +61,7 @@ __all__ = [
     "create_mcp_tools",
     "get_logger",
     "Conversation",
-    "ConversationType",
+    "BaseConversation",
     "ConversationCallbackType",
     "EventBase",
     "EventWithMetrics",
