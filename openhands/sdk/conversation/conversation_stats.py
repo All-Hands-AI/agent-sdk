@@ -61,9 +61,6 @@ class ConversationStats(BaseModel):
         if not self.file_store or not self.conversation_id:
             return
 
-        # TODO: do we need restored_metrics? Does LLM object combine completion costs
-        # or a conversation callback?
-
         try:
             import base64
             import pickle
