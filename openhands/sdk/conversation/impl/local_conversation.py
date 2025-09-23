@@ -261,45 +261,17 @@ class LocalConversation(BaseConversation):
         """
         Check if there are user messages that are left unattended.
 
-        This includes:
-        1. User messages in the state events that came after the last agent
-           message/finish action
-        2. Pending send_message calls that are waiting to acquire the state lock
+        This detects the race condition where send_message() was called during
+        the final step execution but hasn't acquired the state lock yet.
+
+        For messages sent after the agent finished (no race condition),
+        send_message() will immediately set the agent status back to IDLE,
+        so the run loop continues naturally without needing this check.
 
         Returns True if there are unattended user messages, indicating they need
         processing.
         """
-        # First check for pending send_message calls
-        if self._pending_message_flag:
-            return True
-
-        # Then check for user messages in events that came after the last agent action
-        from openhands.sdk.event import ActionEvent, MessageEvent
-        from openhands.sdk.tool.builtins import FinishAction
-
-        events = list(self._state.events)
-
-        if not events:
-            return False
-
-        # Find the last agent message or finish action
-        last_agent_event_idx = -1
-        for i in range(len(events) - 1, -1, -1):
-            event = events[i]
-            if (isinstance(event, MessageEvent) and event.source == "agent") or (
-                isinstance(event, ActionEvent)
-                and isinstance(event.action, FinishAction)
-            ):
-                last_agent_event_idx = i
-                break
-
-        # Check for user messages after that point
-        for i in range(last_agent_event_idx + 1, len(events)):
-            event = events[i]
-            if isinstance(event, MessageEvent) and event.source == "user":
-                return True
-
-        return False
+        return self._pending_message_flag
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
