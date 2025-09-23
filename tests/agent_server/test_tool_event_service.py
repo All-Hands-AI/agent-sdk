@@ -1,6 +1,7 @@
 """Tests for ToolEventService."""
 
 import asyncio
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,12 @@ from openhands.tools.execute_bash.definition import ExecuteBashAction
 @pytest.fixture
 def tool_event_service():
     """Create a ToolEventService instance for testing."""
-    return ToolEventService(working_dir=Path.cwd())
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        yield ToolEventService(
+            working_dir=temp_path / "workspace",
+            tool_events_dir=temp_path / "tool_events",
+        )
 
 
 @pytest.mark.asyncio

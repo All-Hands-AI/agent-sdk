@@ -1,5 +1,8 @@
 import asyncio
+import glob
+import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -26,9 +29,9 @@ class ToolEventService:
     lazily on first use."""
 
     working_dir: Path = field()
+    tool_events_dir: Path = field()
     _pub_sub: PubSub = field(default_factory=PubSub, init=False)
     _bash_executor: BashExecutor | None = field(default=None, init=False)
-    _task_events: dict[str, ToolEvent] = field(default_factory=dict, init=False)
     _action_to_observation: dict[str, str] = field(default_factory=dict, init=False)
 
     def _ensure_bash_executor(self) -> BashExecutor:
@@ -41,9 +44,70 @@ class ToolEventService:
             )
         return self._bash_executor
 
+    def _ensure_tool_events_dir(self) -> None:
+        """Ensure the tool events directory exists."""
+        self.tool_events_dir.mkdir(parents=True, exist_ok=True)
+
+    def _get_event_filename(self, event: ToolEvent) -> str:
+        """Generate filename using YYYYMMDDHHMMSS_eventId_actionId format."""
+        # Parse ISO timestamp string to datetime object
+        timestamp_dt = datetime.fromisoformat(event.timestamp.replace("Z", "+00:00"))
+        timestamp = timestamp_dt.strftime("%Y%m%d%H%M%S")
+        action_id = getattr(event, "action_id", "none")
+        return f"{timestamp}_{event.id}_{action_id}"
+
+    def _save_event_to_file(self, event: ToolEvent) -> None:
+        """Save an event to a file."""
+        self._ensure_tool_events_dir()
+        filename = self._get_event_filename(event)
+        filepath = self.tool_events_dir / filename
+
+        # Convert event to dict for JSON serialization
+        event_data = {"type": event.__class__.__name__, "data": event.model_dump()}
+
+        with open(filepath, "w") as f:
+            json.dump(event_data, f, indent=2)
+
+    def _load_event_from_file(self, filepath: Path) -> ToolEvent | None:
+        """Load an event from a file."""
+        try:
+            with open(filepath, "r") as f:
+                event_data = json.load(f)
+
+            # Import the event classes
+            from openhands.sdk.event.llm_convertible.action import ActionEvent
+            from openhands.sdk.event.llm_convertible.observation import ObservationEvent
+
+            # Reconstruct the event based on type
+            event_type = event_data["type"]
+            if event_type == "ActionEvent":
+                return ActionEvent(**event_data["data"])
+            elif event_type == "ObservationEvent":
+                return ObservationEvent(**event_data["data"])
+            else:
+                logger.warning(f"Unknown event type: {event_type}")
+                return None
+        except Exception as e:
+            logger.error(f"Error loading event from {filepath}: {e}")
+            return None
+
+    def _get_event_files_by_pattern(self, pattern: str) -> list[Path]:
+        """Get event files matching a glob pattern, sorted by timestamp."""
+        self._ensure_tool_events_dir()
+        files = glob.glob(str(self.tool_events_dir / pattern))
+        return sorted([Path(f) for f in files])
+
     async def get_event(self, event_id: str) -> ToolEvent | None:
         """Get the event with the id given, or None if there was no such event."""
-        return self._task_events.get(event_id)
+        # Use glob pattern to find files with the event_id
+        pattern = f"*_{event_id}_*"
+        files = self._get_event_files_by_pattern(pattern)
+
+        if not files:
+            return None
+
+        # Load and return the first matching event
+        return self._load_event_from_file(files[0])
 
     async def batch_get_events(self, task_ids: list[str]) -> list[ToolEvent | None]:
         """Given a list of ids, get tool events (Or none for any which were
@@ -62,10 +126,25 @@ class ToolEventService:
     ) -> ToolEventPage:
         """Search for events. If an action_id is given, only the observations for the
         action are returned."""
-        # Collect all events
-        all_events = list(self._task_events.values())
+        # Get files based on action_id filter
+        if action_id is not None:
+            # Use glob pattern to filter by action_id
+            pattern = f"*_{action_id}"
+            files = self._get_event_files_by_pattern(pattern)
+        else:
+            # Get all event files
+            pattern = "*"
+            files = self._get_event_files_by_pattern(pattern)
 
-        # Filter by action_id if provided
+        # Load all events from files
+        all_events = []
+        for file_path in files:
+            event = self._load_event_from_file(file_path)
+            if event is not None:
+                all_events.append(event)
+
+        # Additional filtering for action_id if needed (for both action and
+        # observation events)
         if action_id is not None:
             filtered_events = []
             for event in all_events:
@@ -77,7 +156,7 @@ class ToolEventService:
                     filtered_events.append(event)
             all_events = filtered_events
 
-        # Sort events by timestamp
+        # Sort events by timestamp (files are already sorted by timestamp in filename)
         all_events.sort(key=lambda x: x.timestamp)
 
         # Handle pagination
@@ -133,8 +212,8 @@ class ToolEventService:
             llm_response_id=llm_response_id,
         )
 
-        # Store the action event
-        self._task_events[action_id] = action_event
+        # Store the action event to file
+        self._save_event_to_file(action_event)
 
         # Publish the action event
         await self._pub_sub(action_event)
@@ -166,8 +245,8 @@ class ToolEventService:
                 tool_call_id=action_event.tool_call_id,
             )
 
-            # Store the observation event and link it to the action
-            self._task_events[observation_id] = observation_event
+            # Store the observation event to file and link it to the action
+            self._save_event_to_file(observation_event)
             self._action_to_observation[action_event.id] = observation_id
 
             # Publish the observation event
@@ -193,7 +272,7 @@ class ToolEventService:
             )
 
             # Store and publish the error observation
-            self._task_events[observation_id] = observation_event
+            self._save_event_to_file(observation_event)
             self._action_to_observation[action_event.id] = observation_id
             await self._pub_sub(observation_event)
 
@@ -233,5 +312,7 @@ def get_default_tool_event_service() -> ToolEventService:
     from openhands.agent_server.config import get_default_config
 
     config = get_default_config()
-    _tool_event_service = ToolEventService(working_dir=config.workspace_path)
+    _tool_event_service = ToolEventService(
+        working_dir=config.workspace_path, tool_events_dir=config.tool_events_dir
+    )
     return _tool_event_service
