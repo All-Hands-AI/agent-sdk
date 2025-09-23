@@ -280,48 +280,40 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         return dumped
 
     def get_all_llms(self) -> Generator[LLM, None, None]:
-        """Recursively yield unique LLM objects reachable from `self`.
+        """Recursively yield unique *base-class* LLM objects reachable from `self`.
 
         - Returns actual object references (not copies).
         - De-dupes by `id(LLM)`.
         - Cycle-safe via a visited set for *all* traversed objects.
-        - Does not handle dataclasses
+        - Only yields objects whose type is exactly `LLM` (no subclasses).
+        - Does not handle dataclasses.
         """
-        seen_llms: set[int] = set()
+        yielded_ids: set[int] = set()
         visited: set[int] = set()
 
         def _walk(obj: Any) -> Iterable[LLM]:
             oid = id(obj)
-            # Only guard against cycles for containers/objects we might recurse into.
-            # We still want to *yield* the same LLM once, handled by seen_llms below.
+            # Guard against cycles on anything we might recurse into
             if oid in visited:
                 return ()
             visited.add(oid)
 
+            # Traverse LLM based clases and its fields
             if isinstance(obj, LLM):
                 out: list[LLM] = []
 
-                # Check if this is a RouterLLM (which contains other LLMs)
-                from openhands.sdk.llm.router.base import RouterLLM
-
-                is_router = isinstance(obj, RouterLLM)
-
-                # Only yield non-router LLMs if we haven't seen them before
-                if not is_router and oid not in seen_llms:
-                    seen_llms.add(oid)
+                # Yield only the *raw* base-class LLM (exclude subclasses)
+                if type(obj) is LLM and oid not in yielded_ids:
+                    yielded_ids.add(oid)
                     out.append(obj)
 
-                # Always traverse fields for routers, and for regular LLMs that might
-                # contain other LLMs
-                if is_router or oid not in seen_llms:
-                    if not is_router:
-                        seen_llms.add(oid)
-                    for name in type(obj).model_fields:
-                        try:
-                            val = getattr(obj, name)
-                        except Exception:
-                            continue
-                        out.extend(_walk(val))
+                # Traverse all fields for LLM objects
+                for name in type(obj).model_fields:
+                    try:
+                        val = getattr(obj, name)
+                    except Exception:
+                        continue
+                    out.extend(_walk(val))
                 return out
 
             # Pydantic models: iterate declared fields
