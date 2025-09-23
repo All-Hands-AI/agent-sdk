@@ -175,7 +175,7 @@ async def run_conversation(conversation_id: UUID) -> Success:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     try:
-        await event_service.start_background_run()
+        await event_service.run()
     except ValueError as e:
         if str(e) == "conversation_already_running":
             raise HTTPException(
