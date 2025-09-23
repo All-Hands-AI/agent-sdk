@@ -79,7 +79,7 @@ async def batch_get_tool_events(
     return events
 
 
-@tool_router.post("/tool_events/")
+@tool_router.post("/start_bash_execution")
 async def start_bash_execution(action: ExecuteBashAction) -> ToolEvent:
     """Start a tool event execution"""
     action_event = await tool_event_service.start_bash_execution(action)
