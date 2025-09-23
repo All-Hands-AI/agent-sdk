@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Protocol
 
+from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.llm.message import Message
@@ -50,6 +51,10 @@ class BaseConversation(ABC):
     @property
     @abstractmethod
     def state(self) -> ConversationStateProtocol: ...
+
+    @property
+    @abstractmethod
+    def conversation_stats(self) -> ConversationStats: ...
 
     @abstractmethod
     def send_message(self, message: str | Message) -> None: ...

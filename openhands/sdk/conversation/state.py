@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
@@ -74,6 +75,12 @@ class ConversationState(OpenHandsModel, FIFOLock):
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list,
         description="List of activated knowledge microagents name",
+    )
+
+    # Conversation statistics for LLM usage tracking
+    stats: ConversationStats = Field(
+        default_factory=ConversationStats,
+        description="Conversation statistics for tracking LLM metrics",
     )
 
     # ===== Private attrs (NOT Fields) =====
@@ -160,6 +167,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
             state._autosave_enabled = True
             state.agent = resolved
 
+            state.stats = ConversationStats()
+
             logger.info(
                 f"Resumed conversation {state.id} from persistent storage.\n"
                 f"State: {state.model_dump(exclude={'agent'})}\n"
@@ -181,6 +190,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
+        state.stats = ConversationStats()
+
         state._save_base_state(file_store)  # initial snapshot
         state._autosave_enabled = True
         logger.info(

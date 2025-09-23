@@ -14,6 +14,7 @@ from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm.llm_registry import RegistryEvent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 
 
@@ -86,6 +87,7 @@ def test_conversation_state_persistence_save_load():
         )
         state.events.append(event1)
         state.events.append(event2)
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
 
         # State auto-saves when events are added
         # Verify files were created
@@ -135,6 +137,7 @@ def test_conversation_state_incremental_save():
             source="agent", system_prompt=TextContent(text="system"), tools=[]
         )
         state.events.append(event1)
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
 
         # Verify event files exist (may have additional events from Agent.init_state)
         event_files = list(Path(temp_dir, "events").glob("*.json"))
@@ -392,6 +395,8 @@ def test_conversation_state_flags_persistence():
             id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
             file_store=file_store,
         )
+
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
 
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED
