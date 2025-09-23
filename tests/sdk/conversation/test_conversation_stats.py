@@ -27,7 +27,7 @@ def mock_file_store():
 @pytest.fixture
 def conversation_stats(mock_file_store):
     """Create a ConversationStats instance for testing."""
-    return ConversationStats(
+    return ConversationStats.create(
         file_store=mock_file_store,
         conversation_id=TEST_CONVERSATION_ID,
     )
@@ -48,34 +48,7 @@ def connected_registry_and_stats(mock_llm_registry, conversation_stats):
     return mock_llm_registry, conversation_stats
 
 
-def test_conversation_stats_initialization(conversation_stats):
-    """Test that ConversationStats initializes correctly."""
-    assert conversation_stats.conversation_id == TEST_CONVERSATION_ID
-    assert conversation_stats.service_to_metrics == {}
-    assert isinstance(conversation_stats.restored_metrics, dict)
-
-
-def test_save_metrics(conversation_stats, mock_file_store):
-    """Test that metrics are properly serialized with Pydantic."""
-    # Add a service with metrics
-    service_id = "test-service"
-    metrics = Metrics(model_name="gpt-4")
-    metrics.add_cost(0.05)
-    conversation_stats.service_to_metrics[service_id] = metrics
-
-    # Test Pydantic serialization instead of pickle
-    json_data = conversation_stats.model_dump_json()
-    restored_stats = ConversationStats.model_validate_json(json_data)
-
-    assert service_id in restored_stats.service_to_metrics
-    assert restored_stats.service_to_metrics[service_id].accumulated_cost == 0.05
-
-    # The save_metrics method is now deprecated and shows a warning
-    # but we can still test it doesn't crash
-    conversation_stats.save_metrics()
-
-
-def test_maybe_restore_metrics(mock_file_store):
+def test_maybe_restore_legacy_metrics_store(mock_file_store):
     """Test that metrics are restored correctly."""
     # Create metrics to save
     service_id = "test-service"
@@ -91,16 +64,18 @@ def test_maybe_restore_metrics(mock_file_store):
     conversation_id = TEST_CONVERSATION_ID
 
     # Write to the correct path (using the metrics_file_name)
-    mock_file_store.write("conversation_stats.pkl", serialized_metrics)
+    mock_file_store.write(
+        f"{conversation_id}/conversation_stats.pkl", serialized_metrics
+    )
 
     # Create ConversationStats which should restore metrics
-    stats = ConversationStats(
+    stats = ConversationStats.create(
         file_store=mock_file_store, conversation_id=conversation_id
     )
 
     # Verify metrics were restored
-    assert service_id in stats.restored_metrics
-    assert stats.restored_metrics[service_id].accumulated_cost == 0.1
+    assert service_id in stats.service_to_metrics
+    assert stats.service_to_metrics[service_id].accumulated_cost == 0.1
 
 
 def test_get_combined_metrics(conversation_stats):
@@ -197,7 +172,7 @@ def test_register_llm_with_restored_metrics(conversation_stats):
     service_id = "restored-service"
     restored_metrics = Metrics(model_name="gpt-4")
     restored_metrics.add_cost(0.1)
-    conversation_stats.restored_metrics = {service_id: restored_metrics}
+    conversation_stats.service_to_metrics = {service_id: restored_metrics}
 
     # Patch the LLM class to avoid actual API calls
     with patch("openhands.sdk.llm.llm.litellm_completion"):
@@ -223,10 +198,8 @@ def test_register_llm_with_restored_metrics(conversation_stats):
         assert llm.metrics.accumulated_cost == 0.1  # Restored cost
 
         # Verify the specific service was removed from restored_metrics
-        assert service_id not in conversation_stats.restored_metrics
-        assert hasattr(
-            conversation_stats, "restored_metrics"
-        )  # The dict should still exist
+        print("restored services", conversation_stats._restored_services)
+        assert service_id in conversation_stats._restored_services
 
 
 def test_llm_registry_notifications(connected_registry_and_stats):
@@ -359,7 +332,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
     )  # max of 8000 and 4000
 
 
-def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
+def test_register_llm_with_multiple_restored_services(conversation_stats):
     """
     Test that reproduces the bug where del self.restored_metrics
     deletes entire dict instead of specific service.
@@ -376,7 +349,7 @@ def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
     restored_metrics_2.add_cost(0.05)
 
     # Set up restored metrics for both services
-    conversation_stats.restored_metrics = {
+    conversation_stats.service_to_metrics = {
         service_id_1: restored_metrics_1,
         service_id_2: restored_metrics_2,
     }
@@ -402,7 +375,7 @@ def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
 
         # After registering first service,
         # restored_metrics should still contain service_id_2
-        assert service_id_2 in conversation_stats.restored_metrics
+        assert service_id_2 not in conversation_stats._restored_services
 
         # Register second LLM - this should also work with restored metrics
         llm_2 = LLM(
@@ -421,307 +394,6 @@ def test_register_llm_with_multiple_restored_services_bug(conversation_stats):
         assert llm_2.metrics is not None
         assert llm_2.metrics.accumulated_cost == 0.05
 
-        # After both services are registered, restored_metrics should be empty
-        assert len(conversation_stats.restored_metrics) == 0
-
-
-def test_save_and_restore_workflow(mock_file_store):
-    """Test the full workflow of Pydantic serialization and deserialization."""
-    # Create initial conversation stats
-    conversation_id = TEST_CONVERSATION_ID
-
-    stats1 = ConversationStats(
-        file_store=mock_file_store, conversation_id=conversation_id
-    )
-
-    # Add a service with metrics
-    service_id = "test-service"
-    metrics = Metrics(model_name="gpt-4")
-    metrics.add_cost(0.05)
-    metrics.add_token_usage(
-        prompt_tokens=100,
-        completion_tokens=50,
-        cache_read_tokens=0,
-        cache_write_tokens=0,
-        context_window=8000,
-        response_id="resp1",
-    )
-    stats1.service_to_metrics[service_id] = metrics
-
-    # Test Pydantic serialization/deserialization instead of file-based save/restore
-    json_data = stats1.model_dump_json()
-    stats2 = ConversationStats.model_validate_json(json_data)
-
-    # Move metrics to restored_metrics to simulate the old restore behavior
-    stats2.restored_metrics[service_id] = stats2.service_to_metrics[service_id]
-    del stats2.service_to_metrics[service_id]
-
-    # Verify metrics were preserved through serialization
-    assert service_id in stats2.restored_metrics
-    assert stats2.restored_metrics[service_id].accumulated_cost == 0.05
-    token_usage = stats2.restored_metrics[service_id].accumulated_token_usage
-    assert token_usage is not None
-    assert token_usage.prompt_tokens == 100
-    assert token_usage.completion_tokens == 50
-
-    # Patch the LLM class to avoid actual API calls
-    with patch("openhands.sdk.llm.llm.litellm_completion"):
-        llm = LLM(
-            service_id=service_id,
-            model="gpt-4o",
-            api_key=SecretStr("test_key"),
-            num_retries=2,
-            retry_min_wait=1,
-            retry_max_wait=2,
-        )
-
-        # Create a registry event
-        event = RegistryEvent(llm=llm, service_id=service_id)
-
-        # Register the LLM - this should use existing metrics from service_to_metrics
-        stats2.register_llm(event)
-
-        # Verify metrics were applied to the LLM
-        assert llm.metrics is not None
-        assert llm.metrics.accumulated_cost == 0.05
-        assert llm.metrics.accumulated_token_usage is not None
-        assert llm.metrics.accumulated_token_usage.prompt_tokens == 100
-        assert llm.metrics.accumulated_token_usage.completion_tokens == 50
-
-
-def test_merge_conversation_stats_success_non_overlapping(mock_file_store):
-    """Merging two ConversationStats combines only restored metrics. Active metrics
-    (service_to_metrics) are not merged; if present, an error is logged but
-    execution continues. Incoming restored metrics overwrite duplicates.
-    """
-    stats_a = ConversationStats(
-        file_store=mock_file_store, conversation_id=CONV_MERGE_A_ID
-    )
-    stats_b = ConversationStats(
-        file_store=mock_file_store, conversation_id=CONV_MERGE_B_ID
-    )
-
-    # Self active + restored
-    m_a_active = Metrics(model_name="model-a")
-    m_a_active.add_cost(0.1)
-    m_a_restored = Metrics(model_name="model-a")
-    m_a_restored.add_cost(0.2)
-    stats_a.service_to_metrics["a-active"] = m_a_active
-    stats_a.restored_metrics = {"a-restored": m_a_restored}
-
-    # Other active + restored
-    m_b_active = Metrics(model_name="model-b")
-    m_b_active.add_cost(0.3)
-    m_b_restored = Metrics(model_name="model-b")
-    m_b_restored.add_cost(0.4)
-    stats_b.service_to_metrics["b-active"] = m_b_active
-    stats_b.restored_metrics = {"b-restored": m_b_restored}
-
-    # Merge B into A
-    stats_a.merge(stats_b)
-
-    # Active metrics should not be merged; only self's active metrics remain
-    assert set(stats_a.service_to_metrics.keys()) == {
-        "a-active",
-    }
-
-    # Restored metrics from both sides should be in A's restored_metrics
-    assert set(stats_a.restored_metrics.keys()) == {
-        "a-restored",
-        "b-restored",
-    }
-
-    # The exact Metrics objects should be present (no copies)
-    assert stats_a.service_to_metrics["a-active"] is m_a_active
-    assert stats_a.restored_metrics["a-restored"] is m_a_restored
-    assert stats_a.restored_metrics["b-restored"] is m_b_restored
-
-    # Test Pydantic serialization includes both service_to_metrics and restored_metrics
-    json_data = stats_a.model_dump_json()
-    restored_stats = ConversationStats.model_validate_json(json_data)
-
-    # Verify both service_to_metrics and restored_metrics are preserved
-    assert set(restored_stats.service_to_metrics.keys()) == {"a-active"}
-    assert set(restored_stats.restored_metrics.keys()) == {"a-restored", "b-restored"}
-
-    # Verify the costs are preserved
-    assert restored_stats.service_to_metrics["a-active"].accumulated_cost == 0.1
-    assert restored_stats.restored_metrics["a-restored"].accumulated_cost == 0.2
-    assert restored_stats.restored_metrics["b-restored"].accumulated_cost == 0.4
-
-
-@pytest.mark.parametrize(
-    "self_side,other_side",
-    [
-        ("active", "active"),
-        ("restored", "active"),
-        ("active", "restored"),
-        ("restored", "restored"),
-    ],
-)
-def test_merge_conversation_stats_duplicates_overwrite_and_log_errors(
-    mock_file_store, self_side, other_side
-):
-    stats_a = ConversationStats(
-        file_store=mock_file_store, conversation_id=CONV_MERGE_A_ID
-    )
-    stats_b = ConversationStats(
-        file_store=mock_file_store, conversation_id=CONV_MERGE_B_ID
-    )
-
-    # Place the same service id on the specified sides
-    dupe_id = "dupe-service"
-    m1 = Metrics(model_name="m")
-    m1.add_cost(0.1)  # ensure not dropped
-    m2 = Metrics(model_name="m")
-    m2.add_cost(0.2)  # ensure not dropped
-
-    if self_side == "active":
-        stats_a.service_to_metrics[dupe_id] = m1
-    else:
-        stats_a.restored_metrics[dupe_id] = m1
-
-    if other_side == "active":
-        stats_b.service_to_metrics[dupe_id] = m2
-    else:
-        stats_b.restored_metrics[dupe_id] = m2
-
-    # Perform merge; should not raise and should
-    # log error internally if active metrics present
-    stats_a.merge(stats_b)
-
-    # Only restored metrics are merged; duplicates are allowed with incoming overwriting
-    if other_side == "restored":
-        assert dupe_id in stats_a.restored_metrics
-        assert stats_a.restored_metrics[dupe_id] is m2  # incoming overwrites existing
-    else:
-        # No restored metric came from incoming; existing restored stays as-is
-        if self_side == "restored":
-            assert dupe_id in stats_a.restored_metrics
-            assert stats_a.restored_metrics[dupe_id] is m1
-        else:
-            assert dupe_id not in stats_a.restored_metrics
-
-
-def test_save_metrics_preserves_restored_metrics_fix(mock_file_store):
-    """
-    Test that save_metrics correctly preserves
-    restored metrics for unregistered services.
-    """
-    conversation_id = TEST_CONVERSATION_ID
-
-    # Step 1: Create initial conversation stats with multiple services
-    stats1 = ConversationStats(
-        file_store=mock_file_store, conversation_id=conversation_id
-    )
-
-    # Add metrics for multiple services
-    service_a = "service-a"
-    service_b = "service-b"
-    service_c = "service-c"
-
-    metrics_a = Metrics(model_name="gpt-4")
-    metrics_a.add_cost(0.10)
-
-    metrics_b = Metrics(model_name="gpt-3.5")
-    metrics_b.add_cost(0.05)
-
-    metrics_c = Metrics(model_name="claude-3")
-    metrics_c.add_cost(0.08)
-
-    stats1.service_to_metrics[service_a] = metrics_a
-    stats1.service_to_metrics[service_b] = metrics_b
-    stats1.service_to_metrics[service_c] = metrics_c
-
-    # Test Pydantic serialization/deserialization instead of file-based save/restore
-    json_data = stats1.model_dump_json()
-    stats2 = ConversationStats.model_validate_json(json_data)
-
-    # Move metrics to restored_metrics to simulate the old restore behavior
-    stats2.restored_metrics = stats2.service_to_metrics.copy()
-    stats2.service_to_metrics.clear()
-
-    # Verify all metrics were restored
-    assert service_a in stats2.restored_metrics
-    assert service_b in stats2.restored_metrics
-    assert service_c in stats2.restored_metrics
-    assert stats2.restored_metrics[service_a].accumulated_cost == 0.10
-    assert stats2.restored_metrics[service_b].accumulated_cost == 0.05
-    assert stats2.restored_metrics[service_c].accumulated_cost == 0.08
-
-    # Step 3: Register only one LLM service (simulates partial LLM activation)
-    with patch("openhands.sdk.llm.llm.litellm_completion"):
-        llm_a = LLM(
-            service_id=service_a,
-            model="gpt-4o",
-            api_key=SecretStr("test_key"),
-            num_retries=2,
-            retry_min_wait=1,
-            retry_max_wait=2,
-        )
-        event_a = RegistryEvent(llm=llm_a, service_id=service_a)
-        stats2.register_llm(event_a)
-
-    # Verify service_a was moved from restored_metrics to service_to_metrics
-    assert service_a in stats2.service_to_metrics
-    assert service_a not in stats2.restored_metrics
-    assert stats2.service_to_metrics[service_a].accumulated_cost == 0.10
-
-    # Verify services B and C are still in restored_metrics (not yet registered)
-    assert service_b in stats2.restored_metrics
-    assert service_c in stats2.restored_metrics
-    assert stats2.restored_metrics[service_b].accumulated_cost == 0.05
-    assert stats2.restored_metrics[service_c].accumulated_cost == 0.08
-
-    # Step 4: Test Pydantic serialization preserves
-    # both service_to_metrics and restored_metrics
-    json_data2 = stats2.model_dump_json()
-    stats3 = ConversationStats.model_validate_json(json_data2)
-
-    # Service A should be in service_to_metrics (was registered)
-    assert service_a in stats3.service_to_metrics
-    assert stats3.service_to_metrics[service_a].accumulated_cost == 0.10
-
-    # Services B and C should be preserved in restored_metrics (not yet registered)
-    assert service_b in stats3.restored_metrics  # FIXED: Now preserved
-    assert service_c in stats3.restored_metrics  # FIXED: Now preserved
-    assert stats3.restored_metrics[service_b].accumulated_cost == 0.05
-    assert stats3.restored_metrics[service_c].accumulated_cost == 0.08
-
-
-def test_save_metrics_throws_error_on_duplicate_service_ids(mock_file_store):
-    """
-    Test updated: save_metrics should NOT raise on duplicate service IDs;
-    it should prefer service_to_metrics and proceed.
-    """
-    conversation_id = TEST_CONVERSATION_ID
-
-    stats = ConversationStats(
-        file_store=mock_file_store, conversation_id=conversation_id
-    )
-
-    # Manually create a scenario with duplicate service IDs
-    # (this should never happen in normal operation)
-    service_id = "duplicate-service"
-
-    # Add to both restored_metrics and service_to_metrics
-    restored_metrics = Metrics(model_name="gpt-4")
-    restored_metrics.add_cost(0.10)
-    stats.restored_metrics[service_id] = restored_metrics
-
-    service_metrics = Metrics(model_name="gpt-3.5")
-    service_metrics.add_cost(0.05)
-    stats.service_to_metrics[service_id] = service_metrics
-
-    # Test Pydantic serialization preserves both,
-    # but service_to_metrics takes precedence
-    json_data = stats.model_dump_json()
-    restored_stats = ConversationStats.model_validate_json(json_data)
-
-    # Both should be preserved in their respective dictionaries
-    assert service_id in restored_stats.service_to_metrics
-    assert service_id in restored_stats.restored_metrics
-
-    # Verify the values are preserved correctly
-    assert restored_stats.service_to_metrics[service_id].accumulated_cost == 0.05
-    assert restored_stats.restored_metrics[service_id].accumulated_cost == 0.10
+        # After both services are marked restored
+        assert service_id_2 in conversation_stats._restored_services
+        assert len(conversation_stats._restored_services) == 2

@@ -36,6 +36,9 @@ class ConversationStats(BaseModel):
         instance._file_store = file_store
         instance._conversation_id = conversation_id
 
+        if conversation_id:
+            instance._metrics_file_name = f"{conversation_id}/conversation_stats.pkl"
+
         # Always attempt to restore registry if it exists
         instance.maybe_restore_metrics()
 
@@ -67,7 +70,7 @@ class ConversationStats(BaseModel):
 
             encoded = self.file_store.read(self._metrics_file_name)
             pickled = base64.b64decode(encoded)
-            self.restored_metrics = pickle.loads(pickled)
+            self.service_to_metrics = pickle.loads(pickled)
             logger.info(f"restored metrics: {self.conversation_id}")
         except FileNotFoundError:
             pass
@@ -97,6 +100,7 @@ class ConversationStats(BaseModel):
             and service_id not in self._restored_services
         ):
             llm.restore_metrics(self.service_to_metrics[service_id])
+            self._restored_services.add(service_id)
 
         # Service is new, track its metrics
         if service_id not in self.service_to_metrics and llm.metrics:
