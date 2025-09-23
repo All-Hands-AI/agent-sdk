@@ -8,11 +8,7 @@ they requested it, preventing starvation that can occur with standard RLock.
 import threading
 from collections import deque
 from threading import get_ident
-from typing import Any, TypeVar
-
-
-# Type variable for self-returning methods
-Self = TypeVar("Self", bound="FIFOLock")
+from typing import Any, Self
 
 
 class FIFOLock:
