@@ -91,10 +91,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
         default=False
     )  # to avoid recursion during init
 
-    def __init__(self, **data):
-        """Initialize ConversationState with both Pydantic and FIFOLock."""
-        # Initialize Pydantic model
-        super(OpenHandsModel, self).__init__(**data)
+    def model_post_init(self, __context) -> None:
+        """Initialize FIFOLock after Pydantic model initialization."""
         # Initialize FIFOLock
         FIFOLock.__init__(self)
 
