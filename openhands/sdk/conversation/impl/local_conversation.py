@@ -131,7 +131,6 @@ class LocalConversation(BaseConversation):
         assert message.role == "user", (
             "Only user messages are allowed to be sent to the agent."
         )
-
         with self._state:
             if self._state.agent_status == AgentExecutionStatus.FINISHED:
                 self._state.agent_status = (
@@ -191,19 +190,15 @@ class LocalConversation(BaseConversation):
         iteration = 0
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
-
             with self._state:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
                 # Ensure step conditions are checked when lock is already acquired
                 if self._state.agent_status in [
+                    AgentExecutionStatus.FINISHED,
                     AgentExecutionStatus.PAUSED,
                     AgentExecutionStatus.STUCK,
                 ]:
-                    break
-
-                # Break if finished - FIFO lock ensures fair access for new messages
-                if self._state.agent_status == AgentExecutionStatus.FINISHED:
                     break
 
                 # Check for stuck patterns if enabled
