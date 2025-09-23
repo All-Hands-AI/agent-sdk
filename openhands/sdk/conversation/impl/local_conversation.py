@@ -64,8 +64,9 @@ class LocalConversation(BaseConversation):
         self.agent = agent
         self._persist_filestore = persist_filestore
 
-        # Flag for pending send_message calls (before they acquire the lock)
-        self._pending_message_flag = False
+        # Race condition detection: True when send_message() waits for state lock
+        # Prevents run loop from finishing while user message is being processed
+        self._message_send_in_progress = False
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
@@ -135,54 +136,49 @@ class LocalConversation(BaseConversation):
             "Only user messages are allowed to be sent to the agent."
         )
 
-        # Signal that there's a pending message before taking the lock
-        # This allows the run loop to detect concurrent send_message calls
-        self._pending_message_flag = True
+        # Signal that send_message is waiting for the lock (race condition detection)
+        self._message_send_in_progress = True
 
-        try:
-            with self._state:
-                # Clear the flag immediately after acquiring the lock
-                self._pending_message_flag = False
-                if self._state.agent_status == AgentExecutionStatus.FINISHED:
-                    self._state.agent_status = (
-                        AgentExecutionStatus.IDLE
-                    )  # now we have a new message
+        with self._state:
+            # Clear the flag immediately after acquiring the lock
+            self._message_send_in_progress = False
+            if self._state.agent_status == AgentExecutionStatus.FINISHED:
+                self._state.agent_status = (
+                    AgentExecutionStatus.IDLE
+                )  # now we have a new message
 
-                # TODO: We should add test cases for all these scenarios
-                activated_microagent_names: list[str] = []
-                extended_content: list[TextContent] = []
+            # TODO: We should add test cases for all these scenarios
+            activated_microagent_names: list[str] = []
+            extended_content: list[TextContent] = []
 
-                # Handle per-turn user message (i.e., knowledge agent trigger)
-                if self.agent.agent_context:
-                    ctx = self.agent.agent_context.get_user_message_suffix(
-                        user_message=message,
-                        # We skip microagents that were already activated
-                        skip_microagent_names=self._state.activated_knowledge_microagents,
-                    )
-                    # TODO(calvin): we need to update
-                    # self._state.activated_knowledge_microagents
-                    # so condenser can work
-                    if ctx:
-                        content, activated_microagent_names = ctx
-                        logger.debug(
-                            f"Got augmented user message content: {content}, "
-                            f"activated microagents: {activated_microagent_names}"
-                        )
-                        extended_content.append(content)
-                        self._state.activated_knowledge_microagents.extend(
-                            activated_microagent_names
-                        )
-
-                user_msg_event = MessageEvent(
-                    source="user",
-                    llm_message=message,
-                    activated_microagents=activated_microagent_names,
-                    extended_content=extended_content,
+            # Handle per-turn user message (i.e., knowledge agent trigger)
+            if self.agent.agent_context:
+                ctx = self.agent.agent_context.get_user_message_suffix(
+                    user_message=message,
+                    # We skip microagents that were already activated
+                    skip_microagent_names=self._state.activated_knowledge_microagents,
                 )
-                self._on_event(user_msg_event)
-        finally:
-            # Ensure flag is cleared even if an exception occurs
-            self._pending_message_flag = False
+                # TODO(calvin): we need to update
+                # self._state.activated_knowledge_microagents
+                # so condenser can work
+                if ctx:
+                    content, activated_microagent_names = ctx
+                    logger.debug(
+                        f"Got augmented user message content: {content}, "
+                        f"activated microagents: {activated_microagent_names}"
+                    )
+                    extended_content.append(content)
+                    self._state.activated_knowledge_microagents.extend(
+                        activated_microagent_names
+                    )
+
+            user_msg_event = MessageEvent(
+                source="user",
+                llm_message=message,
+                activated_microagents=activated_microagent_names,
+                extended_content=extended_content,
+            )
+            self._on_event(user_msg_event)
 
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
@@ -216,7 +212,7 @@ class LocalConversation(BaseConversation):
 
                 # Check for unattended user messages when finished
                 if self._state.agent_status == AgentExecutionStatus.FINISHED:
-                    if self._pending_message_flag:
+                    if self._message_send_in_progress:
                         # There are unattended user messages, continue processing
                         logger.debug(
                             "Found unattended user messages, continuing run loop"
