@@ -245,27 +245,41 @@ class LocalConversation(BaseConversation):
                 break
 
     def _has_unattended_user_messages(self) -> bool:
-        """Check if there are user messages that haven't been processed by step().
-
-        A user message is unattended if and only if step() was never called after
-        the message was added to the state events queue.
-
-        Returns True if there are user messages that were added after the last
-        step() call, indicating they haven't been processed yet.
         """
-        from openhands.sdk.event import MessageEvent
+        Check if there are user messages in the state events that are
+        left unattended.
+
+        A user message is unattended if it was added to the events after the final
+        agent step call.
+        This is equivalent to checking if there are user messages that come after
+        the last agent message or finish action in the events list.
+
+        Returns True if there are user messages that came after the last
+        agent message or finish action, indicating they haven't been processed.
+        """
+        from openhands.sdk.event import ActionEvent, MessageEvent
+        from openhands.sdk.tool.builtins import FinishAction
 
         events = list(self._state.events)
         if not events:
             return False
 
-        # Check if there are any user messages after the last step() call
-        # last_step_event_count tracks how many events were processed by the last step()
-        for i in range(self._state.last_step_event_count, len(events)):
+        # Find the last agent message or finish action
+        last_agent_event_idx = -1
+        for i in range(len(events) - 1, -1, -1):
+            event = events[i]
+            if (isinstance(event, MessageEvent) and event.source == "agent") or (
+                isinstance(event, ActionEvent)
+                and isinstance(event.action, FinishAction)
+            ):
+                last_agent_event_idx = i
+                break
+
+        # Check for user messages after that point
+        for i in range(last_agent_event_idx + 1, len(events)):
             event = events[i]
             if isinstance(event, MessageEvent) and event.source == "user":
                 return True
-
         return False
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
