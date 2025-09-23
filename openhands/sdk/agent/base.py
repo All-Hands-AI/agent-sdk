@@ -301,7 +301,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 return ()
             visited.add(oid)
 
-            # Traverse LLM based clases and its fields
+            # Traverse LLM based classes and its fields
+            # e.g., LLMRouter that is a subclass of LLM
+            # yet contains LLM in its fields
             if isinstance(obj, LLM):
                 out: list[LLM] = []
 
