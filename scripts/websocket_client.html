@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Client Example</title>
+  <script>
+    let socket = null
+
+    function connect(){
+        const conversationId = document.getElementById('conversationId').value;
+        socket = new WebSocket(`ws://localhost:8000/api/conversations/${conversationId}/events/socket`);
+        
+        socket.addEventListener('open', (event) => {
+            console.log('WebSocket connection opened:', event);
+            document.getElementById('connectButton').disabled = true
+            document.getElementById('disconnectButton').disabled = false
+            document.getElementById('messageInput').disabled = false
+            document.getElementById('sendButton').disabled = false
+        });
+
+        // Event handler for receiving messages from the server
+        socket.addEventListener('message', (event) => {
+            console.log('Message from server:', event.data);
+            // You can update your UI or process the received data here
+            document.getElementById('messages').innerHTML += `<li>${event.data}</li>`;
+        });
+
+        // Event handler for when the connection is closed
+        socket.addEventListener('close', (event) => {
+            console.log('WebSocket connection closed:', event);
+            document.getElementById('connectButton').disabled = false
+            document.getElementById('disconnectButton').disabled = true
+            document.getElementById('messageInput').disabled = true
+            document.getElementById('sendButton').disabled = true
+        });
+
+        // Event handler for errors
+        socket.addEventListener('error', (event) => {
+            console.error('WebSocket error:', event);
+        });
+    }
+
+    function sendMessage(){
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value;
+        if (message) {
+            socket.send(message);
+            messageInput.value = ''; // Clear the input field
+        }
+    }
+
+  </script>
+</head>
+<body>
+  <h1>WebSocket Chat</h1>
+  <div style="padding-bottom: 1rem;">
+    <input type="text" id="conversationId" />
+    <button id="connectButton" onclick="connect()">Connect</button>
+    <button id="disconnectButton" onclick="socket.close()" disabled>Disconnect</button>
+  </div>
+  <div style="padding-bottom: 1rem;" id="messages"></div>
+  <form onsubmit="return sendMessage()">
+    <input type="text" id="messageInput" placeholder="Type your message..." disabled>
+    <button type="submit" id="sendButton" disabled>Send</button>
+  </form>
+</body>
+</html>

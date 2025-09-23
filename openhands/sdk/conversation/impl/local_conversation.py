@@ -2,7 +2,7 @@ import uuid
 from typing import Iterable
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
+from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -102,7 +102,7 @@ class LocalConversation(BaseConversation):
         return self._state.id
 
     @property
-    def state(self) -> ConversationStateProtocol:
+    def state(self) -> ConversationState:
         """Get the conversation state.
 
         It returns a protocol that has a subset of ConversationState methods
@@ -219,17 +219,15 @@ class LocalConversation(BaseConversation):
 
                 # step must mutate the SAME state object
                 self.agent.step(self._state, on_event=self._on_event)
+                iteration += 1
 
-            # In confirmation mode, stop after one iteration if waiting for confirmation
-            if (
-                self._state.agent_status
-                == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-            ):
-                break
-
-            iteration += 1
-            if iteration >= self.max_iteration_per_run:
-                break
+                if (
+                    self.state.agent_status == AgentExecutionStatus.FINISHED
+                    or self.state.agent_status
+                    == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                    or iteration >= self.max_iteration_per_run
+                ):
+                    break
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
