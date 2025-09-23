@@ -53,12 +53,14 @@ def main() -> None:
     with DockerSandboxedAgentServer(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
         host_port=8010,
+        # TODO: Change this to your platform if not linux/arm64
+        platform="linux/arm64",
     ) as server:
         # 3) Create agent – IMPORTANT: working_dir must be the path inside container
         #    where we mounted the current repo.
         agent = get_default_agent(
             llm=llm,
-            working_dir="/repo",
+            working_dir="/",
             cli_mode=True,
         )
 
