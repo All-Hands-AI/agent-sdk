@@ -6,11 +6,11 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
-    DockerSandboxedAgentServer,
     get_logger,
 )
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.preset.default import get_default_agent
+from openhands.sdk.sandbox import DockerSandboxedAgentServer
 
 
 """
@@ -51,7 +51,7 @@ def main() -> None:
     # 2) Start the dev image in Docker via the SDK helper and wait for health
     #    Forward LITELLM_API_KEY into the container so remote tools can use it.
     with DockerSandboxedAgentServer(
-        base_image="swebench/sweb.eval.x86_64.astropy_1776_astropy-12907:latest",
+        base_image="nikolaik/python-nodejs:python3.12-nodejs22",
         host_port=8010,
     ) as server:
         # 3) Create agent – IMPORTANT: working_dir must be the path inside container

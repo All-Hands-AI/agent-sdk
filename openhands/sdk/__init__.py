@@ -24,10 +24,6 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import MCPClient, MCPTool, MCPToolObservation, create_mcp_tools
-from openhands.sdk.sandbox.docker import (
-    DockerSandboxedAgentServer,
-    build_agent_server_image,
-)
 from openhands.sdk.tool import (
     ActionBase,
     ObservationBase,
@@ -79,6 +75,4 @@ __all__ = [
     "resolve_tool",
     "list_registered_tools",
     "__version__",
-    "DockerSandboxedAgentServer",
-    "build_agent_server_image",
 ]

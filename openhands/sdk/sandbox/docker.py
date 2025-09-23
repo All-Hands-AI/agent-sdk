@@ -198,6 +198,7 @@ class DockerSandboxedAgentServer:
         mount_dir: str | None = None,
         detach_logs: bool = True,
         target: str = "source",
+        platform: str = "linux/amd64",
     ) -> None:
         self.host_port = int(host_port) if host_port else find_available_tcp_port()
         self._image = base_image
@@ -210,6 +211,7 @@ class DockerSandboxedAgentServer:
         self.detach_logs = detach_logs
         self._forward_env = list(forward_env or [])
         self._target = target
+        self._platform = platform
 
     def __enter__(self) -> "DockerSandboxedAgentServer":
         # Ensure docker exists
@@ -224,7 +226,10 @@ class DockerSandboxedAgentServer:
         # it's not an pre-built official image
         if self._image and "ghcr.io/all-hands-ai/agent-server" not in self._image:
             self._image = build_agent_server_image(
-                base_image=self._image, target=self._target
+                base_image=self._image,
+                target=self._target,
+                # we only support single platform for now
+                platforms=self._platform,
             )
 
         # Prepare env flags
@@ -246,6 +251,8 @@ class DockerSandboxedAgentServer:
             "docker",
             "run",
             "-d",
+            "--platform",
+            self._platform,
             "--rm",
             "--name",
             f"agent-server-{int(time.time())}",
