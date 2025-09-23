@@ -239,7 +239,7 @@ class LocalConversation(BaseConversation):
         logger.info(f"Confirmation policy set to: {policy}")
 
     @property
-    def is_confirmation_enabled(self) -> bool:
+    def confirmation_policy_active(self) -> bool:
         return not isinstance(self.state.confirmation_policy, NeverConfirm)
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:

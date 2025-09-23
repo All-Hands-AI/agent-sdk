@@ -62,7 +62,7 @@ class BaseConversation(ABC):
 
     @property
     @abstractmethod
-    def is_confirmation_enabled(self) -> bool: ...
+    def confirmation_policy_active(self) -> bool: ...
 
     @abstractmethod
     def reject_pending_actions(
