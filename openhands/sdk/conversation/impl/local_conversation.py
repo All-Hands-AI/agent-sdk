@@ -2,7 +2,7 @@ import uuid
 from typing import Iterable
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
+from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -102,7 +102,7 @@ class LocalConversation(BaseConversation):
         return self._state.id
 
     @property
-    def state(self) -> ConversationStateProtocol:
+    def state(self) -> ConversationState:
         """Get the conversation state.
 
         It returns a protocol that has a subset of ConversationState methods
