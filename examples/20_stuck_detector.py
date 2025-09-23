@@ -9,6 +9,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.preset.default import get_default_agent
 
 
@@ -40,6 +41,7 @@ conversation = Conversation(
     # This is by default True, shown here for clarity of the example
     stuck_detection=True,
 )
+assert isinstance(conversation, LocalConversation)
 
 # Send a task that will be caught by stuck detection
 conversation.send_message(
