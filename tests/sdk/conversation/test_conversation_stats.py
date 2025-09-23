@@ -337,7 +337,7 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
         assert llm_1.metrics.accumulated_cost == 0.1
 
         # After registering first service,
-        # restored_metrics should still contain service_id_2
+        # restored_metrics should still not contain service_id_2
         assert service_id_2 not in conversation_stats._restored_services
 
         # Register second LLM - this should also work with restored metrics
