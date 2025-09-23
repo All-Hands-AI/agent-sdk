@@ -155,7 +155,6 @@ async def socket(
     subscriber_id = await event_service.subscribe_to_events(
         _WebSocketSubscriber(websocket)
     )
-    unsubscribed = False
     try:
         while True:
             try:
@@ -163,10 +162,8 @@ async def socket(
                 message = Message.model_validate(data)
                 await event_service.send_message(message, run=True)
             except WebSocketDisconnect:
-                if not unsubscribed:
-                    await event_service.unsubscribe_from_events(subscriber_id)
-                    unsubscribed = True
-                break  # Exit the loop when websocket disconnects
+                # Exit the loop when websocket disconnects
+                return
             except Exception as e:
                 logger.exception("error_in_subscription", stack_info=True)
                 # For critical errors that indicate the websocket is broken, exit
@@ -174,8 +171,7 @@ async def socket(
                     raise
                 # For other exceptions, continue the loop
     finally:
-        if not unsubscribed:
-            await event_service.unsubscribe_from_events(subscriber_id)
+        await event_service.unsubscribe_from_events(subscriber_id)
 
 
 @dataclass
