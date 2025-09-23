@@ -1,3 +1,4 @@
+import time
 import uuid
 from typing import Iterable
 
@@ -200,6 +201,11 @@ class LocalConversation(BaseConversation):
         iteration = 0
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
+
+            # Cooperative threading: yield to send_message() if waiting for lock
+            if self._message_send_in_progress:
+                time.sleep(0.001)  # Brief yield to allow send_message() to acquire lock
+
             with self._state:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
