@@ -19,7 +19,6 @@ from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
-    NeverConfirm,
 )
 
 
@@ -237,10 +236,6 @@ class LocalConversation(BaseConversation):
         with self._state:
             self._state.confirmation_policy = policy
         logger.info(f"Confirmation policy set to: {policy}")
-
-    @property
-    def confirmation_policy_active(self) -> bool:
-        return not isinstance(self.state.confirmation_policy, NeverConfirm)
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         """Reject all pending actions from the agent.

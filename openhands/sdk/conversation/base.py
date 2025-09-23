@@ -4,7 +4,10 @@ from typing import TYPE_CHECKING, Protocol
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.llm.message import Message
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -61,8 +64,8 @@ class BaseConversation(ABC):
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None: ...
 
     @property
-    @abstractmethod
-    def confirmation_policy_active(self) -> bool: ...
+    def confirmation_policy_active(self) -> bool:
+        return not isinstance(self.state.confirmation_policy, NeverConfirm)
 
     @abstractmethod
     def reject_pending_actions(
