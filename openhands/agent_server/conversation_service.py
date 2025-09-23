@@ -206,7 +206,7 @@ class ConversationService:
             message = Message(
                 role=initial_message.role, content=initial_message.content
             )
-            await event_service.send_message(message, run=initial_message.run)
+            await event_service.send_message(message)
 
         state = await event_service.get_state()
         conversation_info = _compose_conversation_info(event_service.stored, state)
@@ -307,7 +307,9 @@ class ConversationService:
             event_services_path=config.conversations_path,
             workspace_path=config.workspace_path,
             webhook_specs=config.webhooks,
-            session_api_key=config.session_api_key,
+            session_api_key=config.session_api_keys[0]
+            if config.session_api_keys
+            else None,
         )
 
 

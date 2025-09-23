@@ -10,6 +10,7 @@ import websockets
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
+from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -106,15 +107,7 @@ class RemoteEventsList(ListLike[EventBase]):
         self._cached_event_ids: set[str] = set()
         self._lock = threading.RLock()
         # Initial fetch to sync existing events
-        self._fetch_all_events()
-
-    def _fetch_all_events(self) -> list[EventBase]:
-        """Return a snapshot of all known events.
-
-        Performs a one-time full sync if the local cache is empty.
-        """
-        with self._lock:
-            return self._cached_events.copy()
+        self._do_full_sync()
 
     def _do_full_sync(self) -> None:
         """Perform a full sync with the remote API."""
@@ -163,7 +156,7 @@ class RemoteEventsList(ListLike[EventBase]):
         return callback
 
     def __len__(self) -> int:
-        return len(self._fetch_all_events())
+        return len(self._cached_events)
 
     @overload
     def __getitem__(self, index: SupportsIndex, /) -> EventBase: ...
@@ -228,6 +221,18 @@ class RemoteState(ConversationStateProtocol):
             )
         return AgentExecutionStatus(status_str)
 
+    @agent_status.setter
+    def agent_status(self, value: AgentExecutionStatus) -> None:
+        """Set agent status is No-OP for RemoteConversation.
+
+        # For remote conversations, agent status is managed server-side
+        # This setter is provided for test compatibility but doesn't actually change remote state  # noqa: E501
+        """  # noqa: E501
+        raise NotImplementedError(
+            f"Setting agent_status on RemoteState has no effect. "
+            f"Remote agent status is managed server-side. Attempted to set: {value}"
+        )
+
     @property
     def confirmation_policy(self) -> ConfirmationPolicyBase:
         """The confirmation policy."""
@@ -245,6 +250,31 @@ class RemoteState(ConversationStateProtocol):
         info = self._get_conversation_info()
         return info.get("activated_knowledge_microagents", [])
 
+    @property
+    def agent(self):
+        """The agent configuration (fetched from remote)."""
+        info = self._get_conversation_info()
+        agent_data = info.get("agent")
+        if agent_data is None:
+            raise RuntimeError("agent missing in conversation info: " + str(info))
+        return AgentBase.model_validate(agent_data)
+
+    def model_dump(self, **kwargs):
+        """Get a dictionary representation of the remote state."""
+        info = self._get_conversation_info()
+        return info
+
+    def model_dump_json(self, **kwargs):
+        """Get a JSON representation of the remote state."""
+        return json.dumps(self.model_dump(**kwargs))
+
+    # Context manager methods for compatibility with ConversationState
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 
 class RemoteConversation(BaseConversation):
     def __init__(
@@ -254,6 +284,7 @@ class RemoteConversation(BaseConversation):
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
+        stuck_detection: bool = True,
         visualize: bool = False,
         **_: object,
     ) -> None:
@@ -279,6 +310,7 @@ class RemoteConversation(BaseConversation):
                 ),
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
+                "stuck_detection": stuck_detection,
             }
             resp = self._client.post("/api/conversations/", json=payload)
             resp.raise_for_status()
@@ -327,6 +359,22 @@ class RemoteConversation(BaseConversation):
     def state(self) -> RemoteState:
         """Access to remote conversation state."""
         return self._state
+
+    @property
+    def conversation_stats(self) -> ConversationStats:
+        """Get conversation stats from remote server."""
+        info = self._state._get_conversation_info()
+        stats_data = info.get("conversation_stats", {})
+        return ConversationStats.model_validate(stats_data)
+
+    @property
+    def stuck_detector(self):
+        """Stuck detector for compatibility.
+        Not implemented for remote conversations."""
+        raise NotImplementedError(
+            "For remote conversations, stuck detection is not available"
+            " since it would be handled server-side."
+        )
 
     def send_message(self, message: str | Message) -> None:
         if isinstance(message, str):

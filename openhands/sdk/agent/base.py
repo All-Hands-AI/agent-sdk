@@ -2,9 +2,9 @@ import os
 import re
 import sys
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generator, Iterable
 
-from pydantic import ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
@@ -281,6 +281,77 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if "tools" in dumped and isinstance(dumped["tools"], dict):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
+
+    def get_all_llms(self) -> Generator[LLM, None, None]:
+        """Recursively yield unique *base-class* LLM objects reachable from `self`.
+
+        - Returns actual object references (not copies).
+        - De-dupes by `id(LLM)`.
+        - Cycle-safe via a visited set for *all* traversed objects.
+        - Only yields objects whose type is exactly `LLM` (no subclasses).
+        - Does not handle dataclasses.
+        """
+        yielded_ids: set[int] = set()
+        visited: set[int] = set()
+
+        def _walk(obj: Any) -> Iterable[LLM]:
+            oid = id(obj)
+            # Guard against cycles on anything we might recurse into
+            if oid in visited:
+                return ()
+            visited.add(oid)
+
+            # Traverse LLM based classes and its fields
+            # e.g., LLMRouter that is a subclass of LLM
+            # yet contains LLM in its fields
+            if isinstance(obj, LLM):
+                out: list[LLM] = []
+
+                # Yield only the *raw* base-class LLM (exclude subclasses)
+                if type(obj) is LLM and oid not in yielded_ids:
+                    yielded_ids.add(oid)
+                    out.append(obj)
+
+                # Traverse all fields for LLM objects
+                for name in type(obj).model_fields:
+                    try:
+                        val = getattr(obj, name)
+                    except Exception:
+                        continue
+                    out.extend(_walk(val))
+                return out
+
+            # Pydantic models: iterate declared fields
+            if isinstance(obj, BaseModel):
+                out: list[LLM] = []
+                for name in type(obj).model_fields:
+                    try:
+                        val = getattr(obj, name)
+                    except Exception:
+                        continue
+                    out.extend(_walk(val))
+                return out
+
+            # Built-in containers
+            if isinstance(obj, dict):
+                out: list[LLM] = []
+                for k, v in obj.items():
+                    out.extend(_walk(k))
+                    out.extend(_walk(v))
+                return out
+
+            if isinstance(obj, (list, tuple, set, frozenset)):
+                out: list[LLM] = []
+                for item in obj:
+                    out.extend(_walk(item))
+                return out
+
+            # Unknown object types: nothing to do
+            return ()
+
+        # Drive the traversal from self
+        for llm in _walk(self):
+            yield llm
 
     @property
     def tools_map(self) -> dict[str, Tool]:

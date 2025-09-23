@@ -67,6 +67,11 @@ class StartConversationRequest(BaseModel):
         description="If set, the max number of iterations the agent will run "
         "before stopping. This is useful to prevent infinite loops.",
     )
+    stuck_detection: bool = Field(
+        default=True,
+        description="If true, the conversation will use stuck detection to "
+        "prevent infinite loops.",
+    )
 
 
 class StoredConversation(StartConversationRequest):

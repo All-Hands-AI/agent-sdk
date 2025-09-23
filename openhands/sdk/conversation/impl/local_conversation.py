@@ -2,7 +2,7 @@ import uuid
 from typing import Iterable
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
+from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -16,8 +16,11 @@ from openhands.sdk.event import (
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+)
 
 
 logger = get_logger(__name__)
@@ -96,13 +99,19 @@ class LocalConversation(BaseConversation):
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
 
+        # Register existing llms in agent
+        self.llm_registry = LLMRegistry()
+        self.llm_registry.subscribe(self._state.stats.register_llm)
+        for llm in list(self.agent.get_all_llms()):
+            self.llm_registry.add(llm.service_id, llm)
+
     @property
     def id(self) -> ConversationID:
         """Get the unique ID of the conversation."""
         return self._state.id
 
     @property
-    def state(self) -> ConversationStateProtocol:
+    def state(self) -> ConversationState:
         """Get the conversation state.
 
         It returns a protocol that has a subset of ConversationState methods
@@ -111,6 +120,10 @@ class LocalConversation(BaseConversation):
         But we won't be able to access methods that mutate the state.
         """
         return self._state
+
+    @property
+    def conversation_stats(self):
+        return self._state.stats
 
     @property
     def stuck_detector(self) -> StuckDetector | None:
@@ -219,17 +232,15 @@ class LocalConversation(BaseConversation):
 
                 # step must mutate the SAME state object
                 self.agent.step(self._state, on_event=self._on_event)
+                iteration += 1
 
-            # In confirmation mode, stop after one iteration if waiting for confirmation
-            if (
-                self._state.agent_status
-                == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-            ):
-                break
-
-            iteration += 1
-            if iteration >= self.max_iteration_per_run:
-                break
+                if (
+                    self.state.agent_status == AgentExecutionStatus.FINISHED
+                    or self.state.agent_status
+                    == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                    or iteration >= self.max_iteration_per_run
+                ):
+                    break
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""

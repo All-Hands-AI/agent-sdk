@@ -25,7 +25,6 @@ from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
-    MetricsSnapshot,
     TextContent,
     get_llm_metadata,
 )
@@ -131,7 +130,7 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
     ):
         for action_event in action_events:
-            self._execute_action_events(state, action_event, on_event=on_event)
+            self._execute_action_event(state, action_event, on_event=on_event)
 
     def step(
         self,
@@ -211,9 +210,6 @@ class Agent(AgentBase):
         llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
         message = Message.from_litellm_message(llm_message)
 
-        assert self.llm.metrics is not None, "LLM metrics should not be None"
-        metrics = self.llm.metrics.get_snapshot()  # take a snapshot of metrics
-
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
             if any(tc.type != "function" for tc in message.tool_calls):
@@ -241,7 +237,7 @@ class Agent(AgentBase):
 
             action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(tool_calls):
-                action_event = self._get_action_events(
+                action_event = self._get_action_event(
                     state,
                     tool_call,
                     llm_response_id=response.id,
@@ -249,7 +245,6 @@ class Agent(AgentBase):
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
-                    metrics=metrics if i == len(tool_calls) - 1 else None,
                     # Only first gets reasoning content
                     reasoning_content=message.reasoning_content if i == 0 else None,
                 )
@@ -270,7 +265,6 @@ class Agent(AgentBase):
             msg_event = MessageEvent(
                 source="agent",
                 llm_message=message,
-                metrics=metrics,
             )
             on_event(msg_event)
 
@@ -314,17 +308,16 @@ class Agent(AgentBase):
 
         return False
 
-    def _get_action_events(
+    def _get_action_event(
         self,
         state: ConversationState,
         tool_call: ChatCompletionMessageToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
-        metrics: MetricsSnapshot | None = None,
         reasoning_content: str | None = None,
     ) -> ActionEvent | None:
-        """Handle tool calls from the LLM.
+        """Converts a tool call into an ActionEvent, validating arguments.
 
         NOTE: state will be mutated in-place.
         """
@@ -339,7 +332,6 @@ class Agent(AgentBase):
             logger.error(err)
             event = AgentErrorEvent(
                 error=err,
-                metrics=metrics,
                 tool_name=tool_name,
                 tool_call_id=tool_call.id,
             )
@@ -377,14 +369,12 @@ class Agent(AgentBase):
             )
             event = AgentErrorEvent(
                 error=err,
-                metrics=metrics,
                 tool_name=tool_name,
                 tool_call_id=tool_call.id,
             )
             on_event(event)
             return
 
-        # Create one ActionEvent per action
         action_event = ActionEvent(
             action=action,
             thought=thought,
@@ -393,19 +383,18 @@ class Agent(AgentBase):
             tool_call_id=tool_call.id,
             tool_call=tool_call,
             llm_response_id=llm_response_id,
-            metrics=metrics,
             security_risk=security_risk,
         )
         on_event(action_event)
         return action_event
 
-    def _execute_action_events(
+    def _execute_action_event(
         self,
         state: ConversationState,
         action_event: ActionEvent,
         on_event: ConversationCallbackType,
     ):
-        """Execute action events and update the conversation state.
+        """Execute an action event and update the conversation state.
 
         It will call the tool's executor and update the state & call callback fn
         with the observation.

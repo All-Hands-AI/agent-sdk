@@ -6,7 +6,6 @@ from rich.text import Text
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
-from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 
 
 class MessageEvent(LLMConvertibleEvent):
@@ -19,13 +18,6 @@ class MessageEvent(LLMConvertibleEvent):
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
-    )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs) for this message. "
-            "Only attached to messages from agent."
-        ),
     )
 
     # context extensions stuff / microagent can go here
