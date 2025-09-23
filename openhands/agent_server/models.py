@@ -136,7 +136,7 @@ class SetConfirmationPolicyRequest(BaseModel):
     policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
 
 
-TaskEvent = Annotated[
+ToolEvent = Annotated[
     Union[
         Annotated[ActionEvent, Tag("ActionEvent")],
         Annotated[ObservationEvent, Tag("ObservationEvent")],
@@ -145,6 +145,6 @@ TaskEvent = Annotated[
 ]
 
 
-class TaskEventPage(BaseModel):
-    items: list[TaskEvent]
+class ToolEventPage(BaseModel):
+    items: list[ToolEvent]
     next_page_id: str | None = None
