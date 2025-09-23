@@ -64,8 +64,8 @@ class LocalConversation(BaseConversation):
         self.agent = agent
         self._persist_filestore = persist_filestore
 
-        # Counter for pending send_message calls (before they acquire the lock)
-        self._pending_messages = 0
+        # Flag for pending send_message calls (before they acquire the lock)
+        self._pending_message_flag = False
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
@@ -137,10 +137,12 @@ class LocalConversation(BaseConversation):
 
         # Signal that there's a pending message before taking the lock
         # This allows the run loop to detect concurrent send_message calls
-        self._pending_messages += 1
+        self._pending_message_flag = True
 
         try:
             with self._state:
+                # Clear the flag immediately after acquiring the lock
+                self._pending_message_flag = False
                 if self._state.agent_status == AgentExecutionStatus.FINISHED:
                     self._state.agent_status = (
                         AgentExecutionStatus.IDLE
@@ -179,8 +181,8 @@ class LocalConversation(BaseConversation):
                 )
                 self._on_event(user_msg_event)
         finally:
-            # Decrement the counter after the message has been processed
-            self._pending_messages -= 1
+            # Ensure flag is cleared even if an exception occurs
+            self._pending_message_flag = False
 
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
@@ -268,7 +270,7 @@ class LocalConversation(BaseConversation):
         processing.
         """
         # First check for pending send_message calls
-        if self._pending_messages > 0:
+        if self._pending_message_flag:
             return True
 
         # Then check for user messages in events that came after the last agent action
