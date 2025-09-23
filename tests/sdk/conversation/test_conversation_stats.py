@@ -162,8 +162,6 @@ def test_register_llm_with_restored_metrics(conversation_stats):
         assert llm.metrics is not None
         assert llm.metrics.accumulated_cost == 0.1  # Restored cost
 
-        # Verify the specific service was removed from restored_metrics
-        print("restored services", conversation_stats._restored_services)
         assert service_id in conversation_stats._restored_services
 
 
