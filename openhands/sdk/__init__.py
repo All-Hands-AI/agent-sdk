@@ -74,4 +74,12 @@ __all__ = [
     "resolve_tool",
     "list_registered_tools",
     "__version__",
+    # Server helpers
+    "DockerAgentServer",
+    "build_agent_server_image",
 ]
+
+from openhands.sdk.server.docker_server import (
+    DockerAgentServer,
+    build_agent_server_image,
+)
