@@ -569,19 +569,13 @@ class BrowserToolSet(ToolBase):
     @classmethod
     def create(
         cls,
-        auto_install_chromium: bool = False,
-        skip_chromium_check: bool = False,
         **executor_config,
     ) -> list[ToolBase]:
         # Import executor only when actually needed to
         # avoid hanging during module import
         from openhands.tools.browser_use.impl import BrowserToolExecutor
 
-        executor = BrowserToolExecutor(
-            auto_install_chromium=auto_install_chromium,
-            skip_chromium_check=skip_chromium_check,
-            **executor_config,
-        )
+        executor = BrowserToolExecutor(**executor_config)
         return [
             browser_navigate_tool.set_executor(executor),
             browser_click_tool.set_executor(executor),
