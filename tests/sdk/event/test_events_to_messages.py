@@ -284,13 +284,17 @@ class TestEventsToMessages:
 
     def test_agent_error_event(self):
         """Test conversion of AgentErrorEvent."""
-        error_event = AgentErrorEvent(error="Command failed with exit code 1")
+        error_event = AgentErrorEvent(
+            error="Command failed with exit code 1",
+            tool_call_id="call_err",
+            tool_name="execute_bash",
+        )
 
         events = [error_event]
         messages = LLMConvertibleEvent.events_to_messages(events)  # type: ignore
 
         assert len(messages) == 1
-        assert messages[0].role == "user"
+        assert messages[0].role == "tool"
         assert messages[0].content[0].text == "Command failed with exit code 1"  # type: ignore
 
     def test_complex_parallel_and_sequential_mix(self):

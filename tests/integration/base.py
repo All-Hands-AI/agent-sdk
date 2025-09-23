@@ -11,10 +11,10 @@ from pydantic import BaseModel, SecretStr
 from openhands.sdk import (
     LLM,
     Agent,
-    Conversation,
     Message,
     TextContent,
 )
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
@@ -74,7 +74,7 @@ class BaseIntegrationTest(ABC):
         self.agent = Agent(llm=self.llm, tools=self.tools)
         self.collected_events: list[EventBase] = []
         self.llm_messages: list[dict[str, Any]] = []
-        self.conversation: Conversation = Conversation(
+        self.conversation: LocalConversation = LocalConversation(
             agent=self.agent, callbacks=[self.conversation_callback]
         )
 

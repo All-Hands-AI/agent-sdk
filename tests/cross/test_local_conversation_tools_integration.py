@@ -6,8 +6,9 @@ from unittest.mock import patch
 import pytest
 from pydantic import SecretStr
 
-from openhands.sdk import Agent, Conversation, LocalFileStore
+from openhands.sdk import Agent, LocalFileStore
 from openhands.sdk.agent import AgentBase
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools.execute_bash import BashTool
@@ -30,7 +31,7 @@ def test_conversation_with_different_agent_tools_raises_error():
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         original_agent = Agent(llm=llm, tools=original_tools)
-        conversation = Conversation(
+        conversation = LocalConversation(
             agent=original_agent, persist_filestore=file_store, visualize=False
         )
 
@@ -56,7 +57,7 @@ def test_conversation_with_different_agent_tools_raises_error():
         with pytest.raises(
             ValueError, match="different from the one in persisted state"
         ):
-            Conversation(
+            LocalConversation(
                 agent=different_agent,
                 persist_filestore=file_store,
                 conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
@@ -76,7 +77,7 @@ def test_conversation_with_same_agent_succeeds():
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         original_agent = Agent(llm=llm, tools=tools)
-        conversation = Conversation(
+        conversation = LocalConversation(
             agent=original_agent, persist_filestore=file_store, visualize=False
         )
 
@@ -100,7 +101,7 @@ def test_conversation_with_same_agent_succeeds():
         same_agent = Agent(llm=llm2, tools=same_tools)
 
         # This should succeed
-        new_conversation = Conversation(
+        new_conversation = LocalConversation(
             agent=same_agent,
             persist_filestore=file_store,
             conversation_id=conversation_id,  # Use same ID
@@ -132,7 +133,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
         agent = Agent(llm=llm, tools=tools)
 
         # Create conversation and send messages
-        conversation = Conversation(
+        conversation = LocalConversation(
             agent=agent, persist_filestore=file_store, visualize=False
         )
 
@@ -151,7 +152,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
         # Store conversation ID and event count
         original_id = conversation.id
         original_event_count = len(conversation.state.events)
-        original_state_dump = conversation.state.model_dump(
+        original_state_dump = conversation._state.model_dump(
             mode="json", exclude={"events"}
         )
 
@@ -159,7 +160,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
         del conversation
 
         # Create new conversation (should load from persistence)
-        new_conversation = Conversation(
+        new_conversation = LocalConversation(
             agent=agent,
             persist_filestore=file_store,
             conversation_id=original_id,  # Use same ID to load existing state
@@ -171,7 +172,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
         # When loading from persistence, the state should be exactly the same
         assert len(new_conversation.state.events) == original_event_count
         # Test model_dump equality (excluding events which may have different timestamps)  # noqa: E501
-        new_dump = new_conversation.state.model_dump(mode="json", exclude={"events"})
+        new_dump = new_conversation._state.model_dump(mode="json", exclude={"events"})
         assert new_dump == original_state_dump
 
         # Send another message to verify conversation continues

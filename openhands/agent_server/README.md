@@ -33,15 +33,15 @@ uv run python -m openhands.agent_server
 # Start with custom host and port
 uv run python -m openhands.agent_server --host localhost --port 3000
 
-# Start without auto-reload (for production)
-uv run python -m openhands.agent_server --no-reload
+# Start with auto-reload (for dev)
+uv run python -m openhands.agent_server --reload
 ```
 
 ### Command Line Options
 
 - `--host`: Host to bind to (default: `0.0.0.0`)
 - `--port`: Port to bind to (default: `8000`)
-- `--no-reload`: Disable auto-reload (enabled by default for development)
+- `--reload`: Enable auto-reload
 
 ## Configuration
 

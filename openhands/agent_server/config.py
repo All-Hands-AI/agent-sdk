@@ -1,7 +1,6 @@
 import json
 import os
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +14,7 @@ DEFAULT_CONFIG_FILE_PATH = "workspace/openhands_agent_server_config.json"
 
 
 class WebhookSpec(BaseModel):
-    """Spec to create a webhook"""
+    """Spec to create a webhook. All webhook requests use POST method."""
 
     # General parameters
     event_buffer_size: int = Field(
@@ -25,11 +24,20 @@ class WebhookSpec(BaseModel):
             "The number of events to buffer locally before posting to the webhook"
         ),
     )
-    method: Literal["POST", "PUT", "PATCH"] = "POST"
-    webhook_url: str = Field(
-        description="The URL of the webhook to which to post lists of events"
+    base_url: str = Field(
+        description="The base URL of the webhook service. Events will be sent to "
+        "{base_url}/events and conversation info to {base_url}/conversations"
     )
     headers: dict[str, str] = Field(default_factory=dict)
+    flush_delay: float = Field(
+        default=30.0,
+        gt=0,
+        description=(
+            "The delay in seconds after which buffered events will be flushed to "
+            "the webhook, even if the buffer is not full. Timer is reset on each "
+            "new event."
+        ),
+    )
 
     # Retry parameters
     num_retries: int = Field(

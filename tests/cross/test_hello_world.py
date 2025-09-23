@@ -438,7 +438,7 @@ class TestHelloWorld:
             )
 
             # Run one step to get the non-function call response
-            agent.step(conversation.state, on_event=conversation._on_event)
+            agent.step(conversation._state, on_event=conversation._on_event)
 
         # Validate that we captured the completion data
         assert len(captured_completions) == 1, (
@@ -530,7 +530,7 @@ class TestHelloWorld:
             )
 
             # Run one step to get the non-function call response
-            agent.step(conversation.state, on_event=conversation._on_event)
+            agent.step(conversation._state, on_event=conversation._on_event)
 
         # Validate that we captured the completion data
         assert len(captured_completions) == 1, (

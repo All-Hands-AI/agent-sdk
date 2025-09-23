@@ -287,7 +287,8 @@ def _create_action_type_with_risk(action_type: type[ActionBase]) -> type[ActionB
         (action_type,),
         {
             "security_risk": Field(
-                default=risk.SecurityRisk.UNKNOWN,
+                # We do NOT add default value to make it an required field
+                # default=risk.SecurityRisk.UNKNOWN
                 description="The LLM's assessment of the safety risk of this action.",
             ),
             "__annotations__": {"security_risk": risk.SecurityRisk},
