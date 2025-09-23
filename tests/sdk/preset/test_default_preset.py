@@ -7,6 +7,7 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
 )
 from openhands.sdk.llm import LLM
 from openhands.sdk.preset.default import get_default_agent
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool.spec import ToolSpec
 
 
@@ -193,3 +194,12 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
 
     assert task_tracker_spec_default is not None
     assert task_tracker_spec_default.params["save_dir"] == f"{working_dir}/.openhands"
+
+
+def test_get_default_agent_has_llm_security_analyzer(basic_llm):
+    """Test that the default agent includes LLMSecurityAnalyzer by default."""
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+
+    # Should have LLMSecurityAnalyzer as the security analyzer
+    assert agent.security_analyzer is not None
+    assert isinstance(agent.security_analyzer, LLMSecurityAnalyzer)
