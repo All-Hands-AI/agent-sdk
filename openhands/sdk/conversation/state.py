@@ -85,7 +85,6 @@ class ConversationState(OpenHandsModel):
     _autosave_enabled: bool = PrivateAttr(
         default=False
     )  # to avoid recursion during init
-    _run_in_progress: bool = PrivateAttr(default=False)  # guard for concurrent sends
 
     # ===== Public "events" facade (ListLike[Event]) =====
     @property
