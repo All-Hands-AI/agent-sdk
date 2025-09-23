@@ -15,7 +15,6 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from fastapi.websockets import WebSocketState
 
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
@@ -157,15 +156,20 @@ async def socket(
         _WebSocketSubscriber(websocket)
     )
     try:
-        while websocket.application_state == WebSocketState.CONNECTED:
+        while True:
             try:
                 data = await websocket.receive_json()
                 message = Message.model_validate(data)
                 await event_service.send_message(message, run=True)
             except WebSocketDisconnect:
-                await event_service.unsubscribe_from_events(subscriber_id)
-            except Exception:
+                # Exit the loop when websocket disconnects
+                return
+            except Exception as e:
                 logger.exception("error_in_subscription", stack_info=True)
+                # For critical errors that indicate the websocket is broken, exit
+                if isinstance(e, (RuntimeError, ConnectionError)):
+                    raise
+                # For other exceptions, continue the loop
     finally:
         await event_service.unsubscribe_from_events(subscriber_id)
 
