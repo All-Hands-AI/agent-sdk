@@ -69,14 +69,11 @@ def test_conversation_state_persistence_save_load():
         file_store = LocalFileStore(temp_dir)
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
-
-        # Create conversation (which properly initializes stats with LLM registration)
-        conversation = Conversation(
+        state = ConversationState.create(
             agent=agent,
-            persist_filestore=file_store,
-            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
+            id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
+            file_store=file_store,
         )
-        state = conversation.state
 
         # Add events
         event1 = SystemPromptEvent(
@@ -95,9 +92,7 @@ def test_conversation_state_persistence_save_load():
 
         # Events are stored with new naming pattern
         event_files = list(Path(temp_dir, "events").glob("*.json"))
-        assert (
-            len(event_files) == 3
-        )  # SystemPromptEvent from Conversation + 2 added events
+        assert len(event_files) == 2
 
         # Load state using Conversation (which handles loading)
         conversation = Conversation(
@@ -109,14 +104,9 @@ def test_conversation_state_persistence_save_load():
 
         # Verify loaded state matches original
         assert loaded_state.id == state.id
-        assert (
-            len(loaded_state.events) == 3
-        )  # SystemPromptEvent from Conversation + 2 added events
-        assert isinstance(
-            loaded_state.events[0], SystemPromptEvent
-        )  # From Conversation init
-        assert isinstance(loaded_state.events[1], SystemPromptEvent)  # Added manually
-        assert isinstance(loaded_state.events[2], MessageEvent)  # Added manually
+        assert len(loaded_state.events) == 2
+        assert isinstance(loaded_state.events[0], SystemPromptEvent)
+        assert isinstance(loaded_state.events[1], MessageEvent)
         assert loaded_state.agent.llm.model == agent.llm.model
         assert loaded_state.agent.__class__ == agent.__class__
         # Test model_dump equality
@@ -132,14 +122,11 @@ def test_conversation_state_incremental_save():
         file_store = LocalFileStore(temp_dir)
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
-
-        # Create conversation (which properly initializes stats with LLM registration)
-        conversation = Conversation(
+        state = ConversationState.create(
             agent=agent,
-            persist_filestore=file_store,
-            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789003"),
+            id=uuid.UUID("12345678-1234-5678-9abc-123456789003"),
+            file_store=file_store,
         )
-        state = conversation.state
 
         # Add first event - auto-saves
         event1 = SystemPromptEvent(
@@ -147,11 +134,9 @@ def test_conversation_state_incremental_save():
         )
         state.events.append(event1)
 
-        # Verify event files exist (SystemPromptEvent from Conversation + added event)
+        # Verify event files exist (may have additional events from Agent.init_state)
         event_files = list(Path(temp_dir, "events").glob("*.json"))
-        assert (
-            len(event_files) == 2
-        )  # SystemPromptEvent from Conversation + added event
+        assert len(event_files) == 1
 
         # Add second event - auto-saves
         event2 = MessageEvent(
@@ -162,9 +147,7 @@ def test_conversation_state_incremental_save():
 
         # Verify additional event file was created
         event_files = list(Path(temp_dir, "events").glob("*.json"))
-        assert (
-            len(event_files) == 3
-        )  # SystemPromptEvent from Conversation + 2 added events
+        assert len(event_files) == 2
 
         # Load using Conversation and verify events are present
         conversation = Conversation(
@@ -402,14 +385,11 @@ def test_conversation_state_flags_persistence():
         file_store = LocalFileStore(temp_dir)
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         agent = Agent(llm=llm, tools=[])
-
-        # Create conversation (which properly initializes stats with LLM registration)
-        conversation = Conversation(
+        state = ConversationState.create(
             agent=agent,
-            persist_filestore=file_store,
-            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
+            id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
+            file_store=file_store,
         )
-        state = conversation.state
 
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED
