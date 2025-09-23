@@ -145,10 +145,10 @@ def test_no_security_analyzer_excludes_risk_assessment():
 def test_non_llm_security_analyzer_excludes_risk_assessment():
     """Test that security risk assessment section is excluded when security analyzer is not LLMSecurityAnalyzer."""  # noqa: E501
     from openhands.sdk.event import ActionEvent
-    from openhands.sdk.security.analyzer import SecurityAnalyzerBase
+    from openhands.sdk.security.analyzer import PerActionSecurityAnalyzer
     from openhands.sdk.security.risk import SecurityRisk
 
-    class MockSecurityAnalyzer(SecurityAnalyzerBase):
+    class MockSecurityAnalyzer(PerActionSecurityAnalyzer):
         def security_risk(self, action: ActionEvent) -> SecurityRisk:
             return SecurityRisk.LOW
 

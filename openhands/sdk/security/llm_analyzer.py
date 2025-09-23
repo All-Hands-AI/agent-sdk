@@ -1,13 +1,13 @@
 from openhands.sdk.event import ActionEvent
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.analyzer import SecurityAnalyzerBase
+from openhands.sdk.security.analyzer import PerActionSecurityAnalyzer
 from openhands.sdk.security.risk import SecurityRisk
 
 
 logger = get_logger(__name__)
 
 
-class LLMSecurityAnalyzer(SecurityAnalyzerBase):
+class LLMSecurityAnalyzer(PerActionSecurityAnalyzer):
     """LLM-based security analyzer.
 
     This analyzer respects the security_risk attribute that can be set by the LLM

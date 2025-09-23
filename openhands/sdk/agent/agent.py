@@ -258,7 +258,11 @@ class Agent(AgentBase):
                 action_events.append(action_event)
 
             # Handle confirmation mode - exit early if actions need confirmation
-            if self._requires_user_confirmation(state, action_events):
+            if self._requires_user_confirmation(
+                state,
+                current_context=llm_convertible_events,
+                pending_actions=action_events,
+            ):
                 return
 
             if action_events:
@@ -275,7 +279,10 @@ class Agent(AgentBase):
             on_event(msg_event)
 
     def _requires_user_confirmation(
-        self, state: ConversationState, action_events: list[ActionEvent]
+        self,
+        state: ConversationState,
+        current_context: list[LLMConvertibleEvent],
+        pending_actions: list[ActionEvent],
     ) -> bool:
         """
         Decide whether user confirmation is needed to proceed.
@@ -286,29 +293,31 @@ class Agent(AgentBase):
             3. A single `FinishAction` never requires confirmation
         """
         # A single `FinishAction` never requires confirmation
-        if len(action_events) == 1 and isinstance(
-            action_events[0].action, FinishAction
+        if len(pending_actions) == 1 and isinstance(
+            pending_actions[0].action, FinishAction
         ):
             return False
 
         # If there are no actions there is nothing to confirm
-        if len(action_events) == 0:
+        if len(pending_actions) == 0:
             return False
 
         # If a security analyzer is registered, use it to grab the risks of the actions
         # involved. If not, we'll set the risks to UNKNOWN.
         if self.security_analyzer is not None:
-            risks = [
-                risk
-                for _, risk in self.security_analyzer.analyze_pending_actions(
-                    action_events
-                )
-            ]
+            risk_analysis = self.security_analyzer.analyze_pending_actions(
+                current_context=current_context, pending_actions=pending_actions
+            )
         else:
-            risks = [risk.SecurityRisk.UNKNOWN] * len(action_events)
+            risk_analysis = {
+                action.id: risk.SecurityRisk.UNKNOWN for action in pending_actions
+            }
 
         # Grab the confirmation policy from the state and pass in the risks.
-        if any(state.confirmation_policy.should_confirm(risk) for risk in risks):
+        if any(
+            state.confirmation_policy.should_confirm(risk)
+            for risk in risk_analysis.values()
+        ):
             state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
             return True
 
