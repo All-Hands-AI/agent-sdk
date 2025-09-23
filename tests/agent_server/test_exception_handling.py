@@ -17,7 +17,7 @@ def client():
 @pytest.fixture
 def client_with_auth():
     """Create a test client with session API key authentication."""
-    config = Config(session_api_key="test-key-123")
+    config = Config(session_api_keys=["test-key-123"])
     app = create_app(config)
     return TestClient(app)
 
