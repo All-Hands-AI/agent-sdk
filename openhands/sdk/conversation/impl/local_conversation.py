@@ -216,7 +216,7 @@ class LocalConversation(BaseConversation):
 
                 # Check for unattended user messages when finished
                 if self._state.agent_status == AgentExecutionStatus.FINISHED:
-                    if self._has_unattended_user_messages():
+                    if self._pending_message_flag:
                         # There are unattended user messages, continue processing
                         logger.debug(
                             "Found unattended user messages, continuing run loop"
@@ -256,22 +256,6 @@ class LocalConversation(BaseConversation):
 
                 # For FINISHED status, let the loop continue to check for unattended
                 # messages at the top of the next iteration
-
-    def _has_unattended_user_messages(self) -> bool:
-        """
-        Check if there are user messages that are left unattended.
-
-        This detects the race condition where send_message() was called during
-        the final step execution but hasn't acquired the state lock yet.
-
-        For messages sent after the agent finished (no race condition),
-        send_message() will immediately set the agent status back to IDLE,
-        so the run loop continues naturally without needing this check.
-
-        Returns True if there are unattended user messages, indicating they need
-        processing.
-        """
-        return self._pending_message_flag
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
