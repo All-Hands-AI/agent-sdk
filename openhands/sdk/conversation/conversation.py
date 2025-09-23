@@ -112,7 +112,7 @@ class Conversation:
     @property
     def conversation_stats(self):
         return self.state.stats
-    
+
     @property
     def stuck_detector(self) -> StuckDetector | None:
         """Get the stuck detector instance if enabled."""

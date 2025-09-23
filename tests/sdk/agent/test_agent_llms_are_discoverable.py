@@ -89,3 +89,27 @@ def test_automatic_llm_discovery_with_multimodal_router():
     assert len(llms) == 2
     assert check_service_id_exists(primary_service_id, llms)
     assert check_service_id_exists(secondary_service_id, llms)
+
+
+def test_automatic_llm_discovery_with_llm_as_base_class():
+    class NewLLM(LLM):
+        list_llms: list[LLM] = []
+        dict_llms: dict[str, LLM] = {}
+        raw_llm: LLM | None = None
+
+    list_llm = LLM(model="list-model", service_id="list-model")
+    dict_llm = LLM(model="dict-model", service_id="dict-model")
+    raw_llm = LLM(model="raw_llm", service_id="raw_llm")
+
+    new_llm = NewLLM(
+        model="new-llm-type",
+        service_id="new-llm-test",
+        list_llms=[list_llm],
+        dict_llms={"key": dict_llm},
+        raw_llm=raw_llm,
+    )
+
+    agent = Agent(llm=new_llm)
+    llms = list(agent.get_all_llms())
+
+    assert len(llms) == 3
