@@ -56,7 +56,9 @@ def test_middleware_auth_missing_key(client_with_auth):
     """Integration test: missing X-Session-API-Key should return 401."""
     # TestClient re-raises middleware exceptions, so we need to catch them
     try:
-        response = client_with_auth.get("/conversations")  # This endpoint requires auth
+        response = client_with_auth.get(
+            "/api/conversations"
+        )  # This endpoint requires auth
         # If no exception, check the response
         assert response.status_code == 401
         assert (
@@ -74,7 +76,7 @@ def test_middleware_auth_invalid_key(client_with_auth):
     # TestClient re-raises middleware exceptions, so we need to catch them
     try:
         response = client_with_auth.get(
-            "/conversations", headers={"X-Session-API-Key": "wrong-key"}
+            "/api/conversations", headers={"X-Session-API-Key": "wrong-key"}
         )
         # If no exception, check the response
         assert response.status_code == 401
@@ -91,7 +93,7 @@ def test_middleware_auth_invalid_key(client_with_auth):
 def test_middleware_auth_valid_key(client_with_auth):
     """Integration test: valid X-Session-API-Key should allow access."""
     response = client_with_auth.get(
-        "/conversations", headers={"X-Session-API-Key": "test-key-123"}
+        "/api/conversations", headers={"X-Session-API-Key": "test-key-123"}
     )
 
     # Should not be 401 (might be 200 or other depending on endpoint implementation)
@@ -100,7 +102,7 @@ def test_middleware_auth_valid_key(client_with_auth):
 
 def test_middleware_options_request_bypasses_auth(client_with_auth):
     """Integration test: OPTIONS requests should bypass authentication for CORS."""
-    response = client_with_auth.options("/conversations")
+    response = client_with_auth.options("/api/conversations")
 
     # OPTIONS should not require authentication
     assert response.status_code != 401
