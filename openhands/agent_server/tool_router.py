@@ -6,7 +6,7 @@ from openhands.sdk.preset.default import register_default_tools
 from openhands.sdk.tool.registry import list_registered_tools
 
 
-router = APIRouter(prefix="/api/tools")
+router = APIRouter(prefix="/tools")
 
 
 register_default_tools(enable_browser=True)
