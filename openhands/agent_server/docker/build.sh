@@ -6,7 +6,7 @@ set -euo pipefail
 # ------------------------------------------------------------
 IMAGE="${IMAGE:-ghcr.io/all-hands-ai/agent-server}"
 BASE_IMAGE="${BASE_IMAGE:-nikolaik/python-nodejs:python3.12-nodejs22}"
-VARIANT_NAME="${VARIANT_NAME:-""}"  # "python", "java", or "golang"
+VARIANT_NAME="${VARIANT_NAME:-python}"  # "python", "java", or "golang"
 TARGET="${TARGET:-binary}"          # "binary" (prod) or "source" (dev)
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 
@@ -15,10 +15,6 @@ SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
 DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
 
 [[ -f "${DOCKERFILE}" ]] || { echo "[build] ERROR: Dockerfile not found at ${DOCKERFILE}"; exit 1; }
-
-# Helpers: add suffixes only when VARIANT_NAME is non-empty
-VARIANT_HYPHEN_SUFFIX="${VARIANT_NAME:+-${VARIANT_NAME}}"
-VARIANT_UNDERSCORE_SUFFIX="${VARIANT_NAME:+_${VARIANT_NAME}}"
 
 # ------------------------------------------------------------
 # Git info (don’t break userspace tagging)
@@ -39,12 +35,12 @@ echo "[build] Using SDK version ${SDK_VERSION}"
 
 # Base slug (keep legacy format so downstream tags don’t change)
 BASE_SLUG="$(echo -n "${BASE_IMAGE}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
-VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}${VARIANT_UNDERSCORE_SUFFIX}"
+VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}_${VARIANT_NAME}"
 
 # ------------------------------------------------------------
 # Cache configuration
 # ------------------------------------------------------------
-CACHE_TAG_BASE="buildcache${VARIANT_HYPHEN_SUFFIX}"
+CACHE_TAG_BASE="buildcache-${VARIANT_NAME}"
 CACHE_TAG="${CACHE_TAG_BASE}"
 
 # Add branch-specific cache tag for better cache hits
@@ -61,21 +57,15 @@ fi
 # ------------------------------------------------------------
 if [[ "${TARGET}" == "source" ]]; then
   # Dev tags: add -dev suffix
-  TAGS=(
-    "${IMAGE}:${SHORT_SHA}${VARIANT_HYPHEN_SUFFIX}-dev"
-    "${IMAGE}:${VERSIONED_TAG}-dev"
-  )
+  TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}-dev" "${IMAGE}:${VERSIONED_TAG}-dev" )
   if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-    TAGS+=( "${IMAGE}:latest${VARIANT_HYPHEN_SUFFIX}-dev" )
+    TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}-dev" )
   fi
 else
   # Prod tags
-  TAGS=(
-    "${IMAGE}:${SHORT_SHA}${VARIANT_HYPHEN_SUFFIX}"
-    "${IMAGE}:${VERSIONED_TAG}"
-  )
+  TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}" "${IMAGE}:${VERSIONED_TAG}" )
   if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-    TAGS+=( "${IMAGE}:latest${VARIANT_HYPHEN_SUFFIX}" )
+    TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}" )
   fi
 fi
 
@@ -89,7 +79,7 @@ COMMON_ARGS=(
   .
 )
 
-echo "[build] Building target='${TARGET}' image='${IMAGE}' variant='${VARIANT_NAME:-<none>}' from base='${BASE_IMAGE}' for platforms='${PLATFORMS}'"
+echo "[build] Building target='${TARGET}' image='${IMAGE}' variant='${VARIANT_NAME}' from base='${BASE_IMAGE}' for platforms='${PLATFORMS}'"
 echo "[build] Git ref='${GIT_REF}' sha='${GIT_SHA}' version='${SDK_VERSION}'"
 echo "[build] Cache tag: ${CACHE_TAG}"
 echo "[build] Tags:"
