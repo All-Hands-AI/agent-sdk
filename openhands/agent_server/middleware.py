@@ -46,18 +46,13 @@ class ValidateSessionAPIKeyMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, session_api_key: str) -> None:
         super().__init__(app)
         self.session_api_key = session_api_key
-        # Use a set for efficient path lookups
-        self.unauthenticated_paths = {"/alive", "/health", "/server_info"}
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         # Skip authentication for CORS preflight requests (OPTIONS method)
         # and for health check/server info endpoints
-        if (
-            request.method == "OPTIONS"
-            or request.url.path in self.unauthenticated_paths
-        ):
+        if request.method == "OPTIONS" or not request.url.path.startswith("/api"):
             response = await call_next(request)
             return response
 
