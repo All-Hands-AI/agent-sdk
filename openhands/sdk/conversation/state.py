@@ -56,6 +56,16 @@ class ConversationState(OpenHandsModel):
             "LLM changes, etc."
         ),
     )
+    max_iterations: int = Field(
+        default=500,
+        gt=0,
+        description="Maximum number of iterations the agent can "
+        "perform in a single run.",
+    )
+    stuck_detection: bool = Field(
+        default=True,
+        description="Whether to enable stuck detection for the agent.",
+    )
 
     # Enum-based state management
     agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
@@ -121,6 +131,8 @@ class ConversationState(OpenHandsModel):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
+        max_iterations: int = 500,
+        stuck_detection: bool = True,
         file_store: FileStore | None = None,
     ) -> "ConversationState":
         """
@@ -169,7 +181,12 @@ class ConversationState(OpenHandsModel):
                 "agent is required when initializing a new ConversationState"
             )
 
-        state = cls(id=id, agent=agent)
+        state = cls(
+            id=id,
+            agent=agent,
+            max_iterations=max_iterations,
+            stuck_detection=stuck_detection,
+        )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
         state._save_base_state(file_store)  # initial snapshot

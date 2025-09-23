@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import Enum
 
+from rich.text import Text
+
 
 class SecurityRisk(str, Enum):
     """Security risk levels for actions.
@@ -34,6 +36,30 @@ class SecurityRisk(str, Enum):
 
     def __str__(self) -> str:
         return self.name
+
+    def get_color(self) -> str:
+        """Get the color for displaying this risk level in Rich text."""
+        color_map = {
+            SecurityRisk.LOW: "green",
+            SecurityRisk.MEDIUM: "yellow",
+            SecurityRisk.HIGH: "red",
+            SecurityRisk.UNKNOWN: "white",
+        }
+        return color_map.get(self, "white")
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this risk level."""
+        content = Text()
+        content.append(
+            "Predicted Security Risk: ",
+            style="bold",
+        )
+        content.append(
+            f"{self.value}\n\n",
+            style=f"bold {self.get_color()}",
+        )
+        return content
 
     def is_riskier(self, other: SecurityRisk, reflexive: bool = True) -> bool:
         """Check if this risk level is riskier than another.

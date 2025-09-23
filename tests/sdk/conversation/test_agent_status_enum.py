@@ -14,29 +14,30 @@ def test_agent_execution_state_enum_basic():
     conversation = Conversation(agent=agent)
 
     # Test initial state
-    assert conversation.state.agent_status == AgentExecutionStatus.IDLE
+    assert conversation._state.agent_status == AgentExecutionStatus.IDLE
 
     # Test setting enum directly
-    conversation.state.agent_status = AgentExecutionStatus.RUNNING
-    assert conversation.state.agent_status == AgentExecutionStatus.RUNNING
+    conversation._state.agent_status = AgentExecutionStatus.RUNNING
+    assert conversation._state.agent_status == AgentExecutionStatus.RUNNING
 
     # Test setting to FINISHED
-    conversation.state.agent_status = AgentExecutionStatus.FINISHED
-    assert conversation.state.agent_status == AgentExecutionStatus.FINISHED
+    conversation._state.agent_status = AgentExecutionStatus.FINISHED
+    assert conversation._state.agent_status == AgentExecutionStatus.FINISHED
 
     # Test setting to PAUSED
-    conversation.state.agent_status = AgentExecutionStatus.PAUSED
-    assert conversation.state.agent_status == AgentExecutionStatus.PAUSED
+    conversation._state.agent_status = AgentExecutionStatus.PAUSED
+    assert conversation._state.agent_status == AgentExecutionStatus.PAUSED
 
     # Test setting to WAITING_FOR_CONFIRMATION
-    conversation.state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+    conversation._state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
     assert (
-        conversation.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        conversation._state.agent_status
+        == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
     )
 
     # Test setting to ERROR
-    conversation.state.agent_status = AgentExecutionStatus.ERROR
-    assert conversation.state.agent_status == AgentExecutionStatus.ERROR
+    conversation._state.agent_status = AgentExecutionStatus.ERROR
+    assert conversation._state.agent_status == AgentExecutionStatus.ERROR
 
 
 def test_enum_values():
@@ -56,18 +57,18 @@ def test_enum_serialization():
     conversation = Conversation(agent=agent)
 
     # Set to different states and test serialization
-    conversation.state.agent_status = AgentExecutionStatus.FINISHED
-    serialized = conversation.state.model_dump_json()
+    conversation._state.agent_status = AgentExecutionStatus.FINISHED
+    serialized = conversation._state.model_dump_json()
     assert '"agent_status": "finished"' in serialized
 
-    conversation.state.agent_status = AgentExecutionStatus.PAUSED
-    serialized = conversation.state.model_dump_json()
+    conversation._state.agent_status = AgentExecutionStatus.PAUSED
+    serialized = conversation._state.model_dump_json()
     assert '"agent_status": "paused"' in serialized
 
-    conversation.state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-    serialized = conversation.state.model_dump_json()
+    conversation._state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+    serialized = conversation._state.model_dump_json()
     assert '"agent_status": "waiting_for_confirmation"' in serialized
 
-    conversation.state.agent_status = AgentExecutionStatus.ERROR
-    serialized = conversation.state.model_dump_json()
+    conversation._state.agent_status = AgentExecutionStatus.ERROR
+    serialized = conversation._state.model_dump_json()
     assert '"agent_status": "error"' in serialized
