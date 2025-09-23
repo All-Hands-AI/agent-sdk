@@ -48,3 +48,8 @@ class PipelineCondenser(CondenserBase):
                 break
             result = condenser.condense(result)
         return result
+
+    def handles_condensation_requests(self) -> bool:
+        return any(
+            condenser.handles_condensation_requests() for condenser in self.condensers
+        )

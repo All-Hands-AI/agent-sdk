@@ -7,6 +7,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools.execute_bash import BashTool
@@ -38,8 +39,8 @@ def agent(llm: LLM, tools: list[ToolSpec]) -> Agent:
 
 
 @pytest.fixture
-def conversation(agent: Agent) -> Conversation:
-    return Conversation(agent)
+def conversation(agent: Agent) -> LocalConversation:
+    return LocalConversation(agent)
 
 
 @pytest.fixture
@@ -55,12 +56,12 @@ def agent_no_bash(llm: LLM) -> Agent:
 
 
 @pytest.fixture
-def conversation_no_bash(agent_no_bash: Agent) -> Conversation:
-    return Conversation(agent_no_bash)
+def conversation_no_bash(agent_no_bash: Agent) -> LocalConversation:
+    return LocalConversation(agent_no_bash)
 
 
 def test_agent_configures_bash_tools_env_provider(
-    conversation: Conversation, bash_executor: BashExecutor, agent: Agent
+    conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
     """Test that agent configures bash tools with env provider."""
     # Add secrets to conversation
@@ -90,7 +91,7 @@ def test_agent_configures_bash_tools_env_provider(
 
 
 def test_agent_env_provider_with_callable_secrets(
-    conversation: Conversation, bash_executor: BashExecutor
+    conversation: LocalConversation, bash_executor: BashExecutor
 ):
     """Test that agent env provider works with callable secrets."""
 
@@ -111,7 +112,7 @@ def test_agent_env_provider_with_callable_secrets(
 
 
 def test_agent_env_provider_handles_exceptions(
-    conversation: Conversation, bash_executor: BashExecutor
+    conversation: LocalConversation, bash_executor: BashExecutor
 ):
     """Test that agent env provider handles exceptions gracefully."""
 
@@ -138,7 +139,7 @@ def test_agent_env_provider_handles_exceptions(
 
 
 def test_agent_env_provider_no_matches(
-    conversation: Conversation, bash_executor: BashExecutor
+    conversation: LocalConversation, bash_executor: BashExecutor
 ):
     """Test agent env provider when command has no secret matches."""
 
@@ -165,7 +166,7 @@ def test_agent_without_bash_throws_warning(llm):
 
 
 def test_agent_secrets_integration_workflow(
-    conversation: Conversation, bash_executor: BashExecutor, agent: Agent
+    conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
     """Test complete workflow of agent secrets integration."""
 
@@ -209,7 +210,7 @@ def test_agent_secrets_integration_workflow(
 
 
 def test_mask_secrets(
-    conversation: Conversation, bash_executor: BashExecutor, agent: Agent
+    conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
     """Test that agent configures bash tools with env provider."""
 
@@ -240,7 +241,7 @@ def test_mask_secrets(
 
 
 def test_mask_changing_secrets(
-    conversation: Conversation, bash_executor: BashExecutor, agent: Agent
+    conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
     counter = 0
 
@@ -271,7 +272,7 @@ def test_mask_changing_secrets(
 
 
 def test_masking_persists(
-    conversation: Conversation, bash_executor: BashExecutor, agent: Agent
+    conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
     counter = 0
     raised_on_second = False

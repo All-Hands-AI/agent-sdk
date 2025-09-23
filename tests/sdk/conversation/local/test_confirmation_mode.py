@@ -528,17 +528,17 @@ class TestConfirmationMode:
 
         # Test that pause works correctly for other states
         # Reset to IDLE state
-        with self.conversation.state:
-            self.conversation.state.agent_status = AgentExecutionStatus.IDLE
+        with self.conversation._state:
+            self.conversation._state.agent_status = AgentExecutionStatus.IDLE
 
         # Pause from IDLE should change status to PAUSED
         self.conversation.pause()
-        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
+        assert self.conversation._state.agent_status == AgentExecutionStatus.PAUSED
 
         # Reset to RUNNING state
-        with self.conversation.state:
-            self.conversation.state.agent_status = AgentExecutionStatus.RUNNING
+        with self.conversation._state:
+            self.conversation._state.agent_status = AgentExecutionStatus.RUNNING
 
         # Pause from RUNNING should change status to PAUSED
         self.conversation.pause()
-        assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
+        assert self.conversation._state.agent_status == AgentExecutionStatus.PAUSED

@@ -190,7 +190,10 @@ def test_repeating_action_error_stuck():
             llm_response_id=f"response_{i}",
         )
         error = AgentErrorEvent(
-            source="agent", error="Command 'invalid_command' not found"
+            source="agent",
+            error="Command 'invalid_command' not found",
+            tool_call_id=action.tool_call_id,
+            tool_name=action.tool_name,
         )
         return action, error
 

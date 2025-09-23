@@ -74,3 +74,11 @@ def test_riskiness_ordering_undefined_for_unknown():
         else:
             comparison = first_risk.is_riskier(second_risk)
             assert comparison in (True, False)
+
+
+def test_security_risk_get_color():
+    """Test that SecurityRisk.get_color() returns expected color codes."""
+    assert SecurityRisk.LOW.get_color() == "green"
+    assert SecurityRisk.MEDIUM.get_color() == "yellow"
+    assert SecurityRisk.HIGH.get_color() == "red"
+    assert SecurityRisk.UNKNOWN.get_color() == "white"

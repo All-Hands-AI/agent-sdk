@@ -5,6 +5,7 @@ from openhands.sdk.event import (
     CondensationSummaryEvent,
     EventBase,
     MessageEvent,
+    ObservationBaseEvent,
     ObservationEvent,
 )
 from openhands.sdk.logger import get_logger
@@ -65,10 +66,7 @@ class StuckDetector:
         for event in reversed(events):
             if isinstance(event, ActionEvent) and len(last_actions) < 4:
                 last_actions.append(event)
-            elif (
-                isinstance(event, (ObservationEvent, AgentErrorEvent))
-                and len(last_observations) < 4
-            ):
+            elif isinstance(event, ObservationBaseEvent) and len(last_observations) < 4:
                 last_observations.append(event)
             if len(last_actions) >= 4 and len(last_observations) >= 4:
                 break

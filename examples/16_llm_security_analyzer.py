@@ -1,24 +1,94 @@
-"""OpenHands Agent SDK — LLM Security Analyzer Example
+"""OpenHands Agent SDK — LLM Security Analyzer Example (Simplified)
 
 This example shows how to use the LLMSecurityAnalyzer to automatically
 evaluate security risks of actions before execution.
 """
 
 import os
+import signal
 import uuid
+from typing import Callable
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, Conversation, LocalFileStore
+from openhands.sdk import LLM, Agent, Conversation, ConversationType, LocalFileStore
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.security.confirmation_policy import ConfirmRisky
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
 
-print("=== LLM Security Analyzer Example ===")
+# Clean ^C exit: no stack trace noise
+signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
+
+
+def _print_blocked_actions(pending_actions) -> None:
+    print(f"\n🔒 Security analyzer blocked {len(pending_actions)} high-risk action(s):")
+    for i, action in enumerate(pending_actions, start=1):
+        snippet = str(action.action)[:100].replace("\n", " ")
+        print(f"  {i}. {action.tool_name}: {snippet}...")
+
+
+def confirm_high_risk_in_console(pending_actions) -> bool:
+    """
+    Return True to approve, False to reject.
+    Matches original behavior: default to 'no' on EOF/KeyboardInterrupt.
+    """
+    _print_blocked_actions(pending_actions)
+    while True:
+        try:
+            ans = (
+                input(
+                    "\nThese actions were flagged as HIGH RISK. "
+                    "Do you want to execute them anyway? (yes/no): "
+                )
+                .strip()
+                .lower()
+            )
+        except (EOFError, KeyboardInterrupt):
+            print("\n❌ No input received; rejecting by default.")
+            return False
+
+        if ans in ("yes", "y"):
+            print("✅ Approved — executing high-risk actions...")
+            return True
+        if ans in ("no", "n"):
+            print("❌ Rejected — skipping high-risk actions...")
+            return False
+        print("Please enter 'yes' or 'no'.")
+
+
+def run_until_finished_with_security(
+    conversation: ConversationType, confirmer: Callable[[list], bool]
+) -> None:
+    """
+    Drive the conversation until FINISHED.
+    - If WAITING_FOR_CONFIRMATION: ask the confirmer.
+        * On approve: set agent_status = IDLE (keeps original example’s behavior).
+        * On reject: conversation.reject_pending_actions(...).
+    - If WAITING but no pending actions: print warning and set IDLE (matches original).
+    """
+    while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
+        if (
+            conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        ):
+            pending = get_unmatched_actions(conversation.state.events)
+            if not pending:
+                raise RuntimeError(
+                    "⚠️ Agent is waiting for confirmation but no pending actions "
+                    "were found. This should not happen."
+                )
+            if not confirmer(pending):
+                conversation.reject_pending_actions("User rejected high-risk actions")
+                continue
+
+        print("▶️  Running conversation.run()...")
+        conversation.run()
+
 
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
@@ -37,15 +107,17 @@ tools = [
     ToolSpec(name="FileEditorTool"),
 ]
 
-# Create agent with security analyzer
+# Agent with security analyzer
 security_analyzer = LLMSecurityAnalyzer()
 agent = Agent(llm=llm, tools=tools, security_analyzer=security_analyzer)
 
+# Conversation with persisted filestore
 conversation_id = uuid.uuid4()
 file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 conversation = Conversation(
     agent=agent, conversation_id=conversation_id, persist_filestore=file_store
 )
+conversation.set_confirmation_policy(ConfirmRisky())
 
 print("\n1) Safe command (LOW risk - should execute automatically)...")
 conversation.send_message("List files in the current directory")
@@ -53,75 +125,6 @@ conversation.run()
 
 print("\n2) Potentially risky command (may require confirmation)...")
 conversation.send_message(
-    "Create a temporary file called 'security_test.txt' -- THIS IS A HIGH RISK ACTION"
+    "Please echo 'hello world' -- PLEASE MARK THIS AS A HIGH RISK ACTION"
 )
-
-# Handle security analyzer blocking high-risk actions
-# Run conversation with security confirmation handling
-while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
-    # Check if agent is waiting for confirmation due to security analyzer
-    if conversation.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
-        pending_actions = get_unmatched_actions(conversation.state.events)
-
-        if pending_actions:
-            # Show the pending actions that were blocked
-            print(
-                f"\n🔒 Security analyzer blocked {len(pending_actions)} "
-                "high-risk action(s):"
-            )
-            for i, action in enumerate(pending_actions):
-                snippet = str(action.action)[:100].replace("\n", " ")
-                print(f"  {i + 1}. {action.tool_name}: {snippet}...")
-
-            # Ask the user if we should proceed or not
-            while True:
-                try:
-                    user_input = (
-                        input(
-                            "\nThese actions were flagged as HIGH RISK. "
-                            "Do you want to execute them anyway? (yes/no): "
-                        )
-                        .strip()
-                        .lower()
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    print("\n❌ No input received; rejecting by default.")
-                    user_input = "no"
-                    break
-
-                if user_input in ("yes", "y"):
-                    print("✅ Approved — executing high-risk actions...")
-                    # If user wants to proceed, set agent state to idle
-                    conversation.state.agent_status = AgentExecutionStatus.IDLE
-                    break
-                elif user_input in ("no", "n"):
-                    print("❌ Rejected — skipping high-risk actions...")
-                    # If the user does not want to proceed, clear the pending actions
-                    conversation.reject_pending_actions(
-                        "User rejected high-risk actions"
-                    )
-                    break
-                else:
-                    print("Please enter 'yes' or 'no'.")
-
-            if user_input in ("no", "n"):
-                continue  # Loop continues — the agent may produce a new step or finish
-        else:
-            # Defensive: clear the flag if somehow set without actions
-            print(
-                "⚠️ Agent is waiting for confirmation but no pending actions were found."
-            )
-            conversation.state.agent_status = AgentExecutionStatus.IDLE
-
-    print("▶️  Running conversation.run()...")
-    conversation.run()
-
-print("\n3) Cleanup...")
-conversation.send_message("Remove any test files created")
-conversation.run()
-
-print("\n=== Example Complete ===")
-print("The LLMSecurityAnalyzer automatically evaluates action security risks.")
-print(
-    "HIGH risk actions require confirmation, while LOW risk actions execute directly."
-)
+run_until_finished_with_security(conversation, confirm_high_risk_in_console)
