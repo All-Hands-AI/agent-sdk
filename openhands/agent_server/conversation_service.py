@@ -206,7 +206,7 @@ class ConversationService:
             message = Message(
                 role=initial_message.role, content=initial_message.content
             )
-            await event_service.send_message(message, run=initial_message.run)
+            await event_service.send_message(message)
 
         state = await event_service.get_state()
         conversation_info = _compose_conversation_info(event_service.stored, state)

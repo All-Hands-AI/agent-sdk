@@ -11,7 +11,7 @@ from typing import Callable
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, Conversation, ConversationType, LocalFileStore
+from openhands.sdk import LLM, Agent, BaseConversation, Conversation, LocalFileStore
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.security.confirmation_policy import ConfirmRisky
@@ -62,7 +62,7 @@ def confirm_high_risk_in_console(pending_actions) -> bool:
 
 
 def run_until_finished_with_security(
-    conversation: ConversationType, confirmer: Callable[[list], bool]
+    conversation: BaseConversation, confirmer: Callable[[list], bool]
 ) -> None:
     """
     Drive the conversation until FINISHED.

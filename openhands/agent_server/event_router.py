@@ -114,9 +114,6 @@ async def batch_get_conversation_events(
     return events
 
 
-# Write Methods
-
-
 @event_router.post("/")
 async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Success:
     """Send a message to a conversation"""
@@ -124,7 +121,7 @@ async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Su
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     message = Message(role=request.role, content=request.content)
-    await event_service.send_message(message, run=request.run)
+    await event_service.send_message(message)
     return Success()
 
 
@@ -140,9 +137,6 @@ async def respond_to_confirmation(
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     await event_service.respond_to_confirmation(request)
     return Success()
-
-
-# Subscribers
 
 
 @event_router.websocket("/socket")
@@ -162,7 +156,7 @@ async def socket(
             try:
                 data = await websocket.receive_json()
                 message = Message.model_validate(data)
-                await event_service.send_message(message, run=True)
+                await event_service.send_message(message)
             except WebSocketDisconnect:
                 # Exit the loop when websocket disconnects
                 return

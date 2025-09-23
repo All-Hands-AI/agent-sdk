@@ -138,14 +138,11 @@ class EventService:
             results.append(result)
         return results
 
-    async def send_message(self, message: Message, run: bool = True):
+    async def send_message(self, message: Message):
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
-        future = loop.run_in_executor(None, self._conversation.send_message, message)
-        if run:
-            await future
-            loop.run_in_executor(None, self._conversation.run)
+        await loop.run_in_executor(None, self._conversation.send_message, message)
 
     async def subscribe_to_events(self, subscriber: Subscriber) -> UUID:
         return self._pub_sub.subscribe(subscriber)
@@ -170,6 +167,7 @@ class EventService:
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
             ],
             max_iteration_per_run=self.stored.max_iterations,
+            stuck_detection=self.stored.stuck_detection,
             visualize=False,
         )
 
@@ -177,47 +175,16 @@ class EventService:
         conversation.set_confirmation_policy(self.stored.confirmation_policy)
         self._conversation = conversation
 
-    async def _run(self):
+    async def run(self):
         """Run the conversation asynchronously."""
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
-        try:
-            await loop.run_in_executor(None, self._conversation.run)
-        except Exception as e:
-            logger.exception(
-                f"Run failed for conversation {self.stored.id}: {e}",
-                stack_info=True,
-            )
-            raise
-
-    async def start_background_run(self):
-        """Start running the conversation in the background."""
-        if not self._conversation:
-            raise ValueError("inactive_service")
-        if self._run_task and not self._run_task.done():
-            raise ValueError("conversation_already_running")
-        self._run_task = asyncio.create_task(self._run())
-        return self._run_task
-
-    async def stop_background_run(self) -> bool:
-        """Stop the currently running background task if any.
-
-        Returns:
-            bool: True if a task was stopped, False if no task was running.
-        """
-        if self._run_task and not self._run_task.done():
-            self._run_task.cancel()
-            try:
-                await self._run_task
-            except asyncio.CancelledError:
-                pass
-            return True
-        return False
+        await loop.run_in_executor(None, self._conversation.run)
 
     async def respond_to_confirmation(self, request: ConfirmationResponseRequest):
         if request.accept:
-            await self.start_background_run()
+            await self.run()
         else:
             await self.pause()
 
