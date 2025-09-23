@@ -10,6 +10,7 @@ import websockets
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
+from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -358,6 +359,13 @@ class RemoteConversation(BaseConversation):
     def state(self) -> RemoteState:
         """Access to remote conversation state."""
         return self._state
+
+    @property
+    def conversation_stats(self) -> ConversationStats:
+        """Get conversation stats from remote server."""
+        info = self._state._get_conversation_info()
+        stats_data = info.get("conversation_stats", {})
+        return ConversationStats.model_validate(stats_data)
 
     @property
     def stuck_detector(self):

@@ -20,7 +20,6 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.llm.utils.metrics import MetricsSnapshot, TokenUsage
 from openhands.sdk.tool import ActionBase
 
 
@@ -261,32 +260,33 @@ def test_visualizer_event_panel_creation():
 
 def test_metrics_formatting():
     """Test metrics subtitle formatting."""
-    visualizer = ConversationVisualizer()
+    from openhands.sdk.conversation.conversation_stats import ConversationStats
+    from openhands.sdk.llm.utils.metrics import Metrics
 
-    # Create an event with metrics
-    action = TestVisualizerMockAction(command="test")
-    metrics = MetricsSnapshot(
-        accumulated_token_usage=TokenUsage(
-            prompt_tokens=1500,
-            completion_tokens=500,
-            cache_read_tokens=300,
-            reasoning_tokens=200,
-        ),
-        accumulated_cost=0.0234,
+    # Create conversation stats with metrics
+    conversation_stats = ConversationStats()
+
+    # Create metrics and add to conversation stats
+    metrics = Metrics(model_name="test-model")
+    metrics.add_cost(0.0234)
+    metrics.add_token_usage(
+        prompt_tokens=1500,
+        completion_tokens=500,
+        cache_read_tokens=300,
+        cache_write_tokens=0,
+        reasoning_tokens=200,
+        context_window=8000,
+        response_id="test_response",
     )
 
-    tool_call = create_tool_call("call_1", "test", {})
-    event = ActionEvent(
-        thought=[TextContent(text="Testing")],
-        action=action,
-        tool_name="test",
-        tool_call_id="call_1",
-        tool_call=tool_call,
-        llm_response_id="response_1",
-        metrics=metrics,
-    )
+    # Add metrics to conversation stats
+    conversation_stats.service_to_metrics["test_service"] = metrics
 
-    subtitle = visualizer._format_metrics_subtitle(event)
+    # Create visualizer with conversation stats
+    visualizer = ConversationVisualizer(conversation_stats=conversation_stats)
+
+    # Test the metrics subtitle formatting
+    subtitle = visualizer._format_metrics_subtitle()
     assert subtitle is not None
     assert "1.50K" in subtitle  # Input tokens abbreviated
     assert "500" in subtitle  # Output tokens

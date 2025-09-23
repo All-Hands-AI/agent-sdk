@@ -79,7 +79,4 @@ class LLMSummarizingCondenser(RollingCondenser):
             forgotten_event_ids=[event.id for event in forgotten_events],
             summary=summary,
             summary_offset=self.keep_first,
-            metrics=self.llm.metrics.get_snapshot()
-            if self.llm.metrics is not None
-            else None,
         )
