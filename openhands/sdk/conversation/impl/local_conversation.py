@@ -229,8 +229,6 @@ class LocalConversation(BaseConversation):
                     self._state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
-                # Track how many events exist before step() processes them
-                self._state.last_step_event_count = len(self._state.events)
                 self.agent.step(self._state, on_event=self._on_event)
                 iteration += 1
 
