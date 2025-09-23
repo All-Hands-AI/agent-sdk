@@ -202,7 +202,19 @@ class LocalConversation(BaseConversation):
 
                 # Check for unattended user messages when finished
                 if self._state.agent_status == AgentExecutionStatus.FINISHED:
-                    if self._has_unattended_user_messages():
+                    # Check multiple times with brief delays to handle race conditions
+                    # where messages are sent during final step execution but haven't
+                    # been added to events yet due to thread scheduling delays
+                    import time
+
+                    has_unattended = False
+                    for _ in range(5):  # Check up to 5 times over 1 second
+                        if self._has_unattended_user_messages():
+                            has_unattended = True
+                            break
+                        time.sleep(0.2)  # 200ms delay between checks
+
+                    if has_unattended:
                         # There are unattended user messages, continue processing
                         logger.debug(
                             "Found unattended user messages, continuing run loop"
@@ -232,13 +244,16 @@ class LocalConversation(BaseConversation):
                 self.agent.step(self._state, on_event=self._on_event)
                 iteration += 1
 
+                # Check for non-finished terminal conditions
                 if (
-                    self.state.agent_status == AgentExecutionStatus.FINISHED
-                    or self.state.agent_status
+                    self.state.agent_status
                     == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
                     or iteration >= self.max_iteration_per_run
                 ):
                     break
+
+                # For FINISHED status, let the loop continue to check for unattended
+                # messages at the top of the next iteration
 
     def _has_unattended_user_messages(self) -> bool:
         """
@@ -257,6 +272,7 @@ class LocalConversation(BaseConversation):
         from openhands.sdk.tool.builtins import FinishAction
 
         events = list(self._state.events)
+
         if not events:
             return False
 
@@ -276,6 +292,7 @@ class LocalConversation(BaseConversation):
             event = events[i]
             if isinstance(event, MessageEvent) and event.source == "user":
                 return True
+
         return False
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
