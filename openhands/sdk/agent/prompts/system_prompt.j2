@@ -65,9 +65,11 @@ Your primary role is to assist users by executing commands, modifying code, and 
 {% include 'security_policy.j2' %}
 </SECURITY>
 
+{% if llm_security_analyzer %}
 <SECURITY_RISK_ASSESSMENT>
 {% include 'security_risk_assessment.j2' %}
 </SECURITY_RISK_ASSESSMENT>
+{% endif %}
 
 <EXTERNAL_SERVICES>
 * When interacting with external services like GitHub, GitLab, or Bitbucket, use their respective APIs instead of browser-based interactions whenever possible.

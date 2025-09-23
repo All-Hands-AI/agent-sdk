@@ -59,7 +59,7 @@ def mock_conversation_with_events():
     state.events = events
     state.__enter__ = MagicMock(return_value=state)
     state.__exit__ = MagicMock(return_value=None)
-    conversation.state = state
+    conversation._state = state
 
     return conversation
 
@@ -84,7 +84,7 @@ class TestEventServiceSearchEvents:
         state.events = []
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
-        conversation.state = state
+        conversation._state = state
 
         event_service._conversation = conversation
 
@@ -121,7 +121,7 @@ class TestEventServiceSearchEvents:
 
         # Test filtering by MessageEvent
         result = await event_service.search_events(
-            kind="openhands.sdk.event.llm_convertible.MessageEvent"
+            kind="openhands.sdk.event.llm_convertible.message.MessageEvent"
         )
         assert len(result.items) == 5
         for event in result.items:
@@ -183,7 +183,7 @@ class TestEventServiceSearchEvents:
 
         # Filter by ActionEvent and sort by TIMESTAMP_DESC
         result = await event_service.search_events(
-            kind="openhands.sdk.event.llm_convertible.MessageEvent",
+            kind="openhands.sdk.event.llm_convertible.message.MessageEvent",
             sort_order=EventSortOrder.TIMESTAMP_DESC,
         )
 
@@ -202,7 +202,7 @@ class TestEventServiceSearchEvents:
 
         # Filter by MessageEvent with limit 1
         result = await event_service.search_events(
-            kind="openhands.sdk.event.llm_convertible.MessageEvent", limit=1
+            kind="openhands.sdk.event.llm_convertible.message.MessageEvent", limit=1
         )
         assert len(result.items) == 1
         assert result.items[0].__class__.__name__ == "MessageEvent"
@@ -210,7 +210,7 @@ class TestEventServiceSearchEvents:
 
         # Get second page
         result = await event_service.search_events(
-            kind="openhands.sdk.event.llm_convertible.MessageEvent",
+            kind="openhands.sdk.event.llm_convertible.message.MessageEvent",
             page_id=result.next_page_id,
             limit=4,
         )
@@ -275,7 +275,7 @@ class TestEventServiceSearchEvents:
         state.events = events
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
-        conversation.state = state
+        conversation._state = state
 
         event_service._conversation = conversation
 
@@ -305,7 +305,7 @@ class TestEventServiceCountEvents:
         state.events = []
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
-        conversation.state = state
+        conversation._state = state
 
         event_service._conversation = conversation
 
@@ -335,7 +335,7 @@ class TestEventServiceCountEvents:
 
         # Count ActionEvent events (should be 5)
         result = await event_service.count_events(
-            kind="openhands.sdk.event.llm_convertible.MessageEvent"
+            kind="openhands.sdk.event.llm_convertible.message.MessageEvent"
         )
         assert result == 5
 

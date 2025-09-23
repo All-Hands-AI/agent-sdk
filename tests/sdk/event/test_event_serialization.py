@@ -127,7 +127,9 @@ def test_message_event_serialization() -> None:
 
 def test_agent_error_event_serialization() -> None:
     """Test AgentErrorEvent serialization/deserialization."""
-    event = AgentErrorEvent(error="Something went wrong")
+    event = AgentErrorEvent(
+        error="Something went wrong", tool_call_id="call_001", tool_name="test_tool"
+    )
 
     json_data = event.model_dump_json()
     deserialized = AgentErrorEvent.model_validate_json(json_data)
