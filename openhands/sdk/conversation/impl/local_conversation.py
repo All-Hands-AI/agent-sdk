@@ -229,6 +229,8 @@ class LocalConversation(BaseConversation):
                     self._state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
+                # Track how many events exist before step() processes them
+                self._state.last_step_event_count = len(self._state.events)
                 self.agent.step(self._state, on_event=self._on_event)
 
             # In confirmation mode, stop after one iteration if waiting for confirmation
@@ -243,10 +245,13 @@ class LocalConversation(BaseConversation):
                 break
 
     def _has_unattended_user_messages(self) -> bool:
-        """Check if there are user messages that haven't been processed by the LLM.
+        """Check if there are user messages that haven't been processed by step().
 
-        Returns True if there are user messages in the events queue that came after
-        the last agent message, indicating they haven't been processed yet.
+        A user message is unattended if and only if step() was never called after
+        the message was added to the state events queue.
+
+        Returns True if there are user messages that were added after the last
+        step() call, indicating they haven't been processed yet.
         """
         from openhands.sdk.event import MessageEvent
 
@@ -254,16 +259,9 @@ class LocalConversation(BaseConversation):
         if not events:
             return False
 
-        # Find the index of the last agent message event
-        last_agent_message_idx = -1
-        for i in range(len(events) - 1, -1, -1):
-            event = events[i]
-            if isinstance(event, MessageEvent) and event.source == "agent":
-                last_agent_message_idx = i
-                break
-
-        # Check if there are any user messages after the last agent message
-        for i in range(last_agent_message_idx + 1, len(events)):
+        # Check if there are any user messages after the last step() call
+        # last_step_event_count tracks how many events were processed by the last step()
+        for i in range(self._state.last_step_event_count, len(events)):
             event = events[i]
             if isinstance(event, MessageEvent) and event.source == "user":
                 return True

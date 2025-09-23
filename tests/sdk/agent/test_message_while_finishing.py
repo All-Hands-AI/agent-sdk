@@ -67,12 +67,12 @@ def test_message_while_finishing(mock_completion):
             )
 
         elif call_count == 2:
-            # Second call: agent produces a message response after finishing
+            # Second call: agent processes the unattended user message
             message = LiteLLMMessage(
                 role="assistant",
                 content=(
                     "I see you sent a message while I was finishing. "
-                    "Let me address that now."
+                    "Thank you for your follow-up question! I'm here to help."
                 ),
             )
 
@@ -85,24 +85,6 @@ def test_message_while_finishing(mock_completion):
                 model="mock",
                 object="chat.completion",
                 usage=Usage(prompt_tokens=15, completion_tokens=10, total_tokens=25),
-            )
-
-        elif call_count == 3:
-            # Third call: agent processes the unattended user message (this is the fix!)
-            message = LiteLLMMessage(
-                role="assistant",
-                content="Thank you for your follow-up question! I'm here to help.",
-            )
-
-            choice = Choices(index=0, message=message, finish_reason="stop")
-
-            return ModelResponse(
-                id="response_3",
-                choices=[choice],
-                created=1234567890,
-                model="mock",
-                object="chat.completion",
-                usage=Usage(prompt_tokens=20, completion_tokens=12, total_tokens=32),
             )
 
         else:
@@ -137,9 +119,9 @@ def test_message_while_finishing(mock_completion):
     # Run again - this should process the unattended message
     conversation.run()
 
-    # Verify that the LLM was called three times
-    # (finish action, message response, follow-up)
-    assert call_count == 3
+    # Verify that the LLM was called twice
+    # (finish action, then processing unattended message)
+    assert call_count == 2
 
     # Check that the conversation contains the expected events
     events = list(conversation.state.events)
@@ -154,9 +136,9 @@ def test_message_while_finishing(mock_completion):
     agent_messages = [
         e for e in events if isinstance(e, MessageEvent) and e.source == "agent"
     ]
-    assert (
-        len(agent_messages) == 2
-    )  # Message response after finish + response to follow-up
+    # With the corrected logic, there should be only 1 agent message
+    # (the response to the follow-up message)
+    assert len(agent_messages) == 1
 
     # Verify the agent responded to the follow-up message
     last_agent_message = agent_messages[-1]
@@ -204,28 +186,11 @@ def test_multiple_messages_while_finishing(mock_completion):
             )
 
         elif call_count == 2:
-            # Second call: agent produces a message response after finishing
-            message = LiteLLMMessage(
-                role="assistant",
-                content="I see you sent multiple messages. Let me address them.",
-            )
-
-            choice = Choices(index=0, message=message, finish_reason="stop")
-
-            return ModelResponse(
-                id="response_2",
-                choices=[choice],
-                created=1234567890,
-                model="mock",
-                object="chat.completion",
-                usage=Usage(prompt_tokens=15, completion_tokens=10, total_tokens=25),
-            )
-
-        elif call_count == 3:
-            # Third call: agent processes the multiple unattended user messages
+            # Second call: agent processes the multiple unattended user messages
             message = LiteLLMMessage(
                 role="assistant",
                 content=(
+                    "I see you sent multiple messages. "
                     "Thank you for all your follow-up messages! I'll address them all."
                 ),
             )
@@ -233,7 +198,7 @@ def test_multiple_messages_while_finishing(mock_completion):
             choice = Choices(index=0, message=message, finish_reason="stop")
 
             return ModelResponse(
-                id="response_3",
+                id="response_2",
                 choices=[choice],
                 created=1234567890,
                 model="mock",
@@ -263,18 +228,18 @@ def test_multiple_messages_while_finishing(mock_completion):
     # Run again to process unattended messages
     conversation.run()
 
-    # Verify LLM was called three times
-    assert call_count == 3
+    # Verify LLM was called twice
+    assert call_count == 2
 
-    # Check that the third LLM call received the multiple user messages
+    # Check that the second LLM call received the multiple user messages
     # The exact format of concatenation will depend on implementation
-    third_call_messages = received_messages[2]
-    user_messages_in_third_call = [
+    second_call_messages = received_messages[1]
+    user_messages_in_second_call = [
         m
-        for m in third_call_messages
+        for m in second_call_messages
         if (isinstance(m, dict) and m.get("role") == "user")
         or (hasattr(m, "role") and m.role == "user")  # type: ignore[attr-defined]
     ]
 
     # Should have multiple user messages (the three follow-up messages)
-    assert len(user_messages_in_third_call) >= 3
+    assert len(user_messages_in_second_call) >= 3

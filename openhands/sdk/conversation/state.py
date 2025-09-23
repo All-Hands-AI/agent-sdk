@@ -76,6 +76,11 @@ class ConversationState(OpenHandsModel):
         description="List of activated knowledge microagents name",
     )
 
+    last_step_event_count: int = Field(
+        default=0,
+        description="Number of events that were processed by the last step() call",
+    )
+
     # ===== Private attrs (NOT Fields) =====
     _lock: RLock = PrivateAttr(default_factory=RLock)
     _owner_tid: int | None = PrivateAttr(default=None)
