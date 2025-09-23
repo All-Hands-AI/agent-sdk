@@ -195,7 +195,7 @@ class TestWebSocketDisconnectHandling:
         assert message.role == "user"
         assert len(message.content) == 1
         assert message.content[0].text == "Hello"
-        assert kwargs["run"] is True
+        # send_message only takes a message parameter, no run parameter
 
     @pytest.mark.asyncio
     async def test_websocket_unsubscribe_in_finally_when_no_disconnect(

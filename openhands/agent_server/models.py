@@ -42,10 +42,6 @@ class SendMessageRequest(BaseModel):
 
     role: Literal["user", "system", "assistant", "tool"] = "user"
     content: list[TextContent | ImageContent] = Field(default_factory=list)
-    run: bool = Field(
-        default=True,
-        description="If true, immediately run the agent after sending the message.",
-    )
 
     def create_message(self) -> Message:
         message = Message(role=self.role, content=self.content)
@@ -72,6 +68,11 @@ class StartConversationRequest(BaseModel):
         ge=1,
         description="If set, the max number of iterations the agent will run "
         "before stopping. This is useful to prevent infinite loops.",
+    )
+    stuck_detection: bool = Field(
+        default=True,
+        description="If true, the conversation will use stuck detection to "
+        "prevent infinite loops.",
     )
 
 
