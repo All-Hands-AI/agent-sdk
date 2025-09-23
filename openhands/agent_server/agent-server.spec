@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec file for OpenHands CLI.
+PyInstaller spec file for OpenHands Agent Server.
 
 This spec file configures PyInstaller to create a standalone executable
-for the OpenHands CLI application.
+for the OpenHands Agent Server application.
 """
 
 from pathlib import Path
@@ -44,7 +44,7 @@ a = Analysis(
         *collect_submodules('tiktoken_ext'),
         *collect_submodules('litellm'),
         *collect_submodules('fastmcp'),
-        # Include mcp but exclude CLI parts that require typer
+        # Include mcp but exclude Agent Server parts that require typer
         'mcp.types',
         'mcp.client',
         'mcp.server',
