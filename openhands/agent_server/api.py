@@ -16,7 +16,7 @@ from openhands.agent_server.conversation_router import (
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
-from openhands.agent_server.dependencies import check_session_api_key
+from openhands.agent_server.dependencies import create_session_api_key_dependency
 from openhands.agent_server.event_router import (
     router as conversation_event_router,
 )
@@ -81,7 +81,7 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
 
     dependencies = []
     if config.session_api_keys:
-        dependencies.append(Depends(check_session_api_key))
+        dependencies.append(Depends(create_session_api_key_dependency(config)))
 
     api_router = APIRouter(prefix="/api", dependencies=dependencies)
     api_router.include_router(conversation_event_router)
