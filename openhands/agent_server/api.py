@@ -53,6 +53,26 @@ def _create_fastapi_instance() -> FastAPI:
     )
 
 
+def _find_http_exception(exc: BaseExceptionGroup) -> HTTPException | None:
+    """Helper function to find HTTPException in ExceptionGroup.
+
+    Args:
+        exc: BaseExceptionGroup to search for HTTPException.
+
+    Returns:
+        HTTPException if found, None otherwise.
+    """
+    for inner_exc in exc.exceptions:
+        if isinstance(inner_exc, HTTPException):
+            return inner_exc
+        # Recursively search nested ExceptionGroups
+        if isinstance(inner_exc, BaseExceptionGroup):
+            found = _find_http_exception(inner_exc)
+            if found:
+                return found
+    return None
+
+
 def _add_api_routes(app: FastAPI) -> None:
     """Add all API routes to the FastAPI application.
 
@@ -119,8 +139,30 @@ def _add_middleware(app: FastAPI, config: Config) -> None:
 
 
 def _add_exception_handlers(api: FastAPI) -> None:
+    """Add exception handlers to the FastAPI application."""
+
     @api.exception_handler(Exception)
-    async def _unhandled_exception_handler(request: Request, exc: Exception):
+    async def _unhandled_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        """Handle unhandled exceptions."""
+        # Check if this is an HTTPException that should be handled directly
+        if isinstance(exc, HTTPException):
+            return await _http_exception_handler(request, exc)
+
+        # Check if this is a BaseExceptionGroup with HTTPExceptions
+        if isinstance(exc, BaseExceptionGroup):
+            http_exc = _find_http_exception(exc)
+            if http_exc:
+                return await _http_exception_handler(request, http_exc)
+            # If no HTTPException found, treat as unhandled exception
+            logger.exception(
+                "Unhandled ExceptionGroup on %s %s", request.method, request.url.path
+            )
+            return JSONResponse(
+                status_code=500, content={"detail": "Internal Server Error"}
+            )
+
         # Logs full stack trace for any unhandled error that FastAPI would
         # turn into a 500
         logger.exception(
@@ -131,11 +173,21 @@ def _add_exception_handlers(api: FastAPI) -> None:
         )
 
     @api.exception_handler(HTTPException)
-    async def _http_exception_handler(request: Request, exc: HTTPException):
-        # Also log explicit HTTPExceptions that are 5xx
-        # (sometimes raised intentionally)
-        if exc.status_code >= 500:
-            # exc_info=True ensures a traceback is emitted from here
+    async def _http_exception_handler(
+        request: Request, exc: HTTPException
+    ) -> JSONResponse:
+        """Handle HTTPExceptions with appropriate logging."""
+        # Log 4xx errors at info level (expected client errors like auth failures)
+        if 400 <= exc.status_code < 500:
+            logger.info(
+                "HTTPException %d on %s %s: %s",
+                exc.status_code,
+                request.method,
+                request.url.path,
+                exc.detail,
+            )
+        # Log 5xx errors at error level with full traceback (server errors)
+        elif exc.status_code >= 500:
             logger.error(
                 "HTTPException %d on %s %s: %s",
                 exc.status_code,
@@ -144,11 +196,13 @@ def _add_exception_handlers(api: FastAPI) -> None:
                 exc.detail,
                 exc_info=True,
             )
+            # Don't leak internal details to clients for 5xx errors
             return JSONResponse(
                 status_code=exc.status_code,
-                content={"detail": "Internal Server Error\n" + str(exc.detail)},
+                content={"detail": "Internal Server Error"},
             )
-        # Let non-5xx behave normally (but still return JSON)
+
+        # Return clean JSON response for all non-5xx HTTP exceptions
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
