@@ -10,19 +10,16 @@ from openhands.agent_server.config import (
     Config,
     get_default_config,
 )
-from openhands.agent_server.conversation_router import (
-    router as conversation_router,
-)
+from openhands.agent_server.conversation_router import conversation_router
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
 from openhands.agent_server.dependencies import create_session_api_key_dependency
-from openhands.agent_server.event_router import (
-    router as conversation_event_router,
-)
+from openhands.agent_server.event_router import event_router
+from openhands.agent_server.file_router import file_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
-from openhands.agent_server.server_details_router import router as server_details_router
-from openhands.agent_server.tool_router import router as tool_router
+from openhands.agent_server.server_details_router import server_details_router
+from openhands.agent_server.tool_router import tool_router
 from openhands.sdk.logger import get_logger
 
 
@@ -84,9 +81,10 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
         dependencies.append(Depends(create_session_api_key_dependency(config)))
 
     api_router = APIRouter(prefix="/api", dependencies=dependencies)
-    api_router.include_router(conversation_event_router)
+    api_router.include_router(event_router)
     api_router.include_router(conversation_router)
     api_router.include_router(tool_router)
+    api_router.include_router(file_router)
     app.include_router(api_router)
 
 
