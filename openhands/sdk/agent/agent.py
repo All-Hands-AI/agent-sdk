@@ -131,7 +131,7 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
     ):
         for action_event in action_events:
-            self._execute_action_events(state, action_event, on_event=on_event)
+            self._execute_action_event(state, action_event, on_event=on_event)
 
     def step(
         self,
@@ -241,7 +241,7 @@ class Agent(AgentBase):
 
             action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(tool_calls):
-                action_event = self._get_action_events(
+                action_event = self._get_action_event(
                     state,
                     tool_call,
                     llm_response_id=response.id,
@@ -314,7 +314,7 @@ class Agent(AgentBase):
 
         return False
 
-    def _get_action_events(
+    def _get_action_event(
         self,
         state: ConversationState,
         tool_call: ChatCompletionMessageToolCall,
@@ -324,7 +324,7 @@ class Agent(AgentBase):
         metrics: MetricsSnapshot | None = None,
         reasoning_content: str | None = None,
     ) -> ActionEvent | None:
-        """Handle tool calls from the LLM.
+        """Converts a tool call into an ActionEvent, validating arguments.
 
         NOTE: state will be mutated in-place.
         """
@@ -384,7 +384,6 @@ class Agent(AgentBase):
             on_event(event)
             return
 
-        # Create one ActionEvent per action
         action_event = ActionEvent(
             action=action,
             thought=thought,
@@ -399,13 +398,13 @@ class Agent(AgentBase):
         on_event(action_event)
         return action_event
 
-    def _execute_action_events(
+    def _execute_action_event(
         self,
         state: ConversationState,
         action_event: ActionEvent,
         on_event: ConversationCallbackType,
     ):
-        """Execute action events and update the conversation state.
+        """Execute an action event and update the conversation state.
 
         It will call the tool's executor and update the state & call callback fn
         with the observation.
