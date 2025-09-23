@@ -347,10 +347,8 @@ class TestMessageWhileFinishing:
                 while not self.final_step_started:
                     time.sleep(0.01)  # Small sleep to avoid busy waiting
 
-                # Add a small delay to ensure we're in the middle of final step
-                # execution
-                time.sleep(0.1)
-
+                # Send the message immediately when final step starts
+                # This simulates a user sending a message during final step execution
                 butterfly_send_time = time.time()
                 self.timestamps.append(("butterfly_sent", butterfly_send_time))
                 elapsed = butterfly_send_time - self.test_start_time
