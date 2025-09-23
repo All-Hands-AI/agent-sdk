@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
@@ -16,13 +16,11 @@ from openhands.agent_server.conversation_router import (
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
+from openhands.agent_server.dependencies import create_session_api_key_dependency
 from openhands.agent_server.event_router import (
     router as conversation_event_router,
 )
-from openhands.agent_server.middleware import (
-    LocalhostCORSMiddleware,
-    ValidateSessionAPIKeyMiddleware,
-)
+from openhands.agent_server.middleware import LocalhostCORSMiddleware
 from openhands.agent_server.server_details_router import router as server_details_router
 from openhands.agent_server.tool_router import router as tool_router
 from openhands.sdk.logger import get_logger
@@ -73,16 +71,23 @@ def _find_http_exception(exc: BaseExceptionGroup) -> HTTPException | None:
     return None
 
 
-def _add_api_routes(app: FastAPI) -> None:
+def _add_api_routes(app: FastAPI, config: Config) -> None:
     """Add all API routes to the FastAPI application.
 
     Args:
         app: FastAPI application instance to add routes to.
     """
-    app.include_router(conversation_event_router)
-    app.include_router(conversation_router)
     app.include_router(server_details_router)
-    app.include_router(tool_router)
+
+    dependencies = []
+    if config.session_api_keys:
+        dependencies.append(Depends(create_session_api_key_dependency(config)))
+
+    api_router = APIRouter(prefix="/api", dependencies=dependencies)
+    api_router.include_router(conversation_event_router)
+    api_router.include_router(conversation_router)
+    api_router.include_router(tool_router)
+    app.include_router(api_router)
 
 
 def _setup_static_files(app: FastAPI, config: Config) -> None:
@@ -119,23 +124,6 @@ def _setup_static_files(app: FastAPI, config: Config) -> None:
             return RedirectResponse(url="/static/index.html", status_code=302)
         else:
             return RedirectResponse(url="/static/", status_code=302)
-
-
-def _add_middleware(app: FastAPI, config: Config) -> None:
-    """Add middleware to the FastAPI application.
-
-    Args:
-        app: FastAPI application instance.
-        config: Configuration object containing middleware settings.
-    """
-    # Add CORS middleware
-    app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
-
-    # Add session API key validation middleware if configured
-    if config.session_api_key:
-        app.add_middleware(
-            ValidateSessionAPIKeyMiddleware, session_api_key=config.session_api_key
-        )
 
 
 def _add_exception_handlers(api: FastAPI) -> None:
@@ -218,9 +206,9 @@ def create_app(config: Config | None = None) -> FastAPI:
     if config is None:
         config = get_default_config()
     app = _create_fastapi_instance()
-    _add_api_routes(app)
+    _add_api_routes(app, config)
     _setup_static_files(app, config)
-    _add_middleware(app, config)
+    app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
     _add_exception_handlers(app)
 
     return app

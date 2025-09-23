@@ -307,7 +307,9 @@ class ConversationService:
             event_services_path=config.conversations_path,
             workspace_path=config.workspace_path,
             webhook_specs=config.webhooks,
-            session_api_key=config.session_api_key,
+            session_api_key=config.session_api_keys[0]
+            if config.session_api_keys
+            else None,
         )
 
 
