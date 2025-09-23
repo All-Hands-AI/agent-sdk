@@ -2,6 +2,8 @@
 
 import json
 import logging
+import shutil
+import subprocess
 
 from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.utils.async_executor import AsyncExecutor
@@ -10,6 +12,67 @@ from openhands.tools.browser_use.server import CustomBrowserUseServer
 
 # Suppress browser-use logging for cleaner integration
 logging.getLogger("browser_use").setLevel(logging.WARNING)
+
+
+def _check_chromium_available() -> bool:
+    """Check if a Chromium/Chrome binary is available in PATH."""
+    for binary in ("chromium", "chromium-browser", "google-chrome", "chrome"):
+        if shutil.which(binary):
+            return True
+    logging.debug("No Chromium/Chrome binary found in PATH")
+    return False
+
+
+def _install_chromium() -> bool:
+    """Attempt to install Chromium via uvx playwright install."""
+    try:
+        # Check if uvx is available
+        if not shutil.which("uvx"):
+            logging.warning("uvx not found - cannot auto-install Chromium")
+            return False
+
+        logging.info("Attempting to install Chromium via uvx...")
+        result = subprocess.run(
+            ["uvx", "playwright", "install", "chromium", "--with-deps", "--no-shell"],
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes timeout for installation
+        )
+
+        if result.returncode == 0:
+            logging.info("Chromium installation completed successfully")
+            return True
+        else:
+            logging.error(f"Chromium installation failed: {result.stderr}")
+            return False
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        logging.error(f"Error during Chromium installation: {e}")
+        return False
+
+
+def _ensure_chromium_available() -> None:
+    """Ensure Chromium is available for browser operations.
+
+    Raises:
+        Exception: If Chromium is not available and cannot be installed
+    """
+    if _check_chromium_available():
+        return
+
+    logging.info("Chromium not found, attempting auto-installation...")
+    if _install_chromium() and _check_chromium_available():
+        logging.info("Chromium successfully installed and verified")
+        return
+
+    # Chromium not available and couldn't be installed
+    error_msg = (
+        "Chromium is required for browser operations but is not installed.\n\n"
+        "To install Chromium, run one of the following commands:\n"
+        "  1. Using uvx (recommended): uvx playwright install chromium "
+        "--with-deps --no-shell\n"
+        "  2. Using pip: pip install playwright && playwright install chromium\n\n"
+    )
+    raise Exception(error_msg)
 
 
 class BrowserToolExecutor(ToolExecutor):
@@ -22,6 +85,9 @@ class BrowserToolExecutor(ToolExecutor):
         allowed_domains: list[str] | None = None,
         **config,
     ):
+        # Check Chromium dependency before initializing
+        _ensure_chromium_available()
+
         self._server = CustomBrowserUseServer(
             session_timeout_minutes=session_timeout_minutes
         )
