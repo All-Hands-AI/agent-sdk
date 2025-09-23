@@ -200,8 +200,6 @@ class ConversationState(OpenHandsModel):
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
-
-        # Initialize ConversationStats for new conversation
         state.stats = ConversationStats.create(
             file_store=file_store, conversation_id=id
         )
