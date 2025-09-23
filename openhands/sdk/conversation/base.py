@@ -60,6 +60,10 @@ class BaseConversation(ABC):
     @abstractmethod
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None: ...
 
+    @property
+    @abstractmethod
+    def is_confirmation_enabled(self) -> bool: ...
+
     @abstractmethod
     def reject_pending_actions(
         self, reason: str = "User rejected the action"
