@@ -5,7 +5,16 @@ import json
 import os
 import warnings
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Sequence,
+    cast,
+    get_args,
+    get_origin,
+)
 
 import httpx
 from pydantic import (
@@ -31,7 +40,12 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import ChatCompletionToolParam, completion as litellm_completion
+
+from litellm import (
+    ChatCompletionToolParam,
+    completion as litellm_completion,
+    responses as litellm_responses,
+)
 from litellm.exceptions import (
     APIConnectionError,
     BadRequestError,
@@ -57,7 +71,7 @@ from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
-from openhands.sdk.llm.utils.telemetry import Telemetry
+from openhands.sdk.llm.utils.telemetry import HasUsageAndId, Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
@@ -79,6 +93,9 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
 
 class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
+
+    def supports_responses_api(self) -> bool:
+        return get_features(self.model).supports_responses_api
 
     # =========================================================================
     # Config fields
@@ -426,7 +443,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     resp, nonfncall_msgs=formatted_messages, tools=cc_tools
                 )
             # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
+            self._telemetry.on_response(
+                cast(HasUsageAndId, resp), raw_resp=cast(HasUsageAndId | None, raw_resp)
+            )
 
             # Ensure at least one choice
             if not resp.get("choices") or len(resp["choices"]) < 1:
@@ -442,6 +461,107 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         except Exception as e:
             self._telemetry.on_error(e)
             raise
+
+    # New Responses API entry point
+    def responses(
+        self,
+        input: str | list[dict[str, Any]] | None = None,
+        *,
+        messages: list[Message] | None = None,
+        tools: Sequence["ToolBase"] | None = None,
+        add_security_risk_prediction: bool = False,
+        **kwargs,
+    ):
+        """Call OpenAI Responses API via litellm.responses.
+
+        - If messages is provided, it will be converted to Responses input items.
+        - If input is provided, it is passed through.
+        - store=True by default.
+        - reasoning is nested as {"effort": ...} if set and not "none".
+        - stop is not sent.
+        - Images mirror completion() serialization (image_url with url)
+        """
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported")
+
+        # Build input/instructions from messages if needed
+        instructions: str | None = None
+        input_items: list[dict[str, Any]] | None = None
+        formatted_messages = None
+        if input is None:
+            if not messages:
+                raise ValueError("Either input or messages must be provided")
+            formatted_messages = self.format_messages_for_llm(messages)
+            input_items, instructions = self._messages_to_responses_input(
+                formatted_messages
+            )
+        else:
+            if not isinstance(input, (str, list)):
+                raise ValueError("input must be str or list[dict]")
+
+        # Tools to Responses schema
+        responses_tools: list[dict[str, Any]] = []
+        if tools:
+            responses_tools = [
+                t.to_responses_tool(
+                    add_security_risk_prediction=add_security_risk_prediction
+                )
+                for t in tools
+            ]
+
+        # Normalize kwargs
+        call_kwargs = dict(kwargs)
+        call_kwargs.pop("stop", None)
+        if "store" not in call_kwargs:
+            call_kwargs["store"] = True
+
+        if self.reasoning_effort and self.reasoning_effort != "none":
+            call_kwargs["reasoning"] = {"effort": self.reasoning_effort}
+
+        # Assemble request
+        request: dict[str, Any] = {
+            "model": self.model,
+        }
+        if input is not None:
+            request["input"] = input
+        else:
+            request["input"] = input_items or []
+        if instructions:
+            request["instructions"] = instructions
+        if responses_tools:
+            request["tools"] = responses_tools
+        request.update(call_kwargs)
+
+        assert self._telemetry is not None
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "messages": formatted_messages
+                if formatted_messages is not None
+                else None,
+                "tools": tools,
+                "request": {k: v for k, v in request.items() if k != "tools"},
+                "context_window": self.max_input_tokens,
+            }
+        self._telemetry.on_request(log_ctx=log_ctx)
+
+        @self.retry_decorator(
+            num_retries=self.num_retries,
+            retry_exceptions=LLM_RETRY_EXCEPTIONS,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
+            retry_listener=self.retry_listener,
+        )
+        def _one_attempt(**retry_kwargs):
+            assert self._telemetry is not None
+            final_request = {**request, **retry_kwargs}
+            resp = litellm_responses(**final_request)
+            # Telemetry accepts HasUsageAndId Protocol; pass resp directly
+            self._telemetry.on_response(cast(HasUsageAndId, resp))
+            return resp
+
+        return _one_attempt()
 
     # =========================================================================
     # Transport + helpers
@@ -628,6 +748,111 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Function-calling capabilities
         feats = get_features(self.model)
         logger.debug(f"Model features for {self.model}: {feats}")
+        self._function_calling_active = (
+            self.native_tool_calling
+            if self.native_tool_calling is not None
+            else feats.supports_function_calling
+        )
+
+    def _messages_to_responses_input(
+        self, formatted_messages: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        items: list[dict[str, Any]] = []
+        instructions: str | None = None
+
+        for msg in formatted_messages:
+            role = msg.get("role")
+            role_str = role if isinstance(role, str) else str(role or "user")
+            content = msg.get("content")
+            tool_calls = msg.get("tool_calls")
+            tool_call_id = msg.get("tool_call_id")
+
+            if role == "system":
+                if isinstance(content, str):
+                    instructions = content
+                else:
+                    items.append(
+                        {
+                            "type": "message",
+                            "role": role_str,
+                            "content": self._convert_content_for_responses(
+                                content, role_str
+                            ),
+                        }
+                    )
+            elif role == "tool":
+                items.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": tool_call_id,
+                        "output": content,
+                    }
+                )
+            elif role == "assistant" and tool_calls and isinstance(tool_calls, list):
+                for tc in tool_calls:
+                    fn = tc.get("function")
+                    if not fn:
+                        continue
+                    fc = {
+                        "type": "function_call",
+                        "call_id": tc.get("id"),
+                    }
+                    if "name" in fn:
+                        fc["name"] = fn["name"]
+                    if "arguments" in fn:
+                        fc["arguments"] = fn["arguments"]
+                    items.append(fc)
+            else:
+                if content is not None:
+                    items.append(
+                        {
+                            "type": "message",
+                            "role": role_str,
+                            "content": self._convert_content_for_responses(
+                                content, role_str
+                            ),
+                        }
+                    )
+
+        return items, instructions
+
+    def _convert_content_for_responses(
+        self, content: Any, role: str
+    ) -> list[dict[str, Any]]:
+        if isinstance(content, str):
+            return [{"type": "input_text", "text": content}]
+        result: list[dict[str, Any]] = []
+        if isinstance(content, list):
+            for item in content:
+                if not isinstance(item, dict):
+                    result.append({"type": "input_text", "text": str(item)})
+                    continue
+                t = item.get("type")
+                if t == "text":
+                    result.append({"type": "input_text", "text": item.get("text", "")})
+                elif t == "image_url":
+                    image_url = item.get("image_url") or {}
+                    url = image_url.get("url") if isinstance(image_url, dict) else None
+                    if url:
+                        result.append(
+                            {"type": "input_image", "image_url": {"url": url}}
+                        )
+                elif t in (
+                    "input_text",
+                    "input_image",
+                    "function_call",
+                    "function_call_output",
+                    "message",
+                ):
+                    result.append(item)
+                else:
+                    result.append({"type": "input_text", "text": str(item)})
+        else:
+            result.append({"type": "input_text", "text": str(content)})
+        return result
+
+        feats = get_features(self.model)
+        logger.info(f"Model features for {self.model}: {feats}")
         self._function_calling_active = (
             self.native_tool_calling
             if self.native_tool_calling is not None

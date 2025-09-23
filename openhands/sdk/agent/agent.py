@@ -24,7 +24,9 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
+    ImageContent,
     Message,
+    MetricsSnapshot,
     TextContent,
     get_llm_metadata,
 )
@@ -170,24 +172,28 @@ class Agent(AgentBase):
                 [e for e in state.events if isinstance(e, LLMConvertibleEvent)],
             )
 
-        # Get LLM Response (Action)
+        # Format messages once
         _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
         logger.debug(
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
 
+        # Route to Responses API for supported models; else use Chat Completions
+        add_sec = self._add_security_risk_prediction
         try:
-            response = self.llm.completion(
-                messages=_messages,
-                tools=list(self.tools_map.values()),
-                extra_body={
-                    "metadata": get_llm_metadata(
-                        model_name=self.llm.model, agent_name=self.name
-                    )
-                },
-                add_security_risk_prediction=self._add_security_risk_prediction,
-            )
+            if self.llm.supports_responses_api():
+                message, response_id, metrics = self._call_responses(
+                    _messages,
+                    list(self.tools_map.values()),
+                    add_security_risk_prediction=add_sec,
+                )
+            else:
+                message, response_id, metrics = self._call_chat(
+                    _messages,
+                    list(self.tools_map.values()),
+                    add_security_risk_prediction=add_sec,
+                )
         except Exception as e:
             # If there is a condenser registered and the exception is a context window
             # exceeded, we can recover by triggering a condensation request.
@@ -201,14 +207,8 @@ class Agent(AgentBase):
                 )
                 on_event(CondensationRequest())
                 return
-
-            # If the error isn't recoverable, keep propagating it up the stack.
-            else:
-                raise e
-
-        assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
-        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
-        message = Message.from_litellm_message(llm_message)
+            # Not recoverable; re-raise
+            raise
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -240,11 +240,9 @@ class Agent(AgentBase):
                 action_event = self._get_action_event(
                     state,
                     tool_call,
-                    llm_response_id=response.id,
+                    llm_response_id=response_id,
                     on_event=on_event,
-                    thought=thought_content
-                    if i == 0
-                    else [],  # Only first gets thought
+                    thought=thought_content if i == 0 else [],
                     # Only first gets reasoning content
                     reasoning_content=message.reasoning_content if i == 0 else None,
                 )
@@ -258,7 +256,6 @@ class Agent(AgentBase):
 
             if action_events:
                 self._execute_actions(state, action_events, on_event)
-
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_status = AgentExecutionStatus.FINISHED
@@ -267,6 +264,118 @@ class Agent(AgentBase):
                 llm_message=message,
             )
             on_event(msg_event)
+
+    def _call_chat(
+        self,
+        messages: list[Message],
+        tools: list,  # Sequence[ToolBase]
+        *,
+        add_security_risk_prediction: bool,
+    ) -> tuple[Message, str, MetricsSnapshot | None]:
+        response = self.llm.completion(
+            messages=messages,
+            tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
+            extra_body={
+                "metadata": get_llm_metadata(
+                    model_name=self.llm.model, agent_name=self.name
+                )
+            },
+        )
+        assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
+        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
+        message = Message.from_litellm_message(llm_message)
+        assert self.llm.metrics is not None
+        metrics = self.llm.metrics.get_snapshot()
+        return message, response.id, metrics
+
+    def _call_responses(
+        self,
+        messages: list[Message] | None,
+        tools: list,  # Sequence[ToolBase]
+        *,
+        add_security_risk_prediction: bool,
+    ) -> tuple[Message, str, MetricsSnapshot | None]:
+        resp = self.llm.responses(
+            messages=messages,
+            tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
+            metadata=get_llm_metadata(model_name=self.llm.model, agent_name=self.name),
+        )
+        # Parse ResponsesAPIResponse.output to build a Message
+        from litellm.types.llms.openai import (
+            ResponsesAPIResponse,
+        )
+        from openai.types.responses import (
+            response_function_tool_call as ro_fncall,
+            response_output_message as ro_msg,
+            response_output_text as ro_text,
+            response_reasoning_item as ro_reason,
+        )
+
+        assert isinstance(resp, ResponsesAPIResponse)
+        assistant_text_parts: list[str] = []
+        tool_calls: list = []  # list[ChatCompletionMessageToolCall]
+        reasoning_parts: list[str] = []
+
+        for item in resp.output or []:
+            t = getattr(item, "type", None)
+            if t == "message" and isinstance(item, ro_msg.ResponseOutputMessage):
+                for seg in item.content or []:
+                    if isinstance(seg, ro_text.ResponseOutputText):
+                        assistant_text_parts.append(seg.text or "")
+            elif t == "function_call" and isinstance(
+                item, ro_fncall.ResponseFunctionToolCall
+            ):
+                # Convert to ChatCompletionMessageToolCall shape we already use
+                tc = ChatCompletionMessageToolCall(
+                    id=item.call_id or item.id or "tool_call",
+                    type="function",
+                    function={
+                        "name": item.name or "",
+                        "arguments": item.arguments or "{}",
+                    },
+                )
+                tool_calls.append(tc)
+            elif t == "reasoning" and isinstance(item, ro_reason.ResponseReasoningItem):
+                # Aggregate reasoning content and/or summary
+                for seg in item.content or []:
+                    text = getattr(seg, "text", None)
+                    if text:
+                        reasoning_parts.append(text)
+                for seg in item.summary or []:
+                    text = getattr(seg, "text", None)
+                    if text:
+                        reasoning_parts.append(text)
+
+        content_seq: list[TextContent | ImageContent] = []
+        if assistant_text_parts:
+            content_seq.append(TextContent(text="\n\n".join(assistant_text_parts)))
+        message = Message(
+            role="assistant",
+            content=content_seq,
+            tool_calls=tool_calls or None,
+            reasoning_content="\n\n".join(reasoning_parts) if reasoning_parts else None,
+        )
+
+        assert self.llm.metrics is not None
+        # Append any image outputs collected from Responses items
+        image_contents: list[ImageContent] = []
+        from openai.types.responses.response_output_item import ImageGenerationCall
+
+        for item in resp.output or []:
+            if (
+                isinstance(item, ImageGenerationCall)
+                and item.type == "image_generation_call"
+            ):
+                if item.status == "completed" and item.result:
+                    image_contents.append(ImageContent(image_urls=[item.result]))
+
+        if image_contents:
+            message.content = list(message.content) + image_contents
+
+        metrics = self.llm.metrics.get_snapshot()
+        return message, resp.id, metrics
 
     def _requires_user_confirmation(
         self, state: ConversationState, action_events: list[ActionEvent]

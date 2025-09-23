@@ -2,10 +2,10 @@ import json
 import os
 import time
 import warnings
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
-from litellm.types.utils import CostPerToken, ModelResponse, Usage
+from litellm.types.utils import CostPerToken, Usage
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from openhands.sdk.llm.utils.metrics import Metrics
@@ -13,6 +13,14 @@ from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
+
+
+@runtime_checkable
+class HasUsageAndId(Protocol):
+    id: str
+    usage: Any | None
+
+    def model_dump(self) -> dict: ...
 
 
 class Telemetry(BaseModel):
@@ -49,7 +57,7 @@ class Telemetry(BaseModel):
         self._req_ctx = log_ctx or {}
 
     def on_response(
-        self, resp: ModelResponse, raw_resp: ModelResponse | None = None
+        self, resp: HasUsageAndId, raw_resp: HasUsageAndId | None = None
     ) -> Metrics:
         """
         Side-effects:
@@ -143,7 +151,7 @@ class Telemetry(BaseModel):
             response_id=response_id,
         )
 
-    def _compute_cost(self, resp: ModelResponse) -> float | None:
+    def _compute_cost(self, resp: HasUsageAndId) -> float | None:
         """Try provider header → litellm direct. Return None on failure."""
         extra_kwargs = {}
         if (
@@ -184,9 +192,9 @@ class Telemetry(BaseModel):
 
     def _log_completion(
         self,
-        resp: ModelResponse,
+        resp: HasUsageAndId,
         cost: float | None,
-        raw_resp: ModelResponse | None = None,
+        raw_resp: HasUsageAndId | None = None,
     ) -> None:
         if not self.log_dir:
             return
