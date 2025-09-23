@@ -1,10 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Protocol
 
+from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.llm.message import Message
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -51,6 +55,10 @@ class BaseConversation(ABC):
     @abstractmethod
     def state(self) -> ConversationStateProtocol: ...
 
+    @property
+    @abstractmethod
+    def conversation_stats(self) -> ConversationStats: ...
+
     @abstractmethod
     def send_message(self, message: str | Message) -> None: ...
 
@@ -59,6 +67,10 @@ class BaseConversation(ABC):
 
     @abstractmethod
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None: ...
+
+    @property
+    def confirmation_policy_active(self) -> bool:
+        return not isinstance(self.state.confirmation_policy, NeverConfirm)
 
     @abstractmethod
     def reject_pending_actions(

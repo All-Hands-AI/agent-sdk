@@ -7,7 +7,6 @@ from rich.text import Text
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import Message, TextContent
-from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase
 
@@ -46,13 +45,7 @@ class ActionEvent(LLMConvertibleEvent):
             "response."
         ),
     )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs). Only attached "
-            "to the last action when multiple actions share the same LLM response."
-        ),
-    )
+
     security_risk: risk.SecurityRisk = Field(
         default=risk.SecurityRisk.UNKNOWN,
         description="The LLM's assessment of the safety risk of this action.",
