@@ -171,44 +171,6 @@ class LocalConversation(BaseConversation):
             )
             self._on_event(user_msg_event)
 
-    def _has_unattended_user_messages(self) -> bool:
-        """
-        Check if there are user messages that came after the last agent message.
-
-        This indicates messages that the agent hasn't processed yet.
-        Must be called while holding the state lock.
-
-        Returns:
-            True if there are unattended user messages, False otherwise.
-        """
-        self._state.assert_locked()
-
-        if not self._state.events:
-            return False
-
-        # Find the last agent message
-        last_agent_message_idx = -1
-        for i in range(len(self._state.events) - 1, -1, -1):
-            event = self._state.events[i]
-            if hasattr(event, "source") and event.source == "agent":
-                last_agent_message_idx = i
-                break
-
-        # If no agent messages, all user messages are unattended
-        if last_agent_message_idx == -1:
-            for event in self._state.events:
-                if hasattr(event, "source") and event.source == "user":
-                    return True
-            return False
-
-        # Check if there are user messages after the last agent message
-        for i in range(last_agent_message_idx + 1, len(self._state.events)):
-            event = self._state.events[i]
-            if hasattr(event, "source") and event.source == "user":
-                return True
-
-        return False
-
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
 
@@ -240,17 +202,9 @@ class LocalConversation(BaseConversation):
                 ]:
                     break
 
-                # Check for unattended user messages when finished
+                # Break if finished - FIFO lock ensures fair access for new messages
                 if self._state.agent_status == AgentExecutionStatus.FINISHED:
-                    if self._has_unattended_user_messages():
-                        # There are unattended user messages, continue processing
-                        logger.debug(
-                            "Found unattended user messages, continuing run loop"
-                        )
-                        self._state.agent_status = AgentExecutionStatus.IDLE
-                    else:
-                        # No unattended messages, safe to finish
-                        break
+                    break
 
                 # Check for stuck patterns if enabled
                 if self._stuck_detector:
@@ -279,9 +233,6 @@ class LocalConversation(BaseConversation):
                     or iteration >= self.max_iteration_per_run
                 ):
                     break
-
-                # For FINISHED status, let the loop continue to check for unattended
-                # messages at the top of the next iteration
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
