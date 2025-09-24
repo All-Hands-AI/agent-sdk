@@ -1,19 +1,3 @@
-"""End-to-end tests for BrowserToolExecutor with real browser operations.
-
-These tests validate that the BrowserToolExecutor can actually start a browser
-and execute real browser actions without mocking dependencies.
-
-To run these tests:
-    pytest tests/tools/browser_use/test_browser_executor_e2e.py
-
-Requirements:
-    - browser_use dependencies installed (automatically installs chromium)
-    - Port 8001 available for test server
-
-Note: These tests use headless chromium which is automatically installed by
-the BrowserToolExecutor, so they should work in most environments.
-"""
-
 import os
 import subprocess
 import tempfile
