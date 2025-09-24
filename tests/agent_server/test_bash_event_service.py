@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from openhands.agent_server.bash_service import BashEventService
-from openhands.agent_server.models import ActionEvent
-from openhands.tools.execute_bash.definition import ExecuteBashAction
+from openhands.agent_server.models import BashCommand, BashOutput
+from openhands.agent_server.pub_sub import Subscriber
 
 
 @pytest.fixture
@@ -23,62 +23,76 @@ def bash_event_service():
 
 
 @pytest.mark.asyncio
-async def test_start_bash_execution(bash_event_service):
-    """Test starting a bash event."""
-    action = ExecuteBashAction(command='echo "Hello World"')
-    event = await bash_event_service.start_bash_execution(action)
+async def test_start_bash_command(bash_event_service):
+    """Test starting a bash command."""
+    command = BashCommand(command='echo "Hello World"', cwd="/tmp")
 
-    assert isinstance(event, ActionEvent)
-    assert isinstance(event.action, ExecuteBashAction)
-    assert event.action.command == 'echo "Hello World"'
-    assert event.tool_name == "execute_bash"
+    # This should not raise an exception
+    await bash_event_service.start_bash_command(command)
 
+    # Wait a bit for the command to complete
+    await asyncio.sleep(1)
 
-@pytest.mark.asyncio
-async def test_get_event(bash_event_service):
-    """Test getting an event by ID."""
-    action = ExecuteBashAction(command='echo "test"')
-    event = await bash_event_service.start_bash_execution(action)
-
-    retrieved = await bash_event_service.get_event(event.id)
+    # Verify the command was saved to file
+    retrieved = await bash_event_service.get_bash_event(command.id.hex)
     assert retrieved is not None
-    assert retrieved.id == event.id
+    assert retrieved.id == command.id
+    assert retrieved.command == 'echo "Hello World"'
 
 
 @pytest.mark.asyncio
-async def test_batch_get_events(bash_event_service):
-    """Test batch getting events."""
-    action = ExecuteBashAction(command='echo "batch test"')
-    event = await bash_event_service.start_bash_execution(action)
+async def test_get_bash_event(bash_event_service):
+    """Test getting a bash event by ID."""
+    command = BashCommand(command='echo "test"', cwd="/tmp")
+    await bash_event_service.start_bash_command(command)
 
-    results = await bash_event_service.batch_get_events([event.id])
+    # Wait for command to complete
+    await asyncio.sleep(1)
+
+    retrieved = await bash_event_service.get_bash_event(command.id.hex)
+    assert retrieved is not None
+    assert retrieved.id == command.id
+
+
+@pytest.mark.asyncio
+async def test_batch_get_bash_events(bash_event_service):
+    """Test batch getting bash events."""
+    command = BashCommand(command='echo "batch test"', cwd="/tmp")
+    await bash_event_service.start_bash_command(command)
+
+    # Wait for command to complete
+    await asyncio.sleep(1)
+
+    results = await bash_event_service.batch_get_bash_events([command.id.hex])
     assert len(results) == 1
     assert results[0] is not None
-    assert results[0].id == event.id
+    assert results[0].id == command.id
 
 
 @pytest.mark.asyncio
 async def test_subscribe_to_events(bash_event_service):
-    """Test subscribing to events."""
+    """Test subscribing to bash events."""
     events_received = []
 
-    class TestSubscriber:
+    class TestSubscriber(Subscriber):
         async def __call__(self, event):
             events_received.append(event)
 
     subscriber = TestSubscriber()
     subscription_id = await bash_event_service.subscribe_to_events(subscriber)
 
-    # Start a task
-    action = ExecuteBashAction(command='echo "subscription test"')
-    await bash_event_service.start_bash_execution(action)
+    # Start a command
+    command = BashCommand(command='echo "subscription test"', cwd="/tmp")
+    await bash_event_service.start_bash_command(command)
 
     # Wait for events to be published
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(2)
 
-    # Should have received at least the action event
-    assert len(events_received) >= 1
-    assert any(isinstance(e, ActionEvent) for e in events_received)
+    # Should have received both command and output events
+    assert len(events_received) >= 2
+    assert any(isinstance(e, BashCommand) for e in events_received)
+    assert any(isinstance(e, BashOutput) for e in events_received)
 
     # Unsubscribe
-    await bash_event_service.unsubscribe_from_events(subscription_id)
+    result = await bash_event_service.unsubscribe_from_events(subscription_id)
+    assert result is True

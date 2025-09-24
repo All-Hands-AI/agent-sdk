@@ -1,5 +1,6 @@
 import asyncio
 import glob
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,7 @@ from openhands.agent_server.models import (
     BashEventBase,
     BashEventPage,
     BashEventSortOrder,
+    BashOutput,
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.sdk.logger import get_logger
@@ -55,7 +57,9 @@ class BashEventService:
         filepath = self.bash_events_dir / filename
 
         with open(filepath, "w") as f:
-            f.write(event.model_dump_json(indent=2))
+            # Use model_dump with mode='json' to handle UUID serialization
+            data = event.model_dump(mode="json")
+            f.write(json.dumps(data, indent=2))
 
     def _load_event_from_file(self, filepath: Path) -> BashEventBase | None:
         """Load an event from a file."""
@@ -74,8 +78,8 @@ class BashEventService:
 
     async def get_bash_event(self, event_id: str) -> BashEventBase | None:
         """Get the event with the id given, or None if there was no such event."""
-        # Use glob pattern to find files with the event_id
-        pattern = f"*_{event_id}_*"
+        # Use glob pattern to find files ending with the event_id
+        pattern = f"*_{event_id}"
         files = self._get_event_files_by_pattern(pattern)
 
         if not files:
@@ -170,11 +174,122 @@ class BashEventService:
 
     async def _execute_bash_command(self, command: BashCommand) -> None:
         """Execute the bash event and create an observation event."""
-        # TODO: Create a subprocess to execute the command. This should not block the
-        #       main runloop. As content comes in from the process, save it and create
-        #       BashOutputObjects, splitting when the total content size is greater
-        #       than MAX_CONTENT_CHAR_LENGTH
-        raise NotImplementedError()
+        try:
+            # Create subprocess
+            process = await asyncio.create_subprocess_shell(
+                command.command,
+                cwd=command.cwd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                shell=True,
+            )
+
+            # Track output order and buffers
+            output_order = 0
+            stdout_buffer = ""
+            stderr_buffer = ""
+
+            async def read_stream(stream, is_stderr=False):
+                nonlocal output_order, stdout_buffer, stderr_buffer
+
+                buffer = stderr_buffer if is_stderr else stdout_buffer
+
+                while True:
+                    try:
+                        # Read data from stream
+                        data = await stream.read(8192)  # Read in chunks
+                        if not data:
+                            break
+
+                        text = data.decode("utf-8", errors="replace")
+                        buffer += text
+
+                        # Update the appropriate buffer
+                        if is_stderr:
+                            stderr_buffer = buffer
+                        else:
+                            stdout_buffer = buffer
+
+                        # Check if we need to split the output
+                        while len(buffer) > MAX_CONTENT_CHAR_LENGTH:
+                            # Split at the max length
+                            chunk = buffer[:MAX_CONTENT_CHAR_LENGTH]
+                            buffer = buffer[MAX_CONTENT_CHAR_LENGTH:]
+
+                            # Create and publish BashOutput event
+                            output_event = BashOutput(
+                                command_id=command.id,
+                                order=output_order,
+                                stdout=chunk if not is_stderr else None,
+                                stderr=chunk if is_stderr else None,
+                            )
+
+                            self._save_event_to_file(output_event)
+                            await self._pub_sub(output_event)
+                            output_order += 1
+
+                            # Update the appropriate buffer
+                            if is_stderr:
+                                stderr_buffer = buffer
+                            else:
+                                stdout_buffer = buffer
+
+                    except Exception as e:
+                        logger.error(f"Error reading from stream: {e}")
+                        break
+
+            # Read from both stdout and stderr concurrently
+            await asyncio.gather(
+                read_stream(process.stdout, is_stderr=False),
+                read_stream(process.stderr, is_stderr=True),
+                return_exceptions=True,
+            )
+
+            # Wait for process to complete
+            try:
+                exit_code = await asyncio.wait_for(
+                    process.wait(), timeout=command.timeout
+                )
+            except asyncio.TimeoutError:
+                # Kill the process if it times out
+                process.kill()
+                await process.wait()
+                exit_code = -1
+                logger.warning(
+                    f"Command timed out after {command.timeout} seconds: "
+                    f"{command.command}"
+                )
+
+            # Create final output event with any remaining buffer content and exit code
+            final_stdout = stdout_buffer if stdout_buffer else None
+            final_stderr = stderr_buffer if stderr_buffer else None
+
+            # Only create final event if there's remaining content or we need to report
+            # exit code
+            if final_stdout or final_stderr or exit_code is not None:
+                final_output = BashOutput(
+                    command_id=command.id,
+                    order=output_order,
+                    exit_code=exit_code,
+                    stdout=final_stdout,
+                    stderr=final_stderr,
+                )
+
+                self._save_event_to_file(final_output)
+                await self._pub_sub(final_output)
+
+        except Exception as e:
+            logger.error(f"Error executing bash command '{command.command}': {e}")
+            # Create error output event
+            error_output = BashOutput(
+                command_id=command.id,
+                order=0,
+                exit_code=-1,
+                stderr=f"Error executing command: {str(e)}",
+            )
+
+            self._save_event_to_file(error_output)
+            await self._pub_sub(error_output)
 
     async def subscribe_to_events(self, subscriber: Subscriber[BashEventBase]) -> UUID:
         """Subscribe to bash events.
