@@ -311,9 +311,6 @@ browser_get_content_tool = Tool(
 class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
     """Tool for getting page content in markdown."""
 
-    # Override executor to be non-optional for initialized BrowserGetContentTool
-    # instances
-
     @classmethod
     def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
         return [
