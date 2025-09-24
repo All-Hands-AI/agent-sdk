@@ -253,28 +253,11 @@ jobs:
                           SHORT_SHA="$VARIANT_SHA"
                       fi
                       
-                      # Determine base image documentation URL
-                      case "$BASE_IMAGE" in
-                          nikolaik/python-nodejs*)
-                              BASE_URL="https://hub.docker.com/r/nikolaik/python-nodejs"
-                              ;;
-                          eclipse-temurin*)
-                              BASE_URL="https://hub.docker.com/_/eclipse-temurin"
-                              ;;
-                          golang*)
-                              BASE_URL="https://hub.docker.com/_/golang"
-                              ;;
-                          *)
-                              BASE_URL="https://hub.docker.com"
-                              ;;
-                      esac
-                      
                       # Add variant to JSON array
                       VARIANTS_JSON=$(echo "$VARIANTS_JSON" | jq \
                           --arg variant "$VARIANT" \
                           --arg base_image "$BASE_IMAGE" \
-                          --arg base_url "$BASE_URL" \
-                          '. += [{variant: $variant, base_image: $base_image, base_url: $base_url}]')
+                          '. += [{variant: $variant, base_image: $base_image}]')
                       
                       # Collect tags (comma-separated to newline-separated)
                       if [[ -n "$VARIANT_TAGS" ]]; then
@@ -347,10 +330,9 @@ jobs:
                       VARIANT_JSON=$(echo "$variant_data" | base64 --decode)
                       VARIANT=$(echo "$VARIANT_JSON" | jq -r '.variant')
                       BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
-                      BASE_URL=$(echo "$VARIANT_JSON" | jq -r '.base_url')
                       
                       # Add to variants table (base -> built image mapping)
-                      VARIANTS_TABLE="${VARIANTS_TABLE}| \`${BASE_IMAGE}\` | \`${IMAGE}:${SHORT_SHA}-${VARIANT}\` | [Docs](${BASE_URL}) |\n"
+                      VARIANTS_TABLE="${VARIANTS_TABLE}| \`${BASE_IMAGE}\` | \`${IMAGE}:${SHORT_SHA}-${VARIANT}\` |\n"
                   done
 
                   # Create the complete PR description
@@ -360,8 +342,8 @@ jobs:
                   **Agent Server images for this PR**
 
                   **Image Variants**
-                  | Base Image | Built Image | Docs |
-                  |---|---|---|
+                  | Base Image | Built Image |
+                  |---|---|
                   ${VARIANTS_TABLE}
                   **Usage**
                   \`\`\`bash
