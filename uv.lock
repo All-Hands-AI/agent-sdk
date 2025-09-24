@@ -887,6 +887,12 @@ wheels = [
 ]
 
 [[package]]
+name = "func-timeout"
+version = "4.3.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/0d/bf0567477f7281d9a3926c582bfef21bff7498fc0ffd3e9de21811896a0b/func_timeout-4.3.5.tar.gz", hash = "sha256:74cd3c428ec94f4edfba81f9b2f14904846d5ffccc27c92433b8b5939b5575dd", size = 44264, upload-time = "2019-08-19T21:32:07.43Z" }
+
+[[package]]
 name = "gitdb"
 version = "4.0.12"
 source = { registry = "https://pypi.org/simple" }
@@ -1832,6 +1838,7 @@ dependencies = [
     { name = "binaryornot" },
     { name = "browser-use" },
     { name = "cachetools" },
+    { name = "func-timeout" },
     { name = "libtmux" },
     { name = "openhands-sdk" },
     { name = "pydantic" },
@@ -1843,6 +1850,7 @@ requires-dist = [
     { name = "binaryornot", specifier = ">=0.4.4" },
     { name = "browser-use", specifier = ">=0.7.7" },
     { name = "cachetools" },
+    { name = "func-timeout", specifier = ">=4.3.5" },
     { name = "libtmux", specifier = ">=0.46.2" },
     { name = "openhands-sdk", editable = "openhands/sdk" },
     { name = "pydantic", specifier = ">=2.11.7" },
