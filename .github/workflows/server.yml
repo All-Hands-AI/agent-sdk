@@ -110,10 +110,6 @@ jobs:
         if: >
             github.event_name == 'push' ||
             github.event_name == 'pull_request'
-        outputs:
-            image: ${{ steps.build.outputs.image }}
-            short_sha: ${{ steps.build.outputs.short_sha }}
-            tags: ${{ steps.build.outputs.tags }}
         strategy:
             fail-fast: false
             matrix:
@@ -188,26 +184,94 @@ jobs:
                   echo "Multiline tags:"
                   echo "${{ steps.build.outputs.tags }}"
 
+    consolidate-build-info:
+        name: Consolidate Build Information
+        needs: build-and-push-image
+        if: github.event_name == 'pull_request' && needs.build-and-push-image.result == 'success'
+        runs-on: blacksmith-2vcpu-ubuntu-2404
+        outputs:
+            image: ${{ steps.consolidate.outputs.image }}
+            short_sha: ${{ steps.consolidate.outputs.short_sha }}
+            ghcr_package_url: ${{ steps.consolidate.outputs.ghcr_package_url }}
+            python_base_label: ${{ steps.consolidate.outputs.python_base_label }}
+            python_base_url: ${{ steps.consolidate.outputs.python_base_url }}
+            java_base_label: ${{ steps.consolidate.outputs.java_base_label }}
+            java_base_url: ${{ steps.consolidate.outputs.java_base_url }}
+            golang_base_label: ${{ steps.consolidate.outputs.golang_base_label }}
+            golang_base_url: ${{ steps.consolidate.outputs.golang_base_url }}
+            all_tags: ${{ steps.consolidate.outputs.all_tags }}
+        steps:
+            - name: Consolidate build information
+              id: consolidate
+              run: |
+                  # Get the image and short_sha from the matrix results
+                  # All variants use the same base image name and short_sha
+                  IMAGE="ghcr.io/all-hands-ai/agent-server"
+                  SHORT_SHA="${{ github.sha }}"
+                  SHORT_SHA="${SHORT_SHA:0:7}"
+
+                  # Set basic outputs
+                  echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+                  echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+                  echo "ghcr_package_url=https://github.com/All-Hands-AI/agent-sdk/pkgs/container/agent-server" >> $GITHUB_OUTPUT
+
+                  # Set base image information for each variant
+                  echo "python_base_label=nikolaik/python-nodejs:python3.12-nodejs22" >> $GITHUB_OUTPUT
+                  echo "python_base_url=https://hub.docker.com/r/nikolaik/python-nodejs" >> $GITHUB_OUTPUT
+                  echo "java_base_label=eclipse-temurin:17-jdk" >> $GITHUB_OUTPUT
+                  echo "java_base_url=https://hub.docker.com/_/eclipse-temurin" >> $GITHUB_OUTPUT
+                  echo "golang_base_label=golang:1.21-bookworm" >> $GITHUB_OUTPUT
+                  echo "golang_base_url=https://hub.docker.com/_/golang" >> $GITHUB_OUTPUT
+
+                  # Collect all tags that would be generated for this build
+                  # This is based on the logic in build.sh
+                  ALL_TAGS=""
+                  for variant in python java golang; do
+                      ALL_TAGS="${ALL_TAGS}${IMAGE}:${SHORT_SHA}-${variant}"$'\n'
+                  done
+
+                  # Add the multi-arch manifest tag (without variant suffix)
+                  ALL_TAGS="${ALL_TAGS}${IMAGE}:${SHORT_SHA}"
+
+                  # Set the all_tags output using heredoc
+                  {
+                      echo 'all_tags<<EOF'
+                      echo "${ALL_TAGS}"
+                      echo 'EOF'
+                  } >> $GITHUB_OUTPUT
+
     update-pr-description:
         name: Update PR description with agent server image
-        needs: build-and-push-image
-        # Only on PRs, and only if the build actually ran and succeeded
-        if: github.event_name == 'pull_request' && needs.build-and-push-image.result == 'success'
+        needs: consolidate-build-info
+        # Only on PRs, and only if the consolidation succeeded
+        if: github.event_name == 'pull_request' && needs.consolidate-build-info.result == 'success'
         runs-on: blacksmith-2vcpu-ubuntu-2404
         permissions:
             contents: read
             pull-requests: write
         env:
-            IMAGE: ${{ needs.build-and-push-image.outputs.image }}
-            SHORT_SHA: ${{ needs.build-and-push-image.outputs.short_sha }}
+            IMAGE: ${{ needs.consolidate-build-info.outputs.image }}
+            SHORT_SHA: ${{ needs.consolidate-build-info.outputs.short_sha }}
+            GHCR_PACKAGE_URL: ${{ needs.consolidate-build-info.outputs.ghcr_package_url }}
+            PYTHON_BASE_LABEL: ${{ needs.consolidate-build-info.outputs.python_base_label }}
+            PYTHON_BASE_URL: ${{ needs.consolidate-build-info.outputs.python_base_url }}
+            JAVA_BASE_LABEL: ${{ needs.consolidate-build-info.outputs.java_base_label }}
+            JAVA_BASE_URL: ${{ needs.consolidate-build-info.outputs.java_base_url }}
+            GOLANG_BASE_LABEL: ${{ needs.consolidate-build-info.outputs.golang_base_label }}
+            GOLANG_BASE_URL: ${{ needs.consolidate-build-info.outputs.golang_base_url }}
+            ALL_TAGS: ${{ needs.consolidate-build-info.outputs.all_tags }}
 
         steps:
-            - name: Update PR description with docker command
+            - name: Update PR description with comprehensive docker information
               uses: nefrob/pr-description@v1.2.0
               with:
-                  content: "\n---\n\n**Agent Server image for this PR**\n\nPull (multi-arch manifest):\n```bash\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA
-                      }}\n```\n\nRun:\n```bash\ndocker run -it --rm \\\n  -p 8000:8000 \\\n  --name agent-server-${{ env.SHORT_SHA }} \\\n  ${{ env.IMAGE
-                      }}:${{ env.SHORT_SHA }}\n```\n\n_This tag is a multi-arch manifest (amd64/arm64). Your client pulls the right arch automatically._"
-                  regex: "---\\s*\\*\\*Agent Server image for this PR\\*\\*[\\s\\S]*?(?=\\n\\n---|\n\\n##|$)"
+                  content: "\n---\n**Agent Server images for this PR**\n\n• **GHCR package:** ${{ env.GHCR_PACKAGE_URL }}\n\n**Variants & Base Images**\n\
+                      | Variant | Base Image | Docs / Tags |\n|---|---|---|\n| python | `${{ env.PYTHON_BASE_LABEL }}` | [Link](${{ env.PYTHON_BASE_URL
+                      }}) |\n| java   | `${{ env.JAVA_BASE_LABEL }}`   | [Link](${{ env.JAVA_BASE_URL }}) |\n| golang | `${{ env.GOLANG_BASE_LABEL }}` |
+                      [Link](${{ env.GOLANG_BASE_URL }}) |\n\n**Pull (multi-arch manifest)**\n```bash\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}\n\
+                      ```\n\n**Run**\n```bash\ndocker run -it --rm \\\n  -p 8000:8000 \\\n  --name agent-server-${{ env.SHORT_SHA }} \\\n  ${{ env.IMAGE
+                      }}:${{ env.SHORT_SHA }}\n```\n\n**All tags pushed for this build**\n```\n${{ env.ALL_TAGS }}\n```\n\n_The `${{ env.SHORT_SHA }}` tag
+                      is a multi-arch manifest (amd64/arm64); your client pulls the right arch automatically._"
+                  regex: "---\\s*\\*\\*Agent Server images? for this PR\\*\\*[\\s\\S]*?(?=\\n\\n---|\n\\n##|$)"
                   regexFlags: m
                   token: ${{ secrets.GITHUB_TOKEN }}
