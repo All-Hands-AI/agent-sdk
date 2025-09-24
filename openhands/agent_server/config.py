@@ -54,11 +54,12 @@ class Config(BaseModel):
     (Typically inside a sandbox).
     """
 
-    session_api_key: str | None = Field(
-        default=None,
+    session_api_keys: list[str] = Field(
+        default_factory=list,
         description=(
-            "The session api key used to authenticate all incoming requests. "
-            "None implies the server will be unsecured"
+            "List of valid session API keys used to authenticate incoming requests. "
+            "Empty list implies the server will be unsecured. Any key in this list "
+            "will be accepted for authentication."
         ),
     )
     allow_cors_origins: list[str] = Field(
@@ -104,9 +105,29 @@ class Config(BaseModel):
         if file_path.exists():
             with open(file_path, "r") as f:
                 config_data = json.load(f) or {}
-        # Apply environment variable overrides for legacy compatibility
+
+        # Handle session API keys with backward compatibility
+        session_api_keys = []
+
+        # First, check for new plural format in JSON
+        if "session_api_keys" in config_data:
+            session_api_keys = config_data["session_api_keys"]
+            # Remove the plural key to avoid conflicts
+            del config_data["session_api_keys"]
+
+        # Then, check for legacy singular format in JSON
+        elif "session_api_key" in config_data and config_data["session_api_key"]:
+            session_api_keys = [config_data["session_api_key"]]
+            # Remove the singular key to avoid conflicts
+            del config_data["session_api_key"]
+
+        # Finally, apply environment variable override for legacy compatibility
         if session_api_key := os.getenv(SESSION_API_KEY_ENV):
-            config_data["session_api_key"] = session_api_key
+            # If env var is set, it takes precedence and becomes the only key
+            session_api_keys = [session_api_key]
+
+        # Set the final session_api_keys
+        config_data["session_api_keys"] = session_api_keys
 
         # Convert string paths to Path objects
         if "conversations_path" in config_data:

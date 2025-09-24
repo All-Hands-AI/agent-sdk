@@ -4,10 +4,12 @@ import json
 import logging
 import shutil
 import subprocess
+from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.utils.async_executor import AsyncExecutor
 from openhands.tools.browser_use.server import CustomBrowserUseServer
+from openhands.tools.utils.timeout import TimeoutError, run_with_timeout
 
 
 # Suppress browser-use logging for cleaner integration
@@ -19,7 +21,26 @@ def _check_chromium_available() -> bool:
     for binary in ("chromium", "chromium-browser", "google-chrome", "chrome"):
         if shutil.which(binary):
             return True
-    logging.debug("No Chromium/Chrome binary found in PATH")
+
+    # Check Playwright-installed Chromium
+    playwright_cache = Path.home() / ".cache" / "ms-playwright"
+    if playwright_cache.exists():
+        chromium_dirs = list(playwright_cache.glob("chromium-*"))
+        for chromium_dir in chromium_dirs:
+            # Check platform-specific paths
+            possible_paths = [
+                chromium_dir / "chrome-linux" / "chrome",  # Linux
+                chromium_dir
+                / "chrome-mac"
+                / "Chromium.app"
+                / "Contents"
+                / "MacOS"
+                / "Chromium",  # macOS
+                chromium_dir / "chrome-win" / "chrome.exe",  # Windows
+            ]
+            if any(p.exists() for p in possible_paths):
+                return True
+
     return False
 
 
@@ -78,24 +99,48 @@ def _ensure_chromium_available() -> None:
 class BrowserToolExecutor(ToolExecutor):
     """Executor that wraps browser-use MCP server for OpenHands integration."""
 
+    _server: CustomBrowserUseServer
+    _config: dict
+
     def __init__(
         self,
-        session_timeout_minutes: int = 30,
         headless: bool = True,
         allowed_domains: list[str] | None = None,
+        session_timeout_minutes: int = 30,
+        init_timeout_seconds: int = 30,
         **config,
     ):
-        # Check Chromium dependency before initializing
-        _ensure_chromium_available()
+        """Initialize BrowserToolExecutor with timeout protection.
 
-        self._server = CustomBrowserUseServer(
-            session_timeout_minutes=session_timeout_minutes
-        )
-        self._config = {
-            "headless": headless,
-            "allowed_domains": allowed_domains or [],
-            **config,
-        }
+        Args:
+            headless: Whether to run browser in headless mode
+            allowed_domains: List of allowed domains for browser operations
+            session_timeout_minutes: Browser session timeout in minutes
+            init_timeout_seconds: Timeout for browser initialization in seconds
+            **config: Additional configuration options
+
+        Raises:
+
+        """
+
+        def init_logic():
+            _ensure_chromium_available()
+            self._server = CustomBrowserUseServer(
+                session_timeout_minutes=config.get("session_timeout_minutes", 30)
+            )
+            self._config = {
+                "headless": config.get("headless", True),
+                "allowed_domains": config.get("allowed_domains", []) or [],
+                **config,
+            }
+
+        try:
+            run_with_timeout(init_logic, init_timeout_seconds)
+        except TimeoutError:
+            raise Exception(
+                f"Browser tool initialization timed out after {init_timeout_seconds}s"
+            )
+
         self._initialized = False
         self._async_executor = AsyncExecutor()
 

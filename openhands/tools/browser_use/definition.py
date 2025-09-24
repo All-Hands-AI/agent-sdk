@@ -561,9 +561,8 @@ class BrowserToolSet(ToolBase):
     This tool set includes all available browser-related tools
       for interacting with web pages.
 
-    The toolset automatically checks for Chromium availability when created.
-    Use auto_install_chromium=True to automatically install Chromium if missing,
-    or skip_chromium_check=True to bypass the dependency check.
+    The toolset automatically checks for Chromium availability
+    when created and automatically installs it if missing.
     """
 
     @classmethod

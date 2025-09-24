@@ -31,7 +31,7 @@ from openhands.sdk import Message
 from openhands.sdk.event.base import EventBase
 
 
-router = APIRouter(prefix="/api/conversations/{conversation_id}/events")
+router = APIRouter(prefix="/conversations/{conversation_id}/events")
 conversation_service = get_default_conversation_service()
 logger = logging.getLogger(__name__)
 
