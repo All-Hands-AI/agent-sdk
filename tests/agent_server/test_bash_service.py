@@ -187,23 +187,37 @@ async def test_command_with_error_exit_code(bash_service):
 @pytest.mark.asyncio
 async def test_command_timeout(bash_service):
     """Test bash command that times out."""
+    import time
+
     collector = EventCollector()
     await bash_service.subscribe_to_events(collector)
 
     # Command that should timeout (sleep longer than timeout)
     request = ExecuteBashRequest(command="sleep 10", cwd="/tmp", timeout=1)
+    start_time = time.time()
     _, task = await bash_service.start_bash_command(request)
 
-    # Wait for timeout to occur plus some buffer
+    # Wait for timeout to occur
     await task
+    end_time = time.time()
+
+    # Verify the command was terminated quickly (within 3 seconds to allow for overhead)
+    execution_time = end_time - start_time
+    assert execution_time < 3, f"Command took {execution_time:.2f}s, expected < 3s"
 
     # Verify events were published
     assert len(collector.commands) == 1
+    assert len(collector.outputs) >= 1
 
-    # The timeout might not generate output events in all cases
-    # Just verify the command was started
+    # Verify the command was started correctly
     cmd_event = collector.commands[0]
     assert cmd_event.command == "sleep 10"
+
+    # Verify the timeout resulted in exit code -1
+    final_output = collector.outputs[-1]  # Last output should have the exit code
+    assert final_output.exit_code == -1, (
+        f"Expected exit code -1, got {final_output.exit_code}"
+    )
 
 
 @pytest.mark.asyncio

@@ -243,22 +243,34 @@ class BashEventService:
                         logger.error(f"Error reading from stream: {e}")
                         break
 
-            # Read from both stdout and stderr concurrently
-            await asyncio.gather(
-                read_stream(process.stdout, is_stderr=False),
-                read_stream(process.stderr, is_stderr=True),
-                return_exceptions=True,
-            )
-
-            # Wait for process to complete
+            # Execute the entire command with timeout
             try:
-                exit_code = await asyncio.wait_for(
-                    process.wait(), timeout=command.timeout
+                # Run stream reading and process waiting concurrently with timeout
+                await asyncio.wait_for(
+                    asyncio.gather(
+                        read_stream(process.stdout, is_stderr=False),
+                        read_stream(process.stderr, is_stderr=True),
+                        process.wait(),
+                        return_exceptions=True,
+                    ),
+                    timeout=command.timeout,
                 )
+                exit_code = process.returncode
             except TimeoutError:
                 # Kill the process if it times out
                 process.kill()
-                await process.wait()
+                try:
+                    # Give the process a short time to die gracefully
+                    await asyncio.wait_for(process.wait(), timeout=1.0)
+                except TimeoutError:
+                    # If it still won't die, terminate it more forcefully
+                    process.terminate()
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=1.0)
+                    except TimeoutError:
+                        logger.error(
+                            f"Failed to kill process for command: {command.command}"
+                        )
                 exit_code = -1
                 logger.warning(
                     f"Command timed out after {command.timeout} seconds: "
