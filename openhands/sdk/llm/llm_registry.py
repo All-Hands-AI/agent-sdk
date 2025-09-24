@@ -12,7 +12,6 @@ logger = get_logger(__name__)
 
 class RegistryEvent(BaseModel):
     llm: LLM
-    service_id: str
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -60,26 +59,25 @@ class LLMRegistry:
             except Exception as e:
                 logger.warning(f"Failed to emit event: {e}")
 
-    def add(self, service_id: str, llm: LLM) -> None:
+    def add(self, llm: LLM) -> None:
         """Add an LLM instance to the registry.
 
         Args:
-            service_id: Unique identifier for the LLM service.
             llm: The LLM instance to register.
 
         Raises:
-            ValueError: If service_id already exists in the registry.
+            ValueError: If llm.service_id already exists in the registry.
         """
+        service_id = llm.service_id
         if service_id in self.service_to_llm:
             raise ValueError(
                 f"Service ID '{service_id}' already exists in registry. "
-                "Use a different service_id or call get() to retrieve the existing LLM."
+                "Use a different service_id on the LLM or call get() to retrieve the "
+                "existing LLM."
             )
 
-        # Set the service_id on the LLM instance
-        llm.service_id = service_id
         self.service_to_llm[service_id] = llm
-        self.notify(RegistryEvent(llm=llm, service_id=service_id))
+        self.notify(RegistryEvent(llm=llm))
         logger.info(
             f"[LLM registry {self.registry_id}]: Added LLM for service {service_id}"
         )

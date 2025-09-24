@@ -32,7 +32,7 @@ class ConversationStats(BaseModel):
     def register_llm(self, event: RegistryEvent):
         # Listen for llm creations and track their metrics
         llm = event.llm
-        service_id = event.service_id
+        service_id = llm.service_id
 
         # Service costs exists but has not been restored yet
         if (

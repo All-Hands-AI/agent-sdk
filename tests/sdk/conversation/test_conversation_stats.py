@@ -121,7 +121,7 @@ def test_register_llm_with_new_service(conversation_stats):
 
         # Create a registry event
         service_id = "new-service"
-        event = RegistryEvent(llm=llm, service_id=service_id)
+        event = RegistryEvent(llm=llm)
 
         # Register the LLM
         conversation_stats.register_llm(event)
@@ -151,7 +151,7 @@ def test_register_llm_with_restored_metrics(conversation_stats):
         )
 
         # Create a registry event
-        event = RegistryEvent(llm=llm, service_id=service_id)
+        event = RegistryEvent(llm=llm)
 
         # Register the LLM
         conversation_stats.register_llm(event)
@@ -183,7 +183,7 @@ def test_llm_registry_notifications(connected_registry_and_stats):
     )
 
     # Add LLM to registry (this should trigger the notification)
-    mock_llm_registry.add(service_id, llm)
+    mock_llm_registry.add(llm)
 
     # Verify the service was registered in conversation stats
     assert service_id in conversation_stats.service_to_metrics
@@ -251,8 +251,8 @@ def test_multiple_llm_services(connected_registry_and_stats):
     )
 
     # Add LLMs to registry (this should trigger notifications)
-    mock_llm_registry.add(service1, llm1)
-    mock_llm_registry.add(service2, llm2)
+    mock_llm_registry.add(llm1)
+    mock_llm_registry.add(llm2)
 
     # Add different metrics to each LLM
     assert llm1.metrics is not None
@@ -328,7 +328,7 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
             retry_min_wait=1,
             retry_max_wait=2,
         )
-        event_1 = RegistryEvent(llm=llm_1, service_id=service_id_1)
+        event_1 = RegistryEvent(llm=llm_1)
         conversation_stats.register_llm(event_1)
 
         # Verify first service was registered with restored metrics
@@ -349,7 +349,7 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
             retry_min_wait=1,
             retry_max_wait=2,
         )
-        event_2 = RegistryEvent(llm=llm_2, service_id=service_id_2)
+        event_2 = RegistryEvent(llm=llm_2)
         conversation_stats.register_llm(event_2)
 
         # Verify second service was registered with restored metrics
