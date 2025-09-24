@@ -184,59 +184,131 @@ jobs:
                   echo "Multiline tags:"
                   echo "${{ steps.build.outputs.tags }}"
 
+            - name: Save build info for consolidation
+              run: |
+                  mkdir -p build-info
+                  cat > "build-info/${{ matrix.name }}.json" << EOF
+                  {
+                    "variant": "${{ matrix.name }}",
+                    "base_image": "${{ matrix.base_image }}",
+                    "image": "${{ steps.build.outputs.image }}",
+                    "short_sha": "${{ steps.build.outputs.short_sha }}",
+                    "tags": "${{ steps.build.outputs.tags_csv }}"
+                  }
+                  EOF
+
+            - name: Upload build info artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: build-info-${{ matrix.name }}
+                  path: build-info/${{ matrix.name }}.json
+                  retention-days: 1
+
     consolidate-build-info:
         name: Consolidate Build Information
         needs: build-and-push-image
         if: github.event_name == 'pull_request' && needs.build-and-push-image.result == 'success'
         runs-on: blacksmith-2vcpu-ubuntu-2404
         outputs:
-            image: ${{ steps.consolidate.outputs.image }}
-            short_sha: ${{ steps.consolidate.outputs.short_sha }}
-            ghcr_package_url: ${{ steps.consolidate.outputs.ghcr_package_url }}
-            python_base_label: ${{ steps.consolidate.outputs.python_base_label }}
-            python_base_url: ${{ steps.consolidate.outputs.python_base_url }}
-            java_base_label: ${{ steps.consolidate.outputs.java_base_label }}
-            java_base_url: ${{ steps.consolidate.outputs.java_base_url }}
-            golang_base_label: ${{ steps.consolidate.outputs.golang_base_label }}
-            golang_base_url: ${{ steps.consolidate.outputs.golang_base_url }}
-            all_tags: ${{ steps.consolidate.outputs.all_tags }}
+            build_summary: ${{ steps.consolidate.outputs.build_summary }}
         steps:
-            - name: Consolidate build information
+            - name: Download all build info artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: build-info-*
+                  merge-multiple: true
+                  path: build-info
+
+            - name: Consolidate build information from artifacts
               id: consolidate
               run: |
-                  # Get the image and short_sha from the matrix results
-                  # All variants use the same base image name and short_sha
-                  IMAGE="ghcr.io/all-hands-ai/agent-server"
-                  SHORT_SHA="${{ github.sha }}"
-                  SHORT_SHA="${SHORT_SHA:0:7}"
+                  echo "Processing build info artifacts..."
+                  ls -la build-info/
 
-                  # Set basic outputs
-                  echo "image=${IMAGE}" >> $GITHUB_OUTPUT
-                  echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-                  echo "ghcr_package_url=https://github.com/All-Hands-AI/agent-sdk/pkgs/container/agent-server" >> $GITHUB_OUTPUT
-
-                  # Set base image information for each variant
-                  echo "python_base_label=nikolaik/python-nodejs:python3.12-nodejs22" >> $GITHUB_OUTPUT
-                  echo "python_base_url=https://hub.docker.com/r/nikolaik/python-nodejs" >> $GITHUB_OUTPUT
-                  echo "java_base_label=eclipse-temurin:17-jdk" >> $GITHUB_OUTPUT
-                  echo "java_base_url=https://hub.docker.com/_/eclipse-temurin" >> $GITHUB_OUTPUT
-                  echo "golang_base_label=golang:1.21-bookworm" >> $GITHUB_OUTPUT
-                  echo "golang_base_url=https://hub.docker.com/_/golang" >> $GITHUB_OUTPUT
-
-                  # Collect all tags that would be generated for this build
-                  # This is based on the logic in build.sh - only variant-specific tags are created
+                  # Initialize variables
+                  IMAGE=""
+                  SHORT_SHA=""
                   ALL_TAGS=""
-                  for variant in python java golang; do
-                      ALL_TAGS="${ALL_TAGS}${IMAGE}:${SHORT_SHA}-${variant}"$'\n'
+                  VARIANTS_JSON="[]"
+
+                  # Process each variant's build info
+                  for info_file in build-info/*.json; do
+                      if [[ ! -f "$info_file" ]]; then
+                          continue
+                      fi
+                      
+                      echo "Processing $info_file"
+                      cat "$info_file"
+                      
+                      # Extract information from JSON
+                      VARIANT=$(jq -r '.variant' "$info_file")
+                      BASE_IMAGE=$(jq -r '.base_image' "$info_file")
+                      VARIANT_IMAGE=$(jq -r '.image' "$info_file")
+                      VARIANT_SHA=$(jq -r '.short_sha' "$info_file")
+                      VARIANT_TAGS=$(jq -r '.tags' "$info_file")
+                      
+                      # Set common values (same across all variants)
+                      if [[ -z "$IMAGE" ]]; then
+                          IMAGE="$VARIANT_IMAGE"
+                          SHORT_SHA="$VARIANT_SHA"
+                      fi
+                      
+                      # Determine base image documentation URL
+                      case "$BASE_IMAGE" in
+                          nikolaik/python-nodejs*)
+                              BASE_URL="https://hub.docker.com/r/nikolaik/python-nodejs"
+                              ;;
+                          eclipse-temurin*)
+                              BASE_URL="https://hub.docker.com/_/eclipse-temurin"
+                              ;;
+                          golang*)
+                              BASE_URL="https://hub.docker.com/_/golang"
+                              ;;
+                          *)
+                              BASE_URL="https://hub.docker.com"
+                              ;;
+                      esac
+                      
+                      # Add variant to JSON array
+                      VARIANTS_JSON=$(echo "$VARIANTS_JSON" | jq \
+                          --arg variant "$VARIANT" \
+                          --arg base_image "$BASE_IMAGE" \
+                          --arg base_url "$BASE_URL" \
+                          '. += [{variant: $variant, base_image: $base_image, base_url: $base_url}]')
+                      
+                      # Collect tags (comma-separated to newline-separated)
+                      if [[ -n "$VARIANT_TAGS" ]]; then
+                          VARIANT_TAG_LIST=$(echo "$VARIANT_TAGS" | tr ',' '\n')
+                          if [[ -n "$ALL_TAGS" ]]; then
+                              ALL_TAGS="${ALL_TAGS}\n${VARIANT_TAG_LIST}"
+                          else
+                              ALL_TAGS="$VARIANT_TAG_LIST"
+                          fi
+                      fi
                   done
 
-                  # Remove trailing newline
-                  ALL_TAGS="${ALL_TAGS%$'\n'}"
+                  # Create consolidated build summary
+                  BUILD_SUMMARY=$(jq -n \
+                      --arg image "$IMAGE" \
+                      --arg short_sha "$SHORT_SHA" \
+                      --arg ghcr_url "https://github.com/All-Hands-AI/agent-sdk/pkgs/container/agent-server" \
+                      --arg all_tags "$ALL_TAGS" \
+                      --argjson variants "$VARIANTS_JSON" \
+                      '{
+                          image: $image,
+                          short_sha: $short_sha,
+                          ghcr_package_url: $ghcr_url,
+                          all_tags: $all_tags,
+                          variants: $variants
+                      }')
 
-                  # Set the all_tags output using heredoc
+                  echo "Consolidated build summary:"
+                  echo "$BUILD_SUMMARY" | jq .
+
+                  # Set output
                   {
-                      echo 'all_tags<<EOF'
-                      echo "${ALL_TAGS}"
+                      echo 'build_summary<<EOF'
+                      echo "$BUILD_SUMMARY"
                       echo 'EOF'
                   } >> $GITHUB_OUTPUT
 
@@ -249,31 +321,90 @@ jobs:
         permissions:
             contents: read
             pull-requests: write
-        env:
-            IMAGE: ${{ needs.consolidate-build-info.outputs.image }}
-            SHORT_SHA: ${{ needs.consolidate-build-info.outputs.short_sha }}
-            GHCR_PACKAGE_URL: ${{ needs.consolidate-build-info.outputs.ghcr_package_url }}
-            PYTHON_BASE_LABEL: ${{ needs.consolidate-build-info.outputs.python_base_label }}
-            PYTHON_BASE_URL: ${{ needs.consolidate-build-info.outputs.python_base_url }}
-            JAVA_BASE_LABEL: ${{ needs.consolidate-build-info.outputs.java_base_label }}
-            JAVA_BASE_URL: ${{ needs.consolidate-build-info.outputs.java_base_url }}
-            GOLANG_BASE_LABEL: ${{ needs.consolidate-build-info.outputs.golang_base_label }}
-            GOLANG_BASE_URL: ${{ needs.consolidate-build-info.outputs.golang_base_url }}
-            ALL_TAGS: ${{ needs.consolidate-build-info.outputs.all_tags }}
 
         steps:
+            - name: Generate PR description from build summary
+              id: generate_description
+              run: |
+                  # Parse the build summary JSON
+                  BUILD_SUMMARY='${{ needs.consolidate-build-info.outputs.build_summary }}'
+                  echo "Build summary received:"
+                  echo "$BUILD_SUMMARY" | jq .
+
+                  # Extract basic information
+                  IMAGE=$(echo "$BUILD_SUMMARY" | jq -r '.image')
+                  SHORT_SHA=$(echo "$BUILD_SUMMARY" | jq -r '.short_sha')
+                  GHCR_URL=$(echo "$BUILD_SUMMARY" | jq -r '.ghcr_package_url')
+                  ALL_TAGS=$(echo "$BUILD_SUMMARY" | jq -r '.all_tags')
+
+                  # Build the variants table dynamically
+                  VARIANTS_TABLE=""
+                  PULL_COMMANDS=""
+
+                  # Process each variant
+                  VARIANTS=$(echo "$BUILD_SUMMARY" | jq -r '.variants[] | @base64')
+                  for variant_data in $VARIANTS; do
+                      # Decode base64 and extract variant info
+                      VARIANT_JSON=$(echo "$variant_data" | base64 --decode)
+                      VARIANT=$(echo "$VARIANT_JSON" | jq -r '.variant')
+                      BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
+                      BASE_URL=$(echo "$VARIANT_JSON" | jq -r '.base_url')
+                      
+                      # Add to variants table
+                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${VARIANT} | \`${BASE_IMAGE}\` | [Link](${BASE_URL}) |\n"
+                      
+                      # Add to pull commands
+                      PULL_COMMANDS="${PULL_COMMANDS}# ${VARIANT^} variant"
+                      if [[ "$VARIANT" == "python" ]]; then
+                          PULL_COMMANDS="${PULL_COMMANDS} (recommended for most use cases)"
+                      fi
+                      PULL_COMMANDS="${PULL_COMMANDS}\ndocker pull ${IMAGE}:${SHORT_SHA}-${VARIANT}\n\n"
+                  done
+
+                  # Create the complete PR description
+                  PR_CONTENT=$(cat << EOF
+
+                  ---
+                  **Agent Server images for this PR**
+
+                  • **GHCR package:** ${GHCR_URL}
+
+                  **Variants & Base Images**
+                  | Variant | Base Image | Docs / Tags |
+                  |---|---|---|
+                  ${VARIANTS_TABLE}
+                  **Pull (choose your variant)**
+                  \`\`\`bash
+                  ${PULL_COMMANDS}\`\`\`
+
+                  **Run (example with python variant)**
+                  \`\`\`bash
+                  docker run -it --rm \\
+                    -p 8000:8000 \\
+                    --name agent-server-${SHORT_SHA} \\
+                    ${IMAGE}:${SHORT_SHA}-python
+                  \`\`\`
+
+                  **All tags pushed for this build**
+                  \`\`\`
+                  ${ALL_TAGS}
+                  \`\`\`
+
+                  _Each variant tag is a multi-arch manifest (amd64/arm64); your client pulls the right arch automatically._
+                  EOF
+                  )
+
+                  # Set output for the next step
+                  {
+                      echo 'pr_content<<EOF'
+                      echo "$PR_CONTENT"
+                      echo 'EOF'
+                  } >> $GITHUB_OUTPUT
+
             - name: Update PR description with comprehensive docker information
               uses: nefrob/pr-description@v1.2.0
               with:
-                  content: "\n---\n**Agent Server images for this PR**\n\n• **GHCR package:** ${{ env.GHCR_PACKAGE_URL }}\n\n**Variants & Base Images**\n\
-                      | Variant | Base Image | Docs / Tags |\n|---|---|---|\n| python | `${{ env.PYTHON_BASE_LABEL }}` | [Link](${{ env.PYTHON_BASE_URL
-                      }}) |\n| java   | `${{ env.JAVA_BASE_LABEL }}`   | [Link](${{ env.JAVA_BASE_URL }}) |\n| golang | `${{ env.GOLANG_BASE_LABEL }}` |
-                      [Link](${{ env.GOLANG_BASE_URL }}) |\n\n**Pull (choose your variant)**\n```bash\n# Python variant (recommended for most use cases)\n\
-                      docker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}-python\n\n# Java variant\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}-java\n\
-                      \n# Golang variant\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}-golang\n```\n\n**Run (example with python variant)**\n```bash\n\
-                      docker run -it --rm \\\n  -p 8000:8000 \\\n  --name agent-server-${{ env.SHORT_SHA }} \\\n  ${{ env.IMAGE }}:${{ env.SHORT_SHA }}-python\n\
-                      ```\n\n**All tags pushed for this build**\n```\n${{ env.ALL_TAGS }}\n```\n\n_Each variant tag is a multi-arch manifest (amd64/arm64);
-                      your client pulls the right arch automatically._"
+                  content: ${{ steps.generate_description.outputs.pr_content }}
                   regex: "---\\s*\\*\\*Agent Server images? for this PR\\*\\*[\\s\\S]*?(?=\\n\\n---|\n\\n##|$)"
                   regexFlags: m
                   token: ${{ secrets.GITHUB_TOKEN }}
