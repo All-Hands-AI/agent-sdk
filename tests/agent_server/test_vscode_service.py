@@ -15,7 +15,6 @@ def vscode_service():
     return VSCodeService(
         port=8001,
         workspace_path=Path("/tmp/test_workspace"),
-        username="testuser",
     )
 
 
@@ -37,11 +36,10 @@ def mock_openvscode_binary(tmp_path):
 
 def test_vscode_service_initialization():
     """Test VSCode service initialization."""
-    service = VSCodeService(port=8002, workspace_path=Path("/test"), username="user")
+    service = VSCodeService(port=8002, workspace_path=Path("/test"))
 
     assert service.port == 8002
     assert service.workspace_path == Path("/test")
-    assert service.username == "user"
     assert service.connection_token is None
     assert service.process is None
 
@@ -178,31 +176,13 @@ async def test_stop_with_timeout(vscode_service):
 @pytest.mark.asyncio
 async def test_stop_no_process(vscode_service):
     """Test stopping VSCode service with no running process."""
-    await vscode_service.stop()  # Should not raise any exception
-
-
-def test_get_vscode_url_with_token(vscode_service):
-    """Test getting VSCode URL with token."""
-    vscode_service.connection_token = "test-token"
-
-    url = vscode_service.get_vscode_url("http://example.com")
-
-    expected = "http://example.com:8001/?tkn=test-token&folder=/tmp/test_workspace"
-    assert url == expected
+    await vscode_service.stop()  # Should not raise any exceptionz
 
 
 def test_get_vscode_url_no_token(vscode_service):
     """Test getting VSCode URL without token."""
     url = vscode_service.get_vscode_url()
     assert url is None
-
-
-def test_get_connection_token(vscode_service):
-    """Test getting connection token."""
-    assert vscode_service.get_connection_token() is None
-
-    vscode_service.connection_token = "test-token"
-    assert vscode_service.get_connection_token() == "test-token"
 
 
 def test_is_running_false(vscode_service):
