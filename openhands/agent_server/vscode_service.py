@@ -19,18 +19,15 @@ class VSCodeService:
         self,
         port: int = 8001,
         workspace_path: Path = Path("/workspace/project"),
-        username: str = "openhands",
     ):
         """Initialize VSCode service.
 
         Args:
             port: Port to run VSCode server on (default: 8001)
             workspace_path: Path to the workspace directory
-            username: Username to run VSCode server as
         """
         self.port = port
         self.workspace_path = workspace_path
-        self.username = username
         self.connection_token: str | None = None
         self.process: asyncio.subprocess.Process | None = None
         self.openvscode_server_root = Path("/openhands/.openvscode-server")
@@ -184,9 +181,6 @@ class VSCodeService:
 
         # Build the command to start VSCode server
         cmd = (
-            f"su - {self.username} -s /bin/bash << 'EOF'\n"
-            f"sudo chown -R {self.username}:{self.username} "
-            f"{self.openvscode_server_root}\n"
             f"cd {self.workspace_path}\n"
             f"exec {self.openvscode_server_root}/bin/openvscode-server "
             f"--host 0.0.0.0 "
