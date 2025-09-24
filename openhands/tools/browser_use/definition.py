@@ -11,6 +11,7 @@ from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
 
 
+# Lazy import to avoid hanging during module import
 if TYPE_CHECKING:
     from openhands.tools.browser_use.impl import BrowserToolExecutor
 
