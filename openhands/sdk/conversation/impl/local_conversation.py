@@ -16,8 +16,11 @@ from openhands.sdk.event import (
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+)
 
 
 logger = get_logger(__name__)
@@ -96,6 +99,12 @@ class LocalConversation(BaseConversation):
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
 
+        # Register existing llms in agent
+        self.llm_registry = LLMRegistry()
+        self.llm_registry.subscribe(self._state.stats.register_llm)
+        for llm in list(self.agent.get_all_llms()):
+            self.llm_registry.add(llm.service_id, llm)
+
     @property
     def id(self) -> ConversationID:
         """Get the unique ID of the conversation."""
@@ -111,6 +120,10 @@ class LocalConversation(BaseConversation):
         But we won't be able to access methods that mutate the state.
         """
         return self._state
+
+    @property
+    def conversation_stats(self):
+        return self._state.stats
 
     @property
     def stuck_detector(self) -> StuckDetector | None:
@@ -221,9 +234,16 @@ class LocalConversation(BaseConversation):
                 self.agent.step(self._state, on_event=self._on_event)
                 iteration += 1
 
+                # Check for non-finished terminal conditions
+                # Note: We intentionally do NOT check for FINISHED status here.
+                # This allows concurrent user messages to be processed:
+                # 1. Agent finishes and sets status to FINISHED
+                # 2. User sends message concurrently via send_message()
+                # 3. send_message() waits for FIFO lock, then sets status to IDLE
+                # 4. Run loop continues to next iteration and processes the message
+                # 5. Without this design, concurrent messages would be lost
                 if (
-                    self.state.agent_status == AgentExecutionStatus.FINISHED
-                    or self.state.agent_status
+                    self.state.agent_status
                     == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
                     or iteration >= self.max_iteration_per_run
                 ):

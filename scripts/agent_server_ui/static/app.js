@@ -39,7 +39,10 @@ class OpenHandsWebChat {
         this.newConversationModal = document.getElementById('new-conversation-modal');
         this.newConversationForm = document.getElementById('new-conversation-form');
         this.initialMessageInput = document.getElementById('initial-message');
-        this.maxIterationsInput = document.getElementById('max-iterations');
+        this.jsonParametersInput = document.getElementById('json-parameters');
+        this.jsonValidationError = document.getElementById('json-validation-error');
+        this.resetJsonBtn = document.getElementById('reset-json-btn');
+        this.showJsonHelpBtn = document.getElementById('show-json-help');
         
         // Loading overlay
         this.loadingOverlay = document.getElementById('loading-overlay');
@@ -88,6 +91,21 @@ class OpenHandsWebChat {
             if (e.target === this.newConversationModal) {
                 this.hideNewConversationModal();
             }
+        });
+
+        // JSON parameters controls
+        this.resetJsonBtn.addEventListener('click', () => {
+            this.resetJsonParameters();
+        });
+
+        this.showJsonHelpBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showJsonExample();
+        });
+
+        // JSON validation on input
+        this.jsonParametersInput.addEventListener('input', () => {
+            this.validateJsonParameters();
         });
     }
 
@@ -180,7 +198,7 @@ class OpenHandsWebChat {
             <div class="conversation-title">${title}</div>
             <div class="conversation-meta">
                 <span>${createdAt}</span>
-                <span class="conversation-status ${conversation.status.toLowerCase()}">${conversation.status}</span>
+                <span class="conversation-status ${conversation.agent_status.toLowerCase()}">${conversation.agent_status}</span>
             </div>
         `;
         
@@ -225,7 +243,7 @@ class OpenHandsWebChat {
         const conversation = this.conversations.get(conversationId);
         if (conversation) {
             this.conversationTitle.textContent = this.getConversationTitle(conversation);
-            this.updateConversationStatus(conversation.status);
+            this.updateConversationStatus(conversation.agent_status);
             this.enableChatControls();
         }
         
@@ -295,11 +313,11 @@ class OpenHandsWebChat {
             this.scrollToBottom();
             
             // Update agent running status based on event type
-            if (data.event.type === 'agent_start') {
+            if (data.event.kind === 'agent_start') {
                 this.isAgentRunning = true;
                 this.showTypingIndicator();
                 this.updateConversationStatus('RUNNING');
-            } else if (data.event.type === 'agent_finish' || data.event.type === 'agent_error') {
+            } else if (data.event.kind === 'agent_finish' || data.event.kind === 'agent_error') {
                 this.isAgentRunning = false;
                 this.hideTypingIndicator();
                 this.updateConversationStatus('IDLE');
@@ -310,7 +328,7 @@ class OpenHandsWebChat {
     displayEvent(event) {
         const messageElement = document.createElement('div');
         
-        if (event.type === 'message') {
+        if (event.kind === 'message') {
             this.displayMessage(event, messageElement);
         } else {
             this.displaySystemEvent(event, messageElement);
@@ -341,7 +359,7 @@ class OpenHandsWebChat {
         let eventClass = '';
         let eventIcon = 'info-circle';
         
-        switch (event.type) {
+        switch (event.kind) {
             case 'tool_call':
                 eventClass = 'tool-call';
                 eventIcon = 'cog';
@@ -356,14 +374,16 @@ class OpenHandsWebChat {
                 break;
         }
         
-        messageElement.classList.add(eventClass);
+        if (eventClass) {
+            messageElement.classList.add(eventClass);
+        }
         
         const timestamp = new Date(event.timestamp).toLocaleTimeString();
         const content = this.formatEventContent(event);
         
         messageElement.innerHTML = `
             <div class="event-type">
-                <i class="fas fa-${eventIcon}"></i> ${event.type.replace('_', ' ')}
+                <i class="fas fa-${eventIcon}"></i> ${event.kind.replace('_', ' ')}
             </div>
             <div class="event-content">${content}</div>
             <div class="message-timestamp">${timestamp}</div>
@@ -544,7 +564,94 @@ class OpenHandsWebChat {
         }
     }
 
+    // Local storage functions for dialog settings
+    saveDialogSettings() {
+        const settings = {
+            initialMessage: this.initialMessageInput.value,
+            jsonParameters: this.jsonParametersInput.value
+        };
+        localStorage.setItem('openhandsDialogSettings', JSON.stringify(settings));
+    }
+
+    loadDialogSettings() {
+        try {
+            const saved = localStorage.getItem('openhandsDialogSettings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                this.initialMessageInput.value = settings.initialMessage || '';
+                this.jsonParametersInput.value = settings.jsonParameters || '';
+                this.validateJsonParameters();
+            } else {
+                // If no saved settings, use the first example from START_CONVERSATION_EXAMPLES
+                this.jsonParametersInput.value = this.getDefaultJsonParameters();
+                this.validateJsonParameters();
+            }
+        } catch (error) {
+            console.warn('Failed to load dialog settings from localStorage:', error);
+            // Fallback to default if localStorage fails
+            this.jsonParametersInput.value = this.getDefaultJsonParameters();
+            this.validateJsonParameters();
+        }
+    }
+
+    getDefaultJsonParameters() {
+        // Based on the first example from START_CONVERSATION_EXAMPLES (without initial_message)
+        return JSON.stringify({
+            agent: {
+                llm: {
+                    model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                    base_url: "https://llm-proxy.app.all-hands.dev",
+                    api_key: "secret"
+                },
+                tools: [
+                    { name: "BashTool", params: { working_dir: "/workspace" } },
+                    { name: "FileEditorTool", params: { workspace_root: "/workspace" } },
+                    { name: "TaskTrackerTool", params: { save_dir: "/conversations" } }
+                ]
+            }
+        }, null, 2);
+    }
+
+    resetJsonParameters() {
+        this.jsonParametersInput.value = this.getDefaultJsonParameters();
+        this.validateJsonParameters();
+    }
+
+    showJsonExample() {
+        const example = this.getDefaultJsonParameters();
+        if (!this.jsonParametersInput.value.trim()) {
+            this.jsonParametersInput.value = example;
+            this.validateJsonParameters();
+        } else {
+            // Show example in a simple alert for now
+            alert('Example JSON Parameters:\n\n' + example);
+        }
+    }
+
+    validateJsonParameters() {
+        const jsonText = this.jsonParametersInput.value.trim();
+        
+        // Clear previous error
+        this.jsonValidationError.style.display = 'none';
+        this.jsonParametersInput.style.borderColor = '';
+        
+        if (!jsonText) {
+            return true; // Empty is valid (will use defaults)
+        }
+        
+        try {
+            JSON.parse(jsonText);
+            return true;
+        } catch (error) {
+            this.jsonValidationError.textContent = `Invalid JSON: ${error.message}`;
+            this.jsonValidationError.style.display = 'block';
+            this.jsonParametersInput.style.borderColor = '#e74c3c';
+            return false;
+        }
+    }
+
     showNewConversationModal() {
+        this.loadDialogSettings();
         this.newConversationModal.style.display = 'block';
         this.initialMessageInput.focus();
     }
@@ -555,28 +662,33 @@ class OpenHandsWebChat {
     }
 
     async createNewConversation() {
+        // Validate JSON parameters first
+        if (!this.validateJsonParameters()) {
+            return;
+        }
+
         const initialMessage = this.initialMessageInput.value.trim();
-        const maxIterations = parseInt(this.maxIterationsInput.value) || 500;
+        const jsonParameters = this.jsonParametersInput.value.trim();
         
         try {
             this.showLoading();
             
-            const requestBody = {
-                agent: {
-                    llm: {
-                        model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                        base_url: "https://llm-proxy.eval.all-hands.dev",
-                        api_key: "placeholder" // This should be set via environment variable
-                    },
-                    tools: [
-                        { name: "BashTool", params: { working_dir: "/workspace" } },
-                        { name: "FileEditor" },
-                        { name: "TaskTracker" }
-                    ]
-                },
-                max_iterations: maxIterations
-            };
+            let requestBody;
             
+            if (jsonParameters) {
+                // Use custom JSON parameters
+                try {
+                    requestBody = JSON.parse(jsonParameters);
+                } catch (error) {
+                    this.showError('Invalid JSON parameters: ' + error.message);
+                    return;
+                }
+            } else {
+                // Use default parameters based on START_CONVERSATION_EXAMPLES
+                requestBody = JSON.parse(this.getDefaultJsonParameters());
+            }
+            
+            // Always build initial_message from UI input if provided
             if (initialMessage) {
                 requestBody.initial_message = {
                     role: "user",
@@ -589,6 +701,9 @@ class OpenHandsWebChat {
                 method: 'POST',
                 body: JSON.stringify(requestBody)
             });
+            
+            // Save settings to localStorage
+            this.saveDialogSettings();
             
             this.hideNewConversationModal();
             

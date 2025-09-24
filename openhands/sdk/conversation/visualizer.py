@@ -1,4 +1,5 @@
 import re
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.panel import Panel
@@ -7,7 +8,6 @@ from rich.text import Text
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
-    EventWithMetrics,
     MessageEvent,
     ObservationEvent,
     PauseEvent,
@@ -15,6 +15,10 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.condenser import Condensation
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.conversation_stats import ConversationStats
 
 
 # These are external inputs
@@ -54,6 +58,7 @@ class ConversationVisualizer:
         self,
         highlight_regex: dict[str, str] | None = None,
         skip_user_messages: bool = False,
+        conversation_stats: "ConversationStats | None" = None,
     ):
         """Initialize the visualizer.
 
@@ -64,10 +69,12 @@ class ConversationVisualizer:
                            "Thought:": "bold green"}
             skip_user_messages: If True, skip displaying user messages. Useful for
                                 scenarios where user input is not relevant to show.
+            conversation_stats: ConversationStats object to display metrics information.
         """
         self._console = Console()
         self._skip_user_messages = skip_user_messages
         self._highlight_patterns: dict[str, str] = highlight_regex or {}
+        self._conversation_stats = conversation_stats
 
     def on_event(self, event: EventBase) -> None:
         """Main event handler that displays events with Rich formatting."""
@@ -123,7 +130,7 @@ class ConversationVisualizer:
             return Panel(
                 content,
                 title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
-                subtitle=self._format_metrics_subtitle(event),
+                subtitle=self._format_metrics_subtitle(),
                 border_style=_ACTION_COLOR,
                 padding=_PANEL_PADDING,
                 expand=True,
@@ -159,7 +166,7 @@ class ConversationVisualizer:
             return Panel(
                 content,
                 title=title_text,
-                subtitle=self._format_metrics_subtitle(event),
+                subtitle=self._format_metrics_subtitle(),
                 border_style=role_color,
                 padding=_PANEL_PADDING,
                 expand=True,
@@ -168,7 +175,7 @@ class ConversationVisualizer:
             return Panel(
                 content,
                 title=f"[bold {_ERROR_COLOR}]Agent Error[/bold {_ERROR_COLOR}]",
-                subtitle=self._format_metrics_subtitle(event),
+                subtitle=self._format_metrics_subtitle(),
                 border_style=_ERROR_COLOR,
                 padding=_PANEL_PADDING,
                 expand=True,
@@ -185,7 +192,7 @@ class ConversationVisualizer:
             return Panel(
                 content,
                 title=f"[bold {_SYSTEM_COLOR}]Condensation[/bold {_SYSTEM_COLOR}]",
-                subtitle=self._format_metrics_subtitle(event),
+                subtitle=self._format_metrics_subtitle(),
                 border_style=_SYSTEM_COLOR,
                 expand=True,
             )
@@ -201,14 +208,18 @@ class ConversationVisualizer:
                 expand=True,
             )
 
-    def _format_metrics_subtitle(self, event: EventWithMetrics) -> str | None:
+    def _format_metrics_subtitle(self) -> str | None:
         """Format LLM metrics as a visually appealing subtitle string with icons,
-        colors, and k/m abbreviations (cache hit rate only)."""
-        if not event.metrics or not event.metrics.accumulated_token_usage:
+        colors, and k/m abbreviations using conversation stats."""
+        if not self._conversation_stats:
             return None
 
-        usage = event.metrics.accumulated_token_usage
-        cost = event.metrics.accumulated_cost or 0.0
+        combined_metrics = self._conversation_stats.get_combined_metrics()
+        if not combined_metrics or not combined_metrics.accumulated_token_usage:
+            return None
+
+        usage = combined_metrics.accumulated_token_usage
+        cost = combined_metrics.accumulated_cost or 0.0
 
         # helper: 1234 -> "1.2K", 1200000 -> "1.2M"
         def abbr(n: int | float) -> str:
@@ -248,7 +259,9 @@ class ConversationVisualizer:
 
 
 def create_default_visualizer(
-    highlight_regex: dict[str, str] | None = None, **kwargs
+    highlight_regex: dict[str, str] | None = None,
+    conversation_stats: "ConversationStats | None" = None,
+    **kwargs,
 ) -> ConversationVisualizer:
     """Create a default conversation visualizer instance.
 
@@ -257,10 +270,12 @@ def create_default_visualizer(
                        for highlighting keywords in the visualizer.
                        For example: {"Reasoning:": "bold blue",
                        "Thought:": "bold green"}
+        conversation_stats: ConversationStats object to display metrics information.
     """
     return ConversationVisualizer(
         highlight_regex=DEFAULT_HIGHLIGHT_REGEX
         if highlight_regex is None
         else highlight_regex,
+        conversation_stats=conversation_stats,
         **kwargs,
     )
