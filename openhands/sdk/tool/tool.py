@@ -1,4 +1,5 @@
 from abc import ABC
+from collections.abc import Sequence
 from typing import Any, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
@@ -102,11 +103,15 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Self | list[Self]":
-        """Create a Tool instance OR a list of them. Placeholder for subclasses.
+    def create(cls, *args, **kwargs) -> Sequence["Self"]:
+        """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).
+
+        Returns:
+            A sequence of Tool instances. Even single tools are returned as a sequence
+            to provide a consistent interface and eliminate union return types.
         """
         raise NotImplementedError("Tool.create() must be implemented in subclasses")
 

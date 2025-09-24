@@ -1,6 +1,7 @@
 """Utility functions for MCP integration."""
 
 import re
+from collections.abc import Sequence
 from typing import Any
 
 import mcp.types
@@ -148,7 +149,7 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
         cls,
         mcp_tool: mcp.types.Tool,
         mcp_client: MCPClient,
-    ) -> "MCPTool":
+    ) -> Sequence["MCPTool"]:
         try:
             annotations = (
                 ToolAnnotations.model_validate(
@@ -158,17 +159,21 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
                 else None
             )
 
-            return cls(
-                name=mcp_tool.name,
-                description=mcp_tool.description or "No description provided",
-                action_type=MCPToolAction,
-                observation_type=MCPToolObservation,
-                annotations=annotations,
-                meta=mcp_tool.meta,
-                executor=MCPToolExecutor(tool_name=mcp_tool.name, client=mcp_client),
-                # pass-through fields (enabled by **extra in Tool.create)
-                mcp_tool=mcp_tool,
-            )
+            return [
+                cls(
+                    name=mcp_tool.name,
+                    description=mcp_tool.description or "No description provided",
+                    action_type=MCPToolAction,
+                    observation_type=MCPToolObservation,
+                    annotations=annotations,
+                    meta=mcp_tool.meta,
+                    executor=MCPToolExecutor(
+                        tool_name=mcp_tool.name, client=mcp_client
+                    ),
+                    # pass-through fields (enabled by **extra in Tool.create)
+                    mcp_tool=mcp_tool,
+                )
+            ]
         except ValidationError as e:
             logger.error(
                 f"Validation error creating MCPTool for {mcp_tool.name}: "

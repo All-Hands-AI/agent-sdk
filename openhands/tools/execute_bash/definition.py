@@ -223,7 +223,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
         env_masker: Callable[[str], str] | None = None,
-    ) -> "BashTool":
+    ) -> Sequence["BashTool"]:
         """Initialize BashTool with executor parameters.
 
         Args:
@@ -259,11 +259,13 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         )
 
         # Initialize the parent Tool with the executor
-        return cls(
-            name=execute_bash_tool.name,
-            description=TOOL_DESCRIPTION,
-            action_type=ExecuteBashAction,
-            observation_type=ExecuteBashObservation,
-            annotations=execute_bash_tool.annotations,
-            executor=executor,
-        )
+        return [
+            cls(
+                name=execute_bash_tool.name,
+                description=TOOL_DESCRIPTION,
+                action_type=ExecuteBashAction,
+                observation_type=ExecuteBashObservation,
+                annotations=execute_bash_tool.annotations,
+                executor=executor,
+            )
+        ]

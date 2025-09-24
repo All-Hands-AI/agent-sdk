@@ -398,7 +398,7 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
     """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
 
     @classmethod
-    def create(cls, save_dir: str | None = None):
+    def create(cls, save_dir: str | None = None) -> Sequence["TaskTrackerTool"]:
         """Initialize TaskTrackerTool with a TaskTrackerExecutor.
 
         Args:
@@ -408,11 +408,13 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
         executor = TaskTrackerExecutor(save_dir=save_dir)
 
         # Initialize the parent Tool with the executor
-        return cls(
-            name="task_tracker",
-            description=TASK_TRACKER_DESCRIPTION,
-            action_type=TaskTrackerAction,
-            observation_type=TaskTrackerObservation,
-            annotations=task_tracker_tool.annotations,
-            executor=executor,
-        )
+        return [
+            cls(
+                name="task_tracker",
+                description=TASK_TRACKER_DESCRIPTION,
+                action_type=TaskTrackerAction,
+                observation_type=TaskTrackerObservation,
+                annotations=task_tracker_tool.annotations,
+                executor=executor,
+            )
+        ]

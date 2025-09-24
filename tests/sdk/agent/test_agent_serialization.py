@@ -30,8 +30,8 @@ def create_mock_mcp_tool(name: str) -> MCPTool:
         },
     )
     mock_client = Mock(spec=MCPClient)
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
-    return mcp_tool
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    return tools[0]  # Extract single tool from sequence
 
 
 def test_agent_supports_polymorphic_json_serialization() -> None:

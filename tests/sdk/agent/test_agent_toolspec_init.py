@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from unittest.mock import patch
 
 from openhands.sdk import LLM, Conversation
@@ -21,14 +22,16 @@ class _Exec(ToolExecutor[_Action, _Obs]):
         return _Obs(out=action.text.upper())
 
 
-def _make_tool() -> Tool:
-    return Tool(
-        name="upper",
-        description="Uppercase",
-        action_type=_Action,
-        observation_type=_Obs,
-        executor=_Exec(),
-    )
+def _make_tool() -> Sequence[Tool]:
+    return [
+        Tool(
+            name="upper",
+            description="Uppercase",
+            action_type=_Action,
+            observation_type=_Obs,
+            executor=_Exec(),
+        )
+    ]
 
 
 def test_agent_initializes_tools_from_toolspec_locally(monkeypatch):
