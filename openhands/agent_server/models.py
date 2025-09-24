@@ -1,7 +1,8 @@
+from abc import ABC
 from datetime import datetime
 from enum import Enum
 from typing import Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -13,7 +14,7 @@ from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.utils.models import OpenHandsModel
+from openhands.sdk.utils.models import DiscriminatedUnionMixin, OpenHandsModel
 
 
 class ConversationSortOrder(str, Enum):
@@ -132,3 +133,54 @@ class SetConfirmationPolicyRequest(BaseModel):
     """Payload to set confirmation policy for a conversation."""
 
     policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
+
+
+class BashEventBase(DiscriminatedUnionMixin, ABC):
+    """Base class for all bash event types"""
+
+    id: UUID = Field(default_factory=uuid4)
+    timestamp: datetime = Field(default_factory=utc_now)
+
+
+class ExecuteBashRequest(BaseModel):
+    command: str = Field(description="The bash command to execute")
+    cwd: str | None = Field(default=None, description="The current working directory")
+    timeout: int = Field(
+        default=300,
+        description="The max number of seconds a command may be permitted to run.",
+    )
+
+
+class BashCommand(BashEventBase, ExecuteBashRequest):
+    pass
+
+
+class BashOutput(BashEventBase):
+    """
+    Output of a bash command. A single command may have multiple pieces of output
+    depending on how large the output is.
+    """
+
+    command_id: UUID
+    order: int = Field(
+        default=0, description="The order for this output, sequentially starting with 0"
+    )
+    exit_code: int | None = Field(
+        default=None, description="Exit code None implies the command is still running."
+    )
+    stdout: str | None = Field(
+        default=None, description="The standard output from the command"
+    )
+    stderr: str | None = Field(
+        default=None, description="The error output from the command"
+    )
+
+
+class BashEventSortOrder(Enum):
+    TIMESTAMP = "TIMESTAMP"
+    TIMESTAMP_DESC = "TIMESTAMP_DESC"
+
+
+class BashEventPage(OpenHandsModel):
+    items: list[BashEventBase]
+    next_page_id: str | None = None
