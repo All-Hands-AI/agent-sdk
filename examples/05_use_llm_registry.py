@@ -25,7 +25,7 @@ assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 # Create LLM instance
 main_llm = LLM(
-    service_id="test-llm",
+    service_id="primary-llm",
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
