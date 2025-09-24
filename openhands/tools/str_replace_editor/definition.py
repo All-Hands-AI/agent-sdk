@@ -1,18 +1,7 @@
 """String replace editor tool implementation."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal
-
-
-if TYPE_CHECKING:
-    from openhands.tools.str_replace_editor.impl import FileEditorExecutor
-else:
-    # Import at runtime for forward reference resolution
-    try:
-        from openhands.tools.str_replace_editor.impl import FileEditorExecutor
-    except ImportError:
-        # If import fails, create a placeholder for forward reference resolution
-        FileEditorExecutor = None  # type: ignore
+from typing import Literal
 
 from pydantic import Field, PrivateAttr
 from rich.text import Text
