@@ -1,4 +1,3 @@
-import json
 from collections.abc import Callable
 from typing import Literal
 
@@ -21,7 +20,6 @@ class BashExecutor(ToolExecutor):
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
-        env_provider: Callable[[str], dict[str, str]] | None = None,
         env_masker: Callable[[str], str] | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
@@ -33,11 +31,7 @@ class BashExecutor(ToolExecutor):
             terminal_type: Force a specific session type:
                          ('tmux', 'subprocess').
                          If None, auto-detect based on system capabilities
-            env_provider: Optional function mapping a command string to env vars
-                          that should be exported for that command.
-            env_masker: Optional function that returns current secret values
-                        for masking purposes. This ensures consistent masking
-                        even when env_provider calls fail.
+            env_masker: Optional function that masks secret values in output.
         """
         self.session = create_terminal_session(
             work_dir=working_dir,
@@ -46,7 +40,6 @@ class BashExecutor(ToolExecutor):
             terminal_type=terminal_type,
         )
         self.session.initialize()
-        self.env_provider = env_provider
         self.env_masker = env_masker
         logger.info(
             f"BashExecutor initialized with working_dir: {working_dir}, "
@@ -54,38 +47,7 @@ class BashExecutor(ToolExecutor):
             f"terminal_type: {terminal_type or self.session.__class__.__name__}"
         )
 
-    def _export_envs(self, action: ExecuteBashAction) -> None:
-        if not self.env_provider:
-            return
-        if not action.command.strip():
-            return
-
-        if action.is_input:
-            return
-
-        env_vars = self.env_provider(action.command)
-        if not env_vars:
-            return
-
-        export_statements = []
-        for key, value in env_vars.items():
-            export_statements.append(f"export {key}={json.dumps(value)}")
-        exports_cmd = " && ".join(export_statements)
-
-        logger.debug(f"Exporting {len(env_vars)} environment variables before command")
-
-        # Execute the export command separately to persist env in the session
-        _ = self.session.execute(
-            ExecuteBashAction(
-                command=exports_cmd,
-                is_input=False,
-                timeout=action.timeout,
-            )
-        )
-
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
-        # If env keys detected, export env values to bash as a separate action first
-        self._export_envs(action)
         observation = self.session.execute(action)
 
         # Apply automatic secrets masking using env_masker

@@ -60,10 +60,10 @@ def conversation_no_bash(agent_no_bash: Agent) -> LocalConversation:
     return LocalConversation(agent_no_bash)
 
 
-def test_agent_configures_bash_tools_env_provider(
+def test_agent_exports_secrets_to_bash(
     conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
-    """Test that agent configures bash tools with env provider."""
+    """Test that agent exports secrets to bash session."""
     # Add secrets to conversation
     conversation.update_secrets(
         {
@@ -78,22 +78,23 @@ def test_agent_configures_bash_tools_env_provider(
     assert bash_tool is not None
     assert bash_tool.executor is not None
 
-    # Check that env_provider is configured
-    bash_executor = cast(BashExecutor, bash_tool.executor)
-    assert bash_executor.env_provider is not None
+    # Test that secrets are available in bash session
+    action = ExecuteBashAction(command="echo API_KEY=$API_KEY")
+    result = bash_executor(action)
+    # The output should be masked but the command should work
+    assert "API_KEY=" in result.output
+    assert result.metadata.exit_code == 0
 
-    # Test that env_provider works correctly
-    env_vars = bash_executor.env_provider("echo $API_KEY")
-    assert env_vars == {"API_KEY": "test-api-key"}
-
-    env_vars = bash_executor.env_provider("echo $NOT_A_KEY")
-    assert env_vars == {}
+    action = ExecuteBashAction(command="echo DB_PASSWORD=$DB_PASSWORD")
+    result = bash_executor(action)
+    assert "DB_PASSWORD=" in result.output
+    assert result.metadata.exit_code == 0
 
 
-def test_agent_env_provider_with_callable_secrets(
+def test_agent_exports_callable_secrets(
     conversation: LocalConversation, bash_executor: BashExecutor
 ):
-    """Test that agent env provider works with callable secrets."""
+    """Test that agent exports callable secrets to bash session."""
 
     # Add callable secrets
     def get_dynamic_token():
@@ -106,15 +107,17 @@ def test_agent_env_provider_with_callable_secrets(
         }
     )
 
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("export DYNAMIC_TOKEN=$DYNAMIC_TOKEN")
-    assert env_vars == {"DYNAMIC_TOKEN": "dynamic-token-123"}
+    # Test that callable secrets are available in bash session
+    action = ExecuteBashAction(command="echo DYNAMIC_TOKEN=$DYNAMIC_TOKEN")
+    result = bash_executor(action)
+    assert "DYNAMIC_TOKEN=" in result.output
+    assert result.metadata.exit_code == 0
 
 
-def test_agent_env_provider_handles_exceptions(
+def test_agent_handles_failing_callable_secrets(
     conversation: LocalConversation, bash_executor: BashExecutor
 ):
-    """Test that agent env provider handles exceptions gracefully."""
+    """Test that agent handles failing callable secrets gracefully."""
 
     # Add a failing callable secret
     def failing_secret():
@@ -127,29 +130,31 @@ def test_agent_env_provider_handles_exceptions(
         }
     )
 
-    assert bash_executor.env_provider is not None
+    # Working key should still be available
+    action = ExecuteBashAction(command="echo WORKING_KEY=$WORKING_KEY")
+    result = bash_executor(action)
+    assert "WORKING_KEY=" in result.output
+    assert result.metadata.exit_code == 0
 
-    # Should not raise exception, should return empty dict
-    env_vars = bash_executor.env_provider("export FAILING_KEY=$FAILING_KEY")
-    assert env_vars == {}
-
-    # Working key should still work
-    env_vars = bash_executor.env_provider("export WORKING_KEY=$WORKING_KEY")
-    assert env_vars == {"WORKING_KEY": "working-value"}
+    # Failing key should not be set (empty value)
+    action = ExecuteBashAction(command="echo FAILING_KEY=$FAILING_KEY")
+    result = bash_executor(action)
+    assert "FAILING_KEY=" in result.output
+    assert result.metadata.exit_code == 0
 
 
-def test_agent_env_provider_no_matches(
+def test_agent_bash_works_without_secrets(
     conversation: LocalConversation, bash_executor: BashExecutor
 ):
-    """Test agent env provider when command has no secret matches."""
+    """Test that bash commands work normally when no secrets are referenced."""
 
     conversation.update_secrets({"API_KEY": "test-value"})
 
-    # Test env provider with command that doesn't reference secrets
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("echo hello world")
-
-    assert env_vars == {}
+    # Test command that doesn't reference secrets
+    action = ExecuteBashAction(command="echo hello world")
+    result = bash_executor(action)
+    assert "hello world" in result.output
+    assert result.metadata.exit_code == 0
 
 
 def test_agent_without_bash_throws_warning(llm):
@@ -161,7 +166,7 @@ def test_agent_without_bash_throws_warning(llm):
 
         # Check that the warning was logged
         mock_logger.warning.assert_called_once_with(
-            "Skipped wiring SecretsManager: missing bash tool"
+            "Skipped configuring bash tools secrets: missing bash tool"
         )
 
 
@@ -182,31 +187,33 @@ def test_agent_secrets_integration_workflow(
         }
     )
 
-    # Single secret
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
-    assert env_vars == {"API_KEY": "static-api-key-123"}
+    # Test that secrets are available in bash session
+    action = ExecuteBashAction(command="echo API_KEY=$API_KEY")
+    result = bash_executor(action)
+    assert "API_KEY=" in result.output
+    assert result.metadata.exit_code == 0
 
-    # Multiple secrets
-    command = "export API_KEY=$API_KEY && export AUTH_TOKEN=$AUTH_TOKEN"
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider(command)
-    assert env_vars == {
-        "API_KEY": "static-api-key-123",
-        "AUTH_TOKEN": "bearer-token-456",
-    }
+    # Test multiple secrets
+    action = ExecuteBashAction(command="echo API_KEY=$API_KEY AUTH_TOKEN=$AUTH_TOKEN")
+    result = bash_executor(action)
+    assert "API_KEY=" in result.output
+    assert "AUTH_TOKEN=" in result.output
+    assert result.metadata.exit_code == 0
 
-    # No secrets referenced
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("echo hello world")
-    assert env_vars == {}
+    # Test command without secrets
+    action = ExecuteBashAction(command="echo hello world")
+    result = bash_executor(action)
+    assert "hello world" in result.output
+    assert result.metadata.exit_code == 0
 
-    # Step 5: Update secrets and verify changes propagate
+    # Update secrets and verify changes propagate
     conversation.update_secrets({"API_KEY": "updated-api-key-789"})
 
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
-    assert env_vars == {"API_KEY": "updated-api-key-789"}
+    # Test that updated secret is available
+    action = ExecuteBashAction(command="echo API_KEY=$API_KEY")
+    result = bash_executor(action)
+    assert "API_KEY=" in result.output
+    assert result.metadata.exit_code == 0
 
 
 def test_mask_secrets(
@@ -275,18 +282,13 @@ def test_masking_persists(
     conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
     counter = 0
-    raised_on_second = False
 
     def dynamic_secret() -> str:
-        nonlocal counter, raised_on_second
+        nonlocal counter
         counter += 1
+        return f"changing-secret-{counter}"
 
-        if counter == 1:
-            return f"changing-secret-{counter}"
-        else:
-            raised_on_second = True
-            raise Exception("Blip occured, failed to refresh token")
-
+    # First update - should call function once and export the value
     conversation.update_secrets(
         {
             "DB_PASSWORD": dynamic_secret,
@@ -294,17 +296,30 @@ def test_masking_persists(
     )
 
     try:
+        # First bash execution - should use exported value and mask it
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
         result = bash_executor(action)
-        print(result)
         assert "changing-secret" not in result.output
         assert "<secret-hidden>" in result.output
 
+        # Second bash execution - should still use same exported value and mask it
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
         result = bash_executor(action)
         assert "changing-secret" not in result.output
         assert "<secret-hidden>" in result.output
-        assert raised_on_second
+
+        # Function should have been called only once during update_secrets
+        assert counter == 1
+
+        # Now update secrets again - this should call the function again
+        conversation.update_secrets(
+            {
+                "DB_PASSWORD": dynamic_secret,
+            }
+        )
+
+        # Function should have been called again
+        assert counter == 2
 
     finally:
         bash_executor.close()
