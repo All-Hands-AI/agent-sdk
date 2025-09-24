@@ -21,7 +21,7 @@ from openhands.agent_server.models import (
     BashEventBase,
     BashEventPage,
     BashEventSortOrder,
-    Success,
+    ExecuteBashRequest,
 )
 from openhands.agent_server.pub_sub import Subscriber
 
@@ -85,10 +85,10 @@ async def batch_get_bash_events(
 
 
 @bash_router.post("/execute_bash_command")
-async def execute_bash_command(action: BashCommand) -> Success:
+async def execute_bash_command(request: ExecuteBashRequest) -> BashCommand:
     """Execute a bash command"""
-    await bash_event_service.start_bash_command(action)
-    return Success()
+    command = await bash_event_service.start_bash_command(request)
+    return command
 
 
 # WebSocket for bash events

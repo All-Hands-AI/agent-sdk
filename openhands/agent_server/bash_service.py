@@ -12,6 +12,7 @@ from openhands.agent_server.models import (
     BashEventPage,
     BashEventSortOrder,
     BashOutput,
+    ExecuteBashRequest,
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.sdk.logger import get_logger
@@ -164,13 +165,16 @@ class BashEventService:
 
         return BashEventPage(items=page_events, next_page_id=next_page_id)
 
-    async def start_bash_command(self, command: BashCommand) -> None:
+    async def start_bash_command(self, request: ExecuteBashRequest) -> BashCommand:
         """Execute a bash command. The output will be published separately."""
+        command = BashCommand(**request.model_dump())
         self._save_event_to_file(command)
         await self._pub_sub(command)
 
         # Execute the bash command in a background task
         asyncio.create_task(self._execute_bash_command(command))
+
+        return command
 
     async def _execute_bash_command(self, command: BashCommand) -> None:
         """Execute the bash event and create an observation event."""

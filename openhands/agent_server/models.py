@@ -142,13 +142,17 @@ class BashEventBase(DiscriminatedUnionMixin, ABC):
     timestamp: datetime = Field(default_factory=utc_now)
 
 
-class BashCommand(BashEventBase):
+class ExecuteBashRequest(BaseModel):
     command: str = Field(description="The bash command to execute")
     cwd: str = Field(description="The current working directory")
     timeout: int = Field(
         default=300,
         description="The max number of seconds a command may be permitted to run.",
     )
+
+
+class BashCommand(BashEventBase, ExecuteBashRequest):
+    pass
 
 
 class BashOutput(BashEventBase):
