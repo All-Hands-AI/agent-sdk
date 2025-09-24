@@ -12,7 +12,8 @@ from openhands.tools.str_replace_editor import (
 
 def test_file_editor_tool_initialization():
     """Test that FileEditorTool initializes correctly."""
-    tool = FileEditorTool.create()
+    tools = FileEditorTool.create()
+    tool = tools[0]
 
     # Check that the tool has the correct name and properties
     assert tool.name == "str_replace_editor"
@@ -22,7 +23,8 @@ def test_file_editor_tool_initialization():
 
 def test_file_editor_tool_create_file():
     """Test that FileEditorTool can create files."""
-    tool = FileEditorTool.create()
+    tools = FileEditorTool.create()
+    tool = tools[0]
 
     with tempfile.TemporaryDirectory() as temp_dir:
         test_file = os.path.join(temp_dir, "test.txt")
@@ -44,14 +46,15 @@ def test_file_editor_tool_create_file():
         assert os.path.exists(test_file)
 
         # Check file contents
-        with open(test_file, "r") as f:
+        with open(test_file) as f:
             content = f.read()
         assert content == "Hello, World!"
 
 
 def test_file_editor_tool_view_file():
     """Test that FileEditorTool can view files."""
-    tool = FileEditorTool.create()
+    tools = FileEditorTool.create()
+    tool = tools[0]
 
     with tempfile.TemporaryDirectory() as temp_dir:
         test_file = os.path.join(temp_dir, "test.txt")
@@ -77,7 +80,8 @@ def test_file_editor_tool_view_file():
 
 def test_file_editor_tool_str_replace():
     """Test that FileEditorTool can perform string replacement."""
-    tool = FileEditorTool.create()
+    tools = FileEditorTool.create()
+    tool = tools[0]
 
     with tempfile.TemporaryDirectory() as temp_dir:
         test_file = os.path.join(temp_dir, "test.txt")
@@ -103,14 +107,15 @@ def test_file_editor_tool_str_replace():
         assert not result.error
 
         # Check file contents
-        with open(test_file, "r") as f:
+        with open(test_file) as f:
             content = f.read()
         assert "Hello, Universe!" in content
 
 
 def test_file_editor_tool_to_openai_tool():
     """Test that FileEditorTool can be converted to OpenAI tool format."""
-    tool = FileEditorTool.create()
+    tools = FileEditorTool.create()
+    tool = tools[0]
 
     # Convert to OpenAI tool format
     openai_tool = tool.to_openai_tool()
@@ -124,7 +129,8 @@ def test_file_editor_tool_to_openai_tool():
 
 def test_file_editor_tool_view_directory():
     """Test that FileEditorTool can view directories."""
-    tool = FileEditorTool.create()
+    tools = FileEditorTool.create()
+    tool = tools[0]
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create some test files

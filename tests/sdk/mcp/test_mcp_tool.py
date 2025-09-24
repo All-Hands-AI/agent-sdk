@@ -224,9 +224,8 @@ class TestMCPTool:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = None
 
-        self.tool = MCPTool.create(
-            mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
-        )
+        tools = MCPTool.create(mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client)
+        self.tool = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_creation(self):
         """Test creating an MCP tool."""
@@ -259,9 +258,10 @@ class TestMCPTool:
         mock_tool_with_annotations.annotations = ToolAnnotations(title="Annotated Tool")
         mock_tool_with_annotations.meta = {"version": "1.0"}
 
-        tool = MCPTool.create(
+        tools = MCPTool.create(
             mcp_tool=mock_tool_with_annotations, mcp_client=self.mock_client
         )
+        tool = tools[0]  # Extract single tool from sequence
 
         assert tool.name == "annotated_tool"
         assert tool.description == "Tool with annotations"
@@ -277,7 +277,8 @@ class TestMCPTool:
         mock_tool_no_desc.annotations = None
         mock_tool_no_desc.meta = None
 
-        tool = MCPTool.create(mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client)
+        tools = MCPTool.create(mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client)
+        tool = tools[0]  # Extract single tool from sequence
 
         assert tool.name == "no_desc_tool"
         assert tool.description == "No description provided"

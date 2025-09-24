@@ -1,5 +1,5 @@
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from threading import RLock
 from typing import Any
 
@@ -8,26 +8,19 @@ from openhands.sdk.tool.tool import Tool, ToolBase
 
 
 # A resolver produces Tool instances for given params.
-Resolver = Callable[[dict[str, Any]], list[Tool]]
+Resolver = Callable[[dict[str, Any]], Sequence[Tool]]
 """A resolver produces Tool instances for given params.
 
 Args:
     params: Arbitrary parameters passed to the resolver. These are typically
         used to configure the Tool instances that are created.
-Returns: A list of Tool instances. Most of the time this will be a single-item list,
-    but in some cases a Tool.create may produce multiple tools (e.g., BrowserToolSet).
+Returns: A sequence of Tool instances. Most of the time this will be a single-item
+    sequence, but in some cases a Tool.create may produce multiple tools
+    (e.g., BrowserToolSet).
 """
 
 _LOCK = RLock()
 _REG: dict[str, Resolver] = {}
-
-
-def _ensure_tool_list(name: str, obj: Any) -> list[Tool]:
-    if isinstance(obj, Tool):
-        return [obj]
-    if isinstance(obj, list) and all(isinstance(t, Tool) for t in obj):
-        return obj
-    raise TypeError(f"Factory '{name}' must return Tool or list[Tool], got {type(obj)}")
 
 
 def _resolver_from_instance(name: str, tool: Tool) -> Resolver:
@@ -37,7 +30,7 @@ def _resolver_from_instance(name: str, tool: Tool) -> Resolver:
             f"Tool instance '{name}' must have a non-None .executor"
         )
 
-    def _resolve(params: dict[str, Any]) -> list[Tool]:
+    def _resolve(params: dict[str, Any]) -> Sequence[Tool]:
         if params:
             raise ValueError(f"Tool '{name}' is a fixed instance; params not supported")
         return [tool]
@@ -46,9 +39,9 @@ def _resolver_from_instance(name: str, tool: Tool) -> Resolver:
 
 
 def _resolver_from_callable(
-    name: str, factory: Callable[..., Tool | list[Tool]]
+    name: str, factory: Callable[..., Sequence[Tool]]
 ) -> Resolver:
-    def _resolve(params: dict[str, Any]) -> list[Tool]:
+    def _resolve(params: dict[str, Any]) -> Sequence[Tool]:
         try:
             created = factory(**params)
         except TypeError as exc:
@@ -56,8 +49,13 @@ def _resolver_from_callable(
                 f"Unable to resolve tool '{name}': factory could not be called with "
                 f"params {params}."
             ) from exc
-        tools = _ensure_tool_list(name, created)
-        return tools
+        if not isinstance(created, Sequence) or not all(
+            isinstance(t, Tool) for t in created
+        ):
+            raise TypeError(
+                f"Factory '{name}' must return Sequence[Tool], got {type(created)}"
+            )
+        return created
 
     return _resolve
 
@@ -83,17 +81,23 @@ def _resolver_from_subclass(name: str, cls: type[ToolBase]) -> Resolver:
             f" as a concrete classmethod"
         )
 
-    def _resolve(params: dict[str, Any]) -> list[Tool]:
+    def _resolve(params: dict[str, Any]) -> Sequence[Tool]:
         created = create(**params)
-        tools = _ensure_tool_list(name, created)
+        if not isinstance(created, Sequence) or not all(
+            isinstance(t, Tool) for t in created
+        ):
+            raise TypeError(
+                f"Tool subclass '{cls.__name__}' create() must return Sequence[Tool], "
+                f"got {type(created)}"
+            )
         # Optional sanity: permit tools without executor; they'll fail at .call()
-        return tools
+        return created
 
     return _resolve
 
 
 def register_tool(
-    name: str, factory: Tool | type[ToolBase] | Callable[..., Tool | list[Tool]]
+    name: str, factory: Tool | type[ToolBase] | Callable[..., Sequence[Tool]]
 ) -> None:
     if not isinstance(name, str) or not name.strip():
         raise ValueError("Tool name must be a non-empty string")
@@ -108,14 +112,14 @@ def register_tool(
         raise TypeError(
             "register_tool(...) only accepts: (1) a Tool instance with .executor, "
             "(2) a Tool subclass with .create(**params), or (3) a callable factory "
-            "returning a Tool or list[Tool]"
+            "returning a Sequence[Tool]"
         )
 
     with _LOCK:
         _REG[name] = resolver
 
 
-def resolve_tool(tool_spec: ToolSpec) -> list[Tool]:
+def resolve_tool(tool_spec: ToolSpec) -> Sequence[Tool]:
     with _LOCK:
         resolver = _REG.get(tool_spec.name)
 

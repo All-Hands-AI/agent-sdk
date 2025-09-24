@@ -1,5 +1,6 @@
 from abc import ABC
-from typing import Any, Generic, Self, TypeVar
+from collections.abc import Sequence
+from typing import Any, Protocol, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -61,7 +62,7 @@ class ToolAnnotations(BaseModel):
     )
 
 
-class ToolExecutor(Generic[ActionT, ObservationT]):
+class ToolExecutor[ActionT, ObservationT]:
     """Executor function type for a Tool."""
 
     def __call__(self, action: ActionT) -> ObservationT:
@@ -77,7 +78,22 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
+class ExecutableTool(Protocol):
+    """Protocol for tools that are guaranteed to have a non-None executor.
+
+    This eliminates the need for runtime None checks and type narrowing
+    when working with tools that are known to be executable.
+    """
+
+    name: str
+    executor: ToolExecutor[Any, Any]  # Non-optional executor
+
+    def __call__(self, action: ActionBase) -> ObservationBase:
+        """Execute the tool with the given action."""
+        ...
+
+
+class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -102,11 +118,15 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Self | list[Self]":
-        """Create a Tool instance OR a list of them. Placeholder for subclasses.
+    def create(cls, *args, **kwargs) -> Sequence["Self"]:
+        """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).
+
+        Returns:
+            A sequence of Tool instances. Even single tools are returned as a sequence
+            to provide a consistent interface and eliminate union return types.
         """
         raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
@@ -151,6 +171,22 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     def set_executor(self, executor: ToolExecutor) -> Self:
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
+
+    def as_executable(self) -> ExecutableTool:
+        """Return this tool as an ExecutableTool, ensuring it has an executor.
+
+        This method eliminates the need for runtime None checks by guaranteeing
+        that the returned tool has a non-None executor.
+
+        Returns:
+            This tool instance, typed as ExecutableTool.
+
+        Raises:
+            NotImplementedError: If the tool has no executor.
+        """
+        if self.executor is None:
+            raise NotImplementedError(f"Tool '{self.name}' has no executor")
+        return self  # type: ignore[return-value]
 
     def action_from_arguments(self, arguments: dict[str, Any]) -> ActionBase:
         """Create an action from parsed arguments.
@@ -273,7 +309,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         return Tool
 
 
-class Tool(ToolBase[ActionT, ObservationT], Generic[ActionT, ObservationT]):
+class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
     pass
 
 

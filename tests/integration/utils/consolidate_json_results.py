@@ -40,7 +40,7 @@ def load_and_validate_results(json_files: list[Path]) -> list[ModelTestResults]:
     for json_file in json_files:
         try:
             print(f"Loading {json_file}...")
-            with open(json_file, "r") as f:
+            with open(json_file) as f:
                 data = json.load(f)
 
             # Validate using Pydantic schema

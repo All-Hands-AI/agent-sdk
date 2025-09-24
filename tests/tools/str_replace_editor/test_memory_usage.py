@@ -155,7 +155,7 @@ def test_file_editor_memory_leak(temp_file):
             new_content = f"content_{i + 1}\n" * 5
 
             # Instead of appending, we'll replace content to keep file size stable
-            with open(temp_file, "r") as f:
+            with open(temp_file) as f:
                 current_content = f.read()
 
             # Insert old_content at a random position while keeping file size stable
