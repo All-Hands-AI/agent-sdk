@@ -616,7 +616,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             self.max_input_tokens = self._model_info.get("max_input_tokens")
 
         if self.max_output_tokens is None:
-            if any(m in self.model for m in ["claude-3-7-sonnet", "claude-3.7-sonnet"]):
+            if any(
+                m in self.model
+                for m in ["claude-3-7-sonnet", "claude-3.7-sonnet", "claude-sonnet-4"]
+            ):
                 self.max_output_tokens = (
                     64000  # practical cap (litellm may allow 128k with header)
                 )
