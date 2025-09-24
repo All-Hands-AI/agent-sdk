@@ -2,7 +2,7 @@ import os
 import subprocess
 import tempfile
 import time
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 
