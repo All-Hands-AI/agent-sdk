@@ -4,7 +4,7 @@ import uvicorn
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the OpenHands Local FastAPI app")
+    parser = argparse.ArgumentParser(description="OpenHands Agent Server App")
     parser.add_argument(
         "--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
     )
