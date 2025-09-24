@@ -170,13 +170,11 @@ class VSCodeService:
 
         # Build the command to start VSCode server
         cmd = (
-            f"cd {self.workspace_path}\n"
             f"exec {self.openvscode_server_root}/bin/openvscode-server "
             f"--host 0.0.0.0 "
             f"--connection-token {self.connection_token} "
             f"--port {self.port} "
             f"--disable-workspace-trust\n"
-            "EOF"
         )
 
         # Start the process
