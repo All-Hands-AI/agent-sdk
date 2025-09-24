@@ -1,5 +1,3 @@
-"""Reusable async-to-sync execution utility."""
-
 import asyncio
 import inspect
 import threading
@@ -57,6 +55,25 @@ class AsyncExecutor:
         if t and t.is_alive():
             t.join(timeout=1.0)
 
+    def _run_coro(
+        self, coro: Any, loop: asyncio.AbstractEventLoop, timeout: float
+    ) -> Any:
+        """
+        Try to schedule a coroutine on the background loop.
+        If scheduling fails (e.g. loop already closed), fall back
+        to running it synchronously in a new event loop.
+        """
+        try:
+            fut = asyncio.run_coroutine_threadsafe(coro, loop)
+            return fut.result(timeout)
+        except Exception:
+            # Fallback path: run synchronously in a fresh event loop
+            new_loop = asyncio.new_event_loop()
+            try:
+                return new_loop.run_until_complete(coro)
+            finally:
+                new_loop.close()
+
     def run_async(
         self,
         awaitable_or_fn: Callable[..., Any] | Any,
@@ -68,7 +85,7 @@ class AsyncExecutor:
         Run a coroutine or async function on the background loop from sync code.
 
         Args:
-            awaitable_or_fn: Coroutine or async function to execute
+            awaitable_or_fn: Coroutine object or async function to execute
             *args: Arguments to pass to the function
             timeout: Timeout in seconds (default: 300)
             **kwargs: Keyword arguments to pass to the function
@@ -88,8 +105,7 @@ class AsyncExecutor:
             raise TypeError("run_async expects a coroutine or async function")
 
         loop = self._ensure_loop()
-        fut = asyncio.run_coroutine_threadsafe(coro, loop)
-        return fut.result(timeout)
+        return self._run_coro(coro, loop, timeout)
 
     def close(self):
         """Close the async executor and cleanup resources."""
