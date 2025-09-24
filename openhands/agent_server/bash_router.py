@@ -1,5 +1,6 @@
 """Bash router for OpenHands SDK."""
 
+from datetime import datetime
 import logging
 from dataclasses import dataclass
 from typing import Annotated, Literal
@@ -19,6 +20,7 @@ from openhands.agent_server.models import (
     BashCommand,
     BashEventBase,
     BashEventPage,
+    BashEventSortOrder,
     Success,
 )
 from openhands.agent_server.pub_sub import Subscriber
@@ -33,14 +35,11 @@ logger = logging.getLogger(__name__)
 # bash event routes
 @bash_router.get("/bash_events/search")
 async def search_bash_events(
-    action_id: Annotated[
-        str | None,
-        Query(title="Optional action ID to filter events for a specific action"),
-    ] = None,
-    kind: Annotated[
-        Literal["bashcommand", "bashoutput"] | None,
-        Query(title="Optional event kind filter (bashcommand or bashoutput)"),
-    ] = None,
+    kind__eq: Literal["BashCommand", "BashOutput"] | None = None,
+    action_id__eq: UUID | None = None,
+    timestamp__gte: datetime | None = None,
+    timestamp__lt: datetime | None = None,
+    sort_order: BashEventSortOrder = BashEventSortOrder.TIMESTAMP,
     page_id: Annotated[
         str | None,
         Query(title="Optional next_page_id from the previously returned page"),
@@ -54,19 +53,8 @@ async def search_bash_events(
     assert limit > 0
     assert limit <= 100
 
-    # Convert action_id string to UUID if provided
-    action_id_uuid = None
-    if action_id:
-        try:
-            action_id_uuid = UUID(action_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid UUID format for action_id: {action_id}",
-            )
-
-    return await bash_event_service.search_events(
-        kind__eq=kind, action_id__eq=action_id_uuid, page_id=page_id, limit=limit
+    return await bash_event_service.search_bash_events(
+        kind__eq=kind__eq, action_id__eq=action_id__eq, timestamp__gte=timestamp__gte, timestamp__lt=timestamp__lt, sort_order=sort_order, page_id=page_id, limit=limit
     )
 
 
@@ -75,7 +63,7 @@ async def search_bash_events(
 )
 async def get_bash_event(event_id: str) -> BashEventBase:
     """Get a bash event event given an id"""
-    event = await bash_event_service.get_event(event_id)
+    event = await bash_event_service.get_bash_event(event_id)
     if event is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     return event
@@ -87,7 +75,7 @@ async def batch_get_bash_events(
 ) -> list[BashEventBase | None]:
     """Get a batch of bash event events given their ids, returning null for any
     missing item."""
-    events = await bash_event_service.batch_get_events(event_ids)
+    events = await bash_event_service.batch_get_bash_events(event_ids)
     return events
 
 

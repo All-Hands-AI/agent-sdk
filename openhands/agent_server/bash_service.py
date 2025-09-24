@@ -83,12 +83,14 @@ class BashEventService:
         # Load and return the first matching event
         return self._load_event_from_file(files[0])
 
-    async def batch_get_bash_events(self, task_ids: list[str]) -> list[BashEventBase | None]:
+    async def batch_get_bash_events(
+        self, event_ids: list[str]
+    ) -> list[BashEventBase | None]:
         """Given a list of ids, get bash events (Or none for any which were
         not found)"""
         results = []
-        for task_id in task_ids:
-            result = await self.get_event(task_id)
+        for event_id in event_ids:
+            result = await self.get_bash_event(event_id)
             results.append(result)
         return results
 
