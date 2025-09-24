@@ -347,7 +347,7 @@ jobs:
                   ${VARIANTS_TABLE}
                   **Usage**
                   \`\`\`bash
-                  # Pull and run (python variant recommended)
+                  # Pull and run
                   docker run -it --rm -p 8000:8000 ${IMAGE}:${SHORT_SHA}-python
                   \`\`\`
 
