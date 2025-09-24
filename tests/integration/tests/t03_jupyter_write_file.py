@@ -59,7 +59,7 @@ class JupyterWriteFileTest(BaseIntegrationTest):
             )
 
         # Read the file content
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             file_content = f.read().strip()
 
         # Check if the file contains the expected content

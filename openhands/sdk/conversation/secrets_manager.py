@@ -1,6 +1,6 @@
 """Secrets manager for handling sensitive data in conversations."""
 
-from typing import Callable, Mapping
+from collections.abc import Callable, Mapping
 
 from openhands.sdk.logger import get_logger
 

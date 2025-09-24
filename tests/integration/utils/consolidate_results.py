@@ -36,7 +36,7 @@ def extract_success_rate(test_report):
 def process_result_file(filepath):
     """Process a single result file and return extracted data."""
     try:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
 
         return {

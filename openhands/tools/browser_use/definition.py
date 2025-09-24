@@ -560,15 +560,21 @@ class BrowserToolSet(ToolBase):
 
     This tool set includes all available browser-related tools
       for interacting with web pages.
+
+    The toolset automatically checks for Chromium availability
+    when created and automatically installs it if missing.
     """
 
     @classmethod
-    def create(cls) -> list[ToolBase]:
+    def create(
+        cls,
+        **executor_config,
+    ) -> list[ToolBase]:
         # Import executor only when actually needed to
         # avoid hanging during module import
         from openhands.tools.browser_use.impl import BrowserToolExecutor
 
-        executor = BrowserToolExecutor()
+        executor = BrowserToolExecutor(**executor_config)
         return [
             browser_navigate_tool.set_executor(executor),
             browser_click_tool.set_executor(executor),

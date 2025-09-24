@@ -514,9 +514,8 @@ def _run_parallel_main():  # pragma: no cover - helper for manual stress testing
     extra_args = args.pytest_args if args.pytest_args else []
 
     print(
-        "Running {} {} times with concurrency={} (uv={})".format(
-            args.nodeid, args.runs, args.concurrency, use_uv
-        )
+        f"Running {args.nodeid} {args.runs} times with "
+        f"concurrency={args.concurrency} (uv={use_uv})"
     )
 
     def run_one(idx: int) -> tuple[int, int, str]:
@@ -555,9 +554,8 @@ def _run_parallel_main():  # pragma: no cover - helper for manual stress testing
 
     print("\nSummary:")
     print(
-        "Total: {}, Passed: {}, Failed: {}".format(
-            args.runs, args.runs - len(failures), len(failures)
-        )
+        f"Total: {args.runs}, Passed: "
+        f"{args.runs - len(failures)}, Failed: {len(failures)}"
     )
     if failures:
         print("\n--- Failure outputs (first 3) ---")

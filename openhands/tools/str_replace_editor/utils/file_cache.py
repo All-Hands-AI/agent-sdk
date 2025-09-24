@@ -105,7 +105,7 @@ class FileCache:
         if not file_path.exists():
             logger.debug(f"Get: Key not found: {key}")
             return default
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             data = json.load(f)
             os.utime(file_path, (time.time(), time.time()))  # Update access time
             logger.debug(f"Get: Key found: {key}")
@@ -142,7 +142,7 @@ class FileCache:
     def __iter__(self):
         for file in self.directory.glob("*.json"):
             if file.is_file():
-                with open(file, "r") as f:
+                with open(file) as f:
                     data = json.load(f)
                     logger.debug(f"Yielding key: {data['key']}")
                     yield data["key"]
