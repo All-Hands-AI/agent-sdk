@@ -83,7 +83,49 @@ class BashExecutor(ToolExecutor):
             )
         )
 
+    def reset(self) -> ExecuteBashObservation:
+        """Reset the terminal session by creating a new instance.
+
+        Returns:
+            ExecuteBashObservation with reset confirmation message
+        """
+        logger.info("Resetting terminal session")
+
+        # Store the original session parameters
+        original_work_dir = self.session.work_dir
+        original_username = self.session.username
+        original_no_change_timeout = self.session.no_change_timeout_seconds
+
+        # Close the current session
+        self.session.close()
+
+        # Create a new session with the same parameters
+        self.session = create_terminal_session(
+            work_dir=original_work_dir,
+            username=original_username,
+            no_change_timeout_seconds=original_no_change_timeout,
+            terminal_type=None,  # Let it auto-detect like before
+        )
+        self.session.initialize()
+
+        logger.info(
+            f"Terminal session reset successfully with working_dir: {original_work_dir}"
+        )
+
+        return ExecuteBashObservation(
+            output=(
+                "Terminal session has been reset. All previous environment "
+                "variables and session state have been cleared."
+            ),
+            command="[RESET]",
+            exit_code=0,
+        )
+
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
+        # Handle reset request
+        if action.reset:
+            return self.reset()
+
         # If env keys detected, export env values to bash as a separate action first
         self._export_envs(action)
         observation = self.session.execute(action)
