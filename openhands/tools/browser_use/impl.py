@@ -126,11 +126,11 @@ class BrowserToolExecutor(ToolExecutor):
         def init_logic():
             _ensure_chromium_available()
             self._server = CustomBrowserUseServer(
-                session_timeout_minutes=config.get("session_timeout_minutes", 30)
+                session_timeout_minutes=session_timeout_minutes
             )
             self._config = {
-                "headless": config.get("headless", True),
-                "allowed_domains": config.get("allowed_domains", []) or [],
+                "headless": headless,
+                "allowed_domains": allowed_domains or [],
                 **config,
             }
 
