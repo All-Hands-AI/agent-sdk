@@ -347,19 +347,18 @@ def test_conversation_state_thread_safety():
 
     # Test context manager
     with state:
-        state.assert_locked()
-        # Should not raise error when locked by current thread
+        assert state.owned()
+        # Should be owned by current thread when locked
 
     # Test manual acquire/release
     state.acquire()
     try:
-        state.assert_locked()
+        assert state.owned()
     finally:
         state.release()
 
-    # Test error when not locked
-    with pytest.raises(RuntimeError, match="State not held by current thread"):
-        state.assert_locked()
+    # Test that state is not owned when not locked
+    assert not state.owned()
 
 
 def test_agent_resolve_diff_different_class_raises_error():

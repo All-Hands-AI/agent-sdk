@@ -1,0 +1,285 @@
+"""
+Test FIFO lock implementation for fairness and correctness.
+"""
+
+import threading
+import time
+from collections import deque
+from typing import List
+
+import pytest
+
+from openhands.sdk.conversation.fifo_lock import FIFOLock
+
+
+def test_fifo_lock_basic_functionality():
+    """Test basic lock functionality - acquire, release, reentrancy."""
+    lock = FIFOLock()
+
+    # Test initial state
+    assert not lock.locked()
+    assert not lock.owned()
+
+    # Test acquire/release
+    lock.acquire()
+    assert lock.locked()
+    assert lock.owned()
+
+    # Test reentrancy
+    lock.acquire()
+    assert lock.locked()
+    assert lock.owned()
+
+    lock.release()
+    assert lock.locked()  # Still locked due to reentrancy
+    assert lock.owned()
+
+    lock.release()
+    assert not lock.locked()
+    assert not lock.owned()
+
+
+def test_fifo_lock_context_manager():
+    """Test context manager functionality."""
+    lock = FIFOLock()
+
+    with lock:
+        assert lock.locked()
+        assert lock.owned()
+
+        # Test reentrancy with context manager
+        with lock:
+            assert lock.locked()
+            assert lock.owned()
+
+    assert not lock.locked()
+    assert not lock.owned()
+
+
+def test_fifo_lock_non_blocking():
+    """Test non-blocking acquire behavior."""
+    lock = FIFOLock()
+
+    # Should acquire immediately when free
+    assert lock.acquire(blocking=False)
+    assert lock.locked()
+
+    # Should fail when already owned by another thread
+    def try_acquire():
+        return lock.acquire(blocking=False)
+
+    result = []
+    thread = threading.Thread(target=lambda: result.append(try_acquire()))
+    thread.start()
+    thread.join()
+
+    assert result[0] is False  # Should fail to acquire
+
+    lock.release()
+    assert not lock.locked()
+
+
+def test_fifo_lock_timeout():
+    """Test timeout behavior."""
+    lock = FIFOLock()
+    lock.acquire()
+
+    def try_acquire_with_timeout():
+        start_time = time.time()
+        result = lock.acquire(blocking=True, timeout=0.1)
+        end_time = time.time()
+        return result, end_time - start_time
+
+    result = []
+    thread = threading.Thread(target=lambda: result.append(try_acquire_with_timeout()))
+    thread.start()
+    thread.join()
+
+    acquired, duration = result[0]
+    assert not acquired  # Should timeout
+    assert 0.09 <= duration <= 0.2  # Should be close to timeout value
+
+    lock.release()
+
+
+def test_fifo_lock_fairness():
+    """Test that lock provides FIFO ordering."""
+    lock = FIFOLock()
+    acquisition_order = deque()
+    threads = []
+
+    def worker(thread_id: int):
+        # Small delay to ensure all threads are created before any acquire
+        time.sleep(0.01)
+        with lock:
+            acquisition_order.append(thread_id)
+            time.sleep(0.01)  # Hold lock briefly
+
+    # Create threads in order
+    for i in range(10):
+        thread = threading.Thread(target=worker, args=(i,))
+        threads.append(thread)
+
+    # Start all threads
+    for thread in threads:
+        thread.start()
+
+    # Wait for all to complete
+    for thread in threads:
+        thread.join()
+
+    # Check that acquisition order matches creation order (FIFO)
+    expected_order = list(range(10))
+    actual_order = list(acquisition_order)
+
+    assert actual_order == expected_order, (
+        f"Expected FIFO order {expected_order}, got {actual_order}"
+    )
+
+
+def test_fifo_lock_error_handling():
+    """Test error conditions."""
+    lock = FIFOLock()
+
+    # Should raise error when releasing unowned lock
+    with pytest.raises(RuntimeError, match="Cannot release lock not owned"):
+        lock.release()
+
+    # Should raise error when releasing from wrong thread
+    lock.acquire()
+
+    def try_release():
+        try:
+            lock.release()
+            return "success"
+        except RuntimeError as e:
+            return str(e)
+
+    result = []
+    thread = threading.Thread(target=lambda: result.append(try_release()))
+    thread.start()
+    thread.join()
+
+    assert "Cannot release lock not owned" in result[0]
+
+    lock.release()  # Clean up
+
+
+def test_fifo_lock_stress_test():
+    """Stress test with many threads to verify fairness under load."""
+    lock = FIFOLock()
+    acquisition_order = deque()
+    num_threads = 20
+    threads = []
+
+    def worker(thread_id: int):
+        # Randomized delay to create more realistic contention
+        time.sleep(0.001 * (thread_id % 5))
+        with lock:
+            acquisition_order.append(thread_id)
+            # Simulate some work
+            time.sleep(0.001)
+
+    # Create and start threads
+    for i in range(num_threads):
+        thread = threading.Thread(target=worker, args=(i,))
+        threads.append(thread)
+        thread.start()
+
+    # Wait for completion
+    for thread in threads:
+        thread.join()
+
+    # Verify all threads acquired the lock
+    assert len(acquisition_order) == num_threads
+
+    # Verify no duplicates (each thread acquired exactly once)
+    assert len(set(acquisition_order)) == num_threads
+
+    # Note: We don't check exact FIFO order here due to timing variations,
+    # but the main fairness test above verifies FIFO behavior
+
+
+def run_fairness_test_parallel(num_runs: int = 50) -> List[bool]:
+    """
+    Run the fairness test multiple times in parallel to verify consistency.
+
+    Args:
+        num_runs: Number of parallel test runs
+
+    Returns:
+        List of boolean results (True = FIFO order maintained)
+    """
+    results = []
+    threads = []
+
+    def run_single_test():
+        try:
+            lock = FIFOLock()
+            acquisition_order = deque()
+            worker_threads = []
+
+            def worker(thread_id: int):
+                time.sleep(0.001)  # Small delay for thread creation
+                with lock:
+                    acquisition_order.append(thread_id)
+                    time.sleep(0.001)
+
+            # Create worker threads
+            for i in range(10):
+                thread = threading.Thread(target=worker, args=(i,))
+                worker_threads.append(thread)
+
+            # Start all worker threads
+            for thread in worker_threads:
+                thread.start()
+
+            # Wait for completion
+            for thread in worker_threads:
+                thread.join()
+
+            # Check FIFO order
+            expected = list(range(10))
+            actual = list(acquisition_order)
+            results.append(actual == expected)
+
+        except Exception:
+            results.append(False)
+
+    # Run tests in parallel
+    for _ in range(num_runs):
+        thread = threading.Thread(target=run_single_test)
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all test runs to complete
+    for thread in threads:
+        thread.join()
+
+    return results
+
+
+if __name__ == "__main__":
+    print("Running FIFO lock fairness test 50 times in parallel...")
+
+    results = run_fairness_test_parallel(50)
+
+    success_count = sum(results)
+    total_count = len(results)
+    success_rate = success_count / total_count * 100
+
+    print(f"Results: {success_count}/{total_count} tests maintained FIFO order")
+    print(f"Success rate: {success_rate:.1f}%")
+
+    if success_rate == 100.0:
+        print("✅ FIFO lock provides perfect fairness!")
+    elif success_rate >= 95.0:
+        print("✅ FIFO lock provides excellent fairness (>95%)")
+    elif success_rate >= 80.0:
+        print("⚠️  FIFO lock provides good fairness (>80%)")
+    else:
+        print("❌ FIFO lock fairness is insufficient (<80%)")
+
+    # Also run the regular tests
+    print("\nRunning regular test suite...")
+    pytest.main([__file__, "-v"])
