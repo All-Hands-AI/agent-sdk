@@ -1,8 +1,8 @@
 """Bash router for OpenHands SDK."""
 
-from datetime import datetime
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -54,7 +54,13 @@ async def search_bash_events(
     assert limit <= 100
 
     return await bash_event_service.search_bash_events(
-        kind__eq=kind__eq, action_id__eq=action_id__eq, timestamp__gte=timestamp__gte, timestamp__lt=timestamp__lt, sort_order=sort_order, page_id=page_id, limit=limit
+        kind__eq=kind__eq,
+        action_id__eq=action_id__eq,
+        timestamp__gte=timestamp__gte,
+        timestamp__lt=timestamp__lt,
+        sort_order=sort_order,
+        page_id=page_id,
+        limit=limit,
     )
 
 
