@@ -124,7 +124,29 @@ class BashExecutor(ToolExecutor):
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
         # Handle reset request
         if action.reset:
-            return self.reset()
+            reset_result = self.reset()
+
+            # If a command was provided with reset, execute it in the fresh terminal
+            if action.command.strip():
+                # Create a new action without reset to execute the command
+                command_action = ExecuteBashAction(
+                    command=action.command,
+                    timeout=action.timeout,
+                    is_input=False,  # is_input validated to be False when reset=True
+                )
+                # Export any environment variables first
+                self._export_envs(command_action)
+                command_result = self.session.execute(command_action)
+
+                # Combine the reset message with command output
+                combined_output = f"{reset_result.output}\n\n{command_result.output}"
+                return ExecuteBashObservation(
+                    output=combined_output,
+                    command=f"[RESET] {action.command}",
+                    exit_code=command_result.exit_code,
+                )
+
+            return reset_result
 
         # If env keys detected, export env values to bash as a separate action first
         self._export_envs(action)

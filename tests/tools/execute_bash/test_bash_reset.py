@@ -2,6 +2,8 @@
 
 import tempfile
 
+import pytest
+
 from openhands.tools.execute_bash import (
     BashTool,
     ExecuteBashAction,
@@ -44,7 +46,7 @@ def test_bash_reset_basic():
 
 
 def test_bash_reset_with_command():
-    """Test that reset ignores the command parameter."""
+    """Test that reset executes the command after resetting."""
     with tempfile.TemporaryDirectory() as temp_dir:
         tools = BashTool.create(working_dir=temp_dir)
         tool = tools[0]
@@ -55,17 +57,17 @@ def test_bash_reset_with_command():
         assert isinstance(result, ExecuteBashObservation)
         assert result.metadata.exit_code == 0
 
-        # Reset with a command (should ignore the command)
+        # Reset with a command (should reset then execute the command)
         reset_action = ExecuteBashAction(
-            command="echo 'this should be ignored'", reset=True
+            command="echo 'hello from fresh terminal'", reset=True
         )
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
-        assert "this should be ignored" not in reset_result.output
-        assert reset_result.command == "[RESET]"
+        assert "hello from fresh terminal" in reset_result.output
+        assert reset_result.command == "[RESET] echo 'hello from fresh terminal'"
 
-        # Verify the variable is no longer set
+        # Verify the variable is no longer set (confirming reset worked)
         action = ExecuteBashAction(command="echo $TEST_VAR")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
@@ -154,14 +156,20 @@ def test_bash_reset_with_timeout():
         assert reset_result.exit_code == 0
 
 
-def test_bash_reset_with_is_input():
-    """Test that reset works with is_input parameter."""
+def test_bash_reset_with_is_input_validation():
+    """Test that reset=True with is_input=True raises validation error."""
+    with pytest.raises(ValueError, match="Cannot use reset=True with is_input=True"):
+        ExecuteBashAction(command="", reset=True, is_input=True)
+
+
+def test_bash_reset_only_with_empty_command():
+    """Test reset with empty command (reset only)."""
     with tempfile.TemporaryDirectory() as temp_dir:
         tools = BashTool.create(working_dir=temp_dir)
         tool = tools[0]
 
-        # Reset with is_input (should ignore is_input)
-        reset_action = ExecuteBashAction(command="", reset=True, is_input=True)
+        # Reset with empty command
+        reset_action = ExecuteBashAction(command="", reset=True)
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
