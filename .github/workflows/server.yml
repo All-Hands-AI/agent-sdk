@@ -205,26 +205,9 @@ jobs:
             - name: Update PR description with docker command
               uses: nefrob/pr-description@v1.2.0
               with:
-                  content: |
-
-                      ---
-
-                      **Agent Server image for this PR**
-
-                      Pull (multi-arch manifest):
-                      ```bash
-                      docker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
-                      ```
-
-                      Run:
-                      ```bash
-                      docker run -it --rm \
-                        -p 8000:8000 \
-                        --name agent-server-${{ env.SHORT_SHA }} \
-                        ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
-                      ```
-
-                      _This tag is a multi-arch manifest (amd64/arm64). Your client pulls the right arch automatically._
+                  content: "\n---\n\n**Agent Server image for this PR**\n\nPull (multi-arch manifest):\n```bash\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA
+                      }}\n```\n\nRun:\n```bash\ndocker run -it --rm \\\n  -p 8000:8000 \\\n  --name agent-server-${{ env.SHORT_SHA }} \\\n  ${{ env.IMAGE
+                      }}:${{ env.SHORT_SHA }}\n```\n\n_This tag is a multi-arch manifest (amd64/arm64). Your client pulls the right arch automatically._"
                   regex: "---\\s*\\*\\*Agent Server image for this PR\\*\\*[\\s\\S]*?(?=\\n\\n---|\n\\n##|$)"
                   regexFlags: m
                   token: ${{ secrets.GITHUB_TOKEN }}
