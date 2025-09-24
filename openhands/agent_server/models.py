@@ -144,7 +144,7 @@ class BashEventBase(DiscriminatedUnionMixin, ABC):
 
 class ExecuteBashRequest(BaseModel):
     command: str = Field(description="The bash command to execute")
-    cwd: str = Field(description="The current working directory")
+    cwd: str | None = Field(default=None, description="The current working directory")
     timeout: int = Field(
         default=300,
         description="The max number of seconds a command may be permitted to run.",
