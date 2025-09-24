@@ -78,7 +78,7 @@ def test_file_editor_happy_path(temp_file):
     )
 
     # Ensure the file content was updated
-    with open(temp_file, "r") as f:
+    with open(temp_file) as f:
         content = f.read()
     assert "This is a sample file." in content
 
@@ -234,7 +234,7 @@ def test_create_operation(temp_file):
     assert result.new_content == content
 
     # Verify file was created with correct content
-    with open(temp_file, "r") as f:
+    with open(temp_file) as f:
         file_content = f.read()
     assert file_content == content
 

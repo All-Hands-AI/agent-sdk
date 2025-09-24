@@ -7,7 +7,7 @@ evaluate security risks of actions before execution.
 import os
 import signal
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
 from pydantic import SecretStr
 

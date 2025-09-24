@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, Self, TypeVar
+from typing import Any, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -61,7 +61,7 @@ class ToolAnnotations(BaseModel):
     )
 
 
-class ToolExecutor(Generic[ActionT, ObservationT]):
+class ToolExecutor[ActionT, ObservationT]:
     """Executor function type for a Tool."""
 
     def __call__(self, action: ActionT) -> ObservationT:
@@ -77,7 +77,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
+class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -273,7 +273,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         return Tool
 
 
-class Tool(ToolBase[ActionT, ObservationT], Generic[ActionT, ObservationT]):
+class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
     pass
 
 

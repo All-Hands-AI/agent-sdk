@@ -1,5 +1,5 @@
 import uuid
-from typing import Iterable
+from collections.abc import Iterable
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation

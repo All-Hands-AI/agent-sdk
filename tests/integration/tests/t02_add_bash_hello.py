@@ -60,7 +60,7 @@ class BashHelloTest(BaseIntegrationTest):
             return TestResult(success=False, reason="Shell script is not executable")
 
         # Read the script content
-        with open(script_path, "r") as f:
+        with open(script_path) as f:
             script_content = f.read()
 
         # Check if the script contains the expected output

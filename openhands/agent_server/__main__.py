@@ -4,7 +4,7 @@ import uvicorn
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the OpenHands Local FastAPI app")
+    parser = argparse.ArgumentParser(description="OpenHands Agent Server App")
     parser.add_argument(
         "--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
     )
@@ -21,7 +21,7 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"🚀 Starting OpenHands SDK Server on {args.host}:{args.port}")
+    print(f"🚀 Starting OpenHands Agent Server on {args.host}:{args.port}")
     print(f"📖 API docs will be available at http://{args.host}:{args.port}/docs")
     print(f"🔄 Auto-reload: {'enabled' if args.reload else 'disabled'}")
     print()
