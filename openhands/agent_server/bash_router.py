@@ -14,10 +14,14 @@ from fastapi import (
 )
 
 from openhands.agent_server.bash_service import get_default_bash_event_service
-from openhands.agent_server.models import BashCommand, BashEventBase, BashEventPage
+from openhands.agent_server.models import (
+    BashCommand,
+    BashEventBase,
+    BashEventPage,
+    Success,
+)
 from openhands.agent_server.pub_sub import Subscriber
 from openhands.sdk.event.base import EventBase
-from openhands.tools.execute_bash.definition import ExecuteBashAction
 
 
 bash_router = APIRouter(prefix="/bash", tags=["Bash"])
@@ -75,13 +79,13 @@ async def batch_get_bash_events(
 
 
 @bash_router.post("/execute_bash_command")
-async def execute_bash_command(action: ExecuteBashAction) -> BashCommand:
+async def execute_bash_command(action: BashCommand) -> Success:
     """Execute a bash command"""
-    command_event = await bash_event_service.execute_bash_command(
+    await bash_event_service.start_bash_command(
         command=action.command,
         cwd=None,  # Use service default working directory
     )
-    return command_event
+    return Success()
 
 
 # WebSocket for bash events
