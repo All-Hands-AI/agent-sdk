@@ -250,7 +250,7 @@ class BashEventService:
                 exit_code = await asyncio.wait_for(
                     process.wait(), timeout=command.timeout
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Kill the process if it times out
                 process.kill()
                 await process.wait()
