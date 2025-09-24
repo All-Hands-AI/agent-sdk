@@ -27,7 +27,9 @@ class BashEventService:
 
     working_dir: Path = field()
     bash_events_dir: Path = field()
-    _pub_sub: PubSub = field(default_factory=PubSub, init=False)
+    _pub_sub: PubSub[BashEventBase] = field(
+        default_factory=lambda: PubSub[BashEventBase](), init=False
+    )
 
     def _ensure_bash_events_dir(self) -> None:
         """Ensure the bash events directory exists."""
@@ -175,9 +177,11 @@ class BashEventService:
         #       than MAX_CONTENT_CHAR_LENGTH
         raise NotImplementedError()
 
-    async def subscribe_to_events(self, subscriber: Subscriber) -> UUID:
-        """Subscribe to bash events. The subscriber will receive ActionEvent and
-        ObservationEvent instances."""
+    async def subscribe_to_events(self, subscriber: Subscriber[BashEventBase]) -> UUID:
+        """Subscribe to bash events.
+
+        The subscriber will receive BashEventBase instances.
+        """
         return self._pub_sub.subscribe(subscriber)
 
     async def unsubscribe_from_events(self, subscriber_id: UUID) -> bool:
@@ -209,5 +213,7 @@ def get_default_bash_event_service() -> BashEventService:
     from openhands.agent_server.config import get_default_config
 
     config = get_default_config()
-    _bash_event_service = BashEventService(bash_events_dir=config.bash_events_dir)
+    _bash_event_service = BashEventService(
+        working_dir=config.workspace_path, bash_events_dir=config.bash_events_dir
+    )
     return _bash_event_service

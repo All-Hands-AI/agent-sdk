@@ -1,8 +1,8 @@
 """Bash router for OpenHands SDK."""
 
-from datetime import datetime
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -24,7 +24,6 @@ from openhands.agent_server.models import (
     Success,
 )
 from openhands.agent_server.pub_sub import Subscriber
-from openhands.sdk.event.base import EventBase
 
 
 bash_router = APIRouter(prefix="/bash", tags=["Bash"])
@@ -54,7 +53,13 @@ async def search_bash_events(
     assert limit <= 100
 
     return await bash_event_service.search_bash_events(
-        kind__eq=kind__eq, action_id__eq=action_id__eq, timestamp__gte=timestamp__gte, timestamp__lt=timestamp__lt, sort_order=sort_order, page_id=page_id, limit=limit
+        kind__eq=kind__eq,
+        action_id__eq=action_id__eq,
+        timestamp__gte=timestamp__gte,
+        timestamp__lt=timestamp__lt,
+        sort_order=sort_order,
+        page_id=page_id,
+        limit=limit,
     )
 
 
@@ -112,10 +117,10 @@ async def bash_event_socket(websocket: WebSocket):
 
 
 @dataclass
-class _WebSocketSubscriber(Subscriber):
+class _WebSocketSubscriber(Subscriber[BashEventBase]):
     websocket: WebSocket
 
-    async def __call__(self, event: EventBase):
+    async def __call__(self, event: BashEventBase):
         try:
             dumped = event.model_dump()
             await self.websocket.send_json(dumped)
