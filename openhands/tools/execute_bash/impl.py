@@ -118,28 +118,31 @@ class BashExecutor(ToolExecutor):
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
         # Validate field combinations
         if action.reset and action.is_input:
-            return ExecuteBashObservation(
-                output="Error: 'is_input' must be False when 'reset' is True.",
-                command=f"[RESET] {action.command}",
-                exit_code=1,
-                error=True,
-            )
+            raise ValueError("Cannot use reset=True with is_input=True")
 
         if action.reset:
             reset_result = self.reset()
-            command_action = ExecuteBashAction(
-                command=action.command,
-                timeout=action.timeout,
-                is_input=False,  # is_input validated to be False when reset=True
-            )
-            self._export_envs(command_action)
-            command_result = self.session.execute(command_action)
-            observation = command_result.model_copy(
-                update={
-                    "output": (reset_result.output + "\n\n" + command_result.output),
-                    "command": f"[RESET] {action.command}",
-                }
-            )
+
+            # Handle command execution after reset
+            if action.command.strip():
+                command_action = ExecuteBashAction(
+                    command=action.command,
+                    timeout=action.timeout,
+                    is_input=False,  # is_input validated to be False when reset=True
+                )
+                self._export_envs(command_action)
+                command_result = self.session.execute(command_action)
+                observation = command_result.model_copy(
+                    update={
+                        "output": (
+                            reset_result.output + "\n\n" + command_result.output
+                        ),
+                        "command": f"[RESET] {action.command}",
+                    }
+                )
+            else:
+                # Reset only, no command to execute
+                observation = reset_result
         else:
             # If env keys detected, export env values to bash as a separate action first
             self._export_envs(action)
