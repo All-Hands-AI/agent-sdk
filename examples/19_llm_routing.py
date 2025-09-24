@@ -20,17 +20,22 @@ from openhands.sdk.preset.default import get_default_tools
 logger = get_logger(__name__)
 
 # Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY") or os.getenv("LITELLM_API_KEY")
+base_url = os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
+primary_model = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-20250514")
+secondary_model = os.getenv("LLM_SECONDARY_MODEL", "mistral/devstral-small-2507")
+assert api_key is not None, (
+    "LLM_API_KEY or LITELLM_API_KEY environment variable is not set."
+)
 
 primary_llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    model=primary_model,
+    base_url=base_url,
     api_key=SecretStr(api_key),
 )
 secondary_llm = LLM(
-    model="litellm_proxy/mistral/devstral-small-2507",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    model=secondary_model,
+    base_url=base_url,
     api_key=SecretStr(api_key),
 )
 multimodal_router = MultimodalRouter(

@@ -20,13 +20,17 @@ from openhands.tools.execute_bash import BashTool
 logger = get_logger(__name__)
 
 # Configure LLM using LLMRegistry
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY") or os.getenv("LITELLM_API_KEY")
+base_url = os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
+model = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-20250514")
+assert api_key is not None, (
+    "LLM_API_KEY or LITELLM_API_KEY environment variable is not set."
+)
 
 # Create LLM instance
 main_llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    model=model,
+    base_url=base_url,
     api_key=SecretStr(api_key),
 )
 

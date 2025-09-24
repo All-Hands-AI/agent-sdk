@@ -1,0 +1,199 @@
+---
+name: Test Examples
+
+on:
+    pull_request:
+        types:
+            - labeled
+            - synchronize
+    workflow_dispatch:
+        inputs:
+            reason:
+                description: Reason for manual trigger
+                required: true
+                default: ''
+
+jobs:
+    # Initial job to comment on PR and set up the test run
+    setup:
+        if: github.event.label.name == 'test-examples' || github.event_name == 'workflow_dispatch'
+        runs-on: blacksmith-2vcpu-ubuntu-2204
+        permissions:
+            contents: read
+            pull-requests: write
+        outputs:
+            examples: ${{ steps.set-examples.outputs.examples }}
+        steps:
+            - name: Comment on PR if 'test-examples' label is present
+              if: github.event_name == 'pull_request' && github.event.label.name == 'test-examples'
+              uses: KeisukeYamashita/create-comment@v1
+              with:
+                  unique: false
+                  comment: |
+                      Hi! I started running the examples tests on your PR. You will receive a comment with the results shortly.
+
+            - name: Set examples matrix
+              id: set-examples
+              run: |
+                  # List of examples to run (excluding ones that might require special setup)
+                  EXAMPLES='[
+                      "01_hello_world.py",
+                      "02_custom_tools.py",
+                      "04_confirmation_mode_example.py",
+                      "05_use_llm_registry.py",
+                      "09_pause_example.py",
+                      "10_persistence.py",
+                      "11_async.py",
+                      "12_custom_secrets.py",
+                      "13_get_llm_metrics.py",
+                      "14_context_condenser.py",
+                      "17_image_input.py",
+                      "18_send_message_while_processing.py",
+                      "19_llm_routing.py",
+                      "20_stuck_detector.py"
+                  ]'
+                  echo "examples=$EXAMPLES" >> $GITHUB_OUTPUT
+
+    # Matrix job to run each example individually
+    test-example:
+        needs: setup
+        runs-on: blacksmith-2vcpu-ubuntu-2204
+        permissions:
+            contents: read
+        strategy:
+            matrix:
+                example: ${{ fromJson(needs.setup.outputs.examples) }}
+                python-version: ['3.12']
+            fail-fast: false  # Don't stop other jobs if one fails
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v5
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  version: latest
+                  python-version: ${{ matrix.python-version }}
+
+            - name: Install Python dependencies using uv
+              run: |
+                  uv sync --dev
+
+            - name: Run example and capture output
+              env:
+                  LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+                  LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+                  LLM_MODEL: ${{ secrets.LLM_MODEL }}
+              run: |
+                  cd examples
+                  example="${{ matrix.example }}"
+                  output_file="${example%.py}_output.txt"
+
+                  echo "Running example: $example"
+                  echo "----------------------------------------" > "$output_file"
+                  echo "Example: $example" >> "$output_file"
+                  echo "Timestamp: $(date)" >> "$output_file"
+                  echo "----------------------------------------" >> "$output_file"
+                  echo "" >> "$output_file"
+
+                  # Run the example and capture both stdout and stderr
+                  if timeout 300 uv run python "$example" >> "$output_file" 2>&1; then
+                      echo "✓ $example completed successfully" | tee -a "$output_file"
+                      echo "success" > "${example%.py}_result.txt"
+                  else
+                      exit_code=$?
+                      echo "✗ $example failed with exit code $exit_code" | tee -a "$output_file"
+                      echo "failed" > "${example%.py}_result.txt"
+                      # Don't exit here - let the job complete so we can upload artifacts
+                  fi
+
+            - name: Upload example output as artifact
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: example-output-${{ matrix.example }}
+                  path: examples/${{ matrix.example }}_*.txt
+                  retention-days: 7
+
+    # Aggregation job to collect results and create summary
+    aggregate-results:
+        needs: [setup, test-example]
+        if: always() && needs.setup.result == 'success'
+        runs-on: blacksmith-2vcpu-ubuntu-2204
+        permissions:
+            contents: read
+            pull-requests: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v5
+
+            - name: Download all example outputs
+              uses: actions/download-artifact@v4
+              with:
+                  path: ./example-outputs
+                  pattern: example-output-*
+
+            - name: Generate summary report and create archive
+              run: |
+                  mkdir -p examples_output
+
+                  echo "# Examples Test Results" > examples_summary.md
+                  echo "" >> examples_summary.md
+                  echo "## Summary" >> examples_summary.md
+                  echo "" >> examples_summary.md
+
+                  total_examples=0
+                  successful_examples=0
+
+                  # Process each example output
+                  for example_dir in example-outputs/example-output-*; do
+                      if [ -d "$example_dir" ]; then
+                          example_name=$(basename "$example_dir" | sed 's/example-output-//')
+                          example_base="${example_name%.py}"
+                          
+                          # Copy output files to consolidated directory
+                          cp "$example_dir"/*.txt examples_output/ 2>/dev/null || true
+                          
+                          total_examples=$((total_examples + 1))
+                          
+                          # Check if example succeeded
+                          if [ -f "$example_dir/${example_base}_result.txt" ] && grep -q "success" "$example_dir/${example_base}_result.txt"; then
+                              echo "- ✅ **$example_base**: Passed" >> examples_summary.md
+                              successful_examples=$((successful_examples + 1))
+                          else
+                              echo "- ❌ **$example_base**: Failed" >> examples_summary.md
+                          fi
+                      fi
+                  done
+
+                  echo "" >> examples_summary.md
+                  echo "**Results: $successful_examples/$total_examples examples passed**" >> examples_summary.md
+                  echo "" >> examples_summary.md
+
+                  # Create archive of all outputs
+                  TIMESTAMP=$(date +'%y-%m-%d-%H-%M')
+                  tar -czvf examples_output_${TIMESTAMP}.tar.gz examples_output/
+
+            - name: Upload consolidated example outputs as artifact
+              uses: actions/upload-artifact@v4
+              id: upload_examples_artifact
+              with:
+                  name: examples-output-consolidated-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: examples_output_*.tar.gz
+                  retention-days: 7
+
+            - name: Add artifact download link to summary
+              run: |
+                  echo "## Artifact Download" >> examples_summary.md
+                  echo "" >> examples_summary.md
+                  echo "📁 [Download detailed outputs](${{ steps.upload_examples_artifact.outputs.artifact-url }})" >> examples_summary.md
+                  echo "" >> examples_summary.md
+                  echo "The artifact contains detailed output logs for each example and will be available for 7 days." >> examples_summary.md
+
+            - name: Comment on PR with results
+              if: github.event_name == 'pull_request'
+              run: |
+                  COMMENT_BODY=$(cat examples_summary.md)
+                  echo "$COMMENT_BODY" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
+              env:
+                  GH_TOKEN: ${{ github.token }}
