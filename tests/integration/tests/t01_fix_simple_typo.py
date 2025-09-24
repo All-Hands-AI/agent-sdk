@@ -65,7 +65,7 @@ class TypoFixTest(BaseIntegrationTest):
             return TestResult(
                 success=False, reason="Document file not found after agent execution"
             )
-        with open(document_path, "r") as f:
+        with open(document_path) as f:
             corrected_content = f.read()
 
         are_typos_fixed: bool = (

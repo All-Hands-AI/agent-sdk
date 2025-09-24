@@ -2,7 +2,8 @@ import os
 import re
 import sys
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Generator, Iterable
+from collections.abc import Generator, Iterable
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
@@ -350,8 +351,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             return ()
 
         # Drive the traversal from self
-        for llm in _walk(self):
-            yield llm
+        yield from _walk(self)
 
     @property
     def tools_map(self) -> dict[str, Tool]:

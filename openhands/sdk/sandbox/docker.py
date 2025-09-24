@@ -7,8 +7,8 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 from urllib.request import urlopen
 
 from openhands.sdk.logger import get_logger
@@ -213,7 +213,7 @@ class DockerSandboxedAgentServer:
         self._target = target
         self._platform = platform
 
-    def __enter__(self) -> "DockerSandboxedAgentServer":
+    def __enter__(self) -> DockerSandboxedAgentServer:
         # Ensure docker exists
         docker_ver = _run(["docker", "version"]).returncode
         if docker_ver != 0:
