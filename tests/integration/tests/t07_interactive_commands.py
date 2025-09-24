@@ -89,7 +89,7 @@ class InteractiveCommandsTest(BaseIntegrationTest):
             )
 
         try:
-            with open(script_path, "r") as f:
+            with open(script_path) as f:
                 content = f.read()
 
             if PYTHON_SCRIPT_CONTENT not in content:

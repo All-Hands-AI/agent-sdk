@@ -274,12 +274,10 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Create a mock response that looks like a non-function call response
     # but contains tool usage in text format
     mock_response = create_mock_response(
-        (
-            "I'll help you with that.\n"
-            "<function=test_tool>\n"
-            "<parameter=param>test_value</parameter>\n"
-            "</function>"
-        )
+        "I'll help you with that.\n"
+        "<function=test_tool>\n"
+        "<parameter=param>test_value</parameter>\n"
+        "</function>"
     )
     mock_completion.return_value = mock_response
 

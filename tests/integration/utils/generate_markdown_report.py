@@ -149,7 +149,7 @@ def main():
             f"Loading consolidated results from {args.input_file}...", file=sys.stderr
         )
 
-        with open(args.input_file, "r") as f:
+        with open(args.input_file) as f:
             data = json.load(f)
 
         consolidated = ConsolidatedResults.model_validate(data)

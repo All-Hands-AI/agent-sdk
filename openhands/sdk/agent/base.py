@@ -351,8 +351,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             return ()
 
         # Drive the traversal from self
-        for llm in _walk(self):
-            yield llm
+        yield from _walk(self)
 
     @property
     def tools_map(self) -> dict[str, Tool]:

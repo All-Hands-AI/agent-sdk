@@ -46,7 +46,7 @@ def test_file_editor_tool_create_file():
         assert os.path.exists(test_file)
 
         # Check file contents
-        with open(test_file, "r") as f:
+        with open(test_file) as f:
             content = f.read()
         assert content == "Hello, World!"
 
@@ -107,7 +107,7 @@ def test_file_editor_tool_str_replace():
         assert not result.error
 
         # Check file contents
-        with open(test_file, "r") as f:
+        with open(test_file) as f:
             content = f.read()
         assert "Hello, Universe!" in content
 

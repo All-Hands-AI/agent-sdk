@@ -114,7 +114,7 @@ thread.join()
 # Verification
 document_path = os.path.join(cwd, "document.txt")
 if os.path.exists(document_path):
-    with open(document_path, "r") as f:
+    with open(document_path) as f:
         content = f.read()
 
     print("\nDocument contents:")

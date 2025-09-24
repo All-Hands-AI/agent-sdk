@@ -399,7 +399,7 @@ def test_create_non_utf8_file():
         encoding_manager = EncodingManager()
         encoding = encoding_manager.detect_encoding(Path(path))
 
-        with open(path, "r", encoding=encoding) as f:
+        with open(path, encoding=encoding) as f:
             file_content = f.read()
 
         assert "Привет из нового файла!" in file_content

@@ -368,7 +368,7 @@ class TestTelemetryLogging:
             assert len(files) == 1
 
             # Check file content
-            with open(os.path.join(temp_dir, files[0]), "r") as f:
+            with open(os.path.join(temp_dir, files[0])) as f:
                 data = json.loads(f.read())
 
             assert data["user_id"] == "test-user"
@@ -400,7 +400,7 @@ class TestTelemetryLogging:
             telemetry._log_completion(mock_response, 0.25, raw_resp=raw_response)
 
             files = os.listdir(temp_dir)
-            with open(os.path.join(temp_dir, files[0]), "r") as f:
+            with open(os.path.join(temp_dir, files[0])) as f:
                 data = json.loads(f.read())
 
             assert "raw_response" in data

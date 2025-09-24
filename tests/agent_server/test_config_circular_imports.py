@@ -15,7 +15,7 @@ def get_imports_from_file(file_path: Path) -> set[str]:
 
     Returns a set of module names that are imported.
     """
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         content = f.read()
 
     tree = ast.parse(content)
