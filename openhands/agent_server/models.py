@@ -1,21 +1,20 @@
+from abc import ABC
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Literal, Union
-from uuid import UUID
+from typing import Literal
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Discriminator, Field, Tag
+from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.event.llm_convertible.action import ActionEvent
-from openhands.sdk.event.llm_convertible.observation import ObservationEvent
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.utils.models import OpenHandsModel, kind_of
+from openhands.sdk.utils.models import DiscriminatedUnionMixin, OpenHandsModel
 
 
 class ConversationSortOrder(str, Enum):
@@ -136,15 +135,43 @@ class SetConfirmationPolicyRequest(BaseModel):
     policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
 
 
-BashEvent = Annotated[
-    Union[
-        Annotated[ActionEvent, Tag("ActionEvent")],
-        Annotated[ObservationEvent, Tag("ObservationEvent")],
-    ],
-    Discriminator(kind_of),
-]
+class BashEventBase(DiscriminatedUnionMixin, ABC):
+    """Base class for all bash event types"""
+
+    id: UUID = Field(default_factory=uuid4)
+    timestamp: datetime = Field(default_factory=utc_now)
 
 
-class BashEventPage(BaseModel):
-    items: list[BashEvent]
+class BashCommand(BashEventBase):
+    command: str = Field(description="The bash command to execute")
+    cwd: str = Field(description="The current working directory")
+    timeout: int = Field(
+        default=300,
+        description="The max number of seconds a command may be permitted to run.",
+    )
+
+
+class BashOutput(BashEventBase):
+    """
+    Output of a bash command. A single command may have multiple pieces of output
+    depending on how large the output is.
+    """
+
+    action_id: UUID
+    order: int = Field(
+        default=0, description="The order for this output, sequentially starting with 0"
+    )
+    exit_code: int | None = Field(
+        default=None, description="Exit code None implies the command is still running."
+    )
+    stdout: str | None = Field(
+        default=None, description="The standard output from the command"
+    )
+    stderr: str | None = Field(
+        default=None, description="The error output from the command"
+    )
+
+
+class BashEventPage(OpenHandsModel):
+    items: list[BashEventBase]
     next_page_id: str | None = None
