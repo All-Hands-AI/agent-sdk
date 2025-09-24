@@ -127,27 +127,23 @@ class BashExecutor(ToolExecutor):
 
         if action.reset:
             reset_result = self.reset()
-            if action.command.strip():
-                command_action = ExecuteBashAction(
-                    command=action.command,
-                    timeout=action.timeout,
-                    is_input=False,  # is_input validated to be False when reset=True
-                )
-                self._export_envs(command_action)
-                command_result = self.session.execute(command_action)
-
-                combined_output = f"{reset_result.output}\n\n{command_result.output}"
-                return ExecuteBashObservation(
-                    output=combined_output,
-                    command=f"[RESET] {action.command}",
-                    exit_code=command_result.exit_code,
-                )
-
-            return reset_result
-
-        # If env keys detected, export env values to bash as a separate action first
-        self._export_envs(action)
-        observation = self.session.execute(action)
+            command_action = ExecuteBashAction(
+                command=action.command,
+                timeout=action.timeout,
+                is_input=False,  # is_input validated to be False when reset=True
+            )
+            self._export_envs(command_action)
+            command_result = self.session.execute(command_action)
+            observation = command_result.model_copy(
+                update={
+                    "output": (reset_result.output + "\n\n" + command_result.output),
+                    "command": f"[RESET] {action.command}",
+                }
+            )
+        else:
+            # If env keys detected, export env values to bash as a separate action first
+            self._export_envs(action)
+            observation = self.session.execute(action)
 
         # Apply automatic secrets masking using env_masker
         if self.env_masker and observation.output:
