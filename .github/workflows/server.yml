@@ -332,7 +332,7 @@ jobs:
                   GHCR_URL=$(echo "$BUILD_SUMMARY" | jq -r '.ghcr_package_url')
                   ALL_TAGS=$(echo "$BUILD_SUMMARY" | jq -r '.all_tags')
 
-                  # Build the variants table dynamically (base image -> built image mapping)
+                  # Build the variants table dynamically
                   VARIANTS_TABLE=""
 
                   # Process each variant
@@ -343,28 +343,43 @@ jobs:
                       VARIANT=$(echo "$VARIANT_JSON" | jq -r '.variant')
                       BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
                       
-                      # Add to variants table (base -> built image mapping)
-                      VARIANTS_TABLE="${VARIANTS_TABLE}| \`${BASE_IMAGE}\` | \`${IMAGE}:${SHORT_SHA}-${VARIANT}\` |\n"
+                      # Add to variants table
+                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${VARIANT} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |\n"
                   done
 
-                  # Create the complete PR description with unique markers
+                  # Create the complete PR description with the requested format
                   PR_CONTENT=$(cat << EOF
 
                   <!-- AGENT_SERVER_IMAGES_START -->
                   ---
                   **Agent Server images for this PR**
 
-                  **Image Variants**
-                  | Base Image | Built Image |
-                  |---|---|
+                  • **GHCR package:** ${GHCR_URL}
+
+                  **Variants & Base Images**
+                  | Variant | Base Image | Docs / Tags |
+                  |---|---|---|
                   ${VARIANTS_TABLE}
-                  **Usage**
+
+                  **Pull (multi-arch manifest)**
                   \`\`\`bash
-                  # Pull and run
-                  docker run -it --rm -p 8000:8000 ${IMAGE}:${SHORT_SHA}-python
+                  docker pull ${IMAGE}:${SHORT_SHA}
                   \`\`\`
 
-                  **All tags:** \`${ALL_TAGS}\` • **Package:** [GHCR](${GHCR_URL})
+                  **Run**
+                  \`\`\`bash
+                  docker run -it --rm \\
+                    -p 8000:8000 \\
+                    --name agent-server-${SHORT_SHA} \\
+                    ${IMAGE}:${SHORT_SHA}
+                  \`\`\`
+
+                  **All tags pushed for this build**
+                  \`\`\`
+                  ${ALL_TAGS}
+                  \`\`\`
+
+                  _The \`${SHORT_SHA}\` tag is a multi-arch manifest (amd64/arm64); your client pulls the right arch automatically._
                   <!-- AGENT_SERVER_IMAGES_END -->
                   EOF
                   )
