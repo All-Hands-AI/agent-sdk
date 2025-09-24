@@ -2,7 +2,6 @@ from abc import ABC
 from collections.abc import Sequence
 from typing import Any, Self, TypeVar
 
-
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
     BaseModel,
