@@ -85,7 +85,7 @@ class VSCodeService:
             finally:
                 self.process = None
 
-    def get_vscode_url(self, base_url: str = "http://localhost") -> str | None:
+    def get_vscode_url(self, base_url: str = "http://localhost:8001") -> str | None:
         """Get the VSCode URL with authentication token.
 
         Args:
@@ -97,18 +97,7 @@ class VSCodeService:
         if not self.connection_token:
             return None
 
-        return (
-            f"{base_url}:{self.port}/?tkn={self.connection_token}"
-            f"&folder={self.workspace_path}"
-        )
-
-    def get_connection_token(self) -> str | None:
-        """Get the VSCode connection token.
-
-        Returns:
-            Connection token if available, None otherwise
-        """
-        return self.connection_token
+        return f"{base_url}/?tkn={self.connection_token}&folder={self.workspace_path}"
 
     def is_running(self) -> bool:
         """Check if VSCode server is running.
