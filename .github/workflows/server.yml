@@ -188,8 +188,8 @@ jobs:
                   echo "Multiline tags:"
                   echo "${{ steps.build.outputs.tags }}"
 
-    post-image-comment:
-        name: Post/Update PR image comment
+    update-pr-description:
+        name: Update PR description with agent server image
         needs: build-and-push-image
         # Only on PRs, and only if the build actually ran and succeeded
         if: github.event_name == 'pull_request' && needs.build-and-push-image.result == 'success'
@@ -202,12 +202,12 @@ jobs:
             SHORT_SHA: ${{ needs.build-and-push-image.outputs.short_sha }}
 
         steps:
-            - name: Sticky PR comment with docker command
-              uses: marocchino/sticky-pull-request-comment@v2
+            - name: Update PR description with docker command
+              uses: nefrob/pr-description@v1.2.0
               with:
-                  header: agent-server-image
-                  recreate: true
-                  message: |
+                  content: |
+                      ---
+
                       **Agent Server image for this PR**
 
                       Pull (multi-arch manifest):
@@ -224,3 +224,6 @@ jobs:
                       ```
 
                       _This tag is a multi-arch manifest (amd64/arm64). Your client pulls the right arch automatically._
+                  regex: "---\\s*\\*\\*Agent Server image for this PR\\*\\*[\\s\\S]*?(?=\\n\\n---|\n\\n##|$)"
+                  regexFlags: m
+                  token: ${{ secrets.GITHUB_TOKEN }}
