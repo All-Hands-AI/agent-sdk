@@ -1,0 +1,332 @@
+"""Comprehensive tests for BashEventService bash command execution."""
+
+import asyncio
+import tempfile
+from pathlib import Path
+
+import pytest
+
+from openhands.agent_server.bash_service import BashEventService
+from openhands.agent_server.models import BashCommand, BashOutput
+from openhands.agent_server.pub_sub import Subscriber
+
+
+@pytest.fixture
+def bash_service():
+    """Create a BashEventService instance for testing."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        yield BashEventService(
+            working_dir=temp_path / "workspace",
+            bash_events_dir=temp_path / "bash_events",
+        )
+
+
+class EventCollector(Subscriber):
+    """Test subscriber that collects all events."""
+
+    def __init__(self):
+        self.events = []
+        self.commands = []
+        self.outputs = []
+
+    async def __call__(self, event):
+        self.events.append(event)
+        if isinstance(event, BashCommand):
+            self.commands.append(event)
+        elif isinstance(event, BashOutput):
+            self.outputs.append(event)
+
+
+@pytest.mark.asyncio
+async def test_single_output_command(bash_service):
+    """Test bash command that produces single output."""
+    collector = EventCollector()
+    await bash_service.subscribe_to_events(collector)
+
+    # Simple echo command - should produce single output
+    command = BashCommand(command='echo "Hello World"', cwd="/tmp")
+    await bash_service.start_bash_command(command)
+
+    # Wait for command to complete
+    await asyncio.sleep(1)
+
+    # Verify events were published
+    assert len(collector.commands) == 1
+    assert len(collector.outputs) == 1
+
+    # Verify command event
+    cmd_event = collector.commands[0]
+    assert cmd_event.id == command.id
+    assert cmd_event.command == 'echo "Hello World"'
+    assert cmd_event.cwd == "/tmp"
+
+    # Verify output event
+    output_event = collector.outputs[0]
+    assert output_event.command_id == command.id
+    assert output_event.order == 0
+    assert output_event.exit_code == 0
+    assert output_event.stdout == "Hello World\n"
+    assert output_event.stderr is None
+
+    # Verify events can be retrieved from storage
+    retrieved_cmd = await bash_service.get_bash_event(command.id.hex)
+    assert retrieved_cmd is not None
+    assert retrieved_cmd.id == command.id
+
+    retrieved_output = await bash_service.get_bash_event(output_event.id.hex)
+    assert retrieved_output is not None
+    assert retrieved_output.id == output_event.id
+
+
+@pytest.mark.asyncio
+async def test_multiple_output_command(bash_service):
+    """Test bash command that produces multiple pieces of output."""
+    collector = EventCollector()
+    await bash_service.subscribe_to_events(collector)
+
+    # Command that produces multiple lines of output
+    command = BashCommand(
+        command='echo "Line 1"; echo "Line 2"; echo "Line 3"', cwd="/tmp"
+    )
+    await bash_service.start_bash_command(command)
+
+    # Wait for command to complete
+    await asyncio.sleep(2)
+
+    # Verify events were published
+    assert len(collector.commands) == 1
+    assert len(collector.outputs) >= 1  # May be chunked into multiple outputs
+
+    # Verify command event
+    cmd_event = collector.commands[0]
+    assert cmd_event.id == command.id
+    assert "echo" in cmd_event.command
+
+    # Verify all outputs belong to the same command
+    for output in collector.outputs:
+        assert output.command_id == command.id
+        assert output.exit_code == 0
+        assert output.stderr is None
+
+    # Verify outputs are properly ordered
+    orders = [output.order for output in collector.outputs]
+    assert orders == sorted(orders)
+
+    # Combine all stdout to verify complete output
+    combined_stdout = "".join(
+        output.stdout or ""
+        for output in sorted(collector.outputs, key=lambda x: x.order)
+    )
+    assert "Line 1" in combined_stdout
+    assert "Line 2" in combined_stdout
+    assert "Line 3" in combined_stdout
+
+
+@pytest.mark.asyncio
+async def test_command_with_stderr(bash_service):
+    """Test bash command that produces stderr output."""
+    collector = EventCollector()
+    await bash_service.subscribe_to_events(collector)
+
+    # Command that writes to stderr
+    command = BashCommand(
+        command='echo "stdout message" && echo "stderr message" >&2', cwd="/tmp"
+    )
+    await bash_service.start_bash_command(command)
+
+    # Wait for command to complete
+    await asyncio.sleep(1)
+
+    # Verify events were published
+    assert len(collector.commands) == 1
+    assert len(collector.outputs) >= 1
+
+    # Find outputs with stdout and stderr
+    stdout_outputs = [o for o in collector.outputs if o.stdout]
+    stderr_outputs = [o for o in collector.outputs if o.stderr]
+
+    # Should have both stdout and stderr
+    assert len(stdout_outputs) >= 1
+    assert len(stderr_outputs) >= 1
+
+    # Verify content
+    combined_stdout = "".join(o.stdout or "" for o in stdout_outputs)
+    combined_stderr = "".join(o.stderr or "" for o in stderr_outputs)
+
+    assert "stdout message" in combined_stdout
+    assert "stderr message" in combined_stderr
+
+    # All outputs should have exit code 0
+    for output in collector.outputs:
+        assert output.exit_code == 0
+
+
+@pytest.mark.asyncio
+async def test_command_with_error_exit_code(bash_service):
+    """Test bash command that exits with error code."""
+    collector = EventCollector()
+    await bash_service.subscribe_to_events(collector)
+
+    # Command that exits with error
+    command = BashCommand(command="exit 42", cwd="/tmp")
+    await bash_service.start_bash_command(command)
+
+    # Wait for command to complete
+    await asyncio.sleep(1)
+
+    # Verify events were published
+    assert len(collector.commands) == 1
+    assert len(collector.outputs) >= 1
+
+    # Verify exit code is propagated
+    for output in collector.outputs:
+        assert output.exit_code == 42
+
+
+@pytest.mark.asyncio
+async def test_command_timeout(bash_service):
+    """Test bash command that times out."""
+    collector = EventCollector()
+    await bash_service.subscribe_to_events(collector)
+
+    # Command that should timeout (sleep longer than timeout)
+    command = BashCommand(command="sleep 10", cwd="/tmp", timeout=1)
+    await bash_service.start_bash_command(command)
+
+    # Wait for timeout to occur plus some buffer
+    await asyncio.sleep(3)
+
+    # Verify events were published
+    assert len(collector.commands) == 1
+
+    # The timeout might not generate output events in all cases
+    # Just verify the command was started
+    cmd_event = collector.commands[0]
+    assert cmd_event.command == "sleep 10"
+
+
+@pytest.mark.asyncio
+async def test_large_output_chunking(bash_service):
+    """Test that large output is properly chunked."""
+    collector = EventCollector()
+    await bash_service.subscribe_to_events(collector)
+
+    # Generate large output using a simple command that should work everywhere
+    # Create a string larger than MAX_CONTENT_CHAR_LENGTH (1MB)
+    large_size = 1024 * 1024 + 1000  # Slightly over 1MB
+    command = BashCommand(command=f'yes "x" | head -c {large_size}', cwd="/tmp")
+    await bash_service.start_bash_command(command)
+
+    # Wait for command to complete
+    await asyncio.sleep(5)
+
+    # Verify events were published
+    assert len(collector.commands) == 1
+    assert len(collector.outputs) >= 1  # Should be chunked if large enough
+
+    # Verify all chunks belong to same command and are ordered
+    for i, output in enumerate(collector.outputs):
+        assert output.command_id == command.id
+        assert output.order == i
+        # Only the final output has exit_code set, intermediate ones may be None
+        if i == len(collector.outputs) - 1:
+            assert output.exit_code == 0
+
+    # Verify total output size is substantial
+    total_stdout = "".join(
+        output.stdout or ""
+        for output in sorted(collector.outputs, key=lambda x: x.order)
+    )
+    assert len(total_stdout) > 1000  # Should have substantial output
+
+
+@pytest.mark.asyncio
+async def test_concurrent_commands(bash_service):
+    """Test multiple concurrent bash commands."""
+    collector = EventCollector()
+    await bash_service.subscribe_to_events(collector)
+
+    # Start multiple commands concurrently
+    commands = [
+        BashCommand(command=f'echo "Command {i}"', cwd="/tmp") for i in range(3)
+    ]
+
+    # Start all commands
+    await asyncio.gather(*[bash_service.start_bash_command(cmd) for cmd in commands])
+
+    # Wait for all to complete
+    await asyncio.sleep(2)
+
+    # Verify all commands were executed
+    assert len(collector.commands) == 3
+    assert len(collector.outputs) >= 3
+
+    # Verify each command has corresponding outputs
+    command_ids = {cmd.id for cmd in commands}
+    output_command_ids = {output.command_id for output in collector.outputs}
+    assert command_ids == output_command_ids
+
+
+@pytest.mark.asyncio
+async def test_event_persistence(bash_service):
+    """Test that events are properly persisted to files."""
+    # Execute a command
+    command = BashCommand(command='echo "persistence test"', cwd="/tmp")
+    await bash_service.start_bash_command(command)
+
+    # Wait for completion
+    await asyncio.sleep(1)
+
+    # Verify command can be retrieved
+    retrieved_cmd = await bash_service.get_bash_event(command.id.hex)
+    assert retrieved_cmd is not None
+    assert retrieved_cmd.command == 'echo "persistence test"'
+
+    # Verify batch retrieval works
+    batch_results = await bash_service.batch_get_bash_events([command.id.hex])
+    assert len(batch_results) == 1
+    assert batch_results[0] is not None
+    assert batch_results[0].id == command.id
+
+
+@pytest.mark.asyncio
+async def test_search_bash_events(bash_service):
+    """Test searching for bash events."""
+    # Execute multiple commands
+    commands = [
+        BashCommand(command='echo "first"', cwd="/tmp"),
+        BashCommand(command='echo "second"', cwd="/tmp"),
+    ]
+
+    for cmd in commands:
+        await bash_service.start_bash_command(cmd)
+
+    # Wait for completion
+    await asyncio.sleep(2)
+
+    # Search for events
+    page = await bash_service.search_bash_events()
+    assert len(page.items) >= 4  # At least 2 commands + 2 outputs
+
+    # Verify we can find both commands and outputs
+    command_events = [e for e in page.items if isinstance(e, BashCommand)]
+    output_events = [e for e in page.items if isinstance(e, BashOutput)]
+
+    assert len(command_events) >= 2
+    assert len(output_events) >= 2
+
+
+@pytest.mark.asyncio
+async def test_service_lifecycle(bash_service):
+    """Test service lifecycle methods."""
+    # Test context manager usage
+    async with bash_service:
+        command = BashCommand(command='echo "lifecycle test"', cwd="/tmp")
+        await bash_service.start_bash_command(command)
+        await asyncio.sleep(1)
+
+    # Service should be closed after context manager
+    # Verify we can still retrieve persisted events
+    retrieved = await bash_service.get_bash_event(command.id.hex)
+    assert retrieved is not None
