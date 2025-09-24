@@ -85,9 +85,9 @@ async def batch_get_bash_events(
 
 
 @bash_router.post("/execute_bash_command")
-async def execute_bash_command(request: ExecuteBashRequest) -> BashCommand:
+async def start_bash_command(request: ExecuteBashRequest) -> BashCommand:
     """Execute a bash command"""
-    command = await bash_event_service.start_bash_command(request)
+    command, _ = await bash_event_service.start_bash_command(request)
     return command
 
 

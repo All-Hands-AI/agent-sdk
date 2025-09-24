@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from openhands.agent_server.bash_service import BashEventService
-from openhands.agent_server.models import BashCommand, BashOutput
+from openhands.agent_server.models import BashCommand, BashOutput, ExecuteBashRequest
 from openhands.agent_server.pub_sub import Subscriber
 
 
@@ -169,11 +169,11 @@ async def test_command_with_error_exit_code(bash_service):
     await bash_service.subscribe_to_events(collector)
 
     # Command that exits with error
-    command = BashCommand(command="exit 42", cwd="/tmp")
-    await bash_service.start_bash_command(command)
+    request = ExecuteBashRequest(command="exit 42", cwd="/tmp")
+    _, task = await bash_service.start_bash_command(request)
 
     # Wait for command to complete
-    await asyncio.sleep(1)
+    await task
 
     # Verify events were published
     assert len(collector.commands) == 1
@@ -191,11 +191,11 @@ async def test_command_timeout(bash_service):
     await bash_service.subscribe_to_events(collector)
 
     # Command that should timeout (sleep longer than timeout)
-    command = BashCommand(command="sleep 10", cwd="/tmp", timeout=1)
-    await bash_service.start_bash_command(command)
+    request = ExecuteBashRequest(command="sleep 10", cwd="/tmp", timeout=1)
+    _, task = await bash_service.start_bash_command(request)
 
     # Wait for timeout to occur plus some buffer
-    await asyncio.sleep(3)
+    await task
 
     # Verify events were published
     assert len(collector.commands) == 1
@@ -215,11 +215,11 @@ async def test_large_output_chunking(bash_service):
     # Generate large output using a simple command that should work everywhere
     # Create a string larger than MAX_CONTENT_CHAR_LENGTH (1MB)
     large_size = 1024 * 1024 + 1000  # Slightly over 1MB
-    command = BashCommand(command=f'yes "x" | head -c {large_size}', cwd="/tmp")
-    await bash_service.start_bash_command(command)
+    request = ExecuteBashRequest(command=f'yes "x" | head -c {large_size}', cwd="/tmp")
+    command, task = await bash_service.start_bash_command(request)
 
     # Wait for command to complete
-    await asyncio.sleep(5)
+    await task
 
     # Verify events were published
     assert len(collector.commands) == 1
@@ -248,22 +248,24 @@ async def test_concurrent_commands(bash_service):
     await bash_service.subscribe_to_events(collector)
 
     # Start multiple commands concurrently
-    commands = [
-        BashCommand(command=f'echo "Command {i}"', cwd="/tmp") for i in range(3)
+    requests = [
+        ExecuteBashRequest(command=f'echo "Command {i}"', cwd="/tmp") for i in range(3)
     ]
 
     # Start all commands
-    await asyncio.gather(*[bash_service.start_bash_command(cmd) for cmd in commands])
+    results = await asyncio.gather(
+        *[bash_service.start_bash_command(req) for req in requests]
+    )
 
     # Wait for all to complete
-    await asyncio.sleep(2)
+    await asyncio.gather(*[task for _, task in results])
 
     # Verify all commands were executed
     assert len(collector.commands) == 3
     assert len(collector.outputs) >= 3
 
     # Verify each command has corresponding outputs
-    command_ids = {cmd.id for cmd in commands}
+    command_ids = {cmd.id for cmd, _ in results}
     output_command_ids = {output.command_id for output in collector.outputs}
     assert command_ids == output_command_ids
 
@@ -272,8 +274,10 @@ async def test_concurrent_commands(bash_service):
 async def test_event_persistence(bash_service):
     """Test that events are properly persisted to files."""
     # Execute a command
-    command = BashCommand(command='echo "persistence test"', cwd="/tmp")
-    await bash_service.start_bash_command(command)
+    request = ExecuteBashRequest(command='echo "persistence test"', cwd="/tmp")
+    command, task = await bash_service.start_bash_command(request)
+
+    await task
 
     # Wait for completion
     await asyncio.sleep(1)
@@ -294,16 +298,17 @@ async def test_event_persistence(bash_service):
 async def test_search_bash_events(bash_service):
     """Test searching for bash events."""
     # Execute multiple commands
-    commands = [
-        BashCommand(command='echo "first"', cwd="/tmp"),
-        BashCommand(command='echo "second"', cwd="/tmp"),
+    requests = [
+        ExecuteBashRequest(command='echo "first"', cwd="/tmp"),
+        ExecuteBashRequest(command='echo "second"', cwd="/tmp"),
     ]
 
-    for cmd in commands:
-        await bash_service.start_bash_command(cmd)
+    results = await asyncio.gather(
+        *[bash_service.start_bash_command(req) for req in requests]
+    )
 
     # Wait for completion
-    await asyncio.sleep(2)
+    await asyncio.gather(*[task for _, task in results])
 
     # Search for events
     page = await bash_service.search_bash_events()
@@ -322,9 +327,9 @@ async def test_service_lifecycle(bash_service):
     """Test service lifecycle methods."""
     # Test context manager usage
     async with bash_service:
-        command = BashCommand(command='echo "lifecycle test"', cwd="/tmp")
-        await bash_service.start_bash_command(command)
-        await asyncio.sleep(1)
+        request = ExecuteBashRequest(command='echo "lifecycle test"', cwd="/tmp")
+        command, task = await bash_service.start_bash_command(request)
+        await task
 
     # Service should be closed after context manager
     # Verify we can still retrieve persisted events
@@ -344,16 +349,17 @@ async def test_clear_all_events_empty_storage(bash_service):
 async def test_clear_all_events_with_data(bash_service):
     """Test clearing events when storage contains data."""
     # Execute some commands to create events
-    commands = [
-        BashCommand(command='echo "first"', cwd="/tmp"),
-        BashCommand(command='echo "second"', cwd="/tmp"),
+    requests = [
+        ExecuteBashRequest(command='echo "first"', cwd="/tmp"),
+        ExecuteBashRequest(command='echo "second"', cwd="/tmp"),
     ]
 
-    for cmd in commands:
-        await bash_service.start_bash_command(cmd)
+    results = await asyncio.gather(
+        *[bash_service.start_bash_command(req) for req in requests]
+    )
 
-    # Wait for commands to complete
-    await asyncio.sleep(2)
+    # Wait for completion
+    await asyncio.gather(*[task for _, task in results])
 
     # Verify events exist before clearing
     page = await bash_service.search_bash_events()
@@ -369,7 +375,7 @@ async def test_clear_all_events_with_data(bash_service):
     assert len(page_after.items) == 0
 
     # Verify individual events cannot be retrieved
-    for cmd in commands:
+    for cmd, _ in results:
         retrieved = await bash_service.get_bash_event(cmd.id.hex)
         assert retrieved is None
 
@@ -378,9 +384,9 @@ async def test_clear_all_events_with_data(bash_service):
 async def test_clear_all_events_partial_failure(bash_service):
     """Test clearing events when some files cannot be deleted."""
     # Execute a command to create an event
-    command = BashCommand(command='echo "test"', cwd="/tmp")
-    await bash_service.start_bash_command(command)
-    await asyncio.sleep(1)
+    request = ExecuteBashRequest(command='echo "test"', cwd="/tmp")
+    command, task = await bash_service.start_bash_command(request)
+    await task
 
     # Verify event exists
     retrieved = await bash_service.get_bash_event(command.id.hex)
