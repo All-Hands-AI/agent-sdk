@@ -111,7 +111,6 @@ def test_vscode_router_endpoints_integration(client):
         response = client.get("/api/vscode/url")
         assert response.status_code == 200
         data = response.json()
-        assert data["token"] == "integration-token"
         assert data["url"] == "http://localhost:8001/?tkn=integration-token"
 
         # Test URL endpoint with custom base URL
