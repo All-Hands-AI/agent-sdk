@@ -89,17 +89,11 @@ class BashExecutor(ToolExecutor):
         Returns:
             ExecuteBashObservation with reset confirmation message
         """
-        logger.info("Resetting terminal session")
-
-        # Store the original session parameters
         original_work_dir = self.session.work_dir
         original_username = self.session.username
         original_no_change_timeout = self.session.no_change_timeout_seconds
 
-        # Close the current session
         self.session.close()
-
-        # Create a new session with the same parameters
         self.session = create_terminal_session(
             work_dir=original_work_dir,
             username=original_username,
@@ -124,28 +118,24 @@ class BashExecutor(ToolExecutor):
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
         # Validate field combinations
         if action.reset and action.is_input:
-            raise ValueError(
-                "Cannot use reset=True with is_input=True. "
-                "Reset creates a new terminal session, so there's no process to send input to."  # noqa
+            return ExecuteBashObservation(
+                output="Error: 'is_input' must be False when 'reset' is True.",
+                command=f"[RESET] {action.command}",
+                exit_code=1,
+                error=True,
             )
 
-        # Handle reset request
         if action.reset:
             reset_result = self.reset()
-
-            # If a command was provided with reset, execute it in the fresh terminal
             if action.command.strip():
-                # Create a new action without reset to execute the command
                 command_action = ExecuteBashAction(
                     command=action.command,
                     timeout=action.timeout,
                     is_input=False,  # is_input validated to be False when reset=True
                 )
-                # Export any environment variables first
                 self._export_envs(command_action)
                 command_result = self.session.execute(command_action)
 
-                # Combine the reset message with command output
                 combined_output = f"{reset_result.output}\n\n{command_result.output}"
                 return ExecuteBashObservation(
                     output=combined_output,
