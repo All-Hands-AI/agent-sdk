@@ -45,11 +45,11 @@ async def test_single_output_command(bash_service):
     await bash_service.subscribe_to_events(collector)
 
     # Simple echo command - should produce single output
-    command = BashCommand(command='echo "Hello World"', cwd="/tmp")
-    await bash_service.start_bash_command(command)
+    request = ExecuteBashRequest(command='echo "Hello World"', cwd="/tmp")
+    command, task = await bash_service.start_bash_command(request)
 
     # Wait for command to complete
-    await asyncio.sleep(1)
+    await task
 
     # Verify events were published
     assert len(collector.commands) == 1
@@ -86,13 +86,13 @@ async def test_multiple_output_command(bash_service):
     await bash_service.subscribe_to_events(collector)
 
     # Command that produces multiple lines of output
-    command = BashCommand(
+    request = ExecuteBashRequest(
         command='echo "Line 1"; echo "Line 2"; echo "Line 3"', cwd="/tmp"
     )
-    await bash_service.start_bash_command(command)
+    command, task = await bash_service.start_bash_command(request)
 
     # Wait for command to complete
-    await asyncio.sleep(2)
+    await task
 
     # Verify events were published
     assert len(collector.commands) == 1
@@ -130,13 +130,13 @@ async def test_command_with_stderr(bash_service):
     await bash_service.subscribe_to_events(collector)
 
     # Command that writes to stderr
-    command = BashCommand(
+    request = ExecuteBashRequest(
         command='echo "stdout message" && echo "stderr message" >&2', cwd="/tmp"
     )
-    await bash_service.start_bash_command(command)
+    command, task = await bash_service.start_bash_command(request)
 
     # Wait for command to complete
-    await asyncio.sleep(1)
+    await task
 
     # Verify events were published
     assert len(collector.commands) == 1
@@ -277,10 +277,8 @@ async def test_event_persistence(bash_service):
     request = ExecuteBashRequest(command='echo "persistence test"', cwd="/tmp")
     command, task = await bash_service.start_bash_command(request)
 
-    await task
-
     # Wait for completion
-    await asyncio.sleep(1)
+    await task
 
     # Verify command can be retrieved
     retrieved_cmd = await bash_service.get_bash_event(command.id.hex)
