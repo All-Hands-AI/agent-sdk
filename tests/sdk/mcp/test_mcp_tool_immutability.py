@@ -36,9 +36,8 @@ class TestMCPToolImmutability:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = {"version": "1.0"}
 
-        self.tool = MCPTool.create(
-            mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
-        )
+        tools = MCPTool.create(mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client)
+        self.tool = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_is_frozen(self):
         """Test that MCPTool instances are frozen and cannot be modified."""
@@ -112,18 +111,8 @@ class TestMCPToolImmutability:
         mock_tool2.annotations = None
         mock_tool2.meta = None
 
-        tool2 = MCPTool.create(mcp_tool=mock_tool2, mcp_client=self.mock_client)
-
-        # Verify it's immutable
-        with pytest.raises(Exception):
-            tool2.name = "modified_name"
-
-        # Verify it has the correct properties
-        assert tool2.name == "another_tool"
-        assert tool2.description == "Another test tool"
-        assert isinstance(tool2.executor, MCPToolExecutor)
-
-        tool2 = MCPTool.create(mcp_tool=mock_tool2, mcp_client=self.mock_client)
+        tools2 = MCPTool.create(mcp_tool=mock_tool2, mcp_client=self.mock_client)
+        tool2 = tools2[0]  # Extract single tool from sequence
 
         # Verify it's immutable
         with pytest.raises(Exception):

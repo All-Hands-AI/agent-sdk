@@ -37,7 +37,8 @@ def test_mcp_tool_json_serialization_deserialization() -> None:
         "test_mcp_tool_json_serialization_deserialization"
     )
     mock_client = Mock(spec=MCPClient)
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    mcp_tool = tools[0]  # Extract single tool from sequence
 
     tool_json = mcp_tool.model_dump_json()
     deserialized_tool = MCPTool.model_validate_json(tool_json)
@@ -53,7 +54,8 @@ def test_mcp_tool_polymorphic_behavior() -> None:
     mock_client = Mock(spec=MCPClient)
 
     # Create MCPTool instance
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    mcp_tool = tools[0]  # Extract single tool from sequence
 
     # Should be instance of ToolBase
     assert isinstance(mcp_tool, ToolBase)
@@ -72,7 +74,8 @@ def test_mcp_tool_kind_field() -> None:
     mock_client = Mock(spec=MCPClient)
 
     # Create MCPTool instance
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    mcp_tool = tools[0]  # Extract single tool from sequence
 
     # Check kind field
     assert hasattr(mcp_tool, "kind")
@@ -120,7 +123,8 @@ def test_mcp_tool_essential_properties() -> None:
     mock_client = Mock(spec=MCPClient)
 
     # Create MCPTool instance
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    mcp_tool = tools[0]  # Extract single tool from sequence
 
     # Verify essential properties are preserved
     assert mcp_tool.name == "essential_tool"
