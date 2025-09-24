@@ -89,14 +89,16 @@ class TestConfirmationMode:
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool() -> Tool:
-            return Tool(
-                name="test_tool",
-                description="A test tool",
-                action_type=MockConfirmationModeAction,
-                observation_type=MockConfirmationModeObservation,
-                executor=TestExecutor(),
-            )
+        def _make_tool() -> Sequence[Tool]:
+            return [
+                Tool(
+                    name="test_tool",
+                    description="A test tool",
+                    action_type=MockConfirmationModeAction,
+                    observation_type=MockConfirmationModeObservation,
+                    executor=TestExecutor(),
+                )
+            ]
 
         register_tool("test_tool", _make_tool)
 

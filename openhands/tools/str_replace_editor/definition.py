@@ -197,7 +197,7 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
-    def create(cls, workspace_root: str | None = None) -> "FileEditorTool":
+    def create(cls, workspace_root: str | None = None) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
         Args:
@@ -211,11 +211,13 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         executor = FileEditorExecutor(workspace_root=workspace_root)
 
         # Initialize the parent Tool with the executor
-        return cls(
-            name=str_replace_editor_tool.name,
-            description=TOOL_DESCRIPTION,
-            action_type=StrReplaceEditorAction,
-            observation_type=StrReplaceEditorObservation,
-            annotations=str_replace_editor_tool.annotations,
-            executor=executor,
-        )
+        return [
+            cls(
+                name=str_replace_editor_tool.name,
+                description=TOOL_DESCRIPTION,
+                action_type=StrReplaceEditorAction,
+                observation_type=StrReplaceEditorObservation,
+                annotations=str_replace_editor_tool.annotations,
+                executor=executor,
+            )
+        ]

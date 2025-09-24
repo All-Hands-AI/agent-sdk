@@ -37,6 +37,7 @@ if _REPO_ROOT not in sys.path:
 
 import threading  # noqa: E402
 import time  # noqa: E402
+from collections.abc import Sequence  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
 from litellm import ChatCompletionMessageToolCall  # noqa: E402
@@ -115,15 +116,17 @@ class SleepExecutor(ToolExecutor):
         return SleepObservation(message=action.message)
 
 
-def _make_sleep_tool() -> Tool:
+def _make_sleep_tool() -> Sequence[Tool]:
     """Create sleep tool for testing."""
-    return Tool(
-        name="sleep_tool",
-        action_type=SleepAction,
-        observation_type=SleepObservation,
-        description="Sleep for specified duration and return a message",
-        executor=SleepExecutor(),
-    )
+    return [
+        Tool(
+            name="sleep_tool",
+            action_type=SleepAction,
+            observation_type=SleepObservation,
+            description="Sleep for specified duration and return a message",
+            executor=SleepExecutor(),
+        )
+    ]
 
 
 # Register the tool
