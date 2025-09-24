@@ -13,7 +13,7 @@ from fastapi import (
     status,
 )
 
-from openhands.agent_server.bash_event_service import get_default_bash_event_service
+from openhands.agent_server.bash_service import get_default_bash_event_service
 from openhands.agent_server.models import BashCommand, BashEventBase, BashEventPage
 from openhands.agent_server.pub_sub import Subscriber
 from openhands.sdk.event.base import EventBase

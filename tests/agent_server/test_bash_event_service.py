@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from openhands.agent_server.bash_event_service import BashEventService
+from openhands.agent_server.bash_service import BashEventService
 from openhands.agent_server.models import ActionEvent
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 

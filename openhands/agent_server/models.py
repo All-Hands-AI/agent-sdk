@@ -2,20 +2,19 @@ from abc import ABC
 from datetime import datetime
 from enum import Enum
 from typing import Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.utils.models import OpenHandsModel
+from openhands.sdk.utils.models import DiscriminatedUnionMixin, OpenHandsModel
 
 
 class ConversationSortOrder(str, Enum):
@@ -136,12 +135,11 @@ class SetConfirmationPolicyRequest(BaseModel):
     policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
 
 
-class BashEventBase(EventBase, ABC):
+class BashEventBase(DiscriminatedUnionMixin, ABC):
     """Base class for all bash event types"""
 
-    source: SourceType = Field(
-        default="environment", description="The source of this event"
-    )
+    id: UUID = Field(default_factory=uuid4)
+    timestamp: datetime = Field(default_factory=utc_now)
 
 
 class BashCommand(BashEventBase):
@@ -159,7 +157,7 @@ class BashOutput(BashEventBase):
     depending on how large the output is.
     """
 
-    action_id: str
+    action_id: UUID
     order: int = Field(
         default=0, description="The order for this output, sequentially starting with 0"
     )
@@ -174,10 +172,11 @@ class BashOutput(BashEventBase):
     )
 
 
+class BashEventSortOrder(Enum):
+    TIMESTAMP = "TIMESTAMP"
+    TIMESTAMP_DESC = "TIMESTAMP_DESC"
+
+
 class BashEventPage(OpenHandsModel):
     items: list[BashEventBase]
     next_page_id: str | None = None
-
-
-# Type alias for API compatibility
-BashEvent = BashCommand | BashOutput
