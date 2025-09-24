@@ -224,14 +224,14 @@ jobs:
                   echo "golang_base_url=https://hub.docker.com/_/golang" >> $GITHUB_OUTPUT
 
                   # Collect all tags that would be generated for this build
-                  # This is based on the logic in build.sh
+                  # This is based on the logic in build.sh - only variant-specific tags are created
                   ALL_TAGS=""
                   for variant in python java golang; do
                       ALL_TAGS="${ALL_TAGS}${IMAGE}:${SHORT_SHA}-${variant}"$'\n'
                   done
 
-                  # Add the multi-arch manifest tag (without variant suffix)
-                  ALL_TAGS="${ALL_TAGS}${IMAGE}:${SHORT_SHA}"
+                  # Remove trailing newline
+                  ALL_TAGS="${ALL_TAGS%$'\n'}"
 
                   # Set the all_tags output using heredoc
                   {
@@ -268,10 +268,12 @@ jobs:
                   content: "\n---\n**Agent Server images for this PR**\n\n• **GHCR package:** ${{ env.GHCR_PACKAGE_URL }}\n\n**Variants & Base Images**\n\
                       | Variant | Base Image | Docs / Tags |\n|---|---|---|\n| python | `${{ env.PYTHON_BASE_LABEL }}` | [Link](${{ env.PYTHON_BASE_URL
                       }}) |\n| java   | `${{ env.JAVA_BASE_LABEL }}`   | [Link](${{ env.JAVA_BASE_URL }}) |\n| golang | `${{ env.GOLANG_BASE_LABEL }}` |
-                      [Link](${{ env.GOLANG_BASE_URL }}) |\n\n**Pull (multi-arch manifest)**\n```bash\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}\n\
-                      ```\n\n**Run**\n```bash\ndocker run -it --rm \\\n  -p 8000:8000 \\\n  --name agent-server-${{ env.SHORT_SHA }} \\\n  ${{ env.IMAGE
-                      }}:${{ env.SHORT_SHA }}\n```\n\n**All tags pushed for this build**\n```\n${{ env.ALL_TAGS }}\n```\n\n_The `${{ env.SHORT_SHA }}` tag
-                      is a multi-arch manifest (amd64/arm64); your client pulls the right arch automatically._"
+                      [Link](${{ env.GOLANG_BASE_URL }}) |\n\n**Pull (choose your variant)**\n```bash\n# Python variant (recommended for most use cases)\n\
+                      docker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}-python\n\n# Java variant\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}-java\n\
+                      \n# Golang variant\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}-golang\n```\n\n**Run (example with python variant)**\n```bash\n\
+                      docker run -it --rm \\\n  -p 8000:8000 \\\n  --name agent-server-${{ env.SHORT_SHA }} \\\n  ${{ env.IMAGE }}:${{ env.SHORT_SHA }}-python\n\
+                      ```\n\n**All tags pushed for this build**\n```\n${{ env.ALL_TAGS }}\n```\n\n_Each variant tag is a multi-arch manifest (amd64/arm64);
+                      your client pulls the right arch automatically._"
                   regex: "---\\s*\\*\\*Agent Server images? for this PR\\*\\*[\\s\\S]*?(?=\\n\\n---|\n\\n##|$)"
                   regexFlags: m
                   token: ${{ secrets.GITHUB_TOKEN }}
