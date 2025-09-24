@@ -1,6 +1,7 @@
 import inspect
+from collections.abc import Callable
 from threading import RLock
-from typing import Any, Callable
+from typing import Any
 
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import Tool, ToolBase

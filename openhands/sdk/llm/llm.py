@@ -4,8 +4,9 @@ import copy
 import json
 import os
 import warnings
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
