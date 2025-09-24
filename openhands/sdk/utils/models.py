@@ -1,10 +1,8 @@
 import inspect
 import json
 import logging
-import operator
 from abc import ABC
-from functools import reduce
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Literal, Self, Union
 
 from pydantic import (
     BaseModel,
@@ -171,9 +169,10 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
             # only ONE concrete subclass.
             return subclasses[0]
 
-        types = tuple(Annotated[t, Tag(t.__name__)] for t in subclasses)
-        U = reduce(operator.or_, types)  # Annotated[T1,...] | Annotated[T2,...] | ...
-        serializable_type = Annotated[U, Discriminator(kind_of)]
+        serializable_type = Annotated[
+            Union[*tuple(Annotated[t, Tag(t.__name__)] for t in subclasses)],
+            Discriminator(kind_of),
+        ]
         return serializable_type  # type: ignore
 
     @classmethod
