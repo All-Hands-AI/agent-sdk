@@ -122,6 +122,13 @@ class BashExecutor(ToolExecutor):
         )
 
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
+        # Validate field combinations
+        if action.reset and action.is_input:
+            raise ValueError(
+                "Cannot use reset=True with is_input=True. "
+                "Reset creates a new terminal session, so there's no process to send input to."  # noqa
+            )
+
         # Handle reset request
         if action.reset:
             reset_result = self.reset()

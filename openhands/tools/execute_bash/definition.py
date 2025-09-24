@@ -37,14 +37,6 @@ class ExecuteBashAction(ActionBase):
         description="If True, reset the terminal session by creating a new instance. Use this only when the terminal becomes unresponsive. Note that all previously set environment variables and session state will be lost after reset. Cannot be used with is_input=True.",  # noqa
     )
 
-    def model_post_init(self, __context) -> None:
-        """Validate field combinations after model initialization."""
-        if self.reset and self.is_input:
-            raise ValueError(
-                "Cannot use reset=True with is_input=True. "
-                "Reset creates a new terminal session, so there's no process to send input to."  # noqa
-            )
-
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation with PS1-style bash prompt."""

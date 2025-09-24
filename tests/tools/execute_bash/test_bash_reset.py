@@ -158,8 +158,18 @@ def test_bash_reset_with_timeout():
 
 def test_bash_reset_with_is_input_validation():
     """Test that reset=True with is_input=True raises validation error."""
-    with pytest.raises(ValueError, match="Cannot use reset=True with is_input=True"):
-        ExecuteBashAction(command="", reset=True, is_input=True)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tools = BashTool.create(working_dir=temp_dir)
+        tool = tools[0]
+
+        # Create action with invalid combination
+        action = ExecuteBashAction(command="", reset=True, is_input=True)
+
+        # Should raise error when executed
+        with pytest.raises(
+            ValueError, match="Cannot use reset=True with is_input=True"
+        ):
+            tool(action)
 
 
 def test_bash_reset_only_with_empty_command():
