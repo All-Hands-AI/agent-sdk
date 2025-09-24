@@ -104,11 +104,6 @@ class ConversationState(OpenHandsModel, FIFOLock):
     # ===== Lock/guard API =====
     # Note: acquire(), release(), __enter__(), __exit__() are inherited from FIFOLock
 
-    def assert_locked(self) -> None:
-        """Assert that the current thread owns the lock."""
-        if not self.owned():
-            raise RuntimeError("State not held by current thread")
-
     @property
     def secrets_manager(self) -> SecretsManager:
         """Public accessor for the SecretsManager (stored as a private attr)."""
