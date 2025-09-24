@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import pathlib
 import uuid
 from pathlib import Path
 
@@ -253,5 +254,11 @@ def get_vscode_service() -> VSCodeService:
     """
     global _vscode_service
     if _vscode_service is None:
-        _vscode_service = VSCodeService()
+        from openhands.agent_server.config import (
+            get_default_config,
+        )
+
+        config = get_default_config()
+        pathlib.Path(config.workspace_path).mkdir(parents=True, exist_ok=True)
+        _vscode_service = VSCodeService(workspace_path=config.workspace_path)
     return _vscode_service
