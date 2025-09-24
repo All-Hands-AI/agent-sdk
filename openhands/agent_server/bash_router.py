@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import (
     APIRouter,
@@ -14,7 +14,7 @@ from fastapi import (
 )
 
 from openhands.agent_server.bash_event_service import get_default_bash_event_service
-from openhands.agent_server.models import BashEvent, BashEventPage
+from openhands.agent_server.models import BashCommand, BashEventBase, BashEventPage
 from openhands.agent_server.pub_sub import Subscriber
 from openhands.sdk.event.base import EventBase
 from openhands.tools.execute_bash.definition import ExecuteBashAction
@@ -28,9 +28,13 @@ logger = logging.getLogger(__name__)
 # bash event routes
 @bash_router.get("/bash_events/search")
 async def search_bash_events(
-    action_id: Annotated[
+    command_id: Annotated[
         str | None,
-        Query(title="Optional action ID to filter observations for a specific action"),
+        Query(title="Optional command ID to filter events for a specific command"),
+    ] = None,
+    kind: Annotated[
+        Literal["bashcommand", "bashoutput"] | None,
+        Query(title="Optional event kind filter (bashcommand or bashoutput)"),
     ] = None,
     page_id: Annotated[
         str | None,
@@ -44,13 +48,15 @@ async def search_bash_events(
     """Search / List bash event events"""
     assert limit > 0
     assert limit <= 100
-    return await bash_event_service.search_events(action_id, page_id, limit)
+    return await bash_event_service.search_events(
+        command_id=command_id, kind=kind, page_id=page_id, limit=limit
+    )
 
 
 @bash_router.get(
     "/bash_events/{event_id}", responses={404: {"description": "Item not found"}}
 )
-async def get_bash_event(event_id: str) -> BashEvent:
+async def get_bash_event(event_id: str) -> BashEventBase:
     """Get a bash event event given an id"""
     event = await bash_event_service.get_event(event_id)
     if event is None:
@@ -61,18 +67,21 @@ async def get_bash_event(event_id: str) -> BashEvent:
 @bash_router.get("/bash_events/")
 async def batch_get_bash_events(
     event_ids: list[str],
-) -> list[BashEvent | None]:
+) -> list[BashEventBase | None]:
     """Get a batch of bash event events given their ids, returning null for any
     missing item."""
     events = await bash_event_service.batch_get_events(event_ids)
     return events
 
 
-@bash_router.post("/start_bash_execution")
-async def start_bash_execution(action: ExecuteBashAction) -> BashEvent:
-    """Start a bash event execution"""
-    action_event = await bash_event_service.start_bash_execution(action)
-    return action_event
+@bash_router.post("/execute_bash_command")
+async def execute_bash_command(action: ExecuteBashAction) -> BashCommand:
+    """Execute a bash command"""
+    command_event = await bash_event_service.execute_bash_command(
+        command=action.command,
+        cwd=None,  # Use service default working directory
+    )
+    return command_event
 
 
 # WebSocket for bash events
