@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 @bash_router.get("/bash_events/search")
 async def search_bash_events(
     kind__eq: Literal["BashCommand", "BashOutput"] | None = None,
-    action_id__eq: UUID | None = None,
+    command_id__eq: UUID | None = None,
     timestamp__gte: datetime | None = None,
     timestamp__lt: datetime | None = None,
     sort_order: BashEventSortOrder = BashEventSortOrder.TIMESTAMP,
@@ -54,7 +54,7 @@ async def search_bash_events(
 
     return await bash_event_service.search_bash_events(
         kind__eq=kind__eq,
-        action_id__eq=action_id__eq,
+        command_id__eq=command_id__eq,
         timestamp__gte=timestamp__gte,
         timestamp__lt=timestamp__lt,
         sort_order=sort_order,

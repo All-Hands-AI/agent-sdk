@@ -36,16 +36,15 @@ class BashEventService:
         self.bash_events_dir.mkdir(parents=True, exist_ok=True)
 
     def _timestamp_to_str(self, timestamp: datetime) -> str:
-        timestamp_dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-        result = timestamp_dt.strftime("%Y%m%d%H%M%S")
+        result = timestamp.strftime("%Y%m%d%H%M%S")
         return result
 
     def _get_event_filename(self, event: BashEventBase) -> str:
         """Generate filename using YYYYMMDDHHMMSS_eventId_actionId format."""
         result = [self._timestamp_to_str(event.timestamp), event.kind]
-        action_id = getattr(event, "action_id", None)
-        if action_id:
-            result.append(action_id.hex)
+        command_id = getattr(event, "command_id", None)
+        if command_id:
+            result.append(command_id.hex)
         result.append(event.id.hex)
         return "_".join(result)
 
@@ -99,25 +98,25 @@ class BashEventService:
     async def search_bash_events(
         self,
         kind__eq: str | None = None,
-        action_id__eq: UUID | None = None,
+        command_id__eq: UUID | None = None,
         timestamp__gte: datetime | None = None,
         timestamp__lt: datetime | None = None,
         sort_order: BashEventSortOrder = BashEventSortOrder.TIMESTAMP,
         page_id: str | None = None,
         limit: int = 100,
     ) -> BashEventPage:
-        """Search for events. If an action_id is given, only the observations for the
+        """Search for events. If an command_id is given, only the observations for the
         action are returned."""
 
         # Build the search pattern - we start with a wildcard as we don't
         # exact match timestamps and filter later
         search_pattern = ["*"]
         if kind__eq:
-            search_pattern.append(f"_{kind__eq.hex}_*")
-        if action_id__eq:
-            search_pattern.append(f"_{action_id__eq}_*")
+            search_pattern.append(f"_{kind__eq}_*")
+        if command_id__eq:
+            search_pattern.append(f"_{command_id__eq.hex}_*")
 
-        files = self._get_event_files_by_pattern(search_pattern)
+        files = self._get_event_files_by_pattern("".join(search_pattern))
         files.sort(
             key=lambda f: f.name,
             reverse=(sort_order == BashEventSortOrder.TIMESTAMP_DESC),

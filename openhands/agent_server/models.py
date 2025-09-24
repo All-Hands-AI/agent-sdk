@@ -157,7 +157,7 @@ class BashOutput(BashEventBase):
     depending on how large the output is.
     """
 
-    action_id: UUID
+    command_id: UUID
     order: int = Field(
         default=0, description="The order for this output, sequentially starting with 0"
     )
