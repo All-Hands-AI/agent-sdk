@@ -1,3 +1,4 @@
+import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -20,7 +21,7 @@ from openhands.agent_server.file_router import file_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
 from openhands.agent_server.server_details_router import server_details_router
 from openhands.agent_server.tool_router import tool_router
-from openhands.sdk.logger import get_logger
+from openhands.sdk.logger import DEBUG, get_logger
 
 
 logger = get_logger(__name__)
@@ -132,6 +133,22 @@ def _add_exception_handlers(api: FastAPI) -> None:
         request: Request, exc: Exception
     ) -> JSONResponse:
         """Handle unhandled exceptions."""
+        # Always log that we're in the exception handler for debugging
+        logger.debug(
+            "Exception handler called for %s %s with %s: %s",
+            request.method,
+            request.url.path,
+            type(exc).__name__,
+            str(exc),
+        )
+
+        content = {
+            "detail": "Internal Server Error",
+            "exception": str(exc),
+        }
+        # In DEBUG mode, include stack trace in response
+        if DEBUG:
+            content["traceback"] = traceback.format_exc()
         # Check if this is an HTTPException that should be handled directly
         if isinstance(exc, HTTPException):
             return await _http_exception_handler(request, exc)
@@ -145,18 +162,14 @@ def _add_exception_handlers(api: FastAPI) -> None:
             logger.exception(
                 "Unhandled ExceptionGroup on %s %s", request.method, request.url.path
             )
-            return JSONResponse(
-                status_code=500, content={"detail": "Internal Server Error"}
-            )
+            return JSONResponse(status_code=500, content=content)
 
         # Logs full stack trace for any unhandled error that FastAPI would
         # turn into a 500
         logger.exception(
             "Unhandled exception on %s %s", request.method, request.url.path
         )
-        return JSONResponse(
-            status_code=500, content={"detail": "Internal Server Error"}
-        )
+        return JSONResponse(status_code=500, content=content)
 
     @api.exception_handler(HTTPException)
     async def _http_exception_handler(
@@ -165,7 +178,7 @@ def _add_exception_handlers(api: FastAPI) -> None:
         """Handle HTTPExceptions with appropriate logging."""
         # Log 4xx errors at info level (expected client errors like auth failures)
         if 400 <= exc.status_code < 500:
-            logger.info(
+            logger.exception(
                 "HTTPException %d on %s %s: %s",
                 exc.status_code,
                 request.method,
@@ -174,18 +187,23 @@ def _add_exception_handlers(api: FastAPI) -> None:
             )
         # Log 5xx errors at error level with full traceback (server errors)
         elif exc.status_code >= 500:
-            logger.error(
+            logger.exception(
                 "HTTPException %d on %s %s: %s",
                 exc.status_code,
                 request.method,
                 request.url.path,
                 exc.detail,
-                exc_info=True,
             )
-            # Don't leak internal details to clients for 5xx errors
+            content = {
+                "detail": "Internal Server Error",
+                "exception": str(exc),
+            }
+            if DEBUG:
+                content["traceback"] = traceback.format_exc()
+            # Don't leak internal details to clients for 5xx errors in production
             return JSONResponse(
                 status_code=exc.status_code,
-                content={"detail": "Internal Server Error"},
+                content=content,
             )
 
         # Return clean JSON response for all non-5xx HTTP exceptions
