@@ -2,7 +2,7 @@
 
 import os
 import signal
-from typing import Callable
+from collections.abc import Callable
 
 from pydantic import SecretStr
 

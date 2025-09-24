@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
