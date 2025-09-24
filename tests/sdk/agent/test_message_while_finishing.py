@@ -1,12 +1,12 @@
 """
 Message while finishing: ensure concurrent user messages during the final agent step
-are not processed by the LLM.
+are properly processed by the LLM after the agent finishes.
 
 Purpose
 - Validate correct conversation behavior when a user message arrives while the agent
   is already executing its final step (one that includes a finish action).
-- The message should be appended to the conversation events but must NOT be fed into
-  a new LLM call, because the conversation should terminate.
+- The message should be appended to the conversation events AND be fed into
+  a new LLM call after the finish action completes.
 
 Approach
 - Use an instrumented SleepTool to control timing and mark the start/end of the final
@@ -14,18 +14,16 @@ Approach
 - Send two user messages:
   1) During an earlier (non-final) step: this message should be processed in the next
      LLM call (proves that mid-run messages are normally handled).
-  2) During the final step's sleep: this message should not be processed by the LLM,
-     because the finish action will end the conversation.
+  2) During the final step's sleep: this message should be processed by the LLM
+     after the finish action completes, ensuring no messages are lost.
 
 Assertions
 - Both user messages appear in the persisted events.
 - The first message (“alligator”) appears in the LLM input (was processed).
-- The second message (“butterfly”) does NOT appear in any LLM input (was not processed).
+- The second message (“butterfly”) DOES appear in an LLM input (was processed).
 
-This test guards against a race where send_message() could incorrectly reset the
-conversation state from FINISHED back to IDLE during an active run, unintentionally
-triggering extra LLM calls. With the fix, the conversation keeps FINISHED during the
-active run and properly terminates without handling the concurrent final-step message.
+This test verifies the fix that ensures unattended user messages sent during the
+final step are detected and processed after the agent finishes, preventing message loss.
 """
 
 import os
@@ -259,26 +257,25 @@ class TestMessageWhileFinishing:
                 object="chat.completion",
             )
 
-    def test_message_processing_bug_demonstration(self):
+    def test_message_processing_fix_verification(self):
         """
-        Demonstrates the bug: messages sent during final step reset FINISHED status.
+        Verifies the fix: messages sent during final step are processed after finishing.
 
         This test shows that when a user sends a message while the agent is executing
-        its final step (which includes a finish action), the message resets the agent
-        status from FINISHED back to IDLE, causing the conversation to continue
-        unexpectedly.
+        its final step (which includes a finish action), the message is properly
+        detected as unattended and processed in a subsequent LLM call.
 
         Timeline:
         1. Step 1: Agent sleeps for 2 seconds
         2. User sends "alligator" request during step 1 → Gets processed in step 2 ✓
         3. Step 2: Agent sleeps for 3 seconds AND finishes (final step with multiple actions)
-        4. User sends "butterfly" request WHILE step 2 sleep is executing → Resets FINISHED to IDLE
-        5. Step 3: Conversation continues unexpectedly due to status reset
+        4. User sends "butterfly" request WHILE step 2 sleep is executing → Detected as unattended
+        5. Step 3: Conversation continues to process the butterfly message ✓
 
-        Key: The butterfly message resets agent status, preventing proper termination.
+        Key: The butterfly message is detected and processed, ensuring no message loss.
 
-        Expected: Conversation should terminate after step 2 finish action.
-        Actual: Conversation continues to step 3 due to status reset bug.
+        Expected: Conversation processes butterfly message after finish action.
+        Actual: Conversation continues to step 3 to handle unattended message.
         """  # noqa
         # Reset step count for this test
         self.step_count = 0
@@ -350,10 +347,8 @@ class TestMessageWhileFinishing:
                 while not self.final_step_started:
                     time.sleep(0.01)  # Small sleep to avoid busy waiting
 
-                # Add a small delay to ensure we're in the middle of final step
-                # execution
-                time.sleep(0.1)
-
+                # Send the message immediately when final step starts
+                # This simulates a user sending a message during final step execution
                 butterfly_send_time = time.time()
                 self.timestamps.append(("butterfly_sent", butterfly_send_time))
                 elapsed = butterfly_send_time - self.test_start_time
@@ -418,14 +413,14 @@ class TestMessageWhileFinishing:
         # not assert on "alligator" presence. We only require that the final-step
         # message ("butterfly") is never processed.
 
-        # Verify that butterfly request was NOT processed (bug demonstration)
+        # Verify that butterfly request WAS processed (fix verification)
         butterfly_seen = any(
             "butterfly" in str(call["messages"]).lower()
             for call in self.llm_completion_calls
         )
-        assert not butterfly_seen, (
-            "Butterfly request should NOT have been seen by LLM. "
-            "If this fails, the bug might be fixed or the test timing is wrong."
+        assert butterfly_seen, (
+            "Butterfly request should have been seen by LLM. "
+            "The fix should ensure unattended messages are processed."
         )
 
         # TIMING ANALYSIS: Verify butterfly was sent during final step execution
@@ -465,17 +460,17 @@ class TestMessageWhileFinishing:
             print("WARNING: Missing timing data for analysis")
             print(f"Available timestamps: {list(timestamp_dict.keys())}")
 
-        # Test has successfully demonstrated the bug behavior!
-        print("\nTEST SUCCESSFULLY DEMONSTRATES THE BUG:")
+        # Test has successfully verified the fix behavior!
+        print("\nTEST SUCCESSFULLY VERIFIES THE FIX:")
         print("- Alligator request: sent during step 1 → processed in step 2")
         print(
             "- Butterfly request: sent during step 2 (final step execution) "
-            "→ never processed"
+            "→ processed in step 3"
         )
-        print("- Both messages exist in events, but only alligator reached LLM")
+        print("- Both messages exist in events, and both reached LLM")
         print(
             "- This proves: messages sent during final step execution "
-            "are never processed"
+            "are properly detected and processed"
         )
 
 
@@ -498,7 +493,7 @@ def _run_parallel_main():  # pragma: no cover - helper for manual stress testing
     test_rel = os.path.relpath(__file__, repo_root)
     default_node = (
         f"{test_rel}::"
-        "TestMessageWhileFinishing::test_message_processing_bug_demonstration"
+        "TestMessageWhileFinishing::test_message_processing_fix_verification"
     )
 
     parser = argparse.ArgumentParser(
