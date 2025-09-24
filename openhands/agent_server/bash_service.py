@@ -71,7 +71,7 @@ class BashEventService:
         files = glob.glob(str(self.bash_events_dir / pattern))
         return sorted([Path(f) for f in files])
 
-    async def get_event(self, event_id: str) -> BashEventBase | None:
+    async def get_bash_event(self, event_id: str) -> BashEventBase | None:
         """Get the event with the id given, or None if there was no such event."""
         # Use glob pattern to find files with the event_id
         pattern = f"*_{event_id}_*"
@@ -83,7 +83,7 @@ class BashEventService:
         # Load and return the first matching event
         return self._load_event_from_file(files[0])
 
-    async def batch_get_events(self, task_ids: list[str]) -> list[BashEventBase | None]:
+    async def batch_get_bash_events(self, task_ids: list[str]) -> list[BashEventBase | None]:
         """Given a list of ids, get bash events (Or none for any which were
         not found)"""
         results = []
@@ -92,7 +92,7 @@ class BashEventService:
             results.append(result)
         return results
 
-    async def search_events(
+    async def search_bash_events(
         self,
         kind__eq: str | None = None,
         action_id__eq: UUID | None = None,
