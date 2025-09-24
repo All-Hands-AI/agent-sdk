@@ -24,7 +24,6 @@ from openhands.agent_server.models import (
     Success,
 )
 from openhands.agent_server.pub_sub import Subscriber
-from openhands.sdk.event.base import EventBase
 
 
 bash_router = APIRouter(prefix="/bash", tags=["Bash"])
@@ -118,10 +117,10 @@ async def bash_event_socket(websocket: WebSocket):
 
 
 @dataclass
-class _WebSocketSubscriber(Subscriber):
+class _WebSocketSubscriber(Subscriber[BashEventBase]):
     websocket: WebSocket
 
-    async def __call__(self, event: EventBase):
+    async def __call__(self, event: BashEventBase):
         try:
             dumped = event.model_dump()
             await self.websocket.send_json(dumped)
