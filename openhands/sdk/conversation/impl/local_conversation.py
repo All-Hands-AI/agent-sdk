@@ -235,6 +235,13 @@ class LocalConversation(BaseConversation):
                 iteration += 1
 
                 # Check for non-finished terminal conditions
+                # Note: We intentionally do NOT check for FINISHED status here.
+                # This allows concurrent user messages to be processed:
+                # 1. Agent finishes and sets status to FINISHED
+                # 2. User sends message concurrently via send_message()
+                # 3. send_message() waits for FIFO lock, then sets status to IDLE
+                # 4. Run loop continues to next iteration and processes the message
+                # 5. Without this design, concurrent messages would be lost
                 if (
                     self.state.agent_status
                     == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
