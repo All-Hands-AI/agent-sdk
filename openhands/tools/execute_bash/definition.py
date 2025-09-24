@@ -2,18 +2,7 @@
 
 import os
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Literal
-
-
-if TYPE_CHECKING:
-    from openhands.tools.execute_bash.impl import BashExecutor
-else:
-    # Import at runtime for forward reference resolution
-    try:
-        from openhands.tools.execute_bash.impl import BashExecutor
-    except ImportError:
-        # If import fails, create a placeholder for forward reference resolution
-        BashExecutor = None  # type: ignore
+from typing import Literal
 
 from pydantic import Field
 from rich.text import Text
