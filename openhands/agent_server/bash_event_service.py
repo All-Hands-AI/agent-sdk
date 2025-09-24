@@ -7,8 +7,8 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from openhands.agent_server.models import (
-    ToolEvent,
-    ToolEventPage,
+    BashEvent,
+    BashEventPage,
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.sdk.event.llm_convertible.action import ActionEvent
@@ -23,13 +23,13 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class ToolEventService:
-    """Service for executing tool events which are not added to the event stream and
+class BashEventService:
+    """Service for executing bash events which are not added to the event stream and
     will not be visible to the agent. Uses an independent bash executor configured
     lazily on first use."""
 
     working_dir: Path = field()
-    tool_events_dir: Path = field()
+    bash_events_dir: Path = field()
     _pub_sub: PubSub = field(default_factory=PubSub, init=False)
     _bash_executor: BashExecutor | None = field(default=None, init=False)
     _action_to_observation: dict[str, str] = field(default_factory=dict, init=False)
@@ -39,16 +39,16 @@ class ToolEventService:
         if self._bash_executor is None:
             self._bash_executor = BashExecutor(working_dir=str(self.working_dir))
             logger.info(
-                f"ToolEventService initialized executor with working_dir: "
+                f"BashEventService initialized executor with working_dir: "
                 f"{self.working_dir}"
             )
         return self._bash_executor
 
-    def _ensure_tool_events_dir(self) -> None:
-        """Ensure the tool events directory exists."""
-        self.tool_events_dir.mkdir(parents=True, exist_ok=True)
+    def _ensure_bash_events_dir(self) -> None:
+        """Ensure the bash events directory exists."""
+        self.bash_events_dir.mkdir(parents=True, exist_ok=True)
 
-    def _get_event_filename(self, event: ToolEvent) -> str:
+    def _get_event_filename(self, event: BashEvent) -> str:
         """Generate filename using YYYYMMDDHHMMSS_eventId_actionId format."""
         # Parse ISO timestamp string to datetime object
         timestamp_dt = datetime.fromisoformat(event.timestamp.replace("Z", "+00:00"))
@@ -56,11 +56,11 @@ class ToolEventService:
         action_id = getattr(event, "action_id", "none")
         return f"{timestamp}_{event.id}_{action_id}"
 
-    def _save_event_to_file(self, event: ToolEvent) -> None:
+    def _save_event_to_file(self, event: BashEvent) -> None:
         """Save an event to a file."""
-        self._ensure_tool_events_dir()
+        self._ensure_bash_events_dir()
         filename = self._get_event_filename(event)
-        filepath = self.tool_events_dir / filename
+        filepath = self.bash_events_dir / filename
 
         # Convert event to dict for JSON serialization
         event_data = {"type": event.__class__.__name__, "data": event.model_dump()}
@@ -68,7 +68,7 @@ class ToolEventService:
         with open(filepath, "w") as f:
             json.dump(event_data, f, indent=2)
 
-    def _load_event_from_file(self, filepath: Path) -> ToolEvent | None:
+    def _load_event_from_file(self, filepath: Path) -> BashEvent | None:
         """Load an event from a file."""
         try:
             with open(filepath, "r") as f:
@@ -93,11 +93,11 @@ class ToolEventService:
 
     def _get_event_files_by_pattern(self, pattern: str) -> list[Path]:
         """Get event files matching a glob pattern, sorted by timestamp."""
-        self._ensure_tool_events_dir()
-        files = glob.glob(str(self.tool_events_dir / pattern))
+        self._ensure_bash_events_dir()
+        files = glob.glob(str(self.bash_events_dir / pattern))
         return sorted([Path(f) for f in files])
 
-    async def get_event(self, event_id: str) -> ToolEvent | None:
+    async def get_event(self, event_id: str) -> BashEvent | None:
         """Get the event with the id given, or None if there was no such event."""
         # Use glob pattern to find files with the event_id
         pattern = f"*_{event_id}_*"
@@ -109,8 +109,8 @@ class ToolEventService:
         # Load and return the first matching event
         return self._load_event_from_file(files[0])
 
-    async def batch_get_events(self, task_ids: list[str]) -> list[ToolEvent | None]:
-        """Given a list of ids, get tool events (Or none for any which were
+    async def batch_get_events(self, task_ids: list[str]) -> list[BashEvent | None]:
+        """Given a list of ids, get bash events (Or none for any which were
         not found)"""
         results = []
         for task_id in task_ids:
@@ -123,7 +123,7 @@ class ToolEventService:
         action_id: EventID | None = None,
         page_id: str | None = None,
         limit: int = 100,
-    ) -> ToolEventPage:
+    ) -> BashEventPage:
         """Search for events. If an action_id is given, only the observations for the
         action are returned."""
         # Get files based on action_id filter
@@ -180,10 +180,10 @@ class ToolEventService:
                 break
             items.append(all_events[i])
 
-        return ToolEventPage(items=items, next_page_id=next_page_id)
+        return BashEventPage(items=items, next_page_id=next_page_id)
 
     async def start_bash_execution(self, action: ExecuteBashAction) -> ActionEvent:
-        """Execute a tool event and return the action event.
+        """Execute a bash event and return the action event.
         The observation will be published separately."""
         # Create action event
         action_id = str(uuid4())
@@ -204,7 +204,7 @@ class ToolEventService:
 
         action_event = ActionEvent(
             id=action_id,
-            thought=[],  # Empty thought for tool events
+            thought=[],  # Empty thought for bash events
             action=action,
             tool_name="execute_bash",
             tool_call_id=tool_call_id,
@@ -219,12 +219,12 @@ class ToolEventService:
         await self._pub_sub(action_event)
 
         # Execute the bash command in a background task
-        asyncio.create_task(self._execute_tool_event(action_event))
+        asyncio.create_task(self._execute_bash_event(action_event))
 
         return action_event
 
-    async def _execute_tool_event(self, action_event: ActionEvent) -> None:
-        """Execute the tool event and create an observation event."""
+    async def _execute_bash_event(self, action_event: ActionEvent) -> None:
+        """Execute the bash event and create an observation event."""
         try:
             # Get the bash executor
             executor = self._ensure_bash_executor()
@@ -253,7 +253,7 @@ class ToolEventService:
             await self._pub_sub(observation_event)
 
         except Exception as e:
-            logger.exception(f"Error executing tool event {action_event.id}: {e}")
+            logger.exception(f"Error executing bash event {action_event.id}: {e}")
             # Create an error observation
             from openhands.tools.execute_bash.definition import ExecuteBashObservation
 
@@ -277,7 +277,7 @@ class ToolEventService:
             await self._pub_sub(observation_event)
 
     async def subscribe_to_events(self, subscriber: Subscriber) -> UUID:
-        """Subscribe to tool events. The subscriber will receive ActionEvent and
+        """Subscribe to bash events. The subscriber will receive ActionEvent and
         ObservationEvent instances."""
         return self._pub_sub.subscribe(subscriber)
 
@@ -285,14 +285,14 @@ class ToolEventService:
         return self._pub_sub.unsubscribe(subscriber_id)
 
     async def close(self):
-        """Close the tool event service and clean up resources."""
+        """Close the bash event service and clean up resources."""
         await self._pub_sub.close()
         if self._bash_executor:
             self._bash_executor.close()
 
     async def __aenter__(self):
         """Start using this task service"""
-        # No special initialization needed for tool event service
+        # No special initialization needed for bash event service
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -300,19 +300,19 @@ class ToolEventService:
         await self.close()
 
 
-_tool_event_service: ToolEventService | None = None
+_bash_event_service: BashEventService | None = None
 
 
-def get_default_tool_event_service() -> ToolEventService:
-    """Get the default tool event service instance."""
-    global _tool_event_service
-    if _tool_event_service:
-        return _tool_event_service
+def get_default_bash_event_service() -> BashEventService:
+    """Get the default bash event service instance."""
+    global _bash_event_service
+    if _bash_event_service:
+        return _bash_event_service
 
     from openhands.agent_server.config import get_default_config
 
     config = get_default_config()
-    _tool_event_service = ToolEventService(
-        working_dir=config.workspace_path, tool_events_dir=config.tool_events_dir
+    _bash_event_service = BashEventService(
+        working_dir=config.workspace_path, bash_events_dir=config.bash_events_dir
     )
-    return _tool_event_service
+    return _bash_event_service
