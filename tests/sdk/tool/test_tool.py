@@ -63,9 +63,10 @@ class TestTool:
             executor=MockExecutor(),
         )
 
-        assert tool.executor is not None
+        # Test that tool can be used as executable
+        executable_tool = tool.as_executable()
         action = TestToolMockAction(command="test")
-        result = tool(action)
+        result = executable_tool(action)
         assert isinstance(result, TestToolMockObservation)
         assert result.result == "Executed: test"
 
@@ -322,12 +323,10 @@ class TestTool:
             executor=executor,
         )
 
-        # Should have executor
-        assert tool.executor is not None
-
-        # Should work
+        # Should work as executable tool
+        executable_tool = tool.as_executable()
         action = TestToolMockAction(command="test")
-        result = tool(action)
+        result = executable_tool(action)
         assert isinstance(result, TestToolMockObservation)
         assert result.result == "Attached: test"
 
@@ -691,3 +690,45 @@ class TestTool:
         # Verify security_risk is present and required
         assert "security_risk" in writable_function_params["properties"]
         assert "security_risk" in writable_function_params["required"]
+
+    def test_as_executable_with_executor(self):
+        """Test as_executable() method with a tool that has an executor."""
+
+        class MockExecutor(ToolExecutor):
+            def __call__(self, action: TestToolMockAction) -> TestToolMockObservation:
+                return TestToolMockObservation(result=f"Executed: {action.command}")
+
+        executor = MockExecutor()
+        tool = Tool(
+            name="test_tool",
+            description="A test tool",
+            action_type=TestToolMockAction,
+            observation_type=TestToolMockObservation,
+            executor=executor,
+        )
+
+        # Should return ExecutableTool without error
+        executable_tool = tool.as_executable()
+        assert executable_tool.name == "test_tool"
+        assert executable_tool.executor is executor
+
+        # Should be able to call it
+        action = TestToolMockAction(command="test")
+        result = executable_tool(action)
+        assert isinstance(result, TestToolMockObservation)
+        assert result.result == "Executed: test"
+
+    def test_as_executable_without_executor(self):
+        """Test as_executable() method with a tool that has no executor."""
+        tool = Tool(
+            name="test_tool",
+            description="A test tool",
+            action_type=TestToolMockAction,
+            observation_type=TestToolMockObservation,
+        )
+
+        # Should raise NotImplementedError
+        with pytest.raises(
+            NotImplementedError, match="Tool 'test_tool' has no executor"
+        ):
+            tool.as_executable()

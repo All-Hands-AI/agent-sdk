@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
@@ -15,10 +15,12 @@ logger = get_logger(__name__)
 class BaseContent(BaseModel):
     cache_prompt: bool = False
 
-    def to_llm_dict(
-        self,
-    ) -> dict[str, str | dict[str, str]] | list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format. Subclasses should implement this method."""
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format. Always returns a list of dictionaries.
+
+        Subclasses should implement this method to return a list of dictionaries,
+        even if they only have a single item.
+        """
         raise NotImplementedError("Subclasses should implement this method.")
 
 
@@ -29,7 +31,7 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
@@ -45,7 +47,7 @@ class TextContent(BaseContent):
         }
         if self.cache_prompt:
             data["cache_control"] = {"type": "ephemeral"}
-        return data
+        return [data]
 
 
 class ImageContent(BaseContent):
@@ -133,26 +135,23 @@ class Message(BaseModel):
         role_tool_with_prompt_caching = False
 
         for item in self.content:
-            # Serialize with the subclass-specific return type
-            raw = item.to_llm_dict()
+            # All content types now return list[dict[str, Any]]
+            item_dicts = item.to_llm_dict()
+
             # We have to remove cache_prompt for tool content and move it up to the
             # message level
             # See discussion here for details: https://github.com/BerriAI/litellm/issues/6422#issuecomment-2438765472
-            if isinstance(item, TextContent):
-                d = cast(dict[str, Any], raw)
-                if self.role == "tool" and item.cache_prompt:
-                    role_tool_with_prompt_caching = True
+            if self.role == "tool" and item.cache_prompt:
+                role_tool_with_prompt_caching = True
+                for d in item_dicts:
                     d.pop("cache_control", None)
-                content.append(d)
 
-            elif isinstance(item, ImageContent) and self.vision_enabled:
-                # ImageContent.model_dump() always returns a list of dicts
-                d_list = cast(list[dict[str, Any]], raw)
-                if self.role == "tool" and item.cache_prompt:
-                    role_tool_with_prompt_caching = True
-                    for elem in d_list:
-                        elem.pop("cache_control", None)
-                content.extend(d_list)
+            # Handle vision-enabled filtering for ImageContent
+            if isinstance(item, ImageContent) and self.vision_enabled:
+                content.extend(item_dicts)
+            elif not isinstance(item, ImageContent):
+                # Add non-image content (TextContent, etc.)
+                content.extend(item_dicts)
 
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
         if role_tool_with_prompt_caching:

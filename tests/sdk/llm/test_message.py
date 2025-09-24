@@ -21,9 +21,10 @@ def test_text_content_with_cache_prompt():
     content = TextContent(text="Hello world", cache_prompt=True)
     result = content.to_llm_dict()
 
-    assert result["type"] == "text"
-    assert result["text"] == "Hello world"
-    assert result["cache_control"] == {"type": "ephemeral"}
+    assert len(result) == 1
+    assert result[0]["type"] == "text"
+    assert result[0]["text"] == "Hello world"
+    assert result[0]["cache_control"] == {"type": "ephemeral"}
 
 
 def test_image_content_with_cache_prompt():
@@ -174,7 +175,8 @@ def test_text_content_truncation_under_limit():
     content = TextContent(text="Short text")
     result = content.to_llm_dict()
 
-    assert result["text"] == "Short text"
+    assert len(result) == 1
+    assert result[0]["text"] == "Short text"
 
 
 def test_text_content_truncation_over_limit():
@@ -197,7 +199,8 @@ def test_text_content_truncation_over_limit():
         assert str(DEFAULT_TEXT_CONTENT_LIMIT) in warning_call
 
         # Check that text was truncated
-        text_result = result["text"]
+        assert len(result) == 1
+        text_result = result[0]["text"]
         assert isinstance(text_result, str)
         assert len(text_result) < len(long_text)
         assert len(text_result) == DEFAULT_TEXT_CONTENT_LIMIT
@@ -223,4 +226,5 @@ def test_text_content_truncation_exact_limit():
         mock_logger.warning.assert_not_called()
 
         # Check that text was not truncated
-        assert result["text"] == exact_text
+        assert len(result) == 1
+        assert result[0]["text"] == exact_text

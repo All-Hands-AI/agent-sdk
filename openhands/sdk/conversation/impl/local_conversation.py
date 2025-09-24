@@ -328,13 +328,14 @@ class LocalConversation(BaseConversation):
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
         for tool in self.agent.tools_map.values():
-            if tool.executor is not None:
-                try:
-                    tool.executor.close()
-                except Exception as e:
-                    logger.warning(
-                        f"Error closing executor for tool '{tool.name}': {e}"
-                    )
+            try:
+                executable_tool = tool.as_executable()
+                executable_tool.executor.close()
+            except NotImplementedError:
+                # Tool has no executor, skip it
+                continue
+            except Exception as e:
+                logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""

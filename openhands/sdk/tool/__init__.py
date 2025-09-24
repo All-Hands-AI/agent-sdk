@@ -12,6 +12,7 @@ from openhands.sdk.tool.schema import (
 )
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import (
+    ExecutableTool,
     Tool,
     ToolAnnotations,
     ToolBase,
@@ -25,6 +26,7 @@ __all__ = [
     "ToolSpec",
     "ToolAnnotations",
     "ToolExecutor",
+    "ExecutableTool",
     "ActionBase",
     "ObservationBase",
     "FinishTool",
