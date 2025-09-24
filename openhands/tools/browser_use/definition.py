@@ -11,16 +11,8 @@ from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
 
 
-# Lazy import to avoid hanging during module import
 if TYPE_CHECKING:
     from openhands.tools.browser_use.impl import BrowserToolExecutor
-else:
-    # Import at runtime for forward reference resolution
-    try:
-        from openhands.tools.browser_use.impl import BrowserToolExecutor
-    except ImportError:
-        # If import fails, create a placeholder for forward reference resolution
-        BrowserToolExecutor = None  # type: ignore
 
 
 # Maximum output size for browser observations
