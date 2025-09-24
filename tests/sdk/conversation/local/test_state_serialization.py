@@ -10,9 +10,11 @@ from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation, LocalFileStore
 from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm.llm_registry import RegistryEvent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 
 
@@ -85,6 +87,7 @@ def test_conversation_state_persistence_save_load():
         )
         state.events.append(event1)
         state.events.append(event2)
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
 
         # State auto-saves when events are added
         # Verify files were created
@@ -100,6 +103,7 @@ def test_conversation_state_persistence_save_load():
             persist_filestore=file_store,
             conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
         )
+        assert isinstance(conversation, LocalConversation)
         loaded_state = conversation._state
 
         # Verify loaded state matches original
@@ -133,6 +137,7 @@ def test_conversation_state_incremental_save():
             source="agent", system_prompt=TextContent(text="system"), tools=[]
         )
         state.events.append(event1)
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
 
         # Verify event files exist (may have additional events from Agent.init_state)
         event_files = list(Path(temp_dir, "events").glob("*.json"))
@@ -342,19 +347,18 @@ def test_conversation_state_thread_safety():
 
     # Test context manager
     with state:
-        state.assert_locked()
-        # Should not raise error when locked by current thread
+        assert state.owned()
+        # Should be owned by current thread when locked
 
     # Test manual acquire/release
     state.acquire()
     try:
-        state.assert_locked()
+        assert state.owned()
     finally:
         state.release()
 
-    # Test error when not locked
-    with pytest.raises(RuntimeError, match="State not held by current thread"):
-        state.assert_locked()
+    # Test that state is not owned when not locked
+    assert not state.owned()
 
 
 def test_agent_resolve_diff_different_class_raises_error():
@@ -390,6 +394,8 @@ def test_conversation_state_flags_persistence():
             id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
             file_store=file_store,
         )
+
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
 
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED

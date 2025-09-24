@@ -9,6 +9,7 @@ from openhands.sdk.context.condenser import (
 from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import ToolSpec, register_tool
 
 
@@ -86,6 +87,9 @@ def get_default_agent(
         },
         filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
         system_prompt_kwargs={"cli_mode": cli_mode},
-        condenser=get_default_condenser(llm=llm),
+        condenser=get_default_condenser(
+            llm=llm.model_copy(update={"service_id": "condenser"})
+        ),
+        security_analyzer=LLMSecurityAnalyzer(),
     )
     return agent

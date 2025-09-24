@@ -1,13 +1,14 @@
 # state.py
 import json
 from enum import Enum
-from threading import RLock, get_ident
 from typing import TYPE_CHECKING
 
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.event_store import EventLog
+from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationID
@@ -43,7 +44,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
-class ConversationState(OpenHandsModel):
+class ConversationState(OpenHandsModel, FIFOLock):
     # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
 
@@ -76,9 +77,13 @@ class ConversationState(OpenHandsModel):
         description="List of activated knowledge microagents name",
     )
 
+    # Conversation statistics for LLM usage tracking
+    stats: ConversationStats = Field(
+        default_factory=ConversationStats,
+        description="Conversation statistics for tracking LLM metrics",
+    )
+
     # ===== Private attrs (NOT Fields) =====
-    _lock: RLock = PrivateAttr(default_factory=RLock)
-    _owner_tid: int | None = PrivateAttr(default=None)
     _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
     _fs: FileStore = PrivateAttr()  # filestore for persistence
     _events: EventLog = PrivateAttr()  # now the storage for events
@@ -86,31 +91,15 @@ class ConversationState(OpenHandsModel):
         default=False
     )  # to avoid recursion during init
 
+    def model_post_init(self, __context) -> None:
+        """Initialize FIFOLock after Pydantic model initialization."""
+        # Initialize FIFOLock
+        FIFOLock.__init__(self)
+
     # ===== Public "events" facade (ListLike[Event]) =====
     @property
     def events(self) -> ListLike[EventBase]:
         return self._events
-
-    # ===== Lock/guard API =====
-    def acquire(self) -> None:
-        self._lock.acquire()
-        self._owner_tid = get_ident()
-
-    def release(self) -> None:
-        self.assert_locked()
-        self._owner_tid = None
-        self._lock.release()
-
-    def __enter__(self):
-        self.acquire()
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        self.release()
-
-    def assert_locked(self) -> None:
-        if self._owner_tid != get_ident():
-            raise RuntimeError("State not held by current thread")
 
     @property
     def secrets_manager(self) -> SecretsManager:
@@ -168,6 +157,8 @@ class ConversationState(OpenHandsModel):
             state._autosave_enabled = True
             state.agent = resolved
 
+            state.stats = ConversationStats()
+
             logger.info(
                 f"Resumed conversation {state.id} from persistent storage.\n"
                 f"State: {state.model_dump(exclude={'agent'})}\n"
@@ -189,6 +180,8 @@ class ConversationState(OpenHandsModel):
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
+        state.stats = ConversationStats()
+
         state._save_base_state(file_store)  # initial snapshot
         state._autosave_enabled = True
         logger.info(

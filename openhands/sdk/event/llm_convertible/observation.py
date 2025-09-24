@@ -4,7 +4,6 @@ from rich.text import Text
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import Message, TextContent, content_to_str
-from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.tool.schema import ObservationBase
 
 
@@ -112,13 +111,6 @@ class AgentErrorEvent(ObservationBaseEvent):
 
     source: SourceType = "agent"
     error: str = Field(..., description="The error message from the scaffold")
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs). Only attached "
-            "to the last action when multiple actions share the same LLM response."
-        ),
-    )
 
     @property
     def visualize(self) -> Text:

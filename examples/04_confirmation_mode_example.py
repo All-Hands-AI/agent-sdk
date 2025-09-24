@@ -6,7 +6,7 @@ from typing import Callable
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Conversation, ConversationType
+from openhands.sdk import LLM, BaseConversation, Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.preset.default import get_default_agent
@@ -50,7 +50,7 @@ def confirm_in_console(pending_actions) -> bool:
         print("Please enter 'yes' or 'no'.")
 
 
-def run_until_finished(conversation: ConversationType, confirmer: Callable) -> None:
+def run_until_finished(conversation: BaseConversation, confirmer: Callable) -> None:
     """
     Drive the conversation until FINISHED.
     If WAITING_FOR_CONFIRMATION, ask the confirmer;
