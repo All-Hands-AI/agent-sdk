@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -33,8 +33,8 @@ def sample_stored_conversation():
         confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
-        created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=UTC),
     )
 
 
@@ -114,8 +114,8 @@ class TestConversationServiceSearchConversations:
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
-                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
-                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=timezone.utc),
+                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=UTC),
+                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=UTC),
             )
 
             mock_service = AsyncMock(spec=EventService)
@@ -165,9 +165,9 @@ class TestConversationServiceSearchConversations:
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(
-                    2025, 1, i + 1, 12, 0, 0, tzinfo=timezone.utc
+                    2025, 1, i + 1, 12, 0, 0, tzinfo=UTC
                 ),  # Different days
-                updated_at=datetime(2025, 1, i + 1, 12, 30, 0, tzinfo=timezone.utc),
+                updated_at=datetime(2025, 1, i + 1, 12, 30, 0, tzinfo=UTC),
             )
 
             mock_service = AsyncMock(spec=EventService)
@@ -239,8 +239,8 @@ class TestConversationServiceSearchConversations:
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
-                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
-                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=timezone.utc),
+                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=UTC),
+                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=UTC),
             )
 
             mock_service = AsyncMock(spec=EventService)
@@ -284,19 +284,19 @@ class TestConversationServiceSearchConversations:
         conversations_data = [
             (
                 AgentExecutionStatus.IDLE,
-                datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
             ),
             (
                 AgentExecutionStatus.RUNNING,
-                datetime(2025, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC),
             ),
             (
                 AgentExecutionStatus.IDLE,
-                datetime(2025, 1, 3, 12, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 3, 12, 0, 0, tzinfo=UTC),
             ),
             (
                 AgentExecutionStatus.FINISHED,
-                datetime(2025, 1, 4, 12, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 4, 12, 0, 0, tzinfo=UTC),
             ),
         ]
 
@@ -420,8 +420,8 @@ class TestConversationServiceCountConversations:
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
-                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
-                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=timezone.utc),
+                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=UTC),
+                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=UTC),
             )
 
             mock_service = AsyncMock(spec=EventService)

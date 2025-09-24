@@ -110,7 +110,7 @@ class AgentContext(BaseModel):
             user_message_suffix = self.user_message_suffix.strip()
 
         query = "\n".join(
-            (c.text for c in user_message.content if isinstance(c, TextContent))
+            c.text for c in user_message.content if isinstance(c, TextContent)
         ).strip()
         recalled_knowledge: list[MicroagentKnowledge] = []
         # skip empty queries, but still return user_message_suffix if it exists

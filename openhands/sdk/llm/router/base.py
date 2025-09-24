@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Sequence
+from collections.abc import Sequence
 
 from litellm.types.utils import (
     ModelResponse,

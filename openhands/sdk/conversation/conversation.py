@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Iterable, Self, overload
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Self, overload
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation

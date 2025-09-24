@@ -220,7 +220,7 @@ class TaskTrackerExecutor(ToolExecutor):
             return
 
         try:
-            with open(tasks_file, "r", encoding="utf-8") as f:
+            with open(tasks_file, encoding="utf-8") as f:
                 self._task_list = [TaskItem.model_validate(d) for d in json.load(f)]
         except (OSError, json.JSONDecodeError, TypeError, ValidationError) as e:
             logger.warning(

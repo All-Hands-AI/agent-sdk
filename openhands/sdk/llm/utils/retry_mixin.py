@@ -1,4 +1,5 @@
-from typing import Any, Callable, Iterable, cast
+from collections.abc import Callable, Iterable
+from typing import Any, cast
 
 from tenacity import (
     RetryCallState,
