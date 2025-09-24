@@ -1,5 +1,6 @@
 import json
-from typing import Callable, Literal
+from collections.abc import Callable
+from typing import Literal
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import ToolExecutor

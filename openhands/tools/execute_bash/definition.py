@@ -1,8 +1,8 @@
 """Execute bash tool implementation."""
 
 import os
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Callable, Literal
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Literal
 
 
 if TYPE_CHECKING:
