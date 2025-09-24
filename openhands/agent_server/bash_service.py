@@ -25,8 +25,7 @@ MAX_CONTENT_CHAR_LENGTH = 1024 * 1024
 @dataclass
 class BashEventService:
     """Service for executing bash events which are not added to the event stream and
-    will not be visible to the agent. Uses an independent bash executor configured
-    lazily on first use."""
+    will not be visible to the agent."""
 
     working_dir: Path = field()
     bash_events_dir: Path = field()
