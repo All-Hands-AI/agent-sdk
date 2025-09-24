@@ -1,7 +1,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
+from typing import TypeVar
 from uuid import UUID, uuid4
 
 from openhands.sdk.logger import get_logger
@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-class Subscriber(ABC, Generic[T]):
+class Subscriber[T](ABC):
     @abstractmethod
     async def __call__(self, event: T):
         """Invoke this subscriber"""
@@ -22,7 +22,7 @@ class Subscriber(ABC, Generic[T]):
 
 
 @dataclass
-class PubSub(Generic[T]):
+class PubSub[T]:
     """A subscription service that extends ConversationCallbackType functionality.
     This class maintains a dictionary of UUIDs to ConversationCallbackType instances
     and provides methods to subscribe/unsubscribe callbacks. When invoked, it calls
