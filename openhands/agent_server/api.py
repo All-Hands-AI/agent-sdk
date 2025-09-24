@@ -159,15 +159,21 @@ def _add_exception_handlers(api: FastAPI) -> None:
             if http_exc:
                 return await _http_exception_handler(request, http_exc)
             # If no HTTPException found, treat as unhandled exception
-            logger.exception(
-                "Unhandled ExceptionGroup on %s %s", request.method, request.url.path
+            logger.error(
+                "Unhandled ExceptionGroup on %s %s",
+                request.method,
+                request.url.path,
+                exc_info=(type(exc), exc, exc.__traceback__),
             )
             return JSONResponse(status_code=500, content=content)
 
         # Logs full stack trace for any unhandled error that FastAPI would
         # turn into a 500
-        logger.exception(
-            "Unhandled exception on %s %s", request.method, request.url.path
+        logger.error(
+            "Unhandled exception on %s %s",
+            request.method,
+            request.url.path,
+            exc_info=(type(exc), exc, exc.__traceback__),
         )
         return JSONResponse(status_code=500, content=content)
 
@@ -178,7 +184,7 @@ def _add_exception_handlers(api: FastAPI) -> None:
         """Handle HTTPExceptions with appropriate logging."""
         # Log 4xx errors at info level (expected client errors like auth failures)
         if 400 <= exc.status_code < 500:
-            logger.exception(
+            logger.info(
                 "HTTPException %d on %s %s: %s",
                 exc.status_code,
                 request.method,
@@ -187,12 +193,13 @@ def _add_exception_handlers(api: FastAPI) -> None:
             )
         # Log 5xx errors at error level with full traceback (server errors)
         elif exc.status_code >= 500:
-            logger.exception(
+            logger.error(
                 "HTTPException %d on %s %s: %s",
                 exc.status_code,
                 request.method,
                 request.url.path,
                 exc.detail,
+                exc_info=(type(exc), exc, exc.__traceback__),
             )
             content = {
                 "detail": "Internal Server Error",
