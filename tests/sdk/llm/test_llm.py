@@ -19,6 +19,7 @@ def default_llm():
     return LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
+        service_id="default-test-llm",
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -37,7 +38,11 @@ def test_llm_init_with_default_config(default_llm):
 
 
 def test_base_url_for_openhands_provider():
-    llm = LLM(model="openhands/claude-sonnet-4-20250514", api_key=SecretStr("test-key"))
+    llm = LLM(
+        model="openhands/claude-sonnet-4-20250514",
+        api_key=SecretStr("test-key"),
+        service_id="test-openhands-llm",
+    )
     assert llm.base_url == "https://llm-proxy.app.all-hands.dev/"
 
 
@@ -156,6 +161,7 @@ def test_llm_completion_with_mock(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -187,6 +193,7 @@ def test_llm_retry_on_rate_limit(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -294,15 +301,21 @@ def test_llm_local_detection_based_on_model_name(default_llm):
 def test_llm_local_detection_based_on_base_url():
     """Test local model detection based on base_url."""
     # Test with localhost base_url
-    local_llm = LLM(model="gpt-4o", base_url="http://localhost:8000")
+    local_llm = LLM(
+        model="gpt-4o", base_url="http://localhost:8000", service_id="test-llm"
+    )
     assert local_llm.base_url == "http://localhost:8000"
 
     # Test with 127.0.0.1 base_url
-    local_llm_ip = LLM(model="gpt-4o", base_url="http://127.0.0.1:8000")
+    local_llm_ip = LLM(
+        model="gpt-4o", base_url="http://127.0.0.1:8000", service_id="test-llm"
+    )
     assert local_llm_ip.base_url == "http://127.0.0.1:8000"
 
     # Test with remote model
-    remote_llm = LLM(model="gpt-4o", base_url="https://api.openai.com/v1")
+    remote_llm = LLM(
+        model="gpt-4o", base_url="https://api.openai.com/v1", service_id="test-llm"
+    )
     assert remote_llm.base_url == "https://api.openai.com/v1"
 
 
@@ -369,11 +382,12 @@ def test_metrics_log():
 def test_llm_config_validation():
     """Test LLM configuration validation."""
     # Test with minimal valid config
-    llm = LLM(model="gpt-4o")
+    llm = LLM(model="gpt-4o", service_id="test-llm")
     assert llm.model == "gpt-4o"
 
     # Test with full config
     full_llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         base_url="https://api.openai.com/v1",
@@ -405,6 +419,7 @@ def test_llm_no_response_error(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,

@@ -11,7 +11,12 @@ from openhands.sdk.llm.utils.metrics import Metrics
 def test_llm_basic_json_serialization() -> None:
     """Test that LLM supports basic JSON serialization/deserialization."""
     # Create LLM with basic configuration
-    llm = LLM(model="test-model", temperature=0.5, max_output_tokens=1000)
+    llm = LLM(
+        model="test-model",
+        temperature=0.5,
+        max_output_tokens=1000,
+        service_id="test-llm",
+    )
 
     # Serialize to JSON
     llm_json = llm.model_dump_json()
@@ -27,6 +32,7 @@ def test_llm_secret_fields_serialization() -> None:
     """Test that SecretStr fields are handled correctly during serialization."""
     # Create LLM with secret fields
     llm = LLM(
+        service_id="test-llm",
         model="test-model",
         api_key=SecretStr("secret-api-key"),
         aws_access_key_id=SecretStr("aws-access-key"),
@@ -63,7 +69,7 @@ def test_llm_secret_fields_serialization() -> None:
 def test_llm_excluded_fields_not_serialized() -> None:
     """Test that excluded fields are not included in serialization."""
     # Create LLM with excluded fields
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
 
     # Serialize to dict
     llm_dict = llm.model_dump()
@@ -78,7 +84,7 @@ def test_llm_excluded_fields_not_serialized() -> None:
 
     # Excluded fields should have default values
     # (LLM automatically creates metrics during init)
-    assert deserialized_llm.service_id == "default"
+    assert deserialized_llm.service_id == "test-llm"
     assert isinstance(
         deserialized_llm.metrics, Metrics
     )  # LLM creates metrics automatically
@@ -88,7 +94,7 @@ def test_llm_excluded_fields_not_serialized() -> None:
 def test_llm_private_attributes_not_serialized() -> None:
     """Test that private attributes are not included in serialization."""
     # Create LLM
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
 
     # Set private attributes (these would normally be set internally)
     llm._model_info = {"some": "info"}
@@ -127,6 +133,7 @@ def test_llm_field_validation_during_deserialization() -> None:
         "temperature": 0.8,
         "num_retries": 3,
         "timeout": 30,
+        "service_id": "test-llm",
     }
 
     # Should deserialize successfully
@@ -145,7 +152,7 @@ def test_llm_supports_field_json_serialization() -> None:
         name: str
 
     # Create container with LLM
-    llm = LLM(model="test-model", temperature=0.3)
+    llm = LLM(model="test-model", temperature=0.3, service_id="test-llm")
     container = Container(llm=llm, name="test-container")
 
     # Serialize to JSON
@@ -170,8 +177,8 @@ def test_llm_supports_nested_json_serialization() -> None:
         config_name: str
 
     # Create container with multiple LLMs
-    llm1 = LLM(model="model-1", temperature=0.1)
-    llm2 = LLM(model="model-2", temperature=0.9)
+    llm1 = LLM(model="model-1", temperature=0.1, service_id="test-llm")
+    llm2 = LLM(model="model-2", temperature=0.9, service_id="test-llm")
     container = NestedContainer(llms=[llm1, llm2], config_name="multi-llm")
 
     # Serialize to JSON
@@ -196,7 +203,7 @@ def test_llm_supports_nested_json_serialization() -> None:
 def test_llm_model_validate_json_dict() -> None:
     """Test that LLM.model_validate works with dict from JSON."""
     # Create LLM
-    llm = LLM(model="test-model", top_p=0.95)
+    llm = LLM(model="test-model", top_p=0.95, service_id="test-llm")
 
     # Serialize to JSON, then parse to dict
     llm_json = llm.model_dump_json()

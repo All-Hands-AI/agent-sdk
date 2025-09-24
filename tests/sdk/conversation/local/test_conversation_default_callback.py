@@ -10,7 +10,9 @@ from openhands.sdk.llm import LLM, Message, TextContent
 
 class TestConversationDefaultCallbackDummyAgent(AgentBase):
     def __init__(self):
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
         super().__init__(llm=llm, tools=[])
 
     def init_state(

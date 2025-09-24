@@ -79,7 +79,9 @@ class TestPauseFunctionality:
     def setup_method(self):
         """Set up test fixtures."""
 
-        self.llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        self.llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
 
         class TestExecutor(
             ToolExecutor[
