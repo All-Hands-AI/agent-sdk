@@ -305,6 +305,30 @@ class BashEventService:
     async def unsubscribe_from_events(self, subscriber_id: UUID) -> bool:
         return self._pub_sub.unsubscribe(subscriber_id)
 
+    async def clear_all_events(self) -> int:
+        """Clear all bash events from storage.
+
+        Returns:
+            int: The number of events that were cleared.
+        """
+        self._ensure_bash_events_dir()
+
+        # Get all event files
+        files = self._get_event_files_by_pattern("*")
+
+        # Count files before deletion
+        count = len(files)
+
+        # Remove all event files
+        for file_path in files:
+            try:
+                file_path.unlink()
+            except Exception as e:
+                logger.error(f"Error deleting event file {file_path}: {e}")
+
+        logger.info(f"Cleared {count} bash events from storage")
+        return count
+
     async def close(self):
         """Close the bash event service and clean up resources."""
         await self._pub_sub.close()

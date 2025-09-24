@@ -91,6 +91,13 @@ async def execute_bash_command(request: ExecuteBashRequest) -> BashCommand:
     return command
 
 
+@bash_router.delete("/bash_events")
+async def clear_all_bash_events() -> dict[str, int]:
+    """Clear all bash events from storage"""
+    count = await bash_event_service.clear_all_events()
+    return {"cleared_count": count}
+
+
 # WebSocket for bash events
 @bash_router.websocket("/bash_events/socket")
 async def bash_event_socket(websocket: WebSocket):

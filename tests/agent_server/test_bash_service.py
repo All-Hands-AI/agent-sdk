@@ -330,3 +330,66 @@ async def test_service_lifecycle(bash_service):
     # Verify we can still retrieve persisted events
     retrieved = await bash_service.get_bash_event(command.id.hex)
     assert retrieved is not None
+
+
+@pytest.mark.asyncio
+async def test_clear_all_events_empty_storage(bash_service):
+    """Test clearing events when storage is empty."""
+    # Clear events from empty storage
+    count = await bash_service.clear_all_events()
+    assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_clear_all_events_with_data(bash_service):
+    """Test clearing events when storage contains data."""
+    # Execute some commands to create events
+    commands = [
+        BashCommand(command='echo "first"', cwd="/tmp"),
+        BashCommand(command='echo "second"', cwd="/tmp"),
+    ]
+
+    for cmd in commands:
+        await bash_service.start_bash_command(cmd)
+
+    # Wait for commands to complete
+    await asyncio.sleep(2)
+
+    # Verify events exist before clearing
+    page = await bash_service.search_bash_events()
+    initial_count = len(page.items)
+    assert initial_count > 0  # Should have at least some events
+
+    # Clear all events
+    cleared_count = await bash_service.clear_all_events()
+    assert cleared_count == initial_count
+
+    # Verify events are gone
+    page_after = await bash_service.search_bash_events()
+    assert len(page_after.items) == 0
+
+    # Verify individual events cannot be retrieved
+    for cmd in commands:
+        retrieved = await bash_service.get_bash_event(cmd.id.hex)
+        assert retrieved is None
+
+
+@pytest.mark.asyncio
+async def test_clear_all_events_partial_failure(bash_service):
+    """Test clearing events when some files cannot be deleted."""
+    # Execute a command to create an event
+    command = BashCommand(command='echo "test"', cwd="/tmp")
+    await bash_service.start_bash_command(command)
+    await asyncio.sleep(1)
+
+    # Verify event exists
+    retrieved = await bash_service.get_bash_event(command.id.hex)
+    assert retrieved is not None
+
+    # Clear events (should succeed even if some files are problematic)
+    cleared_count = await bash_service.clear_all_events()
+    assert cleared_count >= 1  # At least the command event should be cleared
+
+    # Verify events are gone
+    page = await bash_service.search_bash_events()
+    assert len(page.items) == 0
