@@ -25,14 +25,14 @@ class TestLLMRegistry(unittest.TestCase):
 
         # Create a mock LLM and add it to trigger notification
         mock_llm = Mock(spec=LLM)
-        service_id = "notify-service"
+        mock_llm.service_id = "notify-service"
 
         # Mock the RegistryEvent to avoid LLM attribute access
         with patch(
             "openhands.sdk.llm.llm_registry.RegistryEvent"
         ) as mock_registry_event:
             mock_registry_event.return_value = Mock()
-            self.registry.add(service_id, mock_llm)
+            self.registry.add(mock_llm)
 
         # Should receive notification for the newly added LLM
         self.assertEqual(len(events_received), 1)
@@ -84,15 +84,17 @@ def test_llm_registry_list_services():
 
     # Create mock LLM objects
     mock_llm1 = Mock(spec=LLM)
+    mock_llm1.service_id = "service1"
     mock_llm2 = Mock(spec=LLM)
+    mock_llm2.service_id = "service2"
 
     # Mock the RegistryEvent to avoid LLM attribute access
     with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
         mock_registry_event.return_value = Mock()
 
         # Add some LLMs using the new API
-        registry.add("service1", mock_llm1)
-        registry.add("service2", mock_llm2)
+        registry.add(mock_llm1)
+        registry.add(mock_llm2)
 
         # Test list_services
         services = registry.list_services()
@@ -108,26 +110,26 @@ def test_llm_registry_add_method():
 
     # Create a mock LLM
     mock_llm = Mock(spec=LLM)
-    service_id = "test-service"
+    mock_llm.service_id = "test-service"
+    service_id = mock_llm.service_id
 
     # Mock the RegistryEvent to avoid LLM attribute access
     with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
         mock_registry_event.return_value = Mock()
 
         # Test adding an LLM
-        registry.add(service_id, mock_llm)
+        registry.add(mock_llm)
 
         # Verify the LLM was added
         assert service_id in registry.service_to_llm
         assert registry.service_to_llm[service_id] is mock_llm
-        assert mock_llm.service_id == service_id
 
         # Verify RegistryEvent was called
-        mock_registry_event.assert_called_once_with(llm=mock_llm, service_id=service_id)
+        mock_registry_event.assert_called_once_with(llm=mock_llm)
 
     # Test that adding the same service_id raises ValueError
     with unittest.TestCase().assertRaises(ValueError) as context:
-        registry.add(service_id, mock_llm)
+        registry.add(mock_llm)
 
     assert "already exists in registry" in str(context.exception)
 
@@ -138,14 +140,15 @@ def test_llm_registry_get_method():
 
     # Create a mock LLM
     mock_llm = Mock(spec=LLM)
-    service_id = "test-service"
+    mock_llm.service_id = "test-service"
+    service_id = mock_llm.service_id
 
     # Mock the RegistryEvent to avoid LLM attribute access
     with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
         mock_registry_event.return_value = Mock()
 
         # Add the LLM first
-        registry.add(service_id, mock_llm)
+        registry.add(mock_llm)
 
         # Test getting the LLM
         retrieved_llm = registry.get(service_id)
@@ -164,15 +167,17 @@ def test_llm_registry_add_get_workflow():
 
     # Create mock LLMs
     llm1 = Mock(spec=LLM)
+    llm1.service_id = "service1"
     llm2 = Mock(spec=LLM)
+    llm2.service_id = "service2"
 
     # Mock the RegistryEvent to avoid LLM attribute access
     with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
         mock_registry_event.return_value = Mock()
 
         # Add multiple LLMs
-        registry.add("service1", llm1)
-        registry.add("service2", llm2)
+        registry.add(llm1)
+        registry.add(llm2)
 
         # Verify we can retrieve them
         assert registry.get("service1") is llm1

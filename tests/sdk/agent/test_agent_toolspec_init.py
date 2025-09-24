@@ -38,7 +38,7 @@ def test_agent_initializes_tools_from_toolspec_locally(monkeypatch):
     # Register a simple local tool via registry
     register_tool("upper", _make_tool)
 
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
     agent = Agent(llm=llm, tools=[ToolSpec(name="upper")])
 
     # Build a conversation; this should call agent._initialize() internally

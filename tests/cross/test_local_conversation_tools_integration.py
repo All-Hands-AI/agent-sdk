@@ -29,7 +29,9 @@ def test_conversation_with_different_agent_tools_raises_error():
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
             ToolSpec(name="FileEditorTool"),
         ]
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
         original_agent = Agent(llm=llm, tools=original_tools)
         conversation = LocalConversation(
             agent=original_agent, persist_filestore=file_store, visualize=False
@@ -50,7 +52,9 @@ def test_conversation_with_different_agent_tools_raises_error():
         different_tools = [
             ToolSpec(name="BashTool", params={"working_dir": temp_dir})
         ]  # Missing FileEditorTool
-        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm2 = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
         different_agent = Agent(llm=llm2, tools=different_tools)
 
         # This should raise ValueError due to tool differences
@@ -75,7 +79,9 @@ def test_conversation_with_same_agent_succeeds():
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
             ToolSpec(name="FileEditorTool"),
         ]
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
         original_agent = Agent(llm=llm, tools=tools)
         conversation = LocalConversation(
             agent=original_agent, persist_filestore=file_store, visualize=False
@@ -97,7 +103,9 @@ def test_conversation_with_same_agent_succeeds():
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
             ToolSpec(name="FileEditorTool"),
         ]
-        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm2 = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
         same_agent = Agent(llm=llm2, tools=same_tools)
 
         # This should succeed
@@ -129,7 +137,9 @@ def test_conversation_persistence_lifecycle(mock_completion):
             ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
             ToolSpec(name="FileEditorTool"),
         ]
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=tools)
 
         # Create conversation and send messages
@@ -192,7 +202,9 @@ def test_agent_resolve_diff_from_deserialized():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create original agent
         tools = [ToolSpec(name="BashTool", params={"working_dir": temp_dir})]
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
         original_agent = Agent(llm=llm, tools=tools)
 
         # Serialize and deserialize to simulate persistence
@@ -200,7 +212,9 @@ def test_agent_resolve_diff_from_deserialized():
         deserialized_agent = AgentBase.model_validate_json(serialized)
 
         # Create runtime agent with same configuration
-        llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm2 = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
         runtime_agent = Agent(llm=llm2, tools=tools)
 
         # Should resolve successfully

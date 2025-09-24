@@ -14,7 +14,7 @@ from openhands.sdk.tool.spec import ToolSpec
 @pytest.fixture
 def basic_llm():
     """Create a basic LLM for testing."""
-    return LLM(model="test-model")
+    return LLM(model="test-model", service_id="test-llm")
 
 
 def test_get_default_agent_includes_browser_toolset(basic_llm):

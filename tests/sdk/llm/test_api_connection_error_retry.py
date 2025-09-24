@@ -37,6 +37,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
 @pytest.fixture
 def default_config():
     return LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -185,11 +186,17 @@ def test_completion_no_retry_on_non_retryable_error(
 def test_retry_configuration_validation():
     """Test that retry configuration is properly validated."""
     # Test with zero retries
-    llm_no_retry = LLM(model="gpt-4o", api_key=SecretStr("test_key"), num_retries=0)
+    llm_no_retry = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        num_retries=0,
+        service_id="test-llm",
+    )
     assert llm_no_retry.num_retries == 0
 
     # Test with custom retry settings
     llm_custom = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=5,
@@ -224,6 +231,7 @@ def test_retry_listener_callback(mock_litellm_completion, default_config):
 
     # Create an LLM instance with retry listener
     llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,

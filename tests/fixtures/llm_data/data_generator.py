@@ -54,7 +54,7 @@ def create_llm(
     }
     if log_completions_folder:
         llm_kwargs["log_completions_folder"] = log_completions_folder
-    return LLM(**llm_kwargs)
+    return LLM(**llm_kwargs, service_id="test-llm")
 
 
 def create_tools(working_dir: str | None = None) -> list[ToolSpec]:

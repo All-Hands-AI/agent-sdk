@@ -105,7 +105,7 @@ class LocalConversation(BaseConversation):
         self.llm_registry = LLMRegistry()
         self.llm_registry.subscribe(self._state.stats.register_llm)
         for llm in list(self.agent.get_all_llms()):
-            self.llm_registry.add(llm.service_id, llm)
+            self.llm_registry.add(llm)
 
     @property
     def id(self) -> ConversationID:

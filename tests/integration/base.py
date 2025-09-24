@@ -70,7 +70,7 @@ class BaseIntegrationTest(ABC):
             "api_key": SecretStr(api_key),
         }
 
-        self.llm = LLM(**llm_kwargs)
+        self.llm = LLM(**llm_kwargs, service_id="test-llm")
         self.agent = Agent(llm=self.llm, tools=self.tools)
         self.collected_events: list[EventBase] = []
         self.llm_messages: list[dict[str, Any]] = []

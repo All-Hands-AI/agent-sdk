@@ -33,7 +33,9 @@ class EventService:
     file_store_path: Path
     working_dir: Path
     _conversation: LocalConversation | None = field(default=None, init=False)
-    _pub_sub: PubSub = field(default_factory=PubSub, init=False)
+    _pub_sub: PubSub[EventBase] = field(
+        default_factory=lambda: PubSub[EventBase](), init=False
+    )
     _run_task: asyncio.Task | None = field(default=None, init=False)
 
     async def load_meta(self):
@@ -144,7 +146,7 @@ class EventService:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._conversation.send_message, message)
 
-    async def subscribe_to_events(self, subscriber: Subscriber) -> UUID:
+    async def subscribe_to_events(self, subscriber: Subscriber[EventBase]) -> UUID:
         return self._pub_sub.subscribe(subscriber)
 
     async def unsubscribe_from_events(self, subscriber_id: UUID) -> bool:
