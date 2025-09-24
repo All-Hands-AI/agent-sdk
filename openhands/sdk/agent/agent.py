@@ -1,5 +1,4 @@
 import json
-from typing import cast
 
 from litellm.types.utils import (
     ChatCompletionMessageToolCall,
@@ -69,15 +68,16 @@ class Agent(AgentBase):
 
         execute_bash_exists = False
         for tool in self.tools_map.values():
-            if (
-                tool.name == "execute_bash"
-                and hasattr(tool, "executor")
-                and tool.executor is not None
-            ):
-                # Wire the env provider and env masker for the bash executor
-                setattr(tool.executor, "env_provider", env_for_cmd)
-                setattr(tool.executor, "env_masker", env_masker)
-                execute_bash_exists = True
+            if tool.name == "execute_bash":
+                try:
+                    executable_tool = tool.as_executable()
+                    # Wire the env provider and env masker for the bash executor
+                    setattr(executable_tool.executor, "env_provider", env_for_cmd)
+                    setattr(executable_tool.executor, "env_masker", env_masker)
+                    execute_bash_exists = True
+                except NotImplementedError:
+                    # Tool has no executor, skip it
+                    continue
 
         if not execute_bash_exists:
             logger.warning("Skipped wiring SecretsManager: missing bash tool")
@@ -165,10 +165,9 @@ class Agent(AgentBase):
                     return None
 
         else:
-            llm_convertible_events = cast(
-                list[LLMConvertibleEvent],
-                [e for e in state.events if isinstance(e, LLMConvertibleEvent)],
-            )
+            llm_convertible_events = [
+                e for e in state.events if isinstance(e, LLMConvertibleEvent)
+            ]
 
         # Get LLM Response (Action)
         _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)

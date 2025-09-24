@@ -1,6 +1,6 @@
 from abc import ABC
 from collections.abc import Sequence
-from typing import Any, Self, TypeVar
+from typing import Any, Protocol, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -76,6 +76,21 @@ class ToolExecutor[ActionT, ObservationT]:
         terminating processes, etc.).
         """
         pass
+
+
+class ExecutableTool(Protocol):
+    """Protocol for tools that are guaranteed to have a non-None executor.
+
+    This eliminates the need for runtime None checks and type narrowing
+    when working with tools that are known to be executable.
+    """
+
+    name: str
+    executor: ToolExecutor[Any, Any]  # Non-optional executor
+
+    def __call__(self, action: ActionBase) -> ObservationBase:
+        """Execute the tool with the given action."""
+        ...
 
 
 class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
@@ -156,6 +171,22 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     def set_executor(self, executor: ToolExecutor) -> Self:
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
+
+    def as_executable(self) -> ExecutableTool:
+        """Return this tool as an ExecutableTool, ensuring it has an executor.
+
+        This method eliminates the need for runtime None checks by guaranteeing
+        that the returned tool has a non-None executor.
+
+        Returns:
+            This tool instance, typed as ExecutableTool.
+
+        Raises:
+            NotImplementedError: If the tool has no executor.
+        """
+        if self.executor is None:
+            raise NotImplementedError(f"Tool '{self.name}' has no executor")
+        return self  # type: ignore[return-value]
 
     def action_from_arguments(self, arguments: dict[str, Any]) -> ActionBase:
         """Create an action from parsed arguments.
