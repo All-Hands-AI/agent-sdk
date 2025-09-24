@@ -1,8 +1,8 @@
 """Execute bash tool implementation."""
 
 import os
-from collections.abc import Sequence
-from typing import Callable, Literal
+from collections.abc import Callable, Sequence
+from typing import Literal
 
 from pydantic import Field
 from rich.text import Text

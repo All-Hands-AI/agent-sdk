@@ -2,7 +2,8 @@ import os
 import re
 import sys
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Generator, Iterable
+from collections.abc import Generator, Iterable
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
