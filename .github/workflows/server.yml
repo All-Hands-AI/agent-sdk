@@ -309,6 +309,10 @@ jobs:
             - name: Generate PR description from build summary
               id: generate_description
               run: |
+                  echo "Event: ${{ github.event_name }}"
+                  echo "PR number: ${{ github.event.number }}"
+                  echo "Run attempt: ${{ github.run_attempt }}"
+
                   # Parse the build summary JSON
                   BUILD_SUMMARY='${{ needs.consolidate-build-info.outputs.build_summary }}'
                   echo "Build summary received:"
@@ -335,9 +339,10 @@ jobs:
                       VARIANTS_TABLE="${VARIANTS_TABLE}| \`${BASE_IMAGE}\` | \`${IMAGE}:${SHORT_SHA}-${VARIANT}\` |\n"
                   done
 
-                  # Create the complete PR description
+                  # Create the complete PR description with unique markers
                   PR_CONTENT=$(cat << EOF
 
+                  <!-- AGENT_SERVER_IMAGES_START -->
                   ---
                   **Agent Server images for this PR**
 
@@ -352,6 +357,7 @@ jobs:
                   \`\`\`
 
                   **All tags:** \`${ALL_TAGS}\` • **Package:** [GHCR](${GHCR_URL})
+                  <!-- AGENT_SERVER_IMAGES_END -->
                   EOF
                   )
 
@@ -366,6 +372,6 @@ jobs:
               uses: nefrob/pr-description@v1.2.0
               with:
                   content: ${{ steps.generate_description.outputs.pr_content }}
-                  regex: "---\\s*\\*\\*Agent Server images? for this PR\\*\\*[\\s\\S]*?(?=\\n\\n---|\n\\n##|$)"
-                  regexFlags: m
+                  regex: <!-- AGENT_SERVER_IMAGES_START -->.*?<!-- AGENT_SERVER_IMAGES_END -->
+                  regexFlags: s
                   token: ${{ secrets.GITHUB_TOKEN }}
