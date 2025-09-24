@@ -3,8 +3,9 @@
 import os
 
 from openhands.sdk import get_logger
+from openhands.sdk.event import ActionEvent
 from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools.execute_bash import BashTool
+from openhands.tools.execute_bash import BashTool, ExecuteBashAction
 from openhands.tools.str_replace_editor import FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
 
@@ -68,24 +69,16 @@ class BashResetTest(BaseIntegrationTest):
         # Look through the conversation events for bash commands
         for event in self.conversation.state.events:
             # Check for ActionEvent with BashTool
-            if (
-                type(event).__name__ == "ActionEvent"
-                and hasattr(event, "tool_name")
-                and getattr(event, "tool_name") == "BashTool"
+            if isinstance(event, ActionEvent) and isinstance(
+                event.action, ExecuteBashAction
             ):
-                action = getattr(event, "action", None)
-                if action:
-                    # Check if reset was used
-                    if hasattr(action, "reset") and getattr(action, "reset"):
-                        reset_used = True
-                        logger.info("Found reset=True in bash action")
-
-                    # Check commands for environment variable operations
-                    command = getattr(action, "command", "")
-                    if "export TEST_RESET_VAR=before_reset" in command:
-                        pre_reset_var_set = True
-                    elif "export POST_RESET_VAR=after_reset" in command:
-                        post_reset_var_set = True
+                command = event.action.command
+                if "export TEST_RESET_VAR=before_reset" in command:
+                    pre_reset_var_set = True
+                elif "export POST_RESET_VAR=after_reset" in command:
+                    post_reset_var_set = True
+                if event.action.reset:
+                    reset_used = True
 
         # Check if the agent mentioned reset in their final response
         final_response = self.get_agent_final_response()
