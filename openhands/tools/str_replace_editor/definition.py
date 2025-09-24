@@ -1,7 +1,18 @@
 """String replace editor tool implementation."""
 
 from collections.abc import Sequence
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+
+if TYPE_CHECKING:
+    from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+else:
+    # Import at runtime for forward reference resolution
+    try:
+        from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+    except ImportError:
+        # If import fails, create a placeholder for forward reference resolution
+        FileEditorExecutor = None  # type: ignore
 
 from pydantic import Field, PrivateAttr
 from rich.text import Text
@@ -197,7 +208,7 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
-    def create(cls, workspace_root: str | None = None) -> "FileEditorTool":
+    def create(cls, workspace_root: str | None = None) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
         Args:
@@ -211,11 +222,13 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         executor = FileEditorExecutor(workspace_root=workspace_root)
 
         # Initialize the parent Tool with the executor
-        return cls(
-            name=str_replace_editor_tool.name,
-            description=TOOL_DESCRIPTION,
-            action_type=StrReplaceEditorAction,
-            observation_type=StrReplaceEditorObservation,
-            annotations=str_replace_editor_tool.annotations,
-            executor=executor,
-        )
+        return [
+            cls(
+                name=str_replace_editor_tool.name,
+                description=TOOL_DESCRIPTION,
+                action_type=StrReplaceEditorAction,
+                observation_type=StrReplaceEditorObservation,
+                annotations=str_replace_editor_tool.annotations,
+                executor=executor,
+            )
+        ]

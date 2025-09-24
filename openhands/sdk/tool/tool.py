@@ -1,5 +1,6 @@
 from abc import ABC
-from typing import Any, Generic, Self, TypeVar
+from collections.abc import Sequence
+from typing import Any, Generic, Protocol, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -102,11 +103,15 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Self | list[Self]":
-        """Create a Tool instance OR a list of them. Placeholder for subclasses.
+    def create(cls, *args, **kwargs) -> Sequence["Self"]:
+        """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).
+
+        Returns:
+            A sequence of Tool instances. Even single tools are returned as a sequence
+            to provide a consistent interface and eliminate union return types.
         """
         raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
@@ -271,6 +276,43 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
                 return subclass
         # Fallback to "Tool" for unknown type
         return Tool
+
+
+class InitializedTool(Protocol[ActionT, ObservationT]):
+    """Protocol for tools that are guaranteed to have a non-None executor.
+
+    This protocol represents tools that have been properly initialized
+    via their create() method and are ready for use. It eliminates the
+    need for None checks on the executor field.
+    """
+
+    name: str
+    description: str
+    action_type: type[ActionT]
+    observation_type: type[ObservationT] | None
+    annotations: ToolAnnotations | None
+    meta: dict[str, Any] | None
+    executor: ToolExecutor  # Non-optional!
+
+    def execute(self, action: ActionT) -> ObservationT:
+        """Execute an action using the initialized executor."""
+        ...
+
+    def to_openai_tool(
+        self,
+        add_security_risk_prediction: bool = False,
+        action_type: type[Schema] | None = None,
+    ) -> ChatCompletionToolParam:
+        """Convert to OpenAI tool format."""
+        ...
+
+    def to_mcp_tool(
+        self,
+        input_schema: dict[str, Any] | None = None,
+        output_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Convert to MCP tool format."""
+        ...
 
 
 class Tool(ToolBase[ActionT, ObservationT], Generic[ActionT, ObservationT]):
