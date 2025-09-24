@@ -101,10 +101,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
     def events(self) -> ListLike[EventBase]:
         return self._events
 
-    def assert_locked(self) -> None:
-        """Assert that the current thread owns the lock."""
-        if not self.owned():
-            raise RuntimeError("State not held by current thread")
+    # ===== Lock/guard API =====
+    # Note: acquire(), release(), __enter__(), __exit__() are inherited from FIFOLock
 
     @property
     def secrets_manager(self) -> SecretsManager:
