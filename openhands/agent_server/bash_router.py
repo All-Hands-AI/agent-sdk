@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 from typing import Annotated, Literal
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -32,9 +33,9 @@ logger = logging.getLogger(__name__)
 # bash event routes
 @bash_router.get("/bash_events/search")
 async def search_bash_events(
-    command_id: Annotated[
+    action_id: Annotated[
         str | None,
-        Query(title="Optional command ID to filter events for a specific command"),
+        Query(title="Optional action ID to filter events for a specific action"),
     ] = None,
     kind: Annotated[
         Literal["bashcommand", "bashoutput"] | None,
@@ -52,8 +53,20 @@ async def search_bash_events(
     """Search / List bash event events"""
     assert limit > 0
     assert limit <= 100
+
+    # Convert action_id string to UUID if provided
+    action_id_uuid = None
+    if action_id:
+        try:
+            action_id_uuid = UUID(action_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid UUID format for action_id: {action_id}",
+            )
+
     return await bash_event_service.search_events(
-        command_id=command_id, kind=kind, page_id=page_id, limit=limit
+        kind__eq=kind, action_id__eq=action_id_uuid, page_id=page_id, limit=limit
     )
 
 
@@ -81,10 +94,7 @@ async def batch_get_bash_events(
 @bash_router.post("/execute_bash_command")
 async def execute_bash_command(action: BashCommand) -> Success:
     """Execute a bash command"""
-    await bash_event_service.start_bash_command(
-        command=action.command,
-        cwd=None,  # Use service default working directory
-    )
+    await bash_event_service.start_bash_command(action)
     return Success()
 
 
