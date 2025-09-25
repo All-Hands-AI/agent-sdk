@@ -234,7 +234,7 @@ class Agent(AgentBase):
                 action_event = self._get_action_event(
                     state,
                     tool_call,
-                    llm_response_id=llm_response.response_id,
+                    llm_response_id=llm_response.id,
                     on_event=on_event,
                     thought=thought_content
                     if i == 0
