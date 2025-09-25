@@ -173,7 +173,7 @@ class Agent(AgentBase):
         )
 
         try:
-            completion_result = self.llm.completion(
+            llm_response = self.llm.completion(
                 messages=_messages,
                 tools=list(self.tools_map.values()),
                 extra_body={
@@ -202,7 +202,7 @@ class Agent(AgentBase):
                 raise e
 
         # LLMResponse already contains the converted message and metrics snapshot
-        message: Message = completion_result.message
+        message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -234,7 +234,7 @@ class Agent(AgentBase):
                 action_event = self._get_action_event(
                     state,
                     tool_call,
-                    llm_response_id=completion_result.raw_response.id,
+                    llm_response_id=llm_response.response_id,
                     on_event=on_event,
                     thought=thought_content
                     if i == 0

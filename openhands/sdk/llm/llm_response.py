@@ -33,3 +33,15 @@ class LLMResponse(BaseModel):
     raw_response: ModelResponse
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @property
+    def response_id(self) -> str:
+        """Get the response ID from the underlying LLM response.
+
+        This property provides a clean interface to access the response ID,
+        supporting both completion mode (current) and future response API modes.
+
+        Returns:
+            The response ID from the LLM response
+        """
+        return self.raw_response.id

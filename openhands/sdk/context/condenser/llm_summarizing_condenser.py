@@ -65,7 +65,7 @@ class LLMSummarizingCondenser(RollingCondenser):
 
         messages = [Message(role="user", content=[TextContent(text=prompt)])]
 
-        completion_result = self.llm.completion(
+        llm_response = self.llm.completion(
             messages=messages,
             extra_body={
                 "metadata": get_llm_metadata(
@@ -75,8 +75,8 @@ class LLMSummarizingCondenser(RollingCondenser):
         )
         # Extract summary from the LLMResponse message
         summary = None
-        if completion_result.message.content:
-            first_content = completion_result.message.content[0]
+        if llm_response.message.content:
+            first_content = llm_response.message.content[0]
             if isinstance(first_content, TextContent):
                 summary = first_content.text
 
