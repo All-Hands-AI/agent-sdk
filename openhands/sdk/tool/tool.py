@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any, Protocol, Self, TypeVar
 
@@ -62,11 +62,12 @@ class ToolAnnotations(BaseModel):
     )
 
 
-class ToolExecutor[ActionT, ObservationT]:
+class ToolExecutor[ActionT, ObservationT](ABC):
     """Executor function type for a Tool."""
 
+    @abstractmethod
     def __call__(self, action: ActionT) -> ObservationT:
-        raise NotImplementedError
+        pass
 
     def close(self) -> None:
         """Close the executor and clean up resources.
@@ -118,7 +119,8 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> Sequence["Self"]:
+    @abstractmethod
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
         """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
@@ -128,7 +130,6 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             A sequence of Tool instances. Even single tools are returned as a sequence
             to provide a consistent interface and eliminate union return types.
         """
-        raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
     @computed_field(return_type=str, alias="title")
     @property
@@ -310,7 +311,17 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
 
 
 class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
-    pass
+    @classmethod
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
+        """Create a sequence of Tool instances.
+
+        For the base Tool class, this simply returns a single instance created
+        with the provided arguments.
+
+        Returns:
+            A sequence containing a single Tool instance.
+        """
+        return [cls(*args, **kwargs)]
 
 
 def _create_action_type_with_risk(action_type: type[ActionBase]) -> type[ActionBase]:
