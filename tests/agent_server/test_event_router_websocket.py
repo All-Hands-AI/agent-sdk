@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 from fastapi import WebSocketDisconnect
 
-from openhands.agent_server.event_router import _WebSocketSubscriber
 from openhands.agent_server.event_service import EventService
+from openhands.agent_server.sockets import _WebSocketSubscriber
 from openhands.sdk import Message
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm.message import TextContent
@@ -20,6 +20,7 @@ def mock_websocket():
     websocket.accept = AsyncMock()
     websocket.receive_json = AsyncMock()
     websocket.send_json = AsyncMock()
+    websocket.close = AsyncMock()
     websocket.application_state = MagicMock()
     return websocket
 
@@ -87,18 +88,25 @@ class TestWebSocketDisconnectHandling:
         # Setup mock to raise WebSocketDisconnect on first receive_json call
         mock_websocket.receive_json.side_effect = WebSocketDisconnect()
 
-        with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            # Mock config to not require authentication
+            mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
             # Import and call the socket function directly
-            from openhands.agent_server.event_router import socket
+            from openhands.agent_server.sockets import events_socket
 
             # This should not hang or loop infinitely
-            await socket(sample_conversation_id, mock_websocket)
+            await events_socket(
+                sample_conversation_id, mock_websocket, session_api_key=None
+            )
 
         # Verify that unsubscribe was called
         mock_event_service.unsubscribe_from_events.assert_called()
@@ -112,16 +120,23 @@ class TestWebSocketDisconnectHandling:
         mock_event_service.subscribe_to_events.return_value = subscriber_id
         mock_websocket.receive_json.side_effect = WebSocketDisconnect()
 
-        with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            # Mock config to not require authentication
+            mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.event_router import socket
+            from openhands.agent_server.sockets import events_socket
 
-            await socket(sample_conversation_id, mock_websocket)
+            await events_socket(
+                sample_conversation_id, mock_websocket, session_api_key=None
+            )
 
         # Should be called exactly once (not in both except and finally blocks)
         assert mock_event_service.unsubscribe_from_events.call_count == 1
@@ -144,16 +159,23 @@ class TestWebSocketDisconnectHandling:
 
         mock_websocket.receive_json.side_effect = side_effect
 
-        with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            # Mock config to not require authentication
+            mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.event_router import socket
+            from openhands.agent_server.sockets import events_socket
 
-            await socket(sample_conversation_id, mock_websocket)
+            await events_socket(
+                sample_conversation_id, mock_websocket, session_api_key=None
+            )
 
         # Should have been called twice (once for ValueError, once for disconnect)
         assert mock_websocket.receive_json.call_count == 2
@@ -177,16 +199,23 @@ class TestWebSocketDisconnectHandling:
 
         mock_websocket.receive_json.side_effect = side_effect
 
-        with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            # Mock config to not require authentication
+            mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.event_router import socket
+            from openhands.agent_server.sockets import events_socket
 
-            await socket(sample_conversation_id, mock_websocket)
+            await events_socket(
+                sample_conversation_id, mock_websocket, session_api_key=None
+            )
 
         # Should have processed the message
         mock_event_service.send_message.assert_called_once()
@@ -205,18 +234,25 @@ class TestWebSocketDisconnectHandling:
         # Simulate a different kind of exception that doesn't trigger disconnect handler
         mock_websocket.receive_json.side_effect = RuntimeError("Unexpected error")
 
-        with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            # Mock config to not require authentication
+            mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.event_router import socket
+            from openhands.agent_server.sockets import events_socket
 
             # This should raise the RuntimeError but still clean up
             with pytest.raises(RuntimeError):
-                await socket(sample_conversation_id, mock_websocket)
+                await events_socket(
+                    sample_conversation_id, mock_websocket, session_api_key=None
+                )
 
         # Should still unsubscribe in the finally block
         mock_event_service.unsubscribe_from_events.assert_called_once()

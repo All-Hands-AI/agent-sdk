@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import APIKeyHeader
 
 from openhands.agent_server.config import Config, get_default_config
@@ -30,6 +30,36 @@ def check_session_api_key(
 
     This uses the default config - for testing or custom configs, use
     create_session_api_key_dependency() instead.
+    """
+    config = get_default_config()
+    if config.session_api_keys and session_api_key not in config.session_api_keys:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+
+
+def create_websocket_session_api_key_dependency(config: Config):
+    """Create a WebSocket session API key dependency with the given config.
+
+    WebSocket connections cannot send custom headers directly from browsers,
+    so we use query parameters instead.
+    """
+
+    def check_websocket_session_api_key(
+        session_api_key: str | None = Query(None, alias="session_api_key"),
+    ):
+        """Check the session API key from query parameter for WebSocket connections."""
+        if config.session_api_keys and session_api_key not in config.session_api_keys:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+
+    return check_websocket_session_api_key
+
+
+def check_websocket_session_api_key(
+    session_api_key: str | None = Query(None, alias="session_api_key"),
+):
+    """Check the session API key from query parameter for WebSocket connections.
+
+    This uses the default config - for testing or custom configs, use
+    create_websocket_session_api_key_dependency() instead.
     """
     config = get_default_config()
     if config.session_api_keys and session_api_key not in config.session_api_keys:
