@@ -5,6 +5,7 @@ with OpenHands-native types, eliminating the need for consumers to work directly
 with LiteLLM types.
 """
 
+from litellm import ResponsesAPIResponse
 from litellm.types.utils import ModelResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -25,12 +26,13 @@ class LLMResponse(BaseModel):
     Attributes:
         message: The completion message converted to OpenHands Message type
         metrics: Snapshot of metrics from the completion request
-        raw_response: The original LiteLLM ModelResponse for internal use
+        raw_response: The original LiteLLM response (ModelResponse or
+            ResponsesAPIResponse) for internal use
     """
 
     message: Message
     metrics: MetricsSnapshot
-    raw_response: ModelResponse
+    raw_response: ModelResponse | ResponsesAPIResponse
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -39,7 +41,8 @@ class LLMResponse(BaseModel):
         """Get the response ID from the underlying LLM response.
 
         This property provides a clean interface to access the response ID,
-        supporting both completion mode (current) and future response API modes.
+        supporting both completion mode (ModelResponse) and response API modes
+        (ResponsesAPIResponse).
 
         Returns:
             The response ID from the LLM response
