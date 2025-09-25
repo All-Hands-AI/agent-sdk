@@ -67,7 +67,15 @@ class ToolExecutor[ActionT, ObservationT](ABC):
 
     @abstractmethod
     def __call__(self, action: ActionT) -> ObservationT:
-        pass
+        """Execute the tool with the given action and return an observation.
+
+        Args:
+            action: The action to execute, containing the parameters and context
+                   needed for the tool operation.
+
+        Returns:
+            An observation containing the results of the tool execution.
+        """
 
     def close(self) -> None:
         """Close the executor and clean up resources.
