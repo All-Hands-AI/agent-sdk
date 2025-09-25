@@ -2,8 +2,8 @@
 
 import asyncio
 import os
-import pathlib
 import uuid
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 from openhands.sdk.logger import get_logger
@@ -12,24 +12,75 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-class VSCodeService:
+class VSCodeServiceBase(ABC):
+    """Base class for VSCode services."""
+
+    @abstractmethod
+    async def start(self) -> bool:
+        """Start the VSCode server."""
+        pass
+
+    @abstractmethod
+    async def stop(self) -> None:
+        """Stop the VSCode server."""
+        pass
+
+    @abstractmethod
+    def is_running(self) -> bool:
+        """Check if VSCode server is running."""
+        pass
+
+    @abstractmethod
+    def get_vscode_url(self, base_url: str = "http://localhost:8001") -> str | None:
+        """Get VSCode URL with token."""
+        pass
+
+
+class NoOpVSCodeService(VSCodeServiceBase):
+    """No-op VSCode service for when VSCode is disabled."""
+
+    async def start(self) -> bool:
+        """No-op start method."""
+        logger.info("VSCode is disabled in configuration")
+        return False
+
+    async def stop(self) -> None:
+        """No-op stop method."""
+        pass
+
+    def is_running(self) -> bool:
+        """Always returns False for disabled service."""
+        return False
+
+    def get_vscode_url(self, base_url: str = "http://localhost:8001") -> str | None:
+        """Always returns None for disabled service."""
+        return None
+
+
+class VSCodeService(VSCodeServiceBase):
     """Service to manage VSCode server startup and token generation."""
 
     def __init__(
         self,
         workspace_path: Path,
         port: int = 8001,
+        create_workspace: bool = False,
     ):
         """Initialize VSCode service.
 
         Args:
             port: Port to run VSCode server on (default: 8001)
             workspace_path: Path to the workspace directory
+            create_workspace: Whether to create the workspace directory if it doesn't
+                exist
         """
         self.port = port
         self.workspace_path = workspace_path.resolve()
         if not self.workspace_path.exists():
-            raise ValueError(f"Workspace path {workspace_path} does not exist")
+            if create_workspace:
+                self.workspace_path.mkdir(parents=True, exist_ok=True)
+            else:
+                raise ValueError(f"Workspace path {workspace_path} does not exist")
         self.connection_token: str | None = None
         self.process: asyncio.subprocess.Process | None = None
         self.openvscode_server_root = Path("/openhands/.openvscode-server")
@@ -229,14 +280,14 @@ class VSCodeService:
 
 
 # Global VSCode service instance
-_vscode_service: VSCodeService | None = None
+_vscode_service: VSCodeServiceBase | None = None
 
 
-def get_vscode_service() -> VSCodeService:
+def get_vscode_service() -> VSCodeServiceBase:
     """Get the global VSCode service instance.
 
     Returns:
-        VSCode service instance
+        VSCode service instance (real or no-op based on configuration)
     """
     global _vscode_service
     if _vscode_service is None:
@@ -245,6 +296,12 @@ def get_vscode_service() -> VSCodeService:
         )
 
         config = get_default_config()
-        pathlib.Path(config.workspace_path).mkdir(parents=True, exist_ok=True)
-        _vscode_service = VSCodeService(workspace_path=config.workspace_path)
+
+        if not config.enable_vscode:
+            logger.info("VSCode is disabled in configuration, using no-op service")
+            _vscode_service = NoOpVSCodeService()
+        else:
+            _vscode_service = VSCodeService(
+                workspace_path=config.workspace_path, create_workspace=True
+            )
     return _vscode_service

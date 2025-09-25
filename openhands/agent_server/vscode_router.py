@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from openhands.agent_server.config import get_default_config
 from openhands.agent_server.vscode_service import get_vscode_service
 from openhands.sdk.logger import get_logger
 
@@ -28,6 +29,15 @@ async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlRe
     Returns:
         VSCode URL with token if available, None otherwise
     """
+    config = get_default_config()
+    if not config.enable_vscode:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "VSCode is disabled in configuration. Set enable_vscode=true to enable."
+            ),
+        )
+
     try:
         vscode_service = get_vscode_service()
         url = vscode_service.get_vscode_url(base_url)
@@ -38,15 +48,23 @@ async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlRe
 
 
 @vscode_router.get("/status")
-async def get_vscode_status() -> dict[str, bool]:
+async def get_vscode_status() -> dict[str, bool | str]:
     """Get the VSCode server status.
 
     Returns:
-        Dictionary with running status
+        Dictionary with running status and enabled status
     """
+    config = get_default_config()
+    if not config.enable_vscode:
+        return {
+            "running": False,
+            "enabled": False,
+            "message": "VSCode is disabled in configuration",
+        }
+
     try:
         vscode_service = get_vscode_service()
-        return {"running": vscode_service.is_running()}
+        return {"running": vscode_service.is_running(), "enabled": True}
     except Exception as e:
         logger.error(f"Error getting VSCode status: {e}")
         raise HTTPException(status_code=500, detail="Failed to get VSCode status")

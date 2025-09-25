@@ -62,7 +62,7 @@ async def test_get_vscode_status_running(mock_vscode_service):
 
     response = await get_vscode_status()
 
-    assert response == {"running": True}
+    assert response == {"running": True, "enabled": True}
     mock_vscode_service.is_running.assert_called_once()
 
 
@@ -73,7 +73,7 @@ async def test_get_vscode_status_not_running(mock_vscode_service):
 
     response = await get_vscode_status()
 
-    assert response == {"running": False}
+    assert response == {"running": False, "enabled": True}
 
 
 @pytest.mark.asyncio
@@ -151,3 +151,69 @@ def test_vscode_router_endpoints_with_errors(client):
         assert response.status_code == 500
         data = response.json()
         assert data["detail"] == "Internal Server Error"
+
+
+@pytest.mark.asyncio
+async def test_get_vscode_url_disabled():
+    """Test getting VSCode URL when VSCode is disabled."""
+    with patch(
+        "openhands.agent_server.vscode_router.get_default_config"
+    ) as mock_config:
+        mock_config.return_value.enable_vscode = False
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_vscode_url()
+
+        assert exc_info.value.status_code == 503
+        assert "VSCode is disabled in configuration" in str(exc_info.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_get_vscode_status_disabled():
+    """Test getting VSCode status when VSCode is disabled."""
+    with patch(
+        "openhands.agent_server.vscode_router.get_default_config"
+    ) as mock_config:
+        mock_config.return_value.enable_vscode = False
+
+        response = await get_vscode_status()
+
+        assert response == {
+            "running": False,
+            "enabled": False,
+            "message": "VSCode is disabled in configuration",
+        }
+
+
+def test_vscode_router_disabled_integration(client):
+    """Test VSCode router endpoints when VSCode is disabled."""
+    with (
+        patch("openhands.agent_server.vscode_router.get_default_config") as mock_config,
+        patch("openhands.agent_server.api.get_vscode_service") as mock_api_service,
+    ):
+        # Configure VSCode as disabled
+        mock_config.return_value.enable_vscode = False
+
+        # Mock the API service to avoid startup
+        mock_api_service.return_value.start.return_value = False
+        mock_api_service.return_value.stop.return_value = None
+
+        # Test URL endpoint returns 503 when disabled
+        response = client.get("/api/vscode/url")
+        assert response.status_code == 503
+        data = response.json()
+        # The error message might be in different fields depending on FastAPI error
+        # handling
+        error_message = data.get("detail", data.get("message", ""))
+        assert (
+            "VSCode is disabled" in error_message
+            or "Internal Server Error" in error_message
+        )
+
+        # Test status endpoint returns disabled status
+        response = client.get("/api/vscode/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["running"] is False
+        assert data["enabled"] is False
+        assert "VSCode is disabled in configuration" in data["message"]
