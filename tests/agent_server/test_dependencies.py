@@ -13,7 +13,9 @@ from openhands.agent_server.config import Config
 from openhands.agent_server.dependencies import (
     _SESSION_API_KEY_HEADER,
     check_session_api_key,
+    check_websocket_session_api_key,
     create_session_api_key_dependency,
+    create_websocket_session_api_key_dependency,
 )
 
 
@@ -400,3 +402,126 @@ def test_create_session_api_key_dependency_in_fastapi():
     # Test with invalid auth
     response = client.get("/test", headers={"X-Session-API-Key": "wrong-key"})
     assert response.status_code == 401
+
+
+class TestWebSocketSessionApiKeyDependency:
+    """Test WebSocket-specific session API key dependency functions."""
+
+    def test_check_websocket_session_api_key_no_keys_configured(self):
+        """Test WebSocket auth when no session API keys are configured."""
+        with patch(
+            "openhands.agent_server.dependencies.get_default_config"
+        ) as mock_config:
+            mock_config.return_value = Config(session_api_keys=[])
+
+            # Should not raise with any key or None
+            check_websocket_session_api_key(None)
+            check_websocket_session_api_key("any-key")
+
+    def test_check_websocket_session_api_key_valid_key(self):
+        """Test WebSocket auth with valid session API key."""
+        with patch(
+            "openhands.agent_server.dependencies.get_default_config"
+        ) as mock_config:
+            mock_config.return_value = Config(session_api_keys=["test-key-123"])
+
+            # Should not raise with valid key
+            check_websocket_session_api_key("test-key-123")
+
+    def test_check_websocket_session_api_key_invalid_key(self):
+        """Test WebSocket auth with invalid session API key."""
+        with patch(
+            "openhands.agent_server.dependencies.get_default_config"
+        ) as mock_config:
+            mock_config.return_value = Config(session_api_keys=["test-key-123"])
+
+            # Should raise with invalid key
+            with pytest.raises(HTTPException) as exc_info:
+                check_websocket_session_api_key("wrong-key")
+            assert exc_info.value.status_code == 401
+
+    def test_check_websocket_session_api_key_missing_key(self):
+        """Test WebSocket auth when session API key is missing."""
+        with patch(
+            "openhands.agent_server.dependencies.get_default_config"
+        ) as mock_config:
+            mock_config.return_value = Config(session_api_keys=["test-key-123"])
+
+            # Should raise with None when keys are required
+            with pytest.raises(HTTPException) as exc_info:
+                check_websocket_session_api_key(None)
+            assert exc_info.value.status_code == 401
+
+    def test_check_websocket_session_api_key_multiple_keys(self):
+        """Test WebSocket auth with multiple valid session API keys."""
+        with patch(
+            "openhands.agent_server.dependencies.get_default_config"
+        ) as mock_config:
+            mock_config.return_value = Config(
+                session_api_keys=["key-1", "key-2", "key-3"]
+            )
+
+            # Should work with any valid key
+            for key in ["key-1", "key-2", "key-3"]:
+                check_websocket_session_api_key(key)
+
+            # Should fail with invalid key
+            with pytest.raises(HTTPException) as exc_info:
+                check_websocket_session_api_key("invalid-key")
+            assert exc_info.value.status_code == 401
+
+    def test_create_websocket_session_api_key_dependency(self):
+        """Test the WebSocket dependency factory function."""
+        config = Config(session_api_keys=["websocket-key"])
+        dependency_func = create_websocket_session_api_key_dependency(config)
+
+        # Test with valid key
+        dependency_func("websocket-key")  # Should not raise
+
+        # Test with invalid key
+        with pytest.raises(HTTPException) as exc_info:
+            dependency_func("invalid-key")
+        assert exc_info.value.status_code == 401
+
+        # Test with None when keys are required
+        with pytest.raises(HTTPException) as exc_info:
+            dependency_func(None)
+        assert exc_info.value.status_code == 401
+
+    def test_create_websocket_session_api_key_dependency_no_keys(self):
+        """Test the WebSocket dependency factory with no keys configured."""
+        config = Config(session_api_keys=[])
+        dependency_func = create_websocket_session_api_key_dependency(config)
+
+        # Should work with any key or None when no keys are configured
+        dependency_func("any-key")  # Should not raise
+        dependency_func(None)  # Should not raise
+
+    def test_websocket_dependency_case_sensitivity(self):
+        """Test that WebSocket API key matching is case-sensitive."""
+        config = Config(session_api_keys=["Test-Key-123"])
+        dependency_func = create_websocket_session_api_key_dependency(config)
+
+        # Exact match should work
+        dependency_func("Test-Key-123")  # Should not raise
+
+        # Case mismatch should fail
+        with pytest.raises(HTTPException) as exc_info:
+            dependency_func("test-key-123")
+        assert exc_info.value.status_code == 401
+
+    def test_websocket_dependency_special_characters(self):
+        """Test WebSocket dependency with special characters in keys."""
+        special_keys = [
+            "key-with-dashes",
+            "key_with_underscores",
+            "key.with.dots",
+            "key@with#special$chars",
+        ]
+
+        config = Config(session_api_keys=special_keys)
+        dependency_func = create_websocket_session_api_key_dependency(config)
+
+        # Test each special key
+        for key in special_keys:
+            dependency_func(key)  # Should not raise

@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     HTTPException,
     Path as FastApiPath,
@@ -12,6 +13,7 @@ from fastapi import (
 from fastapi.responses import FileResponse
 
 from openhands.agent_server.config import get_default_config
+from openhands.agent_server.dependencies import check_session_api_key_from_app
 from openhands.agent_server.models import Success
 from openhands.sdk.logger import get_logger
 
@@ -27,6 +29,7 @@ async def upload_file(
         str, FastApiPath(alias="path", description="Target path relative to workspace")
     ],
     file: UploadFile = File(...),
+    _: None = Depends(check_session_api_key_from_app),
 ) -> Success:
     """Upload a file to the workspace."""
     # Determine target path
@@ -55,6 +58,7 @@ async def upload_file(
 @file_router.get("/download/{path}")
 async def download_file(
     path: Annotated[str, FastApiPath(description="File path relative to workspace")],
+    _: None = Depends(check_session_api_key_from_app),
 ) -> FileResponse:
     """Download a file from the workspace."""
     try:

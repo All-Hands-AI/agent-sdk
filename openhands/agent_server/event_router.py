@@ -9,6 +9,7 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
+    Depends,
     HTTPException,
     Query,
     WebSocket,
@@ -18,6 +19,10 @@ from fastapi import (
 
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
+)
+from openhands.agent_server.dependencies import (
+    check_session_api_key_from_app,
+    check_websocket_session_api_key_from_app,
 )
 from openhands.agent_server.models import (
     ConfirmationResponseRequest,
@@ -61,6 +66,7 @@ async def search_conversation_events(
         EventSortOrder,
         Query(title="Sort order for events"),
     ] = EventSortOrder.TIMESTAMP,
+    _: None = Depends(check_session_api_key_from_app),
 ) -> EventPage:
     """Search / List local events"""
     assert limit > 0
@@ -80,6 +86,7 @@ async def count_conversation_events(
             title="Optional filter by event kind/type (e.g., ActionEvent, MessageEvent)"
         ),
     ] = None,
+    _: None = Depends(check_session_api_key_from_app),
 ) -> int:
     """Count local events matching the given filters"""
     event_service = await conversation_service.get_event_service(conversation_id)
@@ -90,7 +97,11 @@ async def count_conversation_events(
 
 
 @event_router.get("/{event_id}", responses={404: {"description": "Item not found"}})
-async def get_conversation_event(conversation_id: UUID, event_id: str) -> EventBase:
+async def get_conversation_event(
+    conversation_id: UUID,
+    event_id: str,
+    _: None = Depends(check_session_api_key_from_app),
+) -> EventBase:
     """Get a local event given an id"""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
@@ -103,7 +114,9 @@ async def get_conversation_event(conversation_id: UUID, event_id: str) -> EventB
 
 @event_router.get("/")
 async def batch_get_conversation_events(
-    conversation_id: UUID, event_ids: list[str]
+    conversation_id: UUID,
+    event_ids: list[str],
+    _: None = Depends(check_session_api_key_from_app),
 ) -> list[EventBase | None]:
     """Get a batch of local events given their ids, returning null for any
     missing item."""
@@ -115,7 +128,11 @@ async def batch_get_conversation_events(
 
 
 @event_router.post("/")
-async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Success:
+async def send_message(
+    conversation_id: UUID,
+    request: SendMessageRequest,
+    _: None = Depends(check_session_api_key_from_app),
+) -> Success:
     """Send a message to a conversation"""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
@@ -129,7 +146,9 @@ async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Su
     "/respond_to_confirmation", responses={404: {"description": "Item not found"}}
 )
 async def respond_to_confirmation(
-    conversation_id: UUID, request: ConfirmationResponseRequest
+    conversation_id: UUID,
+    request: ConfirmationResponseRequest,
+    _: None = Depends(check_session_api_key_from_app),
 ) -> Success:
     """Accept or reject a pending action in confirmation mode."""
     event_service = await conversation_service.get_event_service(conversation_id)
@@ -143,6 +162,7 @@ async def respond_to_confirmation(
 async def socket(
     conversation_id: UUID,
     websocket: WebSocket,
+    _: None = Depends(check_websocket_session_api_key_from_app),
 ):
     await websocket.accept()
     event_service = await conversation_service.get_event_service(conversation_id)

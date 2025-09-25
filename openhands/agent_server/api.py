@@ -2,7 +2,7 @@ import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
@@ -16,7 +16,6 @@ from openhands.agent_server.conversation_router import conversation_router
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
-from openhands.agent_server.dependencies import create_session_api_key_dependency
 from openhands.agent_server.event_router import event_router
 from openhands.agent_server.file_router import file_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
@@ -75,14 +74,17 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
 
     Args:
         app: FastAPI application instance to add routes to.
+        config: Configuration object to use for authentication.
     """
+    # Store the config in the app's state so dependency functions can access it
+    app.state.config = config
+
     app.include_router(server_details_router)
 
-    dependencies = []
-    if config.session_api_keys:
-        dependencies.append(Depends(create_session_api_key_dependency(config)))
-
-    api_router = APIRouter(prefix="/api", dependencies=dependencies)
+    # Don't apply authentication dependencies at the router level
+    # WebSocket endpoints handle authentication internally via query parameters
+    # HTTP endpoints will have authentication applied individually
+    api_router = APIRouter(prefix="/api")
     api_router.include_router(event_router)
     api_router.include_router(conversation_router)
     api_router.include_router(tool_router)
@@ -184,13 +186,27 @@ def _add_exception_handlers(api: FastAPI) -> None:
         request: Request, exc: HTTPException
     ) -> JSONResponse:
         """Handle HTTPExceptions with appropriate logging."""
+        # Handle both HTTP requests and WebSocket connections
+        if hasattr(request, "method") and hasattr(request, "url"):
+            # HTTP request
+            method = request.method
+            path = request.url.path
+        else:
+            # WebSocket connection
+            method = "WEBSOCKET"
+            path = "unknown"
+            if hasattr(request, "scope"):
+                path = request.scope.get("path", "unknown")
+            elif hasattr(request, "url") and hasattr(request.url, "path"):
+                path = request.url.path
+
         # Log 4xx errors at info level (expected client errors like auth failures)
         if 400 <= exc.status_code < 500:
             logger.info(
                 "HTTPException %d on %s %s: %s",
                 exc.status_code,
-                request.method,
-                request.url.path,
+                method,
+                path,
                 exc.detail,
             )
         # Log 5xx errors at error level with full traceback (server errors)
@@ -198,8 +214,8 @@ def _add_exception_handlers(api: FastAPI) -> None:
             logger.error(
                 "HTTPException %d on %s %s: %s",
                 exc.status_code,
-                request.method,
-                request.url.path,
+                method,
+                path,
                 exc.detail,
                 exc_info=(type(exc), exc, exc.__traceback__),
             )

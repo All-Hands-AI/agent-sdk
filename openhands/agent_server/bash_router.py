@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
+    Depends,
     HTTPException,
     Query,
     WebSocket,
@@ -16,6 +17,10 @@ from fastapi import (
 )
 
 from openhands.agent_server.bash_service import get_default_bash_event_service
+from openhands.agent_server.dependencies import (
+    check_session_api_key_from_app,
+    check_websocket_session_api_key_from_app,
+)
 from openhands.agent_server.models import (
     BashCommand,
     BashEventBase,
@@ -47,6 +52,7 @@ async def search_bash_events(
         int,
         Query(title="The max number of results in the page", gt=0, lte=100),
     ] = 100,
+    _: None = Depends(check_session_api_key_from_app),
 ) -> BashEventPage:
     """Search / List bash event events"""
     assert limit > 0
@@ -66,7 +72,9 @@ async def search_bash_events(
 @bash_router.get(
     "/bash_events/{event_id}", responses={404: {"description": "Item not found"}}
 )
-async def get_bash_event(event_id: str) -> BashEventBase:
+async def get_bash_event(
+    event_id: str, _: None = Depends(check_session_api_key_from_app)
+) -> BashEventBase:
     """Get a bash event event given an id"""
     event = await bash_event_service.get_bash_event(event_id)
     if event is None:
@@ -77,6 +85,7 @@ async def get_bash_event(event_id: str) -> BashEventBase:
 @bash_router.get("/bash_events/")
 async def batch_get_bash_events(
     event_ids: list[str],
+    _: None = Depends(check_session_api_key_from_app),
 ) -> list[BashEventBase | None]:
     """Get a batch of bash event events given their ids, returning null for any
     missing item."""
@@ -85,14 +94,18 @@ async def batch_get_bash_events(
 
 
 @bash_router.post("/execute_bash_command")
-async def start_bash_command(request: ExecuteBashRequest) -> BashCommand:
+async def start_bash_command(
+    request: ExecuteBashRequest, _: None = Depends(check_session_api_key_from_app)
+) -> BashCommand:
     """Execute a bash command"""
-    command, _ = await bash_event_service.start_bash_command(request)
+    command, task = await bash_event_service.start_bash_command(request)
     return command
 
 
 @bash_router.delete("/bash_events")
-async def clear_all_bash_events() -> dict[str, int]:
+async def clear_all_bash_events(
+    _: None = Depends(check_session_api_key_from_app),
+) -> dict[str, int]:
     """Clear all bash events from storage"""
     count = await bash_event_service.clear_all_events()
     return {"cleared_count": count}
@@ -100,7 +113,10 @@ async def clear_all_bash_events() -> dict[str, int]:
 
 # WebSocket for bash events
 @bash_router.websocket("/bash_events/socket")
-async def bash_event_socket(websocket: WebSocket):
+async def bash_event_socket(
+    websocket: WebSocket,
+    _: None = Depends(check_websocket_session_api_key_from_app),
+):
     await websocket.accept()
     subscriber_id = await bash_event_service.subscribe_to_events(
         _WebSocketSubscriber(websocket)

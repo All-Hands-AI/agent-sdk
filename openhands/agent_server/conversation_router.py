@@ -3,13 +3,14 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import SecretStr
 
 from openhands.agent_server.config import get_default_config
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
+from openhands.agent_server.dependencies import check_session_api_key_from_app
 from openhands.agent_server.models import (
     ConversationInfo,
     ConversationPage,
@@ -83,6 +84,7 @@ async def search_conversations(
         ConversationSortOrder,
         Query(title="Sort order for conversations"),
     ] = ConversationSortOrder.CREATED_AT_DESC,
+    _: None = Depends(check_session_api_key_from_app),
 ) -> ConversationPage:
     """Search / List conversations"""
     assert limit > 0
@@ -98,6 +100,7 @@ async def count_conversations(
         AgentExecutionStatus | None,
         Query(title="Optional filter by agent execution status"),
     ] = None,
+    _: None = Depends(check_session_api_key_from_app),
 ) -> int:
     """Count conversations matching the given filters"""
     count = await conversation_service.count_conversations(status)
@@ -107,7 +110,9 @@ async def count_conversations(
 @conversation_router.get(
     "/{conversation_id}", responses={404: {"description": "Item not found"}}
 )
-async def get_conversation(conversation_id: UUID) -> ConversationInfo:
+async def get_conversation(
+    conversation_id: UUID, _: None = Depends(check_session_api_key_from_app)
+) -> ConversationInfo:
     """Given an id, get a conversation"""
     conversation = await conversation_service.get_conversation(conversation_id)
     if conversation is None:
@@ -118,6 +123,7 @@ async def get_conversation(conversation_id: UUID) -> ConversationInfo:
 @conversation_router.get("/")
 async def batch_get_conversations(
     ids: Annotated[list[UUID], Query()],
+    _: None = Depends(check_session_api_key_from_app),
 ) -> list[ConversationInfo | None]:
     """Get a batch of conversations given their ids, returning null for
     any missing item"""
@@ -134,6 +140,7 @@ async def start_conversation(
     request: Annotated[
         StartConversationRequest, Body(examples=START_CONVERSATION_EXAMPLES)
     ],
+    _: None = Depends(check_session_api_key_from_app),
 ) -> ConversationInfo:
     """Start a conversation in the local environment."""
     info = await conversation_service.start_conversation(request)
@@ -143,7 +150,9 @@ async def start_conversation(
 @conversation_router.post(
     "/{conversation_id}/pause", responses={404: {"description": "Item not found"}}
 )
-async def pause_conversation(conversation_id: UUID) -> Success:
+async def pause_conversation(
+    conversation_id: UUID, _: None = Depends(check_session_api_key_from_app)
+) -> Success:
     """Pause a conversation, allowing it to be resumed later."""
     paused = await conversation_service.pause_conversation(conversation_id)
     if not paused:
@@ -154,7 +163,9 @@ async def pause_conversation(conversation_id: UUID) -> Success:
 @conversation_router.delete(
     "/{conversation_id}", responses={404: {"description": "Item not found"}}
 )
-async def delete_conversation(conversation_id: UUID) -> Success:
+async def delete_conversation(
+    conversation_id: UUID, _: None = Depends(check_session_api_key_from_app)
+) -> Success:
     """Permanently delete a conversation."""
     deleted = await conversation_service.delete_conversation(conversation_id)
     if not deleted:
@@ -169,7 +180,9 @@ async def delete_conversation(conversation_id: UUID) -> Success:
         409: {"description": "Conversation is already running"},
     },
 )
-async def run_conversation(conversation_id: UUID) -> Success:
+async def run_conversation(
+    conversation_id: UUID, _: None = Depends(check_session_api_key_from_app)
+) -> Success:
     """Start running the conversation in the background."""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
@@ -194,7 +207,9 @@ async def run_conversation(conversation_id: UUID) -> Success:
     "/{conversation_id}/secrets", responses={404: {"description": "Item not found"}}
 )
 async def update_conversation_secrets(
-    conversation_id: UUID, request: UpdateSecretsRequest
+    conversation_id: UUID,
+    request: UpdateSecretsRequest,
+    _: None = Depends(check_session_api_key_from_app),
 ) -> Success:
     """Update secrets for a conversation."""
     event_service = await conversation_service.get_event_service(conversation_id)
@@ -215,7 +230,9 @@ async def update_conversation_secrets(
     responses={404: {"description": "Item not found"}},
 )
 async def set_conversation_confirmation_policy(
-    conversation_id: UUID, request: SetConfirmationPolicyRequest
+    conversation_id: UUID,
+    request: SetConfirmationPolicyRequest,
+    _: None = Depends(check_session_api_key_from_app),
 ) -> Success:
     """Set the confirmation policy for a conversation."""
     event_service = await conversation_service.get_event_service(conversation_id)
