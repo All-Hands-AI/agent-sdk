@@ -36,19 +36,23 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
     service = get_default_conversation_service()
     vscode_service = get_vscode_service()
 
-    # Start VSCode service
-    vscode_started = await vscode_service.start()
-    if vscode_started:
-        logger.info("VSCode service started successfully")
+    # Start VSCode service if enabled
+    if vscode_service is not None:
+        vscode_started = await vscode_service.start()
+        if vscode_started:
+            logger.info("VSCode service started successfully")
+        else:
+            logger.warning("VSCode service failed to start, continuing without VSCode")
     else:
-        logger.warning("VSCode service failed to start, continuing without VSCode")
+        logger.info("VSCode service is disabled")
 
     async with service:
         try:
             yield
         finally:
             # Stop VSCode service on shutdown
-            await vscode_service.stop()
+            if vscode_service is not None:
+                await vscode_service.stop()
 
 
 def _create_fastapi_instance() -> FastAPI:

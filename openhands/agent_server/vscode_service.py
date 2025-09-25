@@ -3,7 +3,6 @@
 import asyncio
 import os
 import uuid
-from abc import ABC, abstractmethod
 from pathlib import Path
 
 from openhands.sdk.logger import get_logger
@@ -12,52 +11,7 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-class VSCodeServiceBase(ABC):
-    """Base class for VSCode services."""
-
-    @abstractmethod
-    async def start(self) -> bool:
-        """Start the VSCode server."""
-        pass
-
-    @abstractmethod
-    async def stop(self) -> None:
-        """Stop the VSCode server."""
-        pass
-
-    @abstractmethod
-    def is_running(self) -> bool:
-        """Check if VSCode server is running."""
-        pass
-
-    @abstractmethod
-    def get_vscode_url(self, base_url: str = "http://localhost:8001") -> str | None:
-        """Get VSCode URL with token."""
-        pass
-
-
-class NoOpVSCodeService(VSCodeServiceBase):
-    """No-op VSCode service for when VSCode is disabled."""
-
-    async def start(self) -> bool:
-        """No-op start method."""
-        logger.info("VSCode is disabled in configuration")
-        return False
-
-    async def stop(self) -> None:
-        """No-op stop method."""
-        pass
-
-    def is_running(self) -> bool:
-        """Always returns False for disabled service."""
-        return False
-
-    def get_vscode_url(self, base_url: str = "http://localhost:8001") -> str | None:
-        """Always returns None for disabled service."""
-        return None
-
-
-class VSCodeService(VSCodeServiceBase):
+class VSCodeService:
     """Service to manage VSCode server startup and token generation."""
 
     def __init__(
@@ -280,14 +234,14 @@ class VSCodeService(VSCodeServiceBase):
 
 
 # Global VSCode service instance
-_vscode_service: VSCodeServiceBase | None = None
+_vscode_service: VSCodeService | None = None
 
 
-def get_vscode_service() -> VSCodeServiceBase:
+def get_vscode_service() -> VSCodeService | None:
     """Get the global VSCode service instance.
 
     Returns:
-        VSCode service instance (real or no-op based on configuration)
+        VSCode service instance if enabled, None if disabled
     """
     global _vscode_service
     if _vscode_service is None:
@@ -298,8 +252,8 @@ def get_vscode_service() -> VSCodeServiceBase:
         config = get_default_config()
 
         if not config.enable_vscode:
-            logger.info("VSCode is disabled in configuration, using no-op service")
-            _vscode_service = NoOpVSCodeService()
+            logger.info("VSCode is disabled in configuration")
+            return None
         else:
             _vscode_service = VSCodeService(
                 workspace_path=config.workspace_path, create_workspace=True

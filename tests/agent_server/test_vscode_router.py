@@ -157,9 +157,9 @@ def test_vscode_router_endpoints_with_errors(client):
 async def test_get_vscode_url_disabled():
     """Test getting VSCode URL when VSCode is disabled."""
     with patch(
-        "openhands.agent_server.vscode_router.get_default_config"
-    ) as mock_config:
-        mock_config.return_value.enable_vscode = False
+        "openhands.agent_server.vscode_router.get_vscode_service"
+    ) as mock_service:
+        mock_service.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
             await get_vscode_url()
@@ -172,9 +172,9 @@ async def test_get_vscode_url_disabled():
 async def test_get_vscode_status_disabled():
     """Test getting VSCode status when VSCode is disabled."""
     with patch(
-        "openhands.agent_server.vscode_router.get_default_config"
-    ) as mock_config:
-        mock_config.return_value.enable_vscode = False
+        "openhands.agent_server.vscode_router.get_vscode_service"
+    ) as mock_service:
+        mock_service.return_value = None
 
         response = await get_vscode_status()
 
@@ -188,15 +188,16 @@ async def test_get_vscode_status_disabled():
 def test_vscode_router_disabled_integration(client):
     """Test VSCode router endpoints when VSCode is disabled."""
     with (
-        patch("openhands.agent_server.vscode_router.get_default_config") as mock_config,
+        patch(
+            "openhands.agent_server.vscode_router.get_vscode_service"
+        ) as mock_router_service,
         patch("openhands.agent_server.api.get_vscode_service") as mock_api_service,
     ):
         # Configure VSCode as disabled
-        mock_config.return_value.enable_vscode = False
+        mock_router_service.return_value = None
 
         # Mock the API service to avoid startup
-        mock_api_service.return_value.start.return_value = False
-        mock_api_service.return_value.stop.return_value = None
+        mock_api_service.return_value = None
 
         # Test URL endpoint returns 503 when disabled
         response = client.get("/api/vscode/url")

@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from openhands.agent_server.vscode_service import (
-    NoOpVSCodeService,
     VSCodeService,
     get_vscode_service,
 )
@@ -275,40 +274,6 @@ async def test_wait_for_startup_timeout(vscode_service):
     await vscode_service._wait_for_startup()
 
 
-# Tests for NoOpVSCodeService
-
-
-@pytest.fixture
-def noop_vscode_service():
-    """Create a NoOpVSCodeService instance for testing."""
-    return NoOpVSCodeService()
-
-
-@pytest.mark.asyncio
-async def test_noop_vscode_service_start(noop_vscode_service):
-    """Test NoOpVSCodeService start method."""
-    result = await noop_vscode_service.start()
-    assert result is False
-
-
-@pytest.mark.asyncio
-async def test_noop_vscode_service_stop(noop_vscode_service):
-    """Test NoOpVSCodeService stop method."""
-    # Should not raise any exception
-    await noop_vscode_service.stop()
-
-
-def test_noop_vscode_service_is_running(noop_vscode_service):
-    """Test NoOpVSCodeService is_running method."""
-    assert noop_vscode_service.is_running() is False
-
-
-def test_noop_vscode_service_get_vscode_url(noop_vscode_service):
-    """Test NoOpVSCodeService get_vscode_url method."""
-    assert noop_vscode_service.get_vscode_url() is None
-    assert noop_vscode_service.get_vscode_url("http://example.com") is None
-
-
 # Tests for get_vscode_service with enable_vscode configuration
 
 
@@ -328,7 +293,7 @@ def test_get_vscode_service_enabled(tmp_path):
 
 
 def test_get_vscode_service_disabled():
-    """Test get_vscode_service returns NoOpVSCodeService when disabled."""
+    """Test get_vscode_service returns None when disabled."""
     with (
         patch("openhands.agent_server.config.get_default_config") as mock_config,
         patch("openhands.agent_server.vscode_service._vscode_service", None),
@@ -337,7 +302,7 @@ def test_get_vscode_service_disabled():
 
         service = get_vscode_service()
 
-        assert isinstance(service, NoOpVSCodeService)
+        assert service is None
 
 
 def test_get_vscode_service_singleton():
@@ -346,10 +311,11 @@ def test_get_vscode_service_singleton():
         patch("openhands.agent_server.config.get_default_config") as mock_config,
         patch("openhands.agent_server.vscode_service._vscode_service", None),
     ):
-        mock_config.return_value.enable_vscode = False
+        mock_config.return_value.enable_vscode = True
+        mock_config.return_value.workspace_path = Path("/tmp")
 
         service1 = get_vscode_service()
         service2 = get_vscode_service()
 
         assert service1 is service2
-        assert isinstance(service1, NoOpVSCodeService)
+        assert isinstance(service1, VSCodeService)

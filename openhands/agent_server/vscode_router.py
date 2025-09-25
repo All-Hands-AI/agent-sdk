@@ -3,7 +3,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from openhands.agent_server.config import get_default_config
 from openhands.agent_server.vscode_service import get_vscode_service
 from openhands.sdk.logger import get_logger
 
@@ -29,8 +28,8 @@ async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlRe
     Returns:
         VSCode URL with token if available, None otherwise
     """
-    config = get_default_config()
-    if not config.enable_vscode:
+    vscode_service = get_vscode_service()
+    if vscode_service is None:
         raise HTTPException(
             status_code=503,
             detail=(
@@ -39,7 +38,6 @@ async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlRe
         )
 
     try:
-        vscode_service = get_vscode_service()
         url = vscode_service.get_vscode_url(base_url)
         return VSCodeUrlResponse(url=url)
     except Exception as e:
@@ -54,8 +52,8 @@ async def get_vscode_status() -> dict[str, bool | str]:
     Returns:
         Dictionary with running status and enabled status
     """
-    config = get_default_config()
-    if not config.enable_vscode:
+    vscode_service = get_vscode_service()
+    if vscode_service is None:
         return {
             "running": False,
             "enabled": False,
@@ -63,7 +61,6 @@ async def get_vscode_status() -> dict[str, bool | str]:
         }
 
     try:
-        vscode_service = get_vscode_service()
         return {"running": vscode_service.is_running(), "enabled": True}
     except Exception as e:
         logger.error(f"Error getting VSCode status: {e}")
