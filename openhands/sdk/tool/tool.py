@@ -118,7 +118,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> Sequence["Self"]:
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
         """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
