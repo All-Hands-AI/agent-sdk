@@ -86,7 +86,7 @@ def test_bash_reset_working_directory():
         assert temp_dir in result.output
 
         # Change directory
-        action = ExecuteBashAction(command="cd /tmp")
+        action = ExecuteBashAction(command="cd /home")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
 
