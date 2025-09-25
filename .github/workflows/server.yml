@@ -271,7 +271,7 @@ jobs:
                       if [[ -n "$VARIANT_TAGS" ]]; then
                           VARIANT_TAG_LIST=$(echo "$VARIANT_TAGS" | tr ',' '\n')
                           if [[ -n "$ALL_TAGS" ]]; then
-                              ALL_TAGS="${ALL_TAGS}\n${VARIANT_TAG_LIST}"
+                              ALL_TAGS="${ALL_TAGS}"$'\n'"${VARIANT_TAG_LIST}"
                           else
                               ALL_TAGS="$VARIANT_TAG_LIST"
                           fi
@@ -295,6 +295,9 @@ jobs:
 
                   echo "Consolidated build summary:"
                   echo "$BUILD_SUMMARY" | jq .
+
+                  echo "DEBUG: Final variants count: $(echo "$VARIANTS_JSON" | jq 'length')"
+                  echo "DEBUG: Final variants: $(echo "$VARIANTS_JSON" | jq -c '.')"
 
                   # Set output
                   {
@@ -337,15 +340,24 @@ jobs:
 
                   # Process each variant
                   VARIANTS=$(echo "$BUILD_SUMMARY" | jq -r '.variants[] | @base64')
+                  echo "DEBUG: Found variants (base64 encoded):"
+                  echo "$VARIANTS"
+                  echo "DEBUG: Number of variants: $(echo "$VARIANTS" | wc -l)"
+
                   for variant_data in $VARIANTS; do
                       # Decode base64 and extract variant info
                       VARIANT_JSON=$(echo "$variant_data" | base64 --decode)
+                      echo "DEBUG: Processing variant JSON: $VARIANT_JSON"
                       VARIANT=$(echo "$VARIANT_JSON" | jq -r '.variant')
                       BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
                       
+                      echo "DEBUG: Adding variant $VARIANT with base image $BASE_IMAGE"
                       # Add to variants table
-                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${VARIANT} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |\n"
+                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${VARIANT} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |"$'\n'
                   done
+
+                  echo "DEBUG: Final variants table:"
+                  echo "$VARIANTS_TABLE"
 
                   # Create the complete PR description with the requested format
                   PR_CONTENT=$(cat << EOF
