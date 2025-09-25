@@ -16,6 +16,7 @@ from openhands.tools.str_replace_editor import FileEditorTool
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
+    service_id="main-llm",
     model="claude-sonnet-4-20250514",
     api_key=SecretStr(api_key),
 )

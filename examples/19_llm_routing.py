@@ -24,16 +24,19 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 primary_llm = LLM(
+    service_id="primary-llm",
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 secondary_llm = LLM(
+    service_id="secondary-llm",
     model="litellm_proxy/mistral/devstral-small-2507",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 multimodal_router = MultimodalRouter(
+    service_id="multimodal-router",
     llms_for_routing={"primary": primary_llm, "secondary": secondary_llm},
 )
 

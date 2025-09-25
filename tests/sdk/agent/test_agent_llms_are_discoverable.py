@@ -76,7 +76,8 @@ def test_automatic_llm_discovery_with_multimodal_router():
 
     # Create MultimodalRouter with the LLMs
     multimodal_router = MultimodalRouter(
-        llms_for_routing={"primary": primary_llm, "secondary": secondary_llm}
+        service_id="multimodal-router",
+        llms_for_routing={"primary": primary_llm, "secondary": secondary_llm},
     )
 
     # Create agent with the router
