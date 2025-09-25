@@ -17,8 +17,8 @@ class VSCodeService:
 
     def __init__(
         self,
+        workspace_path: Path,
         port: int = 8001,
-        workspace_path: Path = Path("/workspace/project"),
     ):
         """Initialize VSCode service.
 
