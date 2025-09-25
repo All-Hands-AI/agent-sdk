@@ -1,14 +1,13 @@
 import json
+import logging
 import os
 from pathlib import Path
 from typing import get_origin
 
 from pydantic import BaseModel, Field
 
-from openhands.sdk.logger import get_logger
 
-
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # Environment variable constants
