@@ -319,12 +319,23 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
 
 
 class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
+    """Concrete tool class that inherits from ToolBase.
+
+    This class serves as a concrete implementation of ToolBase for cases where
+    you want to create a tool instance directly without implementing a custom
+    subclass. Built-in tools (like FinishTool, ThinkTool) are instantiated
+    directly from this class, while more complex tools (like BashTool,
+    FileEditorTool) inherit from this class and provide their own create()
+    method implementations.
+    """
+
     @classmethod
     def create(cls, *args, **kwargs) -> Sequence[Self]:
         """Create a sequence of Tool instances.
 
         For the base Tool class, this simply returns a single instance created
-        with the provided arguments.
+        with the provided arguments. This enables direct instantiation of tools
+        without requiring custom subclasses.
 
         Returns:
             A sequence containing a single Tool instance.
