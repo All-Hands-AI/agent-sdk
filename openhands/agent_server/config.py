@@ -1,24 +1,9 @@
-import importlib
 import json
 import os
 from pathlib import Path
 from typing import get_origin
 
 from pydantic import BaseModel, Field
-
-
-def _get_logger():
-    """Dynamically import logger to avoid circular dependencies."""
-    try:
-        # Use importlib to avoid static import detection
-        logger_module = importlib.import_module("openhands.sdk.logger")
-        get_logger = getattr(logger_module, "get_logger")
-        return get_logger(__name__)
-    except (ImportError, AttributeError):
-        # Fallback to standard logging if openhands.sdk.logger is not available
-        import logging
-
-        return logging.getLogger(__name__)
 
 
 # Environment variable constants
@@ -154,17 +139,11 @@ class Config(BaseModel):
             try:
                 field_type = self.__class__.model_fields[field_name].annotation
                 if field_type is None:
-                    _get_logger().warning(
-                        f"Field {field_name} has no type annotation; "
-                        f"skipping env var override."
-                    )
+                    # Skip fields without type annotations
                     continue
                 values[field_name] = self._parse_env_value(env_value, field_type)
-            except (ValueError, TypeError) as e:
-                _get_logger().warning(
-                    f"Failed to parse env var {env_var}='{env_value}' for field "
-                    f"{field_name}; skipping override. Error: {e}"
-                )
+            except (ValueError, TypeError):
+                # Skip invalid environment variable values
                 continue
 
         return self.__class__(**values)
