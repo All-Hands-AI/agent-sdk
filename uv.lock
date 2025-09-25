@@ -15,7 +15,6 @@ members = [
 
 [manifest.dependency-groups]
 dev = [
-    { name = "pandas", specifier = ">=2.0.0" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pycodestyle", specifier = ">=2.12.0" },
