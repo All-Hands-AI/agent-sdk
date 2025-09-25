@@ -3,7 +3,6 @@ Local Event router for OpenHands SDK.
 """
 
 import logging
-from dataclasses import dataclass
 from typing import Annotated
 from uuid import UUID
 
@@ -11,8 +10,6 @@ from fastapi import (
     APIRouter,
     HTTPException,
     Query,
-    WebSocket,
-    WebSocketDisconnect,
     status,
 )
 
@@ -26,9 +23,8 @@ from openhands.agent_server.models import (
     SendMessageRequest,
     Success,
 )
-from openhands.agent_server.pub_sub import Subscriber
 from openhands.sdk import Message
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event import EventBase
 
 
 event_router = APIRouter(
@@ -137,46 +133,3 @@ async def respond_to_confirmation(
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     await event_service.respond_to_confirmation(request)
     return Success()
-
-
-@event_router.websocket("/socket")
-async def socket(
-    conversation_id: UUID,
-    websocket: WebSocket,
-):
-    await websocket.accept()
-    event_service = await conversation_service.get_event_service(conversation_id)
-    if event_service is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
-    subscriber_id = await event_service.subscribe_to_events(
-        _WebSocketSubscriber(websocket)
-    )
-    try:
-        while True:
-            try:
-                data = await websocket.receive_json()
-                message = Message.model_validate(data)
-                await event_service.send_message(message)
-            except WebSocketDisconnect:
-                # Exit the loop when websocket disconnects
-                return
-            except Exception as e:
-                logger.exception("error_in_subscription", stack_info=True)
-                # For critical errors that indicate the websocket is broken, exit
-                if isinstance(e, (RuntimeError, ConnectionError)):
-                    raise
-                # For other exceptions, continue the loop
-    finally:
-        await event_service.unsubscribe_from_events(subscriber_id)
-
-
-@dataclass
-class _WebSocketSubscriber(Subscriber):
-    websocket: WebSocket
-
-    async def __call__(self, event: EventBase):
-        try:
-            dumped = event.model_dump()
-            await self.websocket.send_json(dumped)
-        except Exception:
-            logger.exception("error_sending_event:{event}", stack_info=True)

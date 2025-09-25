@@ -21,6 +21,7 @@ from openhands.agent_server.event_router import event_router
 from openhands.agent_server.file_router import file_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
 from openhands.agent_server.server_details_router import server_details_router
+from openhands.agent_server.sockets import sockets_router
 from openhands.agent_server.tool_router import tool_router
 from openhands.agent_server.vscode_router import vscode_router
 from openhands.agent_server.vscode_service import get_vscode_service
@@ -105,6 +106,7 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
     api_router.include_router(file_router)
     api_router.include_router(vscode_router)
     app.include_router(api_router)
+    app.include_router(sockets_router)
 
 
 def _setup_static_files(app: FastAPI, config: Config) -> None:
