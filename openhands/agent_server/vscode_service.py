@@ -27,7 +27,9 @@ class VSCodeService:
             workspace_path: Path to the workspace directory
         """
         self.port = port
-        self.workspace_path = workspace_path
+        self.workspace_path = workspace_path.resolve()
+        if not self.workspace_path.exists():
+            raise ValueError(f"Workspace path {workspace_path} does not exist")
         self.connection_token: str | None = None
         self.process: asyncio.subprocess.Process | None = None
         self.openvscode_server_root = Path("/openhands/.openvscode-server")
@@ -62,7 +64,10 @@ class VSCodeService:
             # Start VSCode server
             await self._start_vscode_process()
 
-            logger.info(f"VSCode server started successfully on port {self.port}")
+            logger.info(
+                f"VSCode server started successfully on port {self.port}"
+                f" for workspace {self.workspace_path}"
+            )
             return True
 
         except Exception as e:
