@@ -13,7 +13,7 @@ from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import (
     LLM,
-    CompletionResult,
+    LLMResponse,
     Message,
     MetricsSnapshot,
     TextContent,
@@ -33,8 +33,8 @@ def mock_llm() -> LLM:
     """Create a mock LLM for testing."""
     mock_llm = MagicMock(spec=LLM)
 
-    # Mock the completion response - now returns CompletionResult
-    def create_completion_result(content: str) -> CompletionResult:
+    # Mock the completion response - now returns LLMResponse
+    def create_completion_result(content: str) -> LLMResponse:
         message = Message(role="assistant", content=[TextContent(text=content)])
         metrics = MetricsSnapshot(
             model_name="test-model",
@@ -44,9 +44,7 @@ def mock_llm() -> LLM:
         )
         # Create a mock ModelResponse
         raw_response = MagicMock(spec=ModelResponse)
-        return CompletionResult(
-            message=message, metrics=metrics, raw_response=raw_response
-        )
+        return LLMResponse(message=message, metrics=metrics, raw_response=raw_response)
 
     mock_llm.completion.return_value = create_completion_result(
         "Summary of forgotten events"

@@ -1,6 +1,6 @@
-"""CompletionResult type for LLM completion responses.
+"""LLMResponse type for LLM completion responses.
 
-This module provides the CompletionResult type that wraps LLM completion responses
+This module provides the LLMResponse type that wraps LLM completion responses
 with OpenHands-native types, eliminating the need for consumers to work directly
 with LiteLLM types.
 """
@@ -12,10 +12,10 @@ from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 
 
-__all__ = ["CompletionResult"]
+__all__ = ["LLMResponse"]
 
 
-class CompletionResult(BaseModel):
+class LLMResponse(BaseModel):
     """Result of an LLM completion request.
 
     This type provides a clean interface for LLM completion results, exposing

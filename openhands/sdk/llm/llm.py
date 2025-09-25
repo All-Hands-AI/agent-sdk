@@ -51,9 +51,10 @@ from litellm.utils import (
     token_counter,
 )
 
-# OpenHands utilities
-from openhands.sdk.llm.completion_result import CompletionResult
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+
+# OpenHands utilities
+from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
@@ -350,7 +351,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
-    ) -> CompletionResult:
+    ) -> LLMResponse:
         """Single entry point for LLM completion.
 
         Normalize → (maybe) mock tools → transport → postprocess.
@@ -452,8 +453,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 accumulated_token_usage=self.metrics.accumulated_token_usage,
             )
 
-            # Create and return CompletionResult
-            return CompletionResult(
+            # Create and return LLMResponse
+            return LLMResponse(
                 message=message, metrics=metrics_snapshot, raw_response=resp
             )
         except Exception as e:

@@ -201,7 +201,7 @@ class Agent(AgentBase):
             else:
                 raise e
 
-        # CompletionResult already contains the converted message and metrics snapshot
+        # LLMResponse already contains the converted message and metrics snapshot
         message: Message = completion_result.message
 
         if message.tool_calls and len(message.tool_calls) > 0:

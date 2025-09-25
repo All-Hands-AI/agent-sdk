@@ -73,7 +73,7 @@ class LLMSummarizingCondenser(RollingCondenser):
                 )
             },
         )
-        # Extract summary from the CompletionResult message
+        # Extract summary from the LLMResponse message
         summary = None
         if completion_result.message.content:
             first_content = completion_result.message.content[0]

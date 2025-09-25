@@ -7,8 +7,8 @@ from pydantic import (
     model_validator,
 )
 
-from openhands.sdk.llm.completion_result import CompletionResult
 from openhands.sdk.llm.llm import LLM
+from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolBase
@@ -53,7 +53,7 @@ class RouterLLM(LLM):
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
-    ) -> CompletionResult:
+    ) -> LLMResponse:
         """
         This method intercepts completion calls and routes them to the appropriate
         underlying LLM based on the routing logic implemented in select_llm().

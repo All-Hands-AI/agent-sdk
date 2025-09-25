@@ -70,7 +70,7 @@ def test_llm_completion_basic(mock_completion):
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
-    # Check that response is a CompletionResult with expected properties
+    # Check that response is a LLMResponse with expected properties
     assert response.raw_response == mock_response
     assert response.message.role == "assistant"
     assert isinstance(response.message.content[0], TextContent)
@@ -131,7 +131,7 @@ def test_llm_completion_with_tools(mock_completion):
 
     response = llm.completion(messages=messages, tools=tools_list)
 
-    # Check that response is a CompletionResult with expected properties
+    # Check that response is a LLMResponse with expected properties
     assert response.raw_response == mock_response
     assert response.message.role == "assistant"
     assert isinstance(response.message.content[0], TextContent)
@@ -276,7 +276,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     ]
     response = llm.completion(messages=messages)
 
-    # Check that response is a CompletionResult with expected properties
+    # Check that response is a LLMResponse with expected properties
     assert response.raw_response == mock_response
     assert response.message.role == "assistant"
     assert isinstance(response.message.content[0], TextContent)
@@ -350,7 +350,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     assert response is not None
     mock_completion.assert_called_once()
     # And that post-response conversion produced a tool_call
-    # Access message through CompletionResult interface
+    # Access message through LLMResponse interface
     msg = response.message
     # Guard for optional attribute: treat None as failure explicitly
     assert getattr(msg, "tool_calls", None) is not None, (
@@ -431,7 +431,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     response_non_native = llm_non_native.completion(messages=messages, tools=tools)
     non_native_call_kwargs = mock_completion.call_args[1]
 
-    # Both should return CompletionResult responses
+    # Both should return LLMResponse responses
     assert response_native.raw_response == mock_response
     assert response_native.message.role == "assistant"
     assert response_non_native.raw_response == mock_response
