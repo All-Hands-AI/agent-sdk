@@ -375,15 +375,15 @@ jobs:
 
                   **Pull (multi-arch manifest)**
                   \`\`\`bash
-                  docker pull ${IMAGE}:${SHORT_SHA}
+                  docker pull ${IMAGE}:${SHORT_SHA}-python
                   \`\`\`
 
                   **Run**
                   \`\`\`bash
                   docker run -it --rm \\
                     -p 8000:8000 \\
-                    --name agent-server-${SHORT_SHA} \\
-                    ${IMAGE}:${SHORT_SHA}
+                    --name agent-server-${SHORT_SHA}-python \\
+                    ${IMAGE}:${SHORT_SHA}-python
                   \`\`\`
 
                   **All tags pushed for this build**
