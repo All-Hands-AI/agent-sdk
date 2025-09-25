@@ -52,7 +52,7 @@ from pydantic import Field  # noqa: E402
 from openhands.sdk.agent import Agent  # noqa: E402
 from openhands.sdk.conversation import Conversation  # noqa: E402
 from openhands.sdk.event import MessageEvent  # noqa: E402
-from openhands.sdk.llm import LLM, Message, TextContent  # noqa: E402
+from openhands.sdk.llm import LLM, ImageContent, Message, TextContent  # noqa: E402
 from openhands.sdk.tool import (  # noqa: E402
     ActionBase,
     ObservationBase,
@@ -73,9 +73,7 @@ class SleepObservation(ObservationBase):
     message: str = Field(description="Message returned after sleep")
 
     @property
-    def agent_observation(self):
-        from openhands.sdk.llm import TextContent
-
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
 
 

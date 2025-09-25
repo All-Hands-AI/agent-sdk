@@ -1,10 +1,12 @@
 """Tests for the Tool class in openhands.sdk.runtime.tool."""
 
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
 from pydantic import Field, ValidationError
 
+from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import (
     ActionBase,
     ObservationBase,
@@ -28,6 +30,10 @@ class TestToolImmutabilityMockObservation(ObservationBase):
 
     result: str = Field(description="Result of the action")
     extra_field: str | None = Field(default=None, description="Extra field")
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.result)]
 
 
 class TestToolImmutability:

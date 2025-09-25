@@ -110,10 +110,6 @@ jobs:
         if: >
             github.event_name == 'push' ||
             github.event_name == 'pull_request'
-        outputs:
-            image: ${{ steps.build.outputs.image }}
-            short_sha: ${{ steps.build.outputs.short_sha }}
-            tags: ${{ steps.build.outputs.tags }}
         strategy:
             fail-fast: false
             matrix:
@@ -188,26 +184,229 @@ jobs:
                   echo "Multiline tags:"
                   echo "${{ steps.build.outputs.tags }}"
 
+            - name: Save build info for consolidation
+              run: |
+                  mkdir -p build-info
+                  cat > "build-info/${{ matrix.name }}.json" << EOF
+                  {
+                    "variant": "${{ matrix.name }}",
+                    "base_image": "${{ matrix.base_image }}",
+                    "image": "${{ steps.build.outputs.image }}",
+                    "short_sha": "${{ steps.build.outputs.short_sha }}",
+                    "tags": "${{ steps.build.outputs.tags_csv }}"
+                  }
+                  EOF
+
+            - name: Upload build info artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: build-info-${{ matrix.name }}
+                  path: build-info/${{ matrix.name }}.json
+                  retention-days: 1
+
+    consolidate-build-info:
+        name: Consolidate Build Information
+        needs: build-and-push-image
+        # Run if it's a PR and the matrix job completed (even if some variants failed)
+        if: github.event_name == 'pull_request' && always() && (needs.build-and-push-image.result == 'success' || needs.build-and-push-image.result ==
+            'failure')
+        runs-on: blacksmith-2vcpu-ubuntu-2404
+        outputs:
+            build_summary: ${{ steps.consolidate.outputs.build_summary }}
+        steps:
+            - name: Download all build info artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: build-info-*
+                  merge-multiple: true
+                  path: build-info
+
+            - name: Consolidate build information from artifacts
+              id: consolidate
+              run: |
+                  echo "Processing build info artifacts..."
+                  ls -la build-info/
+                  echo "Found $(ls build-info/*.json 2>/dev/null | wc -l) JSON files"
+
+                  # Initialize variables
+                  IMAGE=""
+                  SHORT_SHA=""
+                  ALL_TAGS=""
+                  VARIANTS_JSON="[]"
+
+                  # Process each variant's build info
+                  for info_file in build-info/*.json; do
+                      if [[ ! -f "$info_file" ]]; then
+                          echo "Skipping $info_file - not a file"
+                          continue
+                      fi
+                      
+                      echo "=== Processing $info_file ==="
+                      cat "$info_file"
+                      echo "=== End of $info_file ==="
+                      
+                      # Extract information from JSON
+                      VARIANT=$(jq -r '.variant' "$info_file")
+                      BASE_IMAGE=$(jq -r '.base_image' "$info_file")
+                      VARIANT_IMAGE=$(jq -r '.image' "$info_file")
+                      VARIANT_SHA=$(jq -r '.short_sha' "$info_file")
+                      VARIANT_TAGS=$(jq -r '.tags' "$info_file")
+                      
+                      # Set common values (same across all variants)
+                      if [[ -z "$IMAGE" ]]; then
+                          IMAGE="$VARIANT_IMAGE"
+                          SHORT_SHA="$VARIANT_SHA"
+                      fi
+                      
+                      # Add variant to JSON array
+                      VARIANTS_JSON=$(echo "$VARIANTS_JSON" | jq \
+                          --arg variant "$VARIANT" \
+                          --arg base_image "$BASE_IMAGE" \
+                          '. += [{variant: $variant, base_image: $base_image}]')
+                      
+                      echo "Added variant $VARIANT, current variants JSON:"
+                      echo "$VARIANTS_JSON" | jq .
+                      
+                      # Collect tags (comma-separated to newline-separated)
+                      if [[ -n "$VARIANT_TAGS" ]]; then
+                          VARIANT_TAG_LIST=$(echo "$VARIANT_TAGS" | tr ',' '\n')
+                          if [[ -n "$ALL_TAGS" ]]; then
+                              ALL_TAGS="${ALL_TAGS}"$'\n'"${VARIANT_TAG_LIST}"
+                          else
+                              ALL_TAGS="$VARIANT_TAG_LIST"
+                          fi
+                      fi
+                  done
+
+                  # Create consolidated build summary
+                  BUILD_SUMMARY=$(jq -n \
+                      --arg image "$IMAGE" \
+                      --arg short_sha "$SHORT_SHA" \
+                      --arg ghcr_url "https://github.com/All-Hands-AI/agent-sdk/pkgs/container/agent-server" \
+                      --arg all_tags "$ALL_TAGS" \
+                      --argjson variants "$VARIANTS_JSON" \
+                      '{
+                          image: $image,
+                          short_sha: $short_sha,
+                          ghcr_package_url: $ghcr_url,
+                          all_tags: $all_tags,
+                          variants: $variants
+                      }')
+
+                  echo "Consolidated build summary:"
+                  echo "$BUILD_SUMMARY" | jq .
+
+                  echo "DEBUG: Final variants count: $(echo "$VARIANTS_JSON" | jq 'length')"
+                  echo "DEBUG: Final variants: $(echo "$VARIANTS_JSON" | jq -c '.')"
+
+                  # Set output
+                  {
+                      echo 'build_summary<<EOF'
+                      echo "$BUILD_SUMMARY"
+                      echo 'EOF'
+                  } >> $GITHUB_OUTPUT
+
     update-pr-description:
         name: Update PR description with agent server image
-        needs: build-and-push-image
-        # Only on PRs, and only if the build actually ran and succeeded
-        if: github.event_name == 'pull_request' && needs.build-and-push-image.result == 'success'
+        needs: consolidate-build-info
+        # Only on PRs, and only if the consolidation succeeded
+        if: github.event_name == 'pull_request' && needs.consolidate-build-info.result == 'success'
         runs-on: blacksmith-2vcpu-ubuntu-2404
         permissions:
             contents: read
             pull-requests: write
-        env:
-            IMAGE: ${{ needs.build-and-push-image.outputs.image }}
-            SHORT_SHA: ${{ needs.build-and-push-image.outputs.short_sha }}
 
         steps:
-            - name: Update PR description with docker command
+            - name: Generate PR description from build summary
+              id: generate_description
+              run: |
+                  echo "Event: ${{ github.event_name }}"
+                  echo "PR number: ${{ github.event.number }}"
+                  echo "Run attempt: ${{ github.run_attempt }}"
+
+                  # Parse the build summary JSON
+                  BUILD_SUMMARY='${{ needs.consolidate-build-info.outputs.build_summary }}'
+                  echo "Build summary received:"
+                  echo "$BUILD_SUMMARY" | jq .
+
+                  # Extract basic information
+                  IMAGE=$(echo "$BUILD_SUMMARY" | jq -r '.image')
+                  SHORT_SHA=$(echo "$BUILD_SUMMARY" | jq -r '.short_sha')
+                  GHCR_URL=$(echo "$BUILD_SUMMARY" | jq -r '.ghcr_package_url')
+                  ALL_TAGS=$(echo "$BUILD_SUMMARY" | jq -r '.all_tags')
+
+                  # Build the variants table dynamically
+                  VARIANTS_TABLE=""
+
+                  # Process each variant
+                  VARIANTS=$(echo "$BUILD_SUMMARY" | jq -r '.variants[] | @base64')
+                  echo "DEBUG: Found variants (base64 encoded):"
+                  echo "$VARIANTS"
+                  echo "DEBUG: Number of variants: $(echo "$VARIANTS" | wc -l)"
+
+                  for variant_data in $VARIANTS; do
+                      # Decode base64 and extract variant info
+                      VARIANT_JSON=$(echo "$variant_data" | base64 --decode)
+                      echo "DEBUG: Processing variant JSON: $VARIANT_JSON"
+                      VARIANT=$(echo "$VARIANT_JSON" | jq -r '.variant')
+                      BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
+                      
+                      echo "DEBUG: Adding variant $VARIANT with base image $BASE_IMAGE"
+                      # Add to variants table
+                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${VARIANT} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |"$'\n'
+                  done
+
+                  echo "DEBUG: Final variants table:"
+                  echo "$VARIANTS_TABLE"
+
+                  # Create the complete PR description with the requested format
+                  PR_CONTENT=$(cat << EOF
+
+                  <!-- AGENT_SERVER_IMAGES_START -->
+                  ---
+                  **Agent Server images for this PR**
+
+                  • **GHCR package:** ${GHCR_URL}
+
+                  **Variants & Base Images**
+                  | Variant | Base Image | Docs / Tags |
+                  |---|---|---|
+                  ${VARIANTS_TABLE}
+
+                  **Pull (multi-arch manifest)**
+                  \`\`\`bash
+                  docker pull ${IMAGE}:${SHORT_SHA}-python
+                  \`\`\`
+
+                  **Run**
+                  \`\`\`bash
+                  docker run -it --rm \\
+                    -p 8000:8000 \\
+                    --name agent-server-${SHORT_SHA}-python \\
+                    ${IMAGE}:${SHORT_SHA}-python
+                  \`\`\`
+
+                  **All tags pushed for this build**
+                  \`\`\`
+                  ${ALL_TAGS}
+                  \`\`\`
+
+                  _The \`${SHORT_SHA}\` tag is a multi-arch manifest (amd64/arm64); your client pulls the right arch automatically._
+                  <!-- AGENT_SERVER_IMAGES_END -->
+                  EOF
+                  )
+
+                  # Set output for the next step
+                  {
+                      echo 'pr_content<<EOF'
+                      echo "$PR_CONTENT"
+                      echo 'EOF'
+                  } >> $GITHUB_OUTPUT
+
+            - name: Update PR description with comprehensive docker information
               uses: nefrob/pr-description@v1.2.0
               with:
-                  content: "\n---\n\n**Agent Server image for this PR**\n\nPull (multi-arch manifest):\n```bash\ndocker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA
-                      }}\n```\n\nRun:\n```bash\ndocker run -it --rm \\\n  -p 8000:8000 \\\n  --name agent-server-${{ env.SHORT_SHA }} \\\n  ${{ env.IMAGE
-                      }}:${{ env.SHORT_SHA }}\n```\n\n_This tag is a multi-arch manifest (amd64/arm64). Your client pulls the right arch automatically._"
-                  regex: "---\\s*\\*\\*Agent Server image for this PR\\*\\*[\\s\\S]*?(?=\\n\\n---|\n\\n##|$)"
-                  regexFlags: m
+                  content: ${{ steps.generate_description.outputs.pr_content }}
+                  regex: <!-- AGENT_SERVER_IMAGES_START -->.*?<!-- AGENT_SERVER_IMAGES_END -->
+                  regexFlags: s
                   token: ${{ secrets.GITHUB_TOKEN }}

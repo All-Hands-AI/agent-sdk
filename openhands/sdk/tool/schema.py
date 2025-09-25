@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any, TypeVar
 
@@ -180,9 +180,9 @@ class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for output observation."""
 
     @property
+    @abstractmethod
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
-        raise NotImplementedError("Subclasses must implement agent_observation")
 
     @property
     def visualize(self) -> Text:

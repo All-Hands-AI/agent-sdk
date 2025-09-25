@@ -4,14 +4,11 @@ import pytest
 
 
 def test_content_base_class_not_implemented():
-    """Test that Content base class raises NotImplementedError."""
+    """Test that Content base class cannot be instantiated due to abstract method."""
     from openhands.sdk.llm.message import BaseContent
 
-    content = BaseContent()
-    with pytest.raises(
-        NotImplementedError, match="Subclasses should implement this method"
-    ):
-        content.to_llm_dict()
+    with pytest.raises(TypeError, match="Can't instantiate abstract class BaseContent"):
+        BaseContent()  # type: ignore[abstract]
 
 
 def test_text_content_with_cache_prompt():
