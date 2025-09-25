@@ -34,7 +34,7 @@ class ExecuteBashAction(ActionBase):
     )
     reset: bool = Field(
         default=False,
-        description="If True, reset the terminal session by creating a new instance. Use this only when the terminal becomes unresponsive. Note that all previously set environment variables and session state will be lost after reset. Cannot be used with is_input=True.",  # noqa
+        description="If True, reset the terminal by creating a new session. Use this only when the terminal becomes unresponsive. Note that all previously set environment variables and session state will be lost after reset. Cannot be used with is_input=True.",  # noqa
     )
 
     @property
