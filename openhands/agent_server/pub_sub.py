@@ -1,18 +1,20 @@
 import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import TypeVar
 from uuid import UUID, uuid4
 
-from openhands.sdk.event.base import EventBase
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
 
+T = TypeVar("T")
 
-class Subscriber(ABC):
+
+class Subscriber[T](ABC):
     @abstractmethod
-    async def __call__(self, event: EventBase):
+    async def __call__(self, event: T):
         """Invoke this subscriber"""
 
     async def close(self):
@@ -20,16 +22,16 @@ class Subscriber(ABC):
 
 
 @dataclass
-class PubSub:
+class PubSub[T]:
     """A subscription service that extends ConversationCallbackType functionality.
     This class maintains a dictionary of UUIDs to ConversationCallbackType instances
     and provides methods to subscribe/unsubscribe callbacks. When invoked, it calls
     all registered callbacks with proper error handling.
     """
 
-    _subscribers: dict[UUID, Subscriber] = field(default_factory=dict)
+    _subscribers: dict[UUID, Subscriber[T]] = field(default_factory=dict)
 
-    def subscribe(self, subscriber: Subscriber) -> UUID:
+    def subscribe(self, subscriber: Subscriber[T]) -> UUID:
         """Subscribe a subscriber and return its UUID for later unsubscription.
         Args:
             subscriber: The callback function to register
@@ -58,7 +60,7 @@ class PubSub:
             )
             return False
 
-    async def __call__(self, event: EventBase) -> None:
+    async def __call__(self, event: T) -> None:
         """Invoke all registered callbacks with the given event.
         Each callback is invoked in its own try/catch block to prevent
         one failing callback from affecting others.

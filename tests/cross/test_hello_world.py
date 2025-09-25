@@ -158,6 +158,7 @@ class TestHelloWorld:
 
         # Configure LLM (no real API key needed)
         llm = LLM(
+            service_id="test-llm",
             model="claude-sonnet-4",
             api_key=SecretStr("mock-api-key"),
         )
@@ -273,6 +274,7 @@ class TestHelloWorld:
 
         # Configure LLM with logging enabled
         llm = LLM(
+            service_id="test-llm",
             model="claude-sonnet-4",
             api_key=SecretStr("mock-api-key"),
         )
@@ -421,7 +423,7 @@ class TestHelloWorld:
             return mock_response
 
         # Create agent with mocked LLM
-        llm = LLM(model="claude-sonnet-4")
+        llm = LLM(model="claude-sonnet-4", service_id="test-llm")
         agent = Agent(llm=llm, tools=[])
 
         # Mock the completion method
@@ -515,7 +517,7 @@ class TestHelloWorld:
             return mock_response
 
         # Create agent with mocked LLM
-        agent = Agent(llm=LLM(model="claude-sonnet-4"), tools=[])
+        agent = Agent(llm=LLM(model="claude-sonnet-4", service_id="test-llm"), tools=[])
 
         # Mock the completion method
         with patch(

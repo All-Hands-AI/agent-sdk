@@ -37,7 +37,7 @@ def create_mock_mcp_tool(name: str) -> MCPTool:
 def test_agent_supports_polymorphic_json_serialization() -> None:
     """Test that Agent supports polymorphic JSON serialization/deserialization."""
     # Create a simple LLM instance and agent with empty tools
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
 
     # Serialize to JSON (excluding non-serializable fields)
@@ -60,7 +60,7 @@ def test_mcp_tool_serialization():
 
 def test_agent_serialization_should_include_mcp_tool() -> None:
     # Create a simple LLM instance and agent with empty tools
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
     mcp_config = {
         "mcpServers": {
             "dummy": {"command": "echo", "args": ["dummy-mcp"]},
@@ -88,7 +88,7 @@ def test_agent_supports_polymorphic_field_json_serialization() -> None:
         agent: Agent  # Use direct Agent type instead of DiscriminatedUnionType
 
     # Create container with agent
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
     container = Container(agent=agent)
 
@@ -110,8 +110,8 @@ def test_agent_supports_nested_polymorphic_json_serialization() -> None:
         agents: list[Agent]  # Use direct Agent type
 
     # Create container with multiple agents
-    llm1 = LLM(model="model-1")
-    llm2 = LLM(model="model-2")
+    llm1 = LLM(model="model-1", service_id="test-llm")
+    llm2 = LLM(model="model-2", service_id="test-llm")
     agent1 = Agent(llm=llm1, tools=[])
     agent2 = Agent(llm=llm2, tools=[])
     container = NestedContainer(agents=[agent1, agent2])
@@ -133,7 +133,7 @@ def test_agent_supports_nested_polymorphic_json_serialization() -> None:
 def test_agent_model_validate_json_dict() -> None:
     """Test that Agent.model_validate works with dict from JSON."""
     # Create agent
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
 
     # Serialize to JSON, then parse to dict
@@ -161,7 +161,7 @@ def test_agent_fallback_behavior_json() -> None:
 def test_agent_preserves_pydantic_parameters_json() -> None:
     """Test that Agent preserves Pydantic parameters through JSON serialization."""
     # Create agent with extra data
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
 
     # Serialize to JSON
@@ -177,7 +177,7 @@ def test_agent_preserves_pydantic_parameters_json() -> None:
 def test_agent_type_annotation_works_json() -> None:
     """Test that AgentType annotation works correctly with JSON."""
     # Create agent
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
 
     # Use AgentType annotation
@@ -201,7 +201,7 @@ def test_agent_type_annotation_works_json() -> None:
 def test_agent_type_annotation_on_basemodel_works_json() -> None:
     """Test that AgentType annotation works correctly with JSON."""
     # Create agent
-    llm = LLM(model="test-model")
+    llm = LLM(model="test-model", service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
 
     # Use AgentType annotation

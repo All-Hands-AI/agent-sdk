@@ -55,7 +55,9 @@ class TestConfirmationMode:
         """Set up test fixtures."""
 
         # Create a real LLM instance for Agent validation
-        self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+        self.llm = LLM(
+            model="gpt-4", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
 
         # Create a MagicMock to override the completion method
         self.mock_llm = MagicMock()

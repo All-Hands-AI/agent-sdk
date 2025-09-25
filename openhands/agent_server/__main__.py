@@ -2,6 +2,9 @@ import argparse
 
 import uvicorn
 
+from openhands.agent_server.logging_config import LOGGING_CONFIG
+from openhands.sdk.logger import DEBUG
+
 
 def main():
     parser = argparse.ArgumentParser(description="OpenHands Agent Server App")
@@ -24,7 +27,16 @@ def main():
     print(f"🚀 Starting OpenHands Agent Server on {args.host}:{args.port}")
     print(f"📖 API docs will be available at http://{args.host}:{args.port}/docs")
     print(f"🔄 Auto-reload: {'enabled' if args.reload else 'disabled'}")
+
+    # Show debug mode status
+    if DEBUG:
+        print("🐛 DEBUG mode: ENABLED (stack traces will be shown)")
+    else:
+        print("🔒 DEBUG mode: DISABLED")
     print()
+
+    # Configure uvicorn logging based on DEBUG environment variable
+    log_level = "debug" if DEBUG else "info"
 
     uvicorn.run(
         "openhands.agent_server.api:api",
@@ -32,6 +44,8 @@ def main():
         port=args.port,
         reload=args.reload,
         reload_excludes=["workspace"],
+        log_level=log_level,
+        log_config=LOGGING_CONFIG,
     )
 
 

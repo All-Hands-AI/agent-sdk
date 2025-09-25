@@ -82,6 +82,13 @@ class Config(BaseModel):
             "Defaults to 'workspace/project'."
         ),
     )
+    bash_events_dir: Path = Field(
+        default=Path("workspace/bash_events"),
+        description=(
+            "The location of the directory where bash events are stored as files. "
+            "Defaults to 'workspace/bash_events'."
+        ),
+    )
     static_files_path: Path | None = Field(
         default=None,
         description=(
@@ -134,6 +141,8 @@ class Config(BaseModel):
             config_data["conversations_path"] = Path(config_data["conversations_path"])
         if "workspace_path" in config_data:
             config_data["workspace_path"] = Path(config_data["workspace_path"])
+        if "bash_events_dir" in config_data:
+            config_data["bash_events_dir"] = Path(config_data["bash_events_dir"])
         if (
             "static_files_path" in config_data
             and config_data["static_files_path"] is not None

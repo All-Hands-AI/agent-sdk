@@ -35,6 +35,7 @@ def mock_event_service():
                 id=uuid4(),
                 agent=Agent(
                     llm=LLM(
+                        service_id="test-llm",
                         model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
                         base_url="https://llm-proxy.staging.all-hands.dev",
                         api_key=SecretStr("fake-secret"),
