@@ -1,6 +1,9 @@
+from collections.abc import Sequence
+
 import pytest
 
 from openhands.sdk import register_tool
+from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import Tool
 from openhands.sdk.tool.registry import resolve_tool
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
@@ -14,6 +17,10 @@ class _HelloAction(ActionBase):
 
 class _HelloObservation(ObservationBase):
     message: str
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.message)]
 
 
 class _HelloExec(ToolExecutor[_HelloAction, _HelloObservation]):

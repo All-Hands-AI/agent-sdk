@@ -1,10 +1,12 @@
 """Tests for the Tool class in openhands.sdk.runtime.tool."""
 
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
 from pydantic import Field
 
+from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import (
     ActionBase,
     ObservationBase,
@@ -28,6 +30,10 @@ class TestToolMockObservation(ObservationBase):
 
     result: str = Field(description="Result of the action")
     extra_field: str | None = Field(default=None, description="Extra field")
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.result)]
 
 
 class TestTool:
@@ -359,6 +365,10 @@ class TestTool:
             )
             count: int = Field(default=0, description="Count field")
 
+            @property
+            def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+                return [TextContent(text=f"Data: {self.data}, Count: {self.count}")]
+
         class MockComplexExecutor(ToolExecutor):
             def __call__(self, action: TestToolMockAction) -> ComplexObservation:
                 return ComplexObservation(
@@ -406,6 +416,10 @@ class TestTool:
         class StrictObservation(ObservationBase):
             message: str = Field(description="Required message field")
             value: int = Field(description="Required value field")
+
+            @property
+            def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+                return [TextContent(text=f"{self.message}: {self.value}")]
 
         class ValidExecutor(ToolExecutor):
             def __call__(self, action: TestToolMockAction) -> StrictObservation:

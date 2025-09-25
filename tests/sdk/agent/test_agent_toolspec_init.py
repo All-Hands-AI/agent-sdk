@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from openhands.sdk import LLM, Conversation
 from openhands.sdk.agent import Agent
+from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import Tool
 from openhands.sdk.tool.registry import register_tool
 from openhands.sdk.tool.spec import ToolSpec
@@ -15,6 +16,10 @@ class _Action(ActionBase):
 
 class _Obs(ObservationBase):
     out: str
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.out)]
 
 
 class _Exec(ToolExecutor[_Action, _Obs]):
