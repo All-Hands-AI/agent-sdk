@@ -10,11 +10,11 @@ from openhands.agent_server.vscode_service import VSCodeService
 
 
 @pytest.fixture
-def vscode_service():
+def vscode_service(tmp_path):
     """Create a VSCode service instance for testing."""
     return VSCodeService(
         port=8001,
-        workspace_path=Path("/tmp/test_workspace"),
+        workspace_path=Path(tmp_path),
     )
 
 
@@ -34,12 +34,12 @@ def mock_openvscode_binary(tmp_path):
     return openvscode_root
 
 
-def test_vscode_service_initialization():
+def test_vscode_service_initialization(tmp_path):
     """Test VSCode service initialization."""
-    service = VSCodeService(port=8002, workspace_path=Path("/test"))
+    service = VSCodeService(port=8002, workspace_path=Path(tmp_path))
 
     assert service.port == 8002
-    assert service.workspace_path == Path("/test")
+    assert service.workspace_path == Path(tmp_path)
     assert service.connection_token is None
     assert service.process is None
 
@@ -258,7 +258,9 @@ async def test_wait_for_startup_success(vscode_service):
 async def test_wait_for_startup_timeout(vscode_service):
     """Test waiting for VSCode startup with timeout."""
     mock_stdout = AsyncMock()
-    mock_stdout.readline = AsyncMock(side_effect=TimeoutError())
+    # Mock readline to raise TimeoutError a few times,
+    # then return empty bytes to break the loop
+    mock_stdout.readline = AsyncMock(side_effect=[TimeoutError(), TimeoutError(), b""])
 
     mock_process = AsyncMock()
     mock_process.stdout = mock_stdout
