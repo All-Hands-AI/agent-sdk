@@ -10,7 +10,6 @@ openhands-agent-server = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "pandas>=2.0.0",
     "pre-commit>=4.3.0",
     "psutil>=7.0.0",
     "pyright[nodejs]>=1.1.405",
