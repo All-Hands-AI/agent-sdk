@@ -333,14 +333,11 @@ class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
     def create(cls, *args, **kwargs) -> Sequence[Self]:
         """Create a sequence of Tool instances.
 
-        For the base Tool class, this simply returns a single instance created
-        with the provided arguments. This enables direct instantiation of tools
-        without requiring custom subclasses.
-
-        Returns:
-            A sequence containing a single Tool instance.
+        TODO: Refactor this - the Tool class should not have a concrete create()
+        implementation. Built-in tools should be refactored to not rely on this
+        method, and then this should be made abstract with @abstractmethod.
         """
-        return [cls(*args, **kwargs)]
+        raise NotImplementedError("Tool.create() should be implemented by subclasses")
 
 
 def _create_action_type_with_risk(action_type: type[ActionBase]) -> type[ActionBase]:
