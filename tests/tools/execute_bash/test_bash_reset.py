@@ -94,7 +94,7 @@ def test_bash_reset_working_directory():
         action = ExecuteBashAction(command="pwd")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
-        assert "/tmp" in result.output
+        assert "/home" in result.output
 
         # Reset the terminal
         reset_action = ExecuteBashAction(command="", reset=True)
