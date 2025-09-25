@@ -90,8 +90,6 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
     api_router.include_router(bash_router)
     api_router.include_router(file_router)
     app.include_router(api_router)
-
-    # Add sockets router separately (not under /api prefix)
     app.include_router(sockets_router)
 
 
