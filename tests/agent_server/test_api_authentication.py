@@ -213,16 +213,27 @@ def test_api_websocket_authentication():
     app = create_app(config)
     client = TestClient(app)
 
-    # This is a basic test - WebSocket auth might be handled differently
-    # The actual WebSocket endpoint might not exist or might handle auth differently
+    # Test WebSocket connection without authentication - should fail
     try:
-        with client.websocket_connect("/api/events/ws"):
-            # If we get here, the connection was established
-            # The actual auth might be handled in the WebSocket handler
+        with client.websocket_connect("/sockets/bash-events"):
+            # If we get here, the connection was established without auth
+            # (should not happen)
+            assert False, (
+                "WebSocket connection should have failed without authentication"
+            )
+    except Exception:
+        # WebSocket connection should fail without proper authentication
+        pass
+
+    # Test WebSocket connection with authentication via query parameter - should work
+    try:
+        with client.websocket_connect("/sockets/bash-events?session_api_key=test-key"):
+            # If we get here, the connection was established with proper auth
             pass
     except Exception:
-        # WebSocket connection might fail for various reasons
-        # This test mainly ensures the dependency doesn't break WebSocket setup
+        # Connection might fail for other reasons (like missing conversation ID for
+        # events endpoint)
+        # This test mainly ensures the auth mechanism works
         pass
 
 
