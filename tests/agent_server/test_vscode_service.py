@@ -58,20 +58,22 @@ def test_check_vscode_available_true(vscode_service, mock_openvscode_binary):
 
 
 @pytest.mark.asyncio
-async def test_is_port_available_true():
+async def test_is_port_available_true(tmp_path):
     """Test port availability check when port is free."""
-    service = VSCodeService(port=0)  # Use port 0 to get any available port
+    service = VSCodeService(
+        workspace_path=tmp_path, port=0
+    )  # Use port 0 to get any available port
     assert await service._is_port_available()
 
 
 @pytest.mark.asyncio
-async def test_is_port_available_false():
+async def test_is_port_available_false(tmp_path):
     """Test port availability check when port is occupied."""
     # Start a server on a specific port
     server = await asyncio.start_server(lambda r, w: None, "localhost", 0)
     port = server.sockets[0].getsockname()[1]
 
-    service = VSCodeService(port=port)
+    service = VSCodeService(workspace_path=tmp_path, port=port)
     assert not await service._is_port_available()
 
     server.close()
