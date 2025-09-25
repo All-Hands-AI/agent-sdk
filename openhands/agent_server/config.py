@@ -1,8 +1,14 @@
 import json
 import os
 from pathlib import Path
+from typing import get_origin
 
 from pydantic import BaseModel, Field
+
+from openhands.sdk.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 # Environment variable constants
@@ -101,7 +107,57 @@ class Config(BaseModel):
         default_factory=list,
         description="Webhooks to invoke in response to events",
     )
+    enable_vscode: bool = Field(
+        default=True,
+        description="Whether to enable VSCode server functionality",
+    )
     model_config = {"frozen": True}
+
+    def _parse_env_value(self, env_value: str, field_type: type | None):
+        """Parse environment variable value based on field type."""
+        if field_type is bool:
+            return env_value.lower() in ("true", "1", "yes", "on")
+        elif field_type is int:
+            return int(env_value)
+        elif field_type is float:
+            return float(env_value)
+        elif field_type is Path:
+            return Path(env_value)
+        elif get_origin(field_type) is list:
+            return env_value.split(",") if env_value.strip() else []
+        else:
+            return env_value
+
+    def update_with_env_var(self) -> "Config":
+        """Create a new Config instance with values overridden from env vars.
+
+        Auto-generates UPPER_CASE env var mappings from model fields.
+        """
+        mappings = {name: name.upper() for name in self.__class__.model_fields}
+        values = self.model_dump()
+
+        for field_name, env_var in mappings.items():
+            env_value = os.getenv(env_var)
+            if not env_value or field_name not in values:
+                continue
+
+            try:
+                field_type = self.__class__.model_fields[field_name].annotation
+                if field_type is None:
+                    logger.warning(
+                        f"Field {field_name} has no type annotation; "
+                        f"skipping env var override."
+                    )
+                    continue
+                values[field_name] = self._parse_env_value(env_value, field_type)
+            except (ValueError, TypeError) as e:
+                logger.warning(
+                    f"Failed to parse env var {env_var}='{env_value}' for field "
+                    f"{field_name}; skipping override. Error: {e}"
+                )
+                continue
+
+        return self.__class__(**values)
 
     @classmethod
     def from_json_file(cls, file_path: Path) -> "Config":
@@ -149,7 +205,9 @@ class Config(BaseModel):
         ):
             config_data["static_files_path"] = Path(config_data["static_files_path"])
 
-        return cls(**config_data)
+        # Create initial config and apply environment variable overrides
+        config = cls(**config_data)
+        return config.update_with_env_var()
 
 
 _default_config: Config | None = None

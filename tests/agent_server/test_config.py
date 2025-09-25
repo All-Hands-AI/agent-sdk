@@ -56,6 +56,74 @@ class TestConfig:
         with pytest.raises(Exception):  # pydantic ValidationError or similar
             config.session_api_keys = ["new-key"]
 
+    def test_update_with_env_var(self):
+        """Test the update_with_env_var method."""
+        config = Config()
+
+        # Set environment variables using auto-generated names (UPPER_CASE)
+        with patch.dict(
+            os.environ,
+            {
+                "ENABLE_VSCODE": "false",
+                "WORKSPACE_PATH": "/tmp/test_workspace",
+                "SESSION_API_KEYS": "key1,key2,key3",
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            # Verify original config is unchanged (immutable)
+            assert config.enable_vscode
+            assert config.workspace_path == Path("workspace/project")
+            assert config.session_api_keys == []
+
+            # Verify updated config has new values
+            assert not updated_config.enable_vscode
+            assert updated_config.workspace_path == Path("/tmp/test_workspace")
+            assert updated_config.session_api_keys == ["key1", "key2", "key3"]
+
+    def test_update_with_env_var_missing_env_vars(self):
+        """Test update_with_env_var with missing environment variables."""
+        config = Config()
+
+        # Clear any existing env vars that might match our field names
+        with patch.dict(os.environ, {}, clear=False):
+            for field_name in config.__class__.model_fields:
+                env_var = field_name.upper()
+                if env_var in os.environ:
+                    del os.environ[env_var]
+
+            updated_config = config.update_with_env_var()
+
+            # Should be unchanged since env vars don't exist
+            assert updated_config.enable_vscode == config.enable_vscode
+            assert updated_config.workspace_path == config.workspace_path
+
+    def test_update_with_env_var_auto_mapping(self):
+        """Test update_with_env_var with automatic environment variable mapping."""
+        config = Config()
+
+        # Set environment variables using the auto-generated names (UPPER_CASE)
+        with patch.dict(
+            os.environ,
+            {
+                "ENABLE_VSCODE": "false",
+                "WORKSPACE_PATH": "/tmp/auto_workspace",
+                "SESSION_API_KEYS": "auto1,auto2,auto3",
+            },
+        ):
+            # Call the method to use auto-generation
+            updated_config = config.update_with_env_var()
+
+            # Verify original config is unchanged (immutable)
+            assert config.enable_vscode
+            assert config.workspace_path == Path("workspace/project")
+            assert config.session_api_keys == []
+
+            # Verify updated config has new values from auto-mapped env vars
+            assert not updated_config.enable_vscode
+            assert updated_config.workspace_path == Path("/tmp/auto_workspace")
+            assert updated_config.session_api_keys == ["auto1", "auto2", "auto3"]
+
     def test_from_json_file_nonexistent_file(self):
         """Test loading from a non-existent JSON file returns defaults."""
         non_existent_path = Path("/tmp/nonexistent_config.json")
