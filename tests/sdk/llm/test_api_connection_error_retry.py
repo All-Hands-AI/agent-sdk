@@ -5,7 +5,7 @@ from litellm.exceptions import APIConnectionError
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -78,7 +78,8 @@ def test_completion_retries_api_connection_error(
     )
 
     # Verify that the retry was successful
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     assert mock_litellm_completion.call_count == 2  # Initial call + 1 retry
 
 
@@ -150,7 +151,8 @@ def test_completion_no_retry_on_success(mock_litellm_completion, default_config)
     )
 
     # Verify that no retries were needed
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     assert mock_litellm_completion.call_count == 1  # Only the initial call
 
 
@@ -244,7 +246,8 @@ def test_retry_listener_callback(mock_litellm_completion, default_config):
     )
 
     # Verify that the retry listener was called
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     assert len(retry_calls) >= 1  # At least one retry attempt should be logged
 
     # Check that retry listener received correct parameters

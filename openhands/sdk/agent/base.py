@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from typing import TYPE_CHECKING, Any
 
@@ -230,6 +230,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         # Store tools in a dict for easy access
         self._tools = {tool.name: tool for tool in tools}
 
+    @abstractmethod
     def step(
         self,
         state: "ConversationState",
@@ -247,7 +248,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         NOTE: state will be mutated in-place.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
 
     def resolve_diff_from_deserialized(self, persisted: "AgentBase") -> "AgentBase":
         """

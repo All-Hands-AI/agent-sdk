@@ -51,11 +51,13 @@ from litellm.utils import (
     token_counter,
 )
 
-# OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+
+# OpenHands utilities
+from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
-from openhands.sdk.llm.utils.metrics import Metrics
+from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -349,7 +351,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
-    ) -> ModelResponse:
+    ) -> LLMResponse:
         """Single entry point for LLM completion.
 
         Normalize → (maybe) mock tools → transport → postprocess.
@@ -438,7 +440,23 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         try:
             resp = _one_attempt()
-            return resp
+
+            # Convert the first choice to an OpenHands Message
+            first_choice = resp["choices"][0]
+            message = Message.from_litellm_message(first_choice["message"])
+
+            # Get current metrics snapshot
+            metrics_snapshot = MetricsSnapshot(
+                model_name=self.metrics.model_name,
+                accumulated_cost=self.metrics.accumulated_cost,
+                max_budget_per_task=self.metrics.max_budget_per_task,
+                accumulated_token_usage=self.metrics.accumulated_token_usage,
+            )
+
+            # Create and return LLMResponse
+            return LLMResponse(
+                message=message, metrics=metrics_snapshot, raw_response=resp
+            )
         except Exception as e:
             self._telemetry.on_error(e)
             raise

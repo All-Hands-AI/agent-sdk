@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
 
@@ -15,13 +16,13 @@ logger = get_logger(__name__)
 class BaseContent(BaseModel):
     cache_prompt: bool = False
 
+    @abstractmethod
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format. Always returns a list of dictionaries.
 
         Subclasses should implement this method to return a list of dictionaries,
         even if they only have a single item.
         """
-        raise NotImplementedError("Subclasses should implement this method.")
 
 
 class TextContent(BaseContent):

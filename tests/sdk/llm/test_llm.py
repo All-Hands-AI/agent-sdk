@@ -6,7 +6,7 @@ from litellm.exceptions import (
 )
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
 
@@ -173,7 +173,8 @@ def test_llm_completion_with_mock(mock_completion):
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     mock_completion.assert_called_once()
 
 
@@ -205,7 +206,8 @@ def test_llm_retry_on_rate_limit(mock_completion):
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     assert mock_completion.call_count == 2  # First call failed, second succeeded
 
 

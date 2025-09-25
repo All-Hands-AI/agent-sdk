@@ -83,10 +83,70 @@ class BashExecutor(ToolExecutor):
             )
         )
 
+    def reset(self) -> ExecuteBashObservation:
+        """Reset the terminal session by creating a new instance.
+
+        Returns:
+            ExecuteBashObservation with reset confirmation message
+        """
+        original_work_dir = self.session.work_dir
+        original_username = self.session.username
+        original_no_change_timeout = self.session.no_change_timeout_seconds
+
+        self.session.close()
+        self.session = create_terminal_session(
+            work_dir=original_work_dir,
+            username=original_username,
+            no_change_timeout_seconds=original_no_change_timeout,
+            terminal_type=None,  # Let it auto-detect like before
+        )
+        self.session.initialize()
+
+        logger.info(
+            f"Terminal session reset successfully with working_dir: {original_work_dir}"
+        )
+
+        return ExecuteBashObservation(
+            output=(
+                "Terminal session has been reset. All previous environment "
+                "variables and session state have been cleared."
+            ),
+            command="[RESET]",
+            exit_code=0,
+        )
+
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
-        # If env keys detected, export env values to bash as a separate action first
-        self._export_envs(action)
-        observation = self.session.execute(action)
+        # Validate field combinations
+        if action.reset and action.is_input:
+            raise ValueError("Cannot use reset=True with is_input=True")
+
+        if action.reset:
+            reset_result = self.reset()
+
+            # Handle command execution after reset
+            if action.command.strip():
+                command_action = ExecuteBashAction(
+                    command=action.command,
+                    timeout=action.timeout,
+                    is_input=False,  # is_input validated to be False when reset=True
+                )
+                self._export_envs(command_action)
+                command_result = self.session.execute(command_action)
+                observation = command_result.model_copy(
+                    update={
+                        "output": (
+                            reset_result.output + "\n\n" + command_result.output
+                        ),
+                        "command": f"[RESET] {action.command}",
+                    }
+                )
+            else:
+                # Reset only, no command to execute
+                observation = reset_result
+        else:
+            # If env keys detected, export env values to bash as a separate action first
+            self._export_envs(action)
+            observation = self.session.execute(action)
 
         # Apply automatic secrets masking using env_masker
         if self.env_masker and observation.output:

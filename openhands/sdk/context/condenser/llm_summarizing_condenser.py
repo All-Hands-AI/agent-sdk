@@ -65,7 +65,7 @@ class LLMSummarizingCondenser(RollingCondenser):
 
         messages = [Message(role="user", content=[TextContent(text=prompt)])]
 
-        response = self.llm.completion(
+        llm_response = self.llm.completion(
             messages=messages,
             extra_body={
                 "metadata": get_llm_metadata(
@@ -73,7 +73,12 @@ class LLMSummarizingCondenser(RollingCondenser):
                 )
             },
         )
-        summary = response.choices[0].message.content  # type: ignore
+        # Extract summary from the LLMResponse message
+        summary = None
+        if llm_response.message.content:
+            first_content = llm_response.message.content[0]
+            if isinstance(first_content, TextContent):
+                summary = first_content.text
 
         return Condensation(
             forgotten_event_ids=[event.id for event in forgotten_events],
