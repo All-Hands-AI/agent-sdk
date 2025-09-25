@@ -32,6 +32,10 @@ class ExecuteBashAction(ActionBase):
         ge=0,
         description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa
     )
+    reset: bool = Field(
+        default=False,
+        description="If True, reset the terminal by creating a new session. Use this only when the terminal becomes unresponsive. Note that all previously set environment variables and session state will be lost after reset. Cannot be used with is_input=True.",  # noqa
+    )
 
     @property
     def visualize(self) -> Text:
@@ -55,6 +59,10 @@ class ExecuteBashAction(ActionBase):
         if self.timeout is not None:
             content.append(" ", style="white")
             content.append(f"[timeout: {self.timeout}s]", style="cyan")
+
+        if self.reset:
+            content.append(" ", style="white")
+            content.append("[reset terminal]", style="red bold")
 
         return content
 
@@ -193,6 +201,10 @@ TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent
 
 ### Output Handling
 * Output truncation: If the output exceeds a maximum length, it will be truncated before being returned.
+
+### Terminal Reset
+* Terminal reset: If the terminal becomes unresponsive, you can set the "reset" parameter to `true` to create a new terminal session. This will terminate the current session and start fresh.
+* Warning: Resetting the terminal will lose all previously set environment variables, working directory changes, and any running processes. Use this only when the terminal stops responding to commands.
 """  # noqa
 
 
