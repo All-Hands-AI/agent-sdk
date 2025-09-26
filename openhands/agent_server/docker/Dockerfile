@@ -161,20 +161,11 @@ RUN set -eux; \
     apt-get clean; rm -rf /var/lib/apt/lists/*
 
 
-ENV NOVNC_WEB=/opt/novnc-web \
+ENV NOVNC_WEB=/usr/share/novnc \
     NOVNC_PORT=8002 \
     DISPLAY=:1 \
     VNC_GEOMETRY=1280x800
-
-RUN set -eux; \
-    mkdir -p "$NOVNC_WEB"; \
-    cp -rL /usr/share/novnc/* "$NOVNC_WEB"/; \
-    chown -R ${USERNAME}:${USERNAME} "$NOVNC_WEB"
-
-# Setup noVNC
-COPY openhands/agent_server/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh \
-    && chown root:root /usr/local/bin/entrypoint.sh
+RUN chown -R ${USERNAME}:${USERNAME} ${NOVNC_WEB}
 
 USER ${USERNAME}
 WORKDIR /
@@ -188,7 +179,7 @@ EXPOSE ${PORT} ${NOVNC_PORT}
 FROM base-image AS source
 ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
-ENTRYPOINT ["/usr/bin/dumb-init", "--", "/usr/local/bin/entrypoint.sh", "/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
+ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 
 ############################
@@ -201,4 +192,4 @@ ARG USERNAME
 
 COPY --chown=${USERNAME}:${USERNAME} --from=build-binary /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
 RUN chmod +x /usr/local/bin/openhands-agent-server
-ENTRYPOINT ["/usr/bin/dumb-init", "--", "/usr/local/bin/entrypoint.sh", "/usr/local/bin/openhands-agent-server"]
+ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
