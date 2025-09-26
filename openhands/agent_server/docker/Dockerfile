@@ -136,36 +136,34 @@ RUN mkdir -p /etc/docker && \
 RUN mkdir -p /workspace/project && \
     chown -R ${USERNAME}:${USERNAME} /workspace
 
-# Install Chromium for browser-use tools
-RUN set -eux; \
-    uvx playwright install chromium --with-deps; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
-
 # --- VNC + Desktop + noVNC ---
 RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-        tigervnc-standalone-server \
-        tigervnc-tools \
-        xfce4 xfce4-goodies \
-        dbus-x11 \
-        novnc \
-        websockify \
-        x11-utils x11-xserver-utils \
-        fonts-dejavu fonts-liberation \
-        supervisor \
-        firefox-esr \
-        python3-pil libjpeg-dev libpng-dev \
-        dumb-init; \
-    apt-get clean; rm -rf /var/lib/apt/lists/*
-
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    # GUI bits (remove entirely if headless)
+    tigervnc-standalone-server xfce4 dbus-x11 novnc websockify \
+    # Browser
+    chromium; \
+  apt-get clean; rm -rf /var/lib/apt/lists/*
 
 ENV NOVNC_WEB=/usr/share/novnc \
     NOVNC_PORT=8002 \
     DISPLAY=:1 \
-    VNC_GEOMETRY=1280x800
+    VNC_GEOMETRY=1280x800 \
+    CHROME_BIN=/usr/bin/chromium \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    CHROMIUM_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu"
+
 RUN chown -R ${USERNAME}:${USERNAME} ${NOVNC_WEB}
+
+# We will re-use the chromium here for browser-use/playwright too
+# RUN set -eux; \
+#     uvx playwright install chromium --with-deps; \
+#     apt-get clean; \
+#     rm -rf /var/lib/apt/lists/*
+
+# Override default XFCE wallpaper
+COPY --chown=${USERNAME}:${USERNAME} openhands/agent_server/docker/wallpaper.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
 
 USER ${USERNAME}
 WORKDIR /
