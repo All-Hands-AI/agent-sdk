@@ -20,7 +20,7 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.tool import ActionBase
+from openhands.sdk.tool import ActionBase, Tool
 
 
 class TestVisualizerMockAction(ActionBase):
@@ -93,18 +93,15 @@ def test_custom_action_visualize():
 
 def test_system_prompt_event_visualize():
     """Test SystemPromptEvent visualization."""
+    tool = Tool(
+        name="test_tool",
+        description="A test tool for demonstration",
+        action_type=TestVisualizerMockAction,
+    )
+
     event = SystemPromptEvent(
         system_prompt=TextContent(text="You are a helpful assistant."),
-        tools=[
-            {
-                "type": "function",
-                "function": {
-                    "name": "test_tool",
-                    "description": "A test tool for demonstration",
-                    "parameters": {"type": "object", "properties": {}},
-                },
-            }
-        ],
+        tools=[tool],
     )
 
     result = event.visualize

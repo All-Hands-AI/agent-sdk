@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 import pytest
-from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
+from litellm import ChatCompletionMessageToolCall
 
 from openhands.sdk.event import (
     ActionEvent,
@@ -18,6 +18,7 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.tool import Tool
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
@@ -61,14 +62,11 @@ def test_event_base_is_frozen():
 
 def test_system_prompt_event_is_frozen():
     """Test that SystemPromptEvent instances are frozen."""
-    tool: ChatCompletionToolParam = {
-        "type": "function",
-        "function": {
-            "name": "test_tool",
-            "description": "Test tool",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    }
+    tool = Tool(
+        name="test_tool",
+        description="Test tool",
+        action_type=TestEventsImmutabilityMockAction,
+    )
 
     event = SystemPromptEvent(
         system_prompt=TextContent(text="Test system prompt"), tools=[tool]
@@ -259,30 +257,27 @@ def test_event_model_copy_creates_new_instance():
 
 def test_event_immutability_prevents_mutation_bugs():
     """Test that frozen events prevent the type of mutation bugs fixed in PR #226."""
-    tool: ChatCompletionToolParam = {
-        "type": "function_with_very_long_type_name_exceeding_thirty_characters",
-        "function": {
-            "name": "test_tool",
-            "description": "Test tool with long description",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    }
+    tool = Tool(
+        name="test_tool",
+        description="Test tool with long description",
+        action_type=TestEventsImmutabilityMockAction,
+    )
 
     event = SystemPromptEvent(
         system_prompt=TextContent(text="Test system prompt"), tools=[tool]
     )
 
     # Store original tool data
-    original_tool_type = event.tools[0]["type"]
-    original_tool_name = event.tools[0]["function"]["name"]  # type: ignore[index]
+    original_tool_name = event.tools[0].name
+    original_tool_description = event.tools[0].description
 
     # Call visualize multiple times (this used to cause mutations)
     for _ in range(3):
         _ = event.visualize
 
     # Verify no mutation occurred - the event data should be unchanged
-    assert event.tools[0]["type"] == original_tool_type
-    assert event.tools[0]["function"]["name"] == original_tool_name  # type: ignore[index]
+    assert event.tools[0].name == original_tool_name
+    assert event.tools[0].description == original_tool_description
 
     # Verify that attempting to modify the event fields directly fails
     with pytest.raises(Exception):
