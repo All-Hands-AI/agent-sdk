@@ -184,6 +184,14 @@ class Agent(AgentBase):
                 add_security_risk_prediction=self._add_security_risk_prediction,
             )
         except Exception as e:
+            # Handle shutdown signal gracefully
+            if isinstance(
+                e, RuntimeError
+            ) and "LLM service unavailable due to shutdown signal" in str(e):
+                logger.info("Agent stopping due to shutdown signal")
+                # Don't raise the exception, just return to allow graceful shutdown
+                return
+
             # If there is a condenser registered and the exception is a context window
             # exceeded, we can recover by triggering a condensation request.
             if (

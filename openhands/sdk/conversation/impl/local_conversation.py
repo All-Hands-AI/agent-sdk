@@ -313,6 +313,20 @@ class LocalConversation(BaseConversation):
                 self._on_event(pause_event)
                 logger.info("Agent execution pause requested")
 
+    def shutdown(self) -> None:
+        """Shutdown the conversation gracefully.
+
+        This method can be called from any thread to request that the conversation
+        shutdown. It will pause the agent and then close all resources.
+        """
+        logger.info("Conversation shutdown requested")
+
+        # First pause the agent to stop execution
+        self.pause()
+
+        # Then close all resources
+        self.close()
+
     def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
         """Add secrets to the conversation.
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import copy
 import json
 import os
@@ -67,6 +68,26 @@ from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 logger = get_logger(__name__)
 
 __all__ = ["LLM"]
+
+
+def _cleanup_litellm_resources() -> None:
+    """Clean up litellm resources to prevent shutdown errors."""
+    try:
+        # Try to shutdown the global ThreadPoolExecutor from litellm
+        from litellm.litellm_core_utils import thread_pool_executor
+
+        if hasattr(thread_pool_executor, "executor"):
+            executor = thread_pool_executor.executor
+            if executor and not executor._shutdown:
+                logger.debug("Shutting down litellm ThreadPoolExecutor")
+                executor.shutdown(wait=False)
+    except Exception as e:
+        # Silently ignore cleanup errors to avoid noise during shutdown
+        logger.debug(f"Error during litellm cleanup: {e}")
+
+
+# Register cleanup function to run at exit
+atexit.register(_cleanup_litellm_resources)
 
 
 # Exceptions we retry on
@@ -478,27 +499,51 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     message=r".*content=.*upload.*",
                     category=DeprecationWarning,
                 )
+                # More comprehensive filtering for event loop warnings
                 warnings.filterwarnings(
                     "ignore",
                     message=r"There is no current event loop",
                     category=DeprecationWarning,
                 )
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r".*get_event_loop.*",
+                    category=DeprecationWarning,
+                )
+                warnings.filterwarnings(
+                    "ignore",
+                    category=DeprecationWarning,
+                    module="litellm.*",
+                )
                 # Some providers need renames handled in _normalize_call_kwargs.
-                ret = litellm_completion(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    base_url=self.base_url,
-                    api_version=self.api_version,
-                    timeout=self.timeout,
-                    drop_params=self.drop_params,
-                    seed=self.seed,
-                    messages=messages,
-                    **kwargs,
-                )
-                assert isinstance(ret, ModelResponse), (
-                    f"Expected ModelResponse, got {type(ret)}"
-                )
-                return ret
+                try:
+                    ret = litellm_completion(
+                        model=self.model,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        base_url=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        drop_params=self.drop_params,
+                        seed=self.seed,
+                        messages=messages,
+                        **kwargs,
+                    )
+                    assert isinstance(ret, ModelResponse), (
+                        f"Expected ModelResponse, got {type(ret)}"
+                    )
+                    return ret
+                except RuntimeError as e:
+                    if "cannot schedule new futures after shutdown" in str(e):
+                        # ThreadPoolExecutor has been shut down (likely due to SIGINT)
+                        # Raise a more specific exception that can be handled gracefully
+                        raise RuntimeError(
+                            "LLM service unavailable due to shutdown signal. "
+                            "This typically occurs when the application is being "
+                            "terminated."
+                        ) from e
+                    raise
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
