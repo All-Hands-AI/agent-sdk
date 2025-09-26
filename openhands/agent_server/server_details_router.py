@@ -1,4 +1,5 @@
 import time
+from importlib.metadata import version
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -13,7 +14,7 @@ class ServerInfo(BaseModel):
     uptime: float
     idle_time: float
     title: str = "OpenHands Agent Server"
-    version: str = "0.1.0"
+    version: str = version("openhands-agent-server")
     docs: str = "/docs"
     redoc: str = "/redoc"
 
