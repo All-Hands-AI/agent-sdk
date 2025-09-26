@@ -19,7 +19,9 @@ class DesktopUrlResponse(BaseModel):
 
 
 @desktop_router.get("/url", response_model=DesktopUrlResponse)
-async def get_desktop_url(base_url: str = "http://localhost:8002") -> DesktopUrlResponse:
+async def get_desktop_url(
+    base_url: str = "http://localhost:8002",
+) -> DesktopUrlResponse:
     """Get the noVNC URL for desktop access.
 
     Args:
