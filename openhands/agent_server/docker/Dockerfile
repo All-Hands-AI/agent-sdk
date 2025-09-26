@@ -142,10 +142,36 @@ RUN set -eux; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        tigervnc-standalone-server \
+        tigervnc-tools \
+        xfce4 xfce4-goodies \
+        novnc \
+        websockify \
+        x11-utils x11-xserver-utils \
+        fonts-dejavu fonts-liberation \
+        supervisor \
+        firefox-esr \
+        python3-pil libjpeg-dev libpng-dev \
+        dumb-init; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
+ENV DISPLAY=:1 \
+    VNC_GEOMETRY=1280x800 \
+    NOVNC_PORT=8002
+
+# Setup noVNC
+COPY openhands/agent_server/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && chown root:root /usr/local/bin/entrypoint.sh
+
 USER ${USERNAME}
 WORKDIR /
 ENV LOG_JSON=true
-EXPOSE ${PORT}
+EXPOSE ${PORT} ${NOVNC_PORT}
 
 ############################
 # Target A: source
@@ -154,7 +180,7 @@ EXPOSE ${PORT}
 FROM base-image AS source
 ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
-ENTRYPOINT ["/agent-server/.venv/bin/python","-m","openhands.agent_server"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--", "/usr/local/bin/entrypoint.sh", "/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 
 ############################
@@ -167,4 +193,4 @@ ARG USERNAME
 
 COPY --chown=${USERNAME}:${USERNAME} --from=build-binary /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
 RUN chmod +x /usr/local/bin/openhands-agent-server
-ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--", "/usr/local/bin/entrypoint.sh", "/usr/local/bin/openhands-agent-server"]
