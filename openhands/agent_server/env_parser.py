@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from types import UnionType
-from typing import Annotated, get_args, get_origin
+from typing import Annotated, Union, get_args, get_origin
 from uuid import UUID
 
 from pydantic import BaseModel, TypeAdapter
@@ -207,7 +207,7 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
     if origin is Annotated:
         # Strip annotations...
         return get_env_parser(get_args(target_type)[0], parsers)
-    if origin is UnionType:
+    if origin is UnionType or origin is Union:
         union_parsers = [
             get_env_parser(t, parsers)  # type: ignore
             for t in get_args(target_type)
