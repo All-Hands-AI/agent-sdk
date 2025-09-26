@@ -1,7 +1,8 @@
 import copy
+import threading
 import time
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
 
 class Cost(BaseModel):
@@ -109,6 +110,8 @@ class Metrics(MetricsSnapshot):
         default_factory=list, description="List of token usage records"
     )
 
+    _lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
+
     @field_validator("accumulated_cost")
     @classmethod
     def validate_accumulated_cost(cls, v: float) -> float:
@@ -145,15 +148,19 @@ class Metrics(MetricsSnapshot):
     def add_cost(self, value: float) -> None:
         if value < 0:
             raise ValueError("Added cost cannot be negative.")
-        self.accumulated_cost += value
-        self.costs.append(Cost(cost=value, model=self.model_name))
+        with self._lock:
+            self.accumulated_cost += value
+            self.costs.append(Cost(cost=value, model=self.model_name))
 
     def add_response_latency(self, value: float, response_id: str) -> None:
-        self.response_latencies.append(
-            ResponseLatency(
-                latency=max(0.0, value), model=self.model_name, response_id=response_id
+        with self._lock:
+            self.response_latencies.append(
+                ResponseLatency(
+                    latency=max(0.0, value),
+                    model=self.model_name,
+                    response_id=response_id,
+                )
             )
-        )
 
     def add_token_usage(
         self,
@@ -180,44 +187,50 @@ class Metrics(MetricsSnapshot):
             per_turn_token=per_turn_token,
             response_id=response_id,
         )
-        self.token_usages.append(usage)
 
-        # Update accumulated token usage using the __add__ operator
-        new_usage = TokenUsage(
-            model=self.model_name,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            cache_read_tokens=cache_read_tokens,
-            cache_write_tokens=cache_write_tokens,
-            reasoning_tokens=reasoning_tokens,
-            context_window=context_window,
-            per_turn_token=per_turn_token,
-            response_id="",
-        )
-        if self.accumulated_token_usage is None:
-            self.accumulated_token_usage = new_usage
-        else:
-            self.accumulated_token_usage = self.accumulated_token_usage + new_usage
+        with self._lock:
+            self.token_usages.append(usage)
+
+            # Update accumulated token usage using the __add__ operator
+            new_usage = TokenUsage(
+                model=self.model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cache_read_tokens=cache_read_tokens,
+                cache_write_tokens=cache_write_tokens,
+                reasoning_tokens=reasoning_tokens,
+                context_window=context_window,
+                per_turn_token=per_turn_token,
+                response_id="",
+            )
+            if self.accumulated_token_usage is None:
+                self.accumulated_token_usage = new_usage
+            else:
+                self.accumulated_token_usage = self.accumulated_token_usage + new_usage
 
     def merge(self, other: "Metrics") -> None:
         """Merge 'other' metrics into this one."""
-        self.accumulated_cost += other.accumulated_cost
+        with self._lock:
+            self.accumulated_cost += other.accumulated_cost
 
-        # Keep the max_budget_per_task from other if it's set and this one isn't
-        if self.max_budget_per_task is None and other.max_budget_per_task is not None:
-            self.max_budget_per_task = other.max_budget_per_task
+            # Keep the max_budget_per_task from other if it's set and this one isn't
+            if (
+                self.max_budget_per_task is None
+                and other.max_budget_per_task is not None
+            ):
+                self.max_budget_per_task = other.max_budget_per_task
 
-        self.costs += other.costs
-        self.token_usages += other.token_usages
-        self.response_latencies += other.response_latencies
+            self.costs += other.costs
+            self.token_usages += other.token_usages
+            self.response_latencies += other.response_latencies
 
-        # Merge accumulated token usage using the __add__ operator
-        if self.accumulated_token_usage is None:
-            self.accumulated_token_usage = other.accumulated_token_usage
-        elif other.accumulated_token_usage is not None:
-            self.accumulated_token_usage = (
-                self.accumulated_token_usage + other.accumulated_token_usage
-            )
+            # Merge accumulated token usage using the __add__ operator
+            if self.accumulated_token_usage is None:
+                self.accumulated_token_usage = other.accumulated_token_usage
+            elif other.accumulated_token_usage is not None:
+                self.accumulated_token_usage = (
+                    self.accumulated_token_usage + other.accumulated_token_usage
+                )
 
     def get(self) -> dict:
         """Return the metrics in a dictionary."""
@@ -242,9 +255,26 @@ class Metrics(MetricsSnapshot):
             logs += f"{key}: {value}\n"
         return logs
 
+    def __deepcopy__(self, memo=None):
+        """Custom deepcopy implementation that handles the threading lock."""
+        if memo is None:
+            memo = {}
+
+        # Create a new instance using model_copy with shallow copy first
+        copied = self.model_copy(deep=False)
+
+        # Deep copy all the regular fields manually
+        for field_name in self.__class__.model_fields:
+            field_value = getattr(self, field_name)
+            setattr(copied, field_name, copy.deepcopy(field_value, memo))
+
+        # Initialize private attributes in the copy (don't copy them)
+        copied._lock = threading.Lock()
+        return copied
+
     def deep_copy(self) -> "Metrics":
         """Create a deep copy of the Metrics object."""
-        return copy.deepcopy(self)
+        return self.model_copy(deep=True)
 
     def diff(self, baseline: "Metrics") -> "Metrics":
         """Calculate the difference between current metrics and a baseline.

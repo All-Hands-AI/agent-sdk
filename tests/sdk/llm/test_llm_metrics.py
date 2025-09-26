@@ -1,5 +1,7 @@
 """Tests for LLM metrics classes."""
 
+import threading
+
 import pytest
 from pydantic import ValidationError
 
@@ -824,3 +826,76 @@ def test_metrics_diff_current_only_not_none():
     assert diff.accumulated_token_usage.completion_tokens == 8
     assert diff.accumulated_token_usage.cache_read_tokens == 2
     assert diff.accumulated_token_usage.cache_write_tokens == 1
+
+
+def test_metrics_thread_safety():
+    """Test that metrics operations are thread-safe."""
+    metrics = Metrics(model_name="test-model")
+    num_threads = 10
+    operations_per_thread = 100
+
+    def add_costs():
+        """Add costs in a thread."""
+        for i in range(operations_per_thread):
+            metrics.add_cost(1.0)
+
+    def add_latencies():
+        """Add response latencies in a thread."""
+        for i in range(operations_per_thread):
+            metrics.add_response_latency(0.1, f"response_{i}")
+
+    def add_token_usages():
+        """Add token usages in a thread."""
+        for i in range(operations_per_thread):
+            metrics.add_token_usage(
+                prompt_tokens=10,
+                completion_tokens=5,
+                cache_read_tokens=0,
+                cache_write_tokens=0,
+                context_window=100,
+                response_id=f"token_{i}",
+            )
+
+    # Create threads that perform different operations concurrently
+    threads = []
+    for i in range(num_threads):
+        if i % 3 == 0:
+            thread = threading.Thread(target=add_costs)
+        elif i % 3 == 1:
+            thread = threading.Thread(target=add_latencies)
+        else:
+            thread = threading.Thread(target=add_token_usages)
+        threads.append(thread)
+
+    # Start all threads
+    for thread in threads:
+        thread.start()
+
+    # Wait for all threads to complete
+    for thread in threads:
+        thread.join()
+
+    # Verify that all operations completed correctly
+    # We should have approximately num_threads/3 * operations_per_thread of each type
+    cost_threads = (num_threads + 2) // 3  # Round up division
+    latency_threads = (num_threads + 1) // 3
+    token_threads = num_threads // 3
+
+    expected_cost = cost_threads * operations_per_thread * 1.0
+    expected_latencies = latency_threads * operations_per_thread
+    expected_token_usages = token_threads * operations_per_thread
+
+    assert abs(metrics.accumulated_cost - expected_cost) < 0.01
+    assert len(metrics.response_latencies) == expected_latencies
+    assert len(metrics.token_usages) == expected_token_usages
+
+    # Verify accumulated token usage is consistent
+    if expected_token_usages > 0:
+        assert metrics.accumulated_token_usage is not None
+        expected_prompt_tokens = expected_token_usages * 10
+        expected_completion_tokens = expected_token_usages * 5
+        assert metrics.accumulated_token_usage.prompt_tokens == expected_prompt_tokens
+        assert (
+            metrics.accumulated_token_usage.completion_tokens
+            == expected_completion_tokens
+        )
