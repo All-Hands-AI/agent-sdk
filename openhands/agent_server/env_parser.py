@@ -1,4 +1,4 @@
-"""Simple utility for converting environment variables into pydantic base models.
+"""Utility for converting environment variables into pydantic base models.
 We couldn't use pydantic-settings for this as we need complex nested types
 and polymorphism."""
 
