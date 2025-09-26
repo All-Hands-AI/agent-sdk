@@ -35,12 +35,12 @@ from openhands.agent_server.env_parser import (
 )
 
 
-class TestNode(BaseModel):
+class NodeModel(BaseModel):
     """Simple node model for testing basic recursive parsing."""
 
     name: str
     value: int = 0
-    children: list["TestNode"] = Field(default_factory=list)
+    children: list["NodeModel"] = Field(default_factory=list)
 
 
 @pytest.fixture
@@ -530,7 +530,7 @@ def test_node_model_parsing(clean_env):
     os.environ["TEST_NODE_NAME"] = "root"
     os.environ["TEST_NODE_VALUE"] = "42"
 
-    node = from_env(TestNode, "TEST_NODE")
+    node = from_env(NodeModel, "TEST_NODE")
     assert node.name == "root"
     assert node.value == 42
 
@@ -543,12 +543,12 @@ def test_node_model_parsing_with_recursion(clean_env):
     os.environ["TEST_NODE_CHILDREN_0_NAME"] = "child 1"
     os.environ["TEST_NODE_CHILDREN_1_NAME"] = "child 2"
 
-    node = from_env(TestNode, "TEST_NODE")
+    node = from_env(NodeModel, "TEST_NODE")
     assert node.name == "root"
     assert node.value == 42
     expected_children = [
-        TestNode(name="child 1"),
-        TestNode(name="child 2"),
+        NodeModel(name="child 1"),
+        NodeModel(name="child 2"),
     ]
     assert node.children == expected_children
 
@@ -561,7 +561,7 @@ def test_node_model_with_json(clean_env):
     }
     os.environ["TEST_NODE"] = json.dumps(node_data)
 
-    node = from_env(TestNode, "TEST_NODE")
+    node = from_env(NodeModel, "TEST_NODE")
     assert node.name == "json_node"
     assert node.value == 100
 
@@ -578,7 +578,7 @@ def test_node_model_mixed_parsing(clean_env):
     # Override value
     os.environ["TEST_NODE_VALUE"] = "99"
 
-    node = from_env(TestNode, "TEST_NODE")
+    node = from_env(NodeModel, "TEST_NODE")
     assert node.name == "base_name"
     assert node.value == 99
 
