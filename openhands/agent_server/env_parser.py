@@ -84,6 +84,15 @@ class ModelEnvParser(EnvParser):
         # Check for overrides...
         for field_name, parser in self.parsers.items():
             env_var_name = f"{key}_{field_name.upper()}"
+
+            # First we check that there are possible keys for this field to prevent
+            # infinite recursion
+            has_possible_keys = next(
+                (k for k in os.environ if k.startswith(env_var_name)), False
+            )
+            if not has_possible_keys:
+                continue
+
             field_value = parser.from_env(env_var_name)
             if field_value is MISSING:
                 continue
