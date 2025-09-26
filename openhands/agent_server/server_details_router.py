@@ -38,6 +38,6 @@ async def health() -> str:
 async def get_server_info() -> ServerInfo:
     now = time.time()
     return ServerInfo(
-        uptime=now - _start_time,
-        idle_time=now - _last_event_time,
+        uptime=int(now - _start_time),
+        idle_time=int(now - _last_event_time),
     )
