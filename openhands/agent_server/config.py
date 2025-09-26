@@ -1,18 +1,23 @@
-import json
 import os
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from .utils import update_with_config_var
+from openhands.agent_server.env_parser import from_env
 
 
 # Environment variable constants
-CONFIG_FILE_PATH_ENV = "OPENHANDS_AGENT_SERVER_CONFIG_PATH"
 SESSION_API_KEY_ENV = "SESSION_API_KEY"
+ENVIRONMENT_VARIABLE_PREFIX = "OH_"
 
-# Default config file location
-DEFAULT_CONFIG_FILE_PATH = "workspace/openhands_agent_server_config.json"
+
+def _default_session_api_keys():
+    # Legacy fallback for compability with old runtime API
+    result = []
+    session_api_key = os.getenv(SESSION_API_KEY_ENV)
+    if session_api_key:
+        result.append(session_api_key)
+    return result
 
 
 class WebhookSpec(BaseModel):
@@ -57,7 +62,7 @@ class Config(BaseModel):
     """
 
     session_api_keys: list[str] = Field(
-        default_factory=list,
+        default_factory=_default_session_api_keys,
         description=(
             "List of valid session API keys used to authenticate incoming requests. "
             "Empty list implies the server will be unsecured. Any key in this list "
@@ -109,76 +114,15 @@ class Config(BaseModel):
     )
     model_config = {"frozen": True}
 
-    def update_with_env_var(self) -> "Config":
-        """Create a new Config instance with values overridden from env vars.
-
-        Uses the generic update_with_config_var function to support nested fields
-        and list indices.
-        """
-        return update_with_config_var(self)
-
-    @classmethod
-    def from_json_file(cls, file_path: Path) -> "Config":
-        """Load configuration from a JSON file with environment variable overrides."""
-        config_data = {}
-
-        # Load from JSON file if it exists
-        if file_path.exists():
-            with open(file_path) as f:
-                config_data = json.load(f) or {}
-
-        # Handle session API keys with backward compatibility
-        session_api_keys = []
-
-        # First, check for new plural format in JSON
-        if "session_api_keys" in config_data:
-            session_api_keys = config_data["session_api_keys"]
-            # Remove the plural key to avoid conflicts
-            del config_data["session_api_keys"]
-
-        # Then, check for legacy singular format in JSON
-        elif "session_api_key" in config_data and config_data["session_api_key"]:
-            session_api_keys = [config_data["session_api_key"]]
-            # Remove the singular key to avoid conflicts
-            del config_data["session_api_key"]
-
-        # Finally, apply environment variable override for legacy compatibility
-        if session_api_key := os.getenv(SESSION_API_KEY_ENV):
-            # If env var is set, it takes precedence and becomes the only key
-            session_api_keys = [session_api_key]
-
-        # Set the final session_api_keys
-        config_data["session_api_keys"] = session_api_keys
-
-        # Convert string paths to Path objects
-        if "conversations_path" in config_data:
-            config_data["conversations_path"] = Path(config_data["conversations_path"])
-        if "workspace_path" in config_data:
-            config_data["workspace_path"] = Path(config_data["workspace_path"])
-        if "bash_events_dir" in config_data:
-            config_data["bash_events_dir"] = Path(config_data["bash_events_dir"])
-        if (
-            "static_files_path" in config_data
-            and config_data["static_files_path"] is not None
-        ):
-            config_data["static_files_path"] = Path(config_data["static_files_path"])
-
-        # Create initial config and apply environment variable overrides
-        config = cls(**config_data)
-        return config.update_with_env_var()
-
 
 _default_config: Config | None = None
 
 
-def get_default_config():
+def get_default_config() -> Config:
     """Get the default local server config shared across the server"""
     global _default_config
     if _default_config is None:
-        # Get config file path from environment variable or use default
-        config_file_path = os.getenv(CONFIG_FILE_PATH_ENV, DEFAULT_CONFIG_FILE_PATH)
-        config_path = Path(config_file_path)
-
-        # Load configuration from JSON file with environment variable overrides
-        _default_config = Config.from_json_file(config_path)
+        # Get the config from the environment variables
+        _default_config = from_env(Config, ENVIRONMENT_VARIABLE_PREFIX)
+        assert _default_config is not None
     return _default_config
