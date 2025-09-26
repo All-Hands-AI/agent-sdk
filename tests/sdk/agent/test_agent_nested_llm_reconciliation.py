@@ -169,8 +169,8 @@ def test_agent_resolve_diff_with_multiple_nested_llms():
         )
 
 
-def test_agent_resolve_diff_llm_count_mismatch():
-    """Test resolve_diff_from_deserialized raises error when LLM counts differ."""
+def test_agent_resolve_diff_structural_mismatch():
+    """Test resolve_diff_from_deserialized raises error when agent structures differ."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create original agent with condenser
         main_llm = LLM(
@@ -198,8 +198,8 @@ def test_agent_resolve_diff_llm_count_mismatch():
         )
         runtime_agent = Agent(llm=runtime_main_llm, tools=tools)  # No condenser
 
-        # Should raise error due to LLM count mismatch
-        with pytest.raises(ValueError, match="Mismatch in number of LLMs"):
+        # Should raise error due to structural difference (condenser mismatch)
+        with pytest.raises(ValueError, match="The Agent provided is different"):
             runtime_agent.resolve_diff_from_deserialized(deserialized_agent)
 
 
