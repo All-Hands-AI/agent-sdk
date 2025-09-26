@@ -62,7 +62,48 @@ jobs:
               if: matrix.os != 'windows-latest'
               shell: bash
               run: |
+                  # Test help command
                   ./dist/openhands-agent-server --help
+
+                  # Test server startup and template loading
+                  echo "Testing server startup and template loading..."
+                  ./dist/openhands-agent-server --port 8002 > server_test.log 2>&1 &
+                  SERVER_PID=$!
+
+                  # Wait for server to start
+                  sleep 5
+
+                  # Check if server started successfully (no template errors)
+                  if grep -q "system_prompt.j2.*not found" server_test.log; then
+                      echo "ERROR: Template files not found in binary!"
+                      cat server_test.log
+                      kill $SERVER_PID 2>/dev/null || true
+                      exit 1
+                  fi
+
+                  # Check if server is running
+                  if ! kill -0 $SERVER_PID 2>/dev/null; then
+                      echo "ERROR: Server failed to start!"
+                      cat server_test.log
+                      exit 1
+                  fi
+
+                  # Test basic API endpoint
+                  if command -v curl >/dev/null 2>&1; then
+                      echo "Testing basic API endpoint..."
+                      if curl -f -s http://localhost:8002/health >/dev/null 2>&1; then
+                          echo "✓ Health endpoint accessible"
+                      else
+                          echo "⚠ Health endpoint not accessible (may be expected)"
+                      fi
+                  fi
+
+                  # Clean up
+                  kill $SERVER_PID 2>/dev/null || true
+                  wait $SERVER_PID 2>/dev/null || true
+                  rm -f server_test.log
+
+                  echo "✓ Binary test completed successfully"
 
             - name: Upload binary artifact
               uses: actions/upload-artifact@v4

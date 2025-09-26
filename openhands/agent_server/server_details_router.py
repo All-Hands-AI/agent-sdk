@@ -1,4 +1,5 @@
 import time
+from importlib.metadata import version
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -12,6 +13,10 @@ _last_event_time = time.time()
 class ServerInfo(BaseModel):
     uptime: float
     idle_time: float
+    title: str = "OpenHands Agent Server"
+    version: str = version("openhands-agent-server")
+    docs: str = "/docs"
+    redoc: str = "/redoc"
 
 
 def update_last_execution_time():
@@ -33,6 +38,6 @@ async def health() -> str:
 async def get_server_info() -> ServerInfo:
     now = time.time()
     return ServerInfo(
-        uptime=now - _start_time,
-        idle_time=now - _last_event_time,
+        uptime=int(now - _start_time),
+        idle_time=int(now - _last_event_time),
     )
