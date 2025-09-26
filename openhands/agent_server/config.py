@@ -106,6 +106,10 @@ class Config(BaseModel):
         default=True,
         description="Whether to enable VSCode server functionality",
     )
+    enable_vnc: bool = Field(
+        default=True,
+        description="Whether to enable VNC desktop functionality",
+    )
     model_config = {"frozen": True}
 
     def _parse_env_value(self, env_value: str, field_type: type | None):
