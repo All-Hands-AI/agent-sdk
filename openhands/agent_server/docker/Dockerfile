@@ -132,6 +132,12 @@ RUN set -eux; \
 RUN mkdir -p /etc/docker && \
     echo '{"mtu": 1450}' > /etc/docker/daemon.json
 
+# Install Chromium for browser-use tools
+RUN set -eux; \
+    uvx playwright install chromium --with-deps; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
 USER ${USERNAME}
 WORKDIR /agent-server
 EXPOSE ${PORT}
