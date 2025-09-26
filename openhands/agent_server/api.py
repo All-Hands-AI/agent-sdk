@@ -20,7 +20,10 @@ from openhands.agent_server.dependencies import create_session_api_key_dependenc
 from openhands.agent_server.event_router import event_router
 from openhands.agent_server.file_router import file_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
-from openhands.agent_server.server_details_router import server_details_router
+from openhands.agent_server.server_details_router import (
+    get_server_info,
+    server_details_router,
+)
 from openhands.agent_server.sockets import sockets_router
 from openhands.agent_server.tool_router import tool_router
 from openhands.agent_server.vscode_router import vscode_router
@@ -126,6 +129,8 @@ def _setup_static_files(app: FastAPI, config: Config) -> None:
         and config.static_files_path.exists()
         and config.static_files_path.is_dir()
     ):
+        # Map the root path to server info if there are no static files
+        app.get("/")(get_server_info)
         return
 
     # Mount static files directory
