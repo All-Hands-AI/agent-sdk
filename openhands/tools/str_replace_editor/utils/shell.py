@@ -64,8 +64,7 @@ def check_tool_installed(tool_name: str) -> bool:
             [tool_name, "--version"],
             check=True,
             cwd=os.getcwd(),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):

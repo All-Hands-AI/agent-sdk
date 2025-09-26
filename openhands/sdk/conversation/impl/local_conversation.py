@@ -1,5 +1,5 @@
 import uuid
-from typing import Iterable
+from collections.abc import Iterable
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
@@ -84,7 +84,9 @@ class LocalConversation(BaseConversation):
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
-            self._visualizer = create_default_visualizer()
+            self._visualizer = create_default_visualizer(
+                conversation_stats=self._state.stats
+            )
             composed_list = [self._visualizer.on_event] + composed_list
             # visualize should happen first for visibility
         else:
@@ -103,7 +105,7 @@ class LocalConversation(BaseConversation):
         self.llm_registry = LLMRegistry()
         self.llm_registry.subscribe(self._state.stats.register_llm)
         for llm in list(self.agent.get_all_llms()):
-            self.llm_registry.add(llm.service_id, llm)
+            self.llm_registry.add(llm)
 
     @property
     def id(self) -> ConversationID:
@@ -328,13 +330,14 @@ class LocalConversation(BaseConversation):
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
         for tool in self.agent.tools_map.values():
-            if tool.executor is not None:
-                try:
-                    tool.executor.close()
-                except Exception as e:
-                    logger.warning(
-                        f"Error closing executor for tool '{tool.name}': {e}"
-                    )
+            try:
+                executable_tool = tool.as_executable()
+                executable_tool.executor.close()
+            except NotImplementedError:
+                # Tool has no executor, skip it
+                continue
+            except Exception as e:
+                logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""

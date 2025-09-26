@@ -15,7 +15,6 @@ members = [
 
 [manifest.dependency-groups]
 dev = [
-    { name = "pandas", specifier = ">=2.0.0" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pycodestyle", specifier = ">=2.12.0" },
@@ -885,6 +884,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/de/e0/bab50af11c2d75c9c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/47/71/70db47e4f6ce3e5c37a607355f80da8860a33226be640226ac52cb05ef2e/fsspec-2025.9.0-py3-none-any.whl", hash = "sha256:530dc2a2af60a414a832059574df4a6e10cce927f6f4a78209390fe38955cfb7", size = 199289, upload-time = "2025-09-02T19:10:47.708Z" },
 ]
+
+[[package]]
+name = "func-timeout"
+version = "4.3.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/0d/bf0567477f7281d9a3926c582bfef21bff7498fc0ffd3e9de21811896a0b/func_timeout-4.3.5.tar.gz", hash = "sha256:74cd3c428ec94f4edfba81f9b2f14904846d5ffccc27c92433b8b5939b5575dd", size = 44264, upload-time = "2019-08-19T21:32:07.43Z" }
 
 [[package]]
 name = "gitdb"
@@ -1832,6 +1837,7 @@ dependencies = [
     { name = "binaryornot" },
     { name = "browser-use" },
     { name = "cachetools" },
+    { name = "func-timeout" },
     { name = "libtmux" },
     { name = "openhands-sdk" },
     { name = "pydantic" },
@@ -1843,6 +1849,7 @@ requires-dist = [
     { name = "binaryornot", specifier = ">=0.4.4" },
     { name = "browser-use", specifier = ">=0.7.7" },
     { name = "cachetools" },
+    { name = "func-timeout", specifier = ">=4.3.5" },
     { name = "libtmux", specifier = ">=0.46.2" },
     { name = "openhands-sdk", editable = "openhands/sdk" },
     { name = "pydantic", specifier = ">=2.11.7" },

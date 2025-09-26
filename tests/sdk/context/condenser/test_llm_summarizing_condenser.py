@@ -2,6 +2,7 @@ from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pytest
+from litellm.types.utils import ModelResponse
 
 from openhands.sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
@@ -10,7 +11,13 @@ from openhands.sdk.context.view import View
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import (
+    LLM,
+    LLMResponse,
+    Message,
+    MetricsSnapshot,
+    TextContent,
+)
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -26,17 +33,22 @@ def mock_llm() -> LLM:
     """Create a mock LLM for testing."""
     mock_llm = MagicMock(spec=LLM)
 
-    # Mock the completion response
-    mock_message = MagicMock()
-    mock_message.content = "Summary of forgotten events"
+    # Mock the completion response - now returns LLMResponse
+    def create_completion_result(content: str) -> LLMResponse:
+        message = Message(role="assistant", content=[TextContent(text=content)])
+        metrics = MetricsSnapshot(
+            model_name="test-model",
+            accumulated_cost=0.0,
+            max_budget_per_task=None,
+            accumulated_token_usage=None,
+        )
+        # Create a mock ModelResponse
+        raw_response = MagicMock(spec=ModelResponse)
+        return LLMResponse(message=message, metrics=metrics, raw_response=raw_response)
 
-    mock_choice = MagicMock()
-    mock_choice.message = mock_message
-
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
-
-    mock_llm.completion.return_value = mock_response
+    mock_llm.completion.return_value = create_completion_result(
+        "Summary of forgotten events"
+    )
     mock_llm.format_messages_for_llm = lambda messages: messages
 
     # Mock the required attributes that are checked in _set_env_side_effects
@@ -57,7 +69,7 @@ def mock_llm() -> LLM:
 
     # Helper method to set mock response content
     def set_mock_response_content(content: str):
-        mock_message.content = content
+        mock_llm.completion.return_value = create_completion_result(content)
 
     mock_llm.set_mock_response_content = set_mock_response_content
 

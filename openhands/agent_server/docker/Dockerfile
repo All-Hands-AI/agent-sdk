@@ -132,6 +132,10 @@ RUN set -eux; \
 RUN mkdir -p /etc/docker && \
     echo '{"mtu": 1450}' > /etc/docker/daemon.json
 
+# Prepare workspace
+RUN mkdir -p /workspace/project && \
+    chown -R ${USERNAME}:${USERNAME} /workspace
+
 # Install Chromium for browser-use tools
 RUN set -eux; \
     uvx playwright install chromium --with-deps; \
@@ -139,7 +143,8 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 USER ${USERNAME}
-WORKDIR /agent-server
+WORKDIR /
+ENV LOG_JSON=true
 EXPOSE ${PORT}
 
 ############################

@@ -1,11 +1,6 @@
 import json
-from typing import cast
 
-from litellm.types.utils import (
-    ChatCompletionMessageToolCall,
-    Choices,
-    Message as LiteLLMMessage,
-)
+from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
@@ -69,15 +64,16 @@ class Agent(AgentBase):
 
         execute_bash_exists = False
         for tool in self.tools_map.values():
-            if (
-                tool.name == "execute_bash"
-                and hasattr(tool, "executor")
-                and tool.executor is not None
-            ):
-                # Wire the env provider and env masker for the bash executor
-                setattr(tool.executor, "env_provider", env_for_cmd)
-                setattr(tool.executor, "env_masker", env_masker)
-                execute_bash_exists = True
+            if tool.name == "execute_bash":
+                try:
+                    executable_tool = tool.as_executable()
+                    # Wire the env provider and env masker for the bash executor
+                    setattr(executable_tool.executor, "env_provider", env_for_cmd)
+                    setattr(executable_tool.executor, "env_masker", env_masker)
+                    execute_bash_exists = True
+                except NotImplementedError:
+                    # Tool has no executor, skip it
+                    continue
 
         if not execute_bash_exists:
             logger.warning("Skipped wiring SecretsManager: missing bash tool")
@@ -165,10 +161,9 @@ class Agent(AgentBase):
                     return None
 
         else:
-            llm_convertible_events = cast(
-                list[LLMConvertibleEvent],
-                [e for e in state.events if isinstance(e, LLMConvertibleEvent)],
-            )
+            llm_convertible_events = [
+                e for e in state.events if isinstance(e, LLMConvertibleEvent)
+            ]
 
         # Get LLM Response (Action)
         _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
@@ -178,7 +173,7 @@ class Agent(AgentBase):
         )
 
         try:
-            response = self.llm.completion(
+            llm_response = self.llm.completion(
                 messages=_messages,
                 tools=list(self.tools_map.values()),
                 extra_body={
@@ -206,9 +201,8 @@ class Agent(AgentBase):
             else:
                 raise e
 
-        assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
-        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
-        message = Message.from_litellm_message(llm_message)
+        # LLMResponse already contains the converted message and metrics snapshot
+        message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -240,7 +234,7 @@ class Agent(AgentBase):
                 action_event = self._get_action_event(
                     state,
                     tool_call,
-                    llm_response_id=response.id,
+                    llm_response_id=llm_response.id,
                     on_event=on_event,
                     thought=thought_content
                     if i == 0

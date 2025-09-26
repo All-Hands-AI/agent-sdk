@@ -1,8 +1,9 @@
 import os
 import re
 import sys
-from abc import ABC
-from typing import TYPE_CHECKING, Any, Generator, Iterable
+from abc import ABC, abstractmethod
+from collections.abc import Generator, Iterable
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
@@ -229,6 +230,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         # Store tools in a dict for easy access
         self._tools = {tool.name: tool for tool in tools}
 
+    @abstractmethod
     def step(
         self,
         state: "ConversationState",
@@ -246,7 +248,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         NOTE: state will be mutated in-place.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
 
     def resolve_diff_from_deserialized(self, persisted: "AgentBase") -> "AgentBase":
         """
@@ -350,8 +351,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             return ()
 
         # Drive the traversal from self
-        for llm in _walk(self):
-            yield llm
+        yield from _walk(self)
 
     @property
     def tools_map(self) -> dict[str, Tool]:

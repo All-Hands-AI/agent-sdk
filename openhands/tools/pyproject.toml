@@ -12,6 +12,7 @@ dependencies = [
     "libtmux>=0.46.2",
     "pydantic>=2.11.7",
     "browser-use>=0.7.7",
+    "func-timeout>=4.3.5",
 ]
 
 [build-system]

@@ -22,8 +22,9 @@ def test_conversation_close_calls_executor_close(mock_llm):
         bash_executor.close = Mock()
 
         def _make_tool(**params):
-            tool = BashTool.create(**params)
-            return tool.model_copy(update={"executor": bash_executor})
+            tools = BashTool.create(**params)
+            tool = tools[0]
+            return [tool.model_copy(update={"executor": bash_executor})]
 
         register_tool("test_execute_bash", _make_tool)
 
@@ -51,8 +52,9 @@ def test_conversation_del_calls_close(mock_llm):
         bash_executor.close = Mock()
 
         def _make_tool(**params):
-            tool = BashTool.create(**params)
-            return tool.model_copy(update={"executor": bash_executor})
+            tools = BashTool.create(**params)
+            tool = tools[0]
+            return [tool.model_copy(update={"executor": bash_executor})]
 
         register_tool("test_execute_bash", _make_tool)
 
@@ -83,8 +85,9 @@ def test_conversation_close_handles_executor_exceptions(mock_llm):
         bash_executor.close = Mock(side_effect=Exception("Test exception"))
 
         def _make_tool(**params):
-            tool = BashTool.create(**params)
-            return tool.model_copy(update={"executor": bash_executor})
+            tools = BashTool.create(**params)
+            tool = tools[0]
+            return [tool.model_copy(update={"executor": bash_executor})]
 
         register_tool("test_execute_bash", _make_tool)
 
@@ -109,9 +112,9 @@ def test_conversation_close_skips_none_executors(mock_llm):
     # Create a tool with no executor
     register_tool(
         "test_execute_bash",
-        lambda **params: BashTool.create(**params).model_copy(
-            update={"executor": None}
-        ),
+        lambda **params: [
+            BashTool.create(**params)[0].model_copy(update={"executor": None})
+        ],
     )
 
     # Create agent and conversation

@@ -59,6 +59,7 @@ from openhands.tools.str_replace_editor import FileEditorTool
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
+    service_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
@@ -114,7 +115,7 @@ thread.join()
 # Verification
 document_path = os.path.join(cwd, "document.txt")
 if os.path.exists(document_path):
-    with open(document_path, "r") as f:
+    with open(document_path) as f:
         content = f.read()
 
     print("\nDocument contents:")

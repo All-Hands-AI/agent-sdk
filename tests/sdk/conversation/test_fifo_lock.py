@@ -5,7 +5,6 @@ Test FIFO lock implementation for fairness and correctness.
 import threading
 import time
 from collections import deque
-from typing import List
 
 import pytest
 
@@ -200,7 +199,7 @@ def test_fifo_lock_stress_test():
     # but the main fairness test above verifies FIFO behavior
 
 
-def run_fairness_test_parallel(num_runs: int = 50) -> List[bool]:
+def run_fairness_test_parallel(num_runs: int = 50) -> list[bool]:
     """
     Run the fairness test multiple times in parallel to verify consistency.
 

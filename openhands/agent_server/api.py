@@ -1,3 +1,4 @@
+import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -6,6 +7,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 
+from openhands.agent_server.bash_router import bash_router
 from openhands.agent_server.config import (
     Config,
     get_default_config,
@@ -19,8 +21,11 @@ from openhands.agent_server.event_router import event_router
 from openhands.agent_server.file_router import file_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
 from openhands.agent_server.server_details_router import server_details_router
+from openhands.agent_server.sockets import sockets_router
 from openhands.agent_server.tool_router import tool_router
-from openhands.sdk.logger import get_logger
+from openhands.agent_server.vscode_router import vscode_router
+from openhands.agent_server.vscode_service import get_vscode_service
+from openhands.sdk.logger import DEBUG, get_logger
 
 
 logger = get_logger(__name__)
@@ -29,8 +34,25 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
     service = get_default_conversation_service()
+    vscode_service = get_vscode_service()
+
+    # Start VSCode service if enabled
+    if vscode_service is not None:
+        vscode_started = await vscode_service.start()
+        if vscode_started:
+            logger.info("VSCode service started successfully")
+        else:
+            logger.warning("VSCode service failed to start, continuing without VSCode")
+    else:
+        logger.info("VSCode service is disabled")
+
     async with service:
-        yield
+        try:
+            yield
+        finally:
+            # Stop VSCode service on shutdown
+            if vscode_service is not None:
+                await vscode_service.stop()
 
 
 def _create_fastapi_instance() -> FastAPI:
@@ -84,8 +106,11 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
     api_router.include_router(event_router)
     api_router.include_router(conversation_router)
     api_router.include_router(tool_router)
+    api_router.include_router(bash_router)
     api_router.include_router(file_router)
+    api_router.include_router(vscode_router)
     app.include_router(api_router)
+    app.include_router(sockets_router)
 
 
 def _setup_static_files(app: FastAPI, config: Config) -> None:
@@ -132,6 +157,22 @@ def _add_exception_handlers(api: FastAPI) -> None:
         request: Request, exc: Exception
     ) -> JSONResponse:
         """Handle unhandled exceptions."""
+        # Always log that we're in the exception handler for debugging
+        logger.debug(
+            "Exception handler called for %s %s with %s: %s",
+            request.method,
+            request.url.path,
+            type(exc).__name__,
+            str(exc),
+        )
+
+        content = {
+            "detail": "Internal Server Error",
+            "exception": str(exc),
+        }
+        # In DEBUG mode, include stack trace in response
+        if DEBUG:
+            content["traceback"] = traceback.format_exc()
         # Check if this is an HTTPException that should be handled directly
         if isinstance(exc, HTTPException):
             return await _http_exception_handler(request, exc)
@@ -142,21 +183,23 @@ def _add_exception_handlers(api: FastAPI) -> None:
             if http_exc:
                 return await _http_exception_handler(request, http_exc)
             # If no HTTPException found, treat as unhandled exception
-            logger.exception(
-                "Unhandled ExceptionGroup on %s %s", request.method, request.url.path
+            logger.error(
+                "Unhandled ExceptionGroup on %s %s",
+                request.method,
+                request.url.path,
+                exc_info=(type(exc), exc, exc.__traceback__),
             )
-            return JSONResponse(
-                status_code=500, content={"detail": "Internal Server Error"}
-            )
+            return JSONResponse(status_code=500, content=content)
 
         # Logs full stack trace for any unhandled error that FastAPI would
         # turn into a 500
-        logger.exception(
-            "Unhandled exception on %s %s", request.method, request.url.path
+        logger.error(
+            "Unhandled exception on %s %s",
+            request.method,
+            request.url.path,
+            exc_info=(type(exc), exc, exc.__traceback__),
         )
-        return JSONResponse(
-            status_code=500, content={"detail": "Internal Server Error"}
-        )
+        return JSONResponse(status_code=500, content=content)
 
     @api.exception_handler(HTTPException)
     async def _http_exception_handler(
@@ -180,12 +223,18 @@ def _add_exception_handlers(api: FastAPI) -> None:
                 request.method,
                 request.url.path,
                 exc.detail,
-                exc_info=True,
+                exc_info=(type(exc), exc, exc.__traceback__),
             )
-            # Don't leak internal details to clients for 5xx errors
+            content = {
+                "detail": "Internal Server Error",
+                "exception": str(exc),
+            }
+            if DEBUG:
+                content["traceback"] = traceback.format_exc()
+            # Don't leak internal details to clients for 5xx errors in production
             return JSONResponse(
                 status_code=exc.status_code,
-                content={"detail": "Internal Server Error"},
+                content=content,
             )
 
         # Return clean JSON response for all non-5xx HTTP exceptions

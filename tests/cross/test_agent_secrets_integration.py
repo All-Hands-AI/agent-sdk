@@ -22,7 +22,9 @@ from openhands.tools.execute_bash.impl import BashExecutor
 
 @pytest.fixture
 def llm() -> LLM:
-    return LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    return LLM(
+        model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+    )
 
 
 @pytest.fixture

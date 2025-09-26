@@ -4,8 +4,9 @@ import copy
 import json
 import os
 import warnings
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -50,11 +51,13 @@ from litellm.utils import (
     token_counter,
 )
 
-# OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+
+# OpenHands utilities
+from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
-from openhands.sdk.llm.utils.metrics import Metrics
+from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -186,7 +189,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ),
     )
     service_id: str = Field(
-        default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
 
@@ -349,7 +351,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
-    ) -> ModelResponse:
+    ) -> LLMResponse:
         """Single entry point for LLM completion.
 
         Normalize → (maybe) mock tools → transport → postprocess.
@@ -438,7 +440,23 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         try:
             resp = _one_attempt()
-            return resp
+
+            # Convert the first choice to an OpenHands Message
+            first_choice = resp["choices"][0]
+            message = Message.from_litellm_message(first_choice["message"])
+
+            # Get current metrics snapshot
+            metrics_snapshot = MetricsSnapshot(
+                model_name=self.metrics.model_name,
+                accumulated_cost=self.metrics.accumulated_cost,
+                max_budget_per_task=self.metrics.max_budget_per_task,
+                accumulated_token_usage=self.metrics.accumulated_token_usage,
+            )
+
+            # Create and return LLMResponse
+            return LLMResponse(
+                message=message, metrics=metrics_snapshot, raw_response=resp
+            )
         except Exception as e:
             self._telemetry.on_error(e)
             raise
@@ -615,7 +633,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             self.max_input_tokens = self._model_info.get("max_input_tokens")
 
         if self.max_output_tokens is None:
-            if any(m in self.model for m in ["claude-3-7-sonnet", "claude-3.7-sonnet"]):
+            if any(
+                m in self.model
+                for m in ["claude-3-7-sonnet", "claude-3.7-sonnet", "claude-sonnet-4"]
+            ):
                 self.max_output_tokens = (
                     64000  # practical cap (litellm may allow 128k with header)
                 )
@@ -751,13 +772,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Serialization helpers
     # =========================================================================
     @classmethod
-    def load_from_json(cls, json_path: str) -> "LLM":
-        with open(json_path, "r") as f:
+    def load_from_json(cls, json_path: str) -> LLM:
+        with open(json_path) as f:
             data = json.load(f)
         return cls(**data)
 
     @classmethod
-    def load_from_env(cls, prefix: str = "LLM_") -> "LLM":
+    def load_from_env(cls, prefix: str = "LLM_") -> LLM:
         TRUTHY = {"true", "1", "yes", "on"}
 
         def _unwrap_type(t: Any) -> Any:
@@ -812,7 +833,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return cls(**data)
 
     @classmethod
-    def load_from_toml(cls, toml_path: str) -> "LLM":
+    def load_from_toml(cls, toml_path: str) -> LLM:
         try:
             import tomllib
         except ImportError:
@@ -826,7 +847,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             data = data["llm"]
         return cls(**data)
 
-    def resolve_diff_from_deserialized(self, persisted: "LLM") -> "LLM":
+    def resolve_diff_from_deserialized(self, persisted: LLM) -> LLM:
         """Resolve differences between a deserialized LLM and the current instance.
 
         This is due to fields like api_key being serialized to "****" in dumps,

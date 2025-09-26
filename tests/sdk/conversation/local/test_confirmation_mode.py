@@ -55,7 +55,9 @@ class TestConfirmationMode:
         """Set up test fixtures."""
 
         # Create a real LLM instance for Agent validation
-        self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+        self.llm = LLM(
+            model="gpt-4", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
 
         # Create a MagicMock to override the completion method
         self.mock_llm = MagicMock()
@@ -89,14 +91,16 @@ class TestConfirmationMode:
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool() -> Tool:
-            return Tool(
-                name="test_tool",
-                description="A test tool",
-                action_type=MockConfirmationModeAction,
-                observation_type=MockConfirmationModeObservation,
-                executor=TestExecutor(),
-            )
+        def _make_tool() -> Sequence[Tool]:
+            return [
+                Tool(
+                    name="test_tool",
+                    description="A test tool",
+                    action_type=MockConfirmationModeAction,
+                    observation_type=MockConfirmationModeObservation,
+                    executor=TestExecutor(),
+                )
+            ]
 
         register_tool("test_tool", _make_tool)
 

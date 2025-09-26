@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -22,12 +22,12 @@ def sample_stored_conversation():
     """Create a sample StoredConversation for testing."""
     return StoredConversation(
         id=uuid4(),
-        agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
+        agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
         confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
-        created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=UTC),
     )
 
 

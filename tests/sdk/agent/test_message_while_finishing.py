@@ -37,6 +37,7 @@ if _REPO_ROOT not in sys.path:
 
 import threading  # noqa: E402
 import time  # noqa: E402
+from collections.abc import Sequence  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
 from litellm import ChatCompletionMessageToolCall  # noqa: E402
@@ -51,7 +52,7 @@ from pydantic import Field  # noqa: E402
 from openhands.sdk.agent import Agent  # noqa: E402
 from openhands.sdk.conversation import Conversation  # noqa: E402
 from openhands.sdk.event import MessageEvent  # noqa: E402
-from openhands.sdk.llm import LLM, Message, TextContent  # noqa: E402
+from openhands.sdk.llm import LLM, ImageContent, Message, TextContent  # noqa: E402
 from openhands.sdk.tool import (  # noqa: E402
     ActionBase,
     ObservationBase,
@@ -72,9 +73,7 @@ class SleepObservation(ObservationBase):
     message: str = Field(description="Message returned after sleep")
 
     @property
-    def agent_observation(self):
-        from openhands.sdk.llm import TextContent
-
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
 
 
@@ -115,15 +114,17 @@ class SleepExecutor(ToolExecutor):
         return SleepObservation(message=action.message)
 
 
-def _make_sleep_tool() -> Tool:
+def _make_sleep_tool() -> Sequence[Tool]:
     """Create sleep tool for testing."""
-    return Tool(
-        name="sleep_tool",
-        action_type=SleepAction,
-        observation_type=SleepObservation,
-        description="Sleep for specified duration and return a message",
-        executor=SleepExecutor(),
-    )
+    return [
+        Tool(
+            name="sleep_tool",
+            action_type=SleepAction,
+            observation_type=SleepObservation,
+            description="Sleep for specified duration and return a message",
+            executor=SleepExecutor(),
+        )
+    ]
 
 
 # Register the tool
@@ -136,7 +137,7 @@ class TestMessageWhileFinishing:
     def setup_method(self):
         """Set up test fixtures."""
         # Use gpt-4o which supports native function calling and multiple tool calls
-        self.llm = LLM(model="gpt-4o", native_tool_calling=True)
+        self.llm = LLM(model="gpt-4o", native_tool_calling=True, service_id="test-llm")
         self.llm_completion_calls = []
         self.agent = Agent(llm=self.llm, tools=[ToolSpec(name="SleepTool")])
         self.step_count = 0
@@ -514,9 +515,8 @@ def _run_parallel_main():  # pragma: no cover - helper for manual stress testing
     extra_args = args.pytest_args if args.pytest_args else []
 
     print(
-        "Running {} {} times with concurrency={} (uv={})".format(
-            args.nodeid, args.runs, args.concurrency, use_uv
-        )
+        f"Running {args.nodeid} {args.runs} times with "
+        f"concurrency={args.concurrency} (uv={use_uv})"
     )
 
     def run_one(idx: int) -> tuple[int, int, str]:
@@ -555,9 +555,8 @@ def _run_parallel_main():  # pragma: no cover - helper for manual stress testing
 
     print("\nSummary:")
     print(
-        "Total: {}, Passed: {}, Failed: {}".format(
-            args.runs, args.runs - len(failures), len(failures)
-        )
+        f"Total: {args.runs}, Passed: "
+        f"{args.runs - len(failures)}, Failed: {len(failures)}"
     )
     if failures:
         print("\n--- Failure outputs (first 3) ---")

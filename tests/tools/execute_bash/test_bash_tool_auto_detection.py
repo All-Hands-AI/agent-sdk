@@ -16,7 +16,8 @@ from openhands.tools.execute_bash.terminal import (
 def test_default_auto_detection():
     """Test that BashTool auto-detects the appropriate session type."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tool = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(working_dir=temp_dir)
+        tool = tools[0]
 
         # BashTool always has an executor
         assert tool.executor is not None
@@ -40,7 +41,8 @@ def test_forced_terminal_types():
     """Test forcing specific session types."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Test forced subprocess session
-        tool = BashTool.create(working_dir=temp_dir, terminal_type="subprocess")
+        tools = BashTool.create(working_dir=temp_dir, terminal_type="subprocess")
+        tool = tools[0]
         assert tool.executor is not None
         executor = tool.executor
         assert isinstance(executor, BashExecutor)
@@ -64,7 +66,8 @@ def test_unix_auto_detection(mock_system):
             "openhands.tools.execute_bash.terminal.factory._is_tmux_available",
             return_value=True,
         ):
-            tool = BashTool.create(working_dir=temp_dir)
+            tools = BashTool.create(working_dir=temp_dir)
+            tool = tools[0]
             assert tool.executor is not None
             executor = tool.executor
             assert isinstance(executor, BashExecutor)
@@ -76,7 +79,8 @@ def test_unix_auto_detection(mock_system):
             "openhands.tools.execute_bash.terminal.factory._is_tmux_available",
             return_value=False,
         ):
-            tool = BashTool.create(working_dir=temp_dir)
+            tools = BashTool.create(working_dir=temp_dir)
+            tool = tools[0]
             assert tool.executor is not None
             executor = tool.executor
             assert isinstance(executor, BashExecutor)
@@ -87,12 +91,13 @@ def test_unix_auto_detection(mock_system):
 def test_session_parameters():
     """Test that session parameters are properly passed."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tool = BashTool.create(
+        tools = BashTool.create(
             working_dir=temp_dir,
             username="testuser",
             no_change_timeout_seconds=60,
             terminal_type="subprocess",
         )
+        tool = tools[0]
 
         assert tool.executor is not None
         executor = tool.executor
@@ -107,7 +112,8 @@ def test_backward_compatibility():
     """Test that the simplified API still works."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # This should work just like before
-        tool = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(working_dir=temp_dir)
+        tool = tools[0]
 
         assert tool.executor is not None
         action = ExecuteBashAction(command="echo 'Backward compatibility test'")
@@ -119,7 +125,8 @@ def test_backward_compatibility():
 def test_tool_metadata():
     """Test that tool metadata is preserved."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tool = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(working_dir=temp_dir)
+        tool = tools[0]
 
         assert tool.name == "execute_bash"
         assert tool.description is not None
@@ -130,7 +137,8 @@ def test_tool_metadata():
 def test_session_lifecycle():
     """Test session lifecycle management."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tool = BashTool.create(working_dir=temp_dir, terminal_type="subprocess")
+        tools = BashTool.create(working_dir=temp_dir, terminal_type="subprocess")
+        tool = tools[0]
 
         # Session should be initialized
         assert tool.executor is not None

@@ -1,6 +1,9 @@
+from collections.abc import Sequence
+
 import pytest
 
 from openhands.sdk import register_tool
+from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import Tool
 from openhands.sdk.tool.registry import resolve_tool
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
@@ -14,6 +17,10 @@ class _HelloAction(ActionBase):
 
 class _HelloObservation(ObservationBase):
     message: str
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.message)]
 
 
 class _HelloExec(ToolExecutor[_HelloAction, _HelloObservation]):
@@ -34,23 +41,27 @@ class _ConfigurableHelloTool(Tool):
                     message=f"{self._greeting}, {action.name}{self._punctuation}"
                 )
 
-        return cls(
-            name="say_configurable_hello",
-            description=f"{greeting}{punctuation}",
+        return [
+            cls(
+                name="say_configurable_hello",
+                description=f"{greeting}{punctuation}",
+                action_type=_HelloAction,
+                observation_type=_HelloObservation,
+                executor=_ConfigurableExec(greeting, punctuation),
+            )
+        ]
+
+
+def _hello_tool_factory() -> list[Tool]:
+    return [
+        Tool(
+            name="say_hello",
+            description="Says hello",
             action_type=_HelloAction,
             observation_type=_HelloObservation,
-            executor=_ConfigurableExec(greeting, punctuation),
+            executor=_HelloExec(),
         )
-
-
-def _hello_tool_factory() -> Tool:
-    return Tool(
-        name="say_hello",
-        description="Says hello",
-        action_type=_HelloAction,
-        observation_type=_HelloObservation,
-        executor=_HelloExec(),
-    )
+    ]
 
 
 def test_register_and_resolve_callable_factory():
@@ -62,14 +73,14 @@ def test_register_and_resolve_callable_factory():
 
 
 def test_register_tool_instance_rejects_params():
-    t = _hello_tool_factory()
+    t = _hello_tool_factory()[0]  # Get the single tool from the list
     register_tool("say_hello_instance", t)
     with pytest.raises(ValueError):
         resolve_tool(ToolSpec(name="say_hello_instance", params={"x": 1}))
 
 
 def test_register_tool_instance_returns_same_object():
-    tool = _hello_tool_factory()
+    tool = _hello_tool_factory()[0]  # Get the single tool from the list
     register_tool("say_hello_instance_same", tool)
 
     resolved_first = resolve_tool(ToolSpec(name="say_hello_instance_same"))

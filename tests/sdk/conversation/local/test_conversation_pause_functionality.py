@@ -79,7 +79,9 @@ class TestPauseFunctionality:
     def setup_method(self):
         """Set up test fixtures."""
 
-        self.llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        self.llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
 
         class TestExecutor(
             ToolExecutor[
@@ -93,14 +95,16 @@ class TestPauseFunctionality:
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool() -> Tool:
-            return Tool(
-                name="test_tool",
-                description="A test tool",
-                action_type=TestPauseFunctionalityMockAction,
-                observation_type=TestPauseFunctionalityMockObservation,
-                executor=TestExecutor(),
-            )
+        def _make_tool() -> Sequence[Tool]:
+            return [
+                Tool(
+                    name="test_tool",
+                    description="A test tool",
+                    action_type=TestPauseFunctionalityMockAction,
+                    observation_type=TestPauseFunctionalityMockObservation,
+                    executor=TestExecutor(),
+                )
+            ]
 
         register_tool("test_tool", _make_tool)
 
@@ -286,14 +290,16 @@ class TestPauseFunctionality:
     def test_pause_while_running_continuous_actions(self, mock_completion):
         step_entered = threading.Event()
 
-        def _make_blocking_tool() -> Tool:
-            return Tool(
-                name="test_tool",
-                description="Blocking tool for pause test",
-                action_type=TestPauseFunctionalityMockAction,
-                observation_type=TestPauseFunctionalityMockObservation,
-                executor=BlockingExecutor(step_entered),
-            )
+        def _make_blocking_tool() -> Sequence[Tool]:
+            return [
+                Tool(
+                    name="test_tool",
+                    description="Blocking tool for pause test",
+                    action_type=TestPauseFunctionalityMockAction,
+                    observation_type=TestPauseFunctionalityMockObservation,
+                    executor=BlockingExecutor(step_entered),
+                )
+            ]
 
         register_tool("test_tool", _make_blocking_tool)
         agent = Agent(

@@ -55,11 +55,9 @@ ENV_DEBUG_LLM = os.getenv("DEBUG_LLM", "false").lower() in {"1", "true", "yes"}
 _ENABLE_LITELLM_DEBUG = False
 if ENV_DEBUG_LLM:
     confirmation = input(
-        (
-            "\n⚠️ WARNING: You are enabling DEBUG_LLM which may expose sensitive "
-            "information like API keys.\nThis should NEVER be enabled in production.\n"
-            "Type 'y' to confirm you understand the risks: "
-        )
+        "\n⚠️ WARNING: You are enabling DEBUG_LLM which may expose sensitive "
+        "information like API keys.\nThis should NEVER be enabled in production.\n"
+        "Type 'y' to confirm you understand the risks: "
     )
     if confirmation.lower() == "y":
         _ENABLE_LITELLM_DEBUG = True

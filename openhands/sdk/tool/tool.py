@@ -1,5 +1,6 @@
-from abc import ABC
-from typing import Any, Generic, Self, TypeVar
+from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from typing import Any, Protocol, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -61,11 +62,20 @@ class ToolAnnotations(BaseModel):
     )
 
 
-class ToolExecutor(Generic[ActionT, ObservationT]):
+class ToolExecutor[ActionT, ObservationT](ABC):
     """Executor function type for a Tool."""
 
+    @abstractmethod
     def __call__(self, action: ActionT) -> ObservationT:
-        raise NotImplementedError
+        """Execute the tool with the given action and return an observation.
+
+        Args:
+            action: The action to execute, containing the parameters and context
+                   needed for the tool operation.
+
+        Returns:
+            An observation containing the results of the tool execution.
+        """
 
     def close(self) -> None:
         """Close the executor and clean up resources.
@@ -77,7 +87,22 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
+class ExecutableTool(Protocol):
+    """Protocol for tools that are guaranteed to have a non-None executor.
+
+    This eliminates the need for runtime None checks and type narrowing
+    when working with tools that are known to be executable.
+    """
+
+    name: str
+    executor: ToolExecutor[Any, Any]  # Non-optional executor
+
+    def __call__(self, action: ActionBase) -> ObservationBase:
+        """Execute the tool with the given action."""
+        ...
+
+
+class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -102,13 +127,17 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Self | list[Self]":
-        """Create a Tool instance OR a list of them. Placeholder for subclasses.
+    @abstractmethod
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
+        """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).
+
+        Returns:
+            A sequence of Tool instances. Even single tools are returned as a sequence
+            to provide a consistent interface and eliminate union return types.
         """
-        raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
     @computed_field(return_type=str, alias="title")
     @property
@@ -151,6 +180,22 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     def set_executor(self, executor: ToolExecutor) -> Self:
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
+
+    def as_executable(self) -> ExecutableTool:
+        """Return this tool as an ExecutableTool, ensuring it has an executor.
+
+        This method eliminates the need for runtime None checks by guaranteeing
+        that the returned tool has a non-None executor.
+
+        Returns:
+            This tool instance, typed as ExecutableTool.
+
+        Raises:
+            NotImplementedError: If the tool has no executor.
+        """
+        if self.executor is None:
+            raise NotImplementedError(f"Tool '{self.name}' has no executor")
+        return self  # type: ignore[return-value]
 
     def action_from_arguments(self, arguments: dict[str, Any]) -> ActionBase:
         """Create an action from parsed arguments.
@@ -273,8 +318,27 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         return Tool
 
 
-class Tool(ToolBase[ActionT, ObservationT], Generic[ActionT, ObservationT]):
-    pass
+class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
+    """Concrete tool class that inherits from ToolBase.
+
+    This class serves as a concrete implementation of ToolBase for cases where
+    you want to create a tool instance directly without implementing a custom
+    subclass. Built-in tools (like FinishTool, ThinkTool) are instantiated
+    directly from this class, while more complex tools (like BashTool,
+    FileEditorTool) inherit from this class and provide their own create()
+    method implementations.
+    """
+
+    @classmethod
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
+        """Create a sequence of Tool instances.
+
+        TODO https://github.com/All-Hands-AI/agent-sdk/issues/493
+        Refactor this - the Tool class should not have a concrete create()
+        implementation. Built-in tools should be refactored to not rely on this
+        method, and then this should be made abstract with @abstractmethod.
+        """
+        raise NotImplementedError("Tool.create() should be implemented by subclasses")
 
 
 def _create_action_type_with_risk(action_type: type[ActionBase]) -> type[ActionBase]:

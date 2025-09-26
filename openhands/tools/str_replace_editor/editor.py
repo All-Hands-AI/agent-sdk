@@ -442,7 +442,7 @@ class FileEditor:
         ) as temp_file:
             # Copy lines before insert point and save them for history
             history_lines = []
-            with open(path, "r", encoding=encoding) as f:
+            with open(path, encoding=encoding) as f:
                 for i, line in enumerate(f, 1):
                     if i > insert_line:
                         break
@@ -454,7 +454,7 @@ class FileEditor:
                 temp_file.write(line + "\n")
 
             # Copy remaining lines and save them for history
-            with open(path, "r", encoding=encoding) as f:
+            with open(path, encoding=encoding) as f:
                 for i, line in enumerate(f, 1):
                     if i <= insert_line:
                         continue
@@ -633,7 +633,7 @@ class FileEditor:
             if start_line is not None and end_line is not None:
                 # Read only the specified line range
                 lines = []
-                with open(path, "r", encoding=encoding) as f:
+                with open(path, encoding=encoding) as f:
                     for i, line in enumerate(f, 1):
                         if i > end_line:
                             break
@@ -646,7 +646,7 @@ class FileEditor:
                 )
             else:
                 # Use line-by-line reading to avoid loading entire file into memory
-                with open(path, "r", encoding=encoding) as f:
+                with open(path, encoding=encoding) as f:
                     return "".join(f)
         except Exception as e:
             raise ToolError(f"Ran into {e} while trying to read {path}") from None

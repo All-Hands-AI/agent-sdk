@@ -33,7 +33,9 @@ class EventService:
     file_store_path: Path
     working_dir: Path
     _conversation: LocalConversation | None = field(default=None, init=False)
-    _pub_sub: PubSub = field(default_factory=PubSub, init=False)
+    _pub_sub: PubSub[EventBase] = field(
+        default_factory=lambda: PubSub[EventBase](), init=False
+    )
     _run_task: asyncio.Task | None = field(default=None, init=False)
 
     async def load_meta(self):
@@ -144,13 +146,13 @@ class EventService:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._conversation.send_message, message)
 
-    async def subscribe_to_events(self, subscriber: Subscriber) -> UUID:
+    async def subscribe_to_events(self, subscriber: Subscriber[EventBase]) -> UUID:
         return self._pub_sub.subscribe(subscriber)
 
     async def unsubscribe_from_events(self, subscriber_id: UUID) -> bool:
         return self._pub_sub.unsubscribe(subscriber_id)
 
-    async def start(self, conversation_id: UUID):
+    async def start(self):
         # self.stored contains an Agent configuration we can instantiate
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
@@ -162,7 +164,7 @@ class EventService:
                 # inside Conversation, events will be saved to
                 # "file_store_path/{convo_id}/events"
             ),
-            conversation_id=conversation_id,
+            conversation_id=self.stored.id,
             callbacks=[
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
             ],
@@ -220,8 +222,8 @@ class EventService:
             raise ValueError("inactive_service")
         return self._conversation._state
 
-    async def __aenter__(self, conversation_id: UUID):
-        await self.start(conversation_id=conversation_id)
+    async def __aenter__(self):
+        await self.start()
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
