@@ -12,6 +12,10 @@ _last_event_time = time.time()
 class ServerInfo(BaseModel):
     uptime: float
     idle_time: float
+    title: str = "OpenHands Agent Server"
+    version: str = "0.1.0"
+    docs: str = "/docs"
+    redoc: str = "/redoc"
 
 
 def update_last_execution_time():
