@@ -46,6 +46,7 @@ def main():
         reload_excludes=["workspace"],
         log_level=log_level,
         log_config=LOGGING_CONFIG,
+        ws="wsproto",  # Use wsproto instead of deprecated websockets implementation
     )
 
 
