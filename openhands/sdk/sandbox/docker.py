@@ -209,7 +209,7 @@ class DockerSandboxedAgentServer:
         self._stop_logs = threading.Event()
         self.mount_dir = mount_dir
         self.detach_logs = detach_logs
-        self._forward_env = list(forward_env or [])
+        self._forward_env = list(forward_env or ["DEBUG"])
         self._target = target
         self._platform = platform
 

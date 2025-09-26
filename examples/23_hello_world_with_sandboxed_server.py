@@ -13,27 +13,6 @@ from openhands.sdk.preset.default import get_default_agent
 from openhands.sdk.sandbox import DockerSandboxedAgentServer
 
 
-"""
-Example 23: Hello World with a sandboxed Agent Server (Docker)
-
-This example demonstrates how to:
-  1) Start a DEV (source) Docker build of the OpenHands Agent Server
-  2) Get the image name automatically
-  3) Launch the Docker container
-  4) Connect to the server inside Docker and interact with it
-  5) Run the same conversation flow as in example 22
-
-Prerequisites:
-  - Docker and docker buildx installed
-  - LITELLM_API_KEY set in your shell env (used by the agent)
-
-Notes:
-  - We mount the current repo into /workspace inside the container so agent
-    actions affect your local files, mirroring the behavior of example 22.
-  - The dev image target runs the server from source with a virtualenv inside
-    the container for quick iteration.
-"""
-
 logger = get_logger(__name__)
 
 

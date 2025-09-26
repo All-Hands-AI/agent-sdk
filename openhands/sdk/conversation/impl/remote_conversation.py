@@ -67,7 +67,7 @@ class WebSocketCallbackClient:
         parsed = urlparse(self.host)
         ws_scheme = "wss" if parsed.scheme == "https" else "ws"
         base = f"{ws_scheme}://{parsed.netloc}{parsed.path.rstrip('/')}"
-        ws_url = f"{base}/api/conversations/{self.conversation_id}/events/socket"
+        ws_url = f"{base}/sockets/events/{self.conversation_id}"
 
         delay = 1.0
         while not self._stop.is_set():
@@ -401,7 +401,7 @@ class RemoteConversation(BaseConversation):
             logger.info("Conversation is already running; skipping run trigger")
             return
         resp.raise_for_status()
-        logger.info("run() triggered successfully")
+        logger.info(f"run() triggered successfully: {resp}")
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         payload = {"policy": policy.model_dump()}
