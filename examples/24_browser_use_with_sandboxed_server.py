@@ -77,4 +77,5 @@ with DockerSandboxedAgentServer(
             " interacting with via VNC.\n\n"
             "Link: http://localhost:8012/vnc.html?autoconnect=1&resize=remote\n\n\n"
             "Press 'y' and Enter to exit and terminate the sandboxed server."
+            ">> "
         )
