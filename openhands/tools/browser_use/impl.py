@@ -108,6 +108,7 @@ class BrowserToolExecutor(ToolExecutor):
         allowed_domains: list[str] | None = None,
         session_timeout_minutes: int = 30,
         init_timeout_seconds: int = 30,
+        full_output_save_dir: str = "/tmp/.openhands",
         **config,
     ):
         """Initialize BrowserToolExecutor with timeout protection.
@@ -118,9 +119,6 @@ class BrowserToolExecutor(ToolExecutor):
             session_timeout_minutes: Browser session timeout in minutes
             init_timeout_seconds: Timeout for browser initialization in seconds
             **config: Additional configuration options
-
-        Raises:
-
         """
 
         def init_logic():
@@ -141,6 +139,7 @@ class BrowserToolExecutor(ToolExecutor):
                 f"Browser tool initialization timed out after {init_timeout_seconds}s"
             )
 
+        self.full_output_save_dir = full_output_save_dir
         self._initialized = False
         self._async_executor = AsyncExecutor()
 
@@ -193,13 +192,23 @@ class BrowserToolExecutor(ToolExecutor):
                 result = await self.close_tab(action.tab_id)
             else:
                 error_msg = f"Unsupported action type: {type(action)}"
-                return BrowserObservation(output="", error=error_msg)
+                return BrowserObservation(
+                    output="",
+                    error=error_msg,
+                    full_output_save_dir=self.full_output_save_dir,
+                )
 
-            return BrowserObservation(output=result)
+            return BrowserObservation(
+                output=result, full_output_save_dir=self.full_output_save_dir
+            )
         except Exception as e:
             error_msg = f"Browser operation failed: {str(e)}"
             logging.error(error_msg, exc_info=True)
-            return BrowserObservation(output="", error=error_msg)
+            return BrowserObservation(
+                output="",
+                error=error_msg,
+                full_output_save_dir=self.full_output_save_dir,
+            )
 
     async def _ensure_initialized(self):
         """Ensure browser session is initialized."""
@@ -250,13 +259,17 @@ class BrowserToolExecutor(ToolExecutor):
                 # Return clean JSON + separate screenshot data
                 clean_json = json.dumps(result_data, indent=2)
                 return BrowserObservation(
-                    output=clean_json, screenshot_data=screenshot_data
+                    output=clean_json,
+                    screenshot_data=screenshot_data,
+                    full_output_save_dir=self.full_output_save_dir,
                 )
             except json.JSONDecodeError:
                 # If JSON parsing fails, return as-is
                 pass
 
-        return BrowserObservation(output=result_json)
+        return BrowserObservation(
+            output=result_json, full_output_save_dir=self.full_output_save_dir
+        )
 
     # Tab Management
     async def list_tabs(self) -> str:

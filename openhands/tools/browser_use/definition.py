@@ -8,16 +8,12 @@ from pydantic import Field
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
 from openhands.sdk.tool.tool import ToolBase
-from openhands.sdk.utils import maybe_truncate
+from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 
 
 # Lazy import to avoid hanging during module import
 if TYPE_CHECKING:
     from openhands.tools.browser_use.impl import BrowserToolExecutor
-
-
-# Maximum output size for browser observations
-MAX_BROWSER_OUTPUT_SIZE = 50000
 
 
 class BrowserObservation(ObservationBase):
@@ -28,15 +24,24 @@ class BrowserObservation(ObservationBase):
     screenshot_data: str | None = Field(
         default=None, description="Base64 screenshot data if available"
     )
+    full_output_save_dir: str | None = Field(
+        default=None,
+        description="Directory where full output files are saved",
+    )
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=f"Error: {self.error}")]
 
-        content: list[TextContent | ImageContent] = [
-            TextContent(text=maybe_truncate(self.output, MAX_BROWSER_OUTPUT_SIZE))
-        ]
+        # Use enhanced truncation with file saving, fallback to current working dir
+        truncated_text = maybe_truncate(
+            content=self.output,
+            truncate_after=DEFAULT_TEXT_CONTENT_LIMIT,
+            save_dir=self.full_output_save_dir,
+            tool_prefix="browser",
+        )
+        content: list[TextContent | ImageContent] = [TextContent(text=truncated_text)]
 
         if self.screenshot_data:
             # Convert base64 to data URL format for ImageContent
@@ -591,13 +596,16 @@ class BrowserToolSet(ToolBase):
     @classmethod
     def create(
         cls,
+        full_output_save_dir: str = "/tmp/.openhands",
         **executor_config,
     ) -> list[ToolBase]:
         # Import executor only when actually needed to
         # avoid hanging during module import
         from openhands.tools.browser_use.impl import BrowserToolExecutor
 
-        executor = BrowserToolExecutor(**executor_config)
+        executor = BrowserToolExecutor(
+            full_output_save_dir=full_output_save_dir, **executor_config
+        )
         return [
             browser_navigate_tool.set_executor(executor),
             browser_click_tool.set_executor(executor),
