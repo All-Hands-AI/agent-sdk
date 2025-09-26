@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# === Environment ===
+# --- Env ---
 export DISPLAY="${DISPLAY:-:1}"
 export USER="${USER:-${USERNAME:-openhands}}"
 export HOME="${HOME:-/home/${USERNAME:-openhands}}"
 export NOVNC_PORT="${NOVNC_PORT:-8002}"
 export VNC_GEOMETRY="${VNC_GEOMETRY:-1280x800}"
+NOVNC_PROXY="/usr/share/novnc/utils/novnc_proxy"
+NOVNC_WEB="${NOVNC_WEB:-/opt/novnc-web}"
 
-# === Ensure home + dirs ===
+# --- Dirs & ownership (idempotent, user-writable only) ---
 mkdir -p "$HOME/.vnc" "$HOME/.config" "$HOME/Downloads"
 chown -R "$USER":"$USER" "$HOME" || true
 
-# === Ensure VNC password ===
+# --- VNC password ---
 if [ ! -f "$HOME/.vnc/passwd" ]; then
   if command -v vncpasswd >/dev/null 2>&1; then
     echo "openhands" | vncpasswd -f > "$HOME/.vnc/passwd"
     chmod 600 "$HOME/.vnc/passwd"
     chown "$USER":"$USER" "$HOME/.vnc/passwd" || true
   else
-    echo "ERROR: vncpasswd not found. Install tigervnc-tools or pre-provide $HOME/.vnc/passwd"
-    exit 1
+    echo "ERROR: vncpasswd not found (install tigervnc-tools)"; exit 1
   fi
 fi
 
-# === Ensure xstartup runs XFCE ===
+# --- xstartup for XFCE ---
 XSTARTUP="$HOME/.vnc/xstartup"
 if [ ! -f "$XSTARTUP" ]; then
   cat > "$XSTARTUP" <<'EOS'
@@ -37,20 +38,23 @@ EOS
   chown "$USER":"$USER" "$XSTARTUP" || true
 fi
 
-# === Start TigerVNC ===
+# --- Start TigerVNC (bind to loopback; novnc proxies) ---
 if ! pgrep -f "Xvnc .*${DISPLAY}" >/dev/null 2>&1; then
-  echo "Starting TigerVNC server on ${DISPLAY} (${VNC_GEOMETRY})..."
-  vncserver "${DISPLAY}" -geometry "${VNC_GEOMETRY}" -depth 24 || true
+  echo "Starting TigerVNC on ${DISPLAY} (${VNC_GEOMETRY})..."
+  vncserver "${DISPLAY}" -geometry "${VNC_GEOMETRY}" -depth 24 -localhost yes || true
 fi
 
-# === Start noVNC/websockify ===
-if ! pgrep -f "websockify .* ${NOVNC_PORT} " >/dev/null 2>&1; then
-  echo "Starting noVNC on 0.0.0.0:${NOVNC_PORT} -> localhost:5901 ..."
-  websockify --daemon --web=/usr/share/novnc/ 0.0.0.0:${NOVNC_PORT} 127.0.0.1:5901
+# --- Start noVNC proxy (foreground tool → background it) ---
+if ! pgrep -f "[n]ovnc_proxy .*--listen .*${NOVNC_PORT}" >/dev/null 2>&1; then
+  echo "Starting noVNC proxy on 0.0.0.0:${NOVNC_PORT} -> 127.0.0.1:5901 ..."
+  nohup "${NOVNC_PROXY}" \
+        --listen "0.0.0.0:${NOVNC_PORT}" \
+        --vnc "127.0.0.1:5901" \
+        --web "${NOVNC_WEB}"
 fi
 
-echo "noVNC ready: http://localhost:${NOVNC_PORT}/ (connects to ${DISPLAY})"
+echo "noVNC: http://localhost:${NOVNC_PORT}/vnc.html?autoconnect=1&resize=remote"
 
-# === Start the agent server ===
+# --- Start the agent ---
 echo "Launching agent: $*"
 exec "$@"

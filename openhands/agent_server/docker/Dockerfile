@@ -142,12 +142,14 @@ RUN set -eux; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
+# --- VNC + Desktop + noVNC ---
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         tigervnc-standalone-server \
         tigervnc-tools \
         xfce4 xfce4-goodies \
+        dbus-x11 \
         novnc \
         websockify \
         x11-utils x11-xserver-utils \
@@ -156,12 +158,18 @@ RUN set -eux; \
         firefox-esr \
         python3-pil libjpeg-dev libpng-dev \
         dumb-init; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
+    apt-get clean; rm -rf /var/lib/apt/lists/*
 
-ENV DISPLAY=:1 \
-    VNC_GEOMETRY=1280x800 \
-    NOVNC_PORT=8002
+
+ENV NOVNC_WEB=/opt/novnc-web \
+    NOVNC_PORT=8002 \
+    DISPLAY=:1 \
+    VNC_GEOMETRY=1280x800
+
+RUN set -eux; \
+    mkdir -p "$NOVNC_WEB"; \
+    cp -rL /usr/share/novnc/* "$NOVNC_WEB"/; \
+    chown -R ${USERNAME}:${USERNAME} "$NOVNC_WEB"
 
 # Setup noVNC
 COPY openhands/agent_server/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
