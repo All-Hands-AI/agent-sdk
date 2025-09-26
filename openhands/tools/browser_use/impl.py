@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -20,6 +21,25 @@ else:
     logging.getLogger("browser_use").setLevel(logging.WARNING)
 
 logger = get_logger(__name__)
+
+
+def _is_vnc_environment() -> bool:
+    """Check if we're running in a VNC environment.
+
+    Returns:
+        True if VNC environment is detected, False otherwise
+    """
+    # Check for DISPLAY environment variable (indicates X11 is available)
+    display = os.environ.get("DISPLAY")
+    if display and display.startswith(":"):
+        return True
+
+    # Also check for common VNC environment indicators
+    if os.path.exists("/tmp/.X11-unix") or os.path.exists("/home/openhands/.vnc"):
+        logger.info("VNC environment indicators found")
+        return True
+
+    return False
 
 
 def _check_chromium_available() -> str | None:
@@ -135,10 +155,17 @@ class BrowserToolExecutor(ToolExecutor):
         """
 
         def init_logic():
+            nonlocal headless
             executable_path = _ensure_chromium_available()
             self._server = CustomBrowserUseServer(
                 session_timeout_minutes=session_timeout_minutes,
             )
+            if _is_vnc_environment():
+                logger.info(
+                    "VNC environment detected - running browser in non-headless mode"
+                )
+                headless = False
+
             self._config = {
                 "headless": headless,
                 "allowed_domains": allowed_domains or [],
