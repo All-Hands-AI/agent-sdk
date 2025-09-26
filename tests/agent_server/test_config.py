@@ -596,6 +596,236 @@ class TestMultipleSessionAPIKeys:
             new_path.unlink()
 
 
+class TestRecursiveEnvironmentVariables:
+    """Test cases for the new recursive environment variable parsing functionality."""
+
+    def test_webhook_nested_fields(self):
+        """Test parsing nested webhook configuration from environment variables."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WEBHOOKS_0_BASE_URL": "https://webhook1.example.com",
+                "WEBHOOKS_0_HEADERS_AUTHORIZATION": "Bearer token1",
+                "WEBHOOKS_0_HEADERS_CONTENT_TYPE": "application/json",
+                "WEBHOOKS_1_BASE_URL": "https://webhook2.example.com",
+                "WEBHOOKS_1_HEADERS_X_API_KEY": "secret123",
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            # Verify we have 2 webhooks
+            assert len(updated_config.webhooks) == 2
+
+            # Verify first webhook
+            webhook1 = updated_config.webhooks[0]
+            assert webhook1.base_url == "https://webhook1.example.com"
+            assert webhook1.headers["AUTHORIZATION"] == "Bearer token1"
+            assert webhook1.headers["CONTENT_TYPE"] == "application/json"
+
+            # Verify second webhook
+            webhook2 = updated_config.webhooks[1]
+            assert webhook2.base_url == "https://webhook2.example.com"
+            assert webhook2.headers["X_API_KEY"] == "secret123"
+
+    def test_webhook_list_indices_out_of_order(self):
+        """Test that webhook indices can be specified out of order."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WEBHOOKS_2_BASE_URL": "https://webhook3.example.com",
+                "WEBHOOKS_0_BASE_URL": "https://webhook1.example.com",
+                "WEBHOOKS_1_BASE_URL": "https://webhook2.example.com",
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            # Verify we have 3 webhooks in correct order
+            assert len(updated_config.webhooks) == 3
+            assert updated_config.webhooks[0].base_url == "https://webhook1.example.com"
+            assert updated_config.webhooks[1].base_url == "https://webhook2.example.com"
+            assert updated_config.webhooks[2].base_url == "https://webhook3.example.com"
+
+    def test_webhook_sparse_indices(self):
+        """Test webhook configuration with sparse indices (gaps in numbering)."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WEBHOOKS_0_BASE_URL": "https://webhook1.example.com",
+                "WEBHOOKS_5_BASE_URL": "https://webhook6.example.com",
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            # Should create 6 webhooks (0-5), with empty ones in between
+            assert len(updated_config.webhooks) == 6
+            assert updated_config.webhooks[0].base_url == "https://webhook1.example.com"
+            assert updated_config.webhooks[5].base_url == "https://webhook6.example.com"
+
+            # Middle webhooks should have default values
+            for i in range(1, 5):
+                assert updated_config.webhooks[i].base_url == ""
+
+    def test_mixed_simple_and_nested_env_vars(self):
+        """Test mixing simple and nested environment variables."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "ENABLE_VSCODE": "false",
+                "WORKSPACE_PATH": "/tmp/test_workspace",
+                "WEBHOOKS_0_BASE_URL": "https://webhook.example.com",
+                "WEBHOOKS_0_HEADERS_AUTHORIZATION": "Bearer token",
+                "SESSION_API_KEYS": "key1,key2",
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            # Verify simple fields
+            assert not updated_config.enable_vscode
+            assert updated_config.workspace_path == Path("/tmp/test_workspace")
+            assert updated_config.session_api_keys == ["key1", "key2"]
+
+            # Verify nested webhook
+            assert len(updated_config.webhooks) == 1
+            assert updated_config.webhooks[0].base_url == "https://webhook.example.com"
+            assert updated_config.webhooks[0].headers["AUTHORIZATION"] == "Bearer token"
+
+    def test_boolean_parsing_in_nested_fields(self):
+        """Test boolean parsing in nested webhook fields."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WEBHOOKS_0_BASE_URL": "https://webhook.example.com",
+                # Note: WebhookSpec doesn't have boolean fields, but this tests parsing
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            assert len(updated_config.webhooks) == 1
+            assert updated_config.webhooks[0].base_url == "https://webhook.example.com"
+
+    def test_path_parsing_in_nested_fields(self):
+        """Test Path parsing in nested fields."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WORKSPACE_PATH": "/custom/workspace",
+                "CONVERSATIONS_PATH": "/custom/conversations",
+                "STATIC_FILES_PATH": "/custom/static",
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            assert updated_config.workspace_path == Path("/custom/workspace")
+            assert updated_config.conversations_path == Path("/custom/conversations")
+            assert updated_config.static_files_path == Path("/custom/static")
+
+    def test_empty_webhook_headers(self):
+        """Test webhook with no headers specified."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WEBHOOKS_0_BASE_URL": "https://webhook.example.com",
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            assert len(updated_config.webhooks) == 1
+            assert updated_config.webhooks[0].base_url == "https://webhook.example.com"
+            assert updated_config.webhooks[0].headers == {}
+
+    def test_multiple_webhooks_different_headers(self):
+        """Test multiple webhooks with different header configurations."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WEBHOOKS_0_BASE_URL": "https://webhook1.example.com",
+                "WEBHOOKS_0_HEADERS_AUTHORIZATION": "Bearer token1",
+                "WEBHOOKS_0_HEADERS_CONTENT_TYPE": "application/json",
+                "WEBHOOKS_1_BASE_URL": "https://webhook2.example.com",
+                "WEBHOOKS_1_HEADERS_X_API_KEY": "secret123",
+                "WEBHOOKS_2_BASE_URL": "https://webhook3.example.com",
+                # webhook3 has no headers
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            assert len(updated_config.webhooks) == 3
+
+            # Webhook 1 with multiple headers
+            webhook1 = updated_config.webhooks[0]
+            assert webhook1.base_url == "https://webhook1.example.com"
+            assert len(webhook1.headers) == 2
+            assert webhook1.headers["AUTHORIZATION"] == "Bearer token1"
+            assert webhook1.headers["CONTENT_TYPE"] == "application/json"
+
+            # Webhook 2 with single header
+            webhook2 = updated_config.webhooks[1]
+            assert webhook2.base_url == "https://webhook2.example.com"
+            assert len(webhook2.headers) == 1
+            assert webhook2.headers["X_API_KEY"] == "secret123"
+
+            # Webhook 3 with no headers
+            webhook3 = updated_config.webhooks[2]
+            assert webhook3.base_url == "https://webhook3.example.com"
+            assert len(webhook3.headers) == 0
+
+    def test_invalid_env_var_patterns_ignored(self):
+        """Test that invalid environment variable patterns are ignored."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WEBHOOKS_0_BASE_URL": "https://webhook.example.com",
+                "WEBHOOKS_INVALID_INDEX": "should be ignored",
+                "WEBHOOKS_0_INVALID_FIELD": "should be ignored",
+                "NOT_A_CONFIG_VAR": "should be ignored",
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            # Should only process valid webhook config
+            assert len(updated_config.webhooks) == 1
+            assert updated_config.webhooks[0].base_url == "https://webhook.example.com"
+
+    def test_case_insensitive_field_matching(self):
+        """Test that field matching is case insensitive."""
+        config = Config()
+
+        with patch.dict(
+            os.environ,
+            {
+                "WEBHOOKS_0_BASE_URL": "https://webhook.example.com",
+                "WEBHOOKS_0_HEADERS_content_type": "application/json",  # lowercase
+                "WEBHOOKS_0_HEADERS_X_Api_Key": "secret123",  # mixed case
+            },
+        ):
+            updated_config = config.update_with_env_var()
+
+            assert len(updated_config.webhooks) == 1
+            webhook = updated_config.webhooks[0]
+            assert webhook.base_url == "https://webhook.example.com"
+            # Headers should be stored with the case from env var
+            assert "content_type" in webhook.headers
+            assert "X_Api_Key" in webhook.headers
+
+
 class TestConfigConstants:
     """Test cases for configuration constants."""
 

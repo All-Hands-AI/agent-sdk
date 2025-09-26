@@ -1,9 +1,10 @@
 import json
 import os
 from pathlib import Path
-from typing import get_origin
 
 from pydantic import BaseModel, Field
+
+from .utils import update_with_config_var
 
 
 # Environment variable constants
@@ -108,45 +109,13 @@ class Config(BaseModel):
     )
     model_config = {"frozen": True}
 
-    def _parse_env_value(self, env_value: str, field_type: type | None):
-        """Parse environment variable value based on field type."""
-        if field_type is bool:
-            return env_value.lower() in ("true", "1", "yes", "on")
-        elif field_type is int:
-            return int(env_value)
-        elif field_type is float:
-            return float(env_value)
-        elif field_type is Path:
-            return Path(env_value)
-        elif get_origin(field_type) is list:
-            return env_value.split(",") if env_value.strip() else []
-        else:
-            return env_value
-
     def update_with_env_var(self) -> "Config":
         """Create a new Config instance with values overridden from env vars.
 
-        Auto-generates UPPER_CASE env var mappings from model fields.
+        Uses the generic update_with_config_var function to support nested fields
+        and list indices.
         """
-        mappings = {name: name.upper() for name in self.__class__.model_fields}
-        values = self.model_dump()
-
-        for field_name, env_var in mappings.items():
-            env_value = os.getenv(env_var)
-            if not env_value or field_name not in values:
-                continue
-
-            try:
-                field_type = self.__class__.model_fields[field_name].annotation
-                if field_type is None:
-                    # Skip fields without type annotations
-                    continue
-                values[field_name] = self._parse_env_value(env_value, field_type)
-            except (ValueError, TypeError):
-                # Skip invalid environment variable values
-                continue
-
-        return self.__class__(**values)
+        return update_with_config_var(self)
 
     @classmethod
     def from_json_file(cls, file_path: Path) -> "Config":
