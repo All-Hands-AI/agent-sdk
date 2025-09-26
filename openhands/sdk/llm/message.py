@@ -2,7 +2,14 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
 
-from litellm import ChatCompletionMessageToolCall
+from litellm import (
+    AllMessageValues,
+    ChatCompletionAssistantMessage,
+    ChatCompletionMessageToolCall,
+    ChatCompletionSystemMessage,
+    ChatCompletionToolMessage,
+    ChatCompletionUserMessage,
+)
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -102,7 +109,7 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    def to_llm_dict(self) -> dict[str, Any]:
+    def to_llm_dict(self) -> AllMessageValues:
         """Serialize message for LLM API consumption.
 
         This method chooses the appropriate serialization format based on the message
@@ -119,7 +126,16 @@ class Message(BaseModel):
             # single string
             message_dict = self._string_serializer()
 
-        return message_dict
+        if self.role == "assistant":
+            return ChatCompletionAssistantMessage(**message_dict)
+        elif self.role == "user":
+            return ChatCompletionUserMessage(**message_dict)
+        elif self.role == "system":
+            return ChatCompletionSystemMessage(**message_dict)
+        elif self.role == "tool":
+            return ChatCompletionToolMessage(**message_dict)
+        else:
+            raise ValueError(f"Unsupported role: {self.role}")
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
@@ -133,6 +149,8 @@ class Message(BaseModel):
 
     def _list_serializer(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
+
+        # Track whether we need message-level cache control for tool role
         role_tool_with_prompt_caching = False
 
         for item in self.content:
@@ -155,7 +173,9 @@ class Message(BaseModel):
                 content.extend(item_dicts)
 
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
-        if role_tool_with_prompt_caching:
+
+        # For tool role, move cache control to message level if any item requested it
+        if self.role == "tool" and role_tool_with_prompt_caching:
             message_dict["cache_control"] = {"type": "ephemeral"}
 
         return self._add_tool_call_keys(message_dict)
@@ -181,11 +201,7 @@ class Message(BaseModel):
 
         # an observation message with tool response
         if self.tool_call_id is not None:
-            assert self.name is not None, (
-                "name is required when tool_call_id is not None"
-            )
             message_dict["tool_call_id"] = self.tool_call_id
-            message_dict["name"] = self.name
 
         return message_dict
 

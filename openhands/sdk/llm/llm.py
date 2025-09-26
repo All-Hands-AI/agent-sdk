@@ -6,7 +6,15 @@ import os
 import warnings
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Literal,
+    cast,
+    get_args,
+    get_origin,
+)
 
 import httpx
 from pydantic import (
@@ -23,7 +31,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 
 if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
-    from openhands.sdk.tool.tool import ToolBase
+    from openhands.sdk.tool import ToolBase
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -32,7 +40,13 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import ChatCompletionToolParam, completion as litellm_completion
+from litellm import (
+    AllMessageValues,
+    ChatCompletionToolParam,
+    ResponseInputParam,
+    completion as litellm_completion,
+    responses as litellm_responses,
+)
 from litellm.exceptions import (
     APIConnectionError,
     BadRequestError,
@@ -43,6 +57,7 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
 )
+from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.utils import ModelResponse
 from litellm.utils import (
     create_pretrained_tokenizer,
@@ -50,6 +65,7 @@ from litellm.utils import (
     supports_vision,
     token_counter,
 )
+from openai.types.responses.tool_param import ToolParam
 
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 
@@ -59,12 +75,19 @@ from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
+from openhands.sdk.llm.utils.responses_converter import (
+    messages_to_responses_items,
+    responses_to_completion_format,
+)
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
+# TYPE_CHECKING ToolBase imported above to avoid import cycles
+
 logger = get_logger(__name__)
+CallKind = Literal["chat", "responses"]
 
 __all__ = ["LLM"]
 
@@ -78,6 +101,37 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     InternalServerError,
     LLMNoResponseError,
 )
+
+# ---------------------------
+# Discriminated union context
+# ---------------------------
+
+
+class _BaseCtxModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    call_kwargs: dict[str, Any]
+    log_ctx: dict[str, Any]
+
+
+class ChatCtx(_BaseCtxModel):
+    kind: Literal["chat"]
+    messages: list[AllMessageValues]
+    # tools used only in chat path
+    tools: list[ChatCompletionToolParam] = Field(default_factory=list)
+
+    # internal to support mocked tool-calls
+    nonfn_msgs: list[dict[str, Any]] | None = None
+    use_mock_tools: bool = False
+
+
+class ResponsesCtx(_BaseCtxModel):
+    kind: Literal["responses"]
+    input: ResponseInputParam | str
+    # tools used only in responses path
+    tools: list[ToolParam] = Field(default_factory=list)
+
+
+ReqCtx = Annotated[ChatCtx | ResponsesCtx, Field(discriminator="kind")]
 
 
 class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
@@ -189,6 +243,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ),
     )
     service_id: str = Field(
+        default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
 
@@ -313,6 +368,106 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return self
 
     # =========================================================================
+    # =========================================================================
+    # Routing + pre-normalization helpers
+    # =========================================================================
+    def _select_kind(self, kwargs: dict[str, Any]) -> CallKind:
+        """Decide which transport to use for a completion-style request.
+
+        - Prefer Responses API for models that support it unless explicitly forced.
+        - Otherwise, use Chat Completions.
+        """
+        feats = get_features(self.model)
+        if (
+            feats.supports_responses_api
+            and feats.supports_reasoning_effort
+            and not kwargs.get("force_chat_completions", False)
+        ):
+            return "responses"
+        return "chat"
+
+    def _pre_normalize(
+        self,
+        *,
+        kind: CallKind,
+        messages: list[Message] | None,
+        input: str | ResponseInputParam | None,
+        tools: Sequence[ToolBase] | None,
+        add_security_risk_prediction: bool = False,
+    ) -> tuple[
+        list[AllMessageValues] | None,
+        str | ResponseInputParam | None,
+        list[ToolParam] | list[ChatCompletionToolParam] | None,
+    ]:
+        """Prepare payload for the unified request based on kind.
+
+        Returns (messages, input, tools) normalized for the selected path.
+        """
+        # Local import to avoid TYPE_CHECKING branch issues
+        from openhands.sdk.tool import ToolBase
+
+        if kind == "chat":
+            # Messages: ensure list[Message]
+            assert messages is not None and (
+                isinstance(messages, list)
+                and (not messages or isinstance(messages[0], Message))
+            ), "chat path expects list[Message]"
+            converted_messages = self.format_messages_for_llm(
+                cast(list[Message], messages)
+            )
+
+            # Tools: Tool -> ChatCompletionToolParam
+            tools_cc: list[ChatCompletionToolParam] = []
+            if tools:
+                tools_cc = [
+                    cast(ToolBase, t).to_openai_tool(
+                        add_security_risk_prediction=add_security_risk_prediction
+                    )
+                    for t in tools
+                ]  # type: ignore[arg-type]
+            return converted_messages, None, tools_cc
+
+        assert kind == "responses"
+        # Input/messages handling
+        if input is None:
+            # If messages is None, we cannot build a request
+            if messages is None:
+                raise ValueError("Either messages or input must be provided")
+            assert isinstance(messages, list)
+            if len(messages) == 0:
+                raise ValueError("messages cannot be an empty list")
+            converted_messages = self.format_messages_for_llm(
+                cast(list[Message], messages)
+            )
+            input = cast(
+                ResponseInputParam, messages_to_responses_items(converted_messages)
+            )
+        elif isinstance(input, str):
+            # pass through
+            pass
+        else:
+            # already a typed ResponseInputParam
+            pass
+
+        # Tools: normalize to Responses tool definitions
+        tools_dicts: list[ToolParam] = []
+        if tools:
+            for t in tools:
+                tools_dicts.append(
+                    cast(Any, t).to_responses_tool(
+                        add_security_risk_prediction=add_security_risk_prediction
+                    )
+                )
+
+        return None, input, tools_dicts
+
+    # =========================================================================
+    # helpers are defined once above; this is the only definition
+
+    # helpers are defined once above; this is the only definition
+
+    # Routing + pre-normalization helpers
+
     # Serializers
     # =========================================================================
     @field_serializer(
@@ -354,60 +509,116 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     ) -> LLMResponse:
         """Single entry point for LLM completion.
 
-        Normalize → (maybe) mock tools → transport → postprocess.
+        Serialize messages/tools → (maybe) mock tools
+          → normalize → transport → postprocess.
         """
-        # Check if streaming is requested
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
-        # 1) serialize messages
-        formatted_messages = self.format_messages_for_llm(messages)
+        # Decide route once, then pre-normalize for unified engine
+        kind = self._select_kind(kwargs)
+        msgs, inp, ttools = self._pre_normalize(
+            kind=kind,
+            messages=messages,
+            input=None,
+            tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
+        )
+        # Issue one request via the unified engine, which returns a ModelResponse
+        resp = self._unified_request(
+            kind=kind,
+            messages=msgs,
+            input=inp,
+            tools=ttools,
+            **kwargs,
+        )
 
-        # 2) choose function-calling strategy
-        use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(formatted_messages)
+        # Wrap into LLMResponse to expose OpenHands-native types
+        first_choice = resp["choices"][0]
+        message = Message.from_litellm_message(first_choice["message"])
 
-        # Convert Tool objects to ChatCompletionToolParam once here
-        cc_tools: list[ChatCompletionToolParam] = []
-        if tools:
-            cc_tools = [
-                t.to_openai_tool(
-                    add_security_risk_prediction=add_security_risk_prediction
-                )
-                for t in tools
-            ]
+        metrics_snapshot = MetricsSnapshot(
+            model_name=self.metrics.model_name,
+            accumulated_cost=self.metrics.accumulated_cost,
+            max_budget_per_task=self.metrics.max_budget_per_task,
+            accumulated_token_usage=self.metrics.accumulated_token_usage,
+        )
 
-        use_mock_tools = self.should_mock_tool_calls(cc_tools)
-        if use_mock_tools:
-            logger.debug(
-                "LLM.completion: mocking function-calling via prompt "
-                f"for model {self.model}"
+        return LLMResponse(message=message, metrics=metrics_snapshot, raw_response=resp)
+
+    def responses(
+        self,
+        messages: list[Message] | str | None = None,
+        input: str | ResponseInputParam | None = None,
+        tools: Sequence[ToolBase] | None = None,
+        add_security_risk_prediction: bool = False,
+        **kwargs,
+    ) -> ModelResponse:
+        if not get_features(self.model).supports_responses_api:
+            raise ValueError(
+                f"Model {self.model} does not support the Responses API. "
+                f"Use completion() method instead."
             )
-            formatted_messages, kwargs = self.pre_request_prompt_mock(
-                formatted_messages, cc_tools or [], kwargs
-            )
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported in responses() method")
 
-        # 3) normalize provider params
-        # Only pass tools when native FC is active
-        kwargs["tools"] = cc_tools if (bool(cc_tools) and use_native_fc) else None
-        has_tools_flag = bool(cc_tools) and use_native_fc
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
+        # Normalize simple string messages to input
+        if isinstance(messages, str) and input is None:
+            input = messages
+            messages = None
+        # Guard: require either messages or input
+        if messages is None and input is None:
+            raise ValueError("Either messages or input must be provided")
 
-        # 4) optional request logging context (kept small)
+        # Use unified pre-normalization for responses
+        msgs, inp, tools_dicts = self._pre_normalize(
+            kind="responses",
+            messages=cast(list[Message] | None, messages),
+            input=input,
+            tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
+        )
+
+        return self._unified_request(
+            kind="responses",
+            messages=msgs,
+            input=inp,
+            tools=cast(
+                list[ToolParam] | list[ChatCompletionToolParam] | None, tools_dicts
+            ),
+            **kwargs,
+        )
+
+    # ---------------------------
+    # Unified engine
+    # ---------------------------
+
+    def _unified_request(
+        self,
+        *,
+        kind: CallKind,
+        messages: list[AllMessageValues] | None = None,
+        input: str | ResponseInputParam | None = None,
+        tools: list[ToolParam] | list[ChatCompletionToolParam] | None = None,
+        **kwargs,
+    ) -> ModelResponse:
         assert self._telemetry is not None
-        log_ctx = None
-        if self._telemetry.log_enabled:
-            log_ctx = {
-                "messages": formatted_messages[:],  # already simple dicts
-                "tools": tools,
-                "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
-            }
-            if tools and not use_native_fc:
-                log_ctx["raw_messages"] = original_fncall_msgs
-        self._telemetry.on_request(log_ctx=log_ctx)
 
-        # 5) do the call with retries
+        kwargs["tools"] = tools  # might be removed in _normalize_kwargs
+
+        # 1) Build validated context (Pydantic will enforce required fields by kind)
+        ctx: ReqCtx = self._build_ctx(
+            kind=kind,
+            messages=messages,
+            input=input,
+            tools=tools or [],
+            opts=kwargs,
+        )
+
+        # 2) Telemetry (request)
+        self._telemetry.on_request(log_ctx=ctx.log_ctx)
+
+        # 3) Retry wrapper
         @self.retry_decorator(
             num_retries=self.num_retries,
             retry_exceptions=LLM_RETRY_EXCEPTIONS,
@@ -416,58 +627,185 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             retry_multiplier=self.retry_multiplier,
             retry_listener=self.retry_listener,
         )
-        def _one_attempt(**retry_kwargs) -> ModelResponse:
-            assert self._telemetry is not None
-            # Merge retry-modified kwargs (like temperature) with call_kwargs
-            final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=formatted_messages, **final_kwargs)
-            raw_resp: ModelResponse | None = None
-            if use_mock_tools:
-                raw_resp = copy.deepcopy(resp)
-                resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=formatted_messages, tools=cc_tools
-                )
-            # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
+        def _one_attempt(**_tenacity_kwargs: Any) -> ModelResponse:
+            # Transport
+            resp = self._transport_dispatch(ctx)
 
-            # Ensure at least one choice
-            if not resp.get("choices") or len(resp["choices"]) < 1:
+            # Post-process + telemetry (response)
+            resp = self._postprocess_dispatch(ctx, resp)
+
+            # Response invariant
+            if not resp.choices or len(resp.choices) < 1:
                 raise LLMNoResponseError(
                     "Response choices is less than 1. Response: " + str(resp)
                 )
-
             return resp
 
         try:
             resp = _one_attempt()
-
-            # Convert the first choice to an OpenHands Message
-            first_choice = resp["choices"][0]
-            message = Message.from_litellm_message(first_choice["message"])
-
-            # Get current metrics snapshot
-            metrics_snapshot = MetricsSnapshot(
-                model_name=self.metrics.model_name,
-                accumulated_cost=self.metrics.accumulated_cost,
-                max_budget_per_task=self.metrics.max_budget_per_task,
-                accumulated_token_usage=self.metrics.accumulated_token_usage,
-            )
-
-            # Create and return LLMResponse
-            return LLMResponse(
-                message=message, metrics=metrics_snapshot, raw_response=resp
-            )
+            return resp
         except Exception as e:
             self._telemetry.on_error(e)
             raise
 
-    # =========================================================================
-    # Transport + helpers
-    # =========================================================================
-    def _transport_call(
-        self, *, messages: list[dict[str, Any]], **kwargs
-    ) -> ModelResponse:
-        # litellm.modify_params is GLOBAL; guard it for thread-safety
+    # ---------------------------
+    # Build + normalize once
+    # ---------------------------
+
+    def _build_ctx(
+        self,
+        *,
+        kind: CallKind,
+        messages: list[AllMessageValues] | None,
+        input: str | ResponseInputParam | None,
+        tools: list[ToolParam] | list[ChatCompletionToolParam] | None,
+        opts: dict[str, Any],
+    ) -> ReqCtx:
+        # Mock tools for non-native function-calling
+        nonfn_msgs: list[dict[str, Any]] | None = None
+        use_mock_tools = False
+        if kind == "chat":
+            use_mock_tools = self.should_mock_tool_calls(
+                cast(list[ChatCompletionToolParam] | None, tools)
+            )
+        if kind == "chat" and use_mock_tools:
+            logger.debug(
+                "LLM.completion: mocking function-calling via prompt "
+                f"for model {self.model}"
+            )
+
+            # When mocking, we need raw dict messages; convert AllMessageValues to dict
+            def _to_raw_dict(x: AllMessageValues | dict[str, Any]) -> dict[str, Any]:
+                if isinstance(x, dict):
+                    return cast(dict[str, Any], x)
+                # x is a Pydantic message model; convert to dict
+                return cast(dict[str, Any], cast(Any, x).model_dump())
+
+            raw_msgs: list[dict[str, Any]] = [_to_raw_dict(m) for m in (messages or [])]
+            nonfn_msgs, opts = self.pre_request_prompt_mock(
+                raw_msgs, cast(list[ChatCompletionToolParam], tools) or [], opts
+            )
+
+        has_tools = bool(tools) and (kind == "chat") and not use_mock_tools
+        call_kwargs = self._normalize_kwargs(kind, opts, has_tools=has_tools)
+
+        # Build log context (what we write is exactly what we send)
+        log_ctx: dict[str, Any] = {
+            "kind": kind,
+            "kwargs": {k: v for k, v in call_kwargs.items()},
+            "context_window": self.max_input_tokens or 0,
+        }
+
+        # Build the request context
+        if kind == "chat":
+            log_ctx["messages"] = (messages or [])[:]
+            log_ctx["tools"] = tools if has_tools else None
+            if nonfn_msgs is not None:
+                log_ctx["raw_messages"] = nonfn_msgs
+
+            return ChatCtx(
+                kind="chat",
+                messages=messages or [],
+                nonfn_msgs=nonfn_msgs,
+                use_mock_tools=use_mock_tools,
+                call_kwargs=call_kwargs,
+                log_ctx=log_ctx,
+                tools=cast(list[ChatCompletionToolParam], tools or []),
+            )
+        else:
+            log_ctx["input"] = input if input is not None else []
+            return ResponsesCtx(
+                kind="responses",
+                input=cast(ResponseInputParam | str, input or []),
+                call_kwargs=call_kwargs,
+                log_ctx=log_ctx,
+                tools=cast(list[ToolParam], tools or []),
+            )
+
+    def _normalize_kwargs(self, kind: CallKind, opts: dict, *, has_tools: bool) -> dict:
+        out = dict(opts)
+
+        # Respect configured sampling params unless reasoning models override
+        if self.top_k is not None:
+            out.setdefault("top_k", self.top_k)
+        if self.top_p is not None:
+            out.setdefault("top_p", self.top_p)
+        if self.temperature is not None:
+            out.setdefault("temperature", self.temperature)
+
+        # Max tokens (chat vs responses)
+        if kind == "chat":
+            if self.max_output_tokens is not None:
+                out.setdefault("max_completion_tokens", self.max_output_tokens)
+            if self.model.startswith("azure") and "max_completion_tokens" in out:
+                out["max_tokens"] = out.pop("max_completion_tokens")
+        else:
+            if self.max_output_tokens is not None:
+                out.setdefault("max_output_tokens", self.max_output_tokens)
+
+        # Reasoning-model quirks
+        if get_features(self.model).supports_reasoning_effort:
+            # Only include top-level reasoning_effort for chat.
+            # Responses API uses reasoning.effort
+            if kind == "chat" and self.reasoning_effort is not None:
+                out["reasoning_effort"] = (
+                    self.reasoning_effort
+                    if self.reasoning_effort not in (None, "none")
+                    else "low"
+                )
+            out.pop("temperature", None)
+            out.pop("top_p", None)
+
+        # Anthropic Opus 4.1: prefer temperature when
+        # both provided; disable extended thinking
+        if "claude-opus-4-1" in self.model.lower():
+            if "temperature" in out and "top_p" in out:
+                out.pop("top_p", None)
+            out.setdefault("thinking", {"type": "disabled"})
+
+        # Responses API specific!
+        if kind == "responses":
+            effort_val = None
+            if get_features(self.model).supports_reasoning_effort:
+                if self.reasoning_effort not in (None, "none"):
+                    effort_val = self.reasoning_effort
+                else:
+                    effort_val = "low"
+            if effort_val is not None:
+                out.setdefault(
+                    "reasoning",
+                    {"effort": effort_val, "summary": "detailed"},
+                )
+            out.pop("reasoning_effort", None)
+            out.setdefault("store", True)
+
+        # Mistral / Gemini safety
+        if self.safety_settings:
+            ml = self.model.lower()
+            if "mistral" in ml or "gemini" in ml:
+                out["safety_settings"] = self.safety_settings
+
+        # Tools in Chat Completions only when native FC is active.
+        # Do not drop tools for Responses API; they are supported there.
+        if kind == "chat" and not has_tools:
+            out.pop("tools", None)
+            out.pop("tool_choice", None)
+
+        # Responses API doesn't support stop/tools
+        if kind == "responses":
+            out.pop("stop", None)
+
+        # Only keep extra_body for litellm_proxy
+        if "litellm_proxy" not in self.model:
+            out.pop("extra_body", None)
+
+        return out
+
+    # ---------------------------
+    # Transport + postprocess
+    # ---------------------------
+
+    def _transport_dispatch(self, ctx: ReqCtx) -> ModelResponse:
         with self._litellm_modify_params_ctx(self.modify_params):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
@@ -483,22 +821,67 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     message=r"There is no current event loop",
                     category=DeprecationWarning,
                 )
-                # Some providers need renames handled in _normalize_call_kwargs.
-                ret = litellm_completion(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    base_url=self.base_url,
-                    api_version=self.api_version,
-                    timeout=self.timeout,
-                    drop_params=self.drop_params,
-                    seed=self.seed,
-                    messages=messages,
-                    **kwargs,
-                )
-                assert isinstance(ret, ModelResponse), (
-                    f"Expected ModelResponse, got {type(ret)}"
-                )
-                return ret
+
+                if ctx.kind == "chat":
+                    messages_arg = self._coerce_chat_messages_for_litellm(ctx.messages)
+                    ret = litellm_completion(
+                        model=self.model,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        base_url=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        drop_params=self.drop_params,
+                        seed=self.seed,
+                        messages=messages_arg,
+                        **ctx.call_kwargs,
+                    )
+                    assert isinstance(ret, ModelResponse)
+                    return ret
+                else:
+                    raw = litellm_responses(
+                        model=self.model,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        base_url=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        seed=self.seed,
+                        input=ctx.input,
+                        drop_params=self.drop_params,
+                        custom_llm_provider=(
+                            self.model.split("/")[1]
+                            if self.model.startswith("litellm_proxy/")
+                            else None
+                        ),
+                        stream=False,  # enforce non-stream for typed converter
+                        **ctx.call_kwargs,
+                    )
+                    return responses_to_completion_format(
+                        cast(ResponsesAPIResponse, raw)
+                    )
+
+    def _postprocess_dispatch(self, ctx: ReqCtx, resp: ModelResponse) -> ModelResponse:
+        assert self._telemetry is not None
+        # tool-mocking only applies to chat when we mocked pre-request
+        if ctx.kind == "chat" and getattr(ctx, "use_mock_tools", False):  # type: ignore[attr-defined]
+            raw_resp = copy.deepcopy(resp)
+            resp = self.post_response_prompt_mock(
+                resp,
+                nonfncall_msgs=getattr(ctx, "nonfn_msgs") or [],  # type: ignore[attr-defined]
+                tools=ctx.tools,
+            )
+            # keep raw vs converted for telemetry parity
+            self._telemetry.on_response(resp, raw_resp=raw_resp)
+            return resp
+        self._telemetry.on_response(resp)
+        return resp
+
+    # =========================================================================
+    # Helpers
+    # =========================================================================
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
@@ -508,66 +891,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             yield
         finally:
             litellm.modify_params = old
-
-    def _normalize_call_kwargs(self, opts: dict, *, has_tools: bool) -> dict:
-        """Central place for provider quirks + param harmonization."""
-        out = dict(opts)
-
-        # Respect configured sampling params unless reasoning models override
-        if self.top_k is not None:
-            out.setdefault("top_k", self.top_k)
-        if self.top_p is not None:
-            out.setdefault("top_p", self.top_p)
-        if self.temperature is not None:
-            out.setdefault("temperature", self.temperature)
-
-        # Max tokens wiring differences
-        if self.max_output_tokens is not None:
-            # OpenAI-compatible param is `max_completion_tokens`
-            out.setdefault("max_completion_tokens", self.max_output_tokens)
-
-        # Azure -> uses max_tokens instead
-        if self.model.startswith("azure"):
-            if "max_completion_tokens" in out:
-                out["max_tokens"] = out.pop("max_completion_tokens")
-
-        # Reasoning-model quirks
-        if get_features(self.model).supports_reasoning_effort:
-            # Preferred: use reasoning_effort
-            if self.reasoning_effort is not None:
-                out["reasoning_effort"] = self.reasoning_effort
-            # Anthropic/OpenAI reasoning models ignore temp/top_p
-            out.pop("temperature", None)
-            out.pop("top_p", None)
-            # Gemini 2.5-pro default to low if not set
-            # otherwise litellm doesn't send reasoning, even though it happens
-            if "gemini-2.5-pro" in self.model:
-                if self.reasoning_effort in {None, "none"}:
-                    out["reasoning_effort"] = "low"
-
-        # Anthropic Opus 4.1: prefer temperature when
-        # both provided; disable extended thinking
-        if "claude-opus-4-1" in self.model.lower():
-            if "temperature" in out and "top_p" in out:
-                out.pop("top_p", None)
-            out.setdefault("thinking", {"type": "disabled"})
-
-        # Mistral / Gemini safety
-        if self.safety_settings:
-            ml = self.model.lower()
-            if "mistral" in ml or "gemini" in ml:
-                out["safety_settings"] = self.safety_settings
-
-        # Tools: if not using native, strip tool_choice so we don't confuse providers
-        if not has_tools:
-            out.pop("tools", None)
-            out.pop("tool_choice", None)
-
-        # non litellm proxy special-case: keep `extra_body` off unless model requires it
-        if "litellm_proxy" not in self.model:
-            out.pop("extra_body", None)
-
-        return out
 
     # =========================================================================
     # Capabilities, formatting, and info
@@ -655,6 +978,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             else feats.supports_function_calling
         )
 
+    def is_responses_api_supported(self) -> bool:
+        """Returns whether Responses API is supported for this model."""
+        return get_features(self.model).supports_responses_api
+
     def vision_is_active(self) -> bool:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -725,7 +1052,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 ].cache_prompt = True  # Last item inside the message content
                 break
 
-    def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
+    def format_messages_for_llm(
+        self, messages: list[Message]
+    ) -> list[AllMessageValues]:
         """Formats Message objects for LLM consumption."""
 
         messages = copy.deepcopy(messages)
@@ -930,3 +1259,65 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # window exceeded error, we'll have to assume it's not and rely on the call-site
         # context to handle it appropriately.
         return False
+
+    # Note: legacy helper removed; replaced by typed version below
+    def _coerce_chat_messages_for_litellm(
+        self, messages: list[AllMessageValues]
+    ) -> list[dict[str, Any]]:
+        def to_plain(obj: Any) -> Any:
+            if obj is None or isinstance(obj, (str, int, float, bool)):
+                return obj
+            if isinstance(obj, dict):
+                return {k: to_plain(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [to_plain(x) for x in obj]
+            if isinstance(obj, tuple):
+                return [to_plain(x) for x in obj]
+            # Pydantic BaseModel
+            try:
+                if isinstance(obj, BaseModel):  # type: ignore[reportUnnecessaryIsInstance]
+                    return to_plain(obj.model_dump(mode="json"))
+            except Exception:
+                pass
+            # Objects that implement model_dump(_json)
+            for fn in ("model_dump", "model_dump_json"):
+                try:
+                    meth = getattr(obj, fn)
+                    dumped = meth()  # type: ignore[call-arg]
+                    if fn == "model_dump_json" and isinstance(dumped, str):
+                        return to_plain(json.loads(dumped))
+                    return to_plain(dumped)
+                except Exception:
+                    pass
+            # Iterable (e.g., pydantic_core ValidatorIterator)
+            try:
+                return [to_plain(x) for x in list(obj)]  # type: ignore[arg-type]
+            except Exception:
+                return str(obj)
+
+        out: list[dict[str, Any]] = []
+        for m in messages:
+            if isinstance(m, dict):
+                d = cast(dict[str, Any], to_plain(m))
+            else:
+                d_any = to_plain(m)
+                if isinstance(d_any, dict):
+                    d = cast(dict[str, Any], d_any)
+                else:
+                    d = {"_message": d_any}
+
+            # Ensure content is a plain list or string
+            c = d.get("content")
+            if isinstance(c, (str, type(None))):
+                pass
+            elif isinstance(c, dict):
+                d["content"] = [to_plain(c)]
+            else:
+                seq = to_plain(c)
+                if isinstance(seq, list):
+                    d["content"] = seq
+                else:
+                    d["content"] = [seq] if seq is not None else []
+            out.append(d)
+
+        return out

@@ -47,6 +47,26 @@ class Telemetry(BaseModel):
     def on_request(self, log_ctx: dict | None) -> None:
         self._req_start = time.time()
         self._req_ctx = log_ctx or {}
+        # Write a request log immediately if logging is enabled. Best-effort only.
+        if self.log_enabled and self.log_dir:
+            try:
+                if not os.path.isdir(self.log_dir):
+                    raise FileNotFoundError(f"log_dir does not exist: {self.log_dir}")
+                if not os.access(self.log_dir, os.W_OK):
+                    raise PermissionError(f"log_dir is not writable: {self.log_dir}")
+                fname = os.path.join(
+                    self.log_dir,
+                    (
+                        "request-"
+                        f"{self.model_name.replace('/', '__')}-"
+                        f"{time.time():.3f}.json"
+                    ),
+                )
+                with open(fname, "w") as f:
+                    f.write(json.dumps(self._req_ctx, default=_safe_json))
+            except Exception:
+                # Do not fail the request if logging cannot write
+                pass
 
     def on_response(
         self, resp: ModelResponse, raw_resp: ModelResponse | None = None
@@ -237,8 +257,8 @@ class Telemetry(BaseModel):
             if raw_resp:
                 data["raw_response"] = raw_resp
             # pop duplicated tools
-            if "tool" in data and "tool" in data.get("kwargs", {}):
-                data["kwargs"].pop("tool")
+            if "tools" in data and "tools" in data.get("kwargs", {}):
+                data["kwargs"].pop("tools")
             with open(fname, "w") as f:
                 f.write(json.dumps(data, default=_safe_json))
         except Exception as e:

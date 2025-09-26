@@ -80,9 +80,15 @@ def test_message_tool_role_with_cache_prompt():
     result = message.to_llm_dict()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
-    assert result["cache_control"] == {"type": "ephemeral"}
-    # The content should not have cache_control since it's moved to message level
-    assert "cache_control" not in result["content"][0]
+    d = __import__("typing").cast(dict[str, object], result)
+    assert d["role"] == "tool"
+    assert d["tool_call_id"] == "call_123"
+    # Message-level cache_control is used for tool messages when cache_prompt is set
+    assert d.get("cache_control") == {"type": "ephemeral"}
+    # Cache control should be removed from content level and moved to message level
+    content_list = __import__("typing").cast(list[dict[str, object]], d["content"])  # type: ignore[assignment]
+    assert isinstance(content_list, list)
+    assert content_list and "cache_control" not in content_list[-1]
 
 
 def test_message_tool_role_with_image_cache_prompt():
@@ -104,11 +110,15 @@ def test_message_tool_role_with_image_cache_prompt():
     )
 
     result = message.to_llm_dict()
-    assert result["role"] == "tool"
-    assert result["tool_call_id"] == "call_123"
-    assert result["cache_control"] == {"type": "ephemeral"}
-    # The image content should not have cache_control since it's moved to message level
-    assert "cache_control" not in result["content"][0]
+    d = __import__("typing").cast(dict[str, object], result)
+    assert d["role"] == "tool"
+    assert d["tool_call_id"] == "call_123"
+    # Message-level cache_control is used for tool messages when cache_prompt is set
+    assert d.get("cache_control") == {"type": "ephemeral"}
+    # Cache control should be removed from content level and moved to message level
+    content_list = __import__("typing").cast(list[dict[str, object]], d["content"])  # type: ignore[assignment]
+    assert isinstance(content_list, list)
+    assert content_list and "cache_control" not in content_list[-1]
 
 
 def test_message_with_tool_calls():
@@ -132,11 +142,15 @@ def test_message_with_tool_calls():
     result = message.to_llm_dict()
     assert result["role"] == "assistant"
     assert "tool_calls" in result
-    assert len(result["tool_calls"]) == 1
-    assert result["tool_calls"][0]["id"] == "call_123"
-    assert result["tool_calls"][0]["type"] == "function"
-    assert result["tool_calls"][0]["function"]["name"] == "test_function"
-    assert result["tool_calls"][0]["function"]["arguments"] == '{"arg": "value"}'
+    tool_calls = result.get("tool_calls")
+    assert tool_calls is not None
+    assert len(tool_calls) == 1
+    tc0 = tool_calls[0]
+    assert tc0["id"] == "call_123"
+    assert tc0["type"] == "function"
+    fn = __import__("typing").cast(dict[str, object], tc0["function"])  # type: ignore[assignment]
+    assert fn["name"] == "test_function"
+    assert fn["arguments"] == '{"arg": "value"}'
 
 
 def test_message_from_litellm_message_function_role_error():

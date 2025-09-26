@@ -330,7 +330,18 @@ def test_llm_openhands_provider_rewrite(default_llm):
     formatted = llm.format_messages_for_llm(message)
     assert isinstance(formatted, list)
     assert len(formatted) == 1
-    assert isinstance(formatted[0], dict)
+    # use dict access for TypedDict-based message type
+    first = formatted[0]
+    assert first["role"] == "user"
+    content = first["content"]
+    if isinstance(content, str):
+        assert content == "Hello"
+    else:
+        assert isinstance(content, list)
+        assert len(content) >= 1
+        first_part = content[0]
+        assert first_part.get("type") == "text"
+        assert first_part.get("text") == "Hello"
 
     # Test with list of Message objects
     messages = [
@@ -340,7 +351,24 @@ def test_llm_openhands_provider_rewrite(default_llm):
     formatted = llm.format_messages_for_llm(messages)
     assert isinstance(formatted, list)
     assert len(formatted) == 2
-    assert all(isinstance(msg, dict) for msg in formatted)
+    first = formatted[0]
+    second = formatted[1]
+    assert first["role"] == "user"
+    assert second["role"] == "assistant"
+    # first content
+    first_content = first["content"]
+    if isinstance(first_content, str):
+        assert first_content == "Hello"
+    else:
+        assert isinstance(first_content, list)
+        assert first_content and first_content[0].get("text") == "Hello"
+    # second content
+    second_content = second["content"]
+    if isinstance(second_content, str):
+        assert second_content == "Hi there!"
+    else:
+        assert isinstance(second_content, list)
+        assert second_content and second_content[0].get("text") == "Hi there!"
 
 
 def test_metrics_copy():
@@ -432,7 +460,7 @@ def test_llm_no_response_error(mock_completion):
     # Test that empty response raises LLMNoResponseError
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     with pytest.raises(LLMNoResponseError):
-        llm.completion(messages=messages)
+        llm.completion(messages=messages, force_chat_completions=True)
 
 
 def test_response_latency_tracking(default_llm):
