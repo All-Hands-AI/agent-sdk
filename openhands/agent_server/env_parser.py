@@ -6,7 +6,11 @@ import json
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Annotated, Union, get_args, get_origin
+from datetime import datetime
+from pathlib import Path
+from types import UnionType
+from typing import Annotated, get_args, get_origin
+from uuid import UUID
 
 from pydantic import BaseModel, TypeAdapter
 
@@ -58,14 +62,14 @@ class StrEnvParser(EnvParser):
 
 class NoneEnvParser(EnvParser):
     def from_env(self, key: str) -> None | MissingType:
-        if key not in os.environ:
+        # Perversely, if the key is present this is not none so we consider it missing
+        if key in os.environ:
             return MISSING
-        assert not os.getenv(key)
         return None
 
 
 @dataclass
-class DictEnvParser(EnvParser):
+class ModelEnvParser(EnvParser):
     parsers: dict[str, EnvParser]
 
     def from_env(self, key: str) -> dict | MissingType:
@@ -79,7 +83,8 @@ class DictEnvParser(EnvParser):
 
         # Check for overrides...
         for field_name, parser in self.parsers.items():
-            field_value = parser.from_env(f"{key}_{field_name}")
+            env_var_name = f"{key}_{field_name.upper()}"
+            field_value = parser.from_env(env_var_name)
             if field_value is MISSING:
                 continue
             if result is MISSING:
@@ -88,6 +93,20 @@ class DictEnvParser(EnvParser):
             new_field_value = merge(existing_field_value, field_value)
             if new_field_value is not MISSING:
                 result[field_name] = new_field_value  # type: ignore
+
+        return result
+
+
+@dataclass
+class DictEnvParser(EnvParser):
+    def from_env(self, key: str) -> dict | MissingType:
+        # Read json from an environment variable
+        value = os.environ.get(key)
+        if value:
+            result = json.loads(value)
+            assert isinstance(result, dict)
+        else:
+            result = MISSING
 
         return result
 
@@ -188,7 +207,7 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
     if origin is Annotated:
         # Strip annotations...
         return get_env_parser(get_args(target_type)[0], parsers)
-    if origin is Union:
+    if origin is UnionType:
         union_parsers = [
             get_env_parser(t, parsers)  # type: ignore
             for t in get_args(target_type)
@@ -197,21 +216,26 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
     if origin is list:
         parser = get_env_parser(get_args(target_type)[0], parsers)
         return ListEnvParser(parser)
+    if origin is dict:
+        args = get_args(target_type)
+        assert args[0] is str
+        assert args[1] in (str, int, float, bool)
+        return DictEnvParser()
 
     if origin and issubclass(origin, BaseModel):
         target_type = origin
-    if issubclass(origin, BaseModel):  # type: ignore
+    if issubclass(target_type, BaseModel):  # type: ignore
         delayed = DelayedParser()
         parsers[target_type] = delayed  # Prevent circular dependency
         field_parsers = {
             name: get_env_parser(field.annotation, parsers)  # type: ignore
-            for name, field in origin.model_fields.items()
+            for name, field in target_type.model_fields.items()
         }
-        parser = DictEnvParser(field_parsers)
+        parser = ModelEnvParser(field_parsers)
         delayed.parser = parser
         parsers[target_type] = parser
         return parser
-    raise ValueError("unknown_type:{target_type}")
+    raise ValueError(f"unknown_type:{target_type}")
 
 
 def from_env(
@@ -226,10 +250,16 @@ def from_env(
             float: FloatEnvParser(),
             bool: BoolEnvParser(),
             type(None): NoneEnvParser(),
+            UUID: StrEnvParser(),
+            Path: StrEnvParser(),
+            datetime: StrEnvParser(),
         }
     parser = get_env_parser(target_type, parsers)
     json_data = parser.from_env(prefix)
-    json_str = json.dumps(json_data)
-    type_adapter = TypeAdapter(target_type)
-    result = type_adapter.validate_json(json_str)
+    if json_data is MISSING:
+        result = target_type()
+    else:
+        json_str = json.dumps(json_data)
+        type_adapter = TypeAdapter(target_type)
+        result = type_adapter.validate_json(json_str)
     return result

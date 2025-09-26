@@ -8,7 +8,7 @@ from openhands.agent_server.env_parser import from_env
 
 # Environment variable constants
 SESSION_API_KEY_ENV = "SESSION_API_KEY"
-ENVIRONMENT_VARIABLE_PREFIX = "OH_"
+ENVIRONMENT_VARIABLE_PREFIX = "OH"
 
 
 def _default_session_api_keys():
