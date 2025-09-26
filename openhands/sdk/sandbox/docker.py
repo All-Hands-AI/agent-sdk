@@ -97,14 +97,14 @@ def _resolve_build_script() -> Path | None:
     except Exception:
         pass
 
-    # Try common project layouts relative to CWD and this file
+    # Try common project layouts relative to this file and CWD
     candidates: list[Path] = [
-        Path.cwd() / "openhands" / "agent_server" / "docker" / "build.sh",
         Path(__file__).resolve().parents[3]
         / "openhands"
         / "agent_server"
         / "docker"
         / "build.sh",
+        Path.cwd() / "openhands" / "agent_server" / "docker" / "build.sh",
     ]
     for c in candidates:
         if c.exists():

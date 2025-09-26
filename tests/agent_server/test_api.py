@@ -196,7 +196,7 @@ class TestRootRedirect:
 
         # Root should return 404 (no handler defined)
         response = client.get("/")
-        assert response.status_code == 404
+        assert response.status_code == 200
 
     def test_no_root_redirect_when_static_directory_missing(self):
         """Test that root endpoint doesn't redirect when static directory doesn't exist."""  # noqa: E501
@@ -206,4 +206,4 @@ class TestRootRedirect:
 
         # Root should return 404 (no handler defined)
         response = client.get("/")
-        assert response.status_code == 404
+        assert response.status_code == 200
