@@ -288,6 +288,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 )
                 updates["condenser"] = new_condenser
 
+        # Reconcile tools - use tools from runtime agent (self) to allow
+        # working directory changes when restarting conversations
+        updates["tools"] = self.tools
+
         reconciled = persisted.model_copy(update=updates)
         if self.model_dump(exclude_none=True) != reconciled.model_dump(
             exclude_none=True
