@@ -12,7 +12,7 @@ from types import UnionType
 from typing import Annotated, Union, get_args, get_origin
 from uuid import UUID
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, SecretStr, TypeAdapter
 
 
 # Define Missing type
@@ -262,6 +262,7 @@ def from_env(
             UUID: StrEnvParser(),
             Path: StrEnvParser(),
             datetime: StrEnvParser(),
+            SecretStr: StrEnvParser(),
         }
     parser = get_env_parser(target_type, parsers)
     json_data = parser.from_env(prefix)
