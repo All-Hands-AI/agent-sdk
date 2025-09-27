@@ -4,6 +4,7 @@ from openhands.sdk.event.condenser import (
     CondensationRequest,
     CondensationSummaryEvent,
 )
+from openhands.sdk.event.error import LLMErrorEvent
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
@@ -33,4 +34,5 @@ __all__ = [
     "CondensationSummaryEvent",
     "EventID",
     "ToolCallID",
+    "LLMErrorEvent",
 ]
