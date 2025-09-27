@@ -106,7 +106,6 @@ class ModelEnvParser(EnvParser):
         return result
 
 
-@dataclass
 class DictEnvParser(EnvParser):
     def from_env(self, key: str) -> dict | MissingType:
         # Read json from an environment variable
