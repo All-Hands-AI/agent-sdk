@@ -67,9 +67,28 @@ def test_conversation_restart_with_nested_llms(tmp_path):
     assert conversation2.agent.condenser.keep_first == 4
 
 
-def test_conversation_restarted_with_changed_secrets():
-    pass
+def test_conversation_restarted_with_changed_working_directory(tmp_path_factory):
+    working_dir = str(tmp_path_factory.mktemp("persist"))
+    path1 = str(tmp_path_factory.mktemp("agent1"))
+    path2 = str(tmp_path_factory.mktemp("agent2"))
 
+    llm = LLM(
+        model="gpt-4o-mini", api_key=SecretStr("llm-api-key"), service_id="main-llm"
+    )
 
-def test_conversation_restarted_with_changed_working_directory():
-    pass
+    agent1 = get_default_agent(llm, str(path1))
+    file_store = LocalFileStore(root=str(working_dir))
+    conversation_id = uuid.uuid4()
+
+    # first conversation
+    _ = Conversation(
+        agent=agent1, persist_filestore=file_store, conversation_id=conversation_id
+    )
+
+    # agent built in a *different* temp dir
+    agent2 = get_default_agent(llm, str(path2))
+
+    # restart with new agent working dir but same conversation id
+    _ = Conversation(
+        agent=agent2, persist_filestore=file_store, conversation_id=conversation_id
+    )
