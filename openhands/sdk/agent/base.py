@@ -253,6 +253,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """
         Return a new AgentBase instance equivalent to `persisted` but with
         explicitly whitelisted fields (e.g. api_key) taken from `self`.
+
+        Uses get_all_llms() to discover all LLMs recursively in the agent structure,
+        maps deserialized LLMs to runtime LLMs by service_id, and recursively
+        replaces all nested LLMs throughout the agent structure.
         """
         if persisted.__class__ is not self.__class__:
             raise ValueError(
@@ -261,9 +265,34 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 f"{self.__class__.__name__}."
             )
 
+        # Get all LLMs from both self and persisted to reconcile them
         new_llm = self.llm.resolve_diff_from_deserialized(persisted.llm)
-        reconciled = persisted.model_copy(update={"llm": new_llm})
+        updates: dict[str, Any] = {"llm": new_llm}
 
+        # Reconcile the condenser's LLM if it exists
+        if self.condenser is not None and persisted.condenser is not None:
+            # Check if both condensers are LLMSummarizingCondenser
+            # (which has an llm field)
+            from openhands.sdk.context.condenser.llm_summarizing_condenser import (
+                LLMSummarizingCondenser,
+            )
+
+            if isinstance(self.condenser, LLMSummarizingCondenser) and isinstance(
+                persisted.condenser, LLMSummarizingCondenser
+            ):
+                new_condenser_llm = self.condenser.llm.resolve_diff_from_deserialized(
+                    persisted.condenser.llm
+                )
+                new_condenser = persisted.condenser.model_copy(
+                    update={"llm": new_condenser_llm}
+                )
+                updates["condenser"] = new_condenser
+
+        # Reconcile tools - tools must match except for directory-related parameters
+        reconciled_tools = self._reconcile_tools(persisted.tools)
+        updates["tools"] = reconciled_tools
+
+        reconciled = persisted.model_copy(update=updates)
         if self.model_dump(exclude_none=True) != reconciled.model_dump(
             exclude_none=True
         ):
@@ -352,6 +381,90 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         # Drive the traversal from self
         yield from _walk(self)
+
+    def _reconcile_tools(self, persisted_tools: list[ToolSpec]) -> list[ToolSpec]:
+        """
+        Reconcile tools between runtime and persisted agents.
+
+        Tools must match by name, but directory-related parameters
+        (working_dir, persistent_dir, save_dir) can be overridden from runtime agent.
+
+        Args:
+            persisted_tools: Tools from the persisted agent
+
+        Returns:
+            Reconciled tools list
+
+        Raises:
+            ValueError: If tools don't match (excluding allowed parameter differences)
+        """
+        # Directory-related parameters that can be overridden
+        OVERRIDABLE_PARAMS = {
+            "working_dir",
+            "persistent_dir",
+            "save_dir",
+            "workspace_root",
+        }
+
+        # Create maps by tool name for easy lookup
+        runtime_tools_map = {tool.name: tool for tool in self.tools}
+        persisted_tools_map = {tool.name: tool for tool in persisted_tools}
+
+        # Check that tool names match
+        runtime_names = set(runtime_tools_map.keys())
+        persisted_names = set(persisted_tools_map.keys())
+
+        if runtime_names != persisted_names:
+            missing_in_runtime = persisted_names - runtime_names
+            missing_in_persisted = runtime_names - persisted_names
+            error_msg = "Tools don't match between runtime and persisted agents."
+            if missing_in_runtime:
+                error_msg += f" Missing in runtime: {missing_in_runtime}."
+            if missing_in_persisted:
+                error_msg += f" Missing in persisted: {missing_in_persisted}."
+            raise ValueError(error_msg)
+
+        # Reconcile each tool, preserving runtime tool order
+        reconciled_tools = []
+        for runtime_tool in self.tools:
+            tool_name = runtime_tool.name
+            persisted_tool = persisted_tools_map[tool_name]
+
+            # Start with persisted tool params
+            reconciled_params = persisted_tool.params.copy()
+
+            # Override directory-related parameters from runtime tool
+            for param_name in OVERRIDABLE_PARAMS:
+                if param_name in runtime_tool.params:
+                    reconciled_params[param_name] = runtime_tool.params[param_name]
+
+            # Check that non-overridable parameters match
+            for param_name, param_value in persisted_tool.params.items():
+                if param_name not in OVERRIDABLE_PARAMS:
+                    runtime_value = runtime_tool.params.get(param_name)
+                    if runtime_value != param_value:
+                        msg = (
+                            f"Tool '{tool_name}' parameter '{param_name}' doesn't "
+                            f"match: runtime={runtime_value}, persisted={param_value}"
+                        )
+                        raise ValueError(msg)
+
+            # Check that runtime tool doesn't have extra non-overridable parameters
+            for param_name, param_value in runtime_tool.params.items():
+                if (
+                    param_name not in OVERRIDABLE_PARAMS
+                    and param_name not in persisted_tool.params
+                ):
+                    raise ValueError(
+                        f"Tool '{tool_name}' has extra parameter '{param_name}' "
+                        f"in runtime agent"
+                    )
+
+            # Create reconciled tool spec
+            reconciled_tool = ToolSpec(name=tool_name, params=reconciled_params)
+            reconciled_tools.append(reconciled_tool)
+
+        return reconciled_tools
 
     @property
     def tools_map(self) -> dict[str, Tool]:
