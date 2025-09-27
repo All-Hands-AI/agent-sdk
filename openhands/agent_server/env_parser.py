@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from types import UnionType
-from typing import Annotated, Union, get_args, get_origin
+from typing import Annotated, Literal, Union, get_args, get_origin
 from uuid import UUID
 
 from pydantic import BaseModel, SecretStr, TypeAdapter
@@ -230,6 +230,8 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
         assert args[0] is str
         assert args[1] in (str, int, float, bool)
         return DictEnvParser()
+    if origin is Literal:
+        return StrEnvParser()
 
     if origin and issubclass(origin, BaseModel):
         target_type = origin
