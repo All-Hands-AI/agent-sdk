@@ -142,11 +142,14 @@ def test_get_default_agent_condenser_config(basic_llm):
     assert agent.condenser is not None
     assert isinstance(agent.condenser, LLMSummarizingCondenser)
     assert basic_llm.service_id != agent.condenser.llm.service_id
-    assert agent.condenser.llm == basic_llm.model_copy(
-        update={"service_id": "condenser"}
-    )  # Condenser LLM should have service_id set
+    # Check key properties of condenser LLM
+    assert agent.condenser.llm.model == "gpt-3.5-turbo"
+    assert agent.condenser.llm.service_id == "condenser"
+    # Other properties should be inherited from the base LLM
+    assert agent.condenser.llm.api_key == basic_llm.api_key
+    assert agent.condenser.llm.openrouter_site_url == basic_llm.openrouter_site_url
     assert agent.condenser.max_size == 80
-    assert agent.condenser.keep_first == 4
+    assert agent.condenser.keep_first == 10
 
 
 def test_get_default_agent_tool_order(basic_llm):

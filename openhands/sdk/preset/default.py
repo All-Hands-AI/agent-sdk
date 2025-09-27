@@ -59,7 +59,11 @@ def get_default_condenser(llm: LLM) -> CondenserBase:
     # Create a condenser to manage the context. The condenser will automatically
     # truncate conversation history when it exceeds max_size, and replaces the dropped
     # events with an LLM-generated summary.
-    condenser = LLMSummarizingCondenser(llm=llm, max_size=80, keep_first=4)
+    # Use a cheaper model for condensing to reduce costs
+    condenser_llm = llm.model_copy(
+        update={"model": "gpt-3.5-turbo", "service_id": "condenser"}
+    )
+    condenser = LLMSummarizingCondenser(llm=condenser_llm, max_size=80, keep_first=10)
 
     return condenser
 
@@ -87,9 +91,7 @@ def get_default_agent(
         },
         filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
         system_prompt_kwargs={"cli_mode": cli_mode},
-        condenser=get_default_condenser(
-            llm=llm.model_copy(update={"service_id": "condenser"})
-        ),
+        condenser=get_default_condenser(llm=llm),
         security_analyzer=LLMSecurityAnalyzer(),
     )
     return agent
