@@ -107,8 +107,10 @@ def test_conversation_restarted_with_changed_working_directory(tmp_path_factory)
 
 
 # Tests from test_local_conversation_tools_integration.py
-def test_conversation_with_different_agent_tools_succeeds():
-    """Test that using an agent with different tools succeeds (tools are overridden)."""
+def test_conversation_with_different_agent_tools_fails():
+    """Test that using an agent with different tools fails (tools must match)."""
+    import pytest
+
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
 
@@ -145,19 +147,16 @@ def test_conversation_with_different_agent_tools_succeeds():
         )
         different_agent = Agent(llm=llm2, tools=different_tools)
 
-        # This should succeed - tools are overridden from runtime agent
-        new_conversation = LocalConversation(
-            agent=different_agent,
-            persist_filestore=file_store,
-            conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
-            visualize=False,
-        )
-
-        # Verify state was loaded and tools were overridden
-        assert len(new_conversation.state.events) > 0
-        # The agent should now have the runtime agent's tools (only BashTool)
-        assert len(new_conversation.agent.tools) == 1
-        assert new_conversation.agent.tools[0].name == "BashTool"
+        # This should fail - tools must match during reconciliation
+        with pytest.raises(
+            ValueError, match="Tools don't match between runtime and persisted agents"
+        ):
+            LocalConversation(
+                agent=different_agent,
+                persist_filestore=file_store,
+                conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
+                visualize=False,
+            )
 
 
 def test_conversation_with_same_agent_succeeds():
