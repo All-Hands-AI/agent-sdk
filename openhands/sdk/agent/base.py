@@ -3,7 +3,6 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
@@ -250,39 +249,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         NOTE: state will be mutated in-place.
         """
 
-    def _normalize_tool_params(
-        self, tool_spec: dict[str, Any] | ToolSpec
-    ) -> dict[str, Any]:
-        """Normalize tool parameters to handle Path vs string comparisons."""
-        # Convert ToolSpec to dict if needed
-        if isinstance(tool_spec, ToolSpec):
-            tool_dict = tool_spec.model_dump()
-        else:
-            tool_dict = tool_spec
-
-        if "params" not in tool_dict:
-            return tool_dict
-
-        normalized_spec = tool_dict.copy()
-        normalized_params = {}
-
-        for key, value in tool_dict["params"].items():
-            # Convert Path objects to strings for consistent comparison
-            if isinstance(value, Path):
-                normalized_params[key] = str(value)
-            elif isinstance(value, str) and key in (
-                "working_dir",
-                "workspace_root",
-                "save_dir",
-            ):
-                # These are known path parameters - normalize them as strings
-                normalized_params[key] = str(value)
-            else:
-                normalized_params[key] = value
-
-        normalized_spec["params"] = normalized_params
-        return normalized_spec
-
     def resolve_diff_from_deserialized(self, persisted: "AgentBase") -> "AgentBase":
         """
         Return a new AgentBase instance equivalent to `persisted` but with
@@ -322,61 +288,13 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 )
                 updates["condenser"] = new_condenser
 
-        # Reconcile tools by normalizing path parameters
-        if self.tools and persisted.tools:
-            normalized_self_tools = []
-            normalized_persisted_tools = []
-
-            # Normalize both sets of tools for comparison
-            for tool_spec in self.tools:
-                tool_dict = (
-                    tool_spec.model_dump()
-                    if hasattr(tool_spec, "model_dump")
-                    else tool_spec
-                )
-                normalized_self_tools.append(self._normalize_tool_params(tool_dict))
-
-            for tool_spec in persisted.tools:
-                tool_dict = (
-                    tool_spec.model_dump()
-                    if hasattr(tool_spec, "model_dump")
-                    else tool_spec
-                )
-                normalized_persisted_tools.append(
-                    self._normalize_tool_params(tool_dict)
-                )
-
-            # If normalized tools are the same, use the persisted tools as-is
-            if normalized_self_tools == normalized_persisted_tools:
-                updates["tools"] = persisted.tools
-
         reconciled = persisted.model_copy(update=updates)
-
-        # For comparison, we need to normalize both models before comparing
-        self_normalized = self.model_copy()
-        if hasattr(self_normalized, "tools") and self_normalized.tools:
-            # Create normalized tool specs for comparison
-            normalized_tools = []
-            for tool_spec in self_normalized.tools:
-                if hasattr(tool_spec, "model_dump"):
-                    tool_dict = tool_spec.model_dump()
-                    normalized_dict = self._normalize_tool_params(tool_dict)
-                    # Create a new ToolSpec with normalized params
-                    from openhands.sdk.tool import ToolSpec
-
-                    normalized_tools.append(ToolSpec(**normalized_dict))
-                else:
-                    normalized_tools.append(tool_spec)
-            self_normalized = self_normalized.model_copy(
-                update={"tools": normalized_tools}
-            )
-
-        if self_normalized.model_dump(exclude_none=True) != reconciled.model_dump(
+        if self.model_dump(exclude_none=True) != reconciled.model_dump(
             exclude_none=True
         ):
             raise ValueError(
                 "The Agent provided is different from the one in persisted state.\n"
-                f"Diff: {pretty_pydantic_diff(self_normalized, reconciled)}"
+                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
             )
         return reconciled
 
