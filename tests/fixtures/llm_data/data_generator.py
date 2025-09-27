@@ -87,7 +87,7 @@ def run_conversation(
     def conversation_callback(event: EventBase):
         logger.info(f"Found a conversation message: {str(event)[:200]}...")
         if isinstance(event, LLMConvertibleEvent):
-            llm_messages.append(event.to_llm_message().to_llm_dict())
+            llm_messages.append(event.to_llm_message().to_llm_completion())
 
     conversation = Conversation(agent=agent, callbacks=[conversation_callback])
     message = Message(role="user", content=[TextContent(text=user_message)])

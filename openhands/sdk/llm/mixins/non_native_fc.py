@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol, TypeGuard
 
 from litellm import ChatCompletionToolParam, Message as LiteLLMMessage
+from litellm.types.completion import ChatCompletionMessageParam
 from litellm.types.utils import Choices, ModelResponse, StreamingChoices
 
 from openhands.sdk.llm.exceptions import LLMNoResponseError
@@ -37,14 +38,15 @@ class NonNativeToolCallingMixin:
 
     def pre_request_prompt_mock(
         self: _HostSupports,
-        messages: list[dict],
+        messages: list[ChatCompletionMessageParam],
         tools: list[ChatCompletionToolParam],
         kwargs: dict,
     ) -> tuple[list[dict], dict]:
         """Convert to non-fncall prompting when native tool-calling is off."""
         add_iclex = not any(s in self.model for s in ("openhands-lm", "devstral"))
-        messages = convert_fncall_messages_to_non_fncall_messages(
-            messages, tools, add_in_context_learning_example=add_iclex
+        dict_msgs: list[dict] = [dict(m) for m in messages]
+        dict_msgs = convert_fncall_messages_to_non_fncall_messages(
+            dict_msgs, tools, add_in_context_learning_example=add_iclex
         )
         if get_features(self.model).supports_stop_words and not self.disable_stop_word:
             kwargs = dict(kwargs)
@@ -52,7 +54,7 @@ class NonNativeToolCallingMixin:
 
         # Ensure we don't send tool_choice when mocking
         kwargs.pop("tool_choice", None)
-        return messages, kwargs
+        return dict_msgs, kwargs
 
     def post_response_prompt_mock(
         self: _HostSupports,

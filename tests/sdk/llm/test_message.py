@@ -1,3 +1,4 @@
+from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
@@ -16,12 +17,13 @@ def test_text_content_with_cache_prompt():
     from openhands.sdk.llm.message import TextContent
 
     content = TextContent(text="Hello world", cache_prompt=True)
-    result = content.to_llm_dict()
+    result = content.to_llm_completion()
 
     assert len(result) == 1
-    assert result[0]["type"] == "text"
-    assert result[0]["text"] == "Hello world"
-    assert result[0]["cache_control"] == {"type": "ephemeral"}
+    r0 = cast(dict[str, Any], result[0])
+    assert r0["type"] == "text"
+    assert r0["text"] == "Hello world"
+    assert r0["cache_control"] == {"type": "ephemeral"}
 
 
 def test_image_content_with_cache_prompt():
@@ -32,7 +34,7 @@ def test_image_content_with_cache_prompt():
         image_urls=["data:image/png;base64,abc123", "data:image/jpeg;base64,def456"],
         cache_prompt=True,
     )
-    result = content.to_llm_dict()
+    result = content.to_llm_completion()
 
     assert len(result) == 2
     assert result[0]["type"] == "image_url"
@@ -40,8 +42,14 @@ def test_image_content_with_cache_prompt():
     assert result[1]["type"] == "image_url"
     assert result[1]["image_url"]["url"] == "data:image/jpeg;base64,def456"  # type: ignore
     # Only the last image should have cache_control
-    assert "cache_control" not in result[0]
-    assert result[1]["cache_control"] == {"type": "ephemeral"}
+    r0 = cast(dict[str, Any], result[0])
+    r1 = cast(dict[str, Any], result[1])
+
+    r0 = cast(dict[str, Any], result[0])
+    r1 = cast(dict[str, Any], result[1])
+
+    assert "cache_control" not in r0
+    assert r1["cache_control"] == {"type": "ephemeral"}
 
 
 def test_message_contains_image_property():
@@ -77,12 +85,19 @@ def test_message_tool_role_with_cache_prompt():
         cache_enabled=True,
     )
 
-    result = message.to_llm_dict()
-    assert result["role"] == "tool"
-    assert result["tool_call_id"] == "call_123"
-    assert result["cache_control"] == {"type": "ephemeral"}
+    from litellm.types.completion import (
+        ChatCompletionContentPartParam,
+        ChatCompletionToolMessageParam,
+    )
+
+    llm_union = message.to_llm_completion()
+    assert llm_union["role"] == "tool"
+    llm = cast(ChatCompletionToolMessageParam, llm_union)
+    assert llm["tool_call_id"] == "call_123"
+    assert cast(dict[str, Any], llm)["cache_control"] == {"type": "ephemeral"}
     # The content should not have cache_control since it's moved to message level
-    assert "cache_control" not in result["content"][0]
+    content = cast(list[ChatCompletionContentPartParam], llm["content"])  # parts
+    assert "cache_control" not in content[0]
 
 
 def test_message_tool_role_with_image_cache_prompt():
@@ -103,12 +118,13 @@ def test_message_tool_role_with_image_cache_prompt():
         cache_enabled=True,
     )
 
-    result = message.to_llm_dict()
+    result = message.to_llm_completion()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
-    assert result["cache_control"] == {"type": "ephemeral"}
+    assert cast(dict[str, Any], result)["cache_control"] == {"type": "ephemeral"}
     # The image content should not have cache_control since it's moved to message level
-    assert "cache_control" not in result["content"][0]
+    content = cast(list[dict[str, Any]], result["content"])  # parts
+    assert "cache_control" not in content[0]
 
 
 def test_message_with_tool_calls():
@@ -129,14 +145,15 @@ def test_message_with_tool_calls():
         tool_calls=[tool_call],
     )
 
-    result = message.to_llm_dict()
+    result = message.to_llm_completion()
     assert result["role"] == "assistant"
     assert "tool_calls" in result
-    assert len(result["tool_calls"]) == 1
-    assert result["tool_calls"][0]["id"] == "call_123"
-    assert result["tool_calls"][0]["type"] == "function"
-    assert result["tool_calls"][0]["function"]["name"] == "test_function"
-    assert result["tool_calls"][0]["function"]["arguments"] == '{"arg": "value"}'
+    tool_calls = cast(list[dict[str, Any]], result["tool_calls"])  # type narrowing
+    assert len(tool_calls) == 1
+    assert tool_calls[0]["id"] == "call_123"
+    assert tool_calls[0]["type"] == "function"
+    assert tool_calls[0]["function"]["name"] == "test_function"
+    assert tool_calls[0]["function"]["arguments"] == '{"arg": "value"}'
 
 
 def test_message_from_litellm_message_function_role_error():
@@ -170,7 +187,7 @@ def test_text_content_truncation_under_limit():
     from openhands.sdk.llm.message import TextContent
 
     content = TextContent(text="Short text")
-    result = content.to_llm_dict()
+    result = content.to_llm_completion()
 
     assert len(result) == 1
     assert result[0]["text"] == "Short text"
@@ -186,7 +203,7 @@ def test_text_content_truncation_over_limit():
 
     with patch("openhands.sdk.llm.message.logger") as mock_logger:
         content = TextContent(text=long_text)
-        result = content.to_llm_dict()
+        result = content.to_llm_completion()
 
         # Check that warning was logged
         mock_logger.warning.assert_called_once()
@@ -217,7 +234,7 @@ def test_text_content_truncation_exact_limit():
 
     with patch("openhands.sdk.llm.message.logger") as mock_logger:
         content = TextContent(text=exact_text)
-        result = content.to_llm_dict()
+        result = content.to_llm_completion()
 
         # Check that no warning was logged
         mock_logger.warning.assert_not_called()
