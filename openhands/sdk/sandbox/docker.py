@@ -12,7 +12,10 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.sandbox.port_utils import find_available_tcp_port
+from openhands.sdk.sandbox.port_utils import (
+    check_port_available,
+    find_available_tcp_port,
+)
 
 
 logger = get_logger(__name__)
@@ -199,8 +202,23 @@ class DockerSandboxedAgentServer:
         detach_logs: bool = True,
         target: str = "source",
         platform: str = "linux/amd64",
+        extra_ports: bool = False,
     ) -> None:
         self.host_port = int(host_port) if host_port else find_available_tcp_port()
+        if not check_port_available(self.host_port):
+            raise RuntimeError(f"Port {self.host_port} is not available")
+
+        self._extra_ports = extra_ports
+        if extra_ports:
+            if not check_port_available(self.host_port + 1):
+                raise RuntimeError(
+                    f"Port {self.host_port + 1} is not available for VSCode"
+                )
+            if not check_port_available(self.host_port + 2):
+                raise RuntimeError(
+                    f"Port {self.host_port + 2} is not available for VNC"
+                )
+
         self._image = base_image
         self.host = host
         self.base_url = f"http://{host}:{self.host_port}"
@@ -246,6 +264,16 @@ class DockerSandboxedAgentServer:
                 "Mounting host dir %s to container path %s", self.mount_dir, mount_path
             )
 
+        ports = ["-p", f"{self.host_port}:8000"]
+        if self._extra_ports:
+            ports += [
+                "-p",
+                f"{self.host_port + 1}:8001",  # VScode
+                "-p",
+                f"{self.host_port + 2}:8002",  # Desktop VNC
+            ]
+        flags += ports
+
         # Run container
         run_cmd = [
             "docker",
@@ -256,8 +284,6 @@ class DockerSandboxedAgentServer:
             "--rm",
             "--name",
             f"agent-server-{int(time.time())}",
-            "-p",
-            f"{self.host_port}:8000",
             *flags,
             self._image,
             "--host",

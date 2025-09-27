@@ -276,6 +276,29 @@ class RemoteState(ConversationStateProtocol):
         pass
 
 
+class LoggingHttpClient(httpx.Client):
+    """httpx.Client subclass that logs before raising for status errors."""
+
+    def request(self, method: str, url: httpx.URL | str, **kwargs) -> httpx.Response:
+        resp = super().request(method, url, **kwargs)
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError:
+            # Automatically log error with request + response context
+            logger.error(
+                "HTTP request failed",
+                extra={
+                    "method": method,
+                    "url": url,
+                    "status_code": resp.status_code,
+                    "response_text": resp.text[:500],  # avoid huge logs
+                },
+                exc_info=True,
+            )
+            raise
+        return resp
+
+
 class RemoteConversation(BaseConversation):
     def __init__(
         self,
@@ -299,7 +322,7 @@ class RemoteConversation(BaseConversation):
         """
         self.agent = agent
         self._host = host.rstrip("/")
-        self._client = httpx.Client(base_url=self._host, timeout=30.0)
+        self._client = LoggingHttpClient(base_url=self._host, timeout=30.0)
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run
 

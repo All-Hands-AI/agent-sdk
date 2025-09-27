@@ -212,6 +212,7 @@ def test_long_running_command_follow_by_execute():
 
 
 @parametrize_terminal_types
+@pytest.mark.timeout(60)  # Add 60 second timeout to prevent hanging in CI
 def test_interactive_command(terminal_type):
     session = create_terminal_session(
         work_dir=os.getcwd(), no_change_timeout_seconds=3, terminal_type=terminal_type
