@@ -1,14 +1,16 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from litellm.exceptions import (
     RateLimitError,
 )
+from litellm.types.utils import ModelResponse, Usage
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
+from openhands.sdk.llm.utils.telemetry import Telemetry
 
 # Import common test utilities
 from tests.conftest import create_mock_litellm_response
@@ -406,7 +408,6 @@ def test_llm_config_validation():
 @patch("openhands.sdk.llm.llm.litellm_completion")
 def test_llm_no_response_error(mock_completion):
     """Test handling of LLMNoResponseError."""
-    from litellm.types.utils import ModelResponse, Usage
 
     # Mock empty response using proper ModelResponse
     mock_response = ModelResponse(
@@ -488,10 +489,6 @@ def test_token_usage_context_window():
 
 def test_telemetry_cost_calculation_header_exception():
     """Test telemetry cost calculation handles header parsing exceptions."""
-    from unittest.mock import Mock, patch
-
-    from openhands.sdk.llm.utils.metrics import Metrics
-    from openhands.sdk.llm.utils.telemetry import Telemetry
 
     # Create a mock response with headers that will cause an exception
     mock_response = Mock()

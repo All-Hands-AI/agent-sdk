@@ -67,19 +67,19 @@ def create_terminal_session(
     Raises:
         RuntimeError: If the requested session type is not available
     """
-    from openhands.tools.execute_bash.terminal.terminal_session import TerminalSession
-
     if terminal_type:
         # Force specific session type
         if terminal_type == "tmux":
             if not _is_tmux_available():
                 raise RuntimeError("Tmux is not available on this system")
+            # FIXME: Conditional import based on runtime availability
             from openhands.tools.execute_bash.terminal.tmux_terminal import TmuxTerminal
 
             logger.info("Using forced TmuxTerminal")
             terminal = TmuxTerminal(work_dir, username)
             return TerminalSession(terminal, no_change_timeout_seconds)
         elif terminal_type == "subprocess":
+            # FIXME: Conditional import based on runtime availability
             from openhands.tools.execute_bash.terminal.subprocess_terminal import (
                 SubprocessTerminal,
             )
@@ -98,12 +98,14 @@ def create_terminal_session(
     else:
         # On Unix-like systems, prefer tmux if available, otherwise use subprocess
         if _is_tmux_available():
+            # FIXME: Conditional import based on runtime availability
             from openhands.tools.execute_bash.terminal.tmux_terminal import TmuxTerminal
 
             logger.info("Auto-detected: Using TmuxTerminal (tmux available)")
             terminal = TmuxTerminal(work_dir, username)
             return TerminalSession(terminal, no_change_timeout_seconds)
         else:
+            # FIXME: Conditional import based on runtime availability
             from openhands.tools.execute_bash.terminal.subprocess_terminal import (
                 SubprocessTerminal,
             )

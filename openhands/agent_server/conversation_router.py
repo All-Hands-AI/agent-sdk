@@ -1,6 +1,6 @@
 """Conversation router for OpenHands SDK."""
 
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Body, HTTPException, Query, status
@@ -21,6 +21,7 @@ from openhands.agent_server.models import (
     UpdateSecretsRequest,
 )
 from openhands.sdk import LLM, Agent, TextContent, ToolSpec
+from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 
 
@@ -201,10 +202,6 @@ async def update_conversation_secrets(
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     # Strings are valid SecretValue (SecretValue = str | SecretProvider)
-    from typing import cast
-
-    from openhands.sdk.conversation.secrets_manager import SecretValue
-
     secrets = cast(dict[str, SecretValue], request.secrets)
     await event_service.update_secrets(secrets)
     return Success()

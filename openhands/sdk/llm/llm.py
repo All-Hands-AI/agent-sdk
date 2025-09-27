@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import tomllib
 import warnings
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
@@ -834,13 +835,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     @classmethod
     def load_from_toml(cls, toml_path: str) -> LLM:
-        try:
-            import tomllib
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore
-            except ImportError:
-                raise ImportError("tomllib or tomli is required to load TOML files")
         with open(toml_path, "rb") as f:
             data = tomllib.load(f)
         if "llm" in data:

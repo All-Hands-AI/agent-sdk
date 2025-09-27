@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
+from openhands.agent_server.config import get_default_config
 from openhands.agent_server.models import (
     BashCommand,
     BashEventBase,
@@ -364,8 +365,6 @@ def get_default_bash_event_service() -> BashEventService:
     global _bash_event_service
     if _bash_event_service:
         return _bash_event_service
-
-    from openhands.agent_server.config import get_default_config
 
     config = get_default_config()
     _bash_event_service = BashEventService(

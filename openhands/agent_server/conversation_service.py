@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 import httpx
 
-from openhands.agent_server.config import Config, WebhookSpec
+from openhands.agent_server.config import Config, WebhookSpec, get_default_config
 from openhands.agent_server.event_service import EventService
 from openhands.agent_server.models import (
     ConversationInfo,
@@ -487,10 +487,6 @@ def get_default_conversation_service() -> ConversationService:
     global _conversation_service
     if _conversation_service:
         return _conversation_service
-
-    from openhands.agent_server.config import (
-        get_default_config,
-    )
 
     config = get_default_config()
     _conversation_service = ConversationService.get_instance(config)
