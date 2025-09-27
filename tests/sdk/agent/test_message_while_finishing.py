@@ -40,10 +40,8 @@ import time  # noqa: E402
 from collections.abc import Sequence  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
-from litellm import ChatCompletionMessageToolCall  # noqa: E402
 from litellm.types.utils import (  # noqa: E402
     Choices,
-    Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
@@ -159,14 +157,16 @@ class TestMessageWhileFinishing:
 
         if self.step_count == 1:
             # Step 1: Process initial request - single sleep
-            sleep_call = ChatCompletionMessageToolCall(
-                id="sleep_call_1",
-                type="function",
-                function=Function(
-                    name="sleep_tool",
-                    arguments='{"duration": 2.0, "message": "First sleep completed"}',
-                ),
-            )
+            sleep_call = {
+                "id": "sleep_call_1",
+                "type": "function",
+                "function": {
+                    "name": "sleep_tool",
+                    "arguments": (
+                        '{"duration": 2.0, "message": "First sleep completed"}'
+                    ),
+                },
+            }
             return ModelResponse(
                 id=f"response_step_{self.step_count}",
                 choices=[
@@ -202,23 +202,23 @@ class TestMessageWhileFinishing:
                 final_message += " and butterfly"  # This should NOT happen
 
             # Multiple tool calls: sleep THEN finish
-            sleep_call = ChatCompletionMessageToolCall(
-                id="sleep_call_2",
-                type="function",
-                function=Function(
-                    name="sleep_tool",
-                    arguments=f'{{"duration": 3.0, "message": "{sleep_message}"}}',
-                ),
-            )
+            sleep_call = {
+                "id": "sleep_call_2",
+                "type": "function",
+                "function": {
+                    "name": "sleep_tool",
+                    "arguments": f'{{"duration": 3.0, "message": "{sleep_message}"}}',
+                },
+            }
 
-            finish_call = ChatCompletionMessageToolCall(
-                id="finish_call_2",
-                type="function",
-                function=Function(
-                    name="finish",
-                    arguments=f'{{"message": "{final_message}"}}',
-                ),
-            )
+            finish_call = {
+                "id": "finish_call_2",
+                "type": "function",
+                "function": {
+                    "name": "finish",
+                    "arguments": f'{{"message": "{final_message}"}}',
+                },
+            }
 
             return ModelResponse(
                 id=f"response_step_{self.step_count}",

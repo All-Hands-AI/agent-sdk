@@ -72,6 +72,7 @@ class ModelFeatures:
     supports_reasoning_effort: bool
     supports_prompt_cache: bool
     supports_stop_words: bool
+    supports_responses: bool
 
 
 # Pattern tables capturing current behavior. Keep patterns lowercase.
@@ -141,6 +142,11 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
     "deepseek-r1-0528*",
 ]
 
+# Responses API support
+RESPONSES_PATTERNS: list[str] = [
+    "gpt-5*",
+]
+
 
 def get_features(model: str) -> ModelFeatures:
     return ModelFeatures(
@@ -150,4 +156,5 @@ def get_features(model: str) -> ModelFeatures:
         supports_stop_words=not model_matches(
             model, SUPPORTS_STOP_WORDS_FALSE_PATTERNS
         ),
+        supports_responses=model_matches(model, RESPONSES_PATTERNS),
     )

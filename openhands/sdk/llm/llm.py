@@ -31,7 +31,6 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
-
 from litellm import ChatCompletionToolParam, completion as litellm_completion
 from litellm.exceptions import (
     APIConnectionError,
@@ -55,7 +54,8 @@ from openhands.sdk.llm.exceptions import LLMNoResponseError
 
 # OpenHands utilities
 from openhands.sdk.llm.llm_response import LLMResponse
-from openhands.sdk.llm.message import Message
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
+from openhands.sdk.llm.message import Message, TextContent
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
@@ -344,6 +344,156 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Only used by ConversationStats to seed metrics
         self._metrics = metrics
 
+    def is_responses_turn(self, previous_response_id: str | None) -> bool:
+        """Return True if this turn should use the Responses API, else False.
+
+        v1 policy:
+        - If a previous_response_id exists but the model doesn't support Responses,
+          raise a strict error to prevent continuing a Responses conversation on
+          a non-Responses model.
+        - Otherwise, use Responses when the model supports it OR when we already
+          have a previous_response_id (continuation semantics).
+        """
+        features = get_features(self.model)
+        if previous_response_id is not None and not features.supports_responses:
+            raise RuntimeError(
+                "previous_response_id is set but model lacks Responses support"
+            )
+        return features.supports_responses or (previous_response_id is not None)
+
+    def responses(
+        self,
+        *,
+        instructions: str | None = None,
+        inputs: list[dict] | None = None,
+        tools: Sequence[ToolBase] | None = None,
+        previous_response_id: str | None = None,
+        store: bool = True,
+        parallel_tool_calls: bool = True,
+        add_security_risk_prediction: bool = False,
+        **kwargs,
+    ) -> LLMResponse:
+        """Call LiteLLM Responses API (non-streaming) and return LLMResponse.
+
+        This preserves the typed response fidelity and maps to our Message + metrics.
+        """
+        # Build tools in Responses format when provided
+        resp_tools: list[dict] = []
+        if tools:
+            resp_tools = [
+                t.to_responses_tool(
+                    add_security_risk_prediction=add_security_risk_prediction
+                )
+                for t in tools
+            ]
+
+        # Prepare call kwargs
+        call_kwargs = dict(kwargs)
+        call_kwargs.update(
+            {
+                "model": self.model,
+                "api_key": self.api_key.get_secret_value() if self.api_key else None,
+                "api_base": self.base_url,
+                "timeout": self.timeout,
+                "tools": resp_tools or None,
+                "store": store,
+                "parallel_tool_calls": parallel_tool_calls,
+            }
+        )
+        # Minimal normalization for Responses (GPT-5 family)
+        call_kwargs = self._normalize_responses_kwargs(call_kwargs)
+        if previous_response_id:
+            call_kwargs["previous_response_id"] = previous_response_id
+        if instructions is not None:
+            call_kwargs["instructions"] = instructions
+        if inputs is not None:
+            call_kwargs["input"] = inputs
+
+        # logging context
+        assert self._telemetry is not None
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "instructions": instructions,
+                "inputs": inputs,
+                "tools": tools,
+                "kwargs": {
+                    k: v for k, v in call_kwargs.items() if k not in ("api_key",)
+                },
+            }
+        self._telemetry.on_request(log_ctx=log_ctx)
+
+        # transport
+        with self._litellm_modify_params_ctx(self.modify_params):
+            litellm_responses = getattr(litellm, "responses")
+            resp = litellm_responses(**call_kwargs)
+
+        # telemetry
+        self._telemetry.on_response(resp)  # Usage mapping if present
+
+        # Convert to Message: prefer the first text output as assistant message
+        # For v1 non-streaming, parse output_text plus tool-calls and reasoning
+        try:
+            output_text = getattr(resp, "output_text", None) or ""
+            tool_calls: list[LLMToolCall] = []
+            try:
+                for item in getattr(resp, "output", []) or []:
+                    if getattr(item, "type", None) == "function_call":
+                        tool_calls.append(
+                            LLMToolCall(
+                                id=item.call_id,
+                                name=item.name,
+                                arguments_json=item.arguments,
+                                origin="responses",
+                                raw=item,
+                            )
+                        )
+            except Exception:
+                pass
+
+            reasoning_text = None
+            try:
+                chunks: list[str] = []
+                for item in getattr(resp, "output", []) or []:
+                    if getattr(item, "type", None) == "reasoning":
+                        if getattr(item, "summary", None):
+                            chunks.extend(
+                                [
+                                    s.text
+                                    for s in item.summary
+                                    if getattr(s, "text", None)
+                                ]
+                            )
+                        if getattr(item, "content", None):
+                            chunks.extend(
+                                [
+                                    c.text
+                                    for c in item.content
+                                    if getattr(c, "text", None)
+                                ]
+                            )
+                if chunks:
+                    reasoning_text = "\n".join(chunks)
+            except Exception:
+                reasoning_text = None
+
+            msg = Message(
+                role="assistant",
+                content=[TextContent(text=str(output_text))],
+                tool_calls=tool_calls or None,
+                reasoning_content=reasoning_text,
+            )
+        except Exception:
+            msg = Message(role="assistant", content=[TextContent(text="")])
+
+        metrics_snapshot = MetricsSnapshot(
+            model_name=self.metrics.model_name,
+            accumulated_cost=self.metrics.accumulated_cost,
+            max_budget_per_task=self.metrics.max_budget_per_task,
+            accumulated_token_usage=self.metrics.accumulated_token_usage,
+        )
+        return LLMResponse(message=msg, metrics=metrics_snapshot, raw_response=resp)
+
     def completion(
         self,
         messages: list[Message],
@@ -453,6 +603,37 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 accumulated_token_usage=self.metrics.accumulated_token_usage,
             )
 
+            # Normalize tool calls from provider message into transport-agnostic form
+            # when present on the provider response
+            try:
+                raw_tc = first_choice["message"].tool_calls  # type: ignore[reportGeneralTypeIssues]
+                norm: list[LLMToolCall] = []
+                if raw_tc:
+                    for tc in raw_tc:
+                        # Support both dict-like and object-like access
+                        tc_id = getattr(tc, "id", None) or tc.get("id")
+                        fn = getattr(tc, "function", None) or tc.get("function")
+                        name = None
+                        args = None
+                        if fn is not None:
+                            name = getattr(fn, "name", None) or fn.get("name")
+                            args = getattr(fn, "arguments", None) or fn.get("arguments")
+                        if tc_id and name and args is not None:
+                            norm.append(
+                                LLMToolCall(
+                                    id=str(tc_id),
+                                    name=str(name),
+                                    arguments_json=str(args),
+                                    origin="completion",
+                                    raw=tc,
+                                )
+                            )
+                if norm:
+                    message.tool_calls = norm
+            except Exception:
+                # Best-effort normalization only
+                pass
+
             # Create and return LLMResponse
             return LLMResponse(
                 message=message, metrics=metrics_snapshot, raw_response=resp
@@ -464,6 +645,26 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Transport + helpers
     # =========================================================================
+    def _normalize_responses_kwargs(self, opts: dict) -> dict:
+        """Minimal harmonization for Responses API (GPT-5 family only).
+
+        Keep only the knobs that Responses actually supports and we care about.
+        """
+        out = dict(opts)
+
+        # Reasoning models: temperature = 1.0 per policy
+        out["temperature"] = 1.0
+
+        # top_p is supported by litellm.responses; pass only if explicitly configured
+        if "top_p" not in out and self.top_p is not None:
+            out["top_p"] = self.top_p
+
+        # Map our max_output_tokens to the Responses param
+        if self.max_output_tokens is not None and "max_output_tokens" not in out:
+            out["max_output_tokens"] = self.max_output_tokens
+
+        return out
+
     def _transport_call(
         self, *, messages: list[dict[str, Any]], **kwargs
     ) -> ModelResponse:

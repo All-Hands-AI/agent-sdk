@@ -309,6 +309,34 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             ),
         )
 
+    def to_responses_tool(
+        self,
+        add_security_risk_prediction: bool = False,
+        action_type: type[Schema] | None = None,
+    ) -> dict[str, Any]:
+        """Convert a Tool to a Responses API function tool schema.
+
+        Returns a dict compatible with OpenAI Responses API function tool format.
+        """
+        action_type = action_type or self.action_type
+        action_type_with_risk = _create_action_type_with_risk(self.action_type)
+        add_security_risk_prediction = add_security_risk_prediction and (
+            self.annotations is None or (not self.annotations.readOnlyHint)
+        )
+        params = (
+            action_type_with_risk.to_mcp_schema()
+            if add_security_risk_prediction
+            else action_type.to_mcp_schema()
+        )
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": params,
+            },
+        }
+
     @classmethod
     def resolve_kind(cls, kind: str) -> type:
         for subclass in get_known_concrete_subclasses(cls):

@@ -113,14 +113,14 @@ def test_message_tool_role_with_image_cache_prompt():
 
 def test_message_with_tool_calls():
     """Test Message with tool_calls."""
-    from litellm.types.utils import ChatCompletionMessageToolCall, Function
-
+    from openhands.sdk.llm.llm_tool_call import LLMToolCall
     from openhands.sdk.llm.message import Message, TextContent
 
-    tool_call = ChatCompletionMessageToolCall(
+    tool_call = LLMToolCall(
         id="call_123",
-        type="function",
-        function=Function(name="test_function", arguments='{"arg": "value"}'),
+        name="test_function",
+        arguments_json='{"arg": "value"}',
+        origin="completion",
     )
 
     message = Message(

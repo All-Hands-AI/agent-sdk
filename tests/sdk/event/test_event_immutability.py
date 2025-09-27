@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 import pytest
-from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
+from litellm import ChatCompletionToolParam
 
 from openhands.sdk.event import (
     ActionEvent,
@@ -18,6 +18,7 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
@@ -88,8 +89,8 @@ def test_system_prompt_event_is_frozen():
 def test_action_event_is_frozen():
     """Test that ActionEvent instances are frozen."""
     action = TestEventsImmutabilityMockAction()
-    tool_call = ChatCompletionMessageToolCall(
-        id="test_call_id", function={"name": "test_tool", "arguments": "{}"}
+    tool_call = LLMToolCall(
+        id="test_call_id", name="test_tool", arguments_json="{}", origin="completion"
     )
 
     event = ActionEvent(
