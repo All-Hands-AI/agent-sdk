@@ -8,10 +8,15 @@ import sys
 import threading
 import time
 from collections.abc import Iterable
+from io import BytesIO
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
 
+import httpx
+
 from openhands.sdk.logger import get_logger
+from openhands.sdk.sandbox.base import BashExecutionResult, SandboxedAgentServer
 from openhands.sdk.sandbox.port_utils import find_available_tcp_port
 
 
@@ -179,11 +184,13 @@ def build_agent_server_image(
     return image
 
 
-class DockerSandboxedAgentServer:
+class DockerSandboxedAgentServer(SandboxedAgentServer):
     """Run the Agent Server inside Docker for sandboxed development.
 
     Example:
-        with DockerSandboxedAgentServer(host_port=8010) as server:
+        with DockerSandboxedAgentServer(
+            base_image="python:3.12", host_port=8010
+        ) as srv:
             # use server.base_url as the host for RemoteConversation
             ...
     """
@@ -199,11 +206,11 @@ class DockerSandboxedAgentServer:
         detach_logs: bool = True,
         target: str = "source",
         platform: str = "linux/amd64",
+        **kwargs: Any,
     ) -> None:
+        super().__init__(host_port=host_port, host=host, **kwargs)
         self.host_port = int(host_port) if host_port else find_available_tcp_port()
         self._image = base_image
-        self.host = host
-        self.base_url = f"http://{host}:{self.host_port}"
         self.container_id: str | None = None
         self._logs_thread: threading.Thread | None = None
         self._stop_logs = threading.Event()
@@ -279,6 +286,9 @@ class DockerSandboxedAgentServer:
             )
             self._logs_thread.start()
 
+        # Set the base URL for the abstract base class
+        self._base_url = f"http://{self.host}:{self.host_port}"
+
         # Wait for health
         self._wait_for_health()
         logger.info("API server is ready at %s", self.base_url)
@@ -336,7 +346,195 @@ class DockerSandboxedAgentServer:
             time.sleep(1)
         raise RuntimeError("Server failed to become healthy in time")
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def execute_bash(
+        self, command: str, cwd: str | None = None, timeout: int = 300
+    ) -> BashExecutionResult:
+        """Execute a bash command in the Docker container."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            with httpx.Client() as client:
+                # Start the bash command
+                response = client.post(
+                    f"{self._base_url}/api/bash/execute_bash_command",
+                    json={
+                        "command": command,
+                        "cwd": cwd,
+                        "timeout": timeout,
+                    },
+                    timeout=timeout + 10,  # Add buffer to HTTP timeout
+                )
+                response.raise_for_status()
+                data = response.json()
+                command_id = data["id"]
+
+                # Wait for the command to complete and get results
+                return self._wait_for_bash_completion(client, command_id, timeout)
+
+        except Exception as e:
+            logger.error(f"Failed to execute bash command: {e}")
+            raise RuntimeError(f"Failed to execute bash command: {e}")
+
+    def _wait_for_bash_completion(
+        self, client: httpx.Client, command_id: str, timeout: int = 300
+    ) -> BashExecutionResult:
+        """Wait for a bash command to complete and return the results."""
+        import time
+
+        start_time = time.time()
+        poll_interval = 0.5  # Poll every 500ms
+
+        while time.time() - start_time < timeout:
+            try:
+                # Search for bash events for this command
+                response = client.get(
+                    f"{self._base_url}/api/bash/bash_events/search",
+                    params={
+                        "command_id__eq": command_id,
+                        "kind__eq": "BashOutput",
+                        "limit": 100,
+                    },
+                    timeout=10,
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                # Look for the final output (the one with exit_code)
+                final_output = None
+                all_outputs = []
+
+                for item in data.get("items", []):
+                    if item.get("command_id") == command_id:
+                        all_outputs.append(item)
+                        if item.get("exit_code") is not None:
+                            final_output = item
+                            break
+
+                if final_output:
+                    # Combine all output pieces
+                    stdout_parts = []
+                    stderr_parts = []
+
+                    # Sort by order to ensure correct sequence
+                    all_outputs.sort(key=lambda x: x.get("order", 0))
+
+                    for output in all_outputs:
+                        if output.get("stdout"):
+                            stdout_parts.append(output["stdout"])
+                        if output.get("stderr"):
+                            stderr_parts.append(output["stderr"])
+
+                    combined_output = "".join(stdout_parts)
+                    if stderr_parts:
+                        combined_stderr = "".join(stderr_parts)
+                        if combined_output:
+                            combined_output += "\n" + combined_stderr
+                        else:
+                            combined_output = combined_stderr
+
+                    return BashExecutionResult(
+                        command_id=command_id,
+                        command=final_output.get("command", ""),
+                        exit_code=final_output["exit_code"],
+                        output=combined_output,
+                    )
+
+                # Command still running, wait and poll again
+                time.sleep(poll_interval)
+
+            except Exception as e:
+                logger.debug(f"Error polling for bash results: {e}")
+                time.sleep(poll_interval)
+
+        # Timeout reached
+        raise RuntimeError(f"Bash command timed out after {timeout} seconds")
+
+    def upload_file(self, local_path: str | Path, remote_path: str) -> bool:
+        """Upload a file to the Docker container."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        local_path = Path(local_path)
+        if not local_path.exists():
+            raise RuntimeError(f"Local file does not exist: {local_path}")
+
+        try:
+            with httpx.Client() as client:
+                with open(local_path, "rb") as f:
+                    files = {"file": (local_path.name, f, "application/octet-stream")}
+                    response = client.post(
+                        f"{self._base_url}/api/file/upload/{remote_path}",
+                        files=files,
+                        timeout=60,
+                    )
+                    response.raise_for_status()
+                    return True
+        except Exception as e:
+            logger.error(f"Failed to upload file: {e}")
+            return False
+
+    def upload_file_content(self, content: str | bytes, remote_path: str) -> bool:
+        """Upload file content to the Docker container."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            if isinstance(content, str):
+                content_bytes = content.encode("utf-8")
+            else:
+                content_bytes = content
+
+            with httpx.Client() as client:
+                files = {
+                    "file": (
+                        "content",
+                        BytesIO(content_bytes),
+                        "application/octet-stream",
+                    )
+                }
+                response = client.post(
+                    f"{self._base_url}/api/file/upload/{remote_path}",
+                    files=files,
+                    timeout=60,
+                )
+                response.raise_for_status()
+                return True
+        except Exception as e:
+            logger.error(f"Failed to upload file content: {e}")
+            return False
+
+    def download_file(
+        self, remote_path: str, local_path: str | Path | None = None
+    ) -> bytes | None:
+        """Download a file from the Docker container."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{self._base_url}/api/file/download/{remote_path}",
+                    timeout=60,
+                )
+                response.raise_for_status()
+                content = response.content
+
+                if local_path is not None:
+                    local_path = Path(local_path)
+                    local_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(local_path, "wb") as f:
+                        f.write(content)
+                    return None
+                else:
+                    return content
+        except Exception as e:
+            logger.error(f"Failed to download file: {e}")
+            if local_path is None:
+                return None
+            raise RuntimeError(f"Failed to download file: {e}")
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.container_id:
             try:
                 _run(["docker", "rm", "-f", self.container_id])
@@ -348,3 +546,5 @@ class DockerSandboxedAgentServer:
                 self._logs_thread.join(timeout=2)
             except Exception:
                 pass
+        # Reset base URL
+        self._base_url = None
