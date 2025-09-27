@@ -266,38 +266,29 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             )
 
         # Get all LLMs from both self and persisted to reconcile them
-        self_llms = list(self.get_all_llms())
-        persisted_llms = list(persisted.get_all_llms())
+        new_llm = self.llm.resolve_diff_from_deserialized(persisted.llm)
+        updates: dict[str, Any] = {"llm": new_llm}
 
-        if len(self_llms) != len(persisted_llms):
-            raise ValueError(
-                f"Mismatch in number of LLMs: self has {len(self_llms)}, "
-                f"persisted has {len(persisted_llms)}"
+        # Reconcile the condenser's LLM if it exists
+        if self.condenser is not None and persisted.condenser is not None:
+            # Check if both condensers are LLMSummarizingCondenser
+            # (which has an llm field)
+            from openhands.sdk.context.condenser.llm_summarizing_condenser import (
+                LLMSummarizingCondenser,
             )
 
-        # Create a mapping from persisted LLMs to reconciled LLMs by service_id
-        self_llms_by_service_id = {llm.service_id: llm for llm in self_llms}
-        persisted_llms_by_service_id = {llm.service_id: llm for llm in persisted_llms}
+            if isinstance(self.condenser, LLMSummarizingCondenser) and isinstance(
+                persisted.condenser, LLMSummarizingCondenser
+            ):
+                new_condenser_llm = self.condenser.llm.resolve_diff_from_deserialized(
+                    persisted.condenser.llm
+                )
+                new_condenser = persisted.condenser.model_copy(
+                    update={"llm": new_condenser_llm}
+                )
+                updates["condenser"] = new_condenser
 
-        # Verify that service_ids match between self and persisted
-        self_service_ids = set(self_llms_by_service_id.keys())
-        persisted_service_ids = set(persisted_llms_by_service_id.keys())
-        if self_service_ids != persisted_service_ids:
-            raise ValueError(
-                f"Mismatch in LLM service_ids: self has {self_service_ids}, "
-                f"persisted has {persisted_service_ids}"
-            )
-
-        # Create reconciliation map using object IDs
-        llm_reconciliation_map = {}
-        for service_id, persisted_llm in persisted_llms_by_service_id.items():
-            self_llm = self_llms_by_service_id[service_id]
-            reconciled_llm = self_llm.resolve_diff_from_deserialized(persisted_llm)
-            llm_reconciliation_map[id(persisted_llm)] = reconciled_llm
-
-        # Recursively update the agent with reconciled LLMs
-        reconciled = self._replace_llms_in_agent(persisted, llm_reconciliation_map)
-
+        reconciled = persisted.model_copy(update=updates)
         if self.model_dump(exclude_none=True) != reconciled.model_dump(
             exclude_none=True
         ):
@@ -306,87 +297,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
             )
         return reconciled
-
-    def _replace_llms_in_agent(
-        self, agent: "AgentBase", llm_map: dict[int, LLM]
-    ) -> "AgentBase":
-        """
-        Recursively replace LLM objects in the agent with reconciled versions.
-        """
-        updates = {}
-
-        # Check each field of the agent
-        for field_name in agent.__class__.model_fields:
-            field_value = getattr(agent, field_name)
-            new_value = self._replace_llms_in_value(field_value, llm_map)
-            if new_value is not field_value:  # Only update if changed
-                updates[field_name] = new_value
-
-        if updates:
-            return agent.model_copy(update=updates)
-        return agent
-
-    def _replace_llms_in_value(self, value: Any, llm_map: dict[int, LLM]) -> Any:
-        """
-        Recursively replace LLM objects in a value with reconciled versions.
-        """
-        # If this is an LLM object, replace it if it's in our map
-        if isinstance(value, LLM):
-            return llm_map.get(id(value), value)
-
-        # If this is a Pydantic model, recursively process its fields
-        if isinstance(value, BaseModel):
-            updates = {}
-            for field_name in value.__class__.model_fields:
-                try:
-                    field_value = getattr(value, field_name)
-                    new_field_value = self._replace_llms_in_value(field_value, llm_map)
-                    if new_field_value is not field_value:
-                        updates[field_name] = new_field_value
-                except Exception:
-                    continue
-            if updates:
-                return value.model_copy(update=updates)
-            return value
-
-        # Handle containers
-        if isinstance(value, dict):
-            new_dict = {}
-            changed = False
-            for k, v in value.items():
-                new_k = self._replace_llms_in_value(k, llm_map)
-                new_v = self._replace_llms_in_value(v, llm_map)
-                new_dict[new_k] = new_v
-                if new_k is not k or new_v is not v:
-                    changed = True
-            return new_dict if changed else value
-
-        if isinstance(value, (list, tuple)):
-            new_items = []
-            changed = False
-            for item in value:
-                new_item = self._replace_llms_in_value(item, llm_map)
-                new_items.append(new_item)
-                if new_item is not item:
-                    changed = True
-            if changed:
-                return type(value)(new_items)
-            return value
-
-        if isinstance(value, (set, frozenset)):
-            new_items = set()
-            changed = False
-            for item in value:
-                new_item = self._replace_llms_in_value(item, llm_map)
-                new_items.add(new_item)
-                if new_item is not item:
-                    changed = True
-            if changed:
-                return type(value)(new_items)
-            return value
-
-        # For other types, return as-is
-        return value
 
     def model_dump_succint(self, **kwargs):
         """Like model_dump, but excludes None fields by default."""
