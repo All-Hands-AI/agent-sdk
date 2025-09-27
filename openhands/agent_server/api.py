@@ -8,10 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 
 from openhands.agent_server.bash_router import bash_router
-from openhands.agent_server.config import (
-    Config,
-    get_default_config,
-)
+from openhands.agent_server.config import Config, get_default_config
 from openhands.agent_server.conversation_router import conversation_router
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
@@ -264,6 +261,11 @@ def create_app(config: Config | None = None) -> FastAPI:
     _add_exception_handlers(app)
 
     return app
+
+
+def build_app() -> FastAPI:
+    """Convenience factory for uvicorn --factory usage."""
+    return create_app()
 
 
 # Create the default app instance
