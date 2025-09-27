@@ -288,28 +288,8 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 )
                 updates["condenser"] = new_condenser
 
-        # Reconcile tools - validate that tool count and names match,
-        # then use tools from runtime agent (self) to allow parameter updates
-        # like working directory changes when restarting conversations
-        if len(self.tools) != len(persisted.tools):
-            raise ValueError(
-                f"Tool count mismatch: runtime agent has {len(self.tools)} tools, "
-                f"but persisted agent has {len(persisted.tools)} tools."
-            )
-
-        runtime_tool_names = [tool.name for tool in self.tools]
-        persisted_tool_names = [tool.name for tool in persisted.tools]
-
-        if set(runtime_tool_names) != set(persisted_tool_names):
-            missing_in_runtime = set(persisted_tool_names) - set(runtime_tool_names)
-            missing_in_persisted = set(runtime_tool_names) - set(persisted_tool_names)
-            error_msg = "Tool names mismatch between runtime and persisted agents."
-            if missing_in_runtime:
-                error_msg += f" Missing in runtime: {missing_in_runtime}."
-            if missing_in_persisted:
-                error_msg += f" Missing in persisted: {missing_in_persisted}."
-            raise ValueError(error_msg)
-
+        # Reconcile tools - use tools from runtime agent (self) to allow
+        # working directory changes when restarting conversations
         updates["tools"] = self.tools
 
         reconciled = persisted.model_copy(update=updates)
