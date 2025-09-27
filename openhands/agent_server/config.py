@@ -39,6 +39,13 @@ class WebhookSpec(BaseModel):
             "new event."
         ),
     )
+    add_session_api_key_header: bool = Field(
+        default=True,
+        description=(
+            "Whether to add the X-Session-API-Key header to POST requests. "
+            "When True, the session API key will be included in webhook requests."
+        ),
+    )
 
     # Retry parameters
     num_retries: int = Field(

@@ -360,7 +360,7 @@ class WebhookSubscriber(Subscriber):
 
         # Prepare headers
         headers = self.spec.headers.copy()
-        if self.session_api_key:
+        if self.session_api_key and self.spec.add_session_api_key_header:
             headers["X-Session-API-Key"] = self.session_api_key
 
         # Convert events to serializable format
@@ -440,7 +440,7 @@ class ConversationWebhookSubscriber:
         """Post conversation info to the webhook immediately (no batching)."""
         # Prepare headers
         headers = self.spec.headers.copy()
-        if self.session_api_key:
+        if self.session_api_key and self.spec.add_session_api_key_header:
             headers["X-Session-API-Key"] = self.session_api_key
 
         # Construct conversations URL
