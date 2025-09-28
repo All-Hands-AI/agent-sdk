@@ -45,7 +45,6 @@ agent = get_default_agent(
 # register_tool("TaskTrackerTool", TaskTrackerTool)
 
 # # Provide ToolSpec so Agent can lazily materialize tools at runtime.
-# # Tools no longer need directory parameters - they get them from conversation state
 # agent = Agent(
 #     llm=llm,
 #     tools=[
