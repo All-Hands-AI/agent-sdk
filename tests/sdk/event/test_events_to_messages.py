@@ -5,8 +5,6 @@ from collections.abc import Sequence
 from typing import cast
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 
 from openhands.sdk.event.base import LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import (
@@ -17,6 +15,7 @@ from openhands.sdk.event.llm_convertible import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -36,14 +35,13 @@ class TestEventsToMessagesMockObservation(ObservationBase):
         return [TextContent(text=self.result)]
 
 
-def create_tool_call(
-    call_id: str, function_name: str, arguments: dict
-) -> ChatCompletionMessageToolCall:
-    """Helper to create a ChatCompletionMessageToolCall."""
-    return ChatCompletionMessageToolCall(
+def create_tool_call(call_id: str, function_name: str, arguments: dict) -> LLMToolCall:
+    """Helper to create a LLMToolCall."""
+    return LLMToolCall(
         id=call_id,
-        function=Function(name=function_name, arguments=json.dumps(arguments)),
-        type="function",
+        name=function_name,
+        arguments_json=json.dumps(arguments),
+        origin="completion",
     )
 
 
@@ -117,7 +115,7 @@ class TestEventsToMessages:
         assert messages[0].tool_calls is not None
         assert len(messages[0].tool_calls) == 1
         assert messages[0].tool_calls[0].id == "call_123"
-        assert messages[0].tool_calls[0].function.name == "execute_bash"
+        assert messages[0].tool_calls[0].name == "execute_bash"
 
     def test_parallel_function_calling_same_response_id(self):
         """Test parallel function calling with multiple ActionEvents having same ID.
@@ -190,7 +188,7 @@ class TestEventsToMessages:
 
         # All should be weather function calls
         for tool_call in tool_calls:
-            assert tool_call.function.name == "get_current_weather"
+            assert tool_call.name == "get_current_weather"
 
     def test_multiple_separate_action_events(self):
         """Test multiple ActionEvents with different response_ids (separate calls)."""

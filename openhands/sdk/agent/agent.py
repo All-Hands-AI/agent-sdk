@@ -1,6 +1,5 @@
 import json
 
-from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
@@ -23,6 +22,7 @@ from openhands.sdk.llm import (
     TextContent,
     get_llm_metadata,
 )
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -165,61 +165,107 @@ class Agent(AgentBase):
                 e for e in state.events if isinstance(e, LLMConvertibleEvent)
             ]
 
-        # Get LLM Response (Action)
-        _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
-        logger.debug(
-            "Sending messages to LLM: "
-            f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
-        )
+        # Decide path: Responses vs Chat Completions (centralized in LLM)
+        is_responses = self.llm.is_responses_call(state.previous_response_id)
 
-        try:
-            llm_response = self.llm.completion(
-                messages=_messages,
+        if is_responses:
+            # Build Responses inputs using structured blocks
+            # 1) instructions from first system message (first turn only)
+            system_text = None
+            for e in llm_convertible_events:
+                if isinstance(e, SystemPromptEvent):
+                    system_text = e.system_prompt.text
+                    break
+
+            # 2) function_call_output items for tool results from the last LLM response
+            inputs: list[dict] = []
+            if state.previous_response_id:
+                last_tool_call_ids = {
+                    a.tool_call_id
+                    for a in state.events
+                    if isinstance(a, ActionEvent)
+                    and a.llm_response_id == state.previous_response_id
+                }
+                if last_tool_call_ids:
+                    for ev in state.events:
+                        if (
+                            isinstance(ev, ObservationEvent)
+                            and ev.tool_call_id in last_tool_call_ids
+                        ):
+                            inputs.extend(
+                                ev.to_llm_message().to_responses_input_items()
+                            )
+
+            # 3) latest user message (only if no tool outputs were added)
+            if not inputs:
+                for e in reversed(llm_convertible_events):
+                    if isinstance(e, MessageEvent):
+                        msg = e.to_llm_message()
+                        if msg.role == "user":
+                            inputs.extend(msg.to_responses_input_items())
+                            break
+
+            llm_response = self.llm.responses(
+                instructions=system_text
+                if state.previous_response_id is None
+                else None,
+                inputs=inputs or None,
                 tools=list(self.tools_map.values()),
-                extra_body={
-                    "metadata": get_llm_metadata(
-                        model_name=self.llm.model, agent_name=self.name
-                    )
-                },
+                previous_response_id=state.previous_response_id,
+                store=True,
+                parallel_tool_calls=True,
                 add_security_risk_prediction=self._add_security_risk_prediction,
             )
-        except Exception as e:
-            # If there is a condenser registered and the exception is a context window
-            # exceeded, we can recover by triggering a condensation request.
-            if (
-                self.condenser is not None
-                and self.condenser.handles_condensation_requests()
-                and self.llm.is_context_window_exceeded_exception(e)
-            ):
-                logger.warning(
-                    "LLM raised context window exceeded error, triggering condensation"
-                )
-                on_event(CondensationRequest())
-                return
 
-            # If the error isn't recoverable, keep propagating it up the stack.
-            else:
-                raise e
+            # Persist continuation id
+            try:
+                state.previous_response_id = getattr(
+                    llm_response.raw_response, "id", None
+                )
+            except Exception:
+                pass
+        else:
+            # Chat Completions path (existing behavior)
+            _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
+            logger.debug(
+                "Sending messages to LLM: "
+                f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
+            )
+
+            try:
+                llm_response = self.llm.completion(
+                    messages=_messages,
+                    tools=list(self.tools_map.values()),
+                    extra_body={
+                        "metadata": get_llm_metadata(
+                            model_name=self.llm.model, agent_name=self.name
+                        )
+                    },
+                    add_security_risk_prediction=self._add_security_risk_prediction,
+                )
+            except Exception as e:
+                # If condenser is registered and the exception is a context window
+                # exceeded, we can recover by triggering a condensation request.
+                if (
+                    self.condenser is not None
+                    and self.condenser.handles_condensation_requests()
+                    and self.llm.is_context_window_exceeded_exception(e)
+                ):
+                    logger.warning(
+                        "LLM raised context window exceeded; triggering condensation"
+                    )
+                    on_event(CondensationRequest())
+                    return
+
+                # If the error isn't recoverable, keep propagating it up the stack.
+                else:
+                    raise e
 
         # LLMResponse already contains the converted message and metrics snapshot
         message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
-            tool_call: ChatCompletionMessageToolCall
-            if any(tc.type != "function" for tc in message.tool_calls):
-                logger.warning(
-                    "LLM returned tool calls but some are not of type 'function' - "
-                    "ignoring those"
-                )
-
-            tool_calls = [
-                tool_call
-                for tool_call in message.tool_calls
-                if tool_call.type == "function"
-            ]
-            assert len(tool_calls) > 0, (
-                "LLM returned tool calls but none are of type 'function'"
-            )
+            tool_calls: list[LLMToolCall] = message.tool_calls
             if not all(isinstance(c, TextContent) for c in message.content):
                 logger.warning(
                     "LLM returned tool calls but message content is not all "
@@ -305,7 +351,7 @@ class Agent(AgentBase):
     def _get_action_event(
         self,
         state: ConversationState,
-        tool_call: ChatCompletionMessageToolCall,
+        tool_call: LLMToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
@@ -315,8 +361,7 @@ class Agent(AgentBase):
 
         NOTE: state will be mutated in-place.
         """
-        assert tool_call.type == "function"
-        tool_name = tool_call.function.name
+        tool_name = tool_call.name
         assert tool_name is not None, "Tool call must have a name"
         tool = self.tools_map.get(tool_name, None)
         # Handle non-existing tools
@@ -336,7 +381,7 @@ class Agent(AgentBase):
         # Validate arguments
         security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
-            arguments = json.loads(tool_call.function.arguments)
+            arguments = json.loads(tool_call.arguments_json)
 
             # if the tool has a security_risk field (when security analyzer = LLM),
             # pop it out as it's not part of the tool's action schema
@@ -358,7 +403,7 @@ class Agent(AgentBase):
             action: ActionBase = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
-                f"Error validating args {tool_call.function.arguments} for tool "
+                f"Error validating args {tool_call.arguments_json} for tool "
                 f"'{tool.name}': {e}"
             )
             event = AgentErrorEvent(

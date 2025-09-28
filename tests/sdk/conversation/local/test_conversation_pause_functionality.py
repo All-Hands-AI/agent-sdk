@@ -14,10 +14,8 @@ from collections.abc import Sequence
 from unittest.mock import patch
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
     Choices,
-    Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
@@ -28,6 +26,7 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
     ActionBase,
@@ -221,19 +220,23 @@ class TestPauseFunctionality:
         assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         # Mock action
-        tool_call = ChatCompletionMessageToolCall(
+        tool_call = LLMToolCall(
             id="call_1",
-            type="function",
-            function=Function(
-                name="test_tool", arguments='{"command": "test_command"}'
-            ),
+            name="test_tool",
+            arguments_json='{"command": "test_command"}',
+            origin="completion",
         )
+        provider_tc = {
+            "id": tool_call.id,
+            "type": "function",
+            "function": {"name": tool_call.name, "arguments": tool_call.arguments_json},
+        }
         mock_completion.return_value = ModelResponse(
             id="response_action",
             choices=[
                 Choices(
                     message=LiteLLMMessage(
-                        role="assistant", content="", tool_calls=[tool_call]
+                        role="assistant", content="", tool_calls=[provider_tc]
                     )
                 )
             ],
@@ -313,13 +316,17 @@ class TestPauseFunctionality:
         self.conversation = conversation
 
         # LLM continuously emits actions (no finish)
-        tool_call = ChatCompletionMessageToolCall(
+        tool_call = LLMToolCall(
             id="call_loop",
-            type="function",
-            function=Function(
-                name="test_tool", arguments='{"command": "loop_forever"}'
-            ),
+            name="test_tool",
+            arguments_json='{"command": "loop_forever"}',
+            origin="completion",
         )
+        provider_tc = {
+            "id": tool_call.id,
+            "type": "function",
+            "function": {"name": tool_call.name, "arguments": tool_call.arguments_json},
+        }
         import time
 
         def side_effect(*_args, **_kwargs):
@@ -330,7 +337,7 @@ class TestPauseFunctionality:
                         message=LiteLLMMessage(
                             role="assistant",
                             content="I'll execute loop_forever",
-                            tool_calls=[tool_call],
+                            tool_calls=[provider_tc],
                         )
                     )
                 ],

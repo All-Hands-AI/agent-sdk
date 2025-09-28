@@ -57,6 +57,10 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
+    # Native Responses API continuation handle; None on first turn
+    previous_response_id: str | None = Field(
+        default=None, description="Previous Responses API response id for continuation"
+    )
     max_iterations: int = Field(
         default=500,
         gt=0,

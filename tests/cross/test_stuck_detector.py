@@ -1,7 +1,5 @@
 import uuid
 
-from litellm import ChatCompletionMessageToolCall
-
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -12,6 +10,7 @@ from openhands.sdk.event import (
     ObservationEvent,
 )
 from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,
@@ -40,10 +39,11 @@ def test_history_too_short():
         action=ExecuteBashAction(command="ls"),
         tool_name="execute_bash",
         tool_call_id="call_1",
-        tool_call=ChatCompletionMessageToolCall(
+        tool_call=LLMToolCall(
             id="call_1",
-            function={"name": "execute_bash", "arguments": '{"command": "ls"}'},
-            type="function",
+            name="execute_bash",
+            arguments_json='{"command": "ls"}',
+            origin="completion",
         ),
         llm_response_id="response_1",
     )
@@ -86,10 +86,11 @@ def test_repeating_action_observation_not_stuck_less_than_4_repeats():
             action=ExecuteBashAction(command="ls"),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=LLMToolCall(
                 id=f"call_{i}",
-                function={"name": "execute_bash", "arguments": '{"command": "ls"}'},
-                type="function",
+                name="execute_bash",
+                arguments_json='{"command": "ls"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -132,10 +133,11 @@ def test_repeating_action_observation_stuck():
             action=ExecuteBashAction(command="ls"),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=LLMToolCall(
                 id=f"call_{i}",
-                function={"name": "execute_bash", "arguments": '{"command": "ls"}'},
-                type="function",
+                name="execute_bash",
+                arguments_json='{"command": "ls"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -179,13 +181,11 @@ def test_repeating_action_error_stuck():
             action=ExecuteBashAction(command="invalid_command"),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=LLMToolCall(
                 id=f"call_{i}",
-                function={
-                    "name": "execute_bash",
-                    "arguments": '{"command": "invalid_command"}',
-                },
-                type="function",
+                name="execute_bash",
+                arguments_json='{"command": "invalid_command"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -268,13 +268,11 @@ def test_not_stuck_with_different_actions():
             action=ExecuteBashAction(command=cmd),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=LLMToolCall(
                 id=f"call_{i}",
-                function={
-                    "name": "execute_bash",
-                    "arguments": f'{{"command": "{cmd}"}}',
-                },
-                type="function",
+                name="execute_bash",
+                arguments_json=f'{{"command": "{cmd}"}}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -317,10 +315,11 @@ def test_reset_after_user_message():
             action=ExecuteBashAction(command="ls"),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=LLMToolCall(
                 id=f"call_{i}",
-                function={"name": "execute_bash", "arguments": '{"command": "ls"}'},
-                type="function",
+                name="execute_bash",
+                arguments_json='{"command": "ls"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -359,10 +358,11 @@ def test_reset_after_user_message():
         action=ExecuteBashAction(command="pwd"),
         tool_name="execute_bash",
         tool_call_id="call_new",
-        tool_call=ChatCompletionMessageToolCall(
+        tool_call=LLMToolCall(
             id="call_new",
-            function={"name": "execute_bash", "arguments": '{"command": "pwd"}'},
-            type="function",
+            name="execute_bash",
+            arguments_json='{"command": "pwd"}',
+            origin="completion",
         ),
         llm_response_id="response_new",
     )

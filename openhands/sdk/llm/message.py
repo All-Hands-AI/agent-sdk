@@ -2,10 +2,10 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
 
-from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 
@@ -75,7 +75,7 @@ class Message(BaseModel):
     # function calling
     function_calling_enabled: bool = False
     # - tool calls (from LLM)
-    tool_calls: list[ChatCompletionMessageToolCall] | None = None
+    tool_calls: list[LLMToolCall] | None = None
     # - tool execution result (to LLM)
     tool_call_id: str | None = None
     name: str | None = None  # name of the tool
@@ -86,6 +86,51 @@ class Message(BaseModel):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
+
+    def to_responses_input_items(self) -> list[dict[str, Any]]:
+        """Convert this Message into Responses API input items.
+
+        Mapping rules (OpenAI Responses):
+        - user/system -> a single "message" item with content blocks
+          TextContent -> {type:"input_text", text}
+          ImageContent -> {type:"input_image", image_url, detail:"auto"}
+        - tool (tool result) -> a single function_call_output item
+          {type:"function_call_output", call_id, output}
+        - assistant -> no input items (assistant is output-side)
+        """
+        items: list[dict[str, Any]] = []
+        if self.role in ("user", "system"):
+            blocks: list[dict[str, Any]] = []
+            for part in self.content:
+                if isinstance(part, TextContent):
+                    blocks.append({"type": "input_text", "text": part.text})
+                elif isinstance(part, ImageContent):
+                    for url in part.image_urls:
+                        blocks.append(
+                            {"type": "input_image", "image_url": url, "detail": "auto"}
+                        )
+            if blocks:
+                items.append(
+                    {
+                        "type": "message",
+                        "role": self.role,  # "user" or "system"
+                        "content": blocks,
+                    }
+                )
+        elif self.role == "tool":
+            # Send tool execution result back to the model
+            if self.tool_call_id is not None:
+                output = "".join(
+                    part.text for part in self.content if isinstance(part, TextContent)
+                )
+                items.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": self.tool_call_id,
+                        "output": output,
+                    }
+                )
+        return items
 
     @property
     def contains_image(self) -> bool:
@@ -169,14 +214,14 @@ class Message(BaseModel):
         if self.tool_calls is not None:
             message_dict["tool_calls"] = [
                 {
-                    "id": tool_call.id,
+                    "id": tc.id,
                     "type": "function",
                     "function": {
-                        "name": tool_call.function.name,
-                        "arguments": tool_call.function.arguments,
+                        "name": tc.name,
+                        "arguments": tc.arguments_json,
                     },
                 }
-                for tool_call in self.tool_calls
+                for tc in self.tool_calls
             ]
 
         # an observation message with tool response
@@ -200,12 +245,12 @@ class Message(BaseModel):
 
         rc = getattr(message, "reasoning_content", None)
 
+        # Note: tool_calls will be normalized at the LLM layer; here we pass through
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
-            tool_calls=message.tool_calls,
             reasoning_content=rc,
         )
 
