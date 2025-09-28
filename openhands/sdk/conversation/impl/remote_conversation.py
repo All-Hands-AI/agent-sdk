@@ -310,14 +310,14 @@ class RemoteConversation(BaseConversation):
         self,
         agent: AgentBase,
         host: str,
+        working_dir: str,
+        persistence_dir: str,
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = False,
-        working_dir: str | None = None,
-        persistence_dir: str | None = None,
         **_: object,
     ) -> None:
         """Remote conversation proxy that talks to an agent server.
@@ -356,6 +356,8 @@ class RemoteConversation(BaseConversation):
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
                 "stuck_detection": stuck_detection,
+                "working_dir": working_dir,
+                "persistence_dir": persistence_dir,
             }
             resp = self._client.post("/api/conversations/", json=payload)
             resp.raise_for_status()
