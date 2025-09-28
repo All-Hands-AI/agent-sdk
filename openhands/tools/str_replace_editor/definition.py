@@ -203,28 +203,20 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     @classmethod
     def create(
         cls,
-        conversation: "ConversationState | None" = None,
-        workspace_root: str | None = None,
+        conv_state: "ConversationState",
     ) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
         Args:
-            conversation: Optional conversation state to get working directory from.
+            conv_state: Conversation state to get working directory from.
                          If provided, workspace_root will be taken from
-                         conversation.working_dir
-            workspace_root: Root directory for file operations. If not provided,
-                          will be taken from conversation.working_dir.
-                          If provided, tool descriptions will use this path in examples.
+                         conv_state.working_dir
         """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
-        # Determine workspace root from conversation or parameter
-        if workspace_root is None and conversation is not None:
-            workspace_root = conversation.working_dir
-
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=workspace_root)
+        executor = FileEditorExecutor(workspace_root=conv_state.working_dir)
 
         # Initialize the parent Tool with the executor
         return [

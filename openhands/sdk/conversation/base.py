@@ -46,12 +46,12 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def working_dir(self) -> str | None:
+    def working_dir(self) -> str:
         """The working directory for agent operations and tool execution."""
         ...
 
     @property
-    def persistence_dir(self) -> str | None:
+    def persistence_dir(self) -> str:
         """The persistence directory from the FileStore."""
         ...
 

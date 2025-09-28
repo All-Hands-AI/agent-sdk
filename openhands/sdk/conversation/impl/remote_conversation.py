@@ -268,6 +268,26 @@ class RemoteState(ConversationStateProtocol):
             raise RuntimeError("agent missing in conversation info: " + str(info))
         return AgentBase.model_validate(agent_data)
 
+    @property
+    def working_dir(self):
+        """The working directory (fetched from remote)."""
+        info = self._get_conversation_info()
+        working_dir = info.get("working_dir")
+        if working_dir is None:
+            raise RuntimeError("working_dir missing in conversation info: " + str(info))
+        return working_dir
+
+    @property
+    def persistence_dir(self):
+        """The persistence directory (fetched from remote)."""
+        info = self._get_conversation_info()
+        persistence_dir = info.get("persistence_dir")
+        if persistence_dir is None:
+            raise RuntimeError(
+                "persistence_dir missing in conversation info: " + str(info)
+            )
+        return persistence_dir
+
     def model_dump(self, **kwargs):
         """Get a dictionary representation of the remote state."""
         info = self._get_conversation_info()
@@ -296,6 +316,8 @@ class RemoteConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = False,
+        working_dir: str | None = None,
+        persistence_dir: str | None = None,
         **_: object,
     ) -> None:
         """Remote conversation proxy that talks to an agent server.
@@ -308,6 +330,10 @@ class RemoteConversation(BaseConversation):
             conversation_id: Optional existing conversation id to attach to
             callbacks: Optional callbacks to receive events (not yet streamed)
             max_iteration_per_run: Max iterations configured on server
+            stuck_detection: Whether to enable stuck detection on server
+            visualize: Whether to enable the default visualizer callback
+            working_dir: The working directory for agent operations and tool execution.
+            persistence_dir: The directory for persisting conversation and tool state.
         """
         self.agent = agent
         self._host = host.rstrip("/")

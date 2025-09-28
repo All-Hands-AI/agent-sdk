@@ -402,26 +402,15 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
     """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
 
     @classmethod
-    def create(
-        cls,
-        conversation: "ConversationState | None" = None,
-        save_dir: str | None = None,
-    ) -> Sequence["TaskTrackerTool"]:
+    def create(cls, conv_state: "ConversationState") -> Sequence["TaskTrackerTool"]:
         """Initialize TaskTrackerTool with a TaskTrackerExecutor.
 
         Args:
-            conversation: Optional conversation state to get persistence directory from.
+            conv_state: Conversation state to get persistence directory from.
                          If provided, save_dir will be taken from
-                         conversation.persistence_dir
-            save_dir: Optional directory to save tasks to. If not provided,
-                     will be taken from conversation.persistence_dir. If provided,
-                     tasks will be persisted to save_dir/TASKS.json
+                         conv_state.persistence_dir
         """
-        # Determine save directory from conversation or parameter
-        if save_dir is None and conversation is not None:
-            save_dir = conversation.persistence_dir
-
-        executor = TaskTrackerExecutor(save_dir=save_dir)
+        executor = TaskTrackerExecutor(save_dir=conv_state.persistence_dir)
 
         # Initialize the parent Tool with the executor
         return [

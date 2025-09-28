@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 # A resolver produces Tool instances for given params.
-Resolver = Callable[[dict[str, Any], "ConversationState | None"], Sequence[Tool]]
+Resolver = Callable[[dict[str, Any], "ConversationState"], Sequence[Tool]]
 """A resolver produces Tool instances for given params.
 
 Args:
@@ -36,7 +36,7 @@ def _resolver_from_instance(name: str, tool: Tool) -> Resolver:
         )
 
     def _resolve(
-        params: dict[str, Any], conversation: "ConversationState | None" = None
+        params: dict[str, Any], conv_state: "ConversationState"
     ) -> Sequence[Tool]:
         if params:
             raise ValueError(f"Tool '{name}' is a fixed instance; params not supported")
@@ -49,18 +49,11 @@ def _resolver_from_callable(
     name: str, factory: Callable[..., Sequence[Tool]]
 ) -> Resolver:
     def _resolve(
-        params: dict[str, Any], conversation: "ConversationState | None" = None
+        params: dict[str, Any], conv_state: "ConversationState"
     ) -> Sequence[Tool]:
         try:
-            # Try to call with conversation parameter first
-            if conversation is not None:
-                try:
-                    created = factory(conversation=conversation, **params)
-                except TypeError:
-                    # Fall back to calling without conversation
-                    created = factory(**params)
-            else:
-                created = factory(**params)
+            # Try to call with conv_state parameter first
+            created = factory(conv_state=conv_state, **params)
         except TypeError as exc:
             raise TypeError(
                 f"Unable to resolve tool '{name}': factory could not be called with "
@@ -99,18 +92,9 @@ def _resolver_from_subclass(name: str, cls: type[ToolBase]) -> Resolver:
         )
 
     def _resolve(
-        params: dict[str, Any], conversation: "ConversationState | None" = None
+        params: dict[str, Any], conv_state: "ConversationState"
     ) -> Sequence[Tool]:
-        # Try to call with conversation parameter first
-        if conversation is not None:
-            try:
-                created = create(conversation=conversation, **params)
-            except TypeError:
-                # Fall back to calling without conversation
-                created = create(**params)
-        else:
-            created = create(**params)
-
+        created = create(conv_state=conv_state, **params)
         if not isinstance(created, Sequence) or not all(
             isinstance(t, Tool) for t in created
         ):
@@ -148,7 +132,7 @@ def register_tool(
 
 
 def resolve_tool(
-    tool_spec: ToolSpec, conversation: "ConversationState | None" = None
+    tool_spec: ToolSpec, conv_state: "ConversationState"
 ) -> Sequence[Tool]:
     with _LOCK:
         resolver = _REG.get(tool_spec.name)
@@ -156,7 +140,7 @@ def resolve_tool(
     if resolver is None:
         raise KeyError(f"Tool '{tool_spec.name}' is not registered")
 
-    return resolver(tool_spec.params, conversation)
+    return resolver(tool_spec.params, conv_state)
 
 
 def list_registered_tools() -> list[str]:

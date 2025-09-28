@@ -35,8 +35,6 @@ def register_default_tools(enable_browser: bool = True) -> None:
 
 
 def get_default_tools(
-    working_dir: str | None = None,
-    persistence_dir: str | None = None,
     enable_browser: bool = True,
 ) -> list[ToolSpec]:
     """Get the default set of tool specifications for the standard experience.
@@ -75,8 +73,6 @@ def get_default_agent(
     cli_mode: bool = False,
 ) -> Agent:
     tool_specs = get_default_tools(
-        working_dir=working_dir,
-        persistence_dir=persistence_dir,
         # Disable browser tools in CLI mode
         enable_browser=not cli_mode,
     )

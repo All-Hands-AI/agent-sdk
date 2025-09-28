@@ -38,13 +38,13 @@ class Conversation:
         cls: type[Self],
         agent: AgentBase,
         *,
+        working_dir: str = "workspace/project",
+        persistence_dir: str = "workspace/conversations",
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
-        working_dir: str | None = None,
-        persistence_dir: str | None = None,
     ) -> "LocalConversation": ...
 
     @overload
@@ -53,14 +53,14 @@ class Conversation:
         agent: AgentBase,
         *,
         host: str,
+        working_dir: str = "workspace/project",
+        persistence_dir: str = "workspace/conversations",
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
-        working_dir: str | None = None,
-        persistence_dir: str | None = None,
     ) -> "RemoteConversation": ...
 
     def __new__(
@@ -68,14 +68,14 @@ class Conversation:
         agent: AgentBase,
         *,
         host: str | None = None,
+        working_dir: str = "workspace/project",
+        persistence_dir: str = "workspace/conversations",
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
-        working_dir: str | None = None,
-        persistence_dir: str | None = None,
     ) -> BaseConversation:
         from openhands.sdk.conversation.impl.local_conversation import LocalConversation
         from openhands.sdk.conversation.impl.remote_conversation import (
@@ -92,22 +92,9 @@ class Conversation:
                 max_iteration_per_run=max_iteration_per_run,
                 stuck_detection=stuck_detection,
                 visualize=visualize,
+                working_dir=working_dir,
+                persistence_dir=persistence_dir,
             )
-
-        # # Set default directories if not provided
-        # import os
-
-        # if working_dir is None:
-        #     working_dir = os.getcwd()
-
-        # if persistence_dir is None:
-        #     persistence_dir = os.path.join(working_dir, ".openhands")
-
-        # # Handle persistence_dir parameter by creating LocalFileStore if needed
-        # if persistence_dir and persist_filestore is None:
-        #     from openhands.sdk.io.local import LocalFileStore
-
-        #     persist_filestore = LocalFileStore(persistence_dir)
 
         return LocalConversation(
             agent=agent,

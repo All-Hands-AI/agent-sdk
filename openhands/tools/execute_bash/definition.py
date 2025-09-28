@@ -233,8 +233,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
     @classmethod
     def create(
         cls,
-        conversation: "ConversationState | None" = None,
-        working_dir: str | None = None,
+        conv_state: "ConversationState",
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
@@ -244,11 +243,9 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         """Initialize BashTool with executor parameters.
 
         Args:
-            conversation: Optional conversation state to get working directory from.
+            conv_state: Conversation state to get working directory from.
                          If provided, working_dir will be taken from
-                         conversation.working_dir
-            working_dir: The working directory for bash commands. If not provided,
-                        will be taken from conversation.working_dir
+                         conv_state.working_dir
             username: Optional username for the bash session
             no_change_timeout_seconds: Timeout for no output change
             terminal_type: Force a specific session type:
@@ -266,14 +263,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
 
-        # Determine working directory from conversation or parameter
-        if working_dir is None:
-            if conversation is None:
-                raise ValueError("Either conversation or working_dir must be provided")
-            working_dir = conversation.working_dir
-            if working_dir is None:
-                raise ValueError("No working_dir found in conversation state")
-
+        working_dir = conv_state.working_dir
         if not os.path.isdir(working_dir):
             raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
 

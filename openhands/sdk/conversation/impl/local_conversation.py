@@ -1,3 +1,4 @@
+import os
 import uuid
 from collections.abc import Iterable
 
@@ -14,7 +15,6 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.io import LocalFileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
@@ -41,20 +41,21 @@ class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
+        working_dir: str = "workspace/project",
+        persistence_dir: str = "workspace/conversations",
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
-        working_dir: str | None = None,
-        persistence_dir: str | None = None,
         **_: object,
     ):
         """Initialize the conversation.
 
         Args:
             agent: The agent to use for the conversation
-            persist_filestore: Optional FileStore to persist conversation state
+            working_dir: Working directory for agent operations and tool execution
+            persistence_dir: Directory for persisting conversation state and events
             conversation_id: Optional ID for the conversation. If provided, will
                       be used to identify the conversation. The user might want to
                       suffix their persistent filestore with this ID.
@@ -68,19 +69,16 @@ class LocalConversation(BaseConversation):
                         execution
         """
         self.agent = agent
-        self._persist_filestore = (
-            LocalFileStore(root=persistence_dir) if persistence_dir else None
-        )
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
         self._state = ConversationState.create(
             id=desired_id,
             agent=agent,
-            file_store=self._persist_filestore,
+            working_dir=working_dir,
+            persistence_dir=os.path.join(persistence_dir, str(desired_id)),
             max_iterations=max_iteration_per_run,
             stuck_detection=stuck_detection,
-            working_dir=working_dir,
         )
 
         # Default callback: persist every event to state

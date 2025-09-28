@@ -13,7 +13,7 @@ from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.event.base import EventBase
-from openhands.sdk.io import FileStore, InMemoryFileStore
+from openhands.sdk.io import LocalFileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -57,11 +57,15 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
-
-    working_dir: str | None = Field(
-        default=None,
+    working_dir: str = Field(
+        default="workspace/project",
         description="Working directory for agent operations and tool execution",
     )
+    persistence_dir: str = Field(
+        default="workspace/conversations",
+        description="Directory for persisting conversation state and events",
+    )
+
     max_iterations: int = Field(
         default=500,
         gt=0,
@@ -90,7 +94,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
 
     # ===== Private attrs (NOT Fields) =====
     _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
-    _fs: FileStore = PrivateAttr()  # filestore for persistence
+    _fs: LocalFileStore = PrivateAttr()  # filestore for persistence
     _events: EventLog = PrivateAttr()  # now the storage for events
     _autosave_enabled: bool = PrivateAttr(
         default=False
@@ -111,19 +115,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
 
-    @property
-    def persistence_dir(self) -> str | None:
-        """Get the persistence directory from the FileStore."""
-        from openhands.sdk.io.local import LocalFileStore
-
-        # TODO: Should we just simply the code
-        # by assuming we will be using LocalFileStore only?
-        if isinstance(self._fs, LocalFileStore):
-            return str(self._fs.root)
-        return None
-
     # ===== Base snapshot helpers (same FileStore usage you had) =====
-    def _save_base_state(self, fs: FileStore) -> None:
+    def _save_base_state(self, fs: LocalFileStore) -> None:
         """
         Persist base state snapshot (no events; events are file-backed).
         """
@@ -136,18 +129,17 @@ class ConversationState(OpenHandsModel, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
+        working_dir: str,
+        persistence_dir: str,
         max_iterations: int = 500,
         stuck_detection: bool = True,
-        file_store: FileStore | None = None,
-        working_dir: str | None = None,
     ) -> "ConversationState":
         """
         If base_state.json exists: resume (attach EventLog,
             reconcile agent, enforce id).
         Else: create fresh (agent required), persist base, and return.
         """
-        if file_store is None:
-            file_store = InMemoryFileStore()
+        file_store = LocalFileStore(persistence_dir)
 
         try:
             base_text = file_store.read(BASE_STATE)
@@ -192,9 +184,10 @@ class ConversationState(OpenHandsModel, FIFOLock):
         state = cls(
             id=id,
             agent=agent,
+            working_dir=working_dir,
+            persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
-            working_dir=working_dir,
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
