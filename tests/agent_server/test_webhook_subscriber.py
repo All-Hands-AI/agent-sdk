@@ -89,6 +89,12 @@ def sample_events():
     return events
 
 
+@pytest.fixture
+def sample_conversation_id():
+    """Create a sample conversation ID for testing."""
+    return uuid4()
+
+
 class TestWebhookSpecValidation:
     """Test cases for WebhookSpec validation."""
 
@@ -131,39 +137,51 @@ class TestWebhookSpecValidation:
 class TestWebhookSubscriberInitialization:
     """Test cases for WebhookSubscriber initialization."""
 
-    def test_init_with_all_parameters(self, mock_event_service, webhook_spec):
+    def test_init_with_all_parameters(
+        self, mock_event_service, webhook_spec, sample_conversation_id
+    ):
         """Test initialization with all parameters."""
         session_api_key = "test_api_key"
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
             session_api_key=session_api_key,
         )
 
+        assert subscriber.conversation_id == sample_conversation_id
         assert subscriber.service == mock_event_service
         assert subscriber.spec == webhook_spec
         assert subscriber.session_api_key == session_api_key
         assert subscriber.queue == []
 
-    def test_init_without_session_api_key(self, mock_event_service, webhook_spec):
+    def test_init_without_session_api_key(
+        self, mock_event_service, webhook_spec, sample_conversation_id
+    ):
         """Test initialization without session API key."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
 
+        assert subscriber.conversation_id == sample_conversation_id
         assert subscriber.service == mock_event_service
         assert subscriber.spec == webhook_spec
         assert subscriber.session_api_key is None
         assert subscriber.queue == []
 
-    def test_init_with_minimal_spec(self, mock_event_service, minimal_webhook_spec):
+    def test_init_with_minimal_spec(
+        self, mock_event_service, minimal_webhook_spec, sample_conversation_id
+    ):
         """Test initialization with minimal webhook spec."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=minimal_webhook_spec,
         )
 
+        assert subscriber.conversation_id == sample_conversation_id
         assert subscriber.service == mock_event_service
         assert subscriber.spec == minimal_webhook_spec
         assert subscriber.session_api_key is None
@@ -175,10 +193,11 @@ class TestWebhookSubscriberCallMethod:
 
     @pytest.mark.asyncio
     async def test_call_adds_event_to_queue(
-        self, mock_event_service, webhook_spec, sample_event
+        self, mock_event_service, webhook_spec, sample_event, sample_conversation_id
     ):
         """Test that calling the subscriber adds event to queue."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -190,10 +209,11 @@ class TestWebhookSubscriberCallMethod:
 
     @pytest.mark.asyncio
     async def test_call_multiple_events_below_buffer_size(
-        self, mock_event_service, webhook_spec, sample_events
+        self, mock_event_service, webhook_spec, sample_events, sample_conversation_id
     ):
         """Test adding multiple events below buffer size."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -208,11 +228,17 @@ class TestWebhookSubscriberCallMethod:
     @pytest.mark.asyncio
     @patch.object(WebhookSubscriber, "_post_events")
     async def test_call_triggers_post_when_buffer_full(
-        self, mock_post_events, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_post_events,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test that reaching buffer size triggers _post_events."""
         mock_post_events.return_value = None
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -226,10 +252,16 @@ class TestWebhookSubscriberCallMethod:
 
     @pytest.mark.asyncio
     async def test_call_triggers_post_multiple_times(
-        self, mock_event_service, webhook_spec, sample_events, sample_event
+        self,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_event,
+        sample_conversation_id,
     ):
         """Test that _post_events is called multiple times as buffer fills."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -263,7 +295,12 @@ class TestWebhookSubscriberPostEvents:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_post_events_success(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test successful posting of events."""
         # Setup mock client
@@ -274,6 +311,7 @@ class TestWebhookSubscriberPostEvents:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -284,9 +322,10 @@ class TestWebhookSubscriberPostEvents:
         await subscriber._post_events()
 
         # Verify HTTP request was made correctly
+        expected_url = f"https://example.com/events/{sample_conversation_id.hex}"
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/events",
+            url=expected_url,
             json=[event.model_dump() for event in sample_events[:3]],
             headers={
                 "Content-Type": "application/json",
@@ -301,7 +340,12 @@ class TestWebhookSubscriberPostEvents:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_post_events_with_session_api_key(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test posting events with session API key."""
         # Setup mock client
@@ -312,6 +356,7 @@ class TestWebhookSubscriberPostEvents:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
             session_api_key="test_session_key",
@@ -328,18 +373,22 @@ class TestWebhookSubscriberPostEvents:
             "Authorization": "Bearer token",
             "X-Session-API-Key": "test_session_key",
         }
+        expected_url = f"https://example.com/events/{sample_conversation_id.hex}"
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/events",
+            url=expected_url,
             json=[event.model_dump() for event in sample_events[:2]],
             headers=expected_headers,
             timeout=30.0,
         )
 
     @pytest.mark.asyncio
-    async def test_post_events_empty_queue(self, mock_event_service, webhook_spec):
+    async def test_post_events_empty_queue(
+        self, mock_event_service, webhook_spec, sample_conversation_id
+    ):
         """Test posting events with empty queue."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -351,10 +400,11 @@ class TestWebhookSubscriberPostEvents:
 
     @pytest.mark.asyncio
     async def test_post_events_http_error_with_retries(
-        self, mock_event_service, webhook_spec, sample_events
+        self, mock_event_service, webhook_spec, sample_events, sample_conversation_id
     ):
         """Test HTTP error handling with retry logic."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -399,10 +449,11 @@ class TestWebhookSubscriberPostEvents:
 
     @pytest.mark.asyncio
     async def test_post_events_max_retries_exceeded(
-        self, mock_event_service, webhook_spec, sample_events
+        self, mock_event_service, webhook_spec, sample_events, sample_conversation_id
     ):
         """Test behavior when max retries are exceeded."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -444,7 +495,11 @@ class TestWebhookSubscriberPostEvents:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_post_events_handles_events_without_model_dump(
-        self, mock_client_class, mock_event_service, webhook_spec
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_conversation_id,
     ):
         """Test posting events that don't have model_dump method."""
         # Setup mock client
@@ -455,6 +510,7 @@ class TestWebhookSubscriberPostEvents:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -469,9 +525,10 @@ class TestWebhookSubscriberPostEvents:
         await subscriber._post_events()
 
         # Verify __dict__ is used when model_dump is not available
+        expected_url = f"https://example.com/events/{sample_conversation_id.hex}"
         mock_client.request.assert_called_once_with(
             method="POST",
-            url="https://example.com/events",
+            url=expected_url,
             json=[{"type": "test", "data": "value"}],
             headers={
                 "Content-Type": "application/json",
@@ -487,11 +544,17 @@ class TestWebhookSubscriberCloseMethod:
     @pytest.mark.asyncio
     @patch.object(WebhookSubscriber, "_post_events")
     async def test_close_posts_remaining_events(
-        self, mock_post_events, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_post_events,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test that close method posts remaining events in queue."""
         mock_post_events.return_value = None
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -507,11 +570,12 @@ class TestWebhookSubscriberCloseMethod:
     @pytest.mark.asyncio
     @patch.object(WebhookSubscriber, "_post_events")
     async def test_close_with_empty_queue(
-        self, mock_post_events, mock_event_service, webhook_spec
+        self, mock_post_events, mock_event_service, webhook_spec, sample_conversation_id
     ):
         """Test close method with empty queue."""
         mock_post_events.return_value = None
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -528,7 +592,12 @@ class TestWebhookSubscriberIntegration:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_full_workflow(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test complete workflow from event addition to posting."""
         # Setup mock client
@@ -539,6 +608,7 @@ class TestWebhookSubscriberIntegration:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
             session_api_key="integration_test_key",
@@ -572,7 +642,12 @@ class TestWebhookSubscriberIntegration:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_concurrent_event_processing(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test handling concurrent event additions."""
         # Setup mock client
@@ -583,6 +658,7 @@ class TestWebhookSubscriberIntegration:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -607,7 +683,12 @@ class TestWebhookSubscriberErrorHandling:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_network_error_handling(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test handling of network errors."""
         # Setup mock client to raise network error
@@ -616,6 +697,7 @@ class TestWebhookSubscriberErrorHandling:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -635,7 +717,12 @@ class TestWebhookSubscriberErrorHandling:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_timeout_error_handling(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test handling of timeout errors."""
         # Setup mock client to raise timeout error
@@ -644,6 +731,7 @@ class TestWebhookSubscriberErrorHandling:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -667,7 +755,12 @@ class TestWebhookSubscriberFlushDelay:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_flush_delay_triggers_post(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_event
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_event,
+        sample_conversation_id,
     ):
         """Test that flush_delay triggers posting after the specified delay."""
         # Setup mock client
@@ -678,6 +771,7 @@ class TestWebhookSubscriberFlushDelay:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -696,7 +790,12 @@ class TestWebhookSubscriberFlushDelay:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_flush_delay_reset_on_new_event(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test that flush_delay timer is reset when new events are added."""
         # Setup mock client
@@ -707,6 +806,7 @@ class TestWebhookSubscriberFlushDelay:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -739,7 +839,12 @@ class TestWebhookSubscriberFlushDelay:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_flush_delay_cancelled_on_buffer_full(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_events
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_events,
+        sample_conversation_id,
     ):
         """Test that flush_delay timer is cancelled when buffer becomes full."""
         # Setup mock client
@@ -750,6 +855,7 @@ class TestWebhookSubscriberFlushDelay:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -775,7 +881,12 @@ class TestWebhookSubscriberFlushDelay:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_flush_delay_cancelled_on_close(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_event
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_event,
+        sample_conversation_id,
     ):
         """Test that flush_delay timer is cancelled when subscriber is closed."""
         # Setup mock client
@@ -786,6 +897,7 @@ class TestWebhookSubscriberFlushDelay:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -809,10 +921,11 @@ class TestWebhookSubscriberFlushDelay:
 
     @pytest.mark.asyncio
     async def test_flush_delay_no_post_when_queue_empty(
-        self, mock_event_service, webhook_spec
+        self, mock_event_service, webhook_spec, sample_conversation_id
     ):
         """Test that flush_delay doesn't trigger post when queue is empty."""
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
@@ -830,7 +943,12 @@ class TestWebhookSubscriberFlushDelay:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_flush_delay_triggers_on_timer(
-        self, mock_client_class, mock_event_service, webhook_spec, sample_event
+        self,
+        mock_client_class,
+        mock_event_service,
+        webhook_spec,
+        sample_event,
+        sample_conversation_id,
     ):
         """Test that flush_delay timer triggers HTTP request."""
         # Setup mock client to succeed
@@ -841,6 +959,7 @@ class TestWebhookSubscriberFlushDelay:
         mock_client_class.return_value.__aenter__.return_value = mock_client
 
         subscriber = WebhookSubscriber(
+            conversation_id=sample_conversation_id,
             service=mock_event_service,
             spec=webhook_spec,
         )
