@@ -253,10 +253,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """
         Return a new AgentBase instance equivalent to `persisted` but with
         explicitly whitelisted fields (e.g. api_key) taken from `self`.
-
-        Uses get_all_llms() to discover all LLMs recursively in the agent structure,
-        maps deserialized LLMs to runtime LLMs by service_id, and recursively
-        replaces all nested LLMs throughout the agent structure.
         """
         if persisted.__class__ is not self.__class__:
             raise ValueError(
