@@ -17,7 +17,7 @@ from openhands.agent_server.vscode_router import (
 @pytest.fixture
 def client():
     """Create a test client."""
-    config = Config()
+    config = Config(session_api_keys=[])  # Disable authentication for tests
     app = create_app(config)
     return TestClient(app)
 

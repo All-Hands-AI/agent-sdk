@@ -201,12 +201,12 @@ _desktop_service: DesktopService | None = None
 def get_desktop_service() -> DesktopService | None:
     """Get the desktop service instance if VNC is enabled."""
     global _desktop_service
-    if _desktop_service is None:
-        config = get_default_config()
+    config = get_default_config()
 
-        if not config.enable_vnc:
-            logger.info("VNC desktop is disabled in configuration")
-            return None
-        else:
-            _desktop_service = DesktopService()
+    if not config.enable_vnc:
+        logger.info("VNC desktop is disabled in configuration")
+        return None
+
+    if _desktop_service is None:
+        _desktop_service = DesktopService()
     return _desktop_service

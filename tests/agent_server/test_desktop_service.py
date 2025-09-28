@@ -371,7 +371,8 @@ class TestGetDesktopService:
         mock_config.enable_vnc = True
 
         with patch(
-            "openhands.agent_server.config.get_default_config", return_value=mock_config
+            "openhands.agent_server.desktop_service.get_default_config",
+            return_value=mock_config,
         ):
             service = get_desktop_service()
             assert service is not None
@@ -383,7 +384,8 @@ class TestGetDesktopService:
         mock_config.enable_vnc = False
 
         with patch(
-            "openhands.agent_server.config.get_default_config", return_value=mock_config
+            "openhands.agent_server.desktop_service.get_default_config",
+            return_value=mock_config,
         ):
             service = get_desktop_service()
             assert service is None
@@ -394,7 +396,8 @@ class TestGetDesktopService:
         mock_config.enable_vnc = True
 
         with patch(
-            "openhands.agent_server.config.get_default_config", return_value=mock_config
+            "openhands.agent_server.desktop_service.get_default_config",
+            return_value=mock_config,
         ):
             service1 = get_desktop_service()
             service2 = get_desktop_service()
@@ -406,7 +409,8 @@ class TestGetDesktopService:
         mock_config.enable_vnc = True
 
         with patch(
-            "openhands.agent_server.config.get_default_config", return_value=mock_config
+            "openhands.agent_server.desktop_service.get_default_config",
+            return_value=mock_config,
         ):
             service = get_desktop_service()
             assert service is not None
