@@ -103,7 +103,7 @@ class LocalConversation(BaseConversation):
         self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
 
         with self._state:
-            self.agent.init_state(self, on_event=self._on_event)
+            self.agent.init_state(self._state, on_event=self._on_event)
 
         # Register existing llms in agent
         self.llm_registry = LLMRegistry()

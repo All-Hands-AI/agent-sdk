@@ -8,11 +8,11 @@ from openhands.sdk.tool.tool import Tool, ToolBase
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
+    from openhands.sdk.conversation.state import ConversationState
 
 
 # A resolver produces Tool instances for given params.
-Resolver = Callable[[dict[str, Any], "BaseConversation | None"], Sequence[Tool]]
+Resolver = Callable[[dict[str, Any], "ConversationState | None"], Sequence[Tool]]
 """A resolver produces Tool instances for given params.
 
 Args:
@@ -36,7 +36,7 @@ def _resolver_from_instance(name: str, tool: Tool) -> Resolver:
         )
 
     def _resolve(
-        params: dict[str, Any], conversation: "BaseConversation | None" = None
+        params: dict[str, Any], conversation: "ConversationState | None" = None
     ) -> Sequence[Tool]:
         if params:
             raise ValueError(f"Tool '{name}' is a fixed instance; params not supported")
@@ -49,7 +49,7 @@ def _resolver_from_callable(
     name: str, factory: Callable[..., Sequence[Tool]]
 ) -> Resolver:
     def _resolve(
-        params: dict[str, Any], conversation: "BaseConversation | None" = None
+        params: dict[str, Any], conversation: "ConversationState | None" = None
     ) -> Sequence[Tool]:
         try:
             # Try to call with conversation parameter first
@@ -99,7 +99,7 @@ def _resolver_from_subclass(name: str, cls: type[ToolBase]) -> Resolver:
         )
 
     def _resolve(
-        params: dict[str, Any], conversation: "BaseConversation | None" = None
+        params: dict[str, Any], conversation: "ConversationState | None" = None
     ) -> Sequence[Tool]:
         # Try to call with conversation parameter first
         if conversation is not None:
@@ -148,7 +148,7 @@ def register_tool(
 
 
 def resolve_tool(
-    tool_spec: ToolSpec, conversation: "BaseConversation | None" = None
+    tool_spec: ToolSpec, conversation: "ConversationState | None" = None
 ) -> Sequence[Tool]:
     with _LOCK:
         resolver = _REG.get(tool_spec.name)

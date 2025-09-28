@@ -7,7 +7,7 @@ from pydantic import Field, PrivateAttr
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -203,17 +203,17 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     @classmethod
     def create(
         cls,
-        conversation: "BaseConversation | None" = None,
+        conversation: "ConversationState | None" = None,
         workspace_root: str | None = None,
     ) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
         Args:
-            conversation: Optional conversation to get working directory from.
+            conversation: Optional conversation state to get working directory from.
                          If provided, workspace_root will be taken from
-                         conversation.state.working_dir
+                         conversation.working_dir
             workspace_root: Root directory for file operations. If not provided,
-                          will be taken from conversation.state.working_dir.
+                          will be taken from conversation.working_dir.
                           If provided, tool descriptions will use this path in examples.
         """
         # Import here to avoid circular imports

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk import ImageContent, TextContent
@@ -404,17 +404,17 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
     @classmethod
     def create(
         cls,
-        conversation: "BaseConversation | None" = None,
+        conversation: "ConversationState | None" = None,
         save_dir: str | None = None,
     ) -> Sequence["TaskTrackerTool"]:
         """Initialize TaskTrackerTool with a TaskTrackerExecutor.
 
         Args:
-            conversation: Optional conversation to get persistence directory from.
+            conversation: Optional conversation state to get persistence directory from.
                          If provided, save_dir will be taken from
-                         conversation.state.persistence_dir
+                         conversation.persistence_dir
             save_dir: Optional directory to save tasks to. If not provided,
-                     will be taken from conversation.state.persistence_dir. If provided,
+                     will be taken from conversation.persistence_dir. If provided,
                      tasks will be persisted to save_dir/TASKS.json
         """
         # Determine save directory from conversation or parameter

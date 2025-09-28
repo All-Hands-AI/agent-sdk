@@ -8,7 +8,7 @@ from pydantic import Field
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -233,7 +233,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
     @classmethod
     def create(
         cls,
-        conversation: "BaseConversation | None" = None,
+        conversation: "ConversationState | None" = None,
         working_dir: str | None = None,
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
@@ -244,11 +244,11 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         """Initialize BashTool with executor parameters.
 
         Args:
-            conversation: Optional conversation to get working directory from.
+            conversation: Optional conversation state to get working directory from.
                          If provided, working_dir will be taken from
-                         conversation.state.working_dir
+                         conversation.working_dir
             working_dir: The working directory for bash commands. If not provided,
-                        will be taken from conversation.state.working_dir
+                        will be taken from conversation.working_dir
             username: Optional username for the bash session
             no_change_timeout_seconds: Timeout for no output change
             terminal_type: Force a specific session type:
