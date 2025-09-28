@@ -123,6 +123,7 @@ PROMPT_CACHE_PATTERNS: list[str] = [
     "claude-3.7-sonnet*",
     "claude-sonnet-3-7-latest",
     "claude-3-5-sonnet*",
+    "claude-3.5-sonnet*",
     "claude-3-5-haiku*",
     "claude-3.5-haiku*",
     "claude-3-haiku-20240307*",

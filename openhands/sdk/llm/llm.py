@@ -832,21 +832,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 data[field_name] = v
         return cls(**data)
 
-    @classmethod
-    def load_from_toml(cls, toml_path: str) -> LLM:
-        try:
-            import tomllib
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore
-            except ImportError:
-                raise ImportError("tomllib or tomli is required to load TOML files")
-        with open(toml_path, "rb") as f:
-            data = tomllib.load(f)
-        if "llm" in data:
-            data = data["llm"]
-        return cls(**data)
-
     def resolve_diff_from_deserialized(self, persisted: LLM) -> LLM:
         """Resolve differences between a deserialized LLM and the current instance.
 
