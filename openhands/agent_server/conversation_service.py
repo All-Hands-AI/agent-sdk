@@ -190,6 +190,7 @@ class ConversationService:
             *[
                 event_service.subscribe_to_events(
                     WebhookSubscriber(
+                        conversation_id=conversation_id,
                         service=event_service,
                         spec=webhook_spec,
                         session_api_key=self.session_api_key,
@@ -324,6 +325,7 @@ class _EventSubscriber(Subscriber):
 
 @dataclass
 class WebhookSubscriber(Subscriber):
+    conversation_id: UUID
     service: EventService
     spec: WebhookSpec
     session_api_key: str | None = None
@@ -370,7 +372,9 @@ class WebhookSubscriber(Subscriber):
         ]
 
         # Construct events URL
-        events_url = f"{self.spec.base_url.rstrip('/')}/events"
+        events_url = (
+            f"{self.spec.base_url.rstrip('/')}/events/{self.conversation_id.hex}"
+        )
 
         # Retry logic
         for attempt in range(self.spec.num_retries + 1):
