@@ -1,7 +1,5 @@
 """Default preset configuration for OpenHands agents."""
 
-import os
-
 from openhands.sdk import Agent
 from openhands.sdk.context.condenser import (
     LLMSummarizingCondenser,
@@ -37,18 +35,24 @@ def register_default_tools(enable_browser: bool = True) -> None:
 
 
 def get_default_tools(
-    working_dir: str,
+    working_dir: str | None = None,
     persistence_dir: str | None = None,
     enable_browser: bool = True,
 ) -> list[ToolSpec]:
-    """Get the default set of tool specifications for the standard experience."""
+    """Get the default set of tool specifications for the standard experience.
+
+    Args:
+        working_dir: Deprecated. Tools now get directories from conversation state.
+        persistence_dir: Deprecated. Tools now get directories from conversation state.
+        enable_browser: Whether to include browser tools.
+    """
     register_default_tools(enable_browser=enable_browser)
 
-    persistence_path = persistence_dir or os.path.join(working_dir, ".openhands")
+    # Tools no longer need directory parameters - they get them from conversation state
     tool_specs = [
-        ToolSpec(name="BashTool", params={"working_dir": working_dir}),
-        ToolSpec(name="FileEditorTool", params={"workspace_root": working_dir}),
-        ToolSpec(name="TaskTrackerTool", params={"save_dir": persistence_path}),
+        ToolSpec(name="BashTool"),
+        ToolSpec(name="FileEditorTool"),
+        ToolSpec(name="TaskTrackerTool"),
     ]
     if enable_browser:
         tool_specs.append(ToolSpec(name="BrowserToolSet"))

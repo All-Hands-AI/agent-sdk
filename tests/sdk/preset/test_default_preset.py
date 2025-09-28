@@ -72,11 +72,11 @@ def test_get_default_agent_browser_toolset_parameters(basic_llm):
 
 
 def test_get_default_agent_with_custom_working_dir(basic_llm):
-    """Test that custom working directory is passed to appropriate tools."""
+    """Test that tools no longer have explicit directory parameters (they get them from conversation)."""  # noqa: E501
     custom_dir = "/custom/workspace"
     agent = get_default_agent(llm=basic_llm, working_dir=custom_dir)
 
-    # Find BashTool and TaskTrackerTool to verify they get the working_dir
+    # Find BashTool and TaskTrackerTool to verify they have no directory params
     bash_tool_spec = None
     task_tracker_spec = None
     browser_toolset_spec = None
@@ -89,15 +89,14 @@ def test_get_default_agent_with_custom_working_dir(basic_llm):
         elif tool.name == "BrowserToolSet":
             browser_toolset_spec = tool
 
-    # BashTool should get the working_dir
+    # Tools should not have directory parameters - they get them from conversation
     assert bash_tool_spec is not None
-    assert bash_tool_spec.params["working_dir"] == custom_dir
+    assert bash_tool_spec.params == {}
 
-    # TaskTrackerTool should get save_dir based on working_dir
     assert task_tracker_spec is not None
-    assert task_tracker_spec.params["save_dir"] == f"{custom_dir}/.openhands"
+    assert task_tracker_spec.params == {}
 
-    # BrowserToolSet should not be affected by working_dir
+    # BrowserToolSet should also have no params
     assert browser_toolset_spec is not None
     assert browser_toolset_spec.params == {}
 
@@ -164,7 +163,7 @@ def test_get_default_agent_tool_order(basic_llm):
 
 
 def test_get_default_agent_with_custom_persistence_dir(basic_llm):
-    """Test that custom persistence directory is used for TaskTrackerTool save_dir."""
+    """Test that tools no longer have explicit persistence directory parameters."""
     working_dir = "/test/workspace"
     custom_persistence_dir = "/custom/persistence"
 
@@ -173,7 +172,7 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
         llm=basic_llm, working_dir=working_dir, persistence_dir=custom_persistence_dir
     )
 
-    # Find TaskTrackerTool to verify it uses the custom persistence_dir
+    # Find TaskTrackerTool to verify it has no directory params
     task_tracker_spec = None
     for tool in agent.tools:
         if tool.name == "TaskTrackerTool":
@@ -181,9 +180,11 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
             break
 
     assert task_tracker_spec is not None
-    assert task_tracker_spec.params["save_dir"] == custom_persistence_dir
+    assert (
+        task_tracker_spec.params == {}
+    )  # No directory params - gets from conversation
 
-    # Test without persistence_dir (should default to working_dir/.openhands)
+    # Test without persistence_dir (should still have no params)
     agent_default = get_default_agent(llm=basic_llm, working_dir=working_dir)
 
     task_tracker_spec_default = None
@@ -193,7 +194,9 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
             break
 
     assert task_tracker_spec_default is not None
-    assert task_tracker_spec_default.params["save_dir"] == f"{working_dir}/.openhands"
+    assert (
+        task_tracker_spec_default.params == {}
+    )  # No directory params - gets from conversation
 
 
 def test_get_default_agent_has_llm_security_analyzer(basic_llm):

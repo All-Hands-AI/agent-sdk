@@ -45,12 +45,13 @@ agent = get_default_agent(
 # register_tool("TaskTrackerTool", TaskTrackerTool)
 
 # # Provide ToolSpec so Agent can lazily materialize tools at runtime.
+# # Tools no longer need directory parameters - they get them from conversation state
 # agent = Agent(
 #     llm=llm,
 #     tools=[
-#         ToolSpec(name="BashTool", params={"working_dir": cwd}),
+#         ToolSpec(name="BashTool"),
 #         ToolSpec(name="FileEditorTool"),
-#         ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+#         ToolSpec(name="TaskTrackerTool"),
 #     ],
 # )
 
@@ -62,7 +63,12 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent,
+    callbacks=[conversation_callback],
+    working_dir=cwd,
+    persistence_dir=os.path.join(cwd, ".openhands"),
+)
 
 conversation.send_message(
     "Read the current repo and write 3 facts about the project into FACTS.txt."

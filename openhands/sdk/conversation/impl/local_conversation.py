@@ -47,6 +47,7 @@ class LocalConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
+        working_dir: str | None = None,
         **_: object,
     ):
         """Initialize the conversation.
@@ -63,6 +64,8 @@ class LocalConversation(BaseConversation):
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
             stuck_detection: Whether to enable stuck detection
+            working_dir: Optional working directory for agent operations and tool
+                        execution
         """
         self.agent = agent
         self._persist_filestore = persist_filestore
@@ -75,6 +78,7 @@ class LocalConversation(BaseConversation):
             file_store=self._persist_filestore,
             max_iterations=max_iteration_per_run,
             stuck_detection=stuck_detection,
+            working_dir=working_dir,
         )
 
         # Default callback: persist every event to state
@@ -99,7 +103,7 @@ class LocalConversation(BaseConversation):
         self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
 
         with self._state:
-            self.agent.init_state(self._state, on_event=self._on_event)
+            self.agent.init_state(self, on_event=self._on_event)
 
         # Register existing llms in agent
         self.llm_registry = LLMRegistry()
@@ -233,7 +237,7 @@ class LocalConversation(BaseConversation):
                     self._state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
-                self.agent.step(self._state, on_event=self._on_event)
+                self.agent.step(self, on_event=self._on_event)
                 iteration += 1
 
                 # Check for non-finished terminal conditions

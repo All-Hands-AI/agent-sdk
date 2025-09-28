@@ -21,7 +21,7 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.state import ConversationState
+    from openhands.sdk.conversation.base import BaseConversation
     from openhands.sdk.conversation.types import ConversationCallbackType
 
 logger = get_logger(__name__)
@@ -173,7 +173,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     def init_state(
         self,
-        state: "ConversationState",
+        state: "BaseConversation",
         on_event: "ConversationCallbackType",
     ) -> None:
         """Initialize the empty conversation state to prepare the agent for user
@@ -183,9 +183,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         NOTE: state will be mutated in-place.
         """
-        self._initialize()
+        self._initialize(state)
 
-    def _initialize(self):
+    def _initialize(self, state: "BaseConversation | None" = None):
         """Create an AgentBase instance from an AgentSpec."""
         if self._tools:
             logger.warning("Agent already initialized; skipping re-initialization.")
@@ -193,7 +193,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         tools: list[Tool] = []
         for tool_spec in self.tools:
-            tools.extend(resolve_tool(tool_spec))
+            tools.extend(resolve_tool(tool_spec, state))
 
         # Add MCP tools if configured
         if self.mcp_config:
@@ -233,7 +233,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @abstractmethod
     def step(
         self,
-        state: "ConversationState",
+        state: "BaseConversation",
         on_event: "ConversationCallbackType",
     ) -> None:
         """Taking a step in the conversation.

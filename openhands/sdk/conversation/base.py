@@ -45,6 +45,16 @@ class ConversationStateProtocol(Protocol):
         """List of activated knowledge microagents."""
         ...
 
+    @property
+    def working_dir(self) -> str | None:
+        """The working directory for agent operations and tool execution."""
+        ...
+
+    @property
+    def persistence_dir(self) -> str | None:
+        """The persistence directory from the FileStore."""
+        ...
+
 
 class BaseConversation(ABC):
     @property
@@ -67,6 +77,16 @@ class BaseConversation(ABC):
 
     @abstractmethod
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None: ...
+
+    @property
+    def working_dir(self) -> str | None:
+        """The working directory for agent operations and tool execution."""
+        return self.state.working_dir
+
+    @property
+    def persistence_dir(self) -> str | None:
+        """The persistence directory from the FileStore."""
+        return self.state.persistence_dir
 
     @property
     def confirmation_policy_active(self) -> bool:

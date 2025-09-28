@@ -57,6 +57,11 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
+
+    working_dir: str | None = Field(
+        default=None,
+        description="Working directory for agent operations and tool execution",
+    )
     max_iterations: int = Field(
         default=500,
         gt=0,
@@ -106,6 +111,15 @@ class ConversationState(OpenHandsModel, FIFOLock):
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
 
+    @property
+    def persistence_dir(self) -> str | None:
+        """Get the persistence directory from the FileStore."""
+        from openhands.sdk.io.local import LocalFileStore
+
+        if isinstance(self._fs, LocalFileStore):
+            return str(self._fs.root)
+        return None
+
     # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:
         """
@@ -123,6 +137,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         max_iterations: int = 500,
         stuck_detection: bool = True,
         file_store: FileStore | None = None,
+        working_dir: str | None = None,
     ) -> "ConversationState":
         """
         If base_state.json exists: resume (attach EventLog,
@@ -177,6 +192,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
             agent=agent,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
+            working_dir=working_dir,
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)

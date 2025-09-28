@@ -2,9 +2,13 @@
 
 import os
 from collections.abc import Callable, Sequence
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.base import BaseConversation
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -229,7 +233,8 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
     @classmethod
     def create(
         cls,
-        working_dir: str,
+        conversation: "BaseConversation | None" = None,
+        working_dir: str | None = None,
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
@@ -239,7 +244,11 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         """Initialize BashTool with executor parameters.
 
         Args:
-            working_dir: The working directory for bash commands
+            conversation: Optional conversation to get working directory from.
+                         If provided, working_dir will be taken from
+                         conversation.state.working_dir
+            working_dir: The working directory for bash commands. If not provided,
+                        will be taken from conversation.state.working_dir
             username: Optional username for the bash session
             no_change_timeout_seconds: Timeout for no output change
             terminal_type: Force a specific session type:
@@ -256,6 +265,14 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
+
+        # Determine working directory from conversation or parameter
+        if working_dir is None:
+            if conversation is None:
+                raise ValueError("Either conversation or working_dir must be provided")
+            working_dir = conversation.working_dir
+            if working_dir is None:
+                raise ValueError("No working_dir found in conversation state")
 
         if not os.path.isdir(working_dir):
             raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
