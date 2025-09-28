@@ -127,6 +127,18 @@ class TestWebhookSpecValidation:
         spec = WebhookSpec(base_url="https://example.com", flush_delay=0.1)
         assert spec.flush_delay == 0.1
 
+    def test_webhook_spec_default_add_session_api_key_header(self):
+        """Test that WebhookSpec has a default add_session_api_key_header value of True."""  # noqa: E501
+        spec = WebhookSpec(base_url="https://example.com")
+        assert spec.add_session_api_key_header is True
+
+    def test_webhook_spec_custom_add_session_api_key_header(self):
+        """Test that WebhookSpec accepts custom add_session_api_key_header values."""
+        spec = WebhookSpec(
+            base_url="https://example.com", add_session_api_key_header=False
+        )
+        assert spec.add_session_api_key_header is False
+
 
 class TestWebhookSubscriberInitialization:
     """Test cases for WebhookSubscriber initialization."""
@@ -327,6 +339,53 @@ class TestWebhookSubscriberPostEvents:
             "Content-Type": "application/json",
             "Authorization": "Bearer token",
             "X-Session-API-Key": "test_session_key",
+        }
+        mock_client.request.assert_called_once_with(
+            method="POST",
+            url="https://example.com/events",
+            json=[event.model_dump() for event in sample_events[:2]],
+            headers=expected_headers,
+            timeout=30.0,
+        )
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_post_events_with_session_api_key_disabled(
+        self, mock_client_class, mock_event_service, sample_events
+    ):
+        """Test posting events with session API key but header disabled."""
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        # Create webhook spec with add_session_api_key_header disabled
+        webhook_spec = WebhookSpec(
+            base_url="https://example.com",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer token",
+            },
+            add_session_api_key_header=False,
+        )
+
+        subscriber = WebhookSubscriber(
+            service=mock_event_service,
+            spec=webhook_spec,
+            session_api_key="test_session_key",
+        )
+
+        # Add events to queue
+        subscriber.queue = sample_events[:2]
+
+        await subscriber._post_events()
+
+        # Verify session API key is NOT added to headers
+        expected_headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer token",
         }
         mock_client.request.assert_called_once_with(
             method="POST",
@@ -946,6 +1005,64 @@ class TestConversationWebhookSubscriber:
             "Content-Type": "application/json",
             "Authorization": "Bearer token",
             "X-Session-API-Key": "test_session_key",
+        }
+        mock_client.request.assert_called_once_with(
+            method="POST",
+            url="https://example.com/conversations",
+            json=conversation_info.model_dump(mode="json"),
+            headers=expected_headers,
+            timeout=30.0,
+        )
+
+    @pytest.mark.asyncio
+    @patch("httpx.AsyncClient")
+    async def test_post_conversation_info_with_session_api_key_disabled(
+        self, mock_client_class, mock_event_service
+    ):
+        """Test posting conversation info with session API key but header disabled."""
+        from openhands.agent_server.conversation_service import (
+            ConversationWebhookSubscriber,
+        )
+        from openhands.agent_server.models import ConversationInfo
+        from openhands.sdk.conversation.state import AgentExecutionStatus
+
+        # Setup mock client
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status.return_value = None
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        # Create webhook spec with add_session_api_key_header disabled
+        webhook_spec = WebhookSpec(
+            base_url="https://example.com",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer token",
+            },
+            add_session_api_key_header=False,
+        )
+
+        subscriber = ConversationWebhookSubscriber(
+            spec=webhook_spec,
+            session_api_key="test_session_key",
+        )
+
+        # Create sample conversation info
+        conversation_info = ConversationInfo(
+            id=uuid4(),
+            agent=mock_event_service.stored.agent,
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            agent_status=AgentExecutionStatus.PAUSED,
+        )
+
+        await subscriber.post_conversation_info(conversation_info)
+
+        # Verify session API key is NOT added to headers
+        expected_headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer token",
         }
         mock_client.request.assert_called_once_with(
             method="POST",
