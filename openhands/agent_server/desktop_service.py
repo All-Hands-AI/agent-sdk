@@ -7,6 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from openhands.agent_server.config import get_default_config
 from openhands.sdk.logger import get_logger
 
 
@@ -201,8 +202,6 @@ def get_desktop_service() -> DesktopService | None:
     """Get the desktop service instance if VNC is enabled."""
     global _desktop_service
     if _desktop_service is None:
-        from openhands.agent_server.config import get_default_config
-
         config = get_default_config()
 
         if not config.enable_vnc:
