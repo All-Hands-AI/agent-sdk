@@ -11,7 +11,7 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import Agent, EventBase, LocalFileStore, Message, get_logger
+from openhands.sdk import Agent, EventBase, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import ConversationState
@@ -159,11 +159,8 @@ class EventService:
         agent = Agent.model_validate(self.stored.agent.model_dump())
         conversation = LocalConversation(
             agent=agent,
-            persist_filestore=LocalFileStore(
-                str(self.file_store_path)
-                # inside Conversation, events will be saved to
-                # "file_store_path/{convo_id}/events"
-            ),
+            working_dir=self.stored.working_dir,
+            persistence_dir=str(self.file_store_path),
             conversation_id=self.stored.id,
             callbacks=[
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())

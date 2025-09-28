@@ -79,14 +79,17 @@ class Config(BaseModel):
     conversations_path: Path = Field(
         default=Path("workspace/conversations"),
         description=(
-            "The location of the directory where conversations and events are stored."
+            "DEPRECATED: Global conversations directory. "
+            "Use working_dir and persistence_dir in StartConversationRequest instead. "
+            "This is now only used for backward compatibility and server metadata."
         ),
     )
     workspace_path: Path = Field(
         default=Path("workspace/project"),
         description=(
-            "The location of the project directory where the agent reads/writes. "
-            "Defaults to 'workspace/project'."
+            "DEPRECATED: Global workspace directory. "
+            "Use working_dir and persistence_dir in StartConversationRequest instead. "
+            "This is now only used for backward compatibility."
         ),
     )
     bash_events_dir: Path = Field(
