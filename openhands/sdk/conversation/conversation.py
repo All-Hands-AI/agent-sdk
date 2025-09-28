@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Self, overload
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
-from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
 
 
@@ -39,7 +38,6 @@ class Conversation:
         cls: type[Self],
         agent: AgentBase,
         *,
-        persist_filestore: FileStore | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -69,7 +67,6 @@ class Conversation:
         cls: type[Self],
         agent: AgentBase,
         *,
-        persist_filestore: FileStore | None = None,
         host: str | None = None,
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
@@ -97,28 +94,28 @@ class Conversation:
                 visualize=visualize,
             )
 
-        # Set default directories if not provided
-        import os
+        # # Set default directories if not provided
+        # import os
 
-        if working_dir is None:
-            working_dir = os.getcwd()
+        # if working_dir is None:
+        #     working_dir = os.getcwd()
 
-        if persistence_dir is None:
-            persistence_dir = os.path.join(working_dir, ".openhands")
+        # if persistence_dir is None:
+        #     persistence_dir = os.path.join(working_dir, ".openhands")
 
-        # Handle persistence_dir parameter by creating LocalFileStore if needed
-        if persistence_dir and persist_filestore is None:
-            from openhands.sdk.io.local import LocalFileStore
+        # # Handle persistence_dir parameter by creating LocalFileStore if needed
+        # if persistence_dir and persist_filestore is None:
+        #     from openhands.sdk.io.local import LocalFileStore
 
-            persist_filestore = LocalFileStore(persistence_dir)
+        #     persist_filestore = LocalFileStore(persistence_dir)
 
         return LocalConversation(
             agent=agent,
-            persist_filestore=persist_filestore,
             conversation_id=conversation_id,
             callbacks=callbacks,
             max_iteration_per_run=max_iteration_per_run,
             stuck_detection=stuck_detection,
             visualize=visualize,
             working_dir=working_dir,
+            persistence_dir=persistence_dir,
         )

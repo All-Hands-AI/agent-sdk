@@ -14,7 +14,7 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.io import FileStore
+from openhands.sdk.io import LocalFileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
@@ -41,13 +41,13 @@ class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        persist_filestore: FileStore | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
         working_dir: str | None = None,
+        persistence_dir: str | None = None,
         **_: object,
     ):
         """Initialize the conversation.
@@ -68,7 +68,9 @@ class LocalConversation(BaseConversation):
                         execution
         """
         self.agent = agent
-        self._persist_filestore = persist_filestore
+        self._persist_filestore = (
+            LocalFileStore(root=persistence_dir) if persistence_dir else None
+        )
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
@@ -237,7 +239,7 @@ class LocalConversation(BaseConversation):
                     self._state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
-                self.agent.step(self, on_event=self._on_event)
+                self.agent.step(self._state, on_event=self._on_event)
                 iteration += 1
 
                 # Check for non-finished terminal conditions

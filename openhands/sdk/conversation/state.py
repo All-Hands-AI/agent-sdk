@@ -116,6 +116,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
         """Get the persistence directory from the FileStore."""
         from openhands.sdk.io.local import LocalFileStore
 
+        # TODO: Should we just simply the code
+        # by assuming we will be using LocalFileStore only?
         if isinstance(self._fs, LocalFileStore):
             return str(self._fs.root)
         return None

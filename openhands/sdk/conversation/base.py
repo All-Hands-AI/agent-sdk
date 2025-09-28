@@ -79,16 +79,6 @@ class BaseConversation(ABC):
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None: ...
 
     @property
-    def working_dir(self) -> str | None:
-        """The working directory for agent operations and tool execution."""
-        return self.state.working_dir
-
-    @property
-    def persistence_dir(self) -> str | None:
-        """The persistence directory from the FileStore."""
-        return self.state.persistence_dir
-
-    @property
     def confirmation_policy_active(self) -> bool:
         return not isinstance(self.state.confirmation_policy, NeverConfirm)
 

@@ -21,7 +21,6 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
     from openhands.sdk.conversation.state import ConversationState
     from openhands.sdk.conversation.types import ConversationCallbackType
 
@@ -186,7 +185,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """
         self._initialize(state)
 
-    def _initialize(self, state: "ConversationState | None" = None):
+    def _initialize(self, state: "ConversationState"):
         """Create an AgentBase instance from an AgentSpec."""
         if self._tools:
             logger.warning("Agent already initialized; skipping re-initialization.")
@@ -234,7 +233,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @abstractmethod
     def step(
         self,
-        state: "BaseConversation",
+        state: "ConversationState",
         on_event: "ConversationCallbackType",
     ) -> None:
         """Taking a step in the conversation.
