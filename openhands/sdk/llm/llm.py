@@ -191,6 +191,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     service_id: str = Field(
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata for the LLM instance.",
+    )
 
     # =========================================================================
     # Internal fields (excluded from dumps)
@@ -343,6 +347,52 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def restore_metrics(self, metrics: Metrics) -> None:
         # Only used by ConversationStats to seed metrics
         self._metrics = metrics
+
+    def get_llm_metadata(
+        self,
+        agent_name: str,
+        session_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate metadata for LLM requests.
+
+        Args:
+            agent_name: Name of the agent making the request
+            session_id: Optional session identifier
+            user_id: Optional user identifier
+
+        Returns:
+            Dictionary containing metadata for the LLM request
+        """
+        import openhands.sdk
+
+        openhands_tools_version: str = "n/a"
+        try:
+            import openhands.tools
+
+            openhands_tools_version = openhands.tools.__version__
+        except ModuleNotFoundError:
+            pass
+
+        metadata = {
+            "trace_version": openhands.sdk.__version__,
+            "tags": [
+                f"model:{self.model}",
+                f"agent:{agent_name}",
+                f"web_host:{os.environ.get('WEB_HOST', 'unspecified')}",
+                f"openhands_version:{openhands.sdk.__version__}",
+                f"openhands_tools_version:{openhands_tools_version}",
+            ],
+        }
+        if session_id is not None:
+            metadata["session_id"] = session_id
+        if user_id is not None:
+            metadata["trace_user_id"] = user_id
+
+        # Merge with any additional metadata from the instance
+        metadata.update(self.metadata)
+
+        return metadata
 
     def completion(
         self,

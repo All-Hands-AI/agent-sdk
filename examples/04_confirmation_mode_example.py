@@ -9,8 +9,8 @@ from pydantic import SecretStr
 from openhands.sdk import LLM, BaseConversation, Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.preset.default import get_default_agent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
+from openhands.tools.preset.default import get_default_agent
 
 
 # Make ^C a clean exit instead of a stack trace

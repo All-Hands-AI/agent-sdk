@@ -21,7 +21,6 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
     TextContent,
-    get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
@@ -177,9 +176,7 @@ class Agent(AgentBase):
                 messages=_messages,
                 tools=list(self.tools_map.values()),
                 extra_body={
-                    "metadata": get_llm_metadata(
-                        model_name=self.llm.model, agent_name=self.name
-                    )
+                    "metadata": self.llm.get_llm_metadata(agent_name=self.name)
                 },
                 add_security_risk_prediction=self._add_security_risk_prediction,
             )

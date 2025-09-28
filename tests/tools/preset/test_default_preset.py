@@ -6,9 +6,9 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.llm import LLM
-from openhands.sdk.preset.default import get_default_agent
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool.spec import ToolSpec
+from openhands.tools.preset.default import get_default_agent
 
 
 @pytest.fixture
