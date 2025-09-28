@@ -17,3 +17,8 @@ Notes:
 - They are stable entry points meant to reduce boilerplate for typical
   setups.
 """
+
+from .default import get_default_agent
+
+
+__all__ = ["get_default_agent"]

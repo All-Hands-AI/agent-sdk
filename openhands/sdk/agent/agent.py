@@ -175,9 +175,7 @@ class Agent(AgentBase):
             llm_response = self.llm.completion(
                 messages=_messages,
                 tools=list(self.tools_map.values()),
-                extra_body={
-                    "metadata": self.llm.get_llm_metadata(agent_name=self.name)
-                },
+                extra_body={"metadata": self.llm.metadata},
                 add_security_risk_prediction=self._add_security_risk_prediction,
             )
         except Exception as e:
