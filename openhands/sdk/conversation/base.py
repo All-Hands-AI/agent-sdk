@@ -81,6 +81,9 @@ class BaseConversation(ABC):
     def pause(self) -> None: ...
 
     @abstractmethod
+    def shutdown(self) -> None: ...
+
+    @abstractmethod
     def update_secrets(self, secrets: dict[str, SecretValue]) -> None: ...
 
     @abstractmethod
