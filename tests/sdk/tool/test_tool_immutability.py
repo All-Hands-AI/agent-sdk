@@ -16,7 +16,7 @@ from openhands.sdk.tool import (
 )
 
 
-class TestToolImmutabilityMockAction(ActionBase):
+class MockToolImmutabilityAction(ActionBase):
     """Mock action class for testing."""
 
     command: str = Field(description="Command to execute")
@@ -25,7 +25,7 @@ class TestToolImmutabilityMockAction(ActionBase):
     array_field: list[int] = Field(default_factory=list, description="Array field")
 
 
-class TestToolImmutabilityMockObservation(ObservationBase):
+class MockToolImmutabilityObservation(ObservationBase):
     """Mock observation class for testing."""
 
     result: str = Field(description="Result of the action")
@@ -44,8 +44,8 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=TestToolImmutabilityMockAction,
-            observation_type=TestToolImmutabilityMockObservation,
+            action_type=MockToolImmutabilityAction,
+            observation_type=MockToolImmutabilityObservation,
         )
 
         # Test that we cannot modify any field
@@ -65,19 +65,17 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=TestToolImmutabilityMockAction,
-            observation_type=TestToolImmutabilityMockObservation,
+            action_type=MockToolImmutabilityAction,
+            observation_type=MockToolImmutabilityObservation,
         )
 
         class NewExecutor(
-            ToolExecutor[
-                TestToolImmutabilityMockAction, TestToolImmutabilityMockObservation
-            ]
+            ToolExecutor[MockToolImmutabilityAction, MockToolImmutabilityObservation]
         ):
             def __call__(
-                self, action: TestToolImmutabilityMockAction
-            ) -> TestToolImmutabilityMockObservation:
-                return TestToolImmutabilityMockObservation(result="new_result")
+                self, action: MockToolImmutabilityAction
+            ) -> MockToolImmutabilityObservation:
+                return MockToolImmutabilityObservation(result="new_result")
 
         new_executor = NewExecutor()
         new_tool = tool.set_executor(new_executor)
@@ -94,8 +92,8 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=TestToolImmutabilityMockAction,
-            observation_type=TestToolImmutabilityMockObservation,
+            action_type=MockToolImmutabilityAction,
+            observation_type=MockToolImmutabilityObservation,
         )
 
         # Create a copy with modified fields
@@ -116,8 +114,8 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=TestToolImmutabilityMockAction,
-            observation_type=TestToolImmutabilityMockObservation,
+            action_type=MockToolImmutabilityAction,
+            observation_type=MockToolImmutabilityObservation,
             meta=meta_data,
         )
 
@@ -140,11 +138,11 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=TestToolImmutabilityMockAction,
-            observation_type=TestToolImmutabilityMockObservation,
+            action_type=MockToolImmutabilityAction,
+            observation_type=MockToolImmutabilityObservation,
         )
-        assert tool.action_type == TestToolImmutabilityMockAction
-        assert tool.observation_type == TestToolImmutabilityMockObservation
+        assert tool.action_type == MockToolImmutabilityAction
+        assert tool.observation_type == MockToolImmutabilityObservation
 
         # Test that invalid field types are rejected
         with pytest.raises(ValidationError):
@@ -152,7 +150,7 @@ class TestToolImmutability:
                 name="test_tool",
                 description="Test tool",
                 action_type="invalid_type",  # type: ignore[arg-type] # Should be a class, not string
-                observation_type=TestToolImmutabilityMockObservation,
+                observation_type=MockToolImmutabilityObservation,
             )
 
     def test_tool_annotations_immutability(self):
@@ -166,8 +164,8 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=TestToolImmutabilityMockAction,
-            observation_type=TestToolImmutabilityMockObservation,
+            action_type=MockToolImmutabilityAction,
+            observation_type=MockToolImmutabilityObservation,
             annotations=annotations,
         )
 

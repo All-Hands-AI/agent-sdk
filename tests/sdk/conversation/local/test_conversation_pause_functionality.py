@@ -39,13 +39,13 @@ from openhands.sdk.tool import (
 )
 
 
-class TestPauseFunctionalityMockAction(ActionBase):
+class MockPauseFunctionalityAction(ActionBase):
     """Mock action schema for testing."""
 
     command: str
 
 
-class TestPauseFunctionalityMockObservation(ObservationBase):
+class MockPauseFunctionalityObservation(ObservationBase):
     """Mock observation schema for testing."""
 
     result: str
@@ -56,21 +56,17 @@ class TestPauseFunctionalityMockObservation(ObservationBase):
 
 
 class BlockingExecutor(
-    ToolExecutor[
-        TestPauseFunctionalityMockAction, TestPauseFunctionalityMockObservation
-    ]
+    ToolExecutor[MockPauseFunctionalityAction, MockPauseFunctionalityObservation]
 ):
     def __init__(self, step_entered: threading.Event):
         self.step_entered = step_entered
 
     def __call__(
-        self, action: TestPauseFunctionalityMockAction
-    ) -> TestPauseFunctionalityMockObservation:
+        self, action: MockPauseFunctionalityAction
+    ) -> MockPauseFunctionalityObservation:
         # Signal we've entered tool execution for this step
         self.step_entered.set()
-        return TestPauseFunctionalityMockObservation(
-            result=f"Executed: {action.command}"
-        )
+        return MockPauseFunctionalityObservation(result=f"Executed: {action.command}")
 
 
 class TestPauseFunctionality:
@@ -85,13 +81,13 @@ class TestPauseFunctionality:
 
         class TestExecutor(
             ToolExecutor[
-                TestPauseFunctionalityMockAction, TestPauseFunctionalityMockObservation
+                MockPauseFunctionalityAction, MockPauseFunctionalityObservation
             ]
         ):
             def __call__(
-                self, action: TestPauseFunctionalityMockAction
-            ) -> TestPauseFunctionalityMockObservation:
-                return TestPauseFunctionalityMockObservation(
+                self, action: MockPauseFunctionalityAction
+            ) -> MockPauseFunctionalityObservation:
+                return MockPauseFunctionalityObservation(
                     result=f"Executed: {action.command}"
                 )
 
@@ -100,8 +96,8 @@ class TestPauseFunctionality:
                 Tool(
                     name="test_tool",
                     description="A test tool",
-                    action_type=TestPauseFunctionalityMockAction,
-                    observation_type=TestPauseFunctionalityMockObservation,
+                    action_type=MockPauseFunctionalityAction,
+                    observation_type=MockPauseFunctionalityObservation,
                     executor=TestExecutor(),
                 )
             ]
@@ -295,8 +291,8 @@ class TestPauseFunctionality:
                 Tool(
                     name="test_tool",
                     description="Blocking tool for pause test",
-                    action_type=TestPauseFunctionalityMockAction,
-                    observation_type=TestPauseFunctionalityMockObservation,
+                    action_type=MockPauseFunctionalityAction,
+                    observation_type=MockPauseFunctionalityObservation,
                     executor=BlockingExecutor(step_entered),
                 )
             ]

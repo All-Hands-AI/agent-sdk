@@ -5,12 +5,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from typing import TYPE_CHECKING, Any
 
+from jinja2 import Environment
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser.base import CondenserBase
-from openhands.sdk.context.prompts.prompt import render_template
+from openhands.sdk.context.prompts.prompt import refine, render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
@@ -25,6 +26,15 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.types import ConversationCallbackType
 
 logger = get_logger(__name__)
+
+
+def _render_template_string(template_string: str, **ctx) -> str:
+    """Render a template string with the given context variables."""
+    env = Environment(autoescape=False)
+    # Add the refine filter to match the behavior of render_template
+    env.filters["refine"] = refine
+    template = env.from_string(template_string)
+    return refine(template.render(**ctx).strip())
 
 
 class AgentBase(DiscriminatedUnionMixin, ABC):
@@ -105,6 +115,12 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             }
         ],
     )
+    system_prompt: str | None = Field(
+        default=None,
+        description="Optional custom system prompt. If provided, this will override "
+        "the template-based system prompt generation.",
+        examples=["You are a helpful AI assistant specialized in code review."],
+    )
     system_prompt_filename: str = Field(default="system_prompt.j2")
     system_prompt_kwargs: dict = Field(
         default_factory=dict,
@@ -160,11 +176,22 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 isinstance(self.security_analyzer, LLMSecurityAnalyzer)
             )
 
-        system_message = render_template(
-            prompt_dir=self.prompt_dir,
-            template_name=self.system_prompt_filename,
-            **template_kwargs,
-        )
+        # Use custom system prompt if provided, otherwise use template file
+        if self.system_prompt is not None:
+            # Render the custom system prompt as a template with the same kwargs
+            system_message = _render_template_string(
+                template_string=self.system_prompt,
+                **template_kwargs,
+            )
+        else:
+            # Fall back to template-based generation from file
+            system_message = render_template(
+                prompt_dir=self.prompt_dir,
+                template_name=self.system_prompt_filename,
+                **template_kwargs,
+            )
+
+        # Apply agent context suffix if available
         if self.agent_context:
             _system_message_suffix = self.agent_context.get_system_message_suffix()
             if _system_message_suffix:

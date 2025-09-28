@@ -21,18 +21,18 @@ from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
-class TestEventSerializationMockEvent(EventBase):
+class MockEventSerializationEvent(EventBase):
     test_field: str = "test_value"
 
 
-class TestEventsSerializationMockAction(ActionBase):
+class MockEventsSerializationAction(ActionBase):
     """Mock action for testing."""
 
-    def execute(self) -> "TestEventsSerializationMockObservation":
-        return TestEventsSerializationMockObservation(content="mock result")
+    def execute(self) -> "MockEventsSerializationObservation":
+        return MockEventsSerializationObservation(content="mock result")
 
 
-class TestEventsSerializationMockObservation(ObservationBase):
+class MockEventsSerializationObservation(ObservationBase):
     """Mock observation for testing."""
 
     content: str
@@ -44,10 +44,10 @@ class TestEventsSerializationMockObservation(ObservationBase):
 
 def test_event_base_serialization() -> None:
     """Test basic EventBase serialization/deserialization."""
-    event = TestEventSerializationMockEvent(source="agent", test_field="custom_value")
+    event = MockEventSerializationEvent(source="agent", test_field="custom_value")
 
     json_data = event.model_dump_json()
-    deserialized = TestEventSerializationMockEvent.model_validate_json(json_data)
+    deserialized = MockEventSerializationEvent.model_validate_json(json_data)
     assert deserialized == event
 
 
@@ -64,7 +64,7 @@ def test_system_prompt_event_serialization() -> None:
 
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
-    action = TestEventsSerializationMockAction()
+    action = MockEventsSerializationAction()
     tool_call = ChatCompletionMessageToolCall(
         id="call_123",
         function=Function(name="mock_tool", arguments="{}"),
@@ -96,7 +96,7 @@ def test_action_event_serialization() -> None:
 
 def test_observation_event_serialization() -> None:
     """Test ObservationEvent serialization/deserialization."""
-    observation = TestEventsSerializationMockObservation(content="test result")
+    observation = MockEventsSerializationObservation(content="test result")
     event = ObservationEvent(
         observation=observation,
         action_id="action_123",

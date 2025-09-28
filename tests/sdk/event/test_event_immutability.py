@@ -21,13 +21,13 @@ from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
-class TestEventsImmutabilityMockAction(ActionBase):
+class MockEventsImmutabilityAction(ActionBase):
     """Mock action for testing."""
 
     command: str = "test_command"
 
 
-class TestEventsImmutabilityMockObservation(ObservationBase):
+class MockEventsImmutabilityObservation(ObservationBase):
     """Mock observation for testing."""
 
     result: str = "test_result"
@@ -87,7 +87,7 @@ def test_system_prompt_event_is_frozen():
 
 def test_action_event_is_frozen():
     """Test that ActionEvent instances are frozen."""
-    action = TestEventsImmutabilityMockAction()
+    action = MockEventsImmutabilityAction()
     tool_call = ChatCompletionMessageToolCall(
         id="test_call_id", function={"name": "test_tool", "arguments": "{}"}
     )
@@ -106,7 +106,7 @@ def test_action_event_is_frozen():
         event.thought = [TextContent(text="Modified thought")]
 
     with pytest.raises(Exception):
-        event.action = TestEventsImmutabilityMockAction(command="modified_command")
+        event.action = MockEventsImmutabilityAction(command="modified_command")
 
     with pytest.raises(Exception):
         event.tool_name = "modified_tool"
@@ -117,7 +117,7 @@ def test_action_event_is_frozen():
 
 def test_observation_event_is_frozen():
     """Test that ObservationEvent instances are frozen."""
-    observation = TestEventsImmutabilityMockObservation()
+    observation = MockEventsImmutabilityObservation()
 
     event = ObservationEvent(
         observation=observation,
@@ -128,9 +128,7 @@ def test_observation_event_is_frozen():
 
     # Test that we cannot modify any field
     with pytest.raises(Exception):
-        event.observation = TestEventsImmutabilityMockObservation(
-            result="modified_result"
-        )
+        event.observation = MockEventsImmutabilityObservation(result="modified_result")
 
     with pytest.raises(Exception):
         event.action_id = "modified_action_id"
