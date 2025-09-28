@@ -1,10 +1,12 @@
 """VSCode service for managing OpenVSCode Server in the agent server."""
 
 import asyncio
+import json
 import os
 import uuid
 from pathlib import Path
 
+import openhands.agent_server.config as agent_config
 from openhands.sdk.logger import get_logger
 
 
@@ -160,8 +162,6 @@ class VSCodeService:
             }
 
             settings_file = vscode_dir / "settings.json"
-            import json
-
             with open(settings_file, "w") as f:
                 json.dump(settings_content, f, indent=2)
 
@@ -245,11 +245,8 @@ def get_vscode_service() -> VSCodeService | None:
     """
     global _vscode_service
     if _vscode_service is None:
-        from openhands.agent_server.config import (
-            get_default_config,
-        )
-
-        config = get_default_config()
+        # Imported at top; keep attribute access indirection to preserve test patches
+        config = agent_config.get_default_config()
 
         if not config.enable_vscode:
             logger.info("VSCode is disabled in configuration")

@@ -8,6 +8,7 @@ import argparse
 import importlib.util
 import json
 import os
+import shutil
 import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -159,8 +160,6 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
     finally:
         # Clean up temporary directory if we created one
         if temp_dir and os.path.exists(temp_dir):
-            import shutil
-
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 

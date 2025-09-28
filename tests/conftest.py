@@ -3,9 +3,16 @@
 from unittest.mock import MagicMock
 
 import pytest
+from litellm.types.utils import (
+    Choices,
+    Message as LiteLLMMessage,
+    ModelResponse,
+    Usage,
+)
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM
+from openhands.sdk.tool import ToolExecutor
 
 
 @pytest.fixture
@@ -24,7 +31,6 @@ def mock_llm():
 @pytest.fixture
 def mock_tool():
     """Create a mock tool for testing."""
-    from openhands.sdk.tool import ToolExecutor
 
     class MockExecutor(ToolExecutor):
         def __call__(self, action):
@@ -55,13 +61,6 @@ def create_mock_litellm_response(
         completion_tokens: Number of completion tokens
         finish_reason: Reason for completion
     """
-    from litellm.types.utils import (
-        Choices,
-        Message as LiteLLMMessage,
-        ModelResponse,
-        Usage,
-    )
-
     # Create proper LiteLLM message
     message = LiteLLMMessage(content=content, role="assistant")
 

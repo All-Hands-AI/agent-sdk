@@ -254,7 +254,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
                         for masking purposes. This ensures consistent masking
                         even when env_provider calls fail.
         """
-        # Import here to avoid circular imports
+        # FIXME: Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
 
         if not os.path.isdir(working_dir):

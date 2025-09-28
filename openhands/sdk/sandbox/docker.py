@@ -87,6 +87,7 @@ def _parse_build_tags(build_stdout: str) -> list[str]:
 def _resolve_build_script() -> Path | None:
     # Prefer locating via importlib without importing the module
     try:
+        # FIXME: This import is kept inline to avoid importing the module at top level
         import importlib.util
 
         spec = importlib.util.find_spec("openhands.agent_server")

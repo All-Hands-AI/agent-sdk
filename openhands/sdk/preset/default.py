@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 def register_default_tools(enable_browser: bool = True) -> None:
     """Register the default set of tools."""
+    # FIXME: These imports are kept inline to avoid circular dependencies
     from openhands.tools.execute_bash import BashTool
     from openhands.tools.str_replace_editor import FileEditorTool
     from openhands.tools.task_tracker import TaskTrackerTool
@@ -30,6 +31,8 @@ def register_default_tools(enable_browser: bool = True) -> None:
     logger.debug("Tool: TaskTrackerTool registered.")
 
     if enable_browser:
+        # FIXME: This import is kept inline because browser tools may not be
+        # available in all environments
         from openhands.tools.browser_use import BrowserToolSet
 
         register_tool("BrowserToolSet", BrowserToolSet)

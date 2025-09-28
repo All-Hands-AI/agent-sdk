@@ -7,10 +7,12 @@ def get_llm_metadata(
     session_id: str | None = None,
     user_id: str | None = None,
 ) -> dict:
+    # FIXME: This import is kept inline due to conditional availability
     import openhands.sdk
 
     openhands_tools_version: str = "n/a"
     try:
+        # FIXME: This import is kept inline due to conditional availability
         import openhands.tools
 
         openhands_tools_version = openhands.tools.__version__

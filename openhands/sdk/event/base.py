@@ -91,6 +91,8 @@ class LLMConvertibleEvent(EventBase, ABC):
     def events_to_messages(events: list["LLMConvertibleEvent"]) -> list[Message]:
         """Convert event stream to LLM message stream, handling multi-action batches"""
         # TODO: We should add extensive tests for this
+        # FIXME: Cannot move to top-level import due to circular dependency
+        # (ActionEvent imports from this module)
         from openhands.sdk.event.llm_convertible import ActionEvent
 
         messages = []

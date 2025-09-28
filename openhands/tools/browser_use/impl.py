@@ -8,6 +8,19 @@ from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.utils.async_executor import AsyncExecutor
+from openhands.tools.browser_use.definition import (
+    BrowserClickAction,
+    BrowserCloseTabAction,
+    BrowserGetContentAction,
+    BrowserGetStateAction,
+    BrowserGoBackAction,
+    BrowserListTabsAction,
+    BrowserNavigateAction,
+    BrowserObservation,
+    BrowserScrollAction,
+    BrowserSwitchTabAction,
+    BrowserTypeAction,
+)
 from openhands.tools.browser_use.server import CustomBrowserUseServer
 from openhands.tools.utils.timeout import TimeoutError, run_with_timeout
 
@@ -152,20 +165,6 @@ class BrowserToolExecutor(ToolExecutor):
 
     async def _execute_action(self, action):
         """Execute browser action asynchronously."""
-        from openhands.tools.browser_use.definition import (
-            BrowserClickAction,
-            BrowserCloseTabAction,
-            BrowserGetContentAction,
-            BrowserGetStateAction,
-            BrowserGoBackAction,
-            BrowserListTabsAction,
-            BrowserNavigateAction,
-            BrowserObservation,
-            BrowserScrollAction,
-            BrowserSwitchTabAction,
-            BrowserTypeAction,
-        )
-
         try:
             result = ""
             # Route to appropriate method based on action type
@@ -237,8 +236,6 @@ class BrowserToolExecutor(ToolExecutor):
 
     async def get_state(self, include_screenshot: bool = False):
         """Get current browser state with interactive elements."""
-        from openhands.tools.browser_use.definition import BrowserObservation
-
         await self._ensure_initialized()
         result_json = await self._server._get_browser_state(include_screenshot)
 

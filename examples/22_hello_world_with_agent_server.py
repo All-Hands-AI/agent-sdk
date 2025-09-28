@@ -5,6 +5,7 @@ import threading
 import time
 from pathlib import Path
 
+import httpx
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
@@ -79,8 +80,6 @@ class ManagedAPIServer:
         max_retries = 30
         for i in range(max_retries):
             try:
-                import httpx
-
                 response = httpx.get(f"{self.base_url}/health", timeout=1.0)
                 if response.status_code == 200:
                     print(f"API server is ready at {self.base_url}")

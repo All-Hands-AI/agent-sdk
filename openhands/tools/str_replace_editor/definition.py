@@ -204,7 +204,7 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
             workspace_root: Root directory for file operations. If provided,
                           tool descriptions will use this path in examples.
         """
-        # Import here to avoid circular imports
+        # FIXME: Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
         # Initialize the executor
