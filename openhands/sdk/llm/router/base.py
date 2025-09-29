@@ -87,9 +87,6 @@ class RouterLLM(LLM):
 
         Returns:
             The key/name of the LLM to use from llms_for_routing dictionary.
-
-        Raises:
-            KeyError: If the returned LLM name is not found in llms_for_routing.
         """
 
     def __getattr__(self, name):

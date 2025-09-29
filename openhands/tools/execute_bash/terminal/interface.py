@@ -40,10 +40,6 @@ class TerminalInterface(ABC):
         This should set up the terminal session, configure the shell,
         and prepare it for command execution. Implementations should
         set self._initialized = True upon successful initialization.
-
-        Raises:
-            RuntimeError: If initialization fails or terminal is already initialized.
-            OSError: If the terminal backend cannot be started.
         """
 
     @abstractmethod
@@ -53,9 +49,6 @@ class TerminalInterface(ABC):
         This should properly terminate the terminal session and
         clean up any resources. Implementations should set
         self._closed = True upon successful cleanup.
-
-        Raises:
-            RuntimeError: If cleanup fails or terminal is already closed.
         """
 
     @abstractmethod
@@ -65,10 +58,6 @@ class TerminalInterface(ABC):
         Args:
             text: Text or key sequence to send to the terminal.
             enter: Whether to send Enter key after the text. Defaults to True.
-
-        Raises:
-            RuntimeError: If the terminal is not initialized or is closed.
-            OSError: If sending keys to the terminal fails.
         """
 
     @abstractmethod
@@ -77,10 +66,6 @@ class TerminalInterface(ABC):
 
         Returns:
             Current visible content of the terminal screen as a string.
-
-        Raises:
-            RuntimeError: If the terminal is not initialized or is closed.
-            OSError: If reading from the terminal fails.
         """
 
     @abstractmethod
@@ -89,10 +74,6 @@ class TerminalInterface(ABC):
 
         This method should clear both the visible terminal screen content
         and any scrollback history, providing a clean slate for new output.
-
-        Raises:
-            RuntimeError: If the terminal is not initialized or is closed.
-            OSError: If clearing the screen fails.
         """
 
     @abstractmethod
@@ -104,9 +85,6 @@ class TerminalInterface(ABC):
 
         Returns:
             True if interrupt was sent successfully, False otherwise.
-
-        Raises:
-            RuntimeError: If the terminal is not initialized or is closed.
         """
 
     @abstractmethod
@@ -118,9 +96,6 @@ class TerminalInterface(ABC):
 
         Returns:
             True if a command is running, False otherwise.
-
-        Raises:
-            RuntimeError: If the terminal is not initialized or is closed.
         """
 
     @property
@@ -176,10 +151,6 @@ class TerminalSessionBase(ABC):
         This method should set up the terminal session, configure the environment,
         and prepare it for command execution. Implementations should set
         self._initialized = True upon successful initialization.
-
-        Raises:
-            RuntimeError: If initialization fails or session is already initialized.
-            OSError: If the terminal session cannot be started.
         """
 
     @abstractmethod
@@ -195,10 +166,6 @@ class TerminalSessionBase(ABC):
         Returns:
             ExecuteBashObservation with the command result including output,
             exit code, and execution metadata.
-
-        Raises:
-            RuntimeError: If the session is not initialized or is closed.
-            TimeoutError: If the command execution times out.
         """
 
     @abstractmethod
@@ -207,9 +174,6 @@ class TerminalSessionBase(ABC):
 
         This method should properly terminate the terminal session, clean up
         any resources, and set self._closed = True upon successful cleanup.
-
-        Raises:
-            RuntimeError: If cleanup fails or session is already closed.
         """
 
     @abstractmethod
@@ -221,9 +185,6 @@ class TerminalSessionBase(ABC):
 
         Returns:
             True if interrupt was successful, False otherwise.
-
-        Raises:
-            RuntimeError: If the session is not initialized or is closed.
         """
 
     @abstractmethod
@@ -235,9 +196,6 @@ class TerminalSessionBase(ABC):
 
         Returns:
             True if a command is running, False otherwise.
-
-        Raises:
-            RuntimeError: If the session is not initialized or is closed.
         """
 
     @property
