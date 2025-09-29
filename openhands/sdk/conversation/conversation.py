@@ -39,7 +39,7 @@ class Conversation:
         agent: AgentBase,
         *,
         working_dir: str = "workspace/project",
-        persistence_dir: str | None = "workspace/conversations",
+        persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -68,7 +68,7 @@ class Conversation:
         *,
         host: str | None = None,
         working_dir: str = "workspace/project",
-        persistence_dir: str | None = "workspace/conversations",
+        persistence_dir: str | None = None,
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -84,7 +84,7 @@ class Conversation:
         if host:
             # For RemoteConversation, persistence_dir should not be used
             # Only check if it was explicitly set to something other than the default
-            if persistence_dir != "workspace/conversations":
+            if persistence_dir is not None:
                 raise ValueError(
                     "persistence_dir should not be set when using RemoteConversation"
                 )
