@@ -156,6 +156,10 @@ class RemoteEventsList(Sequence[EventBase]):
                 self._cached_event_ids.add(event.id)
                 logger.debug(f"Added event {event.id} to local cache")
 
+    def append(self, event: EventBase) -> None:
+        """Add a new event to the list (for compatibility with EventLog interface)."""
+        self.add_event(event)
+
     def create_default_callback(self) -> ConversationCallbackType:
         """Create a default callback that adds events to this list."""
 

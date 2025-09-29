@@ -109,7 +109,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
 
     # ===== Public "events" facade (Sequence[Event]) =====
     @property
-    def events(self) -> Sequence[EventBase]:
+    def events(self) -> EventLog:
         return self._events
 
     @property

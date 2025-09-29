@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, Union
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
@@ -14,8 +13,9 @@ from openhands.sdk.security.confirmation_policy import (
 
 
 if TYPE_CHECKING:
+    from openhands.sdk.conversation.event_store import EventLog
+    from openhands.sdk.conversation.impl.remote_conversation import RemoteEventsList
     from openhands.sdk.conversation.state import AgentExecutionStatus
-    from openhands.sdk.event.base import EventBase
 
 
 class ConversationStateProtocol(Protocol):
@@ -27,7 +27,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def events(self) -> Sequence["EventBase"]:
+    def events(self) -> Union["EventLog", "RemoteEventsList"]:
         """Access to the events list."""
         ...
 
