@@ -325,7 +325,6 @@ class Agent(AgentBase):
                 tool_call_id=tool_call.id,
             )
             on_event(event)
-            state.agent_status = AgentExecutionStatus.FINISHED
             return
 
         # Validate arguments
