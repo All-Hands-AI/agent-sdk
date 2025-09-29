@@ -156,11 +156,12 @@ class EventService:
             with state:
                 # Create state update event with current state information
                 state_update_event = ConversationStateUpdateEvent(
+                    id=str(state.id),
                     agent_status=state.agent_status.value,
                     confirmation_policy=state.confirmation_policy.model_dump(),
                     activated_knowledge_microagents=state.activated_knowledge_microagents,
                     agent=state.agent.model_dump(),
-                    conversation_stats=state.stats.model_dump(),
+                    conversation_stats=state.conversation_stats.model_dump(),
                 )
 
                 # Send state update directly to the new subscriber
@@ -290,11 +291,12 @@ class EventService:
         with state:
             # Create state update event with current state information
             state_update_event = ConversationStateUpdateEvent(
+                id=str(state.id),
                 agent_status=state.agent_status.value,
                 confirmation_policy=state.confirmation_policy.model_dump(),
                 activated_knowledge_microagents=state.activated_knowledge_microagents,
                 agent=state.agent.model_dump(),
-                conversation_stats=state.stats.model_dump(),
+                conversation_stats=state.conversation_stats.model_dump(),
             )
 
             # Publish the state update event

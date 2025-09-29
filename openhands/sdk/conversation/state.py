@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.conversation.base_state import ConversationBaseState
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
@@ -21,7 +22,6 @@ from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.utils.models import OpenHandsModel
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -46,10 +46,11 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
-class ConversationState(OpenHandsModel, FIFOLock):
-    # ===== Public, validated fields =====
+class ConversationState(ConversationBaseState, FIFOLock):
+    # ===== Core conversation identification =====
     id: ConversationID = Field(description="Unique conversation ID")
 
+    # ===== Override base fields with specific types =====
     agent: AgentBase = Field(
         ...,
         description=(
@@ -59,6 +60,14 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
+    agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
+    confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
+    conversation_stats: ConversationStats = Field(
+        default_factory=ConversationStats,
+        description="Conversation statistics for tracking LLM metrics",
+    )
+
+    # ===== Additional fields specific to ConversationState =====
     max_iterations: int = Field(
         default=500,
         gt=0,
@@ -68,21 +77,6 @@ class ConversationState(OpenHandsModel, FIFOLock):
     stuck_detection: bool = Field(
         default=True,
         description="Whether to enable stuck detection for the agent.",
-    )
-
-    # Enum-based state management
-    agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
-    confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
-
-    activated_knowledge_microagents: list[str] = Field(
-        default_factory=list,
-        description="List of activated knowledge microagents name",
-    )
-
-    # Conversation statistics for LLM usage tracking
-    stats: ConversationStats = Field(
-        default_factory=ConversationStats,
-        description="Conversation statistics for tracking LLM metrics",
     )
 
     # ===== Private attrs (NOT Fields) =====
@@ -194,7 +188,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
             state._autosave_enabled = True
             state.agent = resolved
 
-            state.stats = ConversationStats()
+            state.conversation_stats = ConversationStats()
 
             logger.info(
                 f"Resumed conversation {state.id} from persistent storage.\n"
@@ -217,7 +211,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
-        state.stats = ConversationStats()
+        state.conversation_stats = ConversationStats()
 
         state._save_base_state(file_store)  # initial snapshot
         state._autosave_enabled = True

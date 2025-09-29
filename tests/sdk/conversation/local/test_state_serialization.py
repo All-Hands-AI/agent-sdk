@@ -89,7 +89,7 @@ def test_conversation_state_persistence_save_load():
         )
         state.events.append(event1)
         state.events.append(event2)
-        state.stats.register_llm(RegistryEvent(llm=llm))
+        state.conversation_stats.register_llm(RegistryEvent(llm=llm))
 
         # State auto-saves when events are added
         # Verify files were created
@@ -141,7 +141,7 @@ def test_conversation_state_incremental_save():
             source="agent", system_prompt=TextContent(text="system"), tools=[]
         )
         state.events.append(event1)
-        state.stats.register_llm(RegistryEvent(llm=llm))
+        state.conversation_stats.register_llm(RegistryEvent(llm=llm))
 
         # Verify event files exist (may have additional events from Agent.init_state)
         event_files = list(Path(temp_dir, "events").glob("*.json"))
@@ -415,7 +415,7 @@ def test_conversation_state_flags_persistence():
             file_store=file_store,
         )
 
-        state.stats.register_llm(RegistryEvent(llm=llm))
+        state.conversation_stats.register_llm(RegistryEvent(llm=llm))
 
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED

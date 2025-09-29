@@ -1,12 +1,16 @@
 """Events related to conversation state updates."""
 
+import uuid
 from typing import Any
 
+from pydantic import Field
+
+from openhands.sdk.conversation.base_state import ConversationBaseState
 from openhands.sdk.event.base import EventBase
-from openhands.sdk.event.types import SourceType
+from openhands.sdk.event.types import EventID, SourceType
 
 
-class ConversationStateUpdateEvent(EventBase):
+class ConversationStateUpdateEvent(EventBase, ConversationBaseState):
     """Event that contains conversation state updates.
 
     This event is sent via websocket whenever the conversation state changes,
@@ -15,10 +19,15 @@ class ConversationStateUpdateEvent(EventBase):
 
     source: SourceType = "environment"
 
-    # Core state fields that RemoteState needs
+    # Conversation identification (using EventID for websocket compatibility)
+    id: EventID = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Conversation ID as string",
+    )
+
+    # Override base fields with serialized types for websocket transmission
     agent_status: str
     confirmation_policy: dict[str, Any]
-    activated_knowledge_microagents: list[str]
     agent: dict[str, Any]
     conversation_stats: dict[str, Any]
 

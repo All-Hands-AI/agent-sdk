@@ -364,12 +364,13 @@ class TestEventServiceStateUpdates:
         state = MagicMock(spec=ConversationState)
 
         # Set up state properties
+        state.id = uuid4()
         state.agent_status = AgentExecutionStatus.IDLE
         state.confirmation_policy = NeverConfirm()
         state.activated_knowledge_microagents = []
         state.agent = Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[])
-        state.stats = MagicMock()
-        state.stats.model_dump.return_value = {"total_cost": 0.0}
+        state.conversation_stats = MagicMock()
+        state.conversation_stats.model_dump.return_value = {"total_cost": 0.0}
 
         # Mock context manager behavior
         state.__enter__ = MagicMock(return_value=state)
@@ -407,12 +408,13 @@ class TestEventServiceStateUpdates:
         state = MagicMock(spec=ConversationState)
 
         # Set up state properties
+        state.id = uuid4()
         state.agent_status = AgentExecutionStatus.RUNNING
         state.confirmation_policy = NeverConfirm()
         state.activated_knowledge_microagents = ["test-agent"]
         state.agent = Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[])
-        state.stats = MagicMock()
-        state.stats.model_dump.return_value = {"total_cost": 1.5}
+        state.conversation_stats = MagicMock()
+        state.conversation_stats.model_dump.return_value = {"total_cost": 1.5}
 
         # Mock context manager behavior
         state.__enter__ = MagicMock(return_value=state)

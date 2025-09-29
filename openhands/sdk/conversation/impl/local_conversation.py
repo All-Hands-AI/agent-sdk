@@ -84,7 +84,7 @@ class LocalConversation(BaseConversation):
         # Add default visualizer if requested
         if visualize:
             self._visualizer = create_default_visualizer(
-                conversation_stats=self._state.stats
+                conversation_stats=self._state.conversation_stats
             )
             composed_list = [self._visualizer.on_event] + composed_list
             # visualize should happen first for visibility
@@ -102,7 +102,7 @@ class LocalConversation(BaseConversation):
 
         # Register existing llms in agent
         self.llm_registry = LLMRegistry()
-        self.llm_registry.subscribe(self._state.stats.register_llm)
+        self.llm_registry.subscribe(self._state.conversation_stats.register_llm)
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
 
@@ -124,7 +124,7 @@ class LocalConversation(BaseConversation):
 
     @property
     def conversation_stats(self):
-        return self._state.stats
+        return self._state.conversation_stats
 
     @property
     def stuck_detector(self) -> StuckDetector | None:
