@@ -890,6 +890,7 @@ def test_pwd_property(terminal_type):
 
 
 @parametrize_terminal_types
+@pytest.mark.timeout(180)  # Add 3 minute timeout for this intensive test
 def test_long_output_from_nested_directories(terminal_type):
     """Test long output from nested directory operations."""
     with tempfile.TemporaryDirectory() as temp_dir:
