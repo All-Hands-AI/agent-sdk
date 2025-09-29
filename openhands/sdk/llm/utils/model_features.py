@@ -117,7 +117,7 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     # OpenAI GPT-5 family (includes mini variants)
     "gpt-5*",
     # Anthropic Claude Sonnet 4.5
-    "claude-sonnet-4-5",
+    "claude-sonnet-4-5-20250929",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [

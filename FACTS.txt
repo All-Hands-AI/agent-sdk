@@ -1,0 +1,8 @@
+OpenHands Agent SDK - Project Facts
+====================================
+
+1. This is a complete architectural refactor from OpenHands V0, emphasizing simplicity, maintainability, and developer experience. The SDK is organized as a UV workspace with three main packages: openhands-sdk (core functionality), openhands-tools (runtime tool implementations), and openhands-agent-server (REST API and WebSocket server for remote agent interactions).
+
+2. The project includes 24 comprehensive examples demonstrating various capabilities, ranging from basic "Hello World" to advanced features like browser automation, MCP integration with OAuth, async operations, LLM security analysis, image input support, and context condensation. These examples serve as both documentation and practical guides for developers.
+
+3. The SDK provides 5 built-in tools that give agents powerful capabilities: BashTool (execute bash commands in persistent shell sessions), FileEditorTool (create and edit files with advanced editing capabilities), TaskTrackerTool (organize and track development tasks systematically), BrowserToolSet (automate web browser interactions), and preset configurations for quick setup. The project is licensed under MIT by All Hands AI (Copyright 2025).
