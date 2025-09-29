@@ -7,8 +7,7 @@ from collections.abc import Callable
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, BaseConversation, Conversation
-from openhands.sdk.conversation.base_state import AgentExecutionStatus
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 from openhands.tools.preset.default import get_default_agent
 

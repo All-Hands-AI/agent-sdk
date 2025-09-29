@@ -6,14 +6,14 @@ from typing import TYPE_CHECKING, Any
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base_state import (
-    ConversationBaseState,
-)
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
+from openhands.sdk.conversation.state.base import (
+    ConversationBaseState,
+)
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import EventBase

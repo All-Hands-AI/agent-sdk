@@ -3,7 +3,7 @@
 from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation
-from openhands.sdk.conversation.base_state import AgentExecutionStatus
+from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm import LLM
 
 

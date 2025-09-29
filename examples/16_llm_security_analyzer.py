@@ -12,8 +12,7 @@ from collections.abc import Callable
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Agent, BaseConversation, Conversation, LocalFileStore
-from openhands.sdk.conversation.base_state import AgentExecutionStatus
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import ConfirmRisky
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import ToolSpec, register_tool

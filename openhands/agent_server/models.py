@@ -8,8 +8,7 @@ from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
-from openhands.sdk.conversation.base_state import AgentExecutionStatus
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
