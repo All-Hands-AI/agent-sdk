@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from pydantic import SecretStr
 
@@ -9,6 +10,7 @@ from openhands.sdk import (
     EventBase,
     ImageContent,
     LLMConvertibleEvent,
+    LocalFileStore,
     Message,
     TextContent,
     get_logger,
@@ -55,7 +57,15 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation_id = uuid.uuid4()
+file_store = LocalFileStore(f"./.conversations/{conversation_id}")
+
+conversation = Conversation(
+    agent=agent,
+    callbacks=[conversation_callback],
+    persist_filestore=file_store,
+    conversation_id=conversation_id,
+)
 
 conversation.send_message(
     message=Message(
@@ -77,6 +87,24 @@ conversation.send_message(
     )
 )
 conversation.run()
+
+# Test conversation serialization
+print("Conversation finished. Got the following LLM messages:")
+for i, message in enumerate(llm_messages):
+    print(f"Message {i}: {str(message)[:200]}")
+
+print("Serializing conversation...")
+
+del conversation
+
+print("Deserializing conversation...")
+
+conversation = Conversation(
+    agent=agent,
+    callbacks=[conversation_callback],
+    persist_filestore=file_store,
+    conversation_id=conversation_id,
+)
 
 conversation.send_message(
     message=Message(
