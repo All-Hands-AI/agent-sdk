@@ -6,7 +6,6 @@ evaluate security risks of actions before execution.
 
 import os
 import signal
-import uuid
 from collections.abc import Callable
 
 from pydantic import SecretStr
@@ -115,9 +114,7 @@ agent = Agent(llm=llm, tools=tools, security_analyzer=security_analyzer)
 
 # Conversation with persisted filestore
 conversation = Conversation(
-    agent=agent, 
-    persistence_dir="./.conversations",
-    working_dir="."
+    agent=agent, persistence_dir="./.conversations", working_dir="."
 )
 conversation.set_confirmation_policy(ConfirmRisky())
 

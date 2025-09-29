@@ -140,7 +140,10 @@ def test_task_tracker_tool_with_explicit_save_dir(mock_agent):
         from openhands.sdk.conversation.state import ConversationState
 
         conv_state = ConversationState.create(
-            agent=mock_agent, persistence_dir=save_dir
+            id=uuid.uuid4(),
+            agent=mock_agent,
+            persistence_dir=save_dir,
+            working_dir="/tmp",
         )
         tools = TaskTrackerTool.create(conv_state)
         assert len(tools) == 1
@@ -183,4 +186,4 @@ def test_tools_with_minimal_conversation_state(mock_agent):
         # Type ignore needed for test-specific executor access
         save_dir = tracker_tools[0].executor.save_dir  # type: ignore[attr-defined]
         # Should use conversation ID subdirectory in persistence_dir
-        assert conv_state.conversation_id in str(save_dir)
+        assert str(conv_state.id) in str(save_dir)

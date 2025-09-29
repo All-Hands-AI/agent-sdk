@@ -102,7 +102,7 @@ def test_get_default_agent_with_custom_working_dir(basic_llm):
 
 def test_get_default_agent_has_mcp_config(basic_llm):
     """Test that the default agent spec includes MCP configuration."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     assert agent.mcp_config is not None
     assert "mcpServers" in agent.mcp_config
@@ -116,7 +116,7 @@ def test_get_default_agent_has_mcp_config(basic_llm):
 
 def test_get_default_agent_basic_properties(basic_llm):
     """Test basic properties of the default agent spec."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     # Should have the provided LLM
     assert agent.llm == basic_llm
@@ -135,7 +135,7 @@ def test_get_default_agent_basic_properties(basic_llm):
 
 def test_get_default_agent_condenser_config(basic_llm):
     """Test that the default agent spec has proper condenser configuration."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     assert agent.condenser is not None
     assert isinstance(agent.condenser, LLMSummarizingCondenser)
@@ -149,7 +149,7 @@ def test_get_default_agent_condenser_config(basic_llm):
 
 def test_get_default_agent_tool_order(basic_llm):
     """Test that tools are in expected order in the default spec."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     tool_names = [tool.name for tool in agent.tools]
 
@@ -163,13 +163,9 @@ def test_get_default_agent_tool_order(basic_llm):
 
 def test_get_default_agent_with_custom_persistence_dir(basic_llm):
     """Test that tools no longer have explicit persistence directory parameters."""
-    working_dir = "/test/workspace"
-    custom_persistence_dir = "/custom/persistence"
 
     # Test with custom persistence_dir
-    agent = get_default_agent(
-        llm=basic_llm, working_dir=working_dir, persistence_dir=custom_persistence_dir
-    )
+    agent = get_default_agent(llm=basic_llm)
 
     # Find TaskTrackerTool to verify it has no directory params
     task_tracker_spec = None
@@ -184,7 +180,7 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
     )  # No directory params - gets from conversation
 
     # Test without persistence_dir (should still have no params)
-    agent_default = get_default_agent(llm=basic_llm, working_dir=working_dir)
+    agent_default = get_default_agent(llm=basic_llm)
 
     task_tracker_spec_default = None
     for tool in agent_default.tools:
@@ -200,7 +196,7 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
 
 def test_get_default_agent_has_llm_security_analyzer(basic_llm):
     """Test that the default agent includes LLMSecurityAnalyzer by default."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     # Should have LLMSecurityAnalyzer as the security analyzer
     assert agent.security_analyzer is not None

@@ -19,12 +19,16 @@ from openhands.tools.execute_bash.terminal import (
 )
 
 
-def _create_conv_state(working_dir: str, terminal_type: str = "auto") -> ConversationState:
+def _create_conv_state(
+    working_dir: str, terminal_type: str = "auto"
+) -> ConversationState:
     """Helper to create a ConversationState for testing."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
     return ConversationState.create(
-        id=uuid.uuid4(), agent=agent, working_dir=working_dir, terminal_type=terminal_type
+        id=uuid.uuid4(),
+        agent=agent,
+        working_dir=working_dir,
     )
 
 

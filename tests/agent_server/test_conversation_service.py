@@ -36,7 +36,6 @@ def sample_stored_conversation():
         created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
         updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=UTC),
         working_dir="workspace/project",
-        persistence_dir="workspace/conversations",
     )
 
 
