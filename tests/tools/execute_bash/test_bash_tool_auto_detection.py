@@ -19,9 +19,7 @@ from openhands.tools.execute_bash.terminal import (
 )
 
 
-def _create_conv_state(
-    working_dir: str, terminal_type: str = "auto"
-) -> ConversationState:
+def _create_conv_state(working_dir: str) -> ConversationState:
     """Helper to create a ConversationState for testing."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
@@ -61,7 +59,7 @@ def test_forced_terminal_types():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Test forced subprocess session
         tools = BashTool.create(
-            _create_conv_state(temp_dir, terminal_type="subprocess")
+            _create_conv_state(temp_dir), terminal_type="subprocess"
         )
         tool = tools[0]
         assert tool.executor is not None
@@ -159,7 +157,7 @@ def test_session_lifecycle():
     """Test session lifecycle management."""
     with tempfile.TemporaryDirectory() as temp_dir:
         tools = BashTool.create(
-            _create_conv_state(temp_dir, terminal_type="subprocess")
+            _create_conv_state(temp_dir), terminal_type="subprocess"
         )
         tool = tools[0]
 

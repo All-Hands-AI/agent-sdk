@@ -127,7 +127,9 @@ def test_task_tracker_tool_with_conversation_persistence_dir(mock_agent):
         tracker_tool = tools[0]
         # Type ignore needed for test-specific executor access
         save_dir = str(tracker_tool.executor.save_dir)  # type: ignore[attr-defined]
-        assert save_dir == persistence_dir
+        # The TaskTracker should use the conversation's actual persistence directory,
+        # which includes the conversation ID as a subdirectory
+        assert save_dir == conversation.state.persistence_dir
 
 
 def test_task_tracker_tool_with_explicit_save_dir(mock_agent):
@@ -185,5 +187,5 @@ def test_tools_with_minimal_conversation_state(mock_agent):
         assert len(tracker_tools) == 1
         # Type ignore needed for test-specific executor access
         save_dir = tracker_tools[0].executor.save_dir  # type: ignore[attr-defined]
-        # Should use conversation ID subdirectory in persistence_dir
-        assert str(conv_state.id) in str(save_dir)
+        # Since persistence_dir is None, save_dir should also be None
+        assert save_dir is None
