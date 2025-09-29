@@ -106,12 +106,7 @@ def test_conversation_factory_default_directories(mock_agent):
 
             # Should use "workspace/project" as default working directory
             assert conversation.state.working_dir == "workspace/project"
-            # Should use "workspace/conversations" with conversation ID subdirectory
-            # as default persistence dir
-            expected_persistence = os.path.join(
-                "workspace/conversations", str(conversation.state.id)
-            )
-            assert conversation.state.persistence_dir == expected_persistence
+            assert conversation.state.persistence_dir is None
         finally:
             os.chdir(original_cwd)
 
