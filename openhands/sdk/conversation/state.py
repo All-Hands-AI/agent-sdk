@@ -1,7 +1,7 @@
 # state.py
 import json
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from enum import Enum
+from typing import TYPE_CHECKING
 
 from pydantic import Field, PrivateAttr
 
@@ -11,31 +11,88 @@ from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
-from openhands.sdk.conversation.state.base import (
-    ConversationBaseState,
-)
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
+from openhands.sdk.utils.models import OpenHandsModel
 from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
 
 
+class AgentExecutionStatus(str, Enum):
+    """Enum representing the current execution state of the agent."""
+
+    IDLE = "idle"  # Agent is ready to receive tasks
+    RUNNING = "running"  # Agent is actively processing
+    PAUSED = "paused"  # Agent execution is paused by user
+    WAITING_FOR_CONFIRMATION = (
+        "waiting_for_confirmation"  # Agent is waiting for user confirmation
+    )
+    FINISHED = "finished"  # Agent has completed the current task
+    ERROR = "error"  # Agent encountered an error (optional for future use)
+    STUCK = "stuck"  # Agent is stuck in a loop or unable to proceed
+
+
 if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
-class ConversationState(ConversationBaseState, FIFOLock):
-    """Concrete class representing the full conversation state.
-
-    Most fields are inherited from ConversationBaseState.
-    """
-
+class ConversationState(OpenHandsModel, FIFOLock):
+    # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
+
+    agent: AgentBase = Field(
+        ...,
+        description=(
+            "The agent running in the conversation. "
+            "This is persisted to allow resuming conversations and "
+            "check agent configuration to handle e.g., tool changes, "
+            "LLM changes, etc."
+        ),
+    )
+    working_dir: str = Field(
+        default="workspace/project",
+        description="Working directory for agent operations and tool execution",
+    )
+    persistence_dir: str | None = Field(
+        default="workspace/conversations",
+        description="Directory for persisting conversation state and events. "
+        "If None, conversation will not be persisted.",
+    )
+
+    max_iterations: int = Field(
+        default=500,
+        gt=0,
+        description="Maximum number of iterations the agent can "
+        "perform in a single run.",
+    )
+    stuck_detection: bool = Field(
+        default=True,
+        description="Whether to enable stuck detection for the agent.",
+    )
+
+    # Enum-based state management
+    agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
+    confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
+
+    activated_knowledge_microagents: list[str] = Field(
+        default_factory=list,
+        description="List of activated knowledge microagents name",
+    )
+
+    # Conversation statistics for LLM usage tracking
+    stats: ConversationStats = Field(
+        default_factory=ConversationStats,
+        description="Conversation statistics for tracking LLM metrics",
+    )
 
     # ===== Private attrs (NOT Fields) =====
     _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
@@ -44,9 +101,6 @@ class ConversationState(ConversationBaseState, FIFOLock):
     _autosave_enabled: bool = PrivateAttr(
         default=False
     )  # to avoid recursion during init
-    _on_state_change: Callable[[str, Any, Any], None] | None = PrivateAttr(
-        default=None
-    )  # callback for state changes
 
     def model_post_init(self, __context) -> None:
         """Initialize FIFOLock after Pydantic model initialization."""
@@ -62,38 +116,6 @@ class ConversationState(ConversationBaseState, FIFOLock):
     def secrets_manager(self) -> SecretsManager:
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
-
-    # ===== State change callback management =====
-    def set_on_state_change(
-        self, callback: Callable[[str, Any, Any], None] | None
-    ) -> None:
-        """
-        Set a callback that will be called when any state field changes.
-
-        Args:
-            callback: Function that takes (field_name, old_value, new_value), or None
-        """
-        self._on_state_change = callback
-
-    def _notify_state_change(
-        self, field_name: str, old_value: Any, new_value: Any
-    ) -> None:
-        """
-        Notify the registered callback about a state change.
-
-        Args:
-            field_name: Name of the field that changed
-            old_value: Previous value of the field
-            new_value: New value of the field
-        """
-        if self._on_state_change:
-            try:
-                self._on_state_change(field_name, old_value, new_value)
-            except Exception as e:
-                logger.exception(
-                    f"State change callback failed for field '{field_name}': {e}",
-                    exc_info=True,
-                )
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:
@@ -197,15 +219,6 @@ class ConversationState(ConversationBaseState, FIFOLock):
         is_field = name in self.__class__.model_fields
         autosave_enabled = getattr(self, "_autosave_enabled", False)
         fs = getattr(self, "_fs", None)
-
-        # Notify callback for field changes (even if autosave is disabled)
-        if is_field and (old is _sentinel or old != value):
-            # Only notify if we have a callback and this is not during initialization
-            callback = getattr(self, "_on_state_change", None)
-            if callback and autosave_enabled:  # Only notify after initialization
-                self._notify_state_change(
-                    name, old if old is not _sentinel else None, value
-                )
 
         if not (autosave_enabled and is_field and fs is not None):
             return

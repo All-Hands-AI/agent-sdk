@@ -1035,7 +1035,7 @@ class TestConversationWebhookSubscriber:
             ConversationWebhookSubscriber,
         )
         from openhands.agent_server.models import ConversationInfo
-        from openhands.sdk.conversation.state.base import AgentExecutionStatus
+        from openhands.sdk.conversation.state import AgentExecutionStatus
 
         # Setup mock client
         mock_client = AsyncMock()
@@ -1083,7 +1083,7 @@ class TestConversationWebhookSubscriber:
             ConversationWebhookSubscriber,
         )
         from openhands.agent_server.models import ConversationInfo
-        from openhands.sdk.conversation.state.base import AgentExecutionStatus
+        from openhands.sdk.conversation.state import AgentExecutionStatus
 
         subscriber = ConversationWebhookSubscriber(
             spec=webhook_spec,
