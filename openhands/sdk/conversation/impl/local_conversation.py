@@ -86,7 +86,9 @@ class LocalConversation(BaseConversation):
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
-            self._visualizer = create_default_visualizer(stats=self._state.stats)
+            self._visualizer = create_default_visualizer(
+                conversation_stats=self._state.stats
+            )
             composed_list = [self._visualizer.on_event] + composed_list
             # visualize should happen first for visibility
         else:
@@ -124,7 +126,7 @@ class LocalConversation(BaseConversation):
         return self._state
 
     @property
-    def stats(self):
+    def conversation_stats(self):
         return self._state.stats
 
     @property
