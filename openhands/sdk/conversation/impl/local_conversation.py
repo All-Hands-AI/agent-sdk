@@ -13,7 +13,6 @@ from openhands.sdk.event import (
     PauseEvent,
     UserRejectObservation,
 )
-from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
@@ -263,7 +262,7 @@ class LocalConversation(BaseConversation):
         This is a non-invasive method to reject actions between run() calls.
         Also clears the agent_waiting_for_confirmation flag.
         """
-        pending_actions = get_unmatched_actions(self._state.events)
+        pending_actions = ConversationState.get_unmatched_actions(self._state.events)
 
         with self._state:
             # Always clear the agent_waiting_for_confirmation flag
