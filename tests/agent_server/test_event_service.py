@@ -12,7 +12,8 @@ from openhands.agent_server.models import (
     StoredConversation,
 )
 from openhands.sdk import LLM, Agent, Conversation, Message
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 
@@ -342,3 +343,152 @@ class TestEventServiceCountEvents:
         # Count non-existent event type (should be 0)
         result = await event_service.count_events(kind="NonExistentEvent")
         assert result == 0
+
+
+class TestEventServiceStateUpdates:
+    """Test cases for EventService state update functionality."""
+
+    @pytest.mark.asyncio
+    async def test_publish_state_update_inactive_service(self, event_service):
+        """Test that _publish_state_update handles inactive service gracefully."""
+        event_service._conversation = None
+
+        # Should not raise an exception
+        await event_service._publish_state_update()
+
+    @pytest.mark.asyncio
+    async def test_publish_state_update_publishes_event(self, event_service):
+        """Test that _publish_state_update publishes ConversationStateUpdateEvent."""
+        # Mock conversation with state
+        conversation = MagicMock(spec=Conversation)
+        state = MagicMock(spec=ConversationState)
+
+        # Set up state properties
+        state.agent_status = AgentExecutionStatus.IDLE
+        state.confirmation_policy = NeverConfirm()
+        state.activated_knowledge_microagents = []
+        state.agent = Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[])
+        state.stats = MagicMock()
+        state.stats.model_dump.return_value = {"total_cost": 0.0}
+
+        # Mock context manager behavior
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation._state = state
+
+        event_service._conversation = conversation
+
+        # Mock the pub_sub to capture published events
+        published_events = []
+
+        async def mock_pub_sub(event):
+            published_events.append(event)
+
+        event_service._pub_sub = mock_pub_sub
+
+        # Call the method
+        await event_service._publish_state_update()
+
+        # Verify that a ConversationStateUpdateEvent was published
+        assert len(published_events) == 1
+        event = published_events[0]
+        assert isinstance(event, ConversationStateUpdateEvent)
+        assert event.agent_status == "idle"
+        assert event.confirmation_policy == state.confirmation_policy.model_dump()
+        assert event.activated_knowledge_microagents == []
+        assert event.agent == state.agent.model_dump()
+        assert event.conversation_stats == {"total_cost": 0.0}
+
+    @pytest.mark.asyncio
+    async def test_subscribe_to_events_sends_initial_state(self, event_service):
+        """Test that subscribe_to_events sends initial state to new subscribers."""
+        # Mock conversation with state
+        conversation = MagicMock(spec=Conversation)
+        state = MagicMock(spec=ConversationState)
+
+        # Set up state properties
+        state.agent_status = AgentExecutionStatus.RUNNING
+        state.confirmation_policy = NeverConfirm()
+        state.activated_knowledge_microagents = ["test-agent"]
+        state.agent = Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[])
+        state.stats = MagicMock()
+        state.stats.model_dump.return_value = {"total_cost": 1.5}
+
+        # Mock context manager behavior
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation._state = state
+
+        event_service._conversation = conversation
+
+        # Mock subscriber
+        received_events = []
+
+        async def mock_subscriber(event):
+            received_events.append(event)
+
+        # Subscribe
+        subscriber_id = await event_service.subscribe_to_events(mock_subscriber)
+
+        # Verify that initial state was sent
+        assert len(received_events) == 1
+        event = received_events[0]
+        assert isinstance(event, ConversationStateUpdateEvent)
+        assert event.agent_status == "running"
+        assert event.activated_knowledge_microagents == ["test-agent"]
+        assert event.conversation_stats == {"total_cost": 1.5}
+
+        # Verify subscriber was registered
+        assert subscriber_id is not None
+
+    @pytest.mark.asyncio
+    async def test_state_updates_after_operations(self, event_service):
+        """Test that state updates are published after state-changing operations."""
+        # Mock conversation with state
+        conversation = MagicMock(spec=Conversation)
+        state = MagicMock(spec=ConversationState)
+
+        # Set up state properties
+        state.agent_status = AgentExecutionStatus.IDLE
+        state.confirmation_policy = NeverConfirm()
+        state.activated_knowledge_microagents = []
+        state.agent = Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[])
+        state.stats = MagicMock()
+        state.stats.model_dump.return_value = {"total_cost": 0.0}
+
+        # Mock context manager behavior
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation._state = state
+
+        # Mock conversation methods
+        conversation.run = MagicMock()
+        conversation.pause = MagicMock()
+        conversation.set_confirmation_policy = MagicMock()
+
+        event_service._conversation = conversation
+
+        # Mock the pub_sub to capture published events
+        published_events = []
+
+        async def mock_pub_sub(event):
+            published_events.append(event)
+
+        event_service._pub_sub = mock_pub_sub
+
+        # Test run() publishes state update
+        await event_service.run()
+        assert len(published_events) == 1
+        assert isinstance(published_events[0], ConversationStateUpdateEvent)
+
+        # Test pause() publishes state update
+        published_events.clear()
+        await event_service.pause()
+        assert len(published_events) == 1
+        assert isinstance(published_events[0], ConversationStateUpdateEvent)
+
+        # Test set_confirmation_policy() publishes state update
+        published_events.clear()
+        await event_service.set_confirmation_policy(NeverConfirm())
+        assert len(published_events) == 1
+        assert isinstance(published_events[0], ConversationStateUpdateEvent)
