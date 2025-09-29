@@ -191,6 +191,15 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     service_id: str = Field(
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Additional metadata for the LLM instance. "
+            "Example structure: "
+            "{'trace_version': '1.0.0', 'tags': ['model:gpt-4', 'agent:my-agent'], "
+            "'session_id': 'session-123', 'trace_user_id': 'user-456'}"
+        ),
+    )
 
     # =========================================================================
     # Internal fields (excluded from dumps)

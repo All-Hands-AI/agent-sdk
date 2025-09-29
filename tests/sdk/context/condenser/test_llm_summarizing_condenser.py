@@ -64,6 +64,7 @@ def mock_llm() -> LLM:
     mock_llm.custom_tokenizer = None
     mock_llm.base_url = None
     mock_llm.reasoning_effort = None
+    mock_llm.metadata = {}
 
     mock_llm._metrics = None
 

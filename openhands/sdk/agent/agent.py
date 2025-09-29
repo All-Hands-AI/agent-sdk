@@ -17,11 +17,9 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
-from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
     TextContent,
-    get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
@@ -135,7 +133,7 @@ class Agent(AgentBase):
     ) -> None:
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
-        pending_actions = get_unmatched_actions(state.events)
+        pending_actions = ConversationState.get_unmatched_actions(state.events)
         if pending_actions:
             logger.info(
                 "Confirmation mode: Executing %d pending action(s)",
@@ -176,11 +174,7 @@ class Agent(AgentBase):
             llm_response = self.llm.completion(
                 messages=_messages,
                 tools=list(self.tools_map.values()),
-                extra_body={
-                    "metadata": get_llm_metadata(
-                        model_name=self.llm.model, agent_name=self.name
-                    )
-                },
+                extra_body={"metadata": self.llm.metadata},
                 add_security_risk_prediction=self._add_security_risk_prediction,
             )
         except Exception as e:
@@ -330,7 +324,6 @@ class Agent(AgentBase):
                 tool_call_id=tool_call.id,
             )
             on_event(event)
-            state.agent_status = AgentExecutionStatus.FINISHED
             return
 
         # Validate arguments
