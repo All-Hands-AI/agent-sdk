@@ -70,10 +70,10 @@ def conversation_callback(event: EventBase):
 
 
 conversation = Conversation(
-    agent=agent, 
-    callbacks=[conversation_callback], 
+    agent=agent,
+    callbacks=[conversation_callback],
     persistence_dir="./.conversations",
-    working_dir="."
+    working_dir=".",
 )
 
 # Send multiple messages to demonstrate condensation
@@ -117,10 +117,10 @@ del conversation
 # Deserialize the conversation
 print("Deserializing conversation...")
 conversation = Conversation(
-    agent=agent, 
-    callbacks=[conversation_callback], 
+    agent=agent,
+    callbacks=[conversation_callback],
     persistence_dir="./.conversations",
-    working_dir="."
+    working_dir=".",
 )
 
 print("Sending message to deserialized conversation...")
