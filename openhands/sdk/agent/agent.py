@@ -17,7 +17,6 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
-from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
     TextContent,
@@ -134,7 +133,7 @@ class Agent(AgentBase):
     ) -> None:
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
-        pending_actions = get_unmatched_actions(state.events)
+        pending_actions = ConversationState.get_unmatched_actions(state.events)
         if pending_actions:
             logger.info(
                 "Confirmation mode: Executing %d pending action(s)",

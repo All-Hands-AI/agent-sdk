@@ -12,6 +12,7 @@ from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationID
+from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
@@ -214,3 +215,34 @@ class ConversationState(OpenHandsModel, FIFOLock):
             except Exception as e:
                 logger.exception("Auto-persist base_state failed", exc_info=True)
                 raise e
+
+    @staticmethod
+    def get_unmatched_actions(events: ListLike[EventBase]) -> list[ActionEvent]:
+        """Find actions in the event history that don't have matching observations.
+
+        This method identifies ActionEvents that don't have corresponding
+        ObservationEvents or UserRejectObservations, which typically indicates
+        actions that are pending confirmation or execution.
+
+        Args:
+            events: List of events to search through
+
+        Returns:
+            List of ActionEvent objects that don't have corresponding observations,
+            in chronological order
+        """
+        # Build the set of action ids that have been observed or rejected
+        observed_action_ids = {
+            event.action_id
+            for event in events
+            if isinstance(event, (ObservationEvent, UserRejectObservation))
+        }
+
+        # Filter ActionEvents that haven't been observed
+        unmatched_actions = [
+            event
+            for event in events
+            if isinstance(event, ActionEvent) and event.id not in observed_action_ids
+        ]
+
+        return unmatched_actions
