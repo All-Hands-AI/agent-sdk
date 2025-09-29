@@ -604,9 +604,9 @@ class OpenHandsWebChat {
                     api_key: "secret"
                 },
                 tools: [
-                    { name: "BashTool", params: { working_dir: "/workspace" } },
-                    { name: "FileEditorTool", params: { workspace_root: "/workspace" } },
-                    { name: "TaskTrackerTool", params: { save_dir: "/conversations" } }
+                    { name: "BashTool", params: { } },
+                    { name: "FileEditorTool", params: { } },
+                    { name: "TaskTrackerTool", params: { } }
                 ]
             }
         }, null, 2);

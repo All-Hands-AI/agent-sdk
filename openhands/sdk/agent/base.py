@@ -52,11 +52,11 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         default_factory=list,
         description="List of tools to initialize for the agent.",
         examples=[
-            {"name": "BashTool", "params": {"working_dir": "/workspace"}},
+            {"name": "BashTool", "params": {}},
             {"name": "FileEditorTool", "params": {}},
             {
                 "name": "TaskTrackerTool",
-                "params": {"save_dir": "/workspace/.openhands"},
+                "params": {},
             },
         ],
     )
