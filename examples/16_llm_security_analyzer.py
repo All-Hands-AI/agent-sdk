@@ -12,8 +12,7 @@ from collections.abc import Callable
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Agent, BaseConversation, Conversation, LocalFileStore
-from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import ConfirmRisky
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -76,7 +75,7 @@ def run_until_finished_with_security(
             conversation.state.agent_status
             == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
         ):
-            pending = get_unmatched_actions(conversation.state.events)
+            pending = ConversationState.get_unmatched_actions(conversation.state.events)
             if not pending:
                 raise RuntimeError(
                     "⚠️ Agent is waiting for confirmation but no pending actions "
