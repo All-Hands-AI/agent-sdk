@@ -6,7 +6,6 @@ from uuid import UUID
 from pydantic import Field
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
@@ -62,6 +61,7 @@ class ConversationBaseState(OpenHandsModel):
         description="Directory for persisting conversation state and events. "
         "If None, conversation will not be persisted.",
     )
+
     max_iterations: int = Field(
         default=500,
         gt=0,
@@ -72,13 +72,10 @@ class ConversationBaseState(OpenHandsModel):
         default=True,
         description="Whether to enable stuck detection for the agent.",
     )
+    # Enum-based state management
     agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
     confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
     activated_knowledge_microagents: list[str] = Field(
         default_factory=list,
         description="List of activated knowledge microagents name",
-    )
-    stats: ConversationStats = Field(
-        default_factory=ConversationStats,
-        description="Conversation statistics for tracking LLM metrics",
     )

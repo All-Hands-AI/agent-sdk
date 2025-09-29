@@ -30,19 +30,17 @@ if TYPE_CHECKING:
 
 
 class ConversationState(ConversationBaseState, FIFOLock):
-    # ===== Core conversation identification =====
+    """Concrete class representing the full conversation state.
+
+    Most fields are inherited from ConversationBaseState.
+    """
+
     id: ConversationID = Field(description="Unique conversation ID")
 
-    # ===== Additional fields specific to ConversationState =====
-    max_iterations: int = Field(
-        default=500,
-        gt=0,
-        description="Maximum number of iterations the agent can "
-        "perform in a single run.",
-    )
-    stuck_detection: bool = Field(
-        default=True,
-        description="Whether to enable stuck detection for the agent.",
+    # Conversation statistics for LLM usage tracking
+    stats: ConversationStats = Field(
+        default_factory=ConversationStats,
+        description="Conversation statistics for tracking LLM metrics",
     )
 
     # ===== Private attrs (NOT Fields) =====
