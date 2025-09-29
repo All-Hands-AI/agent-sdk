@@ -223,18 +223,17 @@ class RemoteState(ConversationStateProtocol):
     def update_state_from_event(self, event: ConversationStateUpdateEvent) -> None:
         """Update cached state from a ConversationStateUpdateEvent."""
         with self._lock:
-            # Update cached state with information from the event
-            self._cached_state = {
-                "agent_status": event.agent_status,
-                "confirmation_policy": event.confirmation_policy,
-                "activated_knowledge_microagents": (
-                    event.activated_knowledge_microagents
-                ),
-                "agent": event.agent,
-                "stats": event.stats,
-                # Keep existing fields that might not be in the event
-                **(self._cached_state or {}),
-            }
+            # Handle full state snapshot
+            if event.key == "full_state":
+                # Update cached state with the full snapshot
+                if self._cached_state is None:
+                    self._cached_state = {}
+                self._cached_state.update(event.value)
+            else:
+                # Handle individual field updates
+                if self._cached_state is None:
+                    self._cached_state = {}
+                self._cached_state[event.key] = event.value
 
     def create_state_update_callback(self) -> ConversationCallbackType:
         """Create a callback that updates state from ConversationStateUpdateEvent."""

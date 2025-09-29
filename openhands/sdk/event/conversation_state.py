@@ -33,6 +33,9 @@ class ConversationStateUpdateEvent(EventBase):
     def validate_key(cls, key):
         if not isinstance(key, str):
             raise ValueError("Key must be a string")
+        # Allow special key "full_state" for full state snapshots
+        if key == "full_state":
+            return key
         valid_keys = ConversationState.model_fields.keys()
         if key not in valid_keys:
             raise ValueError(f"Invalid key: {key}. Must be one of {list(valid_keys)}")
@@ -43,6 +46,11 @@ class ConversationStateUpdateEvent(EventBase):
         key = info.data.get("key")
         if key is None:
             raise ValueError("Key must be set before validating value")
+
+        # Skip validation for special "full_state" key
+        if key == "full_state":
+            return value
+
         field_info = ConversationState.model_fields.get(key)
         if field_info is None:
             raise ValueError(f"Invalid key: {key}")
@@ -56,6 +64,36 @@ class ConversationStateUpdateEvent(EventBase):
         elif issubclass(field_info.annotation, BaseModel):
             field_info.annotation.model_validate(value)
         return value
+
+    @classmethod
+    def from_conversation_state(
+        cls, state: "ConversationState", conversation_id: str
+    ) -> "ConversationStateUpdateEvent":
+        """Create a state update event from a ConversationState object.
+
+        This creates an event containing a snapshot of important state fields.
+
+        Args:
+            state: The ConversationState to serialize
+            conversation_id: The conversation ID for the event
+
+        Returns:
+            A ConversationStateUpdateEvent with serialized state data
+        """
+        # Create a snapshot with all important state fields
+        # Use mode='json' to ensure proper serialization including SecretStr
+        state_snapshot = {
+            "agent_status": state.agent_status.value,
+            "confirmation_policy": state.confirmation_policy.model_dump(),
+            "activated_knowledge_microagents": (
+                state.activated_knowledge_microagents.copy()
+            ),
+            "agent": state.agent.model_dump_succint(mode="json"),
+            "stats": state.stats.model_dump(),
+        }
+
+        # Use a special key "full_state" to indicate this is a full snapshot
+        return cls(key="full_state", value=state_snapshot)
 
     def __str__(self) -> str:
         return f"ConversationStateUpdate(key={self.key}, value={self.value})"

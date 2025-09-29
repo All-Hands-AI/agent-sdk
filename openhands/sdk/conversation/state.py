@@ -1,7 +1,8 @@
 # state.py
 import json
+from collections.abc import Callable
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import Field, PrivateAttr
 
@@ -101,6 +102,9 @@ class ConversationState(OpenHandsModel, FIFOLock):
     _autosave_enabled: bool = PrivateAttr(
         default=False
     )  # to avoid recursion during init
+    _on_state_change: Callable[[str, Any, Any], None] | None = PrivateAttr(
+        default=None
+    )  # callback for state changes
 
     def model_post_init(self, __context) -> None:
         """Initialize FIFOLock after Pydantic model initialization."""
@@ -116,6 +120,17 @@ class ConversationState(OpenHandsModel, FIFOLock):
     def secrets_manager(self) -> SecretsManager:
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
+
+    def set_on_state_change(
+        self, callback: Callable[[str, Any, Any], None] | None
+    ) -> None:
+        """Set a callback to be called when state changes.
+
+        Args:
+            callback: A function that takes (field_name, old_value, new_value)
+                     or None to remove the callback
+        """
+        self._on_state_change = callback
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:
@@ -229,6 +244,16 @@ class ConversationState(OpenHandsModel, FIFOLock):
             except Exception as e:
                 logger.exception("Auto-persist base_state failed", exc_info=True)
                 raise e
+
+            # Call state change callback if set
+            callback = getattr(self, "_on_state_change", None)
+            if callback is not None:
+                try:
+                    callback(name, old if old is not _sentinel else None, value)
+                except Exception:
+                    logger.exception(
+                        f"State change callback failed for field {name}", exc_info=True
+                    )
 
     @staticmethod
     def get_unmatched_actions(events: ListLike[EventBase]) -> list[ActionEvent]:
