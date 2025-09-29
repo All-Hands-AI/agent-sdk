@@ -116,6 +116,8 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "gemini-2.5-pro",
     # OpenAI GPT-5 family (includes mini variants)
     "gpt-5*",
+    # Anthropic Claude Sonnet 4.5
+    "claude-sonnet-4-5",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
@@ -140,8 +142,6 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
     "grok-code-fast-1",
     # DeepSeek R1 family
     "deepseek-r1-0528*",
-    # Anthropic Claude Sonnet 4.5
-    "claude-sonnet-4-5",
 ]
 
 
