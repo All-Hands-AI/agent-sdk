@@ -1,51 +1,38 @@
 """Tests for the SecurityAnalyzer class."""
 
+import inspect
+
+import pytest
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
+from pydantic import BaseModel
 
-from openhands.sdk.event import ActionEvent, PauseEvent
+from openhands.sdk.event import ActionEvent
+from openhands.sdk.event.base import LLMConvertibleEvent
+from openhands.sdk.event.types import EventID
 from openhands.sdk.llm import TextContent
-from openhands.sdk.security.analyzer import SecurityAnalyzerBase
+from openhands.sdk.security.analyzer import (
+    PerActionSecurityAnalyzer,
+    SecurityAnalyzerBase,
+)
 from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool import ActionBase
 
 
-class TestSecurityAnalyzerMockAction(ActionBase):
-    """Mock action for testing."""
+# TODO: Serialization tests for implementers of the base classes
+
+
+class SimpleAction(ActionBase):
+    """Simple action for testing."""
 
     command: str = "test_command"
 
 
-class TestSecurityAnalyzer(SecurityAnalyzerBase):
-    """Test implementation of SecurityAnalyzer with controllable security_risk
-    method.
-    """
-
-    risk_return_value: SecurityRisk = SecurityRisk.LOW
-    security_risk_calls: list[ActionEvent] = []
-    handle_api_request_calls: list[dict] = []
-    close_calls: list[bool] = []
-
-    def security_risk(self, action: ActionEvent) -> SecurityRisk:
-        """Return configurable risk level for testing."""
-        self.security_risk_calls.append(action)
-        return self.risk_return_value
-
-    def handle_api_request(self, request_data: dict) -> dict:
-        """Mock implementation - not tested as it's going away."""
-        self.handle_api_request_calls.append(request_data)
-        return {"status": "ok"}
-
-    def close(self) -> None:
-        """Mock implementation - not tested as it's going away."""
-        self.close_calls.append(True)
-
-
-def create_mock_action_event(action: ActionBase) -> ActionEvent:
+def create_mock_action_event(command: str, security_risk: SecurityRisk) -> ActionEvent:
     """Helper to create ActionEvent for testing."""
     return ActionEvent(
         thought=[TextContent(text="test thought")],
-        action=action,
+        action=SimpleAction(command=command),
         tool_name="test_tool",
         tool_call_id="test_call_id",
         tool_call=ChatCompletionMessageToolCall(
@@ -54,139 +41,207 @@ def create_mock_action_event(action: ActionBase) -> ActionEvent:
             type="function",
         ),
         llm_response_id="test_response_id",
+        security_risk=security_risk,
     )
 
 
-def test_analyze_event_with_action_event():
-    """Test analyze_event with ActionEvent returns security risk."""
-    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.MEDIUM)
-    action = TestSecurityAnalyzerMockAction(command="test")
-    action_event = create_mock_action_event(action)
+class TestSecurityAnalyzerBase:
+    """Test suite for SecurityAnalyzerBase."""
 
-    result = analyzer.analyze_event(action_event)
+    def test_cannot_instantiate_base_class(self) -> None:
+        """Test that the base class cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            # Of course mypy doesn't want us to do this, so ignore the type check while
+            # we confirm the runtime behavior.
+            SecurityAnalyzerBase()  # type: ignore
 
-    assert result == SecurityRisk.MEDIUM
-    assert len(analyzer.security_risk_calls) == 1
-    assert analyzer.security_risk_calls[0] == action_event
+    @pytest.mark.parametrize("cls", list(SecurityAnalyzerBase.__subclasses__()))
+    def test_security_analyzer_container_serialization(
+        self, cls: type[SecurityAnalyzerBase]
+    ) -> None:
+        """Test that a container model with SecurityAnalyzer instances as a field can
+        be serialized.
+        """
+        # Make sure the subclass is not abstract
+        if inspect.isabstract(cls):
+            pytest.skip(f"Skipping abstract class {cls.__name__}")
 
+        class AnalyzerContainer(BaseModel):
+            analyzer: SecurityAnalyzerBase
 
-def test_analyze_event_with_non_action_event():
-    """Test analyze_event with non-ActionEvent returns None."""
-    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.HIGH)
+        container = AnalyzerContainer(analyzer=cls())
 
-    result = analyzer.analyze_event(PauseEvent())
+        container_dict = container.model_dump_json()
+        restored_container = AnalyzerContainer.model_validate_json(container_dict)
 
-    assert result is None
-    assert len(analyzer.security_risk_calls) == 0
-
-
-def test_analyze_pending_actions_success():
-    """Test analyze_pending_actions with successful analysis."""
-    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.MEDIUM)
-
-    action1 = TestSecurityAnalyzerMockAction(command="action1")
-    action2 = TestSecurityAnalyzerMockAction(command="action2")
-    action_event1 = create_mock_action_event(action1)
-    action_event2 = create_mock_action_event(action2)
-
-    pending_actions = [action_event1, action_event2]
-
-    result = analyzer.analyze_pending_actions(pending_actions)
-
-    assert len(result) == 2
-    assert result[0] == (action_event1, SecurityRisk.MEDIUM)
-    assert result[1] == (action_event2, SecurityRisk.MEDIUM)
-    assert len(analyzer.security_risk_calls) == 2
+        assert isinstance(restored_container.analyzer, cls)
+        assert container.analyzer == restored_container.analyzer
 
 
-def test_analyze_pending_actions_empty_list():
-    """Test analyze_pending_actions with empty list."""
-    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.LOW)
+class TestPerActionSecurityAnalyzer:
+    """Test suite for PerActionSecurityAnalyzer."""
 
-    result = analyzer.analyze_pending_actions([])
+    class FixedOutputAnalyzer(PerActionSecurityAnalyzer):
+        risks: dict[EventID, SecurityRisk] = {}
+        default_risk: SecurityRisk = SecurityRisk.UNKNOWN
 
-    assert result == []
-    assert len(analyzer.security_risk_calls) == 0
-
-
-def test_analyze_pending_actions_with_exception():
-    """Test analyze_pending_actions handles exceptions by defaulting to HIGH risk."""
-
-    class FailingAnalyzer(TestSecurityAnalyzer):
         def security_risk(self, action: ActionEvent) -> SecurityRisk:
-            super().security_risk(action)  # Record the call
-            raise ValueError("Analysis failed")
+            return self.risks.get(action.id, self.default_risk)
 
-    analyzer = FailingAnalyzer()
-    action = TestSecurityAnalyzerMockAction(command="failing_action")
-    action_event = create_mock_action_event(action)
+        @staticmethod
+        def from_actions(
+            actions: list[ActionEvent],
+            default_risk: SecurityRisk = SecurityRisk.UNKNOWN,
+        ) -> "TestPerActionSecurityAnalyzer.FixedOutputAnalyzer":
+            analyzer = TestPerActionSecurityAnalyzer.FixedOutputAnalyzer()
+            analyzer.risks = {action.id: action.security_risk for action in actions}
+            analyzer.default_risk = default_risk
+            return analyzer
 
-    result = analyzer.analyze_pending_actions([action_event])
+    def test_cannot_instantiate_base_class(self) -> None:
+        """Test that the base class cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            # Of course mypy doesn't want us to do this, so ignore the type check while
+            # we confirm the runtime behavior.
+            PerActionSecurityAnalyzer()  # type: ignore
 
-    assert len(result) == 1
-    assert result[0] == (action_event, SecurityRisk.HIGH)
-    assert len(analyzer.security_risk_calls) == 1
+    @pytest.mark.parametrize("cls", list(PerActionSecurityAnalyzer.__subclasses__()))
+    def test_security_analyzer_container_serialization(
+        self, cls: type[SecurityAnalyzerBase]
+    ) -> None:
+        """Test that a container model with PerActionSecurityAnalyzer instances as a
+        field can be serialized.
+        """
+        # Make sure the subclass is not abstract
+        if inspect.isabstract(cls):
+            pytest.skip(f"Skipping abstract class {cls.__name__}")
 
+        class AnalyzerContainer(BaseModel):
+            # Note the serialization here is for the security analyzer base class, _not_
+            # the PerActionSecurityAnalyzer specifically.
+            analyzer: SecurityAnalyzerBase
 
-def test_analyze_pending_actions_mixed_risks() -> None:
-    """Test analyze_pending_actions with different risk levels."""
+        container = AnalyzerContainer(analyzer=cls())
 
-    class VariableRiskAnalyzer(TestSecurityAnalyzer):
-        call_count: int = 0
-        risks: list[SecurityRisk] = [
-            SecurityRisk.LOW,
-            SecurityRisk.HIGH,
-            SecurityRisk.MEDIUM,
+        container_dict = container.model_dump_json()
+        restored_container = AnalyzerContainer.model_validate_json(container_dict)
+
+        assert isinstance(restored_container.analyzer, cls)
+        assert container.analyzer == restored_container.analyzer
+
+    def test_independent_of_current_context(self) -> None:
+        """Test that PerActionSecurityAnalyzer is independent of current_context.
+
+        That is, we should get the same results regardless of what current_context is.
+        """
+        # While the context is more likely to be messages/observations/actions, we can
+        # still use just a list of actions to help prove that current_context is not
+        # used by the analyzer.
+        possible_context: list[LLMConvertibleEvent] = [
+            create_mock_action_event("context_1", SecurityRisk.LOW),
+            create_mock_action_event("context_2", SecurityRisk.HIGH),
+            create_mock_action_event("context_3", SecurityRisk.MEDIUM),
         ]
 
-        def security_risk(self, action: ActionEvent) -> SecurityRisk:
-            risk = self.risks[self.call_count % len(self.risks)]
-            self.call_count += 1
-            return risk
+        pending_actions: list[ActionEvent] = [
+            create_mock_action_event("action_1", SecurityRisk.LOW),
+            create_mock_action_event("action_2", SecurityRisk.HIGH),
+            create_mock_action_event("action_3", SecurityRisk.MEDIUM),
+        ]
 
-    analyzer = VariableRiskAnalyzer()
+        analyzer = self.FixedOutputAnalyzer.from_actions(pending_actions)
 
-    actions = [TestSecurityAnalyzerMockAction(command=f"action{i}") for i in range(3)]
-    action_events = [create_mock_action_event(action) for action in actions]
+        result: dict[EventID, SecurityRisk] | None = None
 
-    result = analyzer.analyze_pending_actions(action_events)
+        # Compute the security risks for all possible context prefixes.
+        for context_size in range(len(possible_context)):
+            context = possible_context[:context_size]
+            current_result = analyzer.analyze_pending_actions(context, pending_actions)
 
-    assert len(result) == 3
-    assert result[0][1] == SecurityRisk.LOW
-    assert result[1][1] == SecurityRisk.HIGH
-    assert result[2][1] == SecurityRisk.MEDIUM
+            # If we haven't stored a result yet, do so. Otherwise, ensure it's the same
+            # as what we've already seen.
+            if result is None:
+                result = current_result
+            else:
+                assert result == current_result
 
+    def test_handles_actions_independently(self) -> None:
+        """Test that PerActionSecurityAnalyzer handles each action independently.
 
-def test_analyze_pending_actions_partial_failure():
-    """Test analyze_pending_actions with some actions failing analysis."""
+        Regardless of the number of actions or how they are batched, we should get the
+        same result per-action.
+        """
 
-    class PartiallyFailingAnalyzer(TestSecurityAnalyzer):
-        def security_risk(self, action: ActionEvent) -> SecurityRisk:
-            # In general not needed, but the test security analyzer is also recording
-            # all the calls for testing purposes and this ensures we keep that behavior
-            super().security_risk(action)
+        pending_actions: list[ActionEvent] = [
+            create_mock_action_event("action_1", SecurityRisk.LOW),
+            create_mock_action_event("action_2", SecurityRisk.HIGH),
+            create_mock_action_event("action_3", SecurityRisk.MEDIUM),
+        ]
 
-            assert hasattr(action.action, "command")
-            if getattr(action.action, "command") == "failing_action":
-                raise RuntimeError("Specific action failed")
-            return SecurityRisk.LOW
+        analyzer = self.FixedOutputAnalyzer.from_actions(pending_actions)
 
-    analyzer = PartiallyFailingAnalyzer()
+        risks = analyzer.analyze_pending_actions(
+            current_context=[], pending_actions=pending_actions
+        )
 
-    action1 = TestSecurityAnalyzerMockAction(command="good_action")
-    action2 = TestSecurityAnalyzerMockAction(command="failing_action")
-    action3 = TestSecurityAnalyzerMockAction(command="another_good_action")
+        for action in pending_actions:
+            risk = analyzer.security_risk(action)
+            assert risks[action.id] == risk
 
-    action_events = [
-        create_mock_action_event(action1),
-        create_mock_action_event(action2),
-        create_mock_action_event(action3),
-    ]
+    def test_analyzes_all_pending_actions(self) -> None:
+        """Test that PerActionSecurityAnalyzer analyzes all pending actions."""
+        pending_actions: list[ActionEvent] = [
+            create_mock_action_event("action_1", SecurityRisk.LOW),
+            create_mock_action_event("action_2", SecurityRisk.HIGH),
+            create_mock_action_event("action_3", SecurityRisk.MEDIUM),
+        ]
 
-    result = analyzer.analyze_pending_actions(action_events)
+        analyzer = self.FixedOutputAnalyzer.from_actions(pending_actions)
 
-    assert len(result) == 3
-    assert result[0][1] == SecurityRisk.LOW
-    assert result[1][1] == SecurityRisk.HIGH  # Failed analysis defaults to HIGH
-    assert result[2][1] == SecurityRisk.LOW
-    assert len(analyzer.security_risk_calls) == 3
+        result = analyzer.analyze_pending_actions(
+            current_context=[], pending_actions=pending_actions
+        )
+
+        # Check that all actions have their IDs in the result
+        assert all(action.id in result for action in pending_actions)
+
+        # Check that all IDs in the result correspond to an action
+        assert all(
+            event_id in (action.id for action in pending_actions)
+            for event_id in result.keys()
+        )
+
+    def test_handles_exceptions_with_unknown(self) -> None:
+        """Test that PerActionSecurityAnalyzer handles exceptions by returning UNKNOWN
+        risk.
+        """
+
+        class FailingAnalyzer(PerActionSecurityAnalyzer):
+            # Regardless of the action, always raise an exception
+            def security_risk(self, action: ActionEvent) -> SecurityRisk:
+                raise ValueError("Analysis failed")
+
+        pending_actions: list[ActionEvent] = []
+
+        analyzer = FailingAnalyzer()
+
+        # When analyzed independently, each action should return UNKNOWN risk
+        for action in pending_actions:
+            risk = analyzer.security_risk(action)
+            assert risk == SecurityRisk.UNKNOWN
+
+        # When analyzed in a batch, all actions should also return UNKNOWN risk
+        risks = analyzer.analyze_pending_actions(
+            current_context=[], pending_actions=pending_actions
+        )
+        assert all(risk == SecurityRisk.UNKNOWN for risk in risks.values())
+
+    def test_handles_empty_pending_actions_input(self) -> None:
+        """Test that PerActionSecurityAnalyzer handles empty pending actions list."""
+
+        analyzer = self.FixedOutputAnalyzer()
+
+        result = analyzer.analyze_pending_actions(
+            current_context=[], pending_actions=[]
+        )
+        assert result == {}
