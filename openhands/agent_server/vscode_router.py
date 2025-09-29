@@ -19,7 +19,9 @@ class VSCodeUrlResponse(BaseModel):
 
 
 @vscode_router.get("/url", response_model=VSCodeUrlResponse)
-async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlResponse:
+async def get_vscode_url(
+    base_url: str = "http://localhost:8001", workspace_dir: str = "workspace"
+) -> VSCodeUrlResponse:
     """Get the VSCode URL with authentication token.
 
     Args:
@@ -38,7 +40,7 @@ async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlRe
         )
 
     try:
-        url = vscode_service.get_vscode_url(base_url)
+        url = vscode_service.get_vscode_url(base_url, workspace_dir)
         return VSCodeUrlResponse(url=url)
     except Exception as e:
         logger.error(f"Error getting VSCode URL: {e}")
