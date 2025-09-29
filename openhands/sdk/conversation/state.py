@@ -231,18 +231,15 @@ class ConversationState(OpenHandsModel, FIFOLock):
             List of ActionEvent objects that don't have corresponding observations,
             in chronological order
         """
-        # Build the set of action ids that have been observed or rejected
-        observed_action_ids = {
-            event.action_id
-            for event in events
-            if isinstance(event, (ObservationEvent, UserRejectObservation))
-        }
-
-        # Filter ActionEvents that haven't been observed
-        unmatched_actions = [
-            event
-            for event in events
-            if isinstance(event, ActionEvent) and event.id not in observed_action_ids
-        ]
+        observed_action_ids = set()
+        unmatched_actions = []
+        # Search in reverse - recent events are more likely to be unmatched
+        for event in reversed(events):
+            if isinstance(event, (ObservationEvent, UserRejectObservation)):
+                observed_action_ids.add(event.action_id)
+            elif isinstance(event, ActionEvent):
+                if event.id not in observed_action_ids:
+                    # Insert at beginning to maintain chronological order in result
+                    unmatched_actions.insert(0, event)
 
         return unmatched_actions
