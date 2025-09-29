@@ -47,7 +47,7 @@ tools = [
         name="BashTool",
     ),
     ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+    ToolSpec(name="TaskTrackerTool"),
 ]
 
 # Agent

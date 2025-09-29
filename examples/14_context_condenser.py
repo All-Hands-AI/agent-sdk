@@ -46,7 +46,7 @@ tools = [
         name="BashTool",
     ),
     ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+    ToolSpec(name="TaskTrackerTool"),
 ]
 
 # Create a condenser to manage the context. The condenser will automatically truncate
