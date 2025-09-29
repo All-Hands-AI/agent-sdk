@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     HTTPException,
     Path as FastApiPath,
@@ -11,14 +12,13 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 
-from openhands.agent_server.config import get_default_config
+from openhands.agent_server.dependencies import get_config
 from openhands.agent_server.models import Success
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
 file_router = APIRouter(prefix="/file", tags=["Files"])
-config = get_default_config()
 
 
 @file_router.post("/upload/{path}")
@@ -27,10 +27,11 @@ async def upload_file(
         str, FastApiPath(alias="path", description="Target path relative to workspace")
     ],
     file: UploadFile = File(...),
+    config=Depends(get_config),
 ) -> Success:
     """Upload a file to the workspace."""
     # Determine target path
-    target_path = _get_target_path(path)
+    target_path = _get_target_path(path, config)
 
     try:
         # Ensure target directory exists
@@ -55,10 +56,11 @@ async def upload_file(
 @file_router.get("/download/{path}")
 async def download_file(
     path: Annotated[str, FastApiPath(description="File path relative to workspace")],
+    config=Depends(get_config),
 ) -> FileResponse:
     """Download a file from the workspace."""
     try:
-        target_path = _get_target_path(path)
+        target_path = _get_target_path(path, config)
 
         if not target_path.exists():
             raise HTTPException(
@@ -86,7 +88,7 @@ async def download_file(
         )
 
 
-def _get_target_path(path: str) -> Path:
+def _get_target_path(path: str, config) -> Path:
     # Get the target path from the variable given, making sure it
     # is within the workspace
     target_path = config.workspace_path / path

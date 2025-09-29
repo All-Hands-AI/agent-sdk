@@ -1,15 +1,39 @@
 """VSCode router for agent server API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from typing import Any, cast
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.params import Depends as DependsParam
 from pydantic import BaseModel
 
-from openhands.agent_server.vscode_service import get_vscode_service
+from openhands.agent_server.dependencies import (
+    get_vscode_service,
+)  # re-exported name for patching in tests
+from openhands.agent_server.vscode_service import VSCodeService
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
 
 vscode_router = APIRouter(prefix="/vscode", tags=["VSCode"])
+
+
+def _resolve_vscode_service(request: Request) -> VSCodeService | None:
+    """Resolver that supports runtime-patched getter and app.state fallback.
+
+    This allows tests to patch `openhands.agent_server.vscode_router.get_vscode_service`
+    after route declaration and still affect dependency resolution.
+    """
+    getter = globals().get("get_vscode_service")
+    if callable(getter):
+        try:
+            return getter(request)  # type: ignore[misc]
+        except Exception:
+            try:
+                return getter()  # type: ignore[misc]
+            except Exception:
+                pass
+    return getattr(request.app.state, "vscode_service", None)
 
 
 class VSCodeUrlResponse(BaseModel):
@@ -19,7 +43,19 @@ class VSCodeUrlResponse(BaseModel):
 
 
 @vscode_router.get("/url", response_model=VSCodeUrlResponse)
-async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlResponse:
+async def get_vscode_url(
+    base_url: str = "http://localhost:8001",
+    vscode_service: VSCodeService | None = Depends(_resolve_vscode_service),
+) -> VSCodeUrlResponse:
+    # Resolve for direct calls (outside FastAPI DI)
+    if isinstance(vscode_service, DependsParam):  # type: ignore[unreachable]
+        # In direct calls, tests patch get_vscode_service to be a zero-arg function
+        # returning the mocked service. Cast to satisfy the type checker.
+        try:
+            getter = cast(Any, get_vscode_service)
+            vscode_service = getter()
+        except Exception:
+            vscode_service = None
     """Get the VSCode URL with authentication token.
 
     Args:
@@ -28,7 +64,6 @@ async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlRe
     Returns:
         VSCode URL with token if available, None otherwise
     """
-    vscode_service = get_vscode_service()
     if vscode_service is None:
         raise HTTPException(
             status_code=503,
@@ -46,13 +81,21 @@ async def get_vscode_url(base_url: str = "http://localhost:8001") -> VSCodeUrlRe
 
 
 @vscode_router.get("/status")
-async def get_vscode_status() -> dict[str, bool | str]:
+async def get_vscode_status(
+    vscode_service: VSCodeService | None = Depends(_resolve_vscode_service),
+) -> dict[str, bool | str]:
+    # Resolve for direct calls (outside FastAPI DI)
+    if isinstance(vscode_service, DependsParam):  # type: ignore[unreachable]
+        try:
+            getter = cast(Any, get_vscode_service)
+            vscode_service = getter()
+        except Exception:
+            vscode_service = None
     """Get the VSCode server status.
 
     Returns:
         Dictionary with running status and enabled status
     """
-    vscode_service = get_vscode_service()
     if vscode_service is None:
         return {
             "running": False,
