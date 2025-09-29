@@ -40,7 +40,6 @@ def main() -> None:
         #    where we mounted the current repo.
         agent = get_default_agent(
             llm=llm,
-            working_dir="/",
             cli_mode=True,
         )
 

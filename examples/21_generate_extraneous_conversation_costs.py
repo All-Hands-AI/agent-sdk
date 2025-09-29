@@ -49,12 +49,14 @@ cwd = os.getcwd()
 agent = Agent(
     llm=llm,
     tools=[
-        ToolSpec(name="BashTool", params={"working_dir": cwd}),
+        ToolSpec(
+            name="BashTool",
+        ),
     ],
     condenser=condenser,
 )
 
-conversation = Conversation(agent=agent)
+conversation = Conversation(agent=agent, working_dir=cwd)
 conversation.send_message(
     message=Message(
         role="user",

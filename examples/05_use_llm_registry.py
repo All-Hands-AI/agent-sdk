@@ -41,7 +41,7 @@ llm = llm_registry.get("agent")
 # Tools
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
-tools = [ToolSpec(name="BashTool", params={"working_dir": cwd})]
+tools = [ToolSpec(name="BashTool")]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -54,7 +54,9 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+)
 
 conversation.send_message("Please echo 'Hello!'")
 conversation.run()

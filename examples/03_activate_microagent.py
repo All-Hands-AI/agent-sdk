@@ -37,7 +37,9 @@ cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(
+        name="BashTool",
+    ),
     ToolSpec(name="FileEditorTool"),
 ]
 
@@ -74,7 +76,9 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+)
 
 print("=" * 100)
 print("Checking if the repo microagent is activated.")

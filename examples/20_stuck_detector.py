@@ -24,7 +24,7 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-agent = get_default_agent(llm=llm, working_dir=os.getcwd())
+agent = get_default_agent(llm=llm)
 
 llm_messages = []
 
@@ -38,6 +38,7 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
+    working_dir=os.getcwd(),
     # This is by default True, shown here for clarity of the example
     stuck_detection=True,
 )

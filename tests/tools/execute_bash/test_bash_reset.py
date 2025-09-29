@@ -4,6 +4,7 @@ import tempfile
 
 import pytest
 
+from openhands.sdk.conversation.state import ConversationState
 from openhands.tools.execute_bash import (
     BashTool,
     ExecuteBashAction,
@@ -11,10 +12,26 @@ from openhands.tools.execute_bash import (
 )
 
 
+def _create_conv_state(working_dir: str) -> ConversationState:
+    """Helper to create a ConversationState for testing."""
+    import uuid
+
+    from pydantic import SecretStr
+
+    from openhands.sdk.agent import Agent
+    from openhands.sdk.llm import LLM
+
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
+    agent = Agent(llm=llm, tools=[])
+    return ConversationState.create(
+        id=uuid.uuid4(), agent=agent, working_dir=working_dir
+    )
+
+
 def test_bash_reset_basic():
     """Test basic reset functionality."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         # Execute a command to set an environment variable
@@ -47,7 +64,7 @@ def test_bash_reset_basic():
 def test_bash_reset_with_command():
     """Test that reset executes the command after resetting."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         # Set an environment variable
@@ -76,7 +93,7 @@ def test_bash_reset_with_command():
 def test_bash_reset_working_directory():
     """Test that reset preserves the working directory."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         # Check initial working directory
@@ -112,7 +129,7 @@ def test_bash_reset_working_directory():
 def test_bash_reset_multiple_times():
     """Test that reset can be called multiple times."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         # First reset
@@ -143,7 +160,7 @@ def test_bash_reset_multiple_times():
 def test_bash_reset_with_timeout():
     """Test that reset works with timeout parameter."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         # Reset with timeout (should ignore timeout)
@@ -157,7 +174,7 @@ def test_bash_reset_with_timeout():
 def test_bash_reset_with_is_input_validation():
     """Test that reset=True with is_input=True raises validation error."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         # Create action with invalid combination
@@ -173,7 +190,7 @@ def test_bash_reset_with_is_input_validation():
 def test_bash_reset_only_with_empty_command():
     """Test reset with empty command (reset only)."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         # Reset with empty command

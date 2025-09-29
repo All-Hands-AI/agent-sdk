@@ -82,7 +82,9 @@ class Conversation:
         )
 
         if host:
-            if persistence_dir:
+            # For RemoteConversation, persistence_dir should not be used
+            # Only check if it was explicitly set to something other than the default
+            if persistence_dir != "workspace/conversations":
                 raise ValueError(
                     "persistence_dir should not be set when using RemoteConversation"
                 )

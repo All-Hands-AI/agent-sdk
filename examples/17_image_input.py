@@ -47,7 +47,9 @@ register_tool("TaskTrackerTool", TaskTrackerTool)
 agent = Agent(
     llm=llm,
     tools=[
-        ToolSpec(name="BashTool", params={"working_dir": cwd}),
+        ToolSpec(
+            name="BashTool",
+        ),
         ToolSpec(name="FileEditorTool"),
         ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
     ],
@@ -61,7 +63,9 @@ def conversation_callback(event: EventBase) -> None:
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+)
 
 IMAGE_URL = (
     "https://github.com/All-Hands-AI/OpenHands/raw/main/docs/static/img/logo.png"

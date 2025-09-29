@@ -422,7 +422,6 @@ def test_config_class_parsing(clean_env):
     os.environ["OH_SESSION_API_KEYS_1"] = "key2"
     os.environ["OH_ALLOW_CORS_ORIGINS_0"] = "http://localhost:3000"
     os.environ["OH_CONVERSATIONS_PATH"] = "/custom/conversations"
-    os.environ["OH_WORKSPACE_PATH"] = "/custom/workspace"
     os.environ["OH_ENABLE_VSCODE"] = "false"
 
     config = from_env(Config, "OH")
@@ -430,7 +429,6 @@ def test_config_class_parsing(clean_env):
     assert config.session_api_keys == ["key1", "key2"]
     assert config.allow_cors_origins == ["http://localhost:3000"]
     assert config.conversations_path == Path("/custom/conversations")
-    assert config.workspace_path == Path("/custom/workspace")
     assert config.enable_vscode is False
 
 

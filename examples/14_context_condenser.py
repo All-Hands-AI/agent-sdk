@@ -18,7 +18,6 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
-from openhands.sdk.io.local import LocalFileStore
 from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
@@ -43,7 +42,9 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 register_tool("TaskTrackerTool", TaskTrackerTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(
+        name="BashTool",
+    ),
     ToolSpec(name="FileEditorTool"),
     ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
 ]
@@ -68,10 +69,11 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-file_store = LocalFileStore("./.conversations")
-
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+    agent=agent, 
+    callbacks=[conversation_callback], 
+    persistence_dir="./.conversations",
+    working_dir="."
 )
 
 # Send multiple messages to demonstrate condensation
@@ -115,7 +117,10 @@ del conversation
 # Deserialize the conversation
 print("Deserializing conversation...")
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+    agent=agent, 
+    callbacks=[conversation_callback], 
+    persistence_dir="./.conversations",
+    working_dir="."
 )
 
 print("Sending message to deserialized conversation...")

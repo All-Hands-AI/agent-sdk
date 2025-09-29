@@ -35,7 +35,6 @@ with DockerSandboxedAgentServer(
     #    where we mounted the current repo.
     agent = get_default_agent(
         llm=llm,
-        working_dir="/workspace",
         cli_mode=False,  # CLI mode = False will enable browser tools
     )
 

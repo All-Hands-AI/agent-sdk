@@ -2,7 +2,13 @@
 
 import os
 import tempfile
+from uuid import uuid4
 
+from pydantic import SecretStr
+
+from openhands.sdk.agent import Agent
+from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.llm import LLM
 from openhands.tools.str_replace_editor import (
     FileEditorTool,
     StrReplaceEditorAction,
@@ -10,23 +16,37 @@ from openhands.tools.str_replace_editor import (
 )
 
 
+def _create_test_conv_state(temp_dir: str) -> ConversationState:
+    """Helper to create a test conversation state."""
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
+    agent = Agent(llm=llm, tools=[])
+    return ConversationState.create(
+        id=uuid4(),
+        agent=agent,
+        working_dir=temp_dir,
+    )
+
+
 def test_file_editor_tool_initialization():
     """Test that FileEditorTool initializes correctly."""
-    tools = FileEditorTool.create()
-    tool = tools[0]
+    with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileEditorTool.create(conv_state)
+        tool = tools[0]
 
-    # Check that the tool has the correct name and properties
-    assert tool.name == "str_replace_editor"
-    assert tool.executor is not None
-    assert issubclass(tool.action_type, StrReplaceEditorAction)
+        # Check that the tool has the correct name and properties
+        assert tool.name == "str_replace_editor"
+        assert tool.executor is not None
+        assert issubclass(tool.action_type, StrReplaceEditorAction)
 
 
 def test_file_editor_tool_create_file():
     """Test that FileEditorTool can create files."""
-    tools = FileEditorTool.create()
-    tool = tools[0]
-
     with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileEditorTool.create(conv_state)
+        tool = tools[0]
+
         test_file = os.path.join(temp_dir, "test.txt")
 
         # Create an action to create a file
@@ -53,10 +73,11 @@ def test_file_editor_tool_create_file():
 
 def test_file_editor_tool_view_file():
     """Test that FileEditorTool can view files."""
-    tools = FileEditorTool.create()
-    tool = tools[0]
-
     with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileEditorTool.create(conv_state)
+        tool = tools[0]
+
         test_file = os.path.join(temp_dir, "test.txt")
 
         # Create a test file
@@ -80,10 +101,11 @@ def test_file_editor_tool_view_file():
 
 def test_file_editor_tool_str_replace():
     """Test that FileEditorTool can perform string replacement."""
-    tools = FileEditorTool.create()
-    tool = tools[0]
-
     with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileEditorTool.create(conv_state)
+        tool = tools[0]
+
         test_file = os.path.join(temp_dir, "test.txt")
 
         # Create a test file
@@ -114,25 +136,28 @@ def test_file_editor_tool_str_replace():
 
 def test_file_editor_tool_to_openai_tool():
     """Test that FileEditorTool can be converted to OpenAI tool format."""
-    tools = FileEditorTool.create()
-    tool = tools[0]
+    with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileEditorTool.create(conv_state)
+        tool = tools[0]
 
-    # Convert to OpenAI tool format
-    openai_tool = tool.to_openai_tool()
+        # Convert to OpenAI tool format
+        openai_tool = tool.to_openai_tool()
 
-    # Check the format
-    assert openai_tool["type"] == "function"
-    assert openai_tool["function"]["name"] == "str_replace_editor"
-    assert "description" in openai_tool["function"]
-    assert "parameters" in openai_tool["function"]
+        # Check the format
+        assert openai_tool["type"] == "function"
+        assert openai_tool["function"]["name"] == "str_replace_editor"
+        assert "description" in openai_tool["function"]
+        assert "parameters" in openai_tool["function"]
 
 
 def test_file_editor_tool_view_directory():
     """Test that FileEditorTool can view directories."""
-    tools = FileEditorTool.create()
-    tool = tools[0]
-
     with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileEditorTool.create(conv_state)
+        tool = tools[0]
+
         # Create some test files
         test_file1 = os.path.join(temp_dir, "file1.txt")
         test_file2 = os.path.join(temp_dir, "file2.txt")

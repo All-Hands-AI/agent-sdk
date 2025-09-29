@@ -19,7 +19,7 @@ def basic_llm():
 
 def test_get_default_agent_includes_browser_toolset(basic_llm):
     """Test that the default agent spec includes BrowserToolSet."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     # Check that BrowserToolSet is in the tools
     tool_names = [tool.name for tool in agent.tools]
@@ -39,7 +39,7 @@ def test_get_default_agent_includes_browser_toolset(basic_llm):
 
 def test_get_default_agent_includes_expected_tools(basic_llm):
     """Test that the default agent spec includes all expected tools."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     tool_names = [tool.name for tool in agent.tools]
 
@@ -57,7 +57,7 @@ def test_get_default_agent_includes_expected_tools(basic_llm):
 
 def test_get_default_agent_browser_toolset_parameters(basic_llm):
     """Test that BrowserToolSet in default spec has correct parameters."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     # Find the BrowserToolSet spec
     browser_toolset_spec = None
@@ -73,8 +73,7 @@ def test_get_default_agent_browser_toolset_parameters(basic_llm):
 
 def test_get_default_agent_with_custom_working_dir(basic_llm):
     """Test that tools no longer have explicit directory parameters (they get them from conversation)."""  # noqa: E501
-    custom_dir = "/custom/workspace"
-    agent = get_default_agent(llm=basic_llm, working_dir=custom_dir)
+    agent = get_default_agent(llm=basic_llm)
 
     # Find BashTool and TaskTrackerTool to verify they have no directory params
     bash_tool_spec = None

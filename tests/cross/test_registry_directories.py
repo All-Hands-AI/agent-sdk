@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 from pydantic import SecretStr
@@ -94,42 +95,7 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         assert len(tracker_tools) == 1
         # Type ignore needed for test-specific executor access
         save_dir = str(tracker_tools[0].executor.save_dir)  # type: ignore[attr-defined]
-        assert save_dir == persistence_dir
-
-
-def test_resolve_tool_explicit_params_override(test_agent):
-    """Test that explicit params take precedence over conversation directories."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        conversation_work_dir = os.path.join(temp_dir, "conversation_work")
-        conversation_persist_dir = os.path.join(temp_dir, "conversation_persist")
-        param_work_dir = os.path.join(temp_dir, "param_work")
-        param_persist_dir = os.path.join(temp_dir, "param_persist")
-
-        os.makedirs(conversation_work_dir)
-        os.makedirs(conversation_persist_dir)
-        os.makedirs(param_work_dir)
-        os.makedirs(param_persist_dir)
-
-        conversation = Conversation(
-            agent=test_agent,
-            persistence_dir=conversation_persist_dir,
-            working_dir=conversation_work_dir,
-        )
-
-        # Test BashTool - explicit params should take precedence
-        bash_spec = ToolSpec(name="BashTool", params={"working_dir": param_work_dir})
-        bash_tools = resolve_tool(bash_spec, conv_state=conversation._state)
-        assert len(bash_tools) == 1
-        # Type ignore needed for test-specific executor access
-        work_dir = bash_tools[0].executor.session.work_dir  # type: ignore[attr-defined]
-        assert work_dir == param_work_dir
-
-        # Test TaskTrackerTool - explicit params should take precedence
-        tracker_spec = ToolSpec(
-            name="TaskTrackerTool", params={"save_dir": param_persist_dir}
-        )
-        tracker_tools = resolve_tool(tracker_spec, conv_state=conversation._state)
-        assert len(tracker_tools) == 1
-        # Type ignore needed for test-specific executor access
-        save_dir = str(tracker_tools[0].executor.save_dir)  # type: ignore[attr-defined]
-        assert save_dir == param_persist_dir
+        # TaskTrackerTool uses conversation's persistence_dir which includes
+        # conversation ID
+        expected_save_dir = str(Path(persistence_dir) / str(conversation._state.id))
+        assert save_dir == expected_save_dir

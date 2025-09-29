@@ -29,13 +29,15 @@ llm = LLM(
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
+    ToolSpec(
+        name="BashTool",
+    ),
     ToolSpec(name="FileEditorTool"),
 ]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
-conversation = Conversation(agent)
+conversation = Conversation(agent, working_dir=os.getcwd())
 
 
 print("Simple pause example - Press Ctrl+C to pause")

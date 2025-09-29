@@ -2,11 +2,14 @@
 
 import os
 import tempfile
-from unittest.mock import Mock
+import uuid
 
 import pytest
+from pydantic import SecretStr
 
+from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
+from openhands.sdk.llm import LLM
 from openhands.tools.execute_bash.definition import BashTool
 from openhands.tools.str_replace_editor.definition import FileEditorTool
 from openhands.tools.task_tracker.definition import TaskTrackerTool
@@ -14,9 +17,9 @@ from openhands.tools.task_tracker.definition import TaskTrackerTool
 
 @pytest.fixture
 def mock_agent():
-    """Create a mock agent for testing."""
-    agent = Mock()
-    agent.llm = Mock()
+    """Create a real agent for testing."""
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
+    agent = Agent(llm=llm, tools=[])
     return agent
 
 
@@ -34,7 +37,7 @@ def test_bash_tool_with_conversation_working_dir(mock_agent):
             working_dir=working_dir,
         )
 
-        tools = BashTool.create(conversation=conversation)
+        tools = BashTool.create(conversation.state)
         assert len(tools) == 1
         bash_tool = tools[0]
         # Type ignore needed for test-specific executor access
@@ -48,7 +51,14 @@ def test_bash_tool_with_explicit_working_dir(mock_agent):
         working_dir = os.path.join(temp_dir, "work")
         os.makedirs(working_dir)
 
-        tools = BashTool.create(working_dir=working_dir)
+        # Create a conversation state with the working directory
+        from openhands.sdk.conversation.state import ConversationState
+
+        conv_state = ConversationState.create(
+            id=uuid.uuid4(), agent=mock_agent, working_dir=working_dir
+        )
+
+        tools = BashTool.create(conv_state)
         assert len(tools) == 1
         bash_tool = tools[0]
         # Type ignore needed for test-specific executor access
@@ -70,7 +80,7 @@ def test_file_editor_tool_with_conversation_working_dir(mock_agent):
             working_dir=working_dir,
         )
 
-        tools = FileEditorTool.create(conversation=conversation)
+        tools = FileEditorTool.create(conversation.state)
         assert len(tools) == 1
         editor_tool = tools[0]
         # Type ignore needed for test-specific executor access
@@ -84,7 +94,13 @@ def test_file_editor_tool_with_explicit_workspace_root(mock_agent):
         workspace_root = os.path.join(temp_dir, "workspace")
         os.makedirs(workspace_root)
 
-        tools = FileEditorTool.create(workspace_root=workspace_root)
+        # Create a conversation state with the workspace root as working directory
+        from openhands.sdk.conversation.state import ConversationState
+
+        conv_state = ConversationState.create(
+            id=uuid.uuid4(), agent=mock_agent, working_dir=workspace_root
+        )
+        tools = FileEditorTool.create(conv_state)
         assert len(tools) == 1
         editor_tool = tools[0]
         # Type ignore needed for test-specific executor access
@@ -106,7 +122,7 @@ def test_task_tracker_tool_with_conversation_persistence_dir(mock_agent):
             working_dir=working_dir,
         )
 
-        tools = TaskTrackerTool.create(conversation=conversation)
+        tools = TaskTrackerTool.create(conversation.state)
         assert len(tools) == 1
         tracker_tool = tools[0]
         # Type ignore needed for test-specific executor access
@@ -120,7 +136,13 @@ def test_task_tracker_tool_with_explicit_save_dir(mock_agent):
         save_dir = os.path.join(temp_dir, "save")
         os.makedirs(save_dir)
 
-        tools = TaskTrackerTool.create(save_dir=save_dir)
+        # Create a conversation state with the save directory as persistence directory
+        from openhands.sdk.conversation.state import ConversationState
+
+        conv_state = ConversationState.create(
+            agent=mock_agent, persistence_dir=save_dir
+        )
+        tools = TaskTrackerTool.create(conv_state)
         assert len(tools) == 1
         tracker_tool = tools[0]
         # Type ignore needed for test-specific executor access
@@ -128,37 +150,37 @@ def test_task_tracker_tool_with_explicit_save_dir(mock_agent):
         assert save_dir_actual == save_dir
 
 
-def test_tools_without_conversation_or_explicit_params(mock_agent):
-    """Test that tools work without conversation or explicit parameters."""
+def test_tools_with_minimal_conversation_state(mock_agent):
+    """Test that tools work with minimal conversation state."""
     with tempfile.TemporaryDirectory() as temp_dir:
         working_dir = os.path.join(temp_dir, "work")
         os.makedirs(working_dir)
 
-        # Change to working directory for this test
-        original_cwd = os.getcwd()
-        os.chdir(working_dir)
+        # Create minimal conversation state
+        from openhands.sdk.conversation.state import ConversationState
 
-        try:
-            # BashTool should use current directory when no conversation or working_dir
-            bash_tools = BashTool.create()
-            assert len(bash_tools) == 1
-            # Type ignore needed for test-specific executor access
-            work_dir = bash_tools[0].executor.session.work_dir  # type: ignore[attr-defined]
-            assert work_dir == working_dir
+        conv_state = ConversationState.create(
+            id=uuid.uuid4(), agent=mock_agent, working_dir=working_dir
+        )
 
-            # FileEditorTool should use current directory when no conversation
-            editor_tools = FileEditorTool.create()
-            assert len(editor_tools) == 1
-            # Type ignore needed for test-specific executor access
-            cwd = str(editor_tools[0].executor.editor._cwd)  # type: ignore[attr-defined]
-            assert cwd == os.getcwd()
+        # BashTool should use working directory from conversation state
+        bash_tools = BashTool.create(conv_state)
+        assert len(bash_tools) == 1
+        # Type ignore needed for test-specific executor access
+        work_dir = bash_tools[0].executor.session.work_dir  # type: ignore[attr-defined]
+        assert work_dir == working_dir
 
-            # TaskTrackerTool should have None save_dir when no conversation
-            tracker_tools = TaskTrackerTool.create()
-            assert len(tracker_tools) == 1
-            # Type ignore needed for test-specific executor access
-            save_dir = tracker_tools[0].executor.save_dir  # type: ignore[attr-defined]
-            assert save_dir is None
+        # FileEditorTool should use working directory from conversation state
+        editor_tools = FileEditorTool.create(conv_state)
+        assert len(editor_tools) == 1
+        # Type ignore needed for test-specific executor access
+        cwd = str(editor_tools[0].executor.editor._cwd)  # type: ignore[attr-defined]
+        assert cwd == working_dir
 
-        finally:
-            os.chdir(original_cwd)
+        # TaskTrackerTool should use conversation state for persistence
+        tracker_tools = TaskTrackerTool.create(conv_state)
+        assert len(tracker_tools) == 1
+        # Type ignore needed for test-specific executor access
+        save_dir = tracker_tools[0].executor.save_dir  # type: ignore[attr-defined]
+        # Should use conversation ID subdirectory in persistence_dir
+        assert conv_state.conversation_id in str(save_dir)

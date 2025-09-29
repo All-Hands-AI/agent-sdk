@@ -75,7 +75,9 @@ class BaseIntegrationTest(ABC):
         self.collected_events: list[EventBase] = []
         self.llm_messages: list[dict[str, Any]] = []
         self.conversation: LocalConversation = LocalConversation(
-            agent=self.agent, callbacks=[self.conversation_callback]
+            agent=self.agent,
+            working_dir=self.cwd or "/tmp",
+            callbacks=[self.conversation_callback],
         )
 
     def conversation_callback(self, event: EventBase):

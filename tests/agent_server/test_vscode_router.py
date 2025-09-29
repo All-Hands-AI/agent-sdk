@@ -40,7 +40,9 @@ async def test_get_vscode_url_success(mock_vscode_service):
     response = await get_vscode_url("http://localhost")
 
     assert response.url == "http://localhost:8001/?tkn=test-token&folder=/workspace"
-    mock_vscode_service.get_vscode_url.assert_called_once_with("http://localhost")
+    mock_vscode_service.get_vscode_url.assert_called_once_with(
+        "http://localhost", "workspace"
+    )
 
 
 @pytest.mark.asyncio

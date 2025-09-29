@@ -39,15 +39,17 @@ def test_conversation_state_working_dir(mock_agent):
 def test_conversation_state_persistence_dir(mock_agent):
     """Test that ConversationState properly handles persistence_dir."""
     with tempfile.TemporaryDirectory() as temp_dir:
+        working_dir = os.path.join(temp_dir, "work")
         persistence_dir = os.path.join(temp_dir, "persist")
-
-        from openhands.sdk.io.local import LocalFileStore
-
-        file_store = LocalFileStore(persistence_dir)
+        os.makedirs(working_dir)
 
         state = ConversationState.create(
-            id=uuid.uuid4(), agent=mock_agent, file_store=file_store
+            id=uuid.uuid4(),
+            agent=mock_agent,
+            working_dir=working_dir,
+            persistence_dir=persistence_dir,
         )
+        # ConversationState.create() uses persistence_dir directly (no subdirectory)
         assert state.persistence_dir == persistence_dir
         # persistence_dir should be created automatically
         assert state.persistence_dir is not None
@@ -61,17 +63,14 @@ def test_conversation_state_both_directories(mock_agent):
         persistence_dir = os.path.join(temp_dir, "persist")
         os.makedirs(working_dir)
 
-        from openhands.sdk.io.local import LocalFileStore
-
-        file_store = LocalFileStore(persistence_dir)
-
         state = ConversationState.create(
             id=uuid.uuid4(),
             agent=mock_agent,
-            file_store=file_store,
+            persistence_dir=persistence_dir,
             working_dir=working_dir,
         )
         assert state.working_dir == working_dir
+        # ConversationState.create() uses persistence_dir directly (no subdirectory)
         assert state.persistence_dir == persistence_dir
         assert state.working_dir is not None
         assert state.persistence_dir is not None
@@ -91,7 +90,9 @@ def test_conversation_factory_with_directories(mock_agent):
         )
 
         assert conversation.state.working_dir == working_dir
-        assert conversation.state.persistence_dir == persistence_dir
+        # persistence_dir should include conversation ID subdirectory
+        expected_dir = os.path.join(persistence_dir, str(conversation.state.id))
+        assert conversation.state.persistence_dir == expected_dir
 
 
 def test_conversation_factory_default_directories(mock_agent):
@@ -103,10 +104,13 @@ def test_conversation_factory_default_directories(mock_agent):
             os.chdir(temp_dir)
             conversation = Conversation(agent=mock_agent)
 
-            # Should use current working directory as default
-            assert conversation.state.working_dir == temp_dir
-            # Should use .openhands subdirectory as default persistence dir
-            expected_persistence = os.path.join(temp_dir, ".openhands")
+            # Should use "workspace/project" as default working directory
+            assert conversation.state.working_dir == "workspace/project"
+            # Should use "workspace/conversations" with conversation ID subdirectory
+            # as default persistence dir
+            expected_persistence = os.path.join(
+                "workspace/conversations", str(conversation.state.id)
+            )
             assert conversation.state.persistence_dir == expected_persistence
         finally:
             os.chdir(original_cwd)
@@ -121,8 +125,11 @@ def test_conversation_factory_working_dir_only(mock_agent):
         conversation = Conversation(agent=mock_agent, working_dir=working_dir)
 
         assert conversation.state.working_dir == working_dir
-        # Should use .openhands subdirectory of working_dir as default persistence dir
-        expected_persistence = os.path.join(working_dir, ".openhands")
+        # Should use default "workspace/conversations" with conversation ID
+        # subdirectory as persistence dir
+        expected_persistence = os.path.join(
+            "workspace/conversations", str(conversation.state.id)
+        )
         assert conversation.state.persistence_dir == expected_persistence
 
 
@@ -133,6 +140,8 @@ def test_conversation_factory_persistence_dir_only(mock_agent):
 
         conversation = Conversation(agent=mock_agent, persistence_dir=persistence_dir)
 
-        # Should use current working directory as default
-        assert conversation.state.working_dir == os.getcwd()
-        assert conversation.state.persistence_dir == persistence_dir
+        # Should use default "workspace/project" as working directory
+        assert conversation.state.working_dir == "workspace/project"
+        # persistence_dir should include conversation ID subdirectory
+        expected_dir = os.path.join(persistence_dir, str(conversation.state.id))
+        assert conversation.state.persistence_dir == expected_dir

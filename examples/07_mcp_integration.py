@@ -31,7 +31,7 @@ cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tool_specs = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="BashTool"),
     ToolSpec(name="FileEditorTool"),
 ]
 
@@ -63,6 +63,7 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
+    working_dir=cwd,
 )
 
 logger.info("Starting conversation with MCP integration...")

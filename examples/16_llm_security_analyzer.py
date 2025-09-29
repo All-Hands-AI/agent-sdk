@@ -11,7 +11,7 @@ from collections.abc import Callable
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, BaseConversation, Conversation, LocalFileStore
+from openhands.sdk import LLM, Agent, BaseConversation, Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import ConfirmRisky
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -103,7 +103,9 @@ llm = LLM(
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
+    ToolSpec(
+        name="BashTool",
+    ),
     ToolSpec(name="FileEditorTool"),
 ]
 
@@ -112,10 +114,10 @@ security_analyzer = LLMSecurityAnalyzer()
 agent = Agent(llm=llm, tools=tools, security_analyzer=security_analyzer)
 
 # Conversation with persisted filestore
-conversation_id = uuid.uuid4()
-file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 conversation = Conversation(
-    agent=agent, conversation_id=conversation_id, persist_filestore=file_store
+    agent=agent, 
+    persistence_dir="./.conversations",
+    working_dir="."
 )
 conversation.set_confirmation_policy(ConfirmRisky())
 

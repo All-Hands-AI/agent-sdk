@@ -33,7 +33,7 @@ register_tool("BashTool", BashTool)
 tools = [
     ToolSpec(
         name="BashTool",
-        params={"working_dir": cwd, "no_change_timeout_seconds": 3},
+        params={"no_change_timeout_seconds": 3},
     )
 ]
 
@@ -48,7 +48,9 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+)
 
 conversation.send_message(
     "Enter python interactive mode by directly running `python3`, then tell me "

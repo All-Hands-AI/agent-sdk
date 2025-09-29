@@ -9,7 +9,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    LocalFileStore,
     get_logger,
 )
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -34,7 +33,7 @@ cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tool_specs = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(name="BashTool"),
     ToolSpec(name="FileEditorTool"),
 ]
 
@@ -56,12 +55,13 @@ def conversation_callback(event: EventBase):
 
 
 conversation_id = uuid.uuid4()
-file_store = LocalFileStore(f"./.conversations/{conversation_id}")
+persistence_dir = "./.conversations"
 
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
+    working_dir=cwd,
+    persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
 conversation.send_message(
@@ -88,7 +88,8 @@ print("Deserializing conversation...")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
+    working_dir=cwd,
+    persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
 

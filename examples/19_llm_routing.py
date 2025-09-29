@@ -41,8 +41,7 @@ multimodal_router = MultimodalRouter(
 )
 
 # Tools
-cwd = os.getcwd()
-tools = get_default_tools(working_dir=cwd)  # Use our default openhands experience
+tools = get_default_tools()  # Use our default openhands experience
 
 # Agent
 agent = Agent(llm=multimodal_router, tools=tools)
@@ -55,7 +54,7 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(agent=agent, callbacks=[conversation_callback], working_dir=os.getcwd())
 
 conversation.send_message(
     message=Message(
