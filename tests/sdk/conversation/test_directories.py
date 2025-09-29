@@ -125,12 +125,7 @@ def test_conversation_factory_working_dir_only(mock_agent):
         conversation = Conversation(agent=mock_agent, working_dir=working_dir)
 
         assert conversation.state.working_dir == working_dir
-        # Should use default "workspace/conversations" with conversation ID
-        # subdirectory as persistence dir
-        expected_persistence = os.path.join(
-            "workspace/conversations", str(conversation.state.id)
-        )
-        assert conversation.state.persistence_dir == expected_persistence
+        assert conversation.state.persistence_dir is None
 
 
 def test_conversation_factory_persistence_dir_only(mock_agent):
