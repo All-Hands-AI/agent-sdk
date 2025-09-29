@@ -3,8 +3,9 @@ from collections.abc import Iterable
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer

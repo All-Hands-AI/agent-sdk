@@ -7,7 +7,7 @@ import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
 from openhands.sdk.conversation import ConversationCallbackType, ConversationState
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,

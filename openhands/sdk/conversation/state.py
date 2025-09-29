@@ -1,13 +1,14 @@
 # state.py
 import json
 from collections.abc import Callable
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base_state import ConversationBaseState
+from openhands.sdk.conversation.base_state import (
+    ConversationBaseState,
+)
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
@@ -18,28 +19,10 @@ from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObserva
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.confirmation_policy import (
-    ConfirmationPolicyBase,
-    NeverConfirm,
-)
 from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
-
-
-class AgentExecutionStatus(str, Enum):
-    """Enum representing the current execution state of the agent."""
-
-    IDLE = "idle"  # Agent is ready to receive tasks
-    RUNNING = "running"  # Agent is actively processing
-    PAUSED = "paused"  # Agent execution is paused by user
-    WAITING_FOR_CONFIRMATION = (
-        "waiting_for_confirmation"  # Agent is waiting for user confirmation
-    )
-    FINISHED = "finished"  # Agent has completed the current task
-    ERROR = "error"  # Agent encountered an error (optional for future use)
-    STUCK = "stuck"  # Agent is stuck in a loop or unable to proceed
 
 
 if TYPE_CHECKING:
@@ -49,23 +32,6 @@ if TYPE_CHECKING:
 class ConversationState(ConversationBaseState, FIFOLock):
     # ===== Core conversation identification =====
     id: ConversationID = Field(description="Unique conversation ID")
-
-    # ===== Override base fields with specific types =====
-    agent: AgentBase = Field(
-        ...,
-        description=(
-            "The agent running in the conversation. "
-            "This is persisted to allow resuming conversations and "
-            "check agent configuration to handle e.g., tool changes, "
-            "LLM changes, etc."
-        ),
-    )
-    agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
-    confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
-    conversation_stats: ConversationStats = Field(
-        default_factory=ConversationStats,
-        description="Conversation statistics for tracking LLM metrics",
-    )
 
     # ===== Additional fields specific to ConversationState =====
     max_iterations: int = Field(

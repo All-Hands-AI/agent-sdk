@@ -21,7 +21,7 @@ from openhands.agent_server.models import (
     UpdateSecretsRequest,
 )
 from openhands.sdk import LLM, Agent, TextContent, ToolSpec
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
 
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])

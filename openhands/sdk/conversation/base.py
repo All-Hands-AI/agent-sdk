@@ -13,7 +13,7 @@ from openhands.sdk.utils.protocol import ListLike
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.state import AgentExecutionStatus
+    from openhands.sdk.conversation.base_state import AgentExecutionStatus
     from openhands.sdk.event.base import EventBase
 
 

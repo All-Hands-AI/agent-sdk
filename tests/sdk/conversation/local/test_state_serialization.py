@@ -10,8 +10,9 @@ from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation, LocalFileStore
 from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.llm_registry import RegistryEvent

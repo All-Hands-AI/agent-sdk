@@ -13,7 +13,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
 from openhands.sdk.event import AgentErrorEvent, MessageEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 

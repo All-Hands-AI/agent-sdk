@@ -20,7 +20,8 @@ from openhands.agent_server.pub_sub import Subscriber
 from openhands.agent_server.server_details_router import update_last_execution_time
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import EventBase, Message
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
+from openhands.sdk.conversation.state import ConversationState
 
 
 logger = logging.getLogger(__name__)

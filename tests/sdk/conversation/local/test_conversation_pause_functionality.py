@@ -25,7 +25,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm

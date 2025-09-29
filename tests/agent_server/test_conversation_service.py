@@ -13,7 +13,8 @@ from openhands.agent_server.models import (
     StoredConversation,
 )
 from openhands.sdk import LLM, Agent
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
+from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 
 

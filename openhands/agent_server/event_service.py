@@ -155,13 +155,10 @@ class EventService:
             state = self._conversation._state
             with state:
                 # Create state update event with current state information
-                state_update_event = ConversationStateUpdateEvent(
-                    id=str(state.id),
-                    agent_status=state.agent_status.value,
-                    confirmation_policy=state.confirmation_policy.model_dump(),
-                    activated_knowledge_microagents=state.activated_knowledge_microagents,
-                    agent=state.agent.model_dump(),
-                    conversation_stats=state.conversation_stats.model_dump(),
+                state_update_event = (
+                    ConversationStateUpdateEvent.from_conversation_state(
+                        state, str(state.id)
+                    )
                 )
 
                 # Send state update directly to the new subscriber
@@ -290,13 +287,8 @@ class EventService:
         state = self._conversation._state
         with state:
             # Create state update event with current state information
-            state_update_event = ConversationStateUpdateEvent(
-                id=str(state.id),
-                agent_status=state.agent_status.value,
-                confirmation_policy=state.confirmation_policy.model_dump(),
-                activated_knowledge_microagents=state.activated_knowledge_microagents,
-                agent=state.agent.model_dump(),
-                conversation_stats=state.conversation_stats.model_dump(),
+            state_update_event = ConversationStateUpdateEvent.from_conversation_state(
+                state, str(state.id)
             )
 
             # Publish the state update event

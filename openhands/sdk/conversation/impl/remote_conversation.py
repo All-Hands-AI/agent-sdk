@@ -10,9 +10,9 @@ import websockets
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
+from openhands.sdk.conversation.base_state import AgentExecutionStatus
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event.base import EventBase
