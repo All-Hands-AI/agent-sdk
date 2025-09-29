@@ -6,13 +6,8 @@ from uuid import UUID
 from fastapi import APIRouter, Body, HTTPException, Query, status
 from pydantic import SecretStr
 
-from openhands.agent_server.conversation_file_router import conversation_file_router
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
-)
-from openhands.agent_server.conversation_vscode_router import (
-    cleanup_conversation_vscode_service,
-    conversation_vscode_router,
 )
 from openhands.agent_server.models import (
     ConversationInfo,
@@ -30,10 +25,6 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
 conversation_service = get_default_conversation_service()
-
-# Include conversation-specific file and vscode routers
-conversation_router.include_router(conversation_file_router)
-conversation_router.include_router(conversation_vscode_router)
 
 # Examples
 
@@ -157,10 +148,6 @@ async def delete_conversation(conversation_id: UUID) -> Success:
     deleted = await conversation_service.delete_conversation(conversation_id)
     if not deleted:
         raise HTTPException(status.HTTP_400_BAD_REQUEST)
-
-    # Clean up conversation-specific VSCode service
-    await cleanup_conversation_vscode_service(conversation_id)
-
     return Success()
 
 
