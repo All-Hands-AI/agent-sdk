@@ -14,7 +14,7 @@ from openhands.sdk.utils.protocol import ListLike
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.state.base import AgentExecutionStatus
+    from openhands.sdk.conversation.state import AgentExecutionStatus
     from openhands.sdk.event.base import EventBase
 
 
@@ -46,6 +46,19 @@ class ConversationStateProtocol(Protocol):
         """List of activated knowledge microagents."""
         ...
 
+    @property
+    def working_dir(self) -> str:
+        """The working directory for agent operations and tool execution."""
+        ...
+
+    @property
+    def persistence_dir(self) -> str | None:
+        """The persistence directory from the FileStore.
+
+        If None, it means the conversation is not being persisted.
+        """
+        ...
+
 
 class BaseConversation(ABC):
     @property
@@ -58,7 +71,7 @@ class BaseConversation(ABC):
 
     @property
     @abstractmethod
-    def stats(self) -> ConversationStats: ...
+    def conversation_stats(self) -> ConversationStats: ...
 
     @abstractmethod
     def send_message(self, message: str | Message) -> None: ...

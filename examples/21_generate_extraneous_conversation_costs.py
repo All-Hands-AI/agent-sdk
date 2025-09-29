@@ -80,7 +80,7 @@ completion_response = second_llm.completion(
 
 
 # Access total spend
-spend = conversation.stats.get_combined_metrics()
+spend = conversation.conversation_stats.get_combined_metrics()
 print("\n=== Total Spend for Conversation ===\n")
 print(f"Accumulated Cost: ${spend.accumulated_cost:.6f}")
 if spend.accumulated_token_usage:
@@ -90,7 +90,7 @@ if spend.accumulated_token_usage:
     print(f"Cache Write Tokens: {spend.accumulated_token_usage.cache_write_tokens}")
 
 
-spend_per_service = conversation.stats.service_to_metrics
+spend_per_service = conversation.conversation_stats.service_to_metrics
 print("\n=== Spend Breakdown by Service ===\n")
 rows = []
 for service, metrics in spend_per_service.items():
