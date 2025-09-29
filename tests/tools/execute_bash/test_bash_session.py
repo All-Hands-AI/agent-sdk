@@ -166,6 +166,7 @@ def test_environment_variable_inheritance_from_parent(terminal_type):
             os.environ.pop(test_var_name, None)
 
 
+@pytest.mark.timeout(60)  # Add 60 second timeout to prevent hanging in CI
 def test_long_running_command_follow_by_execute():
     session = create_terminal_session(work_dir=os.getcwd(), no_change_timeout_seconds=2)
     session.initialize()
@@ -274,6 +275,7 @@ def test_interactive_command(terminal_type):
 
 
 @parametrize_terminal_types
+@pytest.mark.timeout(60)  # Add 60 second timeout to prevent hanging in CI
 def test_ctrl_c(terminal_type):
     session = create_terminal_session(
         work_dir=os.getcwd(), no_change_timeout_seconds=2, terminal_type=terminal_type
@@ -335,6 +337,7 @@ def test_empty_command_error(terminal_type):
 
 
 @parametrize_terminal_types
+@pytest.mark.timeout(60)  # Add 60 second timeout to prevent hanging in CI
 def test_command_output_continuation(terminal_type):
     """Test that we can continue to get output from a long-running command.
 
