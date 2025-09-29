@@ -34,6 +34,9 @@ def _is_vnc_environment() -> bool:
     if display and display.startswith(":"):
         return True
 
+    if os.environ.get("CI", "").lower() == "true":
+        return False
+
     # Also check for common VNC environment indicators
     if os.path.exists("/tmp/.X11-unix") or os.path.exists("/home/openhands/.vnc"):
         logger.info("VNC environment indicators found")
