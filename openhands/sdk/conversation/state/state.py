@@ -37,12 +37,6 @@ class ConversationState(ConversationBaseState, FIFOLock):
 
     id: ConversationID = Field(description="Unique conversation ID")
 
-    # Conversation statistics for LLM usage tracking
-    stats: ConversationStats = Field(
-        default_factory=ConversationStats,
-        description="Conversation statistics for tracking LLM metrics",
-    )
-
     # ===== Private attrs (NOT Fields) =====
     _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
     _fs: FileStore = PrivateAttr()  # filestore for persistence
