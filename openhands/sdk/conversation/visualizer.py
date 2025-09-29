@@ -58,7 +58,7 @@ class ConversationVisualizer:
         self,
         highlight_regex: dict[str, str] | None = None,
         skip_user_messages: bool = False,
-        conversation_stats: "ConversationStats | None" = None,
+        stats: "ConversationStats | None" = None,
     ):
         """Initialize the visualizer.
 
@@ -69,12 +69,12 @@ class ConversationVisualizer:
                            "Thought:": "bold green"}
             skip_user_messages: If True, skip displaying user messages. Useful for
                                 scenarios where user input is not relevant to show.
-            conversation_stats: ConversationStats object to display metrics information.
+            stats: ConversationStats object to display metrics information.
         """
         self._console = Console()
         self._skip_user_messages = skip_user_messages
         self._highlight_patterns: dict[str, str] = highlight_regex or {}
-        self._conversation_stats = conversation_stats
+        self._stats = stats
 
     def on_event(self, event: EventBase) -> None:
         """Main event handler that displays events with Rich formatting."""
@@ -211,10 +211,10 @@ class ConversationVisualizer:
     def _format_metrics_subtitle(self) -> str | None:
         """Format LLM metrics as a visually appealing subtitle string with icons,
         colors, and k/m abbreviations using conversation stats."""
-        if not self._conversation_stats:
+        if not self._stats:
             return None
 
-        combined_metrics = self._conversation_stats.get_combined_metrics()
+        combined_metrics = self._stats.get_combined_metrics()
         if not combined_metrics or not combined_metrics.accumulated_token_usage:
             return None
 
@@ -260,7 +260,7 @@ class ConversationVisualizer:
 
 def create_default_visualizer(
     highlight_regex: dict[str, str] | None = None,
-    conversation_stats: "ConversationStats | None" = None,
+    stats: "ConversationStats | None" = None,
     **kwargs,
 ) -> ConversationVisualizer:
     """Create a default conversation visualizer instance.
@@ -270,12 +270,12 @@ def create_default_visualizer(
                        for highlighting keywords in the visualizer.
                        For example: {"Reasoning:": "bold blue",
                        "Thought:": "bold green"}
-        conversation_stats: ConversationStats object to display metrics information.
+        stats: ConversationStats object to display metrics information.
     """
     return ConversationVisualizer(
         highlight_regex=DEFAULT_HIGHLIGHT_REGEX
         if highlight_regex is None
         else highlight_regex,
-        conversation_stats=conversation_stats,
+        stats=stats,
         **kwargs,
     )

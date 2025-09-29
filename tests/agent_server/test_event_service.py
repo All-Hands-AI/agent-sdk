@@ -369,8 +369,8 @@ class TestEventServiceStateUpdates:
         state.confirmation_policy = NeverConfirm()
         state.activated_knowledge_microagents = []
         state.agent = Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[])
-        state.conversation_stats = MagicMock()
-        state.conversation_stats.model_dump.return_value = {"total_cost": 0.0}
+        state.stats = MagicMock()
+        state.stats.model_dump.return_value = {"total_cost": 0.0}
 
         # Mock context manager behavior
         state.__enter__ = MagicMock(return_value=state)
@@ -398,7 +398,7 @@ class TestEventServiceStateUpdates:
         assert event.confirmation_policy == state.confirmation_policy.model_dump()
         assert event.activated_knowledge_microagents == []
         assert event.agent == state.agent.model_dump()
-        assert event.conversation_stats == {"total_cost": 0.0}
+        assert event.stats == {"total_cost": 0.0}
 
     @pytest.mark.asyncio
     async def test_subscribe_to_events_sends_initial_state(self, event_service):
@@ -413,8 +413,8 @@ class TestEventServiceStateUpdates:
         state.confirmation_policy = NeverConfirm()
         state.activated_knowledge_microagents = ["test-agent"]
         state.agent = Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[])
-        state.conversation_stats = MagicMock()
-        state.conversation_stats.model_dump.return_value = {"total_cost": 1.5}
+        state.stats = MagicMock()
+        state.stats.model_dump.return_value = {"total_cost": 1.5}
 
         # Mock context manager behavior
         state.__enter__ = MagicMock(return_value=state)
@@ -438,7 +438,7 @@ class TestEventServiceStateUpdates:
         assert isinstance(event, ConversationStateUpdateEvent)
         assert event.agent_status == "running"
         assert event.activated_knowledge_microagents == ["test-agent"]
-        assert event.conversation_stats == {"total_cost": 1.5}
+        assert event.stats == {"total_cost": 1.5}
 
         # Verify subscriber was registered
         assert subscriber_id is not None

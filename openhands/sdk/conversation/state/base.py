@@ -44,21 +44,6 @@ class ConversationBaseState(OpenHandsModel):
     uses EventID (string), and they have different semantics.
     """
 
-    # Agent configuration and status
-    agent_status: AgentExecutionStatus = Field(
-        default=AgentExecutionStatus.IDLE,
-        description="Current execution status of the agent",
-    )
-    confirmation_policy: ConfirmationPolicyBase = Field(
-        default_factory=lambda: NeverConfirm(),
-        description="Policy for user confirmations",
-    )
-    activated_knowledge_microagents: list[str] = Field(
-        default_factory=list,
-        description="List of activated knowledge microagents name",
-    )
-
-    # Agent and statistics
     agent: AgentBase = Field(
         ...,
         description=(
@@ -68,7 +53,32 @@ class ConversationBaseState(OpenHandsModel):
             "LLM changes, etc."
         ),
     )
-    conversation_stats: ConversationStats = Field(
+    working_dir: str = Field(
+        default="workspace/project",
+        description="Working directory for agent operations and tool execution",
+    )
+    persistence_dir: str | None = Field(
+        default="workspace/conversations",
+        description="Directory for persisting conversation state and events. "
+        "If None, conversation will not be persisted.",
+    )
+    max_iterations: int = Field(
+        default=500,
+        gt=0,
+        description="Maximum number of iterations the agent can "
+        "perform in a single run.",
+    )
+    stuck_detection: bool = Field(
+        default=True,
+        description="Whether to enable stuck detection for the agent.",
+    )
+    agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
+    confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
+    activated_knowledge_microagents: list[str] = Field(
+        default_factory=list,
+        description="List of activated knowledge microagents name",
+    )
+    stats: ConversationStats = Field(
         default_factory=ConversationStats,
         description="Conversation statistics for tracking LLM metrics",
     )

@@ -45,7 +45,6 @@ class ConversationService:
     """
 
     event_services_path: Path = field()
-    workspace_path: Path = field()
     webhook_specs: list[WebhookSpec] = field(default_factory=list)
     session_api_key: str | None = field(default=None)
     _event_services: dict[UUID, EventService] | None = field(default=None, init=False)
@@ -181,7 +180,7 @@ class ConversationService:
         event_service = EventService(
             stored=stored,
             file_store_path=file_store_path,
-            working_dir=self.workspace_path,
+            working_dir=Path(request.working_dir),
         )
 
         # Create subscribers...
@@ -248,8 +247,8 @@ class ConversationService:
             await self._notify_conversation_webhooks(conversation_info)
 
             await event_service.close()
-            shutil.rmtree(self.event_services_path / conversation_id.hex)
-            shutil.rmtree(self.workspace_path / conversation_id.hex)
+            shutil.rmtree(event_service.persistence_dir)
+            shutil.rmtree(event_service.stored.working_dir)
             return True
         return False
 
@@ -266,10 +265,11 @@ class ConversationService:
                 meta_file = event_service_dir / "meta.json"
                 json_str = meta_file.read_text()
                 id = UUID(event_service_dir.name)
+                stored = StoredConversation.model_validate_json(json_str)
                 event_services[id] = EventService(
-                    stored=StoredConversation.model_validate_json(json_str),
+                    stored=stored,
                     file_store_path=self.event_services_path / id.hex,
-                    working_dir=self.workspace_path / id.hex,
+                    working_dir=Path(stored.working_dir),
                 )
             except Exception:
                 logger.exception(
@@ -306,7 +306,6 @@ class ConversationService:
     def get_instance(cls, config: Config) -> "ConversationService":
         return ConversationService(
             event_services_path=config.conversations_path,
-            workspace_path=config.workspace_path,
             webhook_specs=config.webhooks,
             session_api_key=config.session_api_keys[0]
             if config.session_api_keys

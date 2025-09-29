@@ -82,6 +82,7 @@ def test_remote_conversation_configures_httpx_client_with_api_key(mock_httpx_cli
             agent=agent,
             host="http://localhost:3000",
             api_key=test_api_key,
+            working_dir="/tmp",
         )
 
     # Verify httpx.Client was called with correct headers
@@ -115,6 +116,7 @@ def test_remote_conversation_no_api_key_no_headers(mock_httpx_client):
             agent=agent,
             host="http://localhost:3000",
             api_key=None,
+            working_dir="/tmp",
         )
 
     # Verify httpx.Client was called without API key headers
@@ -190,6 +192,7 @@ def test_remote_conversation_passes_api_key_to_websocket_client(mock_httpx_clien
             agent=agent,
             host="http://localhost:3000",
             api_key=test_api_key,
+            working_dir="/tmp",
         )
 
         # Verify WebSocketCallbackClient was called with api_key

@@ -167,7 +167,7 @@ class TestHelloWorld:
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         tool_specs = [
-            ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
 
@@ -175,7 +175,11 @@ class TestHelloWorld:
         agent = Agent(llm=llm, tools=tool_specs)
 
         # Conversation setup
-        conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
+        conversation = Conversation(
+            agent=agent,
+            working_dir=self.temp_dir,
+            callbacks=[self.conversation_callback],
+        )
 
         # Send the same message as in hello_world.py
         conversation.send_message(
@@ -283,13 +287,17 @@ class TestHelloWorld:
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         tool_specs = [
-            ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
 
         # Create agent and conversation
         agent = Agent(llm=llm, tools=tool_specs)
-        conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
+        conversation = Conversation(
+            agent=agent,
+            working_dir=self.temp_dir,
+            callbacks=[self.conversation_callback],
+        )
 
         # Capture logged completion data by monitoring the LLM calls
         logged_completions = []

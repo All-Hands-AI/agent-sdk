@@ -114,7 +114,7 @@ class SleepExecutor(ToolExecutor):
         return SleepObservation(message=action.message)
 
 
-def _make_sleep_tool() -> Sequence[Tool]:
+def _make_sleep_tool(conv_state=None, **kwargs) -> Sequence[Tool]:
     """Create sleep tool for testing."""
     return [
         Tool(

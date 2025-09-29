@@ -1,19 +1,24 @@
 import inspect
 from collections.abc import Callable, Sequence
 from threading import RLock
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import Tool, ToolBase
 
 
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
+
+
 # A resolver produces Tool instances for given params.
-Resolver = Callable[[dict[str, Any]], Sequence[Tool]]
+Resolver = Callable[[dict[str, Any], "ConversationState"], Sequence[Tool]]
 """A resolver produces Tool instances for given params.
 
 Args:
     params: Arbitrary parameters passed to the resolver. These are typically
         used to configure the Tool instances that are created.
+    conversation: Optional conversation state to get directories from.
 Returns: A sequence of Tool instances. Most of the time this will be a single-item
     sequence, but in some cases a Tool.create may produce multiple tools
     (e.g., BrowserToolSet).
@@ -30,7 +35,9 @@ def _resolver_from_instance(name: str, tool: Tool) -> Resolver:
             f"Tool instance '{name}' must have a non-None .executor"
         )
 
-    def _resolve(params: dict[str, Any]) -> Sequence[Tool]:
+    def _resolve(
+        params: dict[str, Any], conv_state: "ConversationState"
+    ) -> Sequence[Tool]:
         if params:
             raise ValueError(f"Tool '{name}' is a fixed instance; params not supported")
         return [tool]
@@ -41,9 +48,12 @@ def _resolver_from_instance(name: str, tool: Tool) -> Resolver:
 def _resolver_from_callable(
     name: str, factory: Callable[..., Sequence[Tool]]
 ) -> Resolver:
-    def _resolve(params: dict[str, Any]) -> Sequence[Tool]:
+    def _resolve(
+        params: dict[str, Any], conv_state: "ConversationState"
+    ) -> Sequence[Tool]:
         try:
-            created = factory(**params)
+            # Try to call with conv_state parameter first
+            created = factory(conv_state=conv_state, **params)
         except TypeError as exc:
             raise TypeError(
                 f"Unable to resolve tool '{name}': factory could not be called with "
@@ -81,8 +91,10 @@ def _resolver_from_subclass(name: str, cls: type[ToolBase]) -> Resolver:
             f" as a concrete classmethod"
         )
 
-    def _resolve(params: dict[str, Any]) -> Sequence[Tool]:
-        created = create(**params)
+    def _resolve(
+        params: dict[str, Any], conv_state: "ConversationState"
+    ) -> Sequence[Tool]:
+        created = create(conv_state=conv_state, **params)
         if not isinstance(created, Sequence) or not all(
             isinstance(t, Tool) for t in created
         ):
@@ -119,14 +131,16 @@ def register_tool(
         _REG[name] = resolver
 
 
-def resolve_tool(tool_spec: ToolSpec) -> Sequence[Tool]:
+def resolve_tool(
+    tool_spec: ToolSpec, conv_state: "ConversationState"
+) -> Sequence[Tool]:
     with _LOCK:
         resolver = _REG.get(tool_spec.name)
 
     if resolver is None:
         raise KeyError(f"Tool '{tool_spec.name}' is not registered")
 
-    return resolver(tool_spec.params)
+    return resolver(tool_spec.params, conv_state)
 
 
 def list_registered_tools() -> list[str]:

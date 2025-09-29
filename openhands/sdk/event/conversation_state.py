@@ -41,7 +41,7 @@ class ConversationStateUpdateEvent(EventBase):
         description="List of activated knowledge microagents name",
     )
     agent: dict[str, Any] = Field(description="The agent configuration")
-    conversation_stats: dict[str, Any] = Field(description="Conversation statistics")
+    stats: dict[str, Any] = Field(description="Conversation statistics")
 
     @classmethod
     def from_conversation_state(
@@ -62,7 +62,7 @@ class ConversationStateUpdateEvent(EventBase):
             confirmation_policy=state.confirmation_policy.model_dump(),
             activated_knowledge_microagents=state.activated_knowledge_microagents,
             agent=state.agent.model_dump(),
-            conversation_stats=state.conversation_stats.model_dump(),
+            stats=state.stats.model_dump(),
         )
 
     def __str__(self) -> str:

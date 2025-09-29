@@ -19,7 +19,7 @@ def basic_llm():
 
 def test_get_default_agent_includes_browser_toolset(basic_llm):
     """Test that the default agent spec includes BrowserToolSet."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     # Check that BrowserToolSet is in the tools
     tool_names = [tool.name for tool in agent.tools]
@@ -39,7 +39,7 @@ def test_get_default_agent_includes_browser_toolset(basic_llm):
 
 def test_get_default_agent_includes_expected_tools(basic_llm):
     """Test that the default agent spec includes all expected tools."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     tool_names = [tool.name for tool in agent.tools]
 
@@ -57,7 +57,7 @@ def test_get_default_agent_includes_expected_tools(basic_llm):
 
 def test_get_default_agent_browser_toolset_parameters(basic_llm):
     """Test that BrowserToolSet in default spec has correct parameters."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     # Find the BrowserToolSet spec
     browser_toolset_spec = None
@@ -72,11 +72,10 @@ def test_get_default_agent_browser_toolset_parameters(basic_llm):
 
 
 def test_get_default_agent_with_custom_working_dir(basic_llm):
-    """Test that custom working directory is passed to appropriate tools."""
-    custom_dir = "/custom/workspace"
-    agent = get_default_agent(llm=basic_llm, working_dir=custom_dir)
+    """Test that tools no longer have explicit directory parameters (they get them from conversation)."""  # noqa: E501
+    agent = get_default_agent(llm=basic_llm)
 
-    # Find BashTool and TaskTrackerTool to verify they get the working_dir
+    # Find BashTool and TaskTrackerTool to verify they have no directory params
     bash_tool_spec = None
     task_tracker_spec = None
     browser_toolset_spec = None
@@ -89,22 +88,21 @@ def test_get_default_agent_with_custom_working_dir(basic_llm):
         elif tool.name == "BrowserToolSet":
             browser_toolset_spec = tool
 
-    # BashTool should get the working_dir
+    # Tools should not have directory parameters - they get them from conversation
     assert bash_tool_spec is not None
-    assert bash_tool_spec.params["working_dir"] == custom_dir
+    assert bash_tool_spec.params == {}
 
-    # TaskTrackerTool should get save_dir based on working_dir
     assert task_tracker_spec is not None
-    assert task_tracker_spec.params["save_dir"] == f"{custom_dir}/.openhands"
+    assert task_tracker_spec.params == {}
 
-    # BrowserToolSet should not be affected by working_dir
+    # BrowserToolSet should also have no params
     assert browser_toolset_spec is not None
     assert browser_toolset_spec.params == {}
 
 
 def test_get_default_agent_has_mcp_config(basic_llm):
     """Test that the default agent spec includes MCP configuration."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     assert agent.mcp_config is not None
     assert "mcpServers" in agent.mcp_config
@@ -118,7 +116,7 @@ def test_get_default_agent_has_mcp_config(basic_llm):
 
 def test_get_default_agent_basic_properties(basic_llm):
     """Test basic properties of the default agent spec."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     # Should have the provided LLM
     assert agent.llm == basic_llm
@@ -137,7 +135,7 @@ def test_get_default_agent_basic_properties(basic_llm):
 
 def test_get_default_agent_condenser_config(basic_llm):
     """Test that the default agent spec has proper condenser configuration."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     assert agent.condenser is not None
     assert isinstance(agent.condenser, LLMSummarizingCondenser)
@@ -151,7 +149,7 @@ def test_get_default_agent_condenser_config(basic_llm):
 
 def test_get_default_agent_tool_order(basic_llm):
     """Test that tools are in expected order in the default spec."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     tool_names = [tool.name for tool in agent.tools]
 
@@ -164,16 +162,12 @@ def test_get_default_agent_tool_order(basic_llm):
 
 
 def test_get_default_agent_with_custom_persistence_dir(basic_llm):
-    """Test that custom persistence directory is used for TaskTrackerTool save_dir."""
-    working_dir = "/test/workspace"
-    custom_persistence_dir = "/custom/persistence"
+    """Test that tools no longer have explicit persistence directory parameters."""
 
     # Test with custom persistence_dir
-    agent = get_default_agent(
-        llm=basic_llm, working_dir=working_dir, persistence_dir=custom_persistence_dir
-    )
+    agent = get_default_agent(llm=basic_llm)
 
-    # Find TaskTrackerTool to verify it uses the custom persistence_dir
+    # Find TaskTrackerTool to verify it has no directory params
     task_tracker_spec = None
     for tool in agent.tools:
         if tool.name == "TaskTrackerTool":
@@ -181,10 +175,12 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
             break
 
     assert task_tracker_spec is not None
-    assert task_tracker_spec.params["save_dir"] == custom_persistence_dir
+    assert (
+        task_tracker_spec.params == {}
+    )  # No directory params - gets from conversation
 
-    # Test without persistence_dir (should default to working_dir/.openhands)
-    agent_default = get_default_agent(llm=basic_llm, working_dir=working_dir)
+    # Test without persistence_dir (should still have no params)
+    agent_default = get_default_agent(llm=basic_llm)
 
     task_tracker_spec_default = None
     for tool in agent_default.tools:
@@ -193,12 +189,14 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
             break
 
     assert task_tracker_spec_default is not None
-    assert task_tracker_spec_default.params["save_dir"] == f"{working_dir}/.openhands"
+    assert (
+        task_tracker_spec_default.params == {}
+    )  # No directory params - gets from conversation
 
 
 def test_get_default_agent_has_llm_security_analyzer(basic_llm):
     """Test that the default agent includes LLMSecurityAnalyzer by default."""
-    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+    agent = get_default_agent(llm=basic_llm)
 
     # Should have LLMSecurityAnalyzer as the security analyzer
     assert agent.security_analyzer is not None

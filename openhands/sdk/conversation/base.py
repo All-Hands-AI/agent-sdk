@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
@@ -13,7 +14,7 @@ from openhands.sdk.utils.protocol import ListLike
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base_state import AgentExecutionStatus
+    from openhands.sdk.conversation.state.base import AgentExecutionStatus
     from openhands.sdk.event.base import EventBase
 
 
@@ -57,7 +58,7 @@ class BaseConversation(ABC):
 
     @property
     @abstractmethod
-    def conversation_stats(self) -> ConversationStats: ...
+    def stats(self) -> ConversationStats: ...
 
     @abstractmethod
     def send_message(self, message: str | Message) -> None: ...
@@ -85,3 +86,10 @@ class BaseConversation(ABC):
 
     @abstractmethod
     def close(self) -> None: ...
+
+    @staticmethod
+    def get_persistence_dir(
+        persistence_base_dir: str, conversation_id: ConversationID
+    ) -> str:
+        """Get the persistence directory for the conversation."""
+        return str(Path(persistence_base_dir) / str(conversation_id))

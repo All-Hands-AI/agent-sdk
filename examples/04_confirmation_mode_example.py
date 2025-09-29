@@ -81,13 +81,13 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
-agent = get_default_agent(llm=llm, working_dir=os.getcwd())
-conversation = Conversation(agent=agent)
+agent = get_default_agent(llm=llm)
+conversation = Conversation(agent=agent, working_dir=os.getcwd())
 
 # 1) Confirmation mode ON
 conversation.set_confirmation_policy(AlwaysConfirm())

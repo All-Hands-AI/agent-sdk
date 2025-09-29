@@ -90,7 +90,7 @@ class TestConfirmationMode:
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool() -> Sequence[Tool]:
+        def _make_tool(conv_state=None, **params) -> Sequence[Tool]:
             return [
                 Tool(
                     name="test_tool",

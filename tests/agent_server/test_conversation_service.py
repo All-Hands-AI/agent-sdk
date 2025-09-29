@@ -35,6 +35,7 @@ def sample_stored_conversation():
         metrics=None,
         created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
         updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=UTC),
+        working_dir="workspace/project",
     )
 
 
@@ -43,7 +44,6 @@ def conversation_service():
     """Create a ConversationService instance for testing."""
     service = ConversationService(
         event_services_path=Path("test_event_services"),
-        workspace_path=Path("test_workspace"),
     )
     # Initialize the _event_services dict to simulate an active service
     service._event_services = {}

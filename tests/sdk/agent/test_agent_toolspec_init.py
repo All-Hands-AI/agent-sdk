@@ -27,7 +27,7 @@ class _Exec(ToolExecutor[_Action, _Obs]):
         return _Obs(out=action.text.upper())
 
 
-def _make_tool() -> Sequence[Tool]:
+def _make_tool(conv_state=None, **kwargs) -> Sequence[Tool]:
     return [
         Tool(
             name="upper",

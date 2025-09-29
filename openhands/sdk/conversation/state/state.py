@@ -17,7 +17,7 @@ from openhands.sdk.conversation.state.base import (
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import EventBase
-from openhands.sdk.io import FileStore, InMemoryFileStore
+from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.protocol import ListLike
 
@@ -117,17 +117,19 @@ class ConversationState(ConversationBaseState, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
+        working_dir: str,
+        persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
-        file_store: FileStore | None = None,
     ) -> "ConversationState":
         """
         If base_state.json exists: resume (attach EventLog,
             reconcile agent, enforce id).
         Else: create fresh (agent required), persist base, and return.
         """
-        if file_store is None:
-            file_store = InMemoryFileStore()
+        file_store = (
+            LocalFileStore(persistence_dir) if persistence_dir else InMemoryFileStore()
+        )
 
         try:
             base_text = file_store.read(BASE_STATE)
@@ -154,7 +156,7 @@ class ConversationState(ConversationBaseState, FIFOLock):
             state._autosave_enabled = True
             state.agent = resolved
 
-            state.conversation_stats = ConversationStats()
+            state.stats = ConversationStats()
 
             logger.info(
                 f"Resumed conversation {state.id} from persistent storage.\n"
@@ -172,12 +174,14 @@ class ConversationState(ConversationBaseState, FIFOLock):
         state = cls(
             id=id,
             agent=agent,
+            working_dir=working_dir,
+            persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
-        state.conversation_stats = ConversationStats()
+        state.stats = ConversationStats()
 
         state._save_base_state(file_store)  # initial snapshot
         state._autosave_enabled = True

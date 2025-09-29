@@ -13,7 +13,6 @@ from openhands.sdk.event import (
     PauseEvent,
     UserRejectObservation,
 )
-from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
@@ -40,7 +39,8 @@ class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        persist_filestore: FileStore | None = None,
+        working_dir: str,
+        persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -52,7 +52,8 @@ class LocalConversation(BaseConversation):
 
         Args:
             agent: The agent to use for the conversation
-            persist_filestore: Optional FileStore to persist conversation state
+            working_dir: Working directory for agent operations and tool execution
+            persistence_dir: Directory for persisting conversation state and events
             conversation_id: Optional ID for the conversation. If provided, will
                       be used to identify the conversation. The user might want to
                       suffix their persistent filestore with this ID.
@@ -64,14 +65,16 @@ class LocalConversation(BaseConversation):
             stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
-        self._persist_filestore = persist_filestore
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
         self._state = ConversationState.create(
             id=desired_id,
             agent=agent,
-            file_store=self._persist_filestore,
+            working_dir=working_dir,
+            persistence_dir=self.get_persistence_dir(persistence_dir, desired_id)
+            if persistence_dir
+            else None,
             max_iterations=max_iteration_per_run,
             stuck_detection=stuck_detection,
         )
@@ -83,9 +86,7 @@ class LocalConversation(BaseConversation):
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
-            self._visualizer = create_default_visualizer(
-                conversation_stats=self._state.conversation_stats
-            )
+            self._visualizer = create_default_visualizer(stats=self._state.stats)
             composed_list = [self._visualizer.on_event] + composed_list
             # visualize should happen first for visibility
         else:
@@ -102,7 +103,7 @@ class LocalConversation(BaseConversation):
 
         # Register existing llms in agent
         self.llm_registry = LLMRegistry()
-        self.llm_registry.subscribe(self._state.conversation_stats.register_llm)
+        self.llm_registry.subscribe(self._state.stats.register_llm)
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
 
@@ -123,8 +124,8 @@ class LocalConversation(BaseConversation):
         return self._state
 
     @property
-    def conversation_stats(self):
-        return self._state.conversation_stats
+    def stats(self):
+        return self._state.stats
 
     @property
     def stuck_detector(self) -> StuckDetector | None:

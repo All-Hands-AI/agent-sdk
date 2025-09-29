@@ -23,7 +23,7 @@ def mock_file_store():
 
 
 @pytest.fixture
-def conversation_stats(mock_file_store):
+def stats(mock_file_store):
     """Create a ConversationStats instance for testing."""
     return ConversationStats()
 
@@ -36,14 +36,14 @@ def mock_llm_registry():
 
 
 @pytest.fixture
-def connected_registry_and_stats(mock_llm_registry, conversation_stats):
+def connected_registry_and_stats(mock_llm_registry, stats):
     """Connect the LLMRegistry and ConversationStats properly."""
     # Subscribe to LLM registry events to track metrics
-    mock_llm_registry.subscribe(conversation_stats.register_llm)
-    return mock_llm_registry, conversation_stats
+    mock_llm_registry.subscribe(stats.register_llm)
+    return mock_llm_registry, stats
 
 
-def test_get_combined_metrics(conversation_stats):
+def test_get_combined_metrics(stats):
     """Test that combined metrics are calculated correctly."""
     # Add multiple services with metrics
     service1 = "service1"
@@ -70,11 +70,11 @@ def test_get_combined_metrics(conversation_stats):
         response_id="resp2",
     )
 
-    conversation_stats.service_to_metrics[service1] = metrics1
-    conversation_stats.service_to_metrics[service2] = metrics2
+    stats.service_to_metrics[service1] = metrics1
+    stats.service_to_metrics[service2] = metrics2
 
     # Get combined metrics
-    combined = conversation_stats.get_combined_metrics()
+    combined = stats.get_combined_metrics()
 
     # Verify combined metrics
     assert combined.accumulated_cost == 0.07  # 0.05 + 0.02
@@ -85,16 +85,16 @@ def test_get_combined_metrics(conversation_stats):
     )  # max of 8000 and 4000
 
 
-def test_get_metrics_for_service(conversation_stats):
+def test_get_metrics_for_service(stats):
     """Test that metrics for a specific service are retrieved correctly."""
     # Add a service with metrics
     service_id = "test-service"
     metrics = Metrics(model_name="gpt-4")
     metrics.add_cost(0.05)
-    conversation_stats.service_to_metrics[service_id] = metrics
+    stats.service_to_metrics[service_id] = metrics
 
     # Get metrics for the service
-    retrieved_metrics = conversation_stats.get_metrics_for_service(service_id)
+    retrieved_metrics = stats.get_metrics_for_service(service_id)
 
     # Verify metrics
     assert retrieved_metrics.accumulated_cost == 0.05
@@ -103,10 +103,10 @@ def test_get_metrics_for_service(conversation_stats):
     # Test getting metrics for non-existent service
     # Use a specific exception message pattern instead of a blind Exception
     with pytest.raises(Exception, match="LLM service does not exist"):
-        conversation_stats.get_metrics_for_service("non-existent-service")
+        stats.get_metrics_for_service("non-existent-service")
 
 
-def test_register_llm_with_new_service(conversation_stats):
+def test_register_llm_with_new_service(stats):
     """Test registering a new LLM service."""
     # Patch the LLM class to avoid actual API calls
     with patch("openhands.sdk.llm.llm.litellm_completion"):
@@ -124,20 +124,20 @@ def test_register_llm_with_new_service(conversation_stats):
         event = RegistryEvent(llm=llm)
 
         # Register the LLM
-        conversation_stats.register_llm(event)
+        stats.register_llm(event)
 
         # Verify the service was registered
-        assert service_id in conversation_stats.service_to_metrics
-        assert conversation_stats.service_to_metrics[service_id] is llm.metrics
+        assert service_id in stats.service_to_metrics
+        assert stats.service_to_metrics[service_id] is llm.metrics
 
 
-def test_register_llm_with_restored_metrics(conversation_stats):
+def test_register_llm_with_restored_metrics(stats):
     """Test registering an LLM service with restored metrics."""
     # Create restored metrics
     service_id = "restored-service"
     restored_metrics = Metrics(model_name="gpt-4")
     restored_metrics.add_cost(0.1)
-    conversation_stats.service_to_metrics = {service_id: restored_metrics}
+    stats.service_to_metrics = {service_id: restored_metrics}
 
     # Patch the LLM class to avoid actual API calls
     with patch("openhands.sdk.llm.llm.litellm_completion"):
@@ -154,20 +154,20 @@ def test_register_llm_with_restored_metrics(conversation_stats):
         event = RegistryEvent(llm=llm)
 
         # Register the LLM
-        conversation_stats.register_llm(event)
+        stats.register_llm(event)
 
         # Verify the service was registered with restored metrics
-        assert service_id in conversation_stats.service_to_metrics
-        assert conversation_stats.service_to_metrics[service_id] is llm.metrics
+        assert service_id in stats.service_to_metrics
+        assert stats.service_to_metrics[service_id] is llm.metrics
         assert llm.metrics is not None
         assert llm.metrics.accumulated_cost == 0.1  # Restored cost
 
-        assert service_id in conversation_stats._restored_services
+        assert service_id in stats._restored_services
 
 
 def test_llm_registry_notifications(connected_registry_and_stats):
     """Test that LLM registry notifications update conversation stats."""
-    mock_llm_registry, conversation_stats = connected_registry_and_stats
+    mock_llm_registry, stats = connected_registry_and_stats
 
     # Create a new LLM through the registry
     service_id = "test-service"
@@ -186,8 +186,8 @@ def test_llm_registry_notifications(connected_registry_and_stats):
     mock_llm_registry.add(llm)
 
     # Verify the service was registered in conversation stats
-    assert service_id in conversation_stats.service_to_metrics
-    assert conversation_stats.service_to_metrics[service_id] is llm.metrics
+    assert service_id in stats.service_to_metrics
+    assert stats.service_to_metrics[service_id] is llm.metrics
 
     # Add some metrics to the LLM
     assert llm.metrics is not None
@@ -202,22 +202,18 @@ def test_llm_registry_notifications(connected_registry_and_stats):
     )
 
     # Verify the metrics are reflected in conversation stats
-    assert conversation_stats.service_to_metrics[service_id].accumulated_cost == 0.05
+    assert stats.service_to_metrics[service_id].accumulated_cost == 0.05
     assert (
-        conversation_stats.service_to_metrics[
-            service_id
-        ].accumulated_token_usage.prompt_tokens
+        stats.service_to_metrics[service_id].accumulated_token_usage.prompt_tokens
         == 100
     )
     assert (
-        conversation_stats.service_to_metrics[
-            service_id
-        ].accumulated_token_usage.completion_tokens
+        stats.service_to_metrics[service_id].accumulated_token_usage.completion_tokens
         == 50
     )
 
     # Get combined metrics and verify
-    combined = conversation_stats.get_combined_metrics()
+    combined = stats.get_combined_metrics()
     assert combined.accumulated_cost == 0.05
     assert combined.accumulated_token_usage.prompt_tokens == 100
     assert combined.accumulated_token_usage.completion_tokens == 50
@@ -225,7 +221,7 @@ def test_llm_registry_notifications(connected_registry_and_stats):
 
 def test_multiple_llm_services(connected_registry_and_stats):
     """Test tracking metrics for multiple LLM services."""
-    mock_llm_registry, conversation_stats = connected_registry_and_stats
+    mock_llm_registry, stats = connected_registry_and_stats
 
     # Create multiple LLMs through the registry
     service1 = "service1"
@@ -278,15 +274,15 @@ def test_multiple_llm_services(connected_registry_and_stats):
     )
 
     # Verify services were registered in conversation stats
-    assert service1 in conversation_stats.service_to_metrics
-    assert service2 in conversation_stats.service_to_metrics
+    assert service1 in stats.service_to_metrics
+    assert service2 in stats.service_to_metrics
 
     # Verify individual metrics
-    assert conversation_stats.service_to_metrics[service1].accumulated_cost == 0.05
-    assert conversation_stats.service_to_metrics[service2].accumulated_cost == 0.02
+    assert stats.service_to_metrics[service1].accumulated_cost == 0.05
+    assert stats.service_to_metrics[service2].accumulated_cost == 0.02
 
     # Get combined metrics and verify
-    combined = conversation_stats.get_combined_metrics()
+    combined = stats.get_combined_metrics()
     assert combined.accumulated_cost == 0.07  # 0.05 + 0.02
     assert combined.accumulated_token_usage.prompt_tokens == 300  # 100 + 200
     assert combined.accumulated_token_usage.completion_tokens == 150  # 50 + 100
@@ -295,7 +291,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
     )  # max of 8000 and 4000
 
 
-def test_register_llm_with_multiple_restored_services(conversation_stats):
+def test_register_llm_with_multiple_restored_services(stats):
     """
     Test that reproduces the bug where del self.restored_metrics
     deletes entire dict instead of specific service.
@@ -312,7 +308,7 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
     restored_metrics_2.add_cost(0.05)
 
     # Set up restored metrics for both services
-    conversation_stats.service_to_metrics = {
+    stats.service_to_metrics = {
         service_id_1: restored_metrics_1,
         service_id_2: restored_metrics_2,
     }
@@ -329,16 +325,16 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
             retry_max_wait=2,
         )
         event_1 = RegistryEvent(llm=llm_1)
-        conversation_stats.register_llm(event_1)
+        stats.register_llm(event_1)
 
         # Verify first service was registered with restored metrics
-        assert service_id_1 in conversation_stats.service_to_metrics
+        assert service_id_1 in stats.service_to_metrics
         assert llm_1.metrics is not None
         assert llm_1.metrics.accumulated_cost == 0.1
 
         # After registering first service,
         # restored_metrics should still not contain service_id_2
-        assert service_id_2 not in conversation_stats._restored_services
+        assert service_id_2 not in stats._restored_services
 
         # Register second LLM - this should also work with restored metrics
         llm_2 = LLM(
@@ -350,13 +346,13 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
             retry_max_wait=2,
         )
         event_2 = RegistryEvent(llm=llm_2)
-        conversation_stats.register_llm(event_2)
+        stats.register_llm(event_2)
 
         # Verify second service was registered with restored metrics
-        assert service_id_2 in conversation_stats.service_to_metrics
+        assert service_id_2 in stats.service_to_metrics
         assert llm_2.metrics is not None
         assert llm_2.metrics.accumulated_cost == 0.05
 
         # After both services are marked restored
-        assert service_id_2 in conversation_stats._restored_services
-        assert len(conversation_stats._restored_services) == 2
+        assert service_id_2 in stats._restored_services
+        assert len(stats._restored_services) == 2

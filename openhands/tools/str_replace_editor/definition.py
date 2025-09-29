@@ -1,9 +1,13 @@
 """String replace editor tool implementation."""
 
 from collections.abc import Sequence
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field, PrivateAttr
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -197,18 +201,22 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
-    def create(cls, workspace_root: str | None = None) -> Sequence["FileEditorTool"]:
+    def create(
+        cls,
+        conv_state: "ConversationState",
+    ) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
         Args:
-            workspace_root: Root directory for file operations. If provided,
-                          tool descriptions will use this path in examples.
+            conv_state: Conversation state to get working directory from.
+                         If provided, workspace_root will be taken from
+                         conv_state.working_dir
         """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=workspace_root)
+        executor = FileEditorExecutor(workspace_root=conv_state.working_dir)
 
         # Initialize the parent Tool with the executor
         return [

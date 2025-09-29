@@ -256,7 +256,7 @@ jobs:
             build_summary: ${{ steps.consolidate.outputs.build_summary }}
         steps:
             - name: Download all build info artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   pattern: build-info-*
                   merge-multiple: true

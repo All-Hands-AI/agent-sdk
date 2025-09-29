@@ -12,14 +12,14 @@ def test_conversation_state_update_event_creation():
         confirmation_policy={"type": "NeverConfirm"},
         activated_knowledge_microagents=[],
         agent={"llm": {"model": "gpt-4"}},
-        conversation_stats={"total_cost": 0.0},
+        stats={"total_cost": 0.0},
     )
 
     assert event.agent_status == "idle"
     assert event.confirmation_policy == {"type": "NeverConfirm"}
     assert event.activated_knowledge_microagents == []
     assert event.agent == {"llm": {"model": "gpt-4"}}
-    assert event.conversation_stats == {"total_cost": 0.0}
+    assert event.stats == {"total_cost": 0.0}
 
 
 def test_conversation_state_update_event_serialization():
@@ -29,7 +29,7 @@ def test_conversation_state_update_event_serialization():
         confirmation_policy={"type": "AlwaysConfirm"},
         activated_knowledge_microagents=["test-agent"],
         agent={"llm": {"model": "gpt-3.5"}},
-        conversation_stats={"total_cost": 1.5},
+        stats={"total_cost": 1.5},
     )
 
     # Test serialization
@@ -59,7 +59,7 @@ def test_conversation_state_update_event_with_complex_data():
             "tools": ["bash", "editor"],
             "config": {"max_iterations": 10},
         },
-        conversation_stats={
+        stats={
             "total_cost": 2.5,
             "tokens_used": 1500,
             "api_calls": 5,
@@ -72,7 +72,7 @@ def test_conversation_state_update_event_with_complex_data():
     assert event.confirmation_policy["settings"]["timeout"] == 30
     assert len(event.activated_knowledge_microagents) == 3
     assert event.agent["llm"]["temperature"] == 0.7
-    assert event.conversation_stats["tokens_used"] == 1500
+    assert event.stats["tokens_used"] == 1500
 
 
 def test_conversation_state_update_event_immutability():
@@ -82,7 +82,7 @@ def test_conversation_state_update_event_immutability():
         confirmation_policy={"type": "NeverConfirm"},
         activated_knowledge_microagents=[],
         agent={"llm": {"model": "gpt-4"}},
-        conversation_stats={"total_cost": 0.0},
+        stats={"total_cost": 0.0},
     )
 
     # Try to modify the event - should raise an error
