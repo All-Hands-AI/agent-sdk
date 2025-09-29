@@ -368,7 +368,9 @@ def get_default_bash_event_service() -> BashEventService:
     from openhands.agent_server.config import get_default_config
 
     config = get_default_config()
+    # Use a default working directory since workspace_path is now per-conversation
+    default_working_dir = Path("workspace")
     _bash_event_service = BashEventService(
-        working_dir=config.workspace_path, bash_events_dir=config.bash_events_dir
+        working_dir=default_working_dir, bash_events_dir=config.bash_events_dir
     )
     return _bash_event_service
