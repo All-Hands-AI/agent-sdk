@@ -1,10 +1,14 @@
 """Tests for bash terminal reset functionality."""
 
 import tempfile
+import uuid
 
 import pytest
+from pydantic import SecretStr
 
+from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.llm import LLM
 from openhands.tools.execute_bash import (
     BashTool,
     ExecuteBashAction,
@@ -14,12 +18,6 @@ from openhands.tools.execute_bash import (
 
 def _create_conv_state(working_dir: str) -> ConversationState:
     """Helper to create a ConversationState for testing."""
-    import uuid
-
-    from pydantic import SecretStr
-
-    from openhands.sdk.agent import Agent
-    from openhands.sdk.llm import LLM
 
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
