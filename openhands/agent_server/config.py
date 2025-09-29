@@ -112,6 +112,10 @@ class Config(BaseModel):
         default=True,
         description="Whether to enable VSCode server functionality",
     )
+    enable_vnc: bool = Field(
+        default=False,
+        description="Whether to enable VNC desktop functionality",
+    )
     model_config = {"frozen": True}
 
 

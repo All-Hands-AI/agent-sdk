@@ -30,7 +30,9 @@ with DockerSandboxedAgentServer(
     host_port=8010,
     # TODO: Change this to your platform if not linux/arm64
     platform="linux/arm64",
+    extra_ports=True,  # expose extra ports for browser access
 ) as server:
+    """Extra ports allows you to check localhost:8013"""
     # IMPORTANT: working_dir must be the path inside container
     #    where we mounted the current repo.
     agent = get_default_agent(
@@ -65,3 +67,15 @@ with DockerSandboxedAgentServer(
         "points of the latest blog?"
     )
     conversation.run()
+
+    # Wait for user confirm to exit
+    y = None
+    while y != "y":
+        y = input(
+            "Because you've enabled extra_ports=True in DockerSandboxedAgentServer, "
+            "you can open a browser tab to see the *actual* browser OpenHands is "
+            " interacting with via VNC.\n\n"
+            "Link: http://localhost:8012/vnc.html?autoconnect=1&resize=remote\n\n\n"
+            "Press 'y' and Enter to exit and terminate the sandboxed server."
+            ">> "
+        )
