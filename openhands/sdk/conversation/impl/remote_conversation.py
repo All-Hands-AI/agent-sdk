@@ -446,10 +446,10 @@ class RemoteConversation(BaseConversation):
         return self._state
 
     @property
-    def stats(self) -> ConversationStats:
+    def conversation_stats(self) -> ConversationStats:
         """Get conversation stats from remote server."""
         info = self._state._get_conversation_info()
-        stats_data = info.get("stats", {})
+        stats_data = info.get("conversation_stats", {})
         return ConversationStats.model_validate(stats_data)
 
     @property
