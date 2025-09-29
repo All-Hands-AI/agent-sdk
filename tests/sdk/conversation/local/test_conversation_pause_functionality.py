@@ -14,10 +14,8 @@ from collections.abc import Sequence
 from unittest.mock import patch
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
     Choices,
-    Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
@@ -27,7 +25,14 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
-from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    LLM,
+    ImageContent,
+    Message,
+    MessageToolCall,
+    MessageToolCallFunction,
+    TextContent,
+)
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
     ActionBase,
@@ -221,10 +226,10 @@ class TestPauseFunctionality:
         assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         # Mock action
-        tool_call = ChatCompletionMessageToolCall(
+        tool_call = MessageToolCall(
             id="call_1",
             type="function",
-            function=Function(
+            function=MessageToolCallFunction(
                 name="test_tool", arguments='{"command": "test_command"}'
             ),
         )
@@ -233,7 +238,9 @@ class TestPauseFunctionality:
             choices=[
                 Choices(
                     message=LiteLLMMessage(
-                        role="assistant", content="", tool_calls=[tool_call]
+                        role="assistant",
+                        content="",
+                        tool_calls=[tool_call.to_litellm_tool_call()],
                     )
                 )
             ],
@@ -313,10 +320,10 @@ class TestPauseFunctionality:
         self.conversation = conversation
 
         # LLM continuously emits actions (no finish)
-        tool_call = ChatCompletionMessageToolCall(
+        tool_call = MessageToolCall(
             id="call_loop",
             type="function",
-            function=Function(
+            function=MessageToolCallFunction(
                 name="test_tool", arguments='{"command": "loop_forever"}'
             ),
         )
@@ -330,7 +337,7 @@ class TestPauseFunctionality:
                         message=LiteLLMMessage(
                             role="assistant",
                             content="I'll execute loop_forever",
-                            tool_calls=[tool_call],
+                            tool_calls=[tool_call.to_litellm_tool_call()],
                         )
                     )
                 ],

@@ -1,7 +1,14 @@
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 from openhands.sdk.llm.llm_response import LLMResponse
-from openhands.sdk.llm.message import ImageContent, Message, TextContent, content_to_str
+from openhands.sdk.llm.message import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    MessageToolCallFunction,
+    TextContent,
+    content_to_str,
+)
 from openhands.sdk.llm.router import RouterLLM
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.unverified_models import (
@@ -18,6 +25,8 @@ __all__ = [
     "RouterLLM",
     "RegistryEvent",
     "Message",
+    "MessageToolCall",
+    "MessageToolCallFunction",
     "TextContent",
     "ImageContent",
     "content_to_str",

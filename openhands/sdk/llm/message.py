@@ -1,3 +1,5 @@
+import json
+import uuid
 from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
@@ -11,6 +13,147 @@ from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 
 
 logger = get_logger(__name__)
+
+
+class MessageToolCallFunction(BaseModel):
+    """Represents a function call within a tool call.
+
+    This class encapsulates the function name and arguments for a tool call,
+    providing a clean interface for function call data while maintaining
+    compatibility with LLM API formats.
+    """
+
+    name: str | None = Field(
+        default=None, description="The name of the function to call"
+    )
+    arguments: str = Field(
+        default="", description="The arguments to pass to the function as a JSON string"
+    )
+
+    def __init__(
+        self, name: str | None = None, arguments: str | dict | None = None, **kwargs
+    ):
+        """Initialize a MessageToolCallFunction.
+
+        Args:
+            name: The name of the function to call
+            arguments: The arguments as a JSON string or dict. If dict, will be
+                converted to JSON string.
+            **kwargs: Additional keyword arguments
+        """
+        if arguments is None:
+            arguments = ""
+        elif isinstance(arguments, dict):
+            arguments = json.dumps(arguments)
+
+        super().__init__(name=name, arguments=arguments, **kwargs)
+
+
+class MessageToolCall(BaseModel):
+    """Represents a tool call from an LLM response.
+
+    This class provides an OpenHands-native interface for tool calls, replacing
+    the dependency on litellm's ChatCompletionMessageToolCall. It maintains
+    full compatibility with the existing codebase while providing better type
+    safety and documentation.
+
+    The class supports both attribute access and dictionary-style access for
+    backward compatibility with existing serialization code.
+    """
+
+    id: str = Field(
+        default_factory=lambda: f"call_{uuid.uuid4().hex[:8]}",
+        description="Unique identifier for this tool call",
+    )
+    type: str = Field(
+        default="function",
+        description="The type of tool call (always 'function' in current "
+        "implementation)",
+    )
+    function: MessageToolCallFunction = Field(
+        ..., description="The function call details"
+    )
+
+    def __init__(
+        self,
+        id: str | None = None,
+        type: str = "function",
+        function: MessageToolCallFunction | dict | None = None,
+        **kwargs,
+    ):
+        """Initialize a MessageToolCall.
+
+        Args:
+            id: Unique identifier for the tool call. If None, a UUID will be generated.
+            type: The type of tool call (defaults to "function")
+            function: The function call details as MessageToolCallFunction or dict
+            **kwargs: Additional keyword arguments
+        """
+        if id is None:
+            id = f"call_{uuid.uuid4().hex[:8]}"
+
+        if function is None:
+            function = MessageToolCallFunction()
+        elif isinstance(function, dict):
+            function = MessageToolCallFunction(**function)
+
+        super().__init__(id=id, type=type, function=function, **kwargs)
+
+    def __contains__(self, key: str) -> bool:
+        """Support 'in' operator for dictionary-style access."""
+        return hasattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get attribute with default value, similar to dict.get()."""
+        return getattr(self, key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        """Support dictionary-style access to attributes."""
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Support dictionary-style assignment of attributes."""
+        setattr(self, key, value)
+
+    @classmethod
+    def from_litellm_tool_call(
+        cls, tool_call: ChatCompletionMessageToolCall
+    ) -> "MessageToolCall":
+        """Create a MessageToolCall from a litellm ChatCompletionMessageToolCall.
+
+        This method provides a migration path from litellm tool calls to our
+        native implementation.
+
+        Args:
+            tool_call: The litellm tool call to convert
+
+        Returns:
+            A new MessageToolCall instance with the same data
+        """
+        return cls(
+            id=tool_call.id,
+            type=tool_call.type,
+            function=MessageToolCallFunction(
+                name=tool_call.function.name, arguments=tool_call.function.arguments
+            ),
+        )
+
+    def to_litellm_tool_call(self) -> ChatCompletionMessageToolCall:
+        """Convert this MessageToolCall to a litellm ChatCompletionMessageToolCall.
+
+        This method is primarily for testing and compatibility with existing code
+        that expects litellm tool calls.
+
+        Returns:
+            A ChatCompletionMessageToolCall instance with the same data
+        """
+        from litellm.types.utils import Function
+
+        function = Function(name=self.function.name, arguments=self.function.arguments)
+
+        return ChatCompletionMessageToolCall(
+            id=self.id, type=self.type, function=function
+        )
 
 
 class BaseContent(BaseModel):
@@ -75,7 +218,7 @@ class Message(BaseModel):
     # function calling
     function_calling_enabled: bool = False
     # - tool calls (from LLM)
-    tool_calls: list[ChatCompletionMessageToolCall] | None = None
+    tool_calls: list[MessageToolCall] | None = None
     # - tool execution result (to LLM)
     tool_call_id: str | None = None
     name: str | None = None  # name of the tool
@@ -200,12 +343,19 @@ class Message(BaseModel):
 
         rc = getattr(message, "reasoning_content", None)
 
+        # Convert litellm tool calls to our MessageToolCall format
+        converted_tool_calls = None
+        if message.tool_calls:
+            converted_tool_calls = [
+                MessageToolCall.from_litellm_tool_call(tc) for tc in message.tool_calls
+            ]
+
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
-            tool_calls=message.tool_calls,
+            tool_calls=converted_tool_calls,
             reasoning_content=rc,
         )
 

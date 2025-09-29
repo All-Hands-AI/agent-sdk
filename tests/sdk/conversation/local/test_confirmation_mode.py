@@ -8,10 +8,8 @@ from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
     Choices,
-    Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
@@ -24,7 +22,15 @@ from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm import (
+    LLM,
+    ImageContent,
+    Message,
+    MessageToolCall,
+    MessageToolCallFunction,
+    MetricsSnapshot,
+    TextContent,
+)
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 from openhands.sdk.tool import ToolExecutor, ToolSpec, register_tool
@@ -155,7 +161,7 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=f"I'll execute {command}",
-                            tool_calls=[tool_call],
+                            tool_calls=[tool_call.to_litellm_tool_call()],
                         )
                     )
                 ],
@@ -167,10 +173,12 @@ class TestConfirmationMode:
 
     def _mock_finish_action(self, message: str = "Task completed") -> MagicMock:
         """Configure LLM to return a FinishAction tool call."""
-        tool_call = ChatCompletionMessageToolCall(
+        tool_call = MessageToolCall(
             id="finish_call_1",
             type="function",
-            function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
+            function=MessageToolCallFunction(
+                name="finish", arguments=f'{{"message": "{message}"}}'
+            ),
         )
 
         return MagicMock(
@@ -181,7 +189,7 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=f"I'll finish with: {message}",
-                            tool_calls=[tool_call],
+                            tool_calls=[tool_call.to_litellm_tool_call()],
                         )
                     )
                 ],
@@ -193,18 +201,18 @@ class TestConfirmationMode:
 
     def _mock_multiple_actions_with_finish(self) -> MagicMock:
         """Configure LLM to return both a regular action and a FinishAction."""
-        regular_tool_call = ChatCompletionMessageToolCall(
+        regular_tool_call = MessageToolCall(
             id="call_1",
             type="function",
-            function=Function(
+            function=MessageToolCallFunction(
                 name="test_tool", arguments='{"command": "test_command"}'
             ),
         )
 
-        finish_tool_call = ChatCompletionMessageToolCall(
+        finish_tool_call = MessageToolCall(
             id="finish_call_1",
             type="function",
-            function=Function(
+            function=MessageToolCallFunction(
                 name="finish", arguments='{"message": "Task completed!"}'
             ),
         )
@@ -217,7 +225,10 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content="I'll execute the command and then finish",
-                            tool_calls=[regular_tool_call, finish_tool_call],
+                            tool_calls=[
+                                regular_tool_call.to_litellm_tool_call(),
+                                finish_tool_call.to_litellm_tool_call(),
+                            ],
                         )
                     )
                 ],
@@ -231,10 +242,10 @@ class TestConfirmationMode:
         """Helper to create test action events."""
         action = MockConfirmationModeAction(command=command)
 
-        tool_call = ChatCompletionMessageToolCall(
+        tool_call = MessageToolCall(
             id=call_id,
             type="function",
-            function=Function(
+            function=MessageToolCallFunction(
                 name="test_tool", arguments=f'{{"command": "{command}"}}'
             ),
         )

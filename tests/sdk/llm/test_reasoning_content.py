@@ -115,11 +115,12 @@ def test_message_serialization_without_reasoning():
 
 def test_action_event_with_reasoning_content():
     """Test ActionEvent with reasoning content fields."""
-    from litellm import ChatCompletionMessageToolCall
-    from litellm.types.utils import Function
-
     from openhands.sdk.event.llm_convertible import ActionEvent
-    from openhands.sdk.llm.message import TextContent
+    from openhands.sdk.llm.message import (
+        MessageToolCall,
+        MessageToolCallFunction,
+        TextContent,
+    )
     from openhands.sdk.tool import ActionBase
 
     # Create a simple action for testing
@@ -127,9 +128,11 @@ def test_action_event_with_reasoning_content():
         action: str = "test"
 
     # Create a tool call
-    tool_call = ChatCompletionMessageToolCall(
+    tool_call = MessageToolCall(
         id="test-id",
-        function=Function(name="test_tool", arguments='{"arg": "value"}'),
+        function=MessageToolCallFunction(
+            name="test_tool", arguments='{"arg": "value"}'
+        ),
         type="function",
     )
 

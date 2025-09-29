@@ -1,9 +1,10 @@
 """Tests for event immutability."""
 
 from collections.abc import Sequence
+from typing import cast
 
 import pytest
-from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
+from litellm import ChatCompletionToolParam
 
 from openhands.sdk.event import (
     ActionEvent,
@@ -17,7 +18,12 @@ from openhands.sdk.event import (
     SystemPromptEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
@@ -61,7 +67,7 @@ def test_event_base_is_frozen():
 
 def test_system_prompt_event_is_frozen():
     """Test that SystemPromptEvent instances are frozen."""
-    tool: ChatCompletionToolParam = {
+    tool = {
         "type": "function",
         "function": {
             "name": "test_tool",
@@ -71,7 +77,8 @@ def test_system_prompt_event_is_frozen():
     }
 
     event = SystemPromptEvent(
-        system_prompt=TextContent(text="Test system prompt"), tools=[tool]
+        system_prompt=TextContent(text="Test system prompt"),
+        tools=[cast(ChatCompletionToolParam, tool)],
     )
 
     # Test that we cannot modify any field
@@ -88,7 +95,7 @@ def test_system_prompt_event_is_frozen():
 def test_action_event_is_frozen():
     """Test that ActionEvent instances are frozen."""
     action = TestEventsImmutabilityMockAction()
-    tool_call = ChatCompletionMessageToolCall(
+    tool_call = MessageToolCall(
         id="test_call_id", function={"name": "test_tool", "arguments": "{}"}
     )
 
@@ -259,7 +266,7 @@ def test_event_model_copy_creates_new_instance():
 
 def test_event_immutability_prevents_mutation_bugs():
     """Test that frozen events prevent the type of mutation bugs fixed in PR #226."""
-    tool: ChatCompletionToolParam = {
+    tool = {
         "type": "function_with_very_long_type_name_exceeding_thirty_characters",
         "function": {
             "name": "test_tool",
@@ -269,7 +276,8 @@ def test_event_immutability_prevents_mutation_bugs():
     }
 
     event = SystemPromptEvent(
-        system_prompt=TextContent(text="Test system prompt"), tools=[tool]
+        system_prompt=TextContent(text="Test system prompt"),
+        tools=[cast(ChatCompletionToolParam, tool)],
     )
 
     # Store original tool data

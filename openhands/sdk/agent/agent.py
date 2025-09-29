@@ -1,6 +1,5 @@
 import json
 
-from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
@@ -20,6 +19,7 @@ from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
+    MessageToolCall,
     TextContent,
 )
 from openhands.sdk.logger import get_logger
@@ -200,7 +200,6 @@ class Agent(AgentBase):
         message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
-            tool_call: ChatCompletionMessageToolCall
             if any(tc.type != "function" for tc in message.tool_calls):
                 logger.warning(
                     "LLM returned tool calls but some are not of type 'function' - "
@@ -300,7 +299,7 @@ class Agent(AgentBase):
     def _get_action_event(
         self,
         state: ConversationState,
-        tool_call: ChatCompletionMessageToolCall,
+        tool_call: MessageToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],

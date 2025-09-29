@@ -40,10 +40,9 @@ import time  # noqa: E402
 from collections.abc import Sequence  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
-from litellm import ChatCompletionMessageToolCall  # noqa: E402
+# noqa: E402
 from litellm.types.utils import (  # noqa: E402
     Choices,
-    Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
@@ -52,7 +51,14 @@ from pydantic import Field  # noqa: E402
 from openhands.sdk.agent import Agent  # noqa: E402
 from openhands.sdk.conversation import Conversation  # noqa: E402
 from openhands.sdk.event import MessageEvent  # noqa: E402
-from openhands.sdk.llm import LLM, ImageContent, Message, TextContent  # noqa: E402
+from openhands.sdk.llm import (  # noqa: E402  # noqa: E402
+    LLM,
+    ImageContent,
+    Message,
+    MessageToolCall,
+    MessageToolCallFunction,
+    TextContent,
+)
 from openhands.sdk.tool import (  # noqa: E402
     ActionBase,
     ObservationBase,
@@ -159,10 +165,10 @@ class TestMessageWhileFinishing:
 
         if self.step_count == 1:
             # Step 1: Process initial request - single sleep
-            sleep_call = ChatCompletionMessageToolCall(
+            sleep_call = MessageToolCall(
                 id="sleep_call_1",
                 type="function",
-                function=Function(
+                function=MessageToolCallFunction(
                     name="sleep_tool",
                     arguments='{"duration": 2.0, "message": "First sleep completed"}',
                 ),
@@ -174,7 +180,7 @@ class TestMessageWhileFinishing:
                         message=LiteLLMMessage(
                             role="assistant",
                             content="I'll sleep for 2 seconds first",
-                            tool_calls=[sleep_call],
+                            tool_calls=[sleep_call.to_litellm_tool_call()],
                         )
                     )
                 ],
@@ -202,19 +208,19 @@ class TestMessageWhileFinishing:
                 final_message += " and butterfly"  # This should NOT happen
 
             # Multiple tool calls: sleep THEN finish
-            sleep_call = ChatCompletionMessageToolCall(
+            sleep_call = MessageToolCall(
                 id="sleep_call_2",
                 type="function",
-                function=Function(
+                function=MessageToolCallFunction(
                     name="sleep_tool",
                     arguments=f'{{"duration": 3.0, "message": "{sleep_message}"}}',
                 ),
             )
 
-            finish_call = ChatCompletionMessageToolCall(
+            finish_call = MessageToolCall(
                 id="finish_call_2",
                 type="function",
-                function=Function(
+                function=MessageToolCallFunction(
                     name="finish",
                     arguments=f'{{"message": "{final_message}"}}',
                 ),
@@ -227,7 +233,10 @@ class TestMessageWhileFinishing:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=response_content,
-                            tool_calls=[sleep_call, finish_call],
+                            tool_calls=[
+                                sleep_call.to_litellm_tool_call(),
+                                finish_call.to_litellm_tool_call(),
+                            ],
                         )
                     )
                 ],

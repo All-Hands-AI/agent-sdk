@@ -3,11 +3,16 @@
 from unittest.mock import patch
 
 import pytest
-from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import (
+    LLM,
+    Message,
+    MessageToolCall,
+    MessageToolCallFunction,
+    TextContent,
+)
 from openhands.sdk.tool.schema import ActionBase
 from openhands.sdk.tool.tool import Tool, ToolBase
 
@@ -80,7 +85,7 @@ def test_llm_completion_basic(mock_completion):
 
     # Additionally, verify the pre-check helper recognizes provider-style tools
     # (use an empty list of tools here just to exercise the path)
-    cc_tools: list[ChatCompletionToolParam] = []
+    cc_tools = []
     assert not llm.should_mock_tool_calls(cc_tools)
 
 
@@ -100,11 +105,13 @@ def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
     mock_response.choices[0].message.tool_calls = [  # type: ignore
-        ChatCompletionMessageToolCall(
+        MessageToolCall(
             id="call_123",
             type="function",
-            function={"name": "test_tool", "arguments": '{"param": "value"}'},
-        )
+            function=MessageToolCallFunction(
+                name="test_tool", arguments='{"param": "value"}'
+            ),
+        ).to_litellm_tool_call()
     ]
     mock_completion.return_value = mock_response
 
@@ -338,9 +345,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     ]
 
     # Verify that tools should be mocked (non-function call path)
-    cc_tools: list[ChatCompletionToolParam] = [
-        t.to_openai_tool(add_security_risk_prediction=False) for t in tools
-    ]
+    cc_tools = [t.to_openai_tool(add_security_risk_prediction=False) for t in tools]
     assert llm.should_mock_tool_calls(cc_tools)
 
     # Call completion - this should go through the prompt-based tool calling path

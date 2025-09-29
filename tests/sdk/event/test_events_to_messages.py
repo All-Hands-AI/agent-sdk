@@ -5,8 +5,6 @@ from collections.abc import Sequence
 from typing import cast
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 
 from openhands.sdk.event.base import LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import (
@@ -16,7 +14,13 @@ from openhands.sdk.event.llm_convertible import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    MessageToolCallFunction,
+    TextContent,
+)
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -38,11 +42,13 @@ class TestEventsToMessagesMockObservation(ObservationBase):
 
 def create_tool_call(
     call_id: str, function_name: str, arguments: dict
-) -> ChatCompletionMessageToolCall:
-    """Helper to create a ChatCompletionMessageToolCall."""
-    return ChatCompletionMessageToolCall(
+) -> MessageToolCall:
+    """Helper to create a MessageToolCall."""
+    return MessageToolCall(
         id=call_id,
-        function=Function(name=function_name, arguments=json.dumps(arguments)),
+        function=MessageToolCallFunction(
+            name=function_name, arguments=json.dumps(arguments)
+        ),
         type="function",
     )
 
