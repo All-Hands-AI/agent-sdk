@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -10,7 +11,6 @@ from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.utils.protocol import ListLike
 
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def events(self) -> ListLike["EventBase"]:
+    def events(self) -> Sequence["EventBase"]:
         """Access to the events list."""
         ...
 

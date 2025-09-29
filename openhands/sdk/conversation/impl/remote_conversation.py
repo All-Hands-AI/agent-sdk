@@ -2,6 +2,7 @@ import asyncio
 import json
 import threading
 import uuid
+from collections.abc import Sequence
 from typing import SupportsIndex, overload
 from urllib.parse import urlparse
 
@@ -21,7 +22,6 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
-from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
@@ -102,7 +102,7 @@ class WebSocketCallbackClient:
                 delay = min(delay * 2, 30.0)
 
 
-class RemoteEventsList(ListLike[EventBase]):
+class RemoteEventsList(Sequence[EventBase]):
     """A list-like, read-only view of remote conversation events.
 
     On first access it fetches existing events from the server. Afterwards,
@@ -168,29 +168,18 @@ class RemoteEventsList(ListLike[EventBase]):
         return len(self._cached_events)
 
     @overload
-    def __getitem__(self, index: SupportsIndex, /) -> EventBase: ...
+    def __getitem__(self, index: int) -> EventBase: ...
 
     @overload
-    def __getitem__(self, index: slice, /) -> list[EventBase]: ...
+    def __getitem__(self, index: slice) -> list[EventBase]: ...
 
-    def __getitem__(
-        self,
-        index: SupportsIndex | slice,
-        /,
-    ) -> EventBase | list[EventBase]:
+    def __getitem__(self, index: SupportsIndex | slice) -> EventBase | list[EventBase]:
         with self._lock:
             return self._cached_events[index]
 
     def __iter__(self):
         with self._lock:
             return iter(self._cached_events)
-
-    def append(self, event: EventBase) -> None:
-        # For remote conversations, events are added via API calls
-        # This method is here for interface compatibility but shouldn't be used directly
-        raise NotImplementedError(
-            "Cannot directly append events to remote conversation"
-        )
 
 
 class RemoteState(ConversationStateProtocol):
