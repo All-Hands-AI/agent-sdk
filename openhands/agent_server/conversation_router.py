@@ -33,7 +33,7 @@ START_CONVERSATION_EXAMPLES = [
         agent=Agent(
             llm=LLM(
                 service_id="test-llm",
-                model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
                 base_url="https://llm-proxy.app.all-hands.dev",
                 api_key=SecretStr("secret"),
             ),
