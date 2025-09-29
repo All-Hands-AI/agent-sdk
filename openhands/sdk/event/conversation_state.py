@@ -1,20 +1,15 @@
 """Events related to conversation state updates."""
 
 import uuid
-from typing import TYPE_CHECKING
 
-from pydantic import Field
+from pydantic import BaseModel, Field, field_validator
 
-from openhands.sdk.conversation.state.base import ConversationBaseState
+from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event.base import EventBase
-from openhands.sdk.event.types import EventID, SourceType
+from openhands.sdk.event.types import SourceType
 
 
-if TYPE_CHECKING:
-    from openhands.sdk.conversation.state import ConversationState
-
-
-class ConversationStateUpdateEvent(EventBase, ConversationBaseState):
+class ConversationStateUpdateEvent(EventBase):
     """Event that contains conversation state updates.
 
     This event is sent via websocket whenever the conversation state changes,
@@ -25,27 +20,42 @@ class ConversationStateUpdateEvent(EventBase, ConversationBaseState):
     """
 
     source: SourceType = "environment"
-
-    # Conversation identification (using EventID for websocket compatibility)
-    id: EventID = Field(
+    key: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
-        description="Conversation ID as string",
+        description="Unique key for this state update event",
+    )
+    value: dict = Field(
+        default_factory=dict,
+        description="Serialized conversation state updates",
     )
 
-    @classmethod
-    def from_conversation_state(
-        cls, state: "ConversationState"
-    ) -> "ConversationStateUpdateEvent":
-        """Create a ConversationStateUpdateEvent from a ConversationState.
+    @field_validator("key")
+    def validate_key(cls, key):
+        if not isinstance(key, str):
+            raise ValueError("Key must be a string")
+        valid_keys = ConversationState.model_fields.keys()
+        if key not in valid_keys:
+            raise ValueError(f"Invalid key: {key}. Must be one of {list(valid_keys)}")
+        return key
 
-        This factory method handles the serialization of complex types to
-        simple types suitable for websocket transmission.
+    @field_validator("value")
+    def validate_value(cls, value, info):
+        key = info.data.get("key")
+        if key is None:
+            raise ValueError("Key must be set before validating value")
+        field_info = ConversationState.model_fields.get(key)
+        if field_info is None:
+            raise ValueError(f"Invalid key: {key}")
 
-        Args:
-            state: The ConversationState to convert
-            event_id: Optional event ID to use. If not provided, uses str(state.id)
-        """
-        return cls(**state.model_dump())
+        if field_info.annotation is None:
+            # No type annotation, skip validation
+            pass
+        elif field_info.annotation in {int, str, bool, float, list, dict}:
+            # Primitive types can be directly validated
+            field_info.annotation(value)
+        elif issubclass(field_info.annotation, BaseModel):
+            field_info.annotation.model_validate(value)
+        return value
 
     def __str__(self) -> str:
-        return f"ConversationStateUpdate(agent_status={self.agent_status})"
+        return f"ConversationStateUpdate(key={self.key}, value={self.value})"
