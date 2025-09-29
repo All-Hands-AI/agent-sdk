@@ -40,13 +40,10 @@ def get_default_tools(
     """Get the default set of tool specifications for the standard experience.
 
     Args:
-        working_dir: Deprecated. Tools now get directories from conversation state.
-        persistence_dir: Deprecated. Tools now get directories from conversation state.
         enable_browser: Whether to include browser tools.
     """
     register_default_tools(enable_browser=enable_browser)
 
-    # Tools no longer need directory parameters - they get them from conversation state
     tool_specs = [
         ToolSpec(name="BashTool"),
         ToolSpec(name="FileEditorTool"),
@@ -68,8 +65,6 @@ def get_default_condenser(llm: LLM) -> CondenserBase:
 
 def get_default_agent(
     llm: LLM,
-    working_dir: str,
-    persistence_dir: str | None = None,
     cli_mode: bool = False,
 ) -> Agent:
     tool_specs = get_default_tools(

@@ -58,10 +58,6 @@ class StartConversationRequest(BaseModel):
         default="workspace/project",
         description="Working directory for agent operations and tool execution",
     )
-    persistence_dir: str = Field(
-        default="workspace/conversations",
-        description="Directory for persisting conversation state and events",
-    )
     confirmation_policy: ConfirmationPolicyBase = Field(
         default=NeverConfirm(),
         description="Controls when the conversation will prompt the user before "

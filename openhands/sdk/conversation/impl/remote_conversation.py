@@ -311,7 +311,6 @@ class RemoteConversation(BaseConversation):
         agent: AgentBase,
         host: str,
         working_dir: str,
-        persistence_dir: str,
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -325,6 +324,7 @@ class RemoteConversation(BaseConversation):
         Args:
             agent: Agent configuration (will be sent to the server)
             host: Base URL of the agent server (e.g., http://localhost:3000)
+            working_dir: The working directory for agent operations and tool execution.
             api_key: Optional API key for authentication (sent as X-Session-API-Key
                 header)
             conversation_id: Optional existing conversation id to attach to
@@ -332,8 +332,6 @@ class RemoteConversation(BaseConversation):
             max_iteration_per_run: Max iterations configured on server
             stuck_detection: Whether to enable stuck detection on server
             visualize: Whether to enable the default visualizer callback
-            working_dir: The working directory for agent operations and tool execution.
-            persistence_dir: The directory for persisting conversation and tool state.
         """
         self.agent = agent
         self._host = host.rstrip("/")
@@ -357,7 +355,6 @@ class RemoteConversation(BaseConversation):
                 "max_iterations": max_iteration_per_run,
                 "stuck_detection": stuck_detection,
                 "working_dir": working_dir,
-                "persistence_dir": persistence_dir,
             }
             resp = self._client.post("/api/conversations/", json=payload)
             resp.raise_for_status()

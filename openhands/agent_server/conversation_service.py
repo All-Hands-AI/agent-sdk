@@ -174,7 +174,7 @@ class ConversationService:
         conversation_id = uuid4()
         stored = StoredConversation(id=conversation_id, **request.model_dump())
         file_store_path = (
-            Path(request.persistence_dir) / conversation_id.hex / "event_service"
+            self.event_services_path / conversation_id.hex / "event_service"
         )
         file_store_path.mkdir(parents=True)
         event_service = EventService(
@@ -247,14 +247,8 @@ class ConversationService:
             await self._notify_conversation_webhooks(conversation_info)
 
             await event_service.close()
-            # Remove the event service directory (persistence)
-            shutil.rmtree(
-                Path(event_service.stored.persistence_dir) / conversation_id.hex
-            )
-            # Remove the working directory if it's conversation-specific
-            working_dir = Path(event_service.stored.working_dir)
-            if working_dir.name == conversation_id.hex:
-                shutil.rmtree(working_dir)
+            shutil.rmtree(event_service.persistence_dir)
+            shutil.rmtree(event_service.stored.working_dir)
             return True
         return False
 

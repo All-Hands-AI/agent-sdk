@@ -13,7 +13,7 @@ from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.event.base import EventBase
-from openhands.sdk.io import LocalFileStore
+from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -61,9 +61,10 @@ class ConversationState(OpenHandsModel, FIFOLock):
         default="workspace/project",
         description="Working directory for agent operations and tool execution",
     )
-    persistence_dir: str = Field(
+    persistence_dir: str | None = Field(
         default="workspace/conversations",
-        description="Directory for persisting conversation state and events",
+        description="Directory for persisting conversation state and events. "
+        "If None, conversation will not be persisted.",
     )
 
     max_iterations: int = Field(
@@ -94,7 +95,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
 
     # ===== Private attrs (NOT Fields) =====
     _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
-    _fs: LocalFileStore = PrivateAttr()  # filestore for persistence
+    _fs: FileStore = PrivateAttr()  # filestore for persistence
     _events: EventLog = PrivateAttr()  # now the storage for events
     _autosave_enabled: bool = PrivateAttr(
         default=False
@@ -116,7 +117,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         return self._secrets_manager
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====
-    def _save_base_state(self, fs: LocalFileStore) -> None:
+    def _save_base_state(self, fs: FileStore) -> None:
         """
         Persist base state snapshot (no events; events are file-backed).
         """
@@ -130,7 +131,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         id: ConversationID,
         agent: AgentBase,
         working_dir: str,
-        persistence_dir: str,
+        persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
     ) -> "ConversationState":
@@ -139,7 +140,9 @@ class ConversationState(OpenHandsModel, FIFOLock):
             reconcile agent, enforce id).
         Else: create fresh (agent required), persist base, and return.
         """
-        file_store = LocalFileStore(persistence_dir)
+        file_store = (
+            LocalFileStore(persistence_dir) if persistence_dir else InMemoryFileStore()
+        )
 
         try:
             base_text = file_store.read(BASE_STATE)

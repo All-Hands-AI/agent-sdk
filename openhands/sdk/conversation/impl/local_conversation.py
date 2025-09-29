@@ -1,4 +1,3 @@
-import os
 import uuid
 from collections.abc import Iterable
 
@@ -41,8 +40,8 @@ class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        working_dir: str = "workspace/project",
-        persistence_dir: str = "workspace/conversations",
+        working_dir: str,
+        persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -65,8 +64,6 @@ class LocalConversation(BaseConversation):
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
             stuck_detection: Whether to enable stuck detection
-            working_dir: Optional working directory for agent operations and tool
-                        execution
         """
         self.agent = agent
 
@@ -76,7 +73,9 @@ class LocalConversation(BaseConversation):
             id=desired_id,
             agent=agent,
             working_dir=working_dir,
-            persistence_dir=os.path.join(persistence_dir, str(desired_id)),
+            persistence_dir=self.get_persistence_dir(persistence_dir, desired_id)
+            if persistence_dir
+            else None,
             max_iterations=max_iteration_per_run,
             stuck_detection=stuck_detection,
         )

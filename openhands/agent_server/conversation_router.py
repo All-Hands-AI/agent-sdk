@@ -44,7 +44,6 @@ START_CONVERSATION_EXAMPLES = [
             ],
         ),
         working_dir="workspace/project",
-        persistence_dir="workspace/conversations",
         initial_message=SendMessageRequest(
             role="user", content=[TextContent(text="Flip a coin!")]
         ),

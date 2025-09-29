@@ -39,7 +39,7 @@ class Conversation:
         agent: AgentBase,
         *,
         working_dir: str = "workspace/project",
-        persistence_dir: str = "workspace/conversations",
+        persistence_dir: str | None = "workspace/conversations",
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -54,7 +54,6 @@ class Conversation:
         *,
         host: str,
         working_dir: str = "workspace/project",
-        persistence_dir: str = "workspace/conversations",
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -69,7 +68,7 @@ class Conversation:
         *,
         host: str | None = None,
         working_dir: str = "workspace/project",
-        persistence_dir: str = "workspace/conversations",
+        persistence_dir: str | None = "workspace/conversations",
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -83,6 +82,10 @@ class Conversation:
         )
 
         if host:
+            if persistence_dir:
+                raise ValueError(
+                    "persistence_dir should not be set when using RemoteConversation"
+                )
             return RemoteConversation(
                 agent=agent,
                 host=host,
@@ -93,7 +96,6 @@ class Conversation:
                 stuck_detection=stuck_detection,
                 visualize=visualize,
                 working_dir=working_dir,
-                persistence_dir=persistence_dir,
             )
 
         return LocalConversation(
