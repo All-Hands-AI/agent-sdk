@@ -23,28 +23,6 @@ else:
 logger = get_logger(__name__)
 
 
-def _is_vnc_environment() -> bool:
-    """Check if we're running in a VNC environment.
-
-    Returns:
-        True if VNC environment is detected, False otherwise
-    """
-    # Check for DISPLAY environment variable (indicates X11 is available)
-    display = os.environ.get("DISPLAY")
-    if display and display.startswith(":"):
-        return True
-
-    if os.environ.get("CI", "").lower() == "true":
-        return False
-
-    # Also check for common VNC environment indicators
-    if os.path.exists("/tmp/.X11-unix") or os.path.exists("/home/openhands/.vnc"):
-        logger.info("VNC environment indicators found")
-        return True
-
-    return False
-
-
 def _check_chromium_available() -> str | None:
     """Check if a Chromium/Chrome binary is available in PATH."""
     for binary in ("chromium", "chromium-browser", "google-chrome", "chrome"):
@@ -163,11 +141,9 @@ class BrowserToolExecutor(ToolExecutor):
             self._server = CustomBrowserUseServer(
                 session_timeout_minutes=session_timeout_minutes,
             )
-            if _is_vnc_environment():
-                logger.info(
-                    "VNC environment detected - running browser in non-headless mode"
-                )
-                headless = False
+            if os.getenv("ENABLE_VNC", "false").lower() in {"true", "1", "yes"}:
+                headless = False  # Force headless off if VNC is enabled
+                logger.info("VNC is enabled - running browser in non-headless mode")
 
             self._config = {
                 "headless": headless,
