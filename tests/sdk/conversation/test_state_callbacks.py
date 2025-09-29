@@ -23,26 +23,29 @@ def _create_test_state():
 
 
 def test_state_change_callback_registration():
-    """Test that callbacks can be registered and removed."""
+    """Test that callback can be set and removed."""
     state = _create_test_state()
 
     callback = Mock()
 
-    # Test adding callback
-    state.add_state_change_callback(callback)
-    assert callback in state._state_change_callbacks
+    # Initially no callback
+    assert state._on_state_change is None
 
-    # Test removing callback
-    state.remove_state_change_callback(callback)
-    assert callback not in state._state_change_callbacks
+    # Set callback
+    state.set_on_state_change(callback)
+    assert state._on_state_change is callback
+
+    # Remove callback
+    state.set_on_state_change(None)
+    assert state._on_state_change is None
 
 
 def test_state_change_callback_called():
-    """Test that callbacks are called when state changes."""
+    """Test that callback is called when state changes."""
     state = _create_test_state()
 
     callback = Mock()
-    state.add_state_change_callback(callback)
+    state.set_on_state_change(callback)
 
     # Change a state field
     old_status = state.agent_status
@@ -54,11 +57,11 @@ def test_state_change_callback_called():
 
 
 def test_state_change_callback_not_called_for_same_value():
-    """Test that callbacks are not called when setting the same value."""
+    """Test that callback is not called when setting the same value."""
     state = _create_test_state()
 
     callback = Mock()
-    state.add_state_change_callback(callback)
+    state.set_on_state_change(callback)
 
     # Set the same value
     current_status = state.agent_status
@@ -69,11 +72,11 @@ def test_state_change_callback_not_called_for_same_value():
 
 
 def test_state_change_callback_not_called_for_private_attrs():
-    """Test that callbacks are not called for private attributes."""
+    """Test that callback is not called for private attributes."""
     state = _create_test_state()
 
     callback = Mock()
-    state.add_state_change_callback(callback)
+    state.set_on_state_change(callback)
 
     # Change a private attribute
     state._autosave_enabled = False
@@ -86,41 +89,15 @@ def test_state_change_callback_exception_handling():
     """Test that callback exceptions are handled gracefully."""
     state = _create_test_state()
 
-    # Add a callback that raises an exception
+    # Set a callback that raises an exception
     failing_callback = Mock(side_effect=Exception("Test exception"))
-    working_callback = Mock()
-
-    state.add_state_change_callback(failing_callback)
-    state.add_state_change_callback(working_callback)
+    state.set_on_state_change(failing_callback)
 
     # Change a state field - should not raise exception
     state.agent_status = AgentExecutionStatus.RUNNING
 
-    # Both callbacks should have been called
+    # Callback should have been called
     assert failing_callback.called
-    assert working_callback.called
-
-
-def test_multiple_callbacks():
-    """Test that multiple callbacks are all called."""
-    state = _create_test_state()
-
-    callback1 = Mock()
-    callback2 = Mock()
-    callback3 = Mock()
-
-    state.add_state_change_callback(callback1)
-    state.add_state_change_callback(callback2)
-    state.add_state_change_callback(callback3)
-
-    # Change a state field
-    old_status = state.agent_status
-    new_status = AgentExecutionStatus.PAUSED
-    state.agent_status = new_status
-
-    # All callbacks should be called
-    for callback in [callback1, callback2, callback3]:
-        callback.assert_called_once_with("agent_status", old_status, new_status)
 
 
 def test_callback_with_confirmation_policy_change():
@@ -128,7 +105,7 @@ def test_callback_with_confirmation_policy_change():
     state = _create_test_state()
 
     callback = Mock()
-    state.add_state_change_callback(callback)
+    state.set_on_state_change(callback)
 
     # Change confirmation policy
     old_policy = state.confirmation_policy

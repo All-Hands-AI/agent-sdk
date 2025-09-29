@@ -207,7 +207,7 @@ class EventService:
 
         # Register state change callback to automatically publish updates
         with self._conversation._state as state:
-            state.add_state_change_callback(self._on_state_change)
+            state.set_on_state_change(self._on_state_change)
 
         # Publish initial state update
         await self._publish_state_update()

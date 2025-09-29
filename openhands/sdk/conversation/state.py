@@ -92,9 +92,9 @@ class ConversationState(OpenHandsModel, FIFOLock):
     _autosave_enabled: bool = PrivateAttr(
         default=False
     )  # to avoid recursion during init
-    _state_change_callbacks: list[Callable[[str, Any, Any], None]] = PrivateAttr(
-        default_factory=list
-    )  # callbacks for state changes
+    _on_state_change: Callable[[str, Any, Any], None] | None = PrivateAttr(
+        default=None
+    )  # callback for state changes
 
     def model_post_init(self, __context) -> None:
         """Initialize FIFOLock after Pydantic model initialization."""
@@ -112,43 +112,31 @@ class ConversationState(OpenHandsModel, FIFOLock):
         return self._secrets_manager
 
     # ===== State change callback management =====
-    def add_state_change_callback(
-        self, callback: Callable[[str, Any, Any], None]
+    def set_on_state_change(
+        self, callback: Callable[[str, Any, Any], None] | None
     ) -> None:
         """
-        Add a callback that will be called when any state field changes.
+        Set a callback that will be called when any state field changes.
 
         Args:
-            callback: Function that takes (field_name, old_value, new_value)
+            callback: Function that takes (field_name, old_value, new_value), or None
         """
-        self._state_change_callbacks.append(callback)
-
-    def remove_state_change_callback(
-        self, callback: Callable[[str, Any, Any], None]
-    ) -> None:
-        """
-        Remove a previously added state change callback.
-
-        Args:
-            callback: The callback function to remove
-        """
-        if callback in self._state_change_callbacks:
-            self._state_change_callbacks.remove(callback)
+        self._on_state_change = callback
 
     def _notify_state_change(
         self, field_name: str, old_value: Any, new_value: Any
     ) -> None:
         """
-        Notify all registered callbacks about a state change.
+        Notify the registered callback about a state change.
 
         Args:
             field_name: Name of the field that changed
             old_value: Previous value of the field
             new_value: New value of the field
         """
-        for callback in self._state_change_callbacks:
+        if self._on_state_change:
             try:
-                callback(field_name, old_value, new_value)
+                self._on_state_change(field_name, old_value, new_value)
             except Exception as e:
                 logger.exception(
                     f"State change callback failed for field '{field_name}': {e}",
@@ -254,11 +242,11 @@ class ConversationState(OpenHandsModel, FIFOLock):
         autosave_enabled = getattr(self, "_autosave_enabled", False)
         fs = getattr(self, "_fs", None)
 
-        # Notify callbacks for field changes (even if autosave is disabled)
+        # Notify callback for field changes (even if autosave is disabled)
         if is_field and (old is _sentinel or old != value):
-            # Only notify if we have callbacks and this is not during initialization
-            callbacks = getattr(self, "_state_change_callbacks", [])
-            if callbacks and autosave_enabled:  # Only notify after initialization
+            # Only notify if we have a callback and this is not during initialization
+            callback = getattr(self, "_on_state_change", None)
+            if callback and autosave_enabled:  # Only notify after initialization
                 self._notify_state_change(
                     name, old if old is not _sentinel else None, value
                 )
