@@ -264,7 +264,7 @@ def test_metrics_formatting():
     from openhands.sdk.llm.utils.metrics import Metrics
 
     # Create conversation stats with metrics
-    stats = ConversationStats()
+    conversation_stats = ConversationStats()
 
     # Create metrics and add to conversation stats
     metrics = Metrics(model_name="test-model")
@@ -280,10 +280,10 @@ def test_metrics_formatting():
     )
 
     # Add metrics to conversation stats
-    stats.service_to_metrics["test_service"] = metrics
+    conversation_stats.service_to_metrics["test_service"] = metrics
 
     # Create visualizer with conversation stats
-    visualizer = ConversationVisualizer(stats=stats)
+    visualizer = ConversationVisualizer(conversation_stats=conversation_stats)
 
     # Test the metrics subtitle formatting
     subtitle = visualizer._format_metrics_subtitle()
