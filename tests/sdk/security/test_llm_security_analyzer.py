@@ -11,7 +11,7 @@ from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool import ActionBase
 
 
-class TestLlmSecurityAnalyzerMockAction(ActionBase):
+class LlmSecurityAnalyzerMockAction(ActionBase):
     """Mock action for testing."""
 
     command: str = "test_command"
@@ -48,7 +48,7 @@ def create_mock_action_event(
 def test_llm_security_analyzer_returns_stored_risk(risk_level: SecurityRisk):
     """Test that LLMSecurityAnalyzer returns the security_risk stored in the action event."""  # noqa: E501
     analyzer = LLMSecurityAnalyzer()
-    action = TestLlmSecurityAnalyzerMockAction(command="test")
+    action = LlmSecurityAnalyzerMockAction(command="test")
     action_event = create_mock_action_event(action, risk_level)
 
     result = analyzer.security_risk(action_event)

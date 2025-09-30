@@ -27,7 +27,6 @@ class BashEventService:
     """Service for executing bash events which are not added to the event stream and
     will not be visible to the agent."""
 
-    working_dir: Path = field()
     bash_events_dir: Path = field()
     _pub_sub: PubSub[BashEventBase] = field(
         default_factory=lambda: PubSub[BashEventBase](), init=False
@@ -368,7 +367,5 @@ def get_default_bash_event_service() -> BashEventService:
     from openhands.agent_server.config import get_default_config
 
     config = get_default_config()
-    _bash_event_service = BashEventService(
-        working_dir=config.workspace_path, bash_events_dir=config.bash_events_dir
-    )
+    _bash_event_service = BashEventService(bash_events_dir=config.bash_events_dir)
     return _bash_event_service

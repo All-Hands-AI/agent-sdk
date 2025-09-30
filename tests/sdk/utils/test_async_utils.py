@@ -12,7 +12,7 @@ from openhands.sdk.utils.async_utils import (
 )
 
 
-class TestAsyncUtilsMockEvent(EventBase):
+class AsyncUtilsMockEvent(EventBase):
     """Mock event for testing."""
 
     data: str = "test"
@@ -45,7 +45,7 @@ def test_async_callback_wrapper_basic():
         wrapper = AsyncCallbackWrapper(async_callback, loop)
 
         # Create and process event
-        event = TestAsyncUtilsMockEvent()
+        event = AsyncUtilsMockEvent()
         wrapper(event)
 
         # Wait a bit for the callback to execute
@@ -68,7 +68,7 @@ def test_async_callback_wrapper_multiple_events():
         loop = asyncio.get_running_loop()
         wrapper = AsyncCallbackWrapper(async_callback, loop)
 
-        events = [TestAsyncUtilsMockEvent() for _ in range(3)]
+        events = [AsyncUtilsMockEvent() for _ in range(3)]
 
         for event in events:
             wrapper(event)
@@ -95,7 +95,7 @@ def test_async_callback_wrapper_with_stopped_loop():
     loop = asyncio.new_event_loop()
     wrapper = AsyncCallbackWrapper(async_callback, loop)
 
-    event = TestAsyncUtilsMockEvent()
+    event = AsyncUtilsMockEvent()
 
     # This should not execute the callback since loop is not running
     wrapper(event)
@@ -119,7 +119,7 @@ def test_async_callback_wrapper_exception_handling():
         loop = asyncio.get_running_loop()
         wrapper = AsyncCallbackWrapper(failing_callback, loop)
 
-        event = TestAsyncUtilsMockEvent()
+        event = AsyncUtilsMockEvent()
 
         # This should not raise an exception in the calling thread
         wrapper(event)
@@ -148,7 +148,7 @@ def test_async_callback_wrapper_concurrent_execution():
         loop = asyncio.get_running_loop()
         wrapper = AsyncCallbackWrapper(async_callback, loop)
 
-        events = [TestAsyncUtilsMockEvent() for _ in range(5)]
+        events = [AsyncUtilsMockEvent() for _ in range(5)]
 
         # Submit all events quickly
         for event in events:
@@ -184,7 +184,7 @@ def test_async_callback_wrapper_from_different_thread():
     def thread_function(wrapper):
         """Function to run in a separate thread."""
         try:
-            event = TestAsyncUtilsMockEvent()
+            event = AsyncUtilsMockEvent()
             wrapper(event)
         except Exception as e:
             nonlocal exception_caught
@@ -220,7 +220,7 @@ def test_async_callback_wrapper_performance():
         loop = asyncio.get_running_loop()
         wrapper = AsyncCallbackWrapper(simple_callback, loop)
 
-        events = [TestAsyncUtilsMockEvent() for _ in range(100)]
+        events = [AsyncUtilsMockEvent() for _ in range(100)]
 
         start_time = time.time()
         for event in events:
