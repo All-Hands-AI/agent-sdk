@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.types import ConversationID
+from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.llm.message import Message
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -106,3 +107,23 @@ class BaseConversation(ABC):
     ) -> str:
         """Get the persistence directory for the conversation."""
         return str(Path(persistence_base_dir) / str(conversation_id))
+
+    @staticmethod
+    def compose_callbacks(
+        callbacks: Iterable[ConversationCallbackType],
+    ) -> ConversationCallbackType:
+        """Compose multiple callbacks into a single callback function.
+
+        Args:
+            callbacks: An iterable of callback functions
+
+        Returns:
+            A single callback function that calls all provided callbacks
+        """
+
+        def composed(event) -> None:
+            for cb in callbacks:
+                if cb:
+                    cb(event)
+
+        return composed

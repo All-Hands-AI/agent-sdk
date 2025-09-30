@@ -34,12 +34,12 @@ class WebSocketCallbackClient:
         self,
         host: str,
         conversation_id: str,
-        callbacks: list[ConversationCallbackType],
+        callback: ConversationCallbackType,
         api_key: str | None = None,
     ):
         self.host = host
         self.conversation_id = conversation_id
-        self.callbacks = callbacks
+        self.callback = callback
         self.api_key = api_key
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -88,8 +88,7 @@ class WebSocketCallbackClient:
                             break
                         try:
                             event = EventBase.model_validate(json.loads(message))
-                            for cb in self.callbacks:
-                                cb(event)
+                            self.callback(event)
                         except Exception:
                             logger.exception(
                                 "ws_event_processing_error", stack_info=True
@@ -387,11 +386,14 @@ class RemoteConversation(BaseConversation):
         else:
             self._visualizer = None
 
+        # Compose all callbacks into a single callback
+        composed_callback = BaseConversation.compose_callbacks(self._callbacks)
+
         # Initialize WebSocket client for callbacks
         self._ws_client = WebSocketCallbackClient(
             host=self._host,
             conversation_id=str(self._id),
-            callbacks=self._callbacks,
+            callback=composed_callback,
             api_key=self._api_key,
         )
         self._ws_client.start()
