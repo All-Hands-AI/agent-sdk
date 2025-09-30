@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 import subprocess
 import sys
 import threading
@@ -16,55 +15,10 @@ from openhands.sdk.sandbox.port_utils import (
     check_port_available,
     find_available_tcp_port,
 )
+from openhands.sdk.utils.command import execute_command
 
 
 logger = get_logger(__name__)
-
-
-def _run(
-    cmd: list[str] | str,
-    env: dict[str, str] | None = None,
-    cwd: str | None = None,
-) -> subprocess.CompletedProcess:
-    if isinstance(cmd, str):
-        cmd_list = shlex.split(cmd)
-    else:
-        cmd_list = cmd
-    logger.info("$ %s", " ".join(shlex.quote(c) for c in cmd_list))
-
-    proc = subprocess.Popen(
-        cmd_list,
-        cwd=cwd,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-    )
-    if proc is None:
-        raise RuntimeError("Failed to start process")
-
-    # Read line by line, echo to parent stdout/stderr
-    stdout_lines: list[str] = []
-    stderr_lines: list[str] = []
-    if proc.stdout is None or proc.stderr is None:
-        raise RuntimeError("Failed to capture stdout/stderr")
-
-    for line in proc.stdout:
-        sys.stdout.write(line)
-        stdout_lines.append(line)
-    for line in proc.stderr:
-        sys.stderr.write(line)
-        stderr_lines.append(line)
-
-    proc.wait()
-
-    return subprocess.CompletedProcess(
-        cmd_list,
-        proc.returncode,
-        "".join(stdout_lines),
-        "".join(stderr_lines),
-    )
 
 
 def _parse_build_tags(build_stdout: str) -> list[str]:
@@ -100,14 +54,14 @@ def _resolve_build_script() -> Path | None:
     except Exception:
         pass
 
-    # Try common project layouts relative to this file and CWD
+    # Try common project layouts relative to CWD and this file
     candidates: list[Path] = [
+        Path.cwd() / "openhands" / "agent_server" / "docker" / "build.sh",
         Path(__file__).resolve().parents[3]
         / "openhands"
         / "agent_server"
         / "docker"
         / "build.sh",
-        Path.cwd() / "openhands" / "agent_server" / "docker" / "build.sh",
     ]
     for c in candidates:
         if c.exists():
@@ -161,7 +115,7 @@ def build_agent_server_image(
     if not project_root:
         project_root = str(Path(__file__).resolve().parents[3])
 
-    proc = _run(["bash", str(script_path)], env=env, cwd=project_root)
+    proc = execute_command(["bash", str(script_path)], env=env, cwd=project_root)
 
     if proc.returncode != 0:
         msg = (
@@ -233,7 +187,7 @@ class DockerSandboxedAgentServer:
 
     def __enter__(self) -> DockerSandboxedAgentServer:
         # Ensure docker exists
-        docker_ver = _run(["docker", "version"]).returncode
+        docker_ver = execute_command(["docker", "version"]).returncode
         if docker_ver != 0:
             raise RuntimeError(
                 "Docker is not available. Please install and start "
@@ -291,7 +245,7 @@ class DockerSandboxedAgentServer:
             "--port",
             "8000",
         ]
-        proc = _run(run_cmd)
+        proc = execute_command(run_cmd)
         if proc.returncode != 0:
             raise RuntimeError(f"Failed to run docker container: {proc.stderr}")
 
@@ -349,11 +303,11 @@ class DockerSandboxedAgentServer:
                 pass
             # Check if container is still running
             if self.container_id:
-                ps = _run(
+                ps = execute_command(
                     ["docker", "inspect", "-f", "{{.State.Running}}", self.container_id]
                 )
                 if ps.stdout.strip() != "true":
-                    logs = _run(["docker", "logs", self.container_id])
+                    logs = execute_command(["docker", "logs", self.container_id])
                     msg = (
                         "Container stopped unexpectedly. Logs:\n"
                         f"{logs.stdout}\n{logs.stderr}"
@@ -365,7 +319,7 @@ class DockerSandboxedAgentServer:
     def __exit__(self, exc_type, exc, tb) -> None:
         if self.container_id:
             try:
-                _run(["docker", "rm", "-f", self.container_id])
+                execute_command(["docker", "rm", "-f", self.container_id])
             except Exception:
                 pass
         if self._logs_thread:

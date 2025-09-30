@@ -15,6 +15,7 @@ from openhands.agent_server.models import (
 from openhands.sdk import LLM, Agent
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import NeverConfirm
+from openhands.sdk.workspace import LocalWorkspace
 
 
 @pytest.fixture
@@ -30,12 +31,12 @@ def sample_stored_conversation():
     return StoredConversation(
         id=uuid4(),
         agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+        workspace=LocalWorkspace(working_dir="workspace/project"),
         confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
         created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
         updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=UTC),
-        working_dir="workspace/project",
     )
 
 
@@ -81,6 +82,7 @@ class TestConversationServiceSearchConversations:
         mock_state = ConversationState(
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
+            workspace=sample_stored_conversation.workspace,
             agent_status=AgentExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
@@ -111,6 +113,7 @@ class TestConversationServiceSearchConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir="workspace/project"),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -123,6 +126,7 @@ class TestConversationServiceSearchConversations:
             mock_state = ConversationState(
                 id=stored_conv.id,
                 agent=stored_conv.agent,
+                workspace=stored_conv.workspace,
                 agent_status=status,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
@@ -161,6 +165,7 @@ class TestConversationServiceSearchConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir="workspace/project"),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -175,6 +180,7 @@ class TestConversationServiceSearchConversations:
             mock_state = ConversationState(
                 id=stored_conv.id,
                 agent=stored_conv.agent,
+                workspace=stored_conv.workspace,
                 agent_status=AgentExecutionStatus.IDLE,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
@@ -236,6 +242,7 @@ class TestConversationServiceSearchConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir="workspace/project"),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -248,6 +255,7 @@ class TestConversationServiceSearchConversations:
             mock_state = ConversationState(
                 id=stored_conv.id,
                 agent=stored_conv.agent,
+                workspace=stored_conv.workspace,
                 agent_status=AgentExecutionStatus.IDLE,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
@@ -304,6 +312,7 @@ class TestConversationServiceSearchConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir="workspace/project"),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -316,6 +325,7 @@ class TestConversationServiceSearchConversations:
             mock_state = ConversationState(
                 id=stored_conv.id,
                 agent=stored_conv.agent,
+                workspace=stored_conv.workspace,
                 agent_status=status,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
@@ -343,6 +353,7 @@ class TestConversationServiceSearchConversations:
         mock_state = ConversationState(
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
+            workspace=sample_stored_conversation.workspace,
             agent_status=AgentExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
@@ -391,6 +402,7 @@ class TestConversationServiceCountConversations:
         mock_state = ConversationState(
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
+            workspace=sample_stored_conversation.workspace,
             agent_status=AgentExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
@@ -417,6 +429,7 @@ class TestConversationServiceCountConversations:
             stored_conv = StoredConversation(
                 id=uuid4(),
                 agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir="workspace/project"),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -429,6 +442,7 @@ class TestConversationServiceCountConversations:
             mock_state = ConversationState(
                 id=stored_conv.id,
                 agent=stored_conv.agent,
+                workspace=stored_conv.workspace,
                 agent_status=status,
                 confirmation_policy=stored_conv.confirmation_policy,
             )

@@ -3,6 +3,7 @@ import operator
 from collections.abc import Iterator
 from typing import SupportsIndex, overload
 
+from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.persistence_const import (
     EVENT_FILE_PATTERN,
     EVENT_NAME_RE,
@@ -11,13 +12,12 @@ from openhands.sdk.conversation.persistence_const import (
 from openhands.sdk.event import EventBase, EventID
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
 
 
-class EventLog(ListLike[EventBase]):
+class EventLog(EventsListBase):
     def __init__(self, fs: FileStore, dir_path: str = EVENTS_DIR) -> None:
         self._fs = fs
         self._dir = dir_path
@@ -41,15 +41,19 @@ class EventLog(ListLike[EventBase]):
         return self._idx_to_id[idx]
 
     @overload
-    def __getitem__(self, idx: SupportsIndex, /) -> EventBase: ...
-    @overload
-    def __getitem__(self, idx: slice, /) -> list[EventBase]: ...
+    def __getitem__(self, idx: int) -> EventBase: ...
 
-    def __getitem__(self, idx: SupportsIndex | slice, /) -> EventBase | list[EventBase]:
+    @overload
+    def __getitem__(self, idx: slice) -> list[EventBase]: ...
+
+    def __getitem__(self, idx: SupportsIndex | slice) -> EventBase | list[EventBase]:
         if isinstance(idx, slice):
             start, stop, step = idx.indices(self._length)
-            return [self[i] for i in range(start, stop, step)]
+            return [self._get_single_item(i) for i in range(start, stop, step)]
         # idx is int-like (SupportsIndex)
+        return self._get_single_item(idx)
+
+    def _get_single_item(self, idx: SupportsIndex) -> EventBase:
         i = operator.index(idx)
         if i < 0:
             i += self._length
@@ -73,8 +77,8 @@ class EventLog(ListLike[EventBase]):
                 self._id_to_idx.setdefault(evt_id, i)
             yield evt
 
-    def append(self, item: EventBase) -> None:
-        evt_id = item.id
+    def append(self, event: EventBase) -> None:
+        evt_id = event.id
         # Check for duplicate ID
         if evt_id in self._id_to_idx:
             existing_idx = self._id_to_idx[evt_id]
@@ -83,7 +87,7 @@ class EventLog(ListLike[EventBase]):
             )
 
         path = self._path(self._length, event_id=evt_id)
-        self._fs.write(path, item.model_dump_json(exclude_none=True))
+        self._fs.write(path, event.model_dump_json(exclude_none=True))
         self._idx_to_id[self._length] = evt_id
         self._id_to_idx[evt_id] = self._length
         self._length += 1

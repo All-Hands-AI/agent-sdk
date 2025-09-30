@@ -1,6 +1,6 @@
 # state.py
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -22,7 +22,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import OpenHandsModel
-from openhands.sdk.utils.protocol import ListLike
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 logger = get_logger(__name__)
@@ -59,8 +59,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
-    working_dir: str = Field(
-        default="workspace/project",
+    workspace: BaseWorkspace = Field(
+        ...,
         description="Working directory for agent operations and tool execution",
     )
     persistence_dir: str | None = Field(
@@ -111,9 +111,9 @@ class ConversationState(OpenHandsModel, FIFOLock):
         # Initialize FIFOLock
         FIFOLock.__init__(self)
 
-    # ===== Public "events" facade (ListLike[Event]) =====
+    # ===== Public "events" facade (Sequence[Event]) =====
     @property
-    def events(self) -> ListLike[EventBase]:
+    def events(self) -> EventLog:
         return self._events
 
     @property
@@ -146,7 +146,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
-        working_dir: str,
+        workspace: BaseWorkspace,
         persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
@@ -203,7 +203,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         state = cls(
             id=id,
             agent=agent,
-            working_dir=working_dir,
+            workspace=workspace,
             persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
@@ -256,7 +256,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
                     )
 
     @staticmethod
-    def get_unmatched_actions(events: ListLike[EventBase]) -> list[ActionEvent]:
+    def get_unmatched_actions(events: Sequence[EventBase]) -> list[ActionEvent]:
         """Find actions in the event history that don't have matching observations.
 
         This method identifies ActionEvents that don't have corresponding

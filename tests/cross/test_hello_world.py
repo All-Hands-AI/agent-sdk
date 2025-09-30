@@ -177,7 +177,7 @@ class TestHelloWorld:
         # Conversation setup
         conversation = Conversation(
             agent=agent,
-            working_dir=self.temp_dir,
+            workspace=self.temp_dir,
             callbacks=[self.conversation_callback],
         )
 
@@ -295,7 +295,7 @@ class TestHelloWorld:
         agent = Agent(llm=llm, tools=tool_specs)
         conversation = Conversation(
             agent=agent,
-            working_dir=self.temp_dir,
+            workspace=self.temp_dir,
             callbacks=[self.conversation_callback],
         )
 

@@ -64,7 +64,7 @@ def conversation_callback(event: EventBase) -> None:
 
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
 )
 
 IMAGE_URL = (

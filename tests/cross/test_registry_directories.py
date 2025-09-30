@@ -70,7 +70,7 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         conversation = Conversation(
             agent=test_agent,
             persistence_dir=persistence_dir,
-            working_dir=working_dir,
+            workspace=working_dir,
         )
 
         # Test BashTool

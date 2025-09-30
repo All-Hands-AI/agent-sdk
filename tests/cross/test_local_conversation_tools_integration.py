@@ -33,7 +33,7 @@ def test_conversation_with_different_agent_tools_raises_error():
         original_agent = Agent(llm=llm, tools=original_tools)
         conversation = LocalConversation(
             agent=original_agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             persistence_dir=temp_dir,
             visualize=False,
         )
@@ -62,7 +62,7 @@ def test_conversation_with_different_agent_tools_raises_error():
         ):
             LocalConversation(
                 agent=different_agent,
-                working_dir=temp_dir,
+                workspace=temp_dir,
                 persistence_dir=temp_dir,
                 conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
                 visualize=False,
@@ -83,7 +83,7 @@ def test_conversation_with_same_agent_succeeds():
         original_agent = Agent(llm=llm, tools=tools)
         conversation = LocalConversation(
             agent=original_agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             persistence_dir=temp_dir,
             visualize=False,
         )
@@ -112,7 +112,7 @@ def test_conversation_with_same_agent_succeeds():
         # This should succeed
         new_conversation = LocalConversation(
             agent=same_agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             persistence_dir=temp_dir,
             conversation_id=conversation_id,  # Use same ID
             visualize=False,
@@ -145,7 +145,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
 
         # Create conversation and send messages
         conversation = LocalConversation(
-            agent=agent, working_dir=temp_dir, persistence_dir=temp_dir, visualize=False
+            agent=agent, workspace=temp_dir, persistence_dir=temp_dir, visualize=False
         )
 
         # Send first message
@@ -173,7 +173,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
         # Create new conversation (should load from persistence)
         new_conversation = LocalConversation(
             agent=agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             persistence_dir=temp_dir,
             conversation_id=original_id,  # Use same ID to load existing state
             visualize=False,

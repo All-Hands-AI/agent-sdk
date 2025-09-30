@@ -60,7 +60,7 @@ persistence_dir = "./.conversations"
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    working_dir=cwd,
+    workspace=cwd,
     persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
@@ -88,7 +88,7 @@ print("Deserializing conversation...")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    working_dir=cwd,
+    workspace=cwd,
     persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
