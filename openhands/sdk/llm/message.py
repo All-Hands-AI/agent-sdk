@@ -28,6 +28,17 @@ class ThinkingBlock(BaseModel):
     )
 
 
+class RedactedThinkingBlock(BaseModel):
+    """Redacted thinking block for previous responses without extended thinking.
+
+    This is used as a placeholder for assistant messages that were generated
+    before extended thinking was enabled.
+    """
+
+    type: Literal["redacted_thinking"] = "redacted_thinking"
+    thinking: str = Field(..., description="The redacted thinking content")
+
+
 class BaseContent(BaseModel):
     cache_prompt: bool = False
 
@@ -102,7 +113,7 @@ class Message(BaseModel):
         description="Intermediate reasoning/thinking content from reasoning models",
     )
     # Anthropic-specific thinking blocks (not normalized by LiteLLM)
-    thinking_blocks: list[ThinkingBlock] = Field(
+    thinking_blocks: Sequence[ThinkingBlock | RedactedThinkingBlock] = Field(
         default_factory=list,
         description="Raw Anthropic thinking blocks for extended thinking feature",
     )

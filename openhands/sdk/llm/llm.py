@@ -556,12 +556,18 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 if self.reasoning_effort in {None, "none"}:
                     out["reasoning_effort"] = "low"
 
-        # Anthropic Opus 4.1: prefer temperature when
-        # both provided; disable extended thinking
-        if "claude-opus-4-1" in self.model.lower():
-            if "temperature" in out and "top_p" in out:
-                out.pop("top_p", None)
-            out.setdefault("thinking", {"type": "disabled"})
+        # Anthropic models: handle thinking parameter
+        if "anthropic" in self.model.lower():
+            if "claude-opus-4-1" in self.model.lower():
+                # Opus 4.1: prefer temperature when both provided
+                if "temperature" in out and "top_p" in out:
+                    out.pop("top_p", None)
+                out.setdefault("thinking", {"type": "disabled"})
+            elif self.reasoning_effort is not None and self.reasoning_effort != "none":
+                # Other Anthropic models: enable thinking when reasoning_effort is set
+                out["thinking"] = {"type": "enabled", "budget_tokens": 16000}
+                # When thinking is enabled, temperature must be 1
+                out["temperature"] = 1
 
         # Mistral / Gemini safety
         if self.safety_settings:
@@ -742,6 +748,23 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         messages = copy.deepcopy(messages)
         if self.is_caching_prompt_active():
             self._apply_prompt_caching(messages)
+
+        # When thinking is enabled for Anthropic models, all assistant messages
+        # must have thinking blocks. Add placeholder blocks to existing messages.
+        if (
+            self.reasoning_effort is not None
+            and self.reasoning_effort != "none"
+            and "anthropic" in self.model.lower()
+        ):
+            for msg in messages:
+                if msg.role == "assistant" and not msg.thinking_blocks:
+                    # Add placeholder thinking block for existing assistant messages
+                    from openhands.sdk.llm.message import RedactedThinkingBlock
+
+                    placeholder_thinking = RedactedThinkingBlock(
+                        thinking="[Previous response without extended thinking]"
+                    )
+                    msg.thinking_blocks = [placeholder_thinking]
 
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()

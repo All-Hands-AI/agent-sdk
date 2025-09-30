@@ -86,6 +86,10 @@ def test_message_with_thinking_blocks():
     assert (
         message.thinking_blocks[0].thinking == "Let me think about this step by step..."
     )
+    # Type assertion since we know this is a ThinkingBlock
+    from openhands.sdk.llm.message import ThinkingBlock
+
+    assert isinstance(message.thinking_blocks[0], ThinkingBlock)
     assert message.thinking_blocks[0].signature == "sig123"
 
 
@@ -127,6 +131,10 @@ def test_message_from_litellm_message_with_thinking():
     # Check thinking blocks
     assert len(message.thinking_blocks) == 1
     assert message.thinking_blocks[0].thinking == "Let me analyze this problem..."
+    # Type assertion since we know this is a ThinkingBlock from LiteLLM
+    from openhands.sdk.llm.message import ThinkingBlock
+
+    assert isinstance(message.thinking_blocks[0], ThinkingBlock)
     assert message.thinking_blocks[0].signature == "hash_456"
 
 
@@ -307,6 +315,10 @@ def test_multiple_thinking_blocks():
     assert message.thinking_blocks[0].thinking == "First reasoning step"
     assert message.thinking_blocks[1].thinking == "Second reasoning step"
     assert message.thinking_blocks[2].thinking == "Final reasoning step"
+    # Type assertion since we know this is a ThinkingBlock (created without signature)
+    from openhands.sdk.llm.message import ThinkingBlock
+
+    assert isinstance(message.thinking_blocks[2], ThinkingBlock)
     assert message.thinking_blocks[2].signature is None
 
     # Test serialization
@@ -315,3 +327,122 @@ def test_multiple_thinking_blocks():
     assert len(content_list) == 4  # 3 thinking blocks + 1 text content
     assert all(item["type"] == "thinking" for item in content_list[:3])
     assert content_list[3]["type"] == "text"
+
+
+def test_llm_ensures_thinking_blocks_for_anthropic():
+    """Test that LLM automatically adds thinking blocks for Anthropic models."""
+    from pydantic import SecretStr
+
+    from openhands.sdk.llm.llm import LLM
+    from openhands.sdk.llm.message import Message, TextContent
+
+    # Create LLM with Anthropic model and reasoning effort
+    llm = LLM(
+        service_id="test",
+        model="anthropic/claude-sonnet-4-5",
+        reasoning_effort="medium",
+        api_key=SecretStr("test-key"),
+    )
+
+    # Create messages without thinking blocks
+    messages = [
+        Message(
+            role="system", content=[TextContent(text="You are a helpful assistant.")]
+        ),
+        Message(role="user", content=[TextContent(text="Hello!")]),
+        Message(role="assistant", content=[TextContent(text="Hi there!")]),
+        Message(role="user", content=[TextContent(text="How are you?")]),
+        Message(
+            role="assistant", content=[TextContent(text="I'm doing well, thanks!")]
+        ),
+    ]
+
+    # Format messages for LLM - this should add thinking blocks to assistant messages
+    formatted_messages = llm.format_messages_for_llm(messages)
+
+    # Check that assistant messages now have thinking blocks
+    for i, formatted_msg in enumerate(formatted_messages):
+        if formatted_msg["role"] == "assistant":
+            content = formatted_msg["content"]
+            # First item should be a redacted thinking block (placeholder)
+            assert content[0]["type"] == "redacted_thinking"
+            assert "thinking" in content[0]
+            # Second item should be the original text content
+            assert content[1]["type"] == "text"
+
+
+def test_llm_preserves_existing_thinking_blocks():
+    """Test that LLM preserves existing thinking blocks and doesn't add duplicates."""
+    from pydantic import SecretStr
+
+    from openhands.sdk.llm.llm import LLM
+    from openhands.sdk.llm.message import Message, TextContent, ThinkingBlock
+
+    # Create LLM with Anthropic model and reasoning effort
+    llm = LLM(
+        service_id="test",
+        model="anthropic/claude-sonnet-4-5",
+        reasoning_effort="high",
+        api_key=SecretStr("test-key"),
+    )
+
+    # Create message with existing thinking block
+    existing_thinking = ThinkingBlock(
+        thinking="I already have a thinking block", signature="existing_sig"
+    )
+
+    messages = [
+        Message(
+            role="assistant",
+            content=[TextContent(text="Response with existing thinking")],
+            thinking_blocks=[existing_thinking],
+        ),
+    ]
+
+    # Format messages for LLM
+    formatted_messages = llm.format_messages_for_llm(messages)
+
+    # Check that the existing thinking block is preserved and no duplicate is added
+    content = formatted_messages[0]["content"]
+    thinking_blocks = [item for item in content if item["type"] == "thinking"]
+
+    assert len(thinking_blocks) == 1
+    assert thinking_blocks[0]["thinking"] == "I already have a thinking block"
+    assert thinking_blocks[0]["signature"] == "existing_sig"
+
+
+def test_llm_no_thinking_blocks_for_non_anthropic():
+    """Test that non-Anthropic models don't get automatic thinking blocks."""
+    from pydantic import SecretStr
+
+    from openhands.sdk.llm.llm import LLM
+    from openhands.sdk.llm.message import Message, TextContent
+
+    # Create LLM with non-Anthropic model
+    llm = LLM(
+        service_id="test",
+        model="openai/gpt-4",
+        reasoning_effort="medium",
+        api_key=SecretStr("test-key"),
+    )
+
+    # Create assistant message without thinking blocks
+    messages = [
+        Message(role="assistant", content=[TextContent(text="Hello!")]),
+    ]
+
+    # Format messages for LLM
+    formatted_messages = llm.format_messages_for_llm(messages)
+
+    # Check that no thinking blocks were added
+    content = formatted_messages[0]["content"]
+
+    # For non-Anthropic models, content might be a string instead of a list
+    if isinstance(content, str):
+        # String format - no thinking blocks possible
+        assert "thinking" not in content.lower()
+    else:
+        # List format - check for thinking blocks
+        thinking_blocks = [item for item in content if item.get("type") == "thinking"]
+        assert len(thinking_blocks) == 0
+        assert content[0]["type"] == "text"
