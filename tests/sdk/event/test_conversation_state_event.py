@@ -83,7 +83,7 @@ def test_validate_key_allows_valid_state_fields():
 
 def test_from_conversation_state_creates_full_snapshot(state):
     """Test that from_conversation_state creates a full state snapshot."""
-    event = ConversationStateUpdateEvent.from_conversation_state(state, str(state.id))
+    event = ConversationStateUpdateEvent.from_conversation_state(state)
 
     assert event.key == "full_state"
     assert isinstance(event.value, dict)
@@ -99,7 +99,7 @@ def test_from_conversation_state_serializes_agent_status(state):
     with state:
         state.agent_status = AgentExecutionStatus.RUNNING
 
-    event = ConversationStateUpdateEvent.from_conversation_state(state, str(state.id))
+    event = ConversationStateUpdateEvent.from_conversation_state(state)
 
     assert event.value["agent_status"] == "running"
 
@@ -109,14 +109,14 @@ def test_from_conversation_state_serializes_confirmation_policy(state):
     with state:
         state.confirmation_policy = NeverConfirm()
 
-    event = ConversationStateUpdateEvent.from_conversation_state(state, str(state.id))
+    event = ConversationStateUpdateEvent.from_conversation_state(state)
 
     assert event.value["confirmation_policy"] == {"kind": "NeverConfirm"}
 
 
 def test_from_conversation_state_serializes_agent(state):
     """Test that agent configuration is properly serialized."""
-    event = ConversationStateUpdateEvent.from_conversation_state(state, str(state.id))
+    event = ConversationStateUpdateEvent.from_conversation_state(state)
 
     assert "agent" in event.value
     agent_data = event.value["agent"]
@@ -128,7 +128,7 @@ def test_from_conversation_state_serializes_agent(state):
 
 def test_event_can_be_json_serialized(state):
     """Test that event can be serialized to JSON (important for WebSocket)."""
-    event = ConversationStateUpdateEvent.from_conversation_state(state, str(state.id))
+    event = ConversationStateUpdateEvent.from_conversation_state(state)
 
     # This should not raise
     event_dict = event.model_dump()
@@ -152,7 +152,7 @@ def test_event_str_representation():
 
 def test_event_with_complex_nested_values(state):
     """Test event handles complex nested values in agent config."""
-    event = ConversationStateUpdateEvent.from_conversation_state(state, str(state.id))
+    event = ConversationStateUpdateEvent.from_conversation_state(state)
 
     # Verify nested structures are preserved
     assert "stats" in event.value

@@ -10,6 +10,9 @@ from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.types import SourceType
 
 
+FULL_STATE_KEY = "FULL_STATE"
+
+
 class ConversationStateUpdateEvent(EventBase):
     """Event that contains conversation state updates.
 
@@ -35,7 +38,7 @@ class ConversationStateUpdateEvent(EventBase):
         if not isinstance(key, str):
             raise ValueError("Key must be a string")
         # Allow special key "full_state" for full state snapshots
-        if key == "full_state":
+        if key == FULL_STATE_KEY:
             return key
         # Allow any string key for flexibility (testing, future extensibility)
         # In practice, keys should match ConversationState fields,
@@ -50,7 +53,7 @@ class ConversationStateUpdateEvent(EventBase):
             return value
 
         # Skip validation for special "full_state" key
-        if key == "full_state":
+        if key == FULL_STATE_KEY:
             return value
 
         field_info = ConversationState.model_fields.get(key)
@@ -64,7 +67,7 @@ class ConversationStateUpdateEvent(EventBase):
 
     @classmethod
     def from_conversation_state(
-        cls, state: "ConversationState", conversation_id: str
+        cls, state: "ConversationState"
     ) -> "ConversationStateUpdateEvent":
         """Create a state update event from a ConversationState object.
 
@@ -79,18 +82,10 @@ class ConversationStateUpdateEvent(EventBase):
         """
         # Create a snapshot with all important state fields
         # Use mode='json' to ensure proper serialization including SecretStr
-        state_snapshot = {
-            "agent_status": state.agent_status.value,
-            "confirmation_policy": state.confirmation_policy.model_dump(),
-            "activated_knowledge_microagents": (
-                state.activated_knowledge_microagents.copy()
-            ),
-            "agent": state.agent.model_dump_succint(mode="json"),
-            "stats": state.stats.model_dump(),
-        }
+        state_snapshot = state.model_dump(mode="json", exclude_none=True)
 
         # Use a special key "full_state" to indicate this is a full snapshot
-        return cls(key="full_state", value=state_snapshot)
+        return cls(key=FULL_STATE_KEY, value=state_snapshot)
 
     def __str__(self) -> str:
         return f"ConversationStateUpdate(key={self.key}, value={self.value})"

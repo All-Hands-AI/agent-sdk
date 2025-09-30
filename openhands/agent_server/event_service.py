@@ -173,9 +173,7 @@ class EventService:
             with state:
                 # Create state update event with current state information
                 state_update_event = (
-                    ConversationStateUpdateEvent.from_conversation_state(
-                        state, str(state.id)
-                    )
+                    ConversationStateUpdateEvent.from_conversation_state(state)
                 )
 
                 # Send state update directly to the new subscriber
@@ -301,7 +299,7 @@ class EventService:
         with state:
             # Create state update event with current state information
             state_update_event = ConversationStateUpdateEvent.from_conversation_state(
-                state, str(state.id)
+                state
             )
 
             # Publish the state update event
