@@ -15,6 +15,7 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.condenser import Condensation
+from openhands.sdk.event.error import LLMErrorEvent
 
 
 if TYPE_CHECKING:
@@ -185,6 +186,15 @@ class ConversationVisualizer:
                 content,
                 title=f"[bold {_PAUSE_COLOR}]User Paused[/bold {_PAUSE_COLOR}]",
                 border_style=_PAUSE_COLOR,
+                padding=_PANEL_PADDING,
+                expand=True,
+            )
+        elif isinstance(event, LLMErrorEvent):
+            return Panel(
+                content,
+                title=f"[bold {_ERROR_COLOR}]LLM Error[/bold {_ERROR_COLOR}]",
+                subtitle=self._format_metrics_subtitle(),
+                border_style=_ERROR_COLOR,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
