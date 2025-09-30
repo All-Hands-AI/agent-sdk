@@ -6,9 +6,10 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
+    RemoteConversation,
+    Workspace,
     get_logger,
 )
-from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.sandbox import DockerSandboxedAgentServer
 from openhands.tools.preset.default import get_default_agent
 
@@ -54,9 +55,14 @@ def main() -> None:
             last_event_time["ts"] = time.time()
 
         # 5) Create RemoteConversation and do the same 2-step task
+        workspace = Workspace(host=server.base_url)
+        result = workspace.execute_command(
+            "echo 'Hello from sandboxed environment!' && pwd"
+        )
+        logger.info(f"Result of command execution: {result}")
         conversation = Conversation(
             agent=agent,
-            host=server.base_url,
+            workspace=workspace,
             callbacks=[event_callback],
             visualize=True,
         )
@@ -64,6 +70,7 @@ def main() -> None:
 
         try:
             logger.info(f"\n📋 Conversation ID: {conversation.state.id}")
+
             logger.info("📝 Sending first message...")
             conversation.send_message(
                 "Read the current repo and write 3 facts about the project into "

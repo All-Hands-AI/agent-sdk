@@ -3,11 +3,7 @@ import time
 
 from pydantic import SecretStr
 
-from openhands.sdk import (
-    LLM,
-    Conversation,
-    get_logger,
-)
+from openhands.sdk import LLM, Conversation, Workspace, get_logger
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.sandbox import DockerSandboxedAgentServer
 from openhands.tools.preset.default import get_default_agent
@@ -51,9 +47,10 @@ with DockerSandboxedAgentServer(
         last_event_time["ts"] = time.time()
 
     # 5) Create RemoteConversation and do the same 2-step task
+    workspace = Workspace(host=server.base_url)
     conversation = Conversation(
         agent=agent,
-        host=server.base_url,
+        workspace=workspace,
         callbacks=[event_callback],
         visualize=True,
     )

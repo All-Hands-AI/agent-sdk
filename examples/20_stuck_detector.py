@@ -38,7 +38,7 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    working_dir=os.getcwd(),
+    workspace=os.getcwd(),
     # This is by default True, shown here for clarity of the example
     stuck_detection=True,
 )

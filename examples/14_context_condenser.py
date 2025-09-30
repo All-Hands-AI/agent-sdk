@@ -73,7 +73,7 @@ conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
     persistence_dir="./.conversations",
-    working_dir=".",
+    workspace=".",
 )
 
 # Send multiple messages to demonstrate condensation
@@ -120,7 +120,7 @@ conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
     persistence_dir="./.conversations",
-    working_dir=".",
+    workspace=".",
 )
 
 print("Sending message to deserialized conversation...")

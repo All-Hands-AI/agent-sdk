@@ -55,7 +55,7 @@ def conversation_callback(event: EventBase):
 
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], working_dir=os.getcwd()
+    agent=agent, callbacks=[conversation_callback], workspace=os.getcwd()
 )
 
 conversation.send_message(

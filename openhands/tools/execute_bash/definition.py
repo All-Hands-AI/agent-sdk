@@ -245,7 +245,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         Args:
             conv_state: Conversation state to get working directory from.
                          If provided, working_dir will be taken from
-                         conv_state.working_dir
+                         conv_state.workspace
             username: Optional username for the bash session
             no_change_timeout_seconds: Timeout for no output change
             terminal_type: Force a specific session type:
@@ -263,7 +263,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
 
-        working_dir = conv_state.working_dir
+        working_dir = conv_state.workspace.working_dir
         if not os.path.isdir(working_dir):
             raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
 

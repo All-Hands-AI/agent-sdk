@@ -16,7 +16,7 @@ from openhands.sdk.tool.tool import ToolExecutor
 def _create_mock_conv_state() -> ConversationState:
     """Create a mock ConversationState for testing."""
     mock_conv_state = MagicMock(spec=ConversationState)
-    mock_conv_state.working_dir = "workspace/project"
+    mock_conv_state.workspace = "workspace/project"
     mock_conv_state.persistence_dir = None
     return mock_conv_state
 

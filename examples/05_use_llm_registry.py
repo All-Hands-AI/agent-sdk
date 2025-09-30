@@ -55,7 +55,7 @@ def conversation_callback(event: EventBase):
 
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
 )
 
 conversation.send_message("Please echo 'Hello!'")
