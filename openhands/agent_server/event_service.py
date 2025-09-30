@@ -17,6 +17,7 @@ from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
+from openhands.sdk.workspace import LocalWorkspace
 
 
 logger = get_logger(__name__)
@@ -174,9 +175,13 @@ class EventService:
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
+        # Convert workspace to LocalWorkspace if needed
+        workspace = self.stored.workspace
+        if not isinstance(workspace, LocalWorkspace):
+            workspace = LocalWorkspace(working_dir=workspace.working_dir)
         conversation = LocalConversation(
             agent=agent,
-            working_dir=self.stored.working_dir,
+            workspace=workspace,
             persistence_dir=str(self.file_store_path),
             conversation_id=self.stored.id,
             callbacks=[

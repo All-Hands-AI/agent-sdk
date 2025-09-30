@@ -22,6 +22,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import OpenHandsModel
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 logger = get_logger(__name__)
@@ -58,8 +59,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
-    working_dir: str = Field(
-        default="workspace/project",
+    workspace: BaseWorkspace = Field(
+        ...,
         description="Working directory for agent operations and tool execution",
     )
     persistence_dir: str | None = Field(
@@ -131,7 +132,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
-        working_dir: str,
+        workspace: BaseWorkspace,
         persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
@@ -188,7 +189,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         state = cls(
             id=id,
             agent=agent,
-            working_dir=working_dir,
+            workspace=workspace,
             persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,

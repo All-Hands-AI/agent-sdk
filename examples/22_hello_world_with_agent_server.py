@@ -6,8 +6,7 @@ import time
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Conversation, get_logger
-from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
+from openhands.sdk import LLM, Conversation, RemoteConversation, Workspace, get_logger
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -147,9 +146,14 @@ with ManagedAPIServer(port=8001) as server:
         event_tracker["last_event_time"] = time.time()
 
     # Create RemoteConversation with callbacks
+    # NOTE: Workspace is required for RemoteConversation
+    workspace = Workspace(host=server.base_url)
+    result = workspace.execute_command("pwd")
+    logger.info(f"Result of command execution: {result}")
+
     conversation = Conversation(
         agent=agent,
-        host=server.base_url,
+        workspace=workspace,
         callbacks=[event_callback],
         visualize=True,
     )

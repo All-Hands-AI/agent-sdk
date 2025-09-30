@@ -210,13 +210,13 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         Args:
             conv_state: Conversation state to get working directory from.
                          If provided, workspace_root will be taken from
-                         conv_state.working_dir
+                         conv_state.workspace
         """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=conv_state.working_dir)
+        executor = FileEditorExecutor(workspace_root=conv_state.workspace.working_dir)
 
         # Initialize the parent Tool with the executor
         return [

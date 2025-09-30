@@ -8,6 +8,7 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm import LLM
+from openhands.sdk.workspace import LocalWorkspace
 from openhands.tools.execute_bash import (
     BashTool,
     ExecuteBashAction,
@@ -22,7 +23,7 @@ def _create_test_conv_state(temp_dir: str) -> ConversationState:
     return ConversationState.create(
         id=uuid4(),
         agent=agent,
-        working_dir=temp_dir,
+        workspace=LocalWorkspace(working_dir=temp_dir),
     )
 
 
