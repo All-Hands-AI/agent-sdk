@@ -237,6 +237,20 @@ class Message(BaseModel):
         """
         assert message.role != "function", "Function role is not supported"
 
+        # Debug logging to see what's in the LiteLLM message
+        logger.info(f"Converting LiteLLM message: role={message.role}")
+        logger.info(f"Message attributes: {dir(message)}")
+        logger.info(f"Message content type: {type(message.content)}")
+        if hasattr(message, "content") and isinstance(message.content, list):
+            logger.info(f"Content items: {len(message.content)}")
+            for i, item in enumerate(message.content):
+                logger.info(
+                    f"Content {i}: type={type(item)}, "
+                    f"keys={getattr(item, 'keys', lambda: 'N/A')()}"
+                )
+                if isinstance(item, dict):
+                    logger.info(f"Content {i} dict: {item}")
+
         rc = getattr(message, "reasoning_content", None)
         content = []
         thinking_blocks = []
@@ -244,9 +258,31 @@ class Message(BaseModel):
         # Handle content
         if isinstance(message.content, str):
             content = [TextContent(text=message.content)]
+        elif isinstance(message.content, list):
+            # Process content list and extract thinking blocks
+            for item in message.content:  # type: ignore[union-attr]
+                if isinstance(item, dict):
+                    item_type = item.get("type", "")
+                    if item_type == "thinking":
+                        # Extract thinking block
+                        thinking_content = item.get("thinking", "")
+                        signature = item.get("signature")
+                        thinking_block = ThinkingBlock(
+                            thinking=thinking_content,
+                            signature=signature,
+                        )
+                        thinking_blocks.append(thinking_block)
+                        logger.info(
+                            f"Extracted thinking block: {len(thinking_content)} chars"
+                        )
+                    elif item_type == "text":
+                        # Extract text content
+                        text_content = TextContent(text=item.get("text", ""))
+                        content.append(text_content)
 
-        # Extract thinking blocks from LiteLLM's thinking_blocks field
+        # Extract thinking blocks from LiteLLM's thinking_blocks field (fallback)
         litellm_thinking_blocks = getattr(message, "thinking_blocks", None)
+        logger.info(f"LiteLLM thinking_blocks attribute: {litellm_thinking_blocks}")
         if litellm_thinking_blocks:
             for block in litellm_thinking_blocks:
                 # Convert LiteLLM thinking block to our ThinkingBlock
@@ -260,6 +296,11 @@ class Message(BaseModel):
                     signature=signature,
                 )
                 thinking_blocks.append(thinking_block)
+
+        logger.info(
+            f"Final message: role={message.role}, content_items={len(content)}, "
+            f"thinking_blocks={len(thinking_blocks)}"
+        )
 
         return Message(
             role=message.role,

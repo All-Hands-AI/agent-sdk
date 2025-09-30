@@ -4,6 +4,7 @@ from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import (
     ImageContent,
     Message,
+    RedactedThinkingBlock,
     TextContent,
     ThinkingBlock,
     content_to_str,
@@ -27,6 +28,7 @@ __all__ = [
     "TextContent",
     "ImageContent",
     "ThinkingBlock",
+    "RedactedThinkingBlock",
     "content_to_str",
     "Metrics",
     "MetricsSnapshot",
