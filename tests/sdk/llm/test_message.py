@@ -114,18 +114,16 @@ def test_message_tool_role_with_image_cache_prompt():
 def test_message_with_tool_calls():
     """Test Message with tool_calls."""
     from openhands.sdk.llm.message import (
+        LLMToolCall,
         Message,
-        MessageToolCall,
-        MessageToolCallFunction,
         TextContent,
     )
 
-    tool_call = MessageToolCall(
+    tool_call = LLMToolCall(
         id="call_123",
-        type="function",
-        function=MessageToolCallFunction(
-            name="test_function", arguments='{"arg": "value"}'
-        ),
+        name="test_function",
+        arguments_json='{"arg": "value"}',
+        origin="completion",
     )
 
     message = Message(

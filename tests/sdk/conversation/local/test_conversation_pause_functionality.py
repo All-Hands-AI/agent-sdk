@@ -28,9 +28,8 @@ from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
+    LLMToolCall,
     Message,
-    MessageToolCall,
-    MessageToolCallFunction,
     TextContent,
 )
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
@@ -226,12 +225,11 @@ class TestPauseFunctionality:
         assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         # Mock action
-        tool_call = MessageToolCall(
+        tool_call = LLMToolCall(
             id="call_1",
-            type="function",
-            function=MessageToolCallFunction(
-                name="test_tool", arguments='{"command": "test_command"}'
-            ),
+            name="test_tool",
+            arguments_json='{"command": "test_command"}',
+            origin="completion",
         )
         mock_completion.return_value = ModelResponse(
             id="response_action",
@@ -320,12 +318,11 @@ class TestPauseFunctionality:
         self.conversation = conversation
 
         # LLM continuously emits actions (no finish)
-        tool_call = MessageToolCall(
+        tool_call = LLMToolCall(
             id="call_loop",
-            type="function",
-            function=MessageToolCallFunction(
-                name="test_tool", arguments='{"command": "loop_forever"}'
-            ),
+            name="test_tool",
+            arguments_json='{"command": "loop_forever"}',
+            origin="completion",
         )
         import time
 

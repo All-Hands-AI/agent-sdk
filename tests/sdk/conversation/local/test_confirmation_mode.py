@@ -24,9 +24,8 @@ from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
+    LLMToolCall,
     Message,
-    MessageToolCall,
-    MessageToolCallFunction,
     MetricsSnapshot,
     TextContent,
 )
@@ -172,12 +171,11 @@ class TestConfirmationMode:
 
     def _mock_finish_action(self, message: str = "Task completed") -> MagicMock:
         """Configure LLM to return a FinishAction tool call."""
-        tool_call = MessageToolCall(
+        tool_call = LLMToolCall(
             id="finish_call_1",
-            type="function",
-            function=MessageToolCallFunction(
-                name="finish", arguments=f'{{"message": "{message}"}}'
-            ),
+            name="finish",
+            arguments_json=f'{{"message": "{message}"}}',
+            origin="completion",
         )
 
         return MagicMock(
@@ -200,20 +198,18 @@ class TestConfirmationMode:
 
     def _mock_multiple_actions_with_finish(self) -> MagicMock:
         """Configure LLM to return both a regular action and a FinishAction."""
-        regular_tool_call = MessageToolCall(
+        regular_tool_call = LLMToolCall(
             id="call_1",
-            type="function",
-            function=MessageToolCallFunction(
-                name="test_tool", arguments='{"command": "test_command"}'
-            ),
+            name="test_tool",
+            arguments_json='{"command": "test_command"}',
+            origin="completion",
         )
 
-        finish_tool_call = MessageToolCall(
+        finish_tool_call = LLMToolCall(
             id="finish_call_1",
-            type="function",
-            function=MessageToolCallFunction(
-                name="finish", arguments='{"message": "Task completed!"}'
-            ),
+            name="finish",
+            arguments_json='{"message": "Task completed!"}',
+            origin="completion",
         )
 
         return MagicMock(
@@ -241,12 +237,11 @@ class TestConfirmationMode:
         """Helper to create test action events."""
         action = MockConfirmationModeAction(command=command)
 
-        tool_call = MessageToolCall(
+        tool_call = LLMToolCall(
             id=call_id,
-            type="function",
-            function=MessageToolCallFunction(
-                name="test_tool", arguments=f'{{"command": "{command}"}}'
-            ),
+            name="test_tool",
+            arguments_json=f'{{"command": "{command}"}}',
+            origin="completion",
         )
 
         return ActionEvent(

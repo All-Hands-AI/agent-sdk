@@ -16,9 +16,8 @@ from openhands.sdk.event.llm_convertible import (
 )
 from openhands.sdk.llm import (
     ImageContent,
+    LLMToolCall,
     Message,
-    MessageToolCall,
-    MessageToolCallFunction,
     TextContent,
 )
 from openhands.sdk.tool import ActionBase, ObservationBase
@@ -40,16 +39,13 @@ class TestEventsToMessagesMockObservation(ObservationBase):
         return [TextContent(text=self.result)]
 
 
-def create_tool_call(
-    call_id: str, function_name: str, arguments: dict
-) -> MessageToolCall:
-    """Helper to create a MessageToolCall."""
-    return MessageToolCall(
+def create_tool_call(call_id: str, function_name: str, arguments: dict) -> LLMToolCall:
+    """Helper to create a LLMToolCall."""
+    return LLMToolCall(
         id=call_id,
-        function=MessageToolCallFunction(
-            name=function_name, arguments=json.dumps(arguments)
-        ),
-        type="function",
+        name=function_name,
+        arguments_json=json.dumps(arguments),
+        origin="completion",
     )
 
 

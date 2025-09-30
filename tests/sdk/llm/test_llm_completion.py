@@ -8,9 +8,8 @@ from pydantic import SecretStr
 
 from openhands.sdk.llm import (
     LLM,
+    LLMToolCall,
     Message,
-    MessageToolCall,
-    MessageToolCallFunction,
     TextContent,
 )
 from openhands.sdk.tool.schema import ActionBase
@@ -25,21 +24,14 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             Choices(
                 finish_reason="stop",
                 index=0,
-                message=LiteLLMMessage(
-                    content=content,
-                    role="assistant",
-                ),
+                message=LiteLLMMessage(content=content, role="assistant"),
             )
         ],
         created=1234567890,
         model="gpt-4o",
         object="chat.completion",
         system_fingerprint="test",
-        usage=Usage(
-            prompt_tokens=10,
-            completion_tokens=5,
-            total_tokens=15,
-        ),
+        usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
 
@@ -105,12 +97,11 @@ def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
     mock_response.choices[0].message.tool_calls = [  # type: ignore
-        MessageToolCall(
+        LLMToolCall(
             id="call_123",
-            type="function",
-            function=MessageToolCallFunction(
-                name="test_tool", arguments='{"param": "value"}'
-            ),
+            name="test_tool",
+            arguments_json='{"param": "value"}',
+            origin="completion",
         ).to_litellm_tool_call()
     ]
     mock_completion.return_value = mock_response
@@ -146,7 +137,7 @@ def test_llm_completion_with_tools(mock_completion):
     assert response.message.tool_calls is not None
     assert len(response.message.tool_calls) == 1
     assert response.message.tool_calls[0].id == "call_123"
-    assert response.message.tool_calls[0].function.name == "test_tool"
+    assert response.message.tool_calls[0].name == "test_tool"
     mock_completion.assert_called_once()
 
 
@@ -365,7 +356,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     assert msg.tool_calls is not None
     tc = msg.tool_calls[0]
     assert tc.type == "function"
-    assert tc.function.name == "test_tool"
+    assert tc.name == "test_tool"
     # Ensure function-call markup was stripped from assistant content
     if msg.content:
         for content_item in msg.content:

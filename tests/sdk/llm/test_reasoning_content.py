@@ -11,20 +11,13 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             Choices(
                 finish_reason="stop",
                 index=0,
-                message=LiteLLMMessage(
-                    content=content,
-                    role="assistant",
-                ),
+                message=LiteLLMMessage(content=content, role="assistant"),
             )
         ],
         created=1234567890,
         model="claude-sonnet-4-20250514",
         object="chat.completion",
-        usage=Usage(
-            prompt_tokens=10,
-            completion_tokens=5,
-            total_tokens=15,
-        ),
+        usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
 
@@ -117,8 +110,7 @@ def test_action_event_with_reasoning_content():
     """Test ActionEvent with reasoning content fields."""
     from openhands.sdk.event.llm_convertible import ActionEvent
     from openhands.sdk.llm.message import (
-        MessageToolCall,
-        MessageToolCallFunction,
+        LLMToolCall,
         TextContent,
     )
     from openhands.sdk.tool import ActionBase
@@ -128,12 +120,11 @@ def test_action_event_with_reasoning_content():
         action: str = "test"
 
     # Create a tool call
-    tool_call = MessageToolCall(
+    tool_call = LLMToolCall(
         id="test-id",
-        function=MessageToolCallFunction(
-            name="test_tool", arguments='{"arg": "value"}'
-        ),
-        type="function",
+        name="test_tool",
+        arguments_json='{"arg": "value"}',
+        origin="completion",
     )
 
     action_event = ActionEvent(
