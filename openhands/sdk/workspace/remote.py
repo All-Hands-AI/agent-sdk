@@ -17,7 +17,7 @@ class RemoteWorkspace(BaseWorkspace):
 
     host: str = Field(description="The remote host URL for the workspace.")
     api_key: str | None = Field(
-        description="API key for authenticating with the remote host."
+        default=None, description="API key for authenticating with the remote host."
     )
 
     _client: httpx.Client = PrivateAttr()

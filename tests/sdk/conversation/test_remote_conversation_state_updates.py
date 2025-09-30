@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 from pydantic import SecretStr
 
+from openhands.sdk import RemoteWorkspace
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
@@ -51,8 +52,7 @@ def test_update_state_from_event_with_full_state(mock_httpx_client):
         # Create real RemoteConversation
         conv = RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            working_dir="/tmp",
+            workspace=RemoteWorkspace(working_dir="/tmp", host="http://localhost:3000"),
         )
 
         # Create a full state event
@@ -92,8 +92,7 @@ def test_update_state_from_event_with_individual_field(mock_httpx_client):
         # Create real RemoteConversation
         conv = RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            working_dir="/tmp",
+            workspace=RemoteWorkspace(working_dir="/tmp", host="http://localhost:3000"),
         )
 
         # Set initial cached state
@@ -133,8 +132,7 @@ def test_update_state_initializes_cache_if_none(mock_httpx_client):
         # Create real RemoteConversation
         conv = RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            working_dir="/tmp",
+            workspace=RemoteWorkspace(working_dir="/tmp", host="http://localhost:3000"),
         )
 
         # Ensure cache starts as None
@@ -168,8 +166,7 @@ def test_update_state_from_multiple_events(mock_httpx_client):
         # Create real RemoteConversation
         conv = RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            working_dir="/tmp",
+            workspace=RemoteWorkspace(working_dir="/tmp", host="http://localhost:3000"),
         )
 
         # First, full state
@@ -214,8 +211,7 @@ def test_update_state_full_state_overwrites_fields(mock_httpx_client):
         # Create real RemoteConversation
         conv = RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            working_dir="/tmp",
+            workspace=RemoteWorkspace(working_dir="/tmp", host="http://localhost:3000"),
         )
 
         # Set initial cached state
@@ -262,8 +258,7 @@ def test_update_state_thread_safe(mock_httpx_client):
         # Create real RemoteConversation
         conv = RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            working_dir="/tmp",
+            workspace=RemoteWorkspace(working_dir="/tmp", host="http://localhost:3000"),
         )
 
         # Set initial cached state
@@ -307,8 +302,7 @@ def test_update_state_preserves_data_types(mock_httpx_client):
         # Create real RemoteConversation
         conv = RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            working_dir="/tmp",
+            workspace=RemoteWorkspace(working_dir="/tmp", host="http://localhost:3000"),
         )
 
         # Update with various data types
@@ -350,8 +344,7 @@ def test_state_update_callback_integration(mock_httpx_client):
         # Create real RemoteConversation
         conv = RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            working_dir="/tmp",
+            workspace=RemoteWorkspace(working_dir="/tmp", host="http://localhost:3000"),
         )
 
         # Verify that the state update callback was added to the callbacks
