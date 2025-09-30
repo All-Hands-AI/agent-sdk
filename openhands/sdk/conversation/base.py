@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.llm.message import Message
@@ -13,8 +14,6 @@ from openhands.sdk.security.confirmation_policy import (
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.event_store import EventLog
-    from openhands.sdk.conversation.impl.remote_conversation import RemoteEventsList
     from openhands.sdk.conversation.state import AgentExecutionStatus
 
 
@@ -27,7 +26,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def events(self) -> "EventLog | RemoteEventsList":
+    def events(self) -> EventsListBase:
         """Access to the events list."""
         ...
 

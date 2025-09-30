@@ -2,7 +2,6 @@ import asyncio
 import json
 import threading
 import uuid
-from collections.abc import Sequence
 from typing import SupportsIndex, overload
 from urllib.parse import urlparse
 
@@ -12,6 +11,7 @@ import websockets
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
 from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -102,7 +102,7 @@ class WebSocketCallbackClient:
                 delay = min(delay * 2, 30.0)
 
 
-class RemoteEventsList(Sequence[EventBase]):
+class RemoteEventsList(EventsListBase):
     """A list-like, read-only view of remote conversation events.
 
     On first access it fetches existing events from the server. Afterwards,

@@ -1,8 +1,9 @@
 # state.py
 import operator
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator
 from typing import SupportsIndex, overload
 
+from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.persistence_const import (
     EVENT_FILE_PATTERN,
     EVENT_NAME_RE,
@@ -16,7 +17,7 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-class EventLog(Sequence[EventBase]):
+class EventLog(EventsListBase):
     def __init__(self, fs: FileStore, dir_path: str = EVENTS_DIR) -> None:
         self._fs = fs
         self._dir = dir_path
@@ -76,8 +77,8 @@ class EventLog(Sequence[EventBase]):
                 self._id_to_idx.setdefault(evt_id, i)
             yield evt
 
-    def append(self, value: EventBase) -> None:
-        evt_id = value.id
+    def append(self, event: EventBase) -> None:
+        evt_id = event.id
         # Check for duplicate ID
         if evt_id in self._id_to_idx:
             existing_idx = self._id_to_idx[evt_id]
@@ -86,7 +87,7 @@ class EventLog(Sequence[EventBase]):
             )
 
         path = self._path(self._length, event_id=evt_id)
-        self._fs.write(path, value.model_dump_json(exclude_none=True))
+        self._fs.write(path, event.model_dump_json(exclude_none=True))
         self._idx_to_id[self._length] = evt_id
         self._id_to_idx[evt_id] = self._length
         self._length += 1
