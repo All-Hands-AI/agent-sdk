@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from collections.abc import Iterable
 from pathlib import Path
 from urllib.request import urlopen
@@ -237,7 +238,7 @@ class DockerSandboxedAgentServer:
             self._platform,
             "--rm",
             "--name",
-            f"agent-server-{int(time.time())}",
+            f"agent-server-{uuid.uuid4()}",
             *flags,
             self._image,
             "--host",
