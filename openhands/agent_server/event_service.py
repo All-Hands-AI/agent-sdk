@@ -15,8 +15,10 @@ from openhands.sdk import Agent, EventBase, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
+from openhands.sdk.workspace import LocalWorkspace
 
 
 logger = get_logger(__name__)
@@ -164,19 +166,46 @@ class EventService:
         await loop.run_in_executor(None, self._conversation.send_message, message)
 
     async def subscribe_to_events(self, subscriber: Subscriber[EventBase]) -> UUID:
-        return self._pub_sub.subscribe(subscriber)
+        subscriber_id = self._pub_sub.subscribe(subscriber)
+
+        # Send current state to the new subscriber immediately
+        if self._conversation:
+            state = self._conversation._state
+            with state:
+                # Create state update event with current state information
+                state_update_event = (
+                    ConversationStateUpdateEvent.from_conversation_state(state)
+                )
+
+                # Send state update directly to the new subscriber
+                try:
+                    await subscriber(state_update_event)
+                except Exception as e:
+                    logger.error(
+                        f"Error sending initial state to subscriber "
+                        f"{subscriber_id}: {e}"
+                    )
+
+        return subscriber_id
 
     async def unsubscribe_from_events(self, subscriber_id: UUID) -> bool:
         return self._pub_sub.unsubscribe(subscriber_id)
 
     async def start(self):
+        # Store the main event loop for cross-thread communication
+        self._main_loop = asyncio.get_running_loop()
+
         # self.stored contains an Agent configuration we can instantiate
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
+        # Convert workspace to LocalWorkspace if needed
+        workspace = self.stored.workspace
+        if not isinstance(workspace, LocalWorkspace):
+            workspace = LocalWorkspace(working_dir=workspace.working_dir)
         conversation = LocalConversation(
             agent=agent,
-            working_dir=self.stored.working_dir,
+            workspace=workspace,
             persistence_dir=str(self.file_store_path),
             conversation_id=self.stored.id,
             callbacks=[
@@ -190,6 +219,12 @@ class EventService:
         # Set confirmation mode if enabled
         conversation.set_confirmation_policy(self.stored.confirmation_policy)
         self._conversation = conversation
+
+        # Register state change callback to automatically publish updates
+        self._conversation._state.set_on_state_change(self._conversation._on_event)
+
+        # Publish initial state update
+        await self._publish_state_update()
 
     async def run(self):
         """Run the conversation asynchronously."""
@@ -235,6 +270,21 @@ class EventService:
         if not self._conversation:
             raise ValueError("inactive_service")
         return self._conversation._state
+
+    async def _publish_state_update(self):
+        """Publish a ConversationStateUpdateEvent with the current state."""
+        if not self._conversation:
+            return
+
+        state = self._conversation._state
+        with state:
+            # Create state update event with current state information
+            state_update_event = ConversationStateUpdateEvent.from_conversation_state(
+                state
+            )
+
+            # Publish the state update event
+            await self._pub_sub(state_update_event)
 
     async def __aenter__(self):
         await self.start()

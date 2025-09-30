@@ -9,6 +9,8 @@ from openhands.sdk.conversation import (
     BaseConversation,
     Conversation,
     ConversationCallbackType,
+    LocalConversation,
+    RemoteConversation,
 )
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.event import EventBase, LLMConvertibleEvent
@@ -33,6 +35,11 @@ from openhands.sdk.tool import (
     list_registered_tools,
     register_tool,
     resolve_tool,
+)
+from openhands.sdk.workspace import (
+    LocalWorkspace,
+    RemoteWorkspace,
+    Workspace,
 )
 
 
@@ -64,6 +71,8 @@ __all__ = [
     "get_logger",
     "Conversation",
     "BaseConversation",
+    "LocalConversation",
+    "RemoteConversation",
     "ConversationCallbackType",
     "EventBase",
     "LLMConvertibleEvent",
@@ -74,5 +83,8 @@ __all__ = [
     "register_tool",
     "resolve_tool",
     "list_registered_tools",
+    "Workspace",
+    "LocalWorkspace",
+    "RemoteWorkspace",
     "__version__",
 ]

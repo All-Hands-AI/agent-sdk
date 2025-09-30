@@ -76,7 +76,7 @@ class BaseIntegrationTest(ABC):
         self.llm_messages: list[dict[str, Any]] = []
         self.conversation: LocalConversation = LocalConversation(
             agent=self.agent,
-            working_dir=self.cwd or "/tmp",
+            workspace=self.cwd or "/tmp",
             callbacks=[self.conversation_callback],
         )
 

@@ -37,7 +37,7 @@ tools = [
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
-conversation = Conversation(agent, working_dir=os.getcwd())
+conversation = Conversation(agent, workspace=os.getcwd())
 
 
 print("Simple pause example - Press Ctrl+C to pause")

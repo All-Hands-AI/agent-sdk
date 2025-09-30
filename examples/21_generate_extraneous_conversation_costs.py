@@ -56,7 +56,7 @@ agent = Agent(
     condenser=condenser,
 )
 
-conversation = Conversation(agent=agent, working_dir=cwd)
+conversation = Conversation(agent=agent, workspace=cwd)
 conversation.send_message(
     message=Message(
         role="user",

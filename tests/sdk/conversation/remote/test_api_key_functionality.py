@@ -12,6 +12,7 @@ from openhands.sdk.conversation.impl.remote_conversation import (
     WebSocketCallbackClient,
 )
 from openhands.sdk.llm import LLM
+from openhands.sdk.workspace import RemoteWorkspace
 
 
 def create_test_agent() -> Agent:
@@ -47,17 +48,21 @@ def test_conversation_factory_passes_api_key_to_remote():
         mock_instance = Mock()
         mock_remote.return_value = mock_instance
 
-        # Create conversation with host and api_key
-        Conversation(
-            agent=agent,
+        # Create conversation with RemoteWorkspace
+        workspace = RemoteWorkspace(
+            working_dir="/tmp",
             host="http://localhost:3000",
             api_key=test_api_key,
         )
+        Conversation(
+            agent=agent,
+            workspace=workspace,
+        )
 
-        # Verify RemoteConversation was called with api_key
+        # Verify RemoteConversation was called with the workspace
         mock_remote.assert_called_once()
         call_args = mock_remote.call_args
-        assert call_args.kwargs["api_key"] == test_api_key
+        assert call_args.kwargs["workspace"] == workspace
 
 
 @patch("httpx.Client")
@@ -77,12 +82,16 @@ def test_remote_conversation_configures_httpx_client_with_api_key(mock_httpx_cli
     with patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     ):
-        # Create RemoteConversation with API key
-        RemoteConversation(
-            agent=agent,
+        # Create RemoteWorkspace with API key
+        workspace = RemoteWorkspace(
+            working_dir="/tmp",
             host="http://localhost:3000",
             api_key=test_api_key,
-            working_dir="/tmp",
+        )
+        # Create RemoteConversation with workspace
+        RemoteConversation(
+            agent=agent,
+            workspace=workspace,
         )
 
     # Verify httpx.Client was called with correct headers
@@ -111,12 +120,16 @@ def test_remote_conversation_no_api_key_no_headers(mock_httpx_client):
     with patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     ):
+        # Create RemoteWorkspace without API key
+        workspace = RemoteWorkspace(
+            working_dir="/tmp",
+            host="http://localhost:3000",
+            api_key=None,
+        )
         # Create RemoteConversation without API key
         RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            api_key=None,
-            working_dir="/tmp",
+            workspace=workspace,
         )
 
     # Verify httpx.Client was called without API key headers
@@ -187,12 +200,16 @@ def test_remote_conversation_passes_api_key_to_websocket_client(mock_httpx_clien
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
 
+        # Create RemoteWorkspace with API key
+        workspace = RemoteWorkspace(
+            working_dir="/tmp",
+            host="http://localhost:3000",
+            api_key=test_api_key,
+        )
         # Create RemoteConversation with API key
         RemoteConversation(
             agent=agent,
-            host="http://localhost:3000",
-            api_key=test_api_key,
-            working_dir="/tmp",
+            workspace=workspace,
         )
 
         # Verify WebSocketCallbackClient was called with api_key

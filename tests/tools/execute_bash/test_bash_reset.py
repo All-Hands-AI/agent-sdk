@@ -9,6 +9,7 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm import LLM
+from openhands.sdk.workspace import LocalWorkspace
 from openhands.tools.execute_bash import (
     BashTool,
     ExecuteBashAction,
@@ -22,7 +23,7 @@ def _create_conv_state(working_dir: str) -> ConversationState:
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
     return ConversationState.create(
-        id=uuid.uuid4(), agent=agent, working_dir=working_dir
+        id=uuid.uuid4(), agent=agent, workspace=LocalWorkspace(working_dir=working_dir)
     )
 
 

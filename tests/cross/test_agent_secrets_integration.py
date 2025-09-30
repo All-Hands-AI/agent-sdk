@@ -40,7 +40,7 @@ def agent(llm: LLM, tools: list[ToolSpec]) -> Agent:
 
 @pytest.fixture
 def conversation(agent: Agent, tmp_path) -> LocalConversation:
-    return LocalConversation(agent, working_dir=str(tmp_path))
+    return LocalConversation(agent, workspace=str(tmp_path))
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def agent_no_bash(llm: LLM) -> Agent:
 
 @pytest.fixture
 def conversation_no_bash(agent_no_bash: Agent, tmp_path) -> LocalConversation:
-    return LocalConversation(agent_no_bash, working_dir=str(tmp_path))
+    return LocalConversation(agent_no_bash, workspace=str(tmp_path))
 
 
 def test_agent_configures_bash_tools_env_provider(
