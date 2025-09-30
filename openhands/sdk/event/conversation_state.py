@@ -1,14 +1,16 @@
 """Events related to conversation state updates."""
 
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import Field, field_validator
 
-from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.types import SourceType
 
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 
 FULL_STATE_KEY = "FULL_STATE"
 
@@ -55,6 +57,9 @@ class ConversationStateUpdateEvent(EventBase):
         # Skip validation for special "full_state" key
         if key == FULL_STATE_KEY:
             return value
+
+        # Prevent circular import
+        from openhands.sdk.conversation.state import ConversationState
 
         field_info = ConversationState.model_fields.get(key)
         if field_info is None:
