@@ -1,9 +1,11 @@
-import mcp.types
-import pytest
 from unittest.mock import Mock
 
-from openhands.sdk.mcp.tool import MCPTool
+import mcp.types
+import pytest
+from pydantic import ValidationError
+
 from openhands.sdk.mcp.client import MCPClient
+from openhands.sdk.mcp.tool import MCPTool
 
 
 def _make_tool_with_schema(schema: dict):
@@ -46,9 +48,9 @@ def test_mcp_action_from_arguments_raises_on_invalid():
     )
 
     # missing required url
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         tool.action_from_arguments({})
 
     # extra field should also cause validation error
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         tool.action_from_arguments({"url": "https://x.com", "data": {"x": 1}})
