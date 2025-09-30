@@ -156,9 +156,11 @@ class Message(BaseModel):
         role_tool_with_prompt_caching = False
 
         # Add thinking blocks first (for Anthropic extended thinking)
-        for thinking_block in self.thinking_blocks:
-            thinking_dict = thinking_block.model_dump()
-            content.append(thinking_dict)
+        # Only add thinking blocks for assistant messages
+        if self.role == "assistant":
+            for thinking_block in self.thinking_blocks:
+                thinking_dict = thinking_block.model_dump()
+                content.append(thinking_dict)
 
         for item in self.content:
             # All content types now return list[dict[str, Any]]

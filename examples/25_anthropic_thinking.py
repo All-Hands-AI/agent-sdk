@@ -33,7 +33,10 @@ llm = LLM(
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
     # Enable extended thinking with reasoning effort
-    reasoning_effort="low",  # Can be "low", "medium", or "high"
+    reasoning_effort="medium",  # Can be "low", "medium", or "high"
+    # Anthropic models don't allow both temperature and top_p
+    temperature=0.1,  # Use temperature only for Anthropic
+    top_p=None,  # Explicitly set to None to avoid conflict
 )
 
 # Tools
