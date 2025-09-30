@@ -28,13 +28,13 @@ assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 # Create LLM instance
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
 llm_condenser = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
     service_id="condenser",
@@ -49,12 +49,14 @@ cwd = os.getcwd()
 agent = Agent(
     llm=llm,
     tools=[
-        ToolSpec(name="BashTool", params={"working_dir": cwd}),
+        ToolSpec(
+            name="BashTool",
+        ),
     ],
     condenser=condenser,
 )
 
-conversation = Conversation(agent=agent)
+conversation = Conversation(agent=agent, working_dir=cwd)
 conversation.send_message(
     message=Message(
         role="user",
@@ -67,7 +69,7 @@ conversation.run()
 # Demonstrate extraneous costs part of the conversation
 second_llm = LLM(
     service_id="demo-secondary",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )

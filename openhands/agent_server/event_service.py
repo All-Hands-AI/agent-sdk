@@ -11,7 +11,7 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import Agent, EventBase, LocalFileStore, Message, get_logger
+from openhands.sdk import Agent, EventBase, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import ConversationState
@@ -30,7 +30,9 @@ class EventService:
     """
 
     stored: StoredConversation
-    file_store_path: Path
+    file_store_path: Path  # Base path for conversation persistence
+    # conversation will be persisted to "file_store_path / conversation_id"
+    # and can be accessible via .persistence_dir property
     working_dir: Path
     _conversation: LocalConversation | None = field(default=None, init=False)
     _pub_sub: PubSub[EventBase] = field(
@@ -38,13 +40,28 @@ class EventService:
     )
     _run_task: asyncio.Task | None = field(default=None, init=False)
 
+    @property
+    def persistence_dir(self) -> Path:
+        """Path to the persistence directory for this conversation.
+
+        It would typically be:
+            self.file_store_path / str(conversation_id)
+        """
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        persistence_dir = self._conversation.state.persistence_dir
+        assert persistence_dir is not None, (
+            "persistence_dir should be set in LocalConversation"
+        )
+        return Path(persistence_dir)
+
     async def load_meta(self):
-        meta_file = self.file_store_path / "meta.json"
+        meta_file = self.persistence_dir / "meta.json"
         self.stored = StoredConversation.model_validate_json(meta_file.read_text())
 
     async def save_meta(self):
         self.stored.updated_at = utc_now()
-        meta_file = self.file_store_path / "meta.json"
+        meta_file = self.persistence_dir / "meta.json"
         meta_file.write_text(self.stored.model_dump_json())
 
     async def get_event(self, event_id: str) -> EventBase | None:
@@ -159,11 +176,8 @@ class EventService:
         agent = Agent.model_validate(self.stored.agent.model_dump())
         conversation = LocalConversation(
             agent=agent,
-            persist_filestore=LocalFileStore(
-                str(self.file_store_path)
-                # inside Conversation, events will be saved to
-                # "file_store_path/{convo_id}/events"
-            ),
+            working_dir=self.stored.working_dir,
+            persistence_dir=str(self.file_store_path),
             conversation_id=self.stored.id,
             callbacks=[
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())

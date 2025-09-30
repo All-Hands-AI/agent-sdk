@@ -32,7 +32,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -43,9 +43,11 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 register_tool("TaskTrackerTool", TaskTrackerTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(
+        name="BashTool",
+    ),
     ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+    ToolSpec(name="TaskTrackerTool"),
 ]
 
 # Agent

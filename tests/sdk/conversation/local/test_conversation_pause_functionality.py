@@ -100,7 +100,7 @@ class TestPauseFunctionality:
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool() -> Sequence[Tool]:
+        def _make_tool(conv_state=None, **params) -> Sequence[Tool]:
             return [
                 Tool(
                     name="test_tool",
@@ -297,7 +297,7 @@ class TestPauseFunctionality:
     def test_pause_while_running_continuous_actions(self, mock_completion):
         step_entered = threading.Event()
 
-        def _make_blocking_tool() -> Sequence[Tool]:
+        def _make_blocking_tool(conv_state=None, **kwargs) -> Sequence[Tool]:
             return [
                 Tool(
                     name="test_tool",

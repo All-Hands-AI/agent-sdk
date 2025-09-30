@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
@@ -45,6 +46,19 @@ class ConversationStateProtocol(Protocol):
         """List of activated knowledge microagents."""
         ...
 
+    @property
+    def working_dir(self) -> str:
+        """The working directory for agent operations and tool execution."""
+        ...
+
+    @property
+    def persistence_dir(self) -> str | None:
+        """The persistence directory from the FileStore.
+
+        If None, it means the conversation is not being persisted.
+        """
+        ...
+
 
 class BaseConversation(ABC):
     @property
@@ -85,3 +99,10 @@ class BaseConversation(ABC):
 
     @abstractmethod
     def close(self) -> None: ...
+
+    @staticmethod
+    def get_persistence_dir(
+        persistence_base_dir: str, conversation_id: ConversationID
+    ) -> str:
+        """Get the persistence directory for the conversation."""
+        return str(Path(persistence_base_dir) / str(conversation_id))

@@ -28,26 +28,24 @@ def llm() -> LLM:
 
 
 @pytest.fixture
-def tools(tmp_path) -> list[ToolSpec]:
+def tools() -> list[ToolSpec]:
     register_tool("BashTool", BashTool)
-    return [ToolSpec(name="BashTool", params={"working_dir": str(tmp_path)})]
+    return [ToolSpec(name="BashTool")]
 
 
 @pytest.fixture
 def agent(llm: LLM, tools: list[ToolSpec]) -> Agent:
-    agent = Agent(llm=llm, tools=tools)
-    agent._initialize()
-    return agent
+    return Agent(llm=llm, tools=tools)
 
 
 @pytest.fixture
-def conversation(agent: Agent) -> LocalConversation:
-    return LocalConversation(agent)
+def conversation(agent: Agent, tmp_path) -> LocalConversation:
+    return LocalConversation(agent, working_dir=str(tmp_path))
 
 
 @pytest.fixture
-def bash_executor(agent: Agent) -> BashExecutor:
-    tools_map = agent.tools_map
+def bash_executor(conversation: LocalConversation) -> BashExecutor:
+    tools_map = conversation.agent.tools_map
     bash_tool = tools_map["execute_bash"]
     return cast(BashExecutor, bash_tool.executor)
 
@@ -58,8 +56,8 @@ def agent_no_bash(llm: LLM) -> Agent:
 
 
 @pytest.fixture
-def conversation_no_bash(agent_no_bash: Agent) -> LocalConversation:
-    return LocalConversation(agent_no_bash)
+def conversation_no_bash(agent_no_bash: Agent, tmp_path) -> LocalConversation:
+    return LocalConversation(agent_no_bash, working_dir=str(tmp_path))
 
 
 def test_agent_configures_bash_tools_env_provider(

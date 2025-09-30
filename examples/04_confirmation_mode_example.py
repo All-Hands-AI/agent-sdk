@@ -7,8 +7,7 @@ from collections.abc import Callable
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, BaseConversation, Conversation
-from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 from openhands.tools.preset.default import get_default_agent
 
@@ -62,7 +61,7 @@ def run_until_finished(conversation: BaseConversation, confirmer: Callable) -> N
             conversation.state.agent_status
             == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
         ):
-            pending = get_unmatched_actions(conversation.state.events)
+            pending = ConversationState.get_unmatched_actions(conversation.state.events)
             if not pending:
                 raise RuntimeError(
                     "⚠️ Agent is waiting for confirmation but no pending actions "
@@ -82,13 +81,13 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
-agent = get_default_agent(llm=llm, working_dir=os.getcwd())
-conversation = Conversation(agent=agent)
+agent = get_default_agent(llm=llm)
+conversation = Conversation(agent=agent, working_dir=os.getcwd())
 
 # 1) Confirmation mode ON
 conversation.set_confirmation_policy(AlwaysConfirm())

@@ -262,7 +262,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # default reasoning_effort unless Gemini 2.5
         # (we keep consistent with old behavior)
-        if d.get("reasoning_effort") is None and "gemini-2.5-pro" not in model_val:
+        if d.get("reasoning_effort") is None and (
+            "gemini-2.5-pro" not in model_val and "claude-sonnet-4-5" not in model_val
+        ):
             d["reasoning_effort"] = "high"
 
         # Azure default version

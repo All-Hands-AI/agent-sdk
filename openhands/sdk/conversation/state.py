@@ -12,8 +12,9 @@ from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationID
+from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import EventBase
-from openhands.sdk.io import FileStore, InMemoryFileStore
+from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -57,6 +58,16 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
+    working_dir: str = Field(
+        default="workspace/project",
+        description="Working directory for agent operations and tool execution",
+    )
+    persistence_dir: str | None = Field(
+        default="workspace/conversations",
+        description="Directory for persisting conversation state and events. "
+        "If None, conversation will not be persisted.",
+    )
+
     max_iterations: int = Field(
         default=500,
         gt=0,
@@ -120,17 +131,19 @@ class ConversationState(OpenHandsModel, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
+        working_dir: str,
+        persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
-        file_store: FileStore | None = None,
     ) -> "ConversationState":
         """
         If base_state.json exists: resume (attach EventLog,
             reconcile agent, enforce id).
         Else: create fresh (agent required), persist base, and return.
         """
-        if file_store is None:
-            file_store = InMemoryFileStore()
+        file_store = (
+            LocalFileStore(persistence_dir) if persistence_dir else InMemoryFileStore()
+        )
 
         try:
             base_text = file_store.read(BASE_STATE)
@@ -175,6 +188,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
         state = cls(
             id=id,
             agent=agent,
+            working_dir=working_dir,
+            persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
         )
@@ -214,3 +229,31 @@ class ConversationState(OpenHandsModel, FIFOLock):
             except Exception as e:
                 logger.exception("Auto-persist base_state failed", exc_info=True)
                 raise e
+
+    @staticmethod
+    def get_unmatched_actions(events: ListLike[EventBase]) -> list[ActionEvent]:
+        """Find actions in the event history that don't have matching observations.
+
+        This method identifies ActionEvents that don't have corresponding
+        ObservationEvents or UserRejectObservations, which typically indicates
+        actions that are pending confirmation or execution.
+
+        Args:
+            events: List of events to search through
+
+        Returns:
+            List of ActionEvent objects that don't have corresponding observations,
+            in chronological order
+        """
+        observed_action_ids = set()
+        unmatched_actions = []
+        # Search in reverse - recent events are more likely to be unmatched
+        for event in reversed(events):
+            if isinstance(event, (ObservationEvent, UserRejectObservation)):
+                observed_action_ids.add(event.action_id)
+            elif isinstance(event, ActionEvent):
+                if event.id not in observed_action_ids:
+                    # Insert at beginning to maintain chronological order in result
+                    unmatched_actions.insert(0, event)
+
+        return unmatched_actions

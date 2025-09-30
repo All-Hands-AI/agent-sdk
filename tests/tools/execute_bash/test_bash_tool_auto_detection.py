@@ -1,8 +1,14 @@
 """Tests for BashTool auto-detection functionality."""
 
 import tempfile
+import uuid
 from unittest.mock import patch
 
+from pydantic import SecretStr
+
+from openhands.sdk.agent import Agent
+from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.llm import LLM
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
@@ -13,10 +19,21 @@ from openhands.tools.execute_bash.terminal import (
 )
 
 
+def _create_conv_state(working_dir: str) -> ConversationState:
+    """Helper to create a ConversationState for testing."""
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
+    agent = Agent(llm=llm, tools=[])
+    return ConversationState.create(
+        id=uuid.uuid4(),
+        agent=agent,
+        working_dir=working_dir,
+    )
+
+
 def test_default_auto_detection():
     """Test that BashTool auto-detects the appropriate session type."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         # BashTool always has an executor
@@ -41,7 +58,9 @@ def test_forced_terminal_types():
     """Test forcing specific session types."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Test forced subprocess session
-        tools = BashTool.create(working_dir=temp_dir, terminal_type="subprocess")
+        tools = BashTool.create(
+            _create_conv_state(temp_dir), terminal_type="subprocess"
+        )
         tool = tools[0]
         assert tool.executor is not None
         executor = tool.executor
@@ -66,7 +85,7 @@ def test_unix_auto_detection(mock_system):
             "openhands.tools.execute_bash.terminal.factory._is_tmux_available",
             return_value=True,
         ):
-            tools = BashTool.create(working_dir=temp_dir)
+            tools = BashTool.create(_create_conv_state(temp_dir))
             tool = tools[0]
             assert tool.executor is not None
             executor = tool.executor
@@ -79,7 +98,7 @@ def test_unix_auto_detection(mock_system):
             "openhands.tools.execute_bash.terminal.factory._is_tmux_available",
             return_value=False,
         ):
-            tools = BashTool.create(working_dir=temp_dir)
+            tools = BashTool.create(_create_conv_state(temp_dir))
             tool = tools[0]
             assert tool.executor is not None
             executor = tool.executor
@@ -92,7 +111,7 @@ def test_session_parameters():
     """Test that session parameters are properly passed."""
     with tempfile.TemporaryDirectory() as temp_dir:
         tools = BashTool.create(
-            working_dir=temp_dir,
+            _create_conv_state(temp_dir),
             username="testuser",
             no_change_timeout_seconds=60,
             terminal_type="subprocess",
@@ -112,7 +131,7 @@ def test_backward_compatibility():
     """Test that the simplified API still works."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # This should work just like before
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         assert tool.executor is not None
@@ -125,7 +144,7 @@ def test_backward_compatibility():
 def test_tool_metadata():
     """Test that tool metadata is preserved."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir)
+        tools = BashTool.create(_create_conv_state(temp_dir))
         tool = tools[0]
 
         assert tool.name == "execute_bash"
@@ -137,7 +156,9 @@ def test_tool_metadata():
 def test_session_lifecycle():
     """Test session lifecycle management."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        tools = BashTool.create(working_dir=temp_dir, terminal_type="subprocess")
+        tools = BashTool.create(
+            _create_conv_state(temp_dir), terminal_type="subprocess"
+        )
         tool = tools[0]
 
         # Session should be initialized

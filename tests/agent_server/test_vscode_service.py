@@ -1,7 +1,6 @@
 """Tests for VSCode service."""
 
 import asyncio
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -17,7 +16,6 @@ def vscode_service(tmp_path):
     """Create a VSCode service instance for testing."""
     return VSCodeService(
         port=8001,
-        workspace_path=Path(tmp_path),
     )
 
 
@@ -39,10 +37,9 @@ def mock_openvscode_binary(tmp_path):
 
 def test_vscode_service_initialization(tmp_path):
     """Test VSCode service initialization."""
-    service = VSCodeService(port=8002, workspace_path=Path(tmp_path))
+    service = VSCodeService(port=8002)
 
     assert service.port == 8002
-    assert service.workspace_path == Path(tmp_path)
     assert service.connection_token is None
     assert service.process is None
 
@@ -63,9 +60,7 @@ def test_check_vscode_available_true(vscode_service, mock_openvscode_binary):
 @pytest.mark.asyncio
 async def test_is_port_available_true(tmp_path):
     """Test port availability check when port is free."""
-    service = VSCodeService(
-        workspace_path=tmp_path, port=0
-    )  # Use port 0 to get any available port
+    service = VSCodeService(port=0)  # Use port 0 to get any available port
     assert await service._is_port_available()
 
 
@@ -76,39 +71,17 @@ async def test_is_port_available_false(tmp_path):
     server = await asyncio.start_server(lambda r, w: None, "localhost", 0)
     port = server.sockets[0].getsockname()[1]
 
-    service = VSCodeService(workspace_path=tmp_path, port=port)
+    service = VSCodeService(port=port)
     assert not await service._is_port_available()
 
     server.close()
     await server.wait_closed()
 
 
-def test_setup_vscode_settings(vscode_service, tmp_path):
-    """Test VSCode settings setup."""
-    vscode_service.workspace_path = tmp_path
-
-    vscode_service._setup_vscode_settings()
-
-    vscode_dir = tmp_path / ".vscode"
-    settings_file = vscode_dir / "settings.json"
-
-    assert vscode_dir.exists()
-    assert settings_file.exists()
-
-    import json
-
-    with open(settings_file) as f:
-        settings = json.load(f)
-
-    assert "workbench.colorTheme" in settings
-    assert settings["workbench.colorTheme"] == "Default Dark+"
-
-
 @pytest.mark.asyncio
 async def test_start_success(vscode_service, mock_openvscode_binary, tmp_path):
     """Test successful VSCode service start."""
     vscode_service.openvscode_server_root = mock_openvscode_binary
-    vscode_service.workspace_path = tmp_path
 
     with (
         patch.object(vscode_service, "_is_port_available", return_value=True),
@@ -216,7 +189,6 @@ def test_is_running_finished_process(vscode_service):
 @pytest.mark.asyncio
 async def test_start_vscode_process(vscode_service, tmp_path):
     """Test starting VSCode process."""
-    vscode_service.workspace_path = tmp_path
     vscode_service.connection_token = "test-token"
 
     mock_process = AsyncMock()
@@ -284,12 +256,10 @@ def test_get_vscode_service_enabled(tmp_path):
         patch("openhands.agent_server.vscode_service._vscode_service", None),
     ):
         mock_config.return_value.enable_vscode = True
-        mock_config.return_value.workspace_path = tmp_path
 
         service = get_vscode_service()
 
         assert isinstance(service, VSCodeService)
-        assert service.workspace_path == tmp_path
 
 
 def test_get_vscode_service_disabled():
@@ -312,7 +282,6 @@ def test_get_vscode_service_singleton():
         patch("openhands.agent_server.vscode_service._vscode_service", None),
     ):
         mock_config.return_value.enable_vscode = True
-        mock_config.return_value.workspace_path = Path("/tmp")
 
         service1 = get_vscode_service()
         service2 = get_vscode_service()

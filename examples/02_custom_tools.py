@@ -120,7 +120,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -166,7 +166,9 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+)
 
 conversation.send_message(
     "Hello! Can you use the grep tool to find all files "

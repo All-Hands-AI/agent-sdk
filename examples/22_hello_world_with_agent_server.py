@@ -3,7 +3,6 @@ import subprocess
 import sys
 import threading
 import time
-from pathlib import Path
 
 from pydantic import SecretStr
 
@@ -123,7 +122,7 @@ assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -133,7 +132,6 @@ with ManagedAPIServer(port=8001) as server:
     # Create agent
     agent = get_default_agent(
         llm=llm,
-        working_dir=str(Path.cwd()),
         cli_mode=True,  # Disable browser tools for simplicity
     )
 

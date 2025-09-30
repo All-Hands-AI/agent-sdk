@@ -54,6 +54,10 @@ class StartConversationRequest(BaseModel):
     """
 
     agent: AgentBase
+    working_dir: str = Field(
+        default="workspace/project",
+        description="Working directory for agent operations and tool execution",
+    )
     confirmation_policy: ConfirmationPolicyBase = Field(
         default=NeverConfirm(),
         description="Controls when the conversation will prompt the user before "
