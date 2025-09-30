@@ -566,8 +566,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             elif self.reasoning_effort is not None and self.reasoning_effort != "none":
                 # Other Anthropic models: enable thinking when reasoning_effort is set
                 out["thinking"] = {"type": "enabled", "budget_tokens": 16000}
-                # When thinking is enabled, temperature must be 1
+                # When thinking is enabled, temperature must be 1 and top_p removed
                 out["temperature"] = 1
+                out.pop("top_p", None)
 
         # Mistral / Gemini safety
         if self.safety_settings:
