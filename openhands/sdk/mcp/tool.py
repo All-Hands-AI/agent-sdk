@@ -129,9 +129,7 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
             mcp_action_type.model_validate(action.data)
         except ValidationError as e:
             # Surface validation errors as an observation instead of crashing
-            error_msg = (
-                f"Validation error for MCP tool '{self.name}' args: {e}"
-            )
+            error_msg = f"Validation error for MCP tool '{self.name}' args: {e}"
             logger.error(error_msg, exc_info=True)
             return MCPToolObservation(
                 content=[TextContent(text=error_msg)],
