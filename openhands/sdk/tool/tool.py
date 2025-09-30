@@ -1,4 +1,6 @@
-from typing import Annotated, Any, Generic, TypeVar
+from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from typing import Any, Protocol, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -9,18 +11,20 @@ from pydantic import (
     field_serializer,
     field_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.security import risk
+from openhands.sdk.tool.schema import ActionBase, ObservationBase, Schema
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
+    get_known_concrete_subclasses,
     kind_of,
-    resolve_kind,
 )
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
 ObservationT = TypeVar("ObservationT", bound=ObservationBase)
+_action_types_with_risk: dict[type, type] = {}
 
 
 class ToolAnnotations(BaseModel):
@@ -29,6 +33,13 @@ class ToolAnnotations(BaseModel):
     Based on Model Context Protocol (MCP) spec:
     https://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838
     """
+
+    model_config = ConfigDict(
+        frozen=True,
+        # We need to define the title here to avoid conflict with MCP's ToolAnnotations
+        # when both are included in the same JSON schema for openapi.json
+        title="openhands.sdk.tool.tool.ToolAnnotations",
+    )
 
     title: str | None = Field(
         default=None, description="A human-readable title for the tool."
@@ -51,11 +62,20 @@ class ToolAnnotations(BaseModel):
     )
 
 
-class ToolExecutor(Generic[ActionT, ObservationT]):
+class ToolExecutor[ActionT, ObservationT](ABC):
     """Executor function type for a Tool."""
 
+    @abstractmethod
     def __call__(self, action: ActionT) -> ObservationT:
-        raise NotImplementedError
+        """Execute the tool with the given action and return an observation.
+
+        Args:
+            action: The action to execute, containing the parameters and context
+                   needed for the tool operation.
+
+        Returns:
+            An observation containing the results of the tool execution.
+        """
 
     def close(self) -> None:
         """Close the executor and clean up resources.
@@ -67,7 +87,22 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
+class ExecutableTool(Protocol):
+    """Protocol for tools that are guaranteed to have a non-None executor.
+
+    This eliminates the need for runtime None checks and type narrowing
+    when working with tools that are known to be executable.
+    """
+
+    name: str
+    executor: ToolExecutor[Any, Any]  # Non-optional executor
+
+    def __call__(self, action: ActionBase) -> ObservationBase:
+        """Execute the tool with the given action."""
+        ...
+
+
+class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -87,26 +122,22 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     meta: dict[str, Any] | None = None
 
     # runtime-only; always hidden on dumps
-    executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
+    executor: SkipJsonSchema[ToolExecutor | None] = Field(
+        default=None, repr=False, exclude=True
+    )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Tool":
-        """Create a Tool instance. Placeholder for subclasses.
+    @abstractmethod
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
+        """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).
+
+        Returns:
+            A sequence of Tool instances. Even single tools are returned as a sequence
+            to provide a consistent interface and eliminate union return types.
         """
-        raise NotImplementedError("Tool.create() must be implemented in subclasses")
-
-    @computed_field(return_type=dict[str, Any], alias="input_schema")
-    @property
-    def input_schema(self) -> dict[str, Any]:
-        return self.action_type.to_mcp_schema()
-
-    @computed_field(return_type=dict[str, Any] | None, alias="output_schema")
-    @property
-    def output_schema(self) -> dict[str, Any] | None:
-        return self.observation_type.to_mcp_schema() if self.observation_type else None
 
     @computed_field(return_type=str, alias="title")
     @property
@@ -128,7 +159,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     @classmethod
     def _val_action_type(cls, v):
         if isinstance(v, str):
-            return resolve_kind(v)
+            return ActionBase.resolve_kind(v)
         assert isinstance(v, type) and issubclass(v, ActionBase), (
             f"action_type must be a subclass of ActionBase, but got {type(v)}"
         )
@@ -140,17 +171,47 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         if v is None:
             return None
         if isinstance(v, str):
-            v = resolve_kind(v)
+            v = ObservationBase.resolve_kind(v)
         assert isinstance(v, type) and issubclass(v, ObservationBase), (
             f"observation_type must be a subclass of ObservationBase, but got {type(v)}"
         )
         return v
 
-    def set_executor(self, executor: ToolExecutor) -> "Tool":
+    def set_executor(self, executor: ToolExecutor) -> Self:
         """Create a new Tool instance with the given executor."""
         return self.model_copy(update={"executor": executor})
 
-    def call(self, action: ActionT) -> ObservationBase:
+    def as_executable(self) -> ExecutableTool:
+        """Return this tool as an ExecutableTool, ensuring it has an executor.
+
+        This method eliminates the need for runtime None checks by guaranteeing
+        that the returned tool has a non-None executor.
+
+        Returns:
+            This tool instance, typed as ExecutableTool.
+
+        Raises:
+            NotImplementedError: If the tool has no executor.
+        """
+        if self.executor is None:
+            raise NotImplementedError(f"Tool '{self.name}' has no executor")
+        return self  # type: ignore[return-value]
+
+    def action_from_arguments(self, arguments: dict[str, Any]) -> ActionBase:
+        """Create an action from parsed arguments.
+
+        This method can be overridden by subclasses to provide custom logic
+        for creating actions from arguments (e.g., for MCP tools).
+
+        Args:
+            arguments: The parsed arguments from the tool call.
+
+        Returns:
+            The action instance created from the arguments.
+        """
+        return self.action_type.model_validate(arguments)
+
+    def __call__(self, action: ActionT) -> ObservationBase:
         """Validate input, execute, and coerce output.
 
         We always return some ObservationBase subclass, but not always the
@@ -179,30 +240,123 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
                 "Output must be dict or BaseModel when no output schema is defined"
             )
 
-    def to_mcp_tool(self) -> dict[str, Any]:
+    def to_mcp_tool(
+        self,
+        input_schema: dict[str, Any] | None = None,
+        output_schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Convert a Tool to an MCP tool definition.
+
+        Allow overriding input/output schemas (usually by subclasses).
+
+        Args:
+            input_schema: Optionally override the input schema.
+            output_schema: Optionally override the output schema.
+        """
         out = {
             "name": self.name,
             "description": self.description,
-            "inputSchema": self.input_schema,
+            "inputSchema": input_schema or self.action_type.to_mcp_schema(),
         }
         if self.annotations:
             out["annotations"] = self.annotations
         if self.meta is not None:
             out["_meta"] = self.meta
-        if self.output_schema:
-            out["outputSchema"] = self.output_schema
+
+        derived_output = (
+            output_schema
+            if output_schema is not None
+            else (
+                self.observation_type.to_mcp_schema() if self.observation_type else None
+            )
+        )
+        if derived_output is not None:
+            out["outputSchema"] = derived_output
         return out
 
-    def to_openai_tool(self) -> ChatCompletionToolParam:
-        """Convert an MCP tool to an OpenAI tool."""
+    def to_openai_tool(
+        self,
+        add_security_risk_prediction: bool = False,
+        action_type: type[Schema] | None = None,
+    ) -> ChatCompletionToolParam:
+        """Convert a Tool to an OpenAI tool.
+
+        Args:
+            add_security_risk_prediction: Whether to add a `security_risk` field
+                to the action schema for LLM to predict. This is useful for
+                tools that may have safety risks, so the LLM can reason about
+                the risk level before calling the tool.
+            action_type: Optionally override the action_type to use for the schema.
+                This is useful for MCPTool to use a dynamically created action type
+                based on the tool's input schema.
+        """
+        action_type = action_type or self.action_type
+
+        action_type_with_risk = _create_action_type_with_risk(self.action_type)
+
+        # We only add security_risk if the tool is not read-only
+        add_security_risk_prediction = add_security_risk_prediction and (
+            self.annotations is None or (not self.annotations.readOnlyHint)
+        )
         return ChatCompletionToolParam(
             type="function",
             function=ChatCompletionToolParamFunctionChunk(
                 name=self.name,
                 description=self.description,
-                parameters=self.input_schema,
+                parameters=action_type_with_risk.to_mcp_schema()
+                if add_security_risk_prediction
+                else action_type.to_mcp_schema(),
             ),
         )
 
+    @classmethod
+    def resolve_kind(cls, kind: str) -> type:
+        for subclass in get_known_concrete_subclasses(cls):
+            if subclass.__name__ == kind:
+                return subclass
+        # Fallback to "Tool" for unknown type
+        return Tool
 
-ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]
+
+class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
+    """Concrete tool class that inherits from ToolBase.
+
+    This class serves as a concrete implementation of ToolBase for cases where
+    you want to create a tool instance directly without implementing a custom
+    subclass. Built-in tools (like FinishTool, ThinkTool) are instantiated
+    directly from this class, while more complex tools (like BashTool,
+    FileEditorTool) inherit from this class and provide their own create()
+    method implementations.
+    """
+
+    @classmethod
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
+        """Create a sequence of Tool instances.
+
+        TODO https://github.com/All-Hands-AI/agent-sdk/issues/493
+        Refactor this - the Tool class should not have a concrete create()
+        implementation. Built-in tools should be refactored to not rely on this
+        method, and then this should be made abstract with @abstractmethod.
+        """
+        raise NotImplementedError("Tool.create() should be implemented by subclasses")
+
+
+def _create_action_type_with_risk(action_type: type[ActionBase]) -> type[ActionBase]:
+    action_type_with_risk = _action_types_with_risk.get(action_type)
+    if action_type_with_risk:
+        return action_type_with_risk
+
+    action_type_with_risk = type(
+        f"{action_type.__name__}WithRisk",
+        (action_type,),
+        {
+            "security_risk": Field(
+                # We do NOT add default value to make it an required field
+                # default=risk.SecurityRisk.UNKNOWN
+                description="The LLM's assessment of the safety risk of this action.",
+            ),
+            "__annotations__": {"security_risk": risk.SecurityRisk},
+        },
+    )
+    _action_types_with_risk[action_type] = action_type_with_risk
+    return action_type_with_risk

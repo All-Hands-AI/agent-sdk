@@ -1,17 +1,14 @@
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, cast
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from rich.text import Text
 
-from openhands.sdk.event.types import SourceType
+from openhands.sdk.event.types import EventID, SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
-)
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 if TYPE_CHECKING:
@@ -20,11 +17,11 @@ if TYPE_CHECKING:
 N_CHAR_PREVIEW = 500
 
 
-class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
+class EventBase(DiscriminatedUnionMixin, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    id: str = Field(
+    id: EventID = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique event id (ULID/UUID)",
     )
@@ -56,15 +53,6 @@ class EventBase(DiscriminatedUnionMixin, BaseModel, ABC):
             f"{self.__class__.__name__}(id='{self.id[:8]}...', "
             f"source='{self.source}', timestamp='{self.timestamp}')"
         )
-
-
-Event = Annotated[EventBase, DiscriminatedUnionType[EventBase]]
-"""Type annotation for values that can be any implementation of EventBase.
-
-In most situations, this is equivalent to EventBase. However, when used in Pydantic
-BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
-discriminator resolution until runtime.
-"""
 
 
 class LLMConvertibleEvent(EventBase, ABC):
@@ -119,12 +107,11 @@ class LLMConvertibleEvent(EventBase, ABC):
 
                 # Look ahead for related events
                 j = i + 1
-                while (
-                    j < len(events)
-                    and isinstance(events[j], ActionEvent)
-                    and cast(ActionEvent, events[j]).llm_response_id == response_id
-                ):
-                    batch_events.append(cast(ActionEvent, events[j]))
+                while j < len(events) and isinstance(events[j], ActionEvent):
+                    event = events[j]  # Now type checker knows this is ActionEvent
+                    if event.llm_response_id != response_id:
+                        break
+                    batch_events.append(event)
                     j += 1
 
                 # Create combined message for the response
@@ -154,8 +141,6 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
 
     return Message(
         role="assistant",
-        content=cast(
-            list[TextContent | ImageContent], events[0].thought
-        ),  # Shared thought content only in the first event
+        content=events[0].thought,  # Shared thought content only in the first event
         tool_calls=[event.tool_call for event in events],
     )

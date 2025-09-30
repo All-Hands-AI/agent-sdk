@@ -3,7 +3,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from openhands.sdk.logger import get_logger
 
@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 
 class FileCache:
-    def __init__(self, directory: str, size_limit: Optional[int] = None):
+    def __init__(self, directory: str, size_limit: int | None = None):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.size_limit = size_limit
@@ -83,7 +83,7 @@ class FileCache:
             file_path, (time.time(), time.time())
         )  # Update access and modification time
 
-    def _evict_oldest(self, exclude_path: Optional[Path] = None):
+    def _evict_oldest(self, exclude_path: Path | None = None):
         oldest_file = min(
             (
                 f
@@ -105,7 +105,7 @@ class FileCache:
         if not file_path.exists():
             logger.debug(f"Get: Key not found: {key}")
             return default
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             data = json.load(f)
             os.utime(file_path, (time.time(), time.time()))  # Update access time
             logger.debug(f"Get: Key found: {key}")
@@ -142,7 +142,7 @@ class FileCache:
     def __iter__(self):
         for file in self.directory.glob("*.json"):
             if file.is_file():
-                with open(file, "r") as f:
+                with open(file) as f:
                     data = json.load(f)
                     logger.debug(f"Yielding key: {data['key']}")
                     yield data["key"]

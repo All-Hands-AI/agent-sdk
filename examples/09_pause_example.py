@@ -8,44 +8,42 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Message,
-    TextContent,
 )
-from openhands.tools import (
-    BashTool,
-    FileEditorTool,
-)
+from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
 # Tools
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    BashTool.create(working_dir=os.getcwd()),
-    FileEditorTool.create(),
+    ToolSpec(
+        name="BashTool",
+    ),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
-conversation = Conversation(agent)
+conversation = Conversation(agent, working_dir=os.getcwd())
 
 
 print("Simple pause example - Press Ctrl+C to pause")
 
 # Send a message to get the conversation started
-conversation.send_message(
-    Message(
-        role="user",
-        content=[TextContent(text="repeatedly say hello world and don't stop")],
-    )
-)
+conversation.send_message("repeatedly say hello world and don't stop")
 
 # Start the agent in a background thread
 thread = threading.Thread(target=conversation.run)
@@ -53,18 +51,16 @@ thread.start()
 
 try:
     # Main loop - similar to the user's sample script
-    while not conversation.state.agent_finished and not conversation.state.agent_paused:
+    while (
+        conversation.state.agent_status != AgentExecutionStatus.FINISHED
+        and conversation.state.agent_status != AgentExecutionStatus.PAUSED
+    ):
         # Send encouraging messages periodically
-        conversation.send_message(
-            Message(
-                role="user",
-                content=[TextContent(text="keep going! you can do it!")],
-            )
-        )
+        conversation.send_message("keep going! you can do it!")
         time.sleep(1)
 except KeyboardInterrupt:
     conversation.pause()
 
 thread.join()
 
-print(f"Agent paused: {conversation.state.agent_paused}")
+print(f"Agent status: {conversation.state.agent_status}")

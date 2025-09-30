@@ -7,18 +7,13 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
-    LocalFileStore,
-    Message,
-    TextContent,
-    create_mcp_tools,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-    FileEditorTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -27,16 +22,19 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
 # Tools
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+tool_specs = [
+    ToolSpec(name="BashTool"),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 # Add MCP Tools
@@ -45,53 +43,34 @@ mcp_config = {
         "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
     }
 }
-mcp_tools = create_mcp_tools(mcp_config, timeout=30)
-tools.extend(mcp_tools)
-logger.info(f"Added {len(mcp_tools)} MCP tools")
-for tool in mcp_tools:
-    logger.info(f"  - {tool.name}: {tool.description}")
-
 # Agent
-agent = Agent(llm=llm, tools=tools)
+agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation_id = str(uuid.uuid4())
-file_store = LocalFileStore(f"./.conversations/{conversation_id}")
+conversation_id = uuid.uuid4()
+persistence_dir = "./.conversations"
 
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
+    working_dir=cwd,
+    persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Read https://github.com/All-Hands-AI/OpenHands. "
-                    "Then write 3 facts about the project into FACTS.txt."
-                )
-            )
-        ],
-    )
+    "Read https://github.com/All-Hands-AI/OpenHands. Then write 3 facts "
+    "about the project into FACTS.txt."
 )
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 print("=" * 100)
@@ -109,17 +88,11 @@ print("Deserializing conversation...")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
+    working_dir=cwd,
+    persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
 
 print("Sending message to deserialized conversation...")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(text="Hey what did you create? Return an agent finish action")
-        ],
-    )
-)
+conversation.send_message("Hey what did you create? Return an agent finish action")
 conversation.run()

@@ -7,6 +7,7 @@ from typing import get_args
 
 from binaryornot.check import is_binary
 
+from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.truncate import maybe_truncate
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
@@ -31,6 +32,9 @@ from openhands.tools.str_replace_editor.utils.encoding import (
 )
 from openhands.tools.str_replace_editor.utils.history import FileHistoryManager
 from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
+
+
+logger = get_logger(__name__)
 
 
 class FileEditor:
@@ -74,12 +78,11 @@ class FileEditor:
             workspace_path = Path(workspace_root)
             # Ensure workspace_root is an absolute path
             if not workspace_path.is_absolute():
-                raise ValueError(
-                    f"workspace_root must be an absolute path, got: {workspace_root}"
-                )
+                workspace_path = workspace_path.resolve()
             self._cwd = workspace_path
         else:
-            self._cwd = None  # type: ignore
+            self._cwd = os.path.abspath(os.getcwd())
+        logger.info(f"FileEditor initialized with cwd: {self._cwd}")
 
     def __call__(
         self,
@@ -439,7 +442,7 @@ class FileEditor:
         ) as temp_file:
             # Copy lines before insert point and save them for history
             history_lines = []
-            with open(path, "r", encoding=encoding) as f:
+            with open(path, encoding=encoding) as f:
                 for i, line in enumerate(f, 1):
                     if i > insert_line:
                         break
@@ -451,7 +454,7 @@ class FileEditor:
                 temp_file.write(line + "\n")
 
             # Copy remaining lines and save them for history
-            with open(path, "r", encoding=encoding) as f:
+            with open(path, encoding=encoding) as f:
                 for i, line in enumerate(f, 1):
                     if i <= insert_line:
                         continue
@@ -630,7 +633,7 @@ class FileEditor:
             if start_line is not None and end_line is not None:
                 # Read only the specified line range
                 lines = []
-                with open(path, "r", encoding=encoding) as f:
+                with open(path, encoding=encoding) as f:
                     for i, line in enumerate(f, 1):
                         if i > end_line:
                             break
@@ -643,7 +646,7 @@ class FileEditor:
                 )
             else:
                 # Use line-by-line reading to avoid loading entire file into memory
-                with open(path, "r", encoding=encoding) as f:
+                with open(path, encoding=encoding) as f:
                     return "".join(f)
         except Exception as e:
             raise ToolError(f"Ran into {e} while trying to read {path}") from None

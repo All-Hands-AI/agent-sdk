@@ -1,9 +1,13 @@
 """String replace editor tool implementation."""
 
 from collections.abc import Sequence
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field, PrivateAttr
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -21,10 +25,7 @@ class StrReplaceEditorAction(ActionBase):
         description="The commands to run. Allowed options are: `view`, `create`, "
         "`str_replace`, `insert`, `undo_edit`."
     )
-    path: str = Field(
-        description="Absolute path to file or directory, e.g. `/workspace/file.py` "
-        "or `/workspace`."
-    )
+    path: str = Field(description="Absolute path to file or directory.")
     file_text: str | None = Field(
         default=None,
         description="Required parameter of `create` command, with the content of "
@@ -43,6 +44,7 @@ class StrReplaceEditorAction(ActionBase):
     )
     insert_line: int | None = Field(
         default=None,
+        ge=1,
         description="Required parameter of `insert` command. The `new_str` will "
         "be inserted AFTER the line `insert_line` of `path`.",
     )
@@ -199,35 +201,31 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
-    def create(cls, workspace_root: str | None = None) -> "FileEditorTool":
+    def create(
+        cls,
+        conv_state: "ConversationState",
+    ) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
         Args:
-            workspace_root: Root directory for file operations. If provided,
-                          tool descriptions will use this path in examples.
+            conv_state: Conversation state to get working directory from.
+                         If provided, workspace_root will be taken from
+                         conv_state.working_dir
         """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
-        # Determine the workspace path for examples
-        workspace_path = workspace_root if workspace_root else "/workspace"
-
-        # Create a dynamic action type with updated path description
-        class DynamicStrReplaceEditorAction(StrReplaceEditorAction):
-            path: str = Field(
-                description=f"Absolute path to file or directory, e.g. "
-                f"`{workspace_path}/file.py` or `{workspace_path}`."
-            )
-
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=workspace_root)
+        executor = FileEditorExecutor(workspace_root=conv_state.working_dir)
 
         # Initialize the parent Tool with the executor
-        return cls(
-            name=str_replace_editor_tool.name,
-            description=TOOL_DESCRIPTION,
-            action_type=DynamicStrReplaceEditorAction,
-            observation_type=StrReplaceEditorObservation,
-            annotations=str_replace_editor_tool.annotations,
-            executor=executor,
-        )
+        return [
+            cls(
+                name=str_replace_editor_tool.name,
+                description=TOOL_DESCRIPTION,
+                action_type=StrReplaceEditorAction,
+                observation_type=StrReplaceEditorObservation,
+                annotations=str_replace_editor_tool.annotations,
+                executor=executor,
+            )
+        ]

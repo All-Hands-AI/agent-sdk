@@ -92,9 +92,9 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
     # o-series (keep exact o1 support per existing list)
     "o1-2024-12-17",
     "o3*",
-    "o4-mini*",
+    "o4-mini",
     # Google Gemini
-    "gemini-2.5-pro*",
+    "gemini-2.5-pro",
     # Others
     "kimi-k2-0711-preview",
     "kimi-k2-instruct",
@@ -105,8 +105,8 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
 REASONING_EFFORT_PATTERNS: list[str] = [
     # Mirror main behavior exactly (no unintended expansion)
     "o1-2024-12-17",
-    "o1",
-    "o3",
+    "o1*",  # Match all o1 variants including o1-preview
+    "o3*",  # Match all o3 variants
     "o3-2025-04-16",
     "o3-mini-2025-01-31",
     "o3-mini",
@@ -114,8 +114,10 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "o4-mini-2025-04-16",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
-    "gpt-5",
-    "gpt-5-2025-08-07",
+    # OpenAI GPT-5 family (includes mini variants)
+    "gpt-5*",
+    # Anthropic Claude Sonnet 4.5
+    "claude-sonnet-4-5-20250929",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
@@ -123,6 +125,7 @@ PROMPT_CACHE_PATTERNS: list[str] = [
     "claude-3.7-sonnet*",
     "claude-sonnet-3-7-latest",
     "claude-3-5-sonnet*",
+    "claude-3.5-sonnet*",
     "claude-3-5-haiku*",
     "claude-3.5-haiku*",
     "claude-3-haiku-20240307*",

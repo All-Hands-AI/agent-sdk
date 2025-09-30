@@ -2,252 +2,127 @@
 
 import os
 import signal
+from collections.abc import Callable
 
 from pydantic import SecretStr
 
-from openhands.sdk import (
-    LLM,
-    Agent,
-    Conversation,
-    Message,
-    TextContent,
-)
-from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.tools import BashTool
+from openhands.sdk import LLM, BaseConversation, Conversation
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
+from openhands.tools.preset.default import get_default_agent
 
 
-print("=== OpenHands Agent SDK — Confirmation Mode Example ===")
+# Make ^C a clean exit instead of a stack trace
+signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
+
+
+def _print_action_preview(pending_actions) -> None:
+    print(f"\n🔍 Agent created {len(pending_actions)} action(s) awaiting confirmation:")
+    for i, action in enumerate(pending_actions, start=1):
+        snippet = str(action.action)[:100].replace("\n", " ")
+        print(f"  {i}. {action.tool_name}: {snippet}...")
+
+
+def confirm_in_console(pending_actions) -> bool:
+    """
+    Return True to approve, False to reject.
+    Default to 'no' on EOF/KeyboardInterrupt (matches original behavior).
+    """
+    _print_action_preview(pending_actions)
+    while True:
+        try:
+            ans = (
+                input("\nDo you want to execute these actions? (yes/no): ")
+                .strip()
+                .lower()
+            )
+        except (EOFError, KeyboardInterrupt):
+            print("\n❌ No input received; rejecting by default.")
+            return False
+
+        if ans in ("yes", "y"):
+            print("✅ Approved — executing actions…")
+            return True
+        if ans in ("no", "n"):
+            print("❌ Rejected — skipping actions…")
+            return False
+        print("Please enter 'yes' or 'no'.")
+
+
+def run_until_finished(conversation: BaseConversation, confirmer: Callable) -> None:
+    """
+    Drive the conversation until FINISHED.
+    If WAITING_FOR_CONFIRMATION, ask the confirmer;
+    on reject, call reject_pending_actions().
+    Preserves original error if agent waits but no actions exist.
+    """
+    while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
+        if (
+            conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        ):
+            pending = ConversationState.get_unmatched_actions(conversation.state.events)
+            if not pending:
+                raise RuntimeError(
+                    "⚠️ Agent is waiting for confirmation but no pending actions "
+                    "were found. This should not happen."
+                )
+            if not confirmer(pending):
+                conversation.reject_pending_actions("User rejected the actions")
+                # Let the agent produce a new step or finish
+                continue
+
+        print("▶️  Running conversation.run()…")
+        conversation.run()
+
 
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
-# Tools
-cwd = os.getcwd()
-tools = [BashTool.create(working_dir=cwd)]
+agent = get_default_agent(llm=llm)
+conversation = Conversation(agent=agent, working_dir=os.getcwd())
 
-# Agent and Conversation with confirmation mode enabled
-agent = Agent(llm=llm, tools=tools)
-conversation = Conversation(agent=agent)
-conversation.set_confirmation_mode(True)
-
-# Make ^C a clean exit instead of a stack trace
-signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
-
+# 1) Confirmation mode ON
+conversation.set_confirmation_policy(AlwaysConfirm())
 print("\n1) Command that will likely create actions…")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text="Please list the files in the current directory using ls -la"
-            )
-        ],
-    )
-)
+conversation.send_message("Please list the files in the current directory using ls -la")
+run_until_finished(conversation, confirm_in_console)
 
-# Run conversation with confirmation handling
-while not conversation.state.agent_finished:
-    # If agent is waiting for confirmation, preview actions and ask user
-    if conversation.state.agent_waiting_for_confirmation:
-        pending_actions = get_unmatched_actions(conversation.state.events)
-
-        if pending_actions:
-            # Build short previews for display
-            print(
-                f"\n🔍 Agent created {len(pending_actions)} action(s) awaiting "
-                "confirmation:"
-            )
-            for i, action in enumerate(pending_actions, 1):
-                tool = getattr(action, "tool_name", "<unknown tool>")
-                snippet = str(getattr(action, "action", ""))[:100].replace("\n", " ")
-                print(f"  {i}. {tool}: {snippet}…")
-
-            # Ask for user confirmation
-            while True:
-                try:
-                    user_input = (
-                        input("\nDo you want to execute these actions? (yes/no): ")
-                        .strip()
-                        .lower()
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    print("\n❌ No input received; rejecting by default.")
-                    user_input = "no"
-                    break
-
-                if user_input in ("yes", "y"):
-                    print("✅ Approved — executing actions…")
-                    break
-                elif user_input in ("no", "n"):
-                    print("❌ Rejected — skipping actions…")
-                    conversation.reject_pending_actions("User rejected the actions")
-                    break
-                else:
-                    print("Please enter 'yes' or 'no'.")
-
-            if user_input in ("no", "n"):
-                continue  # Loop continues — the agent may produce a new step or finish
-        else:
-            # Defensive: clear the flag if somehow set without actions
-            print(
-                "⚠️ Agent is waiting for confirmation but no pending actions were found."
-            )
-            conversation.state.agent_waiting_for_confirmation = False
-
-    print("▶️  Running conversation.run()…")
-    conversation.run()
-
+# 2) A command the user may choose to reject
 print("\n2) Command the user may choose to reject…")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Please create a file called 'dangerous_file.txt'")],
-    )
-)
+conversation.send_message("Please create a file called 'dangerous_file.txt'")
+run_until_finished(conversation, confirm_in_console)
 
-# Run conversation with confirmation handling
-while not conversation.state.agent_finished:
-    if conversation.state.agent_waiting_for_confirmation:
-        pending_actions = get_unmatched_actions(conversation.state.events)
-
-        if pending_actions:
-            print(
-                f"\n🔍 Agent created {len(pending_actions)} action(s) awaiting "
-                "confirmation:"
-            )
-            for i, action in enumerate(pending_actions, 1):
-                tool = getattr(action, "tool_name", "<unknown tool>")
-                snippet = str(getattr(action, "action", ""))[:100].replace("\n", " ")
-                print(f"  {i}. {tool}: {snippet}…")
-
-            while True:
-                try:
-                    user_input = (
-                        input("\nDo you want to execute these actions? (yes/no): ")
-                        .strip()
-                        .lower()
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    print("\n❌ No input received; rejecting by default.")
-                    user_input = "no"
-                    break
-
-                if user_input in ("yes", "y"):
-                    print("✅ Approved — executing actions…")
-                    break
-                elif user_input in ("no", "n"):
-                    print("❌ Rejected — skipping actions…")
-                    conversation.reject_pending_actions("User rejected the actions")
-                    break
-                else:
-                    print("Please enter 'yes' or 'no'.")
-
-            if user_input in ("no", "n"):
-                continue
-        else:
-            print(
-                "⚠️ Agent is waiting for confirmation but no pending actions were found."
-            )
-            conversation.state.agent_waiting_for_confirmation = False
-
-    print("▶️  Running conversation.run()…")
-    conversation.run()
-
+# 3) Simple greeting (no actions expected)
 print("\n3) Simple greeting (no actions expected)…")
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Just say hello to me")],
-    )
-)
+conversation.send_message("Just say hello to me")
+run_until_finished(conversation, confirm_in_console)
 
-# Run conversation with confirmation handling
-while not conversation.state.agent_finished:
-    if conversation.state.agent_waiting_for_confirmation:
-        pending_actions = get_unmatched_actions(conversation.state.events)
-
-        if pending_actions:
-            print(
-                f"\n🔍 Agent created {len(pending_actions)} action(s) awaiting "
-                "confirmation:"
-            )
-            for i, action in enumerate(pending_actions, 1):
-                tool = getattr(action, "tool_name", "<unknown tool>")
-                snippet = str(getattr(action, "action", ""))[:100].replace("\n", " ")
-                print(f"  {i}. {tool}: {snippet}…")
-
-            while True:
-                try:
-                    user_input = (
-                        input("\nDo you want to execute these actions? (yes/no): ")
-                        .strip()
-                        .lower()
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    print("\n❌ No input received; rejecting by default.")
-                    user_input = "no"
-                    break
-
-                if user_input in ("yes", "y"):
-                    print("✅ Approved — executing actions…")
-                    break
-                elif user_input in ("no", "n"):
-                    print("❌ Rejected — skipping actions…")
-                    conversation.reject_pending_actions("User rejected the actions")
-                    break
-                else:
-                    print("Please enter 'yes' or 'no'.")
-
-            if user_input in ("no", "n"):
-                continue
-        else:
-            print(
-                "⚠️ Agent is waiting for confirmation but no pending actions were found."
-            )
-            conversation.state.agent_waiting_for_confirmation = False
-
-    print("▶️  Running conversation.run()…")
-    conversation.run()
-
+# 4) Disable confirmation mode and run commands directly
 print("\n4) Disable confirmation mode and run a command…")
-conversation.set_confirmation_mode(False)
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(text="Please echo 'Hello from confirmation mode example!'")
-        ],
-    )
-)
+conversation.set_confirmation_policy(NeverConfirm())
+conversation.send_message("Please echo 'Hello from confirmation mode example!'")
 conversation.run()
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Please delete any file that was created during this conversation."
-                )
-            )
-        ],
-    )
+    "Please delete any file that was created during this conversation."
 )
 conversation.run()
 
 print("\n=== Example Complete ===")
 print("Key points:")
 print(
-    "- conversation.run() creates actions; confirmation mode sets "
-    "agent_waiting_for_confirmation=True"
+    "- conversation.run() creates actions; confirmation mode "
+    "sets agent_status=WAITING_FOR_CONFIRMATION"
 )
-print("- User confirmation is handled inline with input() prompts")
-print("- Rejection uses conversation.reject_pending_actions() and continues the loop")
+print("- User confirmation is handled via a single reusable function")
+print("- Rejection uses conversation.reject_pending_actions() and the loop continues")
 print("- Simple responses work normally without actions")
-print("- Confirmation mode can be toggled with conversation.set_confirmation_mode()")
+print("- Confirmation policy is toggled with conversation.set_confirmation_policy()")

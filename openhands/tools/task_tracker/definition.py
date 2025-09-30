@@ -1,9 +1,13 @@
 import json
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field, ValidationError
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk import ImageContent, TextContent
@@ -57,7 +61,7 @@ class TaskTrackerAction(ActionBase):
 
         # Show task count if planning
         if self.command == "plan" and self.task_list:
-            content.append(f" ({len(self.task_list)} tasks)", style="dim")
+            content.append(f" ({len(self.task_list)} tasks)")
 
         return content
 
@@ -126,13 +130,13 @@ class TaskTrackerObservation(ObservationBase):
 
                 # NEW: show notes under the title if present
                 if task.notes:
-                    content.append("\n   Notes: " + task.notes, style="italic dim")
+                    content.append("\n   Notes: " + task.notes, style="italic")
 
                 if i < len(self.task_list):
                     content.append("\n")
         else:
             content.append("📝 ", style="blue")
-            content.append("Task list is empty", style="dim")
+            content.append("Task list is empty")
 
         return content
 
@@ -148,6 +152,7 @@ class TaskTrackerExecutor(ToolExecutor):
                      persisted to save_dir/TASKS.md
         """
         self.save_dir = Path(save_dir) if save_dir else None
+        logger.info(f"TaskTrackerExecutor initialized with save_dir: {self.save_dir}")
         self._task_list: list[TaskItem] = []
 
         # Load existing tasks if save_dir is provided and file exists
@@ -219,7 +224,7 @@ class TaskTrackerExecutor(ToolExecutor):
             return
 
         try:
-            with open(tasks_file, "r", encoding="utf-8") as f:
+            with open(tasks_file, encoding="utf-8") as f:
                 self._task_list = [TaskItem.model_validate(d) for d in json.load(f)]
         except (OSError, json.JSONDecodeError, TypeError, ValidationError) as e:
             logger.warning(
@@ -397,21 +402,24 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
     """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
 
     @classmethod
-    def create(cls, save_dir: str | None = None):
+    def create(cls, conv_state: "ConversationState") -> Sequence["TaskTrackerTool"]:
         """Initialize TaskTrackerTool with a TaskTrackerExecutor.
 
         Args:
-            save_dir: Optional directory to save tasks to. If provided, tasks will be
-                     persisted to save_dir/TASKS.json
+            conv_state: Conversation state to get persistence directory from.
+                         If provided, save_dir will be taken from
+                         conv_state.persistence_dir
         """
-        executor = TaskTrackerExecutor(save_dir=save_dir)
+        executor = TaskTrackerExecutor(save_dir=conv_state.persistence_dir)
 
         # Initialize the parent Tool with the executor
-        return cls(
-            name="task_tracker",
-            description=TASK_TRACKER_DESCRIPTION,
-            action_type=TaskTrackerAction,
-            observation_type=TaskTrackerObservation,
-            annotations=task_tracker_tool.annotations,
-            executor=executor,
-        )
+        return [
+            cls(
+                name="task_tracker",
+                description=TASK_TRACKER_DESCRIPTION,
+                action_type=TaskTrackerAction,
+                observation_type=TaskTrackerObservation,
+                annotations=task_tracker_tool.annotations,
+                executor=executor,
+            )
+        ]

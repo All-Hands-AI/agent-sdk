@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -15,8 +15,8 @@ MicroagentType = Literal[
 class InputMetadata(BaseModel):
     """Metadata for task microagent inputs."""
 
-    name: str = Field(..., description="Name of the input parameter")
-    description: str = Field(..., description="Description of the input parameter")
+    name: str = Field(description="Name of the input parameter")
+    description: str = Field(description="Description of the input parameter")
 
 
 class MicroagentKnowledge(BaseModel):
@@ -38,7 +38,7 @@ class MicroagentResponse(BaseModel):
     name: str = Field(description="The name of the microagent")
     path: str = Field(description="The path or identifier of the microagent")
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="Timestamp when the microagent was created",
     )
 

@@ -9,7 +9,8 @@ import tempfile
 from unittest.mock import Mock
 
 from openhands.sdk import Agent, Conversation
-from openhands.tools import BashExecutor, execute_bash_tool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashExecutor, BashTool
 
 
 def test_conversation_close_calls_executor_close(mock_llm):
@@ -19,12 +20,21 @@ def test_conversation_close_calls_executor_close(mock_llm):
         bash_executor = BashExecutor(working_dir=temp_dir, terminal_type="subprocess")
         bash_executor.close = Mock()
 
-        # Create tools with the executor
-        tools = [execute_bash_tool.set_executor(executor=bash_executor)]
+        def _make_tool(conv_state, **params):
+            tools = BashTool.create(conv_state)
+            tool = tools[0]
+            return [tool.model_copy(update={"executor": bash_executor})]
+
+        register_tool("test_execute_bash", _make_tool)
 
         # Create agent and conversation
-        agent = Agent(llm=mock_llm, tools=tools)
-        conversation = Conversation(agent=agent)
+        agent = Agent(
+            llm=mock_llm,
+            tools=[
+                ToolSpec(name="test_execute_bash", params={"working_dir": temp_dir})
+            ],
+        )
+        conversation = Conversation(agent=agent, working_dir=temp_dir)
 
         # Close the conversation
         conversation.close()
@@ -40,12 +50,21 @@ def test_conversation_del_calls_close(mock_llm):
         bash_executor = BashExecutor(working_dir=temp_dir, terminal_type="subprocess")
         bash_executor.close = Mock()
 
-        # Create tools with the executor
-        tools = [execute_bash_tool.set_executor(executor=bash_executor)]
+        def _make_tool(conv_state, **params):
+            tools = BashTool.create(conv_state)
+            tool = tools[0]
+            return [tool.model_copy(update={"executor": bash_executor})]
+
+        register_tool("test_execute_bash", _make_tool)
 
         # Create agent and conversation
-        agent = Agent(llm=mock_llm, tools=tools)
-        conversation = Conversation(agent=agent)
+        agent = Agent(
+            llm=mock_llm,
+            tools=[
+                ToolSpec(name="test_execute_bash", params={"working_dir": temp_dir})
+            ],
+        )
+        conversation = Conversation(agent=agent, working_dir=temp_dir)
 
         # Manually call __del__ to simulate garbage collection
         conversation.__del__()
@@ -64,12 +83,21 @@ def test_conversation_close_handles_executor_exceptions(mock_llm):
         bash_executor = BashExecutor(working_dir=temp_dir, terminal_type="subprocess")
         bash_executor.close = Mock(side_effect=Exception("Test exception"))
 
-        # Create tools with the executor
-        tools = [execute_bash_tool.set_executor(executor=bash_executor)]
+        def _make_tool(conv_state, **params):
+            tools = BashTool.create(conv_state)
+            tool = tools[0]
+            return [tool.model_copy(update={"executor": bash_executor})]
+
+        register_tool("test_execute_bash", _make_tool)
 
         # Create agent and conversation
-        agent = Agent(llm=mock_llm, tools=tools)
-        conversation = Conversation(agent=agent)
+        agent = Agent(
+            llm=mock_llm,
+            tools=[
+                ToolSpec(name="test_execute_bash", params={"working_dir": temp_dir})
+            ],
+        )
+        conversation = Conversation(agent=agent, working_dir=temp_dir)
 
         # Close should not raise an exception even if executor.close() fails
         # We can see from the captured stderr that the warning is logged correctly
@@ -78,17 +106,28 @@ def test_conversation_close_handles_executor_exceptions(mock_llm):
 
 def test_conversation_close_skips_none_executors(mock_llm):
     """Test that Conversation.close() skips tools with None executors."""
-    # Create a mock LLM to avoid actual API calls
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create a mock LLM to avoid actual API calls
 
-    # Create a tool with no executor
-    tool_with_no_executor = execute_bash_tool  # No executor set
+        # Create a tool with no executor
+        register_tool(
+            "test_execute_bash",
+            lambda conv_state, **params: [
+                BashTool.create(conv_state)[0].model_copy(update={"executor": None})
+            ],
+        )
 
-    # Create agent and conversation
-    agent = Agent(llm=mock_llm, tools=[tool_with_no_executor])
-    conversation = Conversation(agent=agent)
+        # Create agent and conversation
+        agent = Agent(
+            llm=mock_llm,
+            tools=[
+                ToolSpec(name="test_execute_bash", params={"working_dir": temp_dir})
+            ],
+        )
+        conversation = Conversation(agent=agent, working_dir=temp_dir)
 
-    # This should not raise an exception
-    conversation.close()
+        # This should not raise an exception
+        conversation.close()
 
 
 def test_bash_executor_close_calls_session_close():

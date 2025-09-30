@@ -1,5 +1,7 @@
 """Tests for event immutability."""
 
+from collections.abc import Sequence
+
 import pytest
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 
@@ -15,20 +17,24 @@ from openhands.sdk.event import (
     SystemPromptEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import Message, TextContent
-from openhands.sdk.tool import Action, Observation
+from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.tool.schema import ActionBase, ObservationBase
 
 
-class MockAction(Action):
+class TestEventsImmutabilityMockAction(ActionBase):
     """Mock action for testing."""
 
     command: str = "test_command"
 
 
-class MockObservation(Observation):
+class TestEventsImmutabilityMockObservation(ObservationBase):
     """Mock observation for testing."""
 
     result: str = "test_result"
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.result)]
 
 
 def test_event_base_is_frozen():
@@ -81,7 +87,7 @@ def test_system_prompt_event_is_frozen():
 
 def test_action_event_is_frozen():
     """Test that ActionEvent instances are frozen."""
-    action = MockAction()
+    action = TestEventsImmutabilityMockAction()
     tool_call = ChatCompletionMessageToolCall(
         id="test_call_id", function={"name": "test_tool", "arguments": "{}"}
     )
@@ -100,7 +106,7 @@ def test_action_event_is_frozen():
         event.thought = [TextContent(text="Modified thought")]
 
     with pytest.raises(Exception):
-        event.action = MockAction(command="modified_command")
+        event.action = TestEventsImmutabilityMockAction(command="modified_command")
 
     with pytest.raises(Exception):
         event.tool_name = "modified_tool"
@@ -111,7 +117,7 @@ def test_action_event_is_frozen():
 
 def test_observation_event_is_frozen():
     """Test that ObservationEvent instances are frozen."""
-    observation = MockObservation()
+    observation = TestEventsImmutabilityMockObservation()
 
     event = ObservationEvent(
         observation=observation,
@@ -122,7 +128,9 @@ def test_observation_event_is_frozen():
 
     # Test that we cannot modify any field
     with pytest.raises(Exception):
-        event.observation = MockObservation(result="modified_result")
+        event.observation = TestEventsImmutabilityMockObservation(
+            result="modified_result"
+        )
 
     with pytest.raises(Exception):
         event.action_id = "modified_action_id"
@@ -181,7 +189,9 @@ def test_user_reject_observation_is_frozen():
 
 def test_agent_error_event_is_frozen():
     """Test that AgentErrorEvent instances are frozen."""
-    event = AgentErrorEvent(error="Test error message")
+    event = AgentErrorEvent(
+        error="Test error message", tool_call_id="test_call_id", tool_name="test_tool"
+    )
 
     # Test that we cannot modify any field
     with pytest.raises(Exception):

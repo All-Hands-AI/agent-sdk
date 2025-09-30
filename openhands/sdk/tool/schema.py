@@ -1,18 +1,14 @@
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Annotated, Any, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.llm.message import content_to_str
-from openhands.sdk.tool.security_prompt import (
-    SECURITY_RISK_DESC,
-    SECURITY_RISK_LITERAL,
-)
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
 )
 from openhands.sdk.utils.visualize import display_dict
 
@@ -154,15 +150,8 @@ class Schema(BaseModel):
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class ActionBase(Schema, DiscriminatedUnionMixin):
+class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for input action."""
-
-    # NOTE: We make it optional since some weaker
-    # LLMs may not be able to fill it out correctly.
-    # https://github.com/All-Hands-AI/OpenHands/issues/10797
-    security_risk: SECURITY_RISK_LITERAL = Field(
-        default="UNKNOWN", description=SECURITY_RISK_DESC
-    )
 
     @property
     def visualize(self) -> Text:
@@ -186,71 +175,14 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
 
         return content
 
-    @classmethod
-    def to_mcp_schema(cls) -> dict[str, Any]:
-        """Convert to JSON schema format compatible with MCP."""
-        schema = super().to_mcp_schema()
 
-        # We need to move the fields from ActionBase to the END of the properties
-        # We use these properties to generate the llm schema for tool calling
-        # and we want the ActionBase fields to be at the end
-        # e.g. LLM should already outputs the argument for tools
-        # BEFORE it predicts security_risk
-        assert "properties" in schema, "Schema must have properties"
-        for field_name in ActionBase.model_fields.keys():
-            if field_name in schema["properties"]:
-                v = schema["properties"].pop(field_name)
-                schema["properties"][field_name] = v
-        return schema
-
-
-class MCPActionBase(ActionBase):
-    """Base schema for MCP input action."""
-
-    model_config = ConfigDict(extra="allow", frozen=True)
-
-    # Collect all fields from ActionBase and its parents
-    _parent_fields: frozenset[str] = frozenset(
-        fname
-        for base in ActionBase.__mro__
-        if issubclass(base, BaseModel)
-        for fname in {
-            **base.model_fields,
-            **base.model_computed_fields,
-        }.keys()
-    )
-
-    def to_mcp_arguments(self) -> dict:
-        """Dump model excluding parent ActionBase fields.
-
-        This is used to convert this action to MCP tool call arguments.
-        The parent fields (e.g., safety_risk, kind) are not part of the MCP tool schema
-        but are only used for our internal processing.
-        """
-        data = self.model_dump(exclude_none=True)
-        for f in self._parent_fields:
-            data.pop(f, None)
-        return data
-
-
-Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
-"""Type annotation for values that can be any implementation of ActionBase.
-
-In most situations, this is equivalent to ActionBase. However, when used in Pydantic
-BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
-discriminator resolution until runtime.
-"""
-
-
-class ObservationBase(Schema, DiscriminatedUnionMixin):
+class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for output observation."""
 
-    model_config = ConfigDict(extra="allow", frozen=True)
-
     @property
+    @abstractmethod
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
-        raise NotImplementedError("Subclasses must implement agent_observation")
 
     @property
     def visualize(self) -> Text:
@@ -265,14 +197,5 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
             full_content = "".join(text_parts)
             content.append(full_content)
         else:
-            content.append("[no text content]", style="dim")
+            content.append("[no text content]")
         return content
-
-
-Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
-"""Type annotation for values that can be any implementation of ObservationBase.
-
-In most situations, this is equivalent to ObservationBase. However, when used in
-Pydantic BaseModels as a field annotation, it enables polymorphic deserialization by
-delaying the discriminator resolution until runtime.
-"""

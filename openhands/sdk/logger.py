@@ -55,11 +55,9 @@ ENV_DEBUG_LLM = os.getenv("DEBUG_LLM", "false").lower() in {"1", "true", "yes"}
 _ENABLE_LITELLM_DEBUG = False
 if ENV_DEBUG_LLM:
     confirmation = input(
-        (
-            "\n⚠️ WARNING: You are enabling DEBUG_LLM which may expose sensitive "
-            "information like API keys.\nThis should NEVER be enabled in production.\n"
-            "Type 'y' to confirm you understand the risks: "
-        )
+        "\n⚠️ WARNING: You are enabling DEBUG_LLM which may expose sensitive "
+        "information like API keys.\nThis should NEVER be enabled in production.\n"
+        "Type 'y' to confirm you understand the risks: "
     )
     if confirmation.lower() == "y":
         _ENABLE_LITELLM_DEBUG = True
@@ -106,30 +104,32 @@ def setup_logging(
 
     root = logging.getLogger()
     root.setLevel(lvl)
-    root.handlers = []  # reset
+    # Do NOT clear existing handlers; Uvicorn installs these before importing the app.
+    # Only add ours if there isn't already a comparable stream handler.
+    has_stream = any(isinstance(h, logging.StreamHandler) for h in root.handlers)
 
-    if ENV_JSON or IN_CI:
-        # JSON console handler
-        ch = logging.StreamHandler()
-        ch.setLevel(lvl)
-        ch.setFormatter(
-            JsonFormatter(
-                fmt="%(asctime)s %(levelname)s %(name)s "
-                "%(filename)s %(lineno)d %(message)s"
+    if not has_stream:
+        if ENV_JSON or IN_CI:
+            # JSON console handler
+            ch = logging.StreamHandler()
+            ch.setLevel(lvl)
+            ch.setFormatter(
+                JsonFormatter(
+                    fmt="%(asctime)s %(levelname)s %(name)s "
+                    "%(filename)s %(lineno)d %(message)s"
+                )
             )
-        )
-        root.addHandler(ch)
-    else:
-        # Rich console handler
-        rich_handler = RichHandler(
-            console=Console(stderr=True),
-            log_time_format="[%x %H:%M:%S.%f]",
-            omit_repeated_times=False,
-            rich_tracebacks=ENV_RICH_TRACEBACKS,
-        )
-        rich_handler.setFormatter(logging.Formatter("%(message)s"))
-        rich_handler.setLevel(lvl)
-        root.addHandler(rich_handler)
+            root.addHandler(ch)
+        else:
+            # Rich console handler
+            rich_handler = RichHandler(
+                console=Console(stderr=True),
+                omit_repeated_times=False,
+                rich_tracebacks=ENV_RICH_TRACEBACKS,
+            )
+            rich_handler.setFormatter(logging.Formatter("%(message)s"))
+            rich_handler.setLevel(lvl)
+            root.addHandler(rich_handler)
 
     if to_file:
         os.makedirs(directory, exist_ok=True)
@@ -159,7 +159,9 @@ def setup_logging(
 
 def get_logger(name: str) -> logging.Logger:
     """Return a logger for the given module name."""
-    return logging.getLogger(name)
+    logger = logging.getLogger(name)
+    logger.propagate = True
+    return logger
 
 
 # Auto-configure if desired

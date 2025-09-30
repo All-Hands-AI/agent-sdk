@@ -6,14 +6,13 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
-    create_mcp_tools,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -22,33 +21,40 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
+register_tool("BashTool", BashTool)
+register_tool("FileEditorTool", FileEditorTool)
+tool_specs = [
+    ToolSpec(name="BashTool"),
+    ToolSpec(name="FileEditorTool"),
 ]
 
 # Add MCP Tools
-mcp_config = {"mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}}}
-mcp_tools = create_mcp_tools(mcp_config, timeout=30)
-tools.extend(mcp_tools)
-logger.info(f"Added {len(mcp_tools)} MCP tools")
-for tool in mcp_tools:
-    logger.info(f"  - {tool.name}: {tool.description}")
-
-
+mcp_config = {
+    "mcpServers": {
+        "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
+        "repomix": {"command": "npx", "args": ["-y", "repomix@1.4.2", "--mcp"]},
+    }
+}
 # Agent
-agent = Agent(llm=llm, tools=tools)
+agent = Agent(
+    llm=llm,
+    tools=tool_specs,
+    mcp_config=mcp_config,
+    # This regex filters out all repomix tools except pack_codebase
+    filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
+)
 
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -57,29 +63,17 @@ def conversation_callback(event: Event):
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-)
-
-# Example message that can use MCP tools if available
-message = Message(
-    role="user",
-    content=[
-        TextContent(
-            text="Read https://github.com/All-Hands-AI/OpenHands and "
-            + "write 3 facts about the project into FACTS.txt."
-        )
-    ],
+    working_dir=cwd,
 )
 
 logger.info("Starting conversation with MCP integration...")
-response = conversation.send_message(message)
+conversation.send_message(
+    "Read https://github.com/All-Hands-AI/OpenHands and write 3 facts "
+    "about the project into FACTS.txt."
+)
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 print("=" * 100)

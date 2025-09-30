@@ -6,16 +6,15 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
     LLMRegistry,
     Message,
     TextContent,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)
@@ -26,21 +25,23 @@ assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 # Create LLM instance
 main_llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
 # Create LLM registry and add the LLM
 llm_registry = LLMRegistry()
-llm_registry.add("main_agent", main_llm)
+llm_registry.add(main_llm)
 
 # Get LLM from registry
-llm = llm_registry.get("main_agent")
+llm = llm_registry.get("agent")
 
 # Tools
 cwd = os.getcwd()
-tools = [BashTool.create(working_dir=cwd)]
+register_tool("BashTool", BashTool)
+tools = [ToolSpec(name="BashTool")]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -48,19 +49,16 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
-
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text="Please echo 'Hello!'")],
-    )
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], working_dir=cwd
 )
+
+conversation.send_message("Please echo 'Hello!'")
 conversation.run()
 
 print("=" * 100)
@@ -72,12 +70,14 @@ print("=" * 100)
 print(f"LLM Registry services: {llm_registry.list_services()}")
 
 # Demonstrate getting the same LLM instance from registry
-same_llm = llm_registry.get("main_agent")
+same_llm = llm_registry.get("agent")
 print(f"Same LLM instance: {llm is same_llm}")
 
 # Demonstrate requesting a completion directly from an LLM
 completion_response = llm.completion(
-    messages=[{"role": "user", "content": "Say hello in one word."}]
+    messages=[
+        Message(role="user", content=[TextContent(text="Say hello in one word.")])
+    ]
 )
 # Access the response content
 if completion_response.choices and completion_response.choices[0].message:  # type: ignore

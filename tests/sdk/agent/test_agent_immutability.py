@@ -5,6 +5,7 @@ from pydantic import SecretStr, ValidationError
 
 from openhands.sdk.agent.agent import Agent
 from openhands.sdk.llm import LLM
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
 
 class TestAgentImmutability:
@@ -12,7 +13,9 @@ class TestAgentImmutability:
 
     def setup_method(self):
         """Set up test environment."""
-        self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+        self.llm = LLM(
+            model="gpt-4", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
 
     def test_agent_is_frozen(self):
         """Test that Agent instances are frozen (immutable)."""
@@ -54,8 +57,21 @@ class TestAgentImmutability:
 
     def test_agent_with_different_configs_are_different(self):
         """Test that agents with different configs produce different system messages."""
-        agent1 = Agent(llm=self.llm, tools=[], cli_mode=True)
-        agent2 = Agent(llm=self.llm, tools=[], cli_mode=False)
+        # Use LLMSecurityAnalyzer so that the security risk assessment section is
+        # included and cli_mode differences will be visible in the system message
+        security_analyzer = LLMSecurityAnalyzer()
+        agent1 = Agent(
+            llm=self.llm,
+            tools=[],
+            security_analyzer=security_analyzer,
+            system_prompt_kwargs={"cli_mode": True},
+        )
+        agent2 = Agent(
+            llm=self.llm,
+            tools=[],
+            security_analyzer=security_analyzer,
+            system_prompt_kwargs={"cli_mode": False},
+        )
 
         # System messages should be different due to cli_mode
         msg1 = agent1.system_message
@@ -81,7 +97,7 @@ class TestAgentImmutability:
         # Test inherited properties from AgentBase
         assert agent.llm == self.llm
 
-        assert isinstance(agent.tools, dict)
+        assert isinstance(agent.tools, list)
         assert agent.agent_context is None
         assert agent.name == "Agent"
         assert isinstance(agent.prompt_dir, str)
@@ -90,7 +106,6 @@ class TestAgentImmutability:
         assert isinstance(agent.system_message, str)
         assert agent.condenser is None
         assert agent.system_prompt_filename == "system_prompt.j2"
-        assert agent.cli_mode is True
 
     def test_agent_is_truly_stateless(self):
         """Test that Agent doesn't store computed state."""
@@ -102,20 +117,14 @@ class TestAgentImmutability:
             assert isinstance(msg, str)
             assert len(msg) > 0
 
-        # Verify no computed state is stored
-        # The only fields should be the ones we explicitly defined
-        expected_fields = {
-            "llm",
-            "agent_context",
-            "tools",
-            "system_prompt_filename",
-            "condenser",
-            "cli_mode",
-        }
-
-        # Get all fields from the model class (not instance)
-        actual_fields = set(Agent.model_fields.keys())
-        assert actual_fields == expected_fields
+        # The only fields should be the ones we explicitly defined -- i.e., those
+        # in the model definition. But since some are optional (and may not be set),
+        # and some are computed when models are dumped, we check that no extra
+        # attributes are present beyond the defined model fields.
+        expected_fields = set(Agent.model_fields.keys())
+        actual_fields = set(agent.model_dump(mode="python").keys())
+        computed_fields = set(Agent.model_computed_fields.keys())
+        assert actual_fields - computed_fields <= expected_fields
 
         # Verify no additional attributes are stored
         assert not hasattr(agent, "_system_message")
@@ -133,7 +142,6 @@ class TestAgentImmutability:
         # They should have the same configuration
         assert agent1 == agent2
         assert agent1.system_prompt_filename == agent2.system_prompt_filename
-        assert agent1.cli_mode == agent2.cli_mode
 
         # But they should be different instances
         assert agent1 is not agent2
@@ -143,15 +151,23 @@ class TestAgentImmutability:
 
     def test_agent_model_copy_creates_new_instance(self):
         """Test that model_copy creates a new Agent instance with modified fields."""
-        original_agent = Agent(llm=self.llm, tools=[], cli_mode=True)
+        # Use LLMSecurityAnalyzer so that the security risk assessment section is
+        # included and cli_mode differences will be visible in the system message
+        security_analyzer = LLMSecurityAnalyzer()
+        original_agent = Agent(
+            llm=self.llm,
+            tools=[],
+            security_analyzer=security_analyzer,
+            system_prompt_kwargs={"cli_mode": True},
+        )
 
         # Create a copy with modified fields
-        modified_agent = original_agent.model_copy(update={"cli_mode": False})
+        modified_agent = original_agent.model_copy(
+            update={"system_prompt_kwargs": {"cli_mode": False}}
+        )
 
         # Verify that a new instance was created
         assert modified_agent is not original_agent
-        assert original_agent.cli_mode is True
-        assert modified_agent.cli_mode is False
 
         # Verify that system messages are different due to different configs
         assert original_agent.system_message != modified_agent.system_message

@@ -4,15 +4,12 @@ from pydantic import SecretStr
 
 from openhands.sdk import (
     LLM,
-    Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
-from openhands.sdk.preset.default import get_default_tools
+from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -21,56 +18,62 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
+    service_id="agent",
+    drop_params=True,
 )
 
-# Tools
 cwd = os.getcwd()
-tools = get_default_tools(working_dir=cwd)  # Use our default openhands experience
-# Or you can define your own tools like this:
-# from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
-# tools = [
-#     BashTool.create(working_dir=cwd),
-#     FileEditorTool.create(),
-#     TaskTrackerTool.create(save_dir=cwd),
-# ]
+agent = get_default_agent(
+    llm=llm,
+    # CLI mode will disable any browser tools
+    # which requires dependency like playwright that may not be
+    # available in all environments.
+    cli_mode=True,
+)
+# # Alternatively, you can manually register tools and provide ToolSpecs to Agent.
+# from openhands.sdk import Agent
+# from openhands.sdk.tool.registry import register_tool
+# from openhands.sdk.tool.spec import ToolSpec
+# from openhands.tools.execute_bash import BashTool
+# from openhands.tools.str_replace_editor import FileEditorTool
+# from openhands.tools.task_tracker import TaskTrackerTool
+# register_tool("BashTool", BashTool)
+# register_tool("FileEditorTool", FileEditorTool)
+# register_tool("TaskTrackerTool", TaskTrackerTool)
 
-# Agent
-agent = Agent(llm=llm, tools=tools)
+# # Provide ToolSpec so Agent can lazily materialize tools at runtime.
+# agent = Agent(
+#     llm=llm,
+#     tools=[
+#         ToolSpec(name="BashTool"),
+#         ToolSpec(name="FileEditorTool"),
+#         ToolSpec(name="TaskTrackerTool"),
+#     ],
+# )
 
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent,
+    callbacks=[conversation_callback],
+    working_dir=cwd,
+)
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Read the current repo and "
-                    "write 3 facts about the project into FACTS.txt."
-                )
-            )
-        ],
-    )
+    "Read the current repo and write 3 facts about the project into FACTS.txt."
 )
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 

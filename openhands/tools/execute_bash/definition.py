@@ -1,9 +1,14 @@
 """Execute bash tool implementation."""
 
-from collections.abc import Sequence
-from typing import Callable, Literal
+import os
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -28,7 +33,12 @@ class ExecuteBashAction(ActionBase):
     )
     timeout: float | None = Field(
         default=None,
+        ge=0,
         description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa
+    )
+    reset: bool = Field(
+        default=False,
+        description="If True, reset the terminal by creating a new session. Use this only when the terminal becomes unresponsive. Note that all previously set environment variables and session state will be lost after reset. Cannot be used with is_input=True.",  # noqa
     )
 
     @property
@@ -43,16 +53,20 @@ class ExecuteBashAction(ActionBase):
         if self.command:
             content.append(self.command, style="white")
         else:
-            content.append("[empty command]", style="dim italic")
+            content.append("[empty command]", style="italic")
 
         # Add metadata if present
         if self.is_input:
             content.append(" ", style="white")
-            content.append("(input to running process)", style="dim yellow")
+            content.append("(input to running process)", style="yellow")
 
         if self.timeout is not None:
             content.append(" ", style="white")
-            content.append(f"[timeout: {self.timeout}s]", style="dim cyan")
+            content.append(f"[timeout: {self.timeout}s]", style="cyan")
+
+        if self.reset:
+            content.append(" ", style="white")
+            content.append("[reset terminal]", style="red bold")
 
         return content
 
@@ -126,7 +140,7 @@ class ExecuteBashObservation(ObservationBase):
                     ):
                         content.append(line, style="yellow")
                     elif line.startswith("+ "):  # bash -x output
-                        content.append(line, style="dim cyan")
+                        content.append(line, style="cyan")
                     else:
                         content.append(line, style="white")
                 content.append("\n")
@@ -136,14 +150,14 @@ class ExecuteBashObservation(ObservationBase):
             if self.metadata.working_dir:
                 content.append("\n📁 ", style="blue")
                 content.append(
-                    f"Working directory: {self.metadata.working_dir}", style="dim blue"
+                    f"Working directory: {self.metadata.working_dir}", style="blue"
                 )
 
             if self.metadata.py_interpreter_path:
                 content.append("\n🐍 ", style="green")
                 content.append(
                     f"Python interpreter: {self.metadata.py_interpreter_path}",
-                    style="dim green",
+                    style="green",
                 )
 
             if (
@@ -191,6 +205,10 @@ TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent
 
 ### Output Handling
 * Output truncation: If the output exceeds a maximum length, it will be truncated before being returned.
+
+### Terminal Reset
+* Terminal reset: If the terminal becomes unresponsive, you can set the "reset" parameter to `true` to create a new terminal session. This will terminate the current session and start fresh.
+* Warning: Resetting the terminal will lose all previously set environment variables, working directory changes, and any running processes. Use this only when the terminal stops responding to commands.
 """  # noqa
 
 
@@ -215,17 +233,19 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
     @classmethod
     def create(
         cls,
-        working_dir: str,
+        conv_state: "ConversationState",
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
         env_masker: Callable[[str], str] | None = None,
-    ) -> "BashTool":
+    ) -> Sequence["BashTool"]:
         """Initialize BashTool with executor parameters.
 
         Args:
-            working_dir: The working directory for bash commands
+            conv_state: Conversation state to get working directory from.
+                         If provided, working_dir will be taken from
+                         conv_state.working_dir
             username: Optional username for the bash session
             no_change_timeout_seconds: Timeout for no output change
             terminal_type: Force a specific session type:
@@ -243,6 +263,10 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
 
+        working_dir = conv_state.working_dir
+        if not os.path.isdir(working_dir):
+            raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
+
         # Initialize the executor
         executor = BashExecutor(
             working_dir=working_dir,
@@ -254,11 +278,13 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         )
 
         # Initialize the parent Tool with the executor
-        return cls(
-            name=execute_bash_tool.name,
-            description=TOOL_DESCRIPTION,
-            action_type=ExecuteBashAction,
-            observation_type=ExecuteBashObservation,
-            annotations=execute_bash_tool.annotations,
-            executor=executor,
-        )
+        return [
+            cls(
+                name=execute_bash_tool.name,
+                description=TOOL_DESCRIPTION,
+                action_type=ExecuteBashAction,
+                observation_type=ExecuteBashObservation,
+                annotations=execute_bash_tool.annotations,
+                executor=executor,
+            )
+        ]

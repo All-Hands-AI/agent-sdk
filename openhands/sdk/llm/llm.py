@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import copy
 import json
 import os
 import warnings
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -12,9 +15,15 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    field_serializer,
     field_validator,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
+
+
+if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
+    from openhands.sdk.tool.tool import ToolBase
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -26,7 +35,10 @@ with warnings.catch_warnings():
 from litellm import ChatCompletionToolParam, completion as litellm_completion
 from litellm.exceptions import (
     APIConnectionError,
+    BadRequestError,
+    ContextWindowExceededError,
     InternalServerError,
+    OpenAIError,
     RateLimitError,
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
@@ -39,11 +51,13 @@ from litellm.utils import (
     token_counter,
 )
 
-# OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+
+# OpenHands utilities
+from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
-from openhands.sdk.llm.utils.metrics import Metrics
+from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -53,6 +67,7 @@ from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 logger = get_logger(__name__)
 
 __all__ = ["LLM"]
+
 
 # Exceptions we retry on
 LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -85,39 +100,44 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     openrouter_site_url: str = Field(default="https://docs.all-hands.dev/")
     openrouter_app_name: str = Field(default="OpenHands")
 
-    num_retries: int = Field(default=5)
-    retry_multiplier: float = Field(default=8)
-    retry_min_wait: int = Field(default=8)
-    retry_max_wait: int = Field(default=64)
+    num_retries: int = Field(default=5, ge=0)
+    retry_multiplier: float = Field(default=8.0, ge=0)
+    retry_min_wait: int = Field(default=8, ge=0)
+    retry_max_wait: int = Field(default=64, ge=0)
 
-    timeout: int | None = Field(default=None, description="HTTP timeout (s).")
+    timeout: int | None = Field(default=None, ge=0, description="HTTP timeout (s).")
 
     max_message_chars: int = Field(
         default=30_000,
+        ge=1,
         description="Approx max chars in each event/content sent to the LLM.",
     )
 
-    temperature: float | None = Field(default=0.0)
-    top_p: float | None = Field(default=1.0)
-    top_k: float | None = Field(default=None)
+    temperature: float | None = Field(default=0.0, ge=0)
+    top_p: float | None = Field(default=1.0, ge=0, le=1)
+    top_k: float | None = Field(default=None, ge=0)
 
     custom_llm_provider: str | None = Field(default=None)
     max_input_tokens: int | None = Field(
         default=None,
+        ge=1,
         description="The maximum number of input tokens. "
         "Note that this is currently unused, and the value at runtime is actually"
         " the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4).",
     )
     max_output_tokens: int | None = Field(
         default=None,
+        ge=1,
         description="The maximum number of output tokens. This is sent to the LLM.",
     )
     input_cost_per_token: float | None = Field(
         default=None,
+        ge=0,
         description="The cost per input token. This will available in logs for user.",
     )
     output_cost_per_token: float | None = Field(
         default=None,
+        ge=0,
         description="The cost per output token. This will available in logs for user.",
     )
     ollama_base_url: str | None = Field(default=None)
@@ -168,15 +188,27 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
+    service_id: str = Field(
+        description="Unique identifier for LLM. Typically used by LLM registry.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Additional metadata for the LLM instance. "
+            "Example structure: "
+            "{'trace_version': '1.0.0', 'tags': ['model:gpt-4', 'agent:my-agent'], "
+            "'session_id': 'session-123', 'trace_user_id': 'user-456'}"
+        ),
+    )
 
     # =========================================================================
     # Internal fields (excluded from dumps)
     # =========================================================================
-    service_id: str = Field(default="default", exclude=True)
-    metrics: Metrics | None = Field(default=None, exclude=True)
-    retry_listener: Callable[[int, int], None] | None = Field(
-        default=None, exclude=True
+    retry_listener: SkipJsonSchema[Callable[[int, int], None] | None] = Field(
+        default=None,
+        exclude=True,
     )
+    _metrics: Metrics | None = PrivateAttr(default=None)
     # ===== Plain class vars (NOT Fields) =====
     # When serializing, these fields (SecretStr) will be dump to "****"
     # When deserializing, these fields will be ignored and we will override
@@ -230,7 +262,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # default reasoning_effort unless Gemini 2.5
         # (we keep consistent with old behavior)
-        if d.get("reasoning_effort") is None and "gemini-2.5-pro" not in model_val:
+        if d.get("reasoning_effort") is None and (
+            "gemini-2.5-pro" not in model_val and "claude-sonnet-4-5" not in model_val
+        ):
             d["reasoning_effort"] = "high"
 
         # Azure default version
@@ -241,7 +275,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if model_val.startswith("openhands/"):
             model_name = model_val.removeprefix("openhands/")
             d["model"] = f"litellm_proxy/{model_name}"
-            d.setdefault("base_url", "https://llm-proxy.app.all-hands.dev/")
+            d["base_url"] = "https://llm-proxy.app.all-hands.dev/"
 
         # HF doesn't support the OpenAI default value for top_p (1)
         if model_val.startswith("huggingface"):
@@ -266,14 +300,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             os.environ["AWS_REGION_NAME"] = self.aws_region_name
 
         # Metrics + Telemetry wiring
-        if self.metrics is None:
-            self.metrics = Metrics(model_name=self.model)
+        if self._metrics is None:
+            self._metrics = Metrics(model_name=self.model)
 
         self._telemetry = Telemetry(
             model_name=self.model,
             log_enabled=self.log_completions,
             log_dir=self.log_completions_folder if self.log_completions else None,
-            metrics=self.metrics,
+            metrics=self._metrics,
         )
 
         # Tokenizer
@@ -290,15 +324,45 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return self
 
     # =========================================================================
+    # Serializers
+    # =========================================================================
+    @field_serializer(
+        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="always"
+    )
+    def _serialize_secrets(self, v: SecretStr | None, info):
+        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Check if the 'expose_secrets' flag is in the serialization context
+        if info.context and info.context.get("expose_secrets"):
+            return v.get_secret_value()
+
+        # Let Pydantic handle the default masking
+        return v
+
+    # =========================================================================
     # Public API
     # =========================================================================
+    @property
+    def metrics(self) -> Metrics:
+        assert self._metrics is not None, (
+            "Metrics should be initialized after model validation"
+        )
+        return self._metrics
+
+    def restore_metrics(self, metrics: Metrics) -> None:
+        # Only used by ConversationStats to seed metrics
+        self._metrics = metrics
+
     def completion(
         self,
-        messages: list[dict[str, Any]] | list[Message],
-        tools: list[ChatCompletionToolParam] | None = None,
+        messages: list[Message],
+        tools: Sequence[ToolBase] | None = None,
         return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
         **kwargs,
-    ) -> ModelResponse:
+    ) -> LLMResponse:
         """Single entry point for LLM completion.
 
         Normalize → (maybe) mock tools → transport → postprocess.
@@ -308,29 +372,36 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             raise ValueError("Streaming is not supported")
 
         # 1) serialize messages
-        if messages and isinstance(messages[0], Message):
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
-        else:
-            messages = cast(list[dict[str, Any]], messages)
+        formatted_messages = self.format_messages_for_llm(messages)
 
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(messages)
-        use_mock_tools = self.should_mock_tool_calls(tools)
+        original_fncall_msgs = copy.deepcopy(formatted_messages)
+
+        # Convert Tool objects to ChatCompletionToolParam once here
+        cc_tools: list[ChatCompletionToolParam] = []
+        if tools:
+            cc_tools = [
+                t.to_openai_tool(
+                    add_security_risk_prediction=add_security_risk_prediction
+                )
+                for t in tools
+            ]
+
+        use_mock_tools = self.should_mock_tool_calls(cc_tools)
         if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
-            messages, kwargs = self.pre_request_prompt_mock(
-                messages, tools or [], kwargs
+            formatted_messages, kwargs = self.pre_request_prompt_mock(
+                formatted_messages, cc_tools or [], kwargs
             )
 
         # 3) normalize provider params
-        kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        has_tools_flag = (
-            bool(tools) and use_native_fc
-        )  # only keep tools when native FC is active
+        # Only pass tools when native FC is active
+        kwargs["tools"] = cc_tools if (bool(cc_tools) and use_native_fc) else None
+        has_tools_flag = bool(cc_tools) and use_native_fc
         call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
@@ -338,7 +409,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
-                "messages": messages[:],  # already simple dicts
+                "messages": formatted_messages[:],  # already simple dicts
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
@@ -360,12 +431,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             assert self._telemetry is not None
             # Merge retry-modified kwargs (like temperature) with call_kwargs
             final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=messages, **final_kwargs)
+            resp = self._transport_call(messages=formatted_messages, **final_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
                 resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
+                    resp, nonfncall_msgs=formatted_messages, tools=cc_tools
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
@@ -380,7 +451,23 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         try:
             resp = _one_attempt()
-            return resp
+
+            # Convert the first choice to an OpenHands Message
+            first_choice = resp["choices"][0]
+            message = Message.from_litellm_message(first_choice["message"])
+
+            # Get current metrics snapshot
+            metrics_snapshot = MetricsSnapshot(
+                model_name=self.metrics.model_name,
+                accumulated_cost=self.metrics.accumulated_cost,
+                max_budget_per_task=self.metrics.max_budget_per_task,
+                accumulated_token_usage=self.metrics.accumulated_token_usage,
+            )
+
+            # Create and return LLMResponse
+            return LLMResponse(
+                message=message, metrics=metrics_snapshot, raw_response=resp
+            )
         except Exception as e:
             self._telemetry.on_error(e)
             raise
@@ -534,7 +621,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         f"Got model info from litellm proxy: {self._model_info}"
                     )
             except Exception as e:
-                logger.info(f"Error fetching model info from proxy: {e}")
+                logger.debug(f"Error fetching model info from proxy: {e}")
 
         # Fallbacks: try base name variants
         if not self._model_info:
@@ -557,7 +644,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             self.max_input_tokens = self._model_info.get("max_input_tokens")
 
         if self.max_output_tokens is None:
-            if any(m in self.model for m in ["claude-3-7-sonnet", "claude-3.7-sonnet"]):
+            if any(
+                m in self.model
+                for m in ["claude-3-7-sonnet", "claude-3.7-sonnet", "claude-sonnet-4"]
+            ):
                 self.max_output_tokens = (
                     64000  # practical cap (litellm may allow 128k with header)
                 )
@@ -569,7 +659,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Function-calling capabilities
         feats = get_features(self.model)
-        logger.info(f"Model features for {self.model}: {feats}")
+        logger.debug(f"Model features for {self.model}: {feats}")
         self._function_calling_active = (
             self.native_tool_calling
             if self.native_tool_calling is not None
@@ -664,17 +754,16 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         return [message.to_llm_dict() for message in messages]
 
-    def get_token_count(self, messages: list[dict] | list[Message]) -> int:
-        if isinstance(messages, list) and messages and isinstance(messages[0], Message):
-            logger.info(
-                "Message objects now include serialized tool calls in token counting"
-            )
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
+    def get_token_count(self, messages: list[Message]) -> int:
+        logger.debug(
+            "Message objects now include serialized tool calls in token counting"
+        )
+        formatted_messages = self.format_messages_for_llm(messages)
         try:
             return int(
                 token_counter(
                     model=self.model,
-                    messages=messages,  # type: ignore[arg-type]
+                    messages=formatted_messages,
                     custom_tokenizer=self._tokenizer,
                 )
             )
@@ -694,20 +783,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Serialization helpers
     # =========================================================================
     @classmethod
-    def deserialize(cls, data: dict[str, Any]) -> "LLM":
+    def load_from_json(cls, json_path: str) -> LLM:
+        with open(json_path) as f:
+            data = json.load(f)
         return cls(**data)
 
-    def serialize(self) -> dict[str, Any]:
-        return self.model_dump()
-
     @classmethod
-    def load_from_json(cls, json_path: str) -> "LLM":
-        with open(json_path, "r") as f:
-            data = json.load(f)
-        return cls.deserialize(data)
-
-    @classmethod
-    def load_from_env(cls, prefix: str = "LLM_") -> "LLM":
+    def load_from_env(cls, prefix: str = "LLM_") -> LLM:
         TRUTHY = {"true", "1", "yes", "on"}
 
         def _unwrap_type(t: Any) -> Any:
@@ -759,24 +841,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             v = _cast_value(value, fields[field_name])
             if v is not None:
                 data[field_name] = v
-        return cls.deserialize(data)
+        return cls(**data)
 
-    @classmethod
-    def load_from_toml(cls, toml_path: str) -> "LLM":
-        try:
-            import tomllib
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore
-            except ImportError:
-                raise ImportError("tomllib or tomli is required to load TOML files")
-        with open(toml_path, "rb") as f:
-            data = tomllib.load(f)
-        if "llm" in data:
-            data = data["llm"]
-        return cls.deserialize(data)
-
-    def resolve_diff_from_deserialized(self, persisted: "LLM") -> "LLM":
+    def resolve_diff_from_deserialized(self, persisted: LLM) -> LLM:
         """Resolve differences between a deserialized LLM and the current instance.
 
         This is due to fields like api_key being serialized to "****" in dumps,
@@ -811,3 +878,51 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
             )
         return reconciled
+
+    @staticmethod
+    def is_context_window_exceeded_exception(exception: Exception) -> bool:
+        """Check if the exception indicates a context window exceeded error.
+
+        Context window exceeded errors vary by provider, and LiteLLM does not do a
+        consistent job of identifying and wrapping them.
+        """
+        # A context window exceeded error from litellm is the best signal we have.
+        if isinstance(exception, ContextWindowExceededError):
+            return True
+
+        # But with certain providers the exception might be a bad request or generic
+        # OpenAI error, and we have to use the content of the error to figure out what
+        # is wrong.
+        if not isinstance(exception, (BadRequestError, OpenAIError)):
+            return False
+
+        # Not all BadRequestError or OpenAIError are context window exceeded errors, so
+        # we need to check the message content for known patterns.
+        error_string = str(exception).lower()
+
+        known_exception_patterns: list[str] = [
+            "contextwindowexceedederror",
+            "prompt is too long",
+            "input length and `max_tokens` exceed context limit",
+            "please reduce the length of either one",
+            "the request exceeds the available context size",
+            "context length exceeded",
+        ]
+
+        if any(pattern in error_string for pattern in known_exception_patterns):
+            return True
+
+        # A special case for SambaNova, where multiple patterns are needed
+        # simultaneously.
+        samba_nova_patterns: list[str] = [
+            "sambanovaexception",
+            "maximum context length",
+        ]
+
+        if all(pattern in error_string for pattern in samba_nova_patterns):
+            return True
+
+        # If we've made it this far and haven't managed to positively ID it as a context
+        # window exceeded error, we'll have to assume it's not and rely on the call-site
+        # context to handle it appropriately.
+        return False

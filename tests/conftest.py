@@ -14,6 +14,7 @@ def mock_llm():
     return LLM(
         model="gpt-4o",
         api_key=SecretStr("test-key"),
+        service_id="test-llm",
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,

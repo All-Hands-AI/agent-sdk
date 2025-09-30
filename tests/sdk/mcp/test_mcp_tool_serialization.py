@@ -10,12 +10,13 @@ from unittest.mock import Mock
 import mcp.types
 
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPActionBase, MCPTool, MCPToolObservation
-from openhands.sdk.tool import Tool
+from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
+from openhands.sdk.mcp.tool import MCPTool
 from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.tool.tool import ToolBase
 
 
-def create_mock_mcp_tool(name: str = "test_tool") -> mcp.types.Tool:
+def create_mock_mcp_tool(name: str) -> mcp.types.Tool:
     """Create a mock MCP tool for testing."""
     return mcp.types.Tool(
         name=name,
@@ -32,9 +33,12 @@ def create_mock_mcp_tool(name: str = "test_tool") -> mcp.types.Tool:
 
 def test_mcp_tool_json_serialization_deserialization() -> None:
     # Create mock MCP tool and client
-    mock_mcp_tool = create_mock_mcp_tool()
+    mock_mcp_tool = create_mock_mcp_tool(
+        "test_mcp_tool_json_serialization_deserialization"
+    )
     mock_client = Mock(spec=MCPClient)
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    mcp_tool = tools[0]  # Extract single tool from sequence
 
     tool_json = mcp_tool.model_dump_json()
     deserialized_tool = MCPTool.model_validate_json(tool_json)
@@ -46,18 +50,19 @@ def test_mcp_tool_json_serialization_deserialization() -> None:
 def test_mcp_tool_polymorphic_behavior() -> None:
     """Test MCPTool polymorphic behavior using Tool base class."""
     # Create mock MCP tool and client
-    mock_mcp_tool = create_mock_mcp_tool()
+    mock_mcp_tool = create_mock_mcp_tool("test_mcp_tool_polymorphic_behavior")
     mock_client = Mock(spec=MCPClient)
 
     # Create MCPTool instance
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    mcp_tool = tools[0]  # Extract single tool from sequence
 
-    # Should be instance of Tool
-    assert isinstance(mcp_tool, Tool)
+    # Should be instance of ToolBase
+    assert isinstance(mcp_tool, ToolBase)
     assert isinstance(mcp_tool, MCPTool)
 
     # Check basic properties
-    assert mcp_tool.name == "test_tool"
+    assert mcp_tool.name == "test_mcp_tool_polymorphic_behavior"
     assert "test MCP tool" in mcp_tool.description
     assert hasattr(mcp_tool, "mcp_tool")
 
@@ -65,15 +70,16 @@ def test_mcp_tool_polymorphic_behavior() -> None:
 def test_mcp_tool_kind_field() -> None:
     """Test that MCPTool kind field is correctly set."""
     # Create mock MCP tool and client
-    mock_mcp_tool = create_mock_mcp_tool()
+    mock_mcp_tool = create_mock_mcp_tool("test_mcp_tool_kind_field")
     mock_client = Mock(spec=MCPClient)
 
     # Create MCPTool instance
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    mcp_tool = tools[0]  # Extract single tool from sequence
 
     # Check kind field
     assert hasattr(mcp_tool, "kind")
-    expected_kind = f"{mcp_tool.__class__.__module__}.{mcp_tool.__class__.__name__}"
+    expected_kind = mcp_tool.__class__.__name__
     assert mcp_tool.kind == expected_kind
 
 
@@ -83,9 +89,9 @@ def test_mcp_tool_fallback_behavior() -> None:
     tool_data = {
         "name": "fallback-tool",
         "description": "A fallback test tool",
-        "action_type": "openhands.sdk.tool.schema.ActionBase",  # Use base class
-        "observation_type": "openhands.sdk.mcp.definition.MCPToolObservation",
-        "kind": "openhands.sdk.mcp.tool.MCPTool",
+        "action_type": "MCPToolAction",
+        "observation_type": "MCPToolObservation",
+        "kind": "MCPTool",
         "mcp_tool": {
             "name": "fallback-tool",
             "description": "A fallback test tool",
@@ -93,8 +99,8 @@ def test_mcp_tool_fallback_behavior() -> None:
         },
     }
 
-    deserialized_tool = Tool.model_validate(tool_data)
-    assert isinstance(deserialized_tool, Tool)
+    deserialized_tool = ToolBase.model_validate(tool_data)
+    assert isinstance(deserialized_tool, ToolBase)
     assert deserialized_tool.name == "fallback-tool"
     assert issubclass(deserialized_tool.action_type, ActionBase)
     assert deserialized_tool.observation_type and issubclass(
@@ -117,7 +123,8 @@ def test_mcp_tool_essential_properties() -> None:
     mock_client = Mock(spec=MCPClient)
 
     # Create MCPTool instance
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    mcp_tool = tools[0]  # Extract single tool from sequence
 
     # Verify essential properties are preserved
     assert mcp_tool.name == "essential_tool"
@@ -127,6 +134,6 @@ def test_mcp_tool_essential_properties() -> None:
 
     # Verify action type was created correctly
     assert mcp_tool.action_type is not None and issubclass(
-        mcp_tool.action_type, MCPActionBase
+        mcp_tool.action_type, MCPToolAction
     )
     assert hasattr(mcp_tool.action_type, "to_mcp_arguments")

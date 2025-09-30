@@ -1,5 +1,7 @@
 """Comprehensive tests for event serialization and deserialization."""
 
+from collections.abc import Sequence
+
 import pytest
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
@@ -15,33 +17,37 @@ from openhands.sdk.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import TextContent
+from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
-class MockEvent(EventBase):
+class TestEventSerializationMockEvent(EventBase):
     test_field: str = "test_value"
 
 
-class MockAction(ActionBase):
+class TestEventsSerializationMockAction(ActionBase):
     """Mock action for testing."""
 
-    def execute(self) -> "MockObservation":
-        return MockObservation(content="mock result")
+    def execute(self) -> "TestEventsSerializationMockObservation":
+        return TestEventsSerializationMockObservation(content="mock result")
 
 
-class MockObservation(ObservationBase):
+class TestEventsSerializationMockObservation(ObservationBase):
     """Mock observation for testing."""
 
     content: str
 
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.content)]
+
 
 def test_event_base_serialization() -> None:
     """Test basic EventBase serialization/deserialization."""
-    event = MockEvent(source="agent", test_field="custom_value")
+    event = TestEventSerializationMockEvent(source="agent", test_field="custom_value")
 
     json_data = event.model_dump_json()
-    deserialized = MockEvent.model_validate_json(json_data)
+    deserialized = TestEventSerializationMockEvent.model_validate_json(json_data)
     assert deserialized == event
 
 
@@ -58,7 +64,7 @@ def test_system_prompt_event_serialization() -> None:
 
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
-    action = MockAction()
+    action = TestEventsSerializationMockAction()
     tool_call = ChatCompletionMessageToolCall(
         id="call_123",
         function=Function(name="mock_tool", arguments="{}"),
@@ -90,7 +96,7 @@ def test_action_event_serialization() -> None:
 
 def test_observation_event_serialization() -> None:
     """Test ObservationEvent serialization/deserialization."""
-    observation = MockObservation(content="test result")
+    observation = TestEventsSerializationMockObservation(content="test result")
     event = ObservationEvent(
         observation=observation,
         action_id="action_123",
@@ -127,7 +133,9 @@ def test_message_event_serialization() -> None:
 
 def test_agent_error_event_serialization() -> None:
     """Test AgentErrorEvent serialization/deserialization."""
-    event = AgentErrorEvent(error="Something went wrong")
+    event = AgentErrorEvent(
+        error="Something went wrong", tool_call_id="call_001", tool_name="test_tool"
+    )
 
     json_data = event.model_dump_json()
     deserialized = AgentErrorEvent.model_validate_json(json_data)
@@ -172,3 +180,22 @@ def test_extra_fields_forbidden():
         SystemPromptEvent.model_validate(data_with_extra)
 
     assert "extra_forbidden" in str(exc_info.value)
+
+
+def test_event_deserialize():
+    original = MessageEvent(
+        source="user",
+        llm_message=Message(
+            role="user",
+            content=[TextContent(text="Hello There!")],
+            cache_enabled=False,
+            vision_enabled=False,
+            function_calling_enabled=False,
+            force_string_serializer=False,
+        ),
+        activated_microagents=[],
+        extended_content=[],
+    )
+    dumped = original.model_dump_json()
+    loaded = EventBase.model_validate_json(dumped)
+    assert loaded == original

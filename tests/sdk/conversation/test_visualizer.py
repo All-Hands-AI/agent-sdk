@@ -20,18 +20,17 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.llm.utils.metrics import MetricsSnapshot, TokenUsage
 from openhands.sdk.tool import ActionBase
 
 
-class MockAction(ActionBase):
+class TestVisualizerMockAction(ActionBase):
     """Mock action for testing."""
 
     command: str = "test command"
     working_dir: str = "/tmp"
 
 
-class CustomAction(ActionBase):
+class TestVisualizerCustomAction(ActionBase):
     """Custom action with overridden visualize method."""
 
     task_list: list[dict] = []
@@ -60,14 +59,14 @@ def create_tool_call(
 
 def test_action_base_visualize():
     """Test that ActionBase has a visualize property."""
-    action = MockAction(command="echo hello", working_dir="/home")
+    action = TestVisualizerMockAction(command="echo hello", working_dir="/home")
 
     result = action.visualize
     assert isinstance(result, Text)
 
     # Check that it contains action name and fields
     text_content = result.plain
-    assert "MockAction" in text_content
+    assert "TestVisualizerMockAction" in text_content
     assert "command" in text_content
     assert "echo hello" in text_content
     assert "working_dir" in text_content
@@ -80,7 +79,7 @@ def test_custom_action_visualize():
         {"title": "Task 1", "status": "todo"},
         {"title": "Task 2", "status": "done"},
     ]
-    action = CustomAction(task_list=tasks)
+    action = TestVisualizerCustomAction(task_list=tasks)
 
     result = action.visualize
     assert isinstance(result, Text)
@@ -120,7 +119,7 @@ def test_system_prompt_event_visualize():
 
 def test_action_event_visualize():
     """Test ActionEvent visualization."""
-    action = MockAction(command="ls -la", working_dir="/tmp")
+    action = TestVisualizerMockAction(command="ls -la", working_dir="/tmp")
     tool_call = create_tool_call("call_123", "bash", {"command": "ls -la"})
     event = ActionEvent(
         thought=[TextContent(text="I need to list files")],
@@ -140,7 +139,7 @@ def test_action_event_visualize():
     assert "Let me check the directory contents" in text_content
     assert "Thought:" in text_content
     assert "I need to list files" in text_content
-    assert "MockAction" in text_content
+    assert "TestVisualizerMockAction" in text_content
     assert "ls -la" in text_content
 
 
@@ -148,14 +147,14 @@ def test_observation_event_visualize():
     """Test ObservationEvent visualization."""
     from openhands.sdk.tool import ObservationBase
 
-    class MockObservation(ObservationBase):
+    class TestVisualizerMockObservation(ObservationBase):
         content: str = "Command output"
 
         @property
         def agent_observation(self) -> Sequence[TextContent | ImageContent]:
             return [TextContent(text=self.content)]
 
-    observation = MockObservation(
+    observation = TestVisualizerMockObservation(
         content="total 4\ndrwxr-xr-x 2 user user 4096 Jan 1 12:00 ."
     )
     event = ObservationEvent(
@@ -201,6 +200,8 @@ def test_agent_error_event_visualize():
     """Test AgentErrorEvent visualization."""
     event = AgentErrorEvent(
         error="Failed to execute command: permission denied",
+        tool_call_id="call_err_1",
+        tool_name="execute_bash",
     )
 
     result = event.visualize
@@ -241,7 +242,7 @@ def test_visualizer_event_panel_creation():
     visualizer = ConversationVisualizer()
 
     # Test with a simple action event
-    action = MockAction(command="test")
+    action = TestVisualizerMockAction(command="test")
     tool_call = create_tool_call("call_1", "test", {})
     event = ActionEvent(
         thought=[TextContent(text="Testing")],
@@ -259,32 +260,33 @@ def test_visualizer_event_panel_creation():
 
 def test_metrics_formatting():
     """Test metrics subtitle formatting."""
-    visualizer = ConversationVisualizer()
+    from openhands.sdk.conversation.conversation_stats import ConversationStats
+    from openhands.sdk.llm.utils.metrics import Metrics
 
-    # Create an event with metrics
-    action = MockAction(command="test")
-    metrics = MetricsSnapshot(
-        accumulated_token_usage=TokenUsage(
-            prompt_tokens=1500,
-            completion_tokens=500,
-            cache_read_tokens=300,
-            reasoning_tokens=200,
-        ),
-        accumulated_cost=0.0234,
+    # Create conversation stats with metrics
+    conversation_stats = ConversationStats()
+
+    # Create metrics and add to conversation stats
+    metrics = Metrics(model_name="test-model")
+    metrics.add_cost(0.0234)
+    metrics.add_token_usage(
+        prompt_tokens=1500,
+        completion_tokens=500,
+        cache_read_tokens=300,
+        cache_write_tokens=0,
+        reasoning_tokens=200,
+        context_window=8000,
+        response_id="test_response",
     )
 
-    tool_call = create_tool_call("call_1", "test", {})
-    event = ActionEvent(
-        thought=[TextContent(text="Testing")],
-        action=action,
-        tool_name="test",
-        tool_call_id="call_1",
-        tool_call=tool_call,
-        llm_response_id="response_1",
-        metrics=metrics,
-    )
+    # Add metrics to conversation stats
+    conversation_stats.service_to_metrics["test_service"] = metrics
 
-    subtitle = visualizer._format_metrics_subtitle(event)
+    # Create visualizer with conversation stats
+    visualizer = ConversationVisualizer(conversation_stats=conversation_stats)
+
+    # Test the metrics subtitle formatting
+    subtitle = visualizer._format_metrics_subtitle()
     assert subtitle is not None
     assert "1.50K" in subtitle  # Input tokens abbreviated
     assert "500" in subtitle  # Output tokens
