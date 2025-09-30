@@ -16,7 +16,10 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event.base import EventBase
-from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
+from openhands.sdk.event.conversation_state import (
+    FULL_STATE_KEY,
+    ConversationStateUpdateEvent,
+)
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
@@ -224,7 +227,7 @@ class RemoteState(ConversationStateProtocol):
         """Update cached state from a ConversationStateUpdateEvent."""
         with self._lock:
             # Handle full state snapshot
-            if event.key == "full_state":
+            if event.key == FULL_STATE_KEY:
                 # Update cached state with the full snapshot
                 if self._cached_state is None:
                     self._cached_state = {}
