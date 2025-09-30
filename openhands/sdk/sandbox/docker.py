@@ -237,7 +237,7 @@ class DockerSandboxedAgentServer:
             self._platform,
             "--rm",
             "--name",
-            f"agent-server-{int(time.time())}",
+            f"agent-server-{int(time.time()*1000000)}",
             *flags,
             self._image,
             "--host",
