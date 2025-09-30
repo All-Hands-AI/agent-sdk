@@ -378,7 +378,7 @@ class RemoteConversation(BaseConversation):
                 "stuck_detection": stuck_detection,
                 "workspace": self.workspace.model_dump(),
             }
-            resp = self._client.post("/api/conversations/", json=payload)
+            resp = self._client.post("/api/conversations", json=payload)
             resp.raise_for_status()
             data = resp.json()
             # Expect a ConversationInfo
