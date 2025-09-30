@@ -11,13 +11,12 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.io.memory import InMemoryFileStore
 from openhands.sdk.llm import LLM, Message, TextContent
 
 
 def create_test_agent() -> Agent:
     """Create a test agent."""
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test")
     return Agent(llm=llm, tools=[])
 
 
@@ -60,9 +59,8 @@ def create_mock_llm_response(content: str) -> ModelResponse:
 @patch("openhands.sdk.llm.llm.LLM.completion")
 def test_generate_title_basic(mock_completion):
     """Test basic generate_title functionality."""
-    fs = InMemoryFileStore()
     agent = create_test_agent()
-    conv = Conversation(agent=agent, persist_filestore=fs, visualize=False)
+    conv = Conversation(agent=agent, visualize=False)
 
     # Add a user message to the conversation
     user_message = create_user_message_event("Help me create a Python script")
@@ -82,9 +80,8 @@ def test_generate_title_basic(mock_completion):
 
 def test_generate_title_no_user_messages():
     """Test generate_title raises ValueError when no user messages exist."""
-    fs = InMemoryFileStore()
     agent = create_test_agent()
-    conv = Conversation(agent=agent, persist_filestore=fs, visualize=False)
+    conv = Conversation(agent=agent, visualize=False)
 
     # Don't add any user messages - the conversation might have system messages
 
@@ -98,9 +95,8 @@ def test_generate_title_no_user_messages():
 @patch("openhands.sdk.llm.llm.LLM.completion")
 def test_generate_title_llm_error_fallback(mock_completion):
     """Test generate_title falls back to simple truncation when LLM fails."""
-    fs = InMemoryFileStore()
     agent = create_test_agent()
-    conv = Conversation(agent=agent, persist_filestore=fs, visualize=False)
+    conv = Conversation(agent=agent, visualize=False)
 
     # Add a user message
     user_message = create_user_message_event("Fix the bug in my application")
@@ -119,9 +115,8 @@ def test_generate_title_llm_error_fallback(mock_completion):
 @patch("openhands.sdk.llm.llm.LLM.completion")
 def test_generate_title_with_max_length(mock_completion):
     """Test generate_title respects max_length parameter."""
-    fs = InMemoryFileStore()
     agent = create_test_agent()
-    conv = Conversation(agent=agent, persist_filestore=fs, visualize=False)
+    conv = Conversation(agent=agent, visualize=False)
 
     # Add a user message
     user_message = create_user_message_event("Create a web application")
@@ -144,16 +139,17 @@ def test_generate_title_with_max_length(mock_completion):
 @patch("openhands.sdk.llm.llm.LLM.completion")
 def test_generate_title_with_custom_llm(mock_completion):
     """Test generate_title with a custom LLM provided."""
-    fs = InMemoryFileStore()
     agent = create_test_agent()
-    conv = Conversation(agent=agent, persist_filestore=fs, visualize=False)
+    conv = Conversation(agent=agent, visualize=False)
 
     # Add a user message
     user_message = create_user_message_event("Debug my code")
     conv.state.events.append(user_message)
 
     # Create a custom LLM
-    custom_llm = LLM(model="gpt-3.5-turbo", api_key=SecretStr("custom-key"))
+    custom_llm = LLM(
+        model="gpt-3.5-turbo", api_key=SecretStr("custom-key"), service_id="custom"
+    )
 
     # Mock the custom LLM response
     mock_response = create_mock_llm_response("Debug Code Issue")
@@ -169,9 +165,8 @@ def test_generate_title_with_custom_llm(mock_completion):
 @patch("openhands.sdk.llm.llm.LLM.completion")
 def test_generate_title_empty_llm_response_fallback(mock_completion):
     """Test generate_title falls back when LLM returns empty response."""
-    fs = InMemoryFileStore()
     agent = create_test_agent()
-    conv = Conversation(agent=agent, persist_filestore=fs, visualize=False)
+    conv = Conversation(agent=agent, visualize=False)
 
     # Add a user message
     user_message = create_user_message_event("Help with testing")
