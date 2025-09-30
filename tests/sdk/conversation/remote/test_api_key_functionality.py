@@ -133,12 +133,12 @@ def test_websocket_client_includes_api_key_in_url():
     test_api_key = "test-api-key-123"
     host = "http://localhost:3000"
     conversation_id = str(uuid.uuid4())
-    callbacks = []
+    callback = Mock()
 
     ws_client = WebSocketCallbackClient(
         host=host,
         conversation_id=conversation_id,
-        callbacks=callbacks,
+        callback=callback,
         api_key=test_api_key,
     )
 
@@ -152,12 +152,12 @@ def test_websocket_client_no_api_key():
     """Test that WebSocketCallbackClient works without API key."""
     host = "http://localhost:3000"
     conversation_id = str(uuid.uuid4())
-    callbacks = []
+    callback = Mock()
 
     ws_client = WebSocketCallbackClient(
         host=host,
         conversation_id=conversation_id,
-        callbacks=callbacks,
+        callback=callback,
         api_key=None,
     )
 
