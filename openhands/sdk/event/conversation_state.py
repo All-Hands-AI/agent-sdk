@@ -12,7 +12,7 @@ from openhands.sdk.event.types import SourceType
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
-FULL_STATE_KEY = "FULL_STATE"
+FULL_STATE_KEY = "full_state"
 
 
 class ConversationStateUpdateEvent(EventBase):
