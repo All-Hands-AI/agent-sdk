@@ -28,7 +28,7 @@ def test_mcp_action_from_arguments_validates_and_sanitizes():
         }
     )
 
-    # includes an extra field that should be rejected and a None that should be dropped
+    # includes a None that should be dropped
     args = {"url": "https://example.com", "timeout": None}
     action = tool.action_from_arguments(args)
     assert action.data == {"url": "https://example.com"}
