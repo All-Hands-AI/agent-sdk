@@ -199,18 +199,17 @@ def test_fifo_lock_stress_test():
     # but the main fairness test above verifies FIFO behavior
 
 
-def run_fairness_test_parallel(num_runs: int = 50) -> list[bool]:
+def run_fairness_test_multiple(num_runs: int = 100) -> list[bool]:
     """
-    Run the fairness test multiple times in parallel to verify consistency.
+    Run the fairness test multiple times sequentially to verify consistency.
 
     Args:
-        num_runs: Number of parallel test runs
+        num_runs: Number of sequential test runs
 
     Returns:
         List of boolean results (True = FIFO order maintained)
     """
     results = []
-    threads = []
 
     def run_single_test():
         try:
@@ -240,28 +239,25 @@ def run_fairness_test_parallel(num_runs: int = 50) -> list[bool]:
             # Check FIFO order
             expected = list(range(10))
             actual = list(acquisition_order)
-            results.append(actual == expected)
+            return actual == expected
 
         except Exception:
-            results.append(False)
+            return False
 
-    # Run tests in parallel
-    for _ in range(num_runs):
-        thread = threading.Thread(target=run_single_test)
-        threads.append(thread)
-        thread.start()
-
-    # Wait for all test runs to complete
-    for thread in threads:
-        thread.join()
+    # Run tests sequentially to avoid excessive thread contention
+    for i in range(num_runs):
+        if i % 20 == 0 and i > 0:
+            print(f"  Completed {i}/{num_runs} tests...")
+        result = run_single_test()
+        results.append(result)
 
     return results
 
 
 if __name__ == "__main__":
-    print("Running FIFO lock fairness test 50 times in parallel...")
+    print("Running FIFO lock fairness test 100 times sequentially...")
 
-    results = run_fairness_test_parallel(50)
+    results = run_fairness_test_multiple(100)
 
     success_count = sum(results)
     total_count = len(results)
