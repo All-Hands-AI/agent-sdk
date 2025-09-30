@@ -11,6 +11,7 @@ import websockets
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
 from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -21,7 +22,6 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
-from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
@@ -34,12 +34,12 @@ class WebSocketCallbackClient:
         self,
         host: str,
         conversation_id: str,
-        callbacks: list[ConversationCallbackType],
+        callback: ConversationCallbackType,
         api_key: str | None = None,
     ):
         self.host = host
         self.conversation_id = conversation_id
-        self.callbacks = callbacks
+        self.callback = callback
         self.api_key = api_key
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -88,8 +88,7 @@ class WebSocketCallbackClient:
                             break
                         try:
                             event = EventBase.model_validate(json.loads(message))
-                            for cb in self.callbacks:
-                                cb(event)
+                            self.callback(event)
                         except Exception:
                             logger.exception(
                                 "ws_event_processing_error", stack_info=True
@@ -102,7 +101,7 @@ class WebSocketCallbackClient:
                 delay = min(delay * 2, 30.0)
 
 
-class RemoteEventsList(ListLike[EventBase]):
+class RemoteEventsList(EventsListBase):
     """A list-like, read-only view of remote conversation events.
 
     On first access it fetches existing events from the server. Afterwards,
@@ -156,6 +155,10 @@ class RemoteEventsList(ListLike[EventBase]):
                 self._cached_event_ids.add(event.id)
                 logger.debug(f"Added event {event.id} to local cache")
 
+    def append(self, event: EventBase) -> None:
+        """Add a new event to the list (for compatibility with EventLog interface)."""
+        self.add_event(event)
+
     def create_default_callback(self) -> ConversationCallbackType:
         """Create a default callback that adds events to this list."""
 
@@ -168,29 +171,18 @@ class RemoteEventsList(ListLike[EventBase]):
         return len(self._cached_events)
 
     @overload
-    def __getitem__(self, index: SupportsIndex, /) -> EventBase: ...
+    def __getitem__(self, index: int) -> EventBase: ...
 
     @overload
-    def __getitem__(self, index: slice, /) -> list[EventBase]: ...
+    def __getitem__(self, index: slice) -> list[EventBase]: ...
 
-    def __getitem__(
-        self,
-        index: SupportsIndex | slice,
-        /,
-    ) -> EventBase | list[EventBase]:
+    def __getitem__(self, index: SupportsIndex | slice) -> EventBase | list[EventBase]:
         with self._lock:
             return self._cached_events[index]
 
     def __iter__(self):
         with self._lock:
             return iter(self._cached_events)
-
-    def append(self, event: EventBase) -> None:
-        # For remote conversations, events are added via API calls
-        # This method is here for interface compatibility but shouldn't be used directly
-        raise NotImplementedError(
-            "Cannot directly append events to remote conversation"
-        )
 
 
 class RemoteState(ConversationStateProtocol):
@@ -387,11 +379,14 @@ class RemoteConversation(BaseConversation):
         else:
             self._visualizer = None
 
+        # Compose all callbacks into a single callback
+        composed_callback = BaseConversation.compose_callbacks(self._callbacks)
+
         # Initialize WebSocket client for callbacks
         self._ws_client = WebSocketCallbackClient(
             host=self._host,
             conversation_id=str(self._id),
-            callbacks=self._callbacks,
+            callback=composed_callback,
             api_key=self._api_key,
         )
         self._ws_client.start()

@@ -1,5 +1,4 @@
 import uuid
-from collections.abc import Iterable
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
@@ -22,17 +21,6 @@ from openhands.sdk.security.confirmation_policy import (
 
 
 logger = get_logger(__name__)
-
-
-def compose_callbacks(
-    callbacks: Iterable[ConversationCallbackType],
-) -> ConversationCallbackType:
-    def composed(event) -> None:
-        for cb in callbacks:
-            if cb:
-                cb(event)
-
-    return composed
 
 
 class LocalConversation(BaseConversation):
@@ -94,7 +82,7 @@ class LocalConversation(BaseConversation):
         else:
             self._visualizer = None
 
-        self._on_event = compose_callbacks(composed_list)
+        self._on_event = BaseConversation.compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
         # Initialize stuck detector

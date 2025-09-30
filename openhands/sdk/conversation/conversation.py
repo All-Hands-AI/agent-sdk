@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Self, overload
 
 from openhands.sdk.agent.base import AgentBase
@@ -12,17 +11,6 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 
 logger = get_logger(__name__)
-
-
-def compose_callbacks(
-    callbacks: Iterable[ConversationCallbackType],
-) -> ConversationCallbackType:
-    def composed(event) -> None:
-        for cb in callbacks:
-            if cb:
-                cb(event)
-
-    return composed
 
 
 class Conversation:
