@@ -461,7 +461,7 @@ class RemoteConversation(BaseConversation):
             "content": [c.model_dump() for c in message.content],
             "run": False,  # Mirror local semantics; explicit run() must be called
         }
-        resp = self._client.post(f"/api/conversations/{self._id}/events/", json=payload)
+        resp = self._client.post(f"/api/conversations/{self._id}/events", json=payload)
         resp.raise_for_status()
 
     def run(self) -> None:
