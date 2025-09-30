@@ -247,9 +247,9 @@ class ConversationState(OpenHandsModel, FIFOLock):
 
             # Call state change callback if set
             callback = getattr(self, "_on_state_change", None)
-            if callback is not None:
+            if callback is not None and old is not _sentinel:
                 try:
-                    callback(name, old if old is not _sentinel else None, value)
+                    callback(name, old, value)
                 except Exception:
                     logger.exception(
                         f"State change callback failed for field {name}", exc_info=True
