@@ -3,14 +3,17 @@
 This module tests the Message class serialization, which now has two distinct paths:
 1. Standard Pydantic serialization (model_dump/model_dump_json) for storage - always
    preserves structure
-2. LLM API serialization (to_llm_dict) for provider consumption - adapts format based on
-   capabilities
+2. LLM API serialization (to_llm_completion) for provider consumption -
+   adapts format based on capabilities
 
 The refactored design separates storage concerns from API formatting concerns.
 Tests are organized by serialization strategy to ensure clear separation of concerns.
 """
 
 import json
+from typing import Any, cast
+
+from litellm.types.completion import ChatCompletionUserMessageParam
 
 from openhands.sdk.llm.message import (
     ImageContent,
@@ -175,7 +178,7 @@ class TestLLMAPISerialization:
         )
 
         # LLM API serialization - uses string format for simple messages
-        llm_data = message.to_llm_dict()
+        llm_data = cast(ChatCompletionUserMessageParam, message.to_llm_completion())
         assert isinstance(llm_data["content"], str)
         assert llm_data["content"] == "Hello, world!"
         assert llm_data["role"] == "user"
@@ -189,9 +192,12 @@ class TestLLMAPISerialization:
         )
 
         # LLM API serialization - uses list format due to cache_enabled
-        llm_data = message.to_llm_dict()
+        llm_data = cast(ChatCompletionUserMessageParam, message.to_llm_completion())
+
         assert isinstance(llm_data["content"], list)
         assert len(llm_data["content"]) == 1
+        assert llm_data["content"][0]["type"] == "text"
+        assert llm_data["content"][0]["type"] == "text"
         assert llm_data["content"][0]["text"] == "Hello, world!"
 
     def test_vision_enabled_triggers_list_serialization(self):
@@ -208,8 +214,11 @@ class TestLLMAPISerialization:
         )
 
         # LLM API serialization - uses list format due to vision_enabled
-        llm_data = message.to_llm_dict()
+        llm_data = cast(ChatCompletionUserMessageParam, message.to_llm_completion())
         assert isinstance(llm_data["content"], list)
+        assert llm_data["content"][0]["type"] == "text"
+
+        assert llm_data["content"][0]["type"] == "text"
         assert len(llm_data["content"]) == 2
         assert llm_data["content"][0]["text"] == "What's in this image?"
         assert llm_data["content"][1]["type"] == "image_url"
@@ -225,7 +234,7 @@ class TestLLMAPISerialization:
         )
 
         # LLM API serialization - uses list format due to function_calling_enabled
-        llm_data = message.to_llm_dict()
+        llm_data = cast(dict[str, Any], message.to_llm_completion())
         assert isinstance(llm_data["content"], list)
 
     def test_force_string_serializer_override(self):
@@ -238,7 +247,7 @@ class TestLLMAPISerialization:
         )
 
         # LLM API serialization - forced to string format
-        llm_data = message.to_llm_dict()
+        llm_data = cast(dict[str, Any], message.to_llm_completion())
         assert isinstance(llm_data["content"], str)
         assert llm_data["content"] == "Hello, world!"
 
@@ -252,18 +261,17 @@ class TestLLMAPISerialization:
         )
 
         # LLM API serialization - uses string format for simple tool response
-        llm_data = message.to_llm_dict()
+        llm_data = cast(dict[str, Any], message.to_llm_completion())
         assert isinstance(llm_data["content"], str)
         assert llm_data["content"] == "Weather in NYC: 72°F, sunny"
         assert llm_data["tool_call_id"] == "call_123"
-        assert llm_data["name"] == "get_weather"
 
     def test_empty_content_llm_serialization(self):
         """Test empty content list converts to empty string in LLM serialization."""
         message = Message(role="user", content=[])
 
         # LLM API serialization - string serializer converts empty list to empty string
-        llm_data = message.to_llm_dict()
+        llm_data = cast(dict[str, Any], message.to_llm_completion())
         assert llm_data["content"] == ""
 
     def test_multiple_text_content_string_serialization(self):
@@ -280,7 +288,7 @@ class TestLLMAPISerialization:
         )
 
         # LLM API serialization - joins with newlines
-        llm_data = message.to_llm_dict()
+        llm_data = cast(dict[str, Any], message.to_llm_completion())
         assert isinstance(llm_data["content"], str)
         assert llm_data["content"] == "First line\nSecond line\nThird line"
 
@@ -298,7 +306,7 @@ class TestLLMAPISerialization:
         )
 
         # LLM API serialization
-        llm_data = message.to_llm_dict()
+        llm_data = cast(dict[str, Any], message.to_llm_completion())
         assert isinstance(llm_data["content"], list)
         assert len(llm_data["content"]) == 2
         assert llm_data["content"][0]["type"] == "text"
@@ -312,21 +320,21 @@ class TestSerializationPathSelection:
         """Test the logic that determines which serialization path to use for LLM."""
         # Default settings -> string serializer
         message1 = Message(role="user", content=[TextContent(text="test")])
-        llm_data1 = message1.to_llm_dict()
+        llm_data1 = cast(ChatCompletionUserMessageParam, message1.to_llm_completion())
         assert isinstance(llm_data1["content"], str)
 
         # cache_enabled -> list serializer
         message2 = Message(
             role="user", content=[TextContent(text="test")], cache_enabled=True
         )
-        llm_data2 = message2.to_llm_dict()
+        llm_data2 = cast(ChatCompletionUserMessageParam, message2.to_llm_completion())
         assert isinstance(llm_data2["content"], list)
 
         # vision_enabled -> list serializer
         message3 = Message(
             role="user", content=[TextContent(text="test")], vision_enabled=True
         )
-        llm_data3 = message3.to_llm_dict()
+        llm_data3 = cast(ChatCompletionUserMessageParam, message3.to_llm_completion())
         assert isinstance(llm_data3["content"], list)
 
         # function_calling_enabled -> list serializer
@@ -335,7 +343,7 @@ class TestSerializationPathSelection:
             content=[TextContent(text="test")],
             function_calling_enabled=True,
         )
-        llm_data4 = message4.to_llm_dict()
+        llm_data4 = cast(dict[str, Any], message4.to_llm_completion())
         assert isinstance(llm_data4["content"], list)
 
         # force_string_serializer overrides everything
@@ -347,7 +355,7 @@ class TestSerializationPathSelection:
             function_calling_enabled=True,
             force_string_serializer=True,
         )
-        llm_data5 = message5.to_llm_dict()
+        llm_data5 = cast(ChatCompletionUserMessageParam, message5.to_llm_completion())
         assert isinstance(llm_data5["content"], str)
 
 
@@ -384,7 +392,7 @@ class TestDualSerializationConsistency:
             assert isinstance(storage_data["content"], list)
 
             # LLM serialization adapts based on settings
-            llm_data = msg.to_llm_dict()
+            llm_data = msg.to_llm_completion()
             # Content type depends on the message settings
             assert "content" in llm_data
 

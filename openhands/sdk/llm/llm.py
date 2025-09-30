@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
 
 import httpx
+from litellm.types.completion import ChatCompletionMessageParam
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -114,6 +115,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     )
 
     temperature: float | None = Field(default=0.0, ge=0)
+
     top_p: float | None = Field(default=1.0, ge=0, le=1)
     top_k: float | None = Field(default=None, ge=0)
 
@@ -371,12 +373,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
-        # 1) serialize messages
-        formatted_messages = self.format_messages_for_llm(messages)
+        # 1) serialize messages (typed for LiteLLM)
+        typed_msgs: list[ChatCompletionMessageParam] = self.format_messages_for_llm(
+            messages
+        )
 
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(formatted_messages)
+        original_fncall_msgs = copy.deepcopy(typed_msgs)
 
         # Convert Tool objects to ChatCompletionToolParam once here
         cc_tools: list[ChatCompletionToolParam] = []
@@ -395,8 +399,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 f"for model {self.model}"
             )
             formatted_messages, kwargs = self.pre_request_prompt_mock(
-                formatted_messages, cc_tools or [], kwargs
+                typed_msgs, cc_tools or [], kwargs
             )
+            transport_messages = formatted_messages
+        else:
+            transport_messages = typed_msgs
+            formatted_messages: list[dict[str, Any]] = [dict(m) for m in typed_msgs]
 
         # 3) normalize provider params
         # Only pass tools when native FC is active
@@ -409,8 +417,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
-                "messages": formatted_messages[:],  # already simple dicts
-                "tools": tools,
+                "messages": formatted_messages[:],
+                "tools_schema": [dict(t) for t in (cc_tools or [])],
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
             }
@@ -431,7 +439,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             assert self._telemetry is not None
             # Merge retry-modified kwargs (like temperature) with call_kwargs
             final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=formatted_messages, **final_kwargs)
+            resp = self._transport_call(messages=transport_messages, **final_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
@@ -476,7 +484,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Transport + helpers
     # =========================================================================
     def _transport_call(
-        self, *, messages: list[dict[str, Any]], **kwargs
+        self,
+        *,
+        messages: list[ChatCompletionMessageParam] | list[dict[str, Any]],
+        **kwargs,
     ) -> ModelResponse:
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
@@ -736,8 +747,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 ].cache_prompt = True  # Last item inside the message content
                 break
 
-    def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
-        """Formats Message objects for LLM consumption."""
+    def format_messages_for_llm(
+        self, messages: list[Message]
+    ) -> list[ChatCompletionMessageParam]:
+        """Formats Message objects for LLM consumption using LiteLLM typed payloads."""
 
         messages = copy.deepcopy(messages)
         if self.is_caching_prompt_active():
@@ -752,7 +765,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        return [message.to_llm_dict() for message in messages]
+        return [message.to_llm_completion() for message in messages]
 
     def get_token_count(self, messages: list[Message]) -> int:
         logger.debug(
