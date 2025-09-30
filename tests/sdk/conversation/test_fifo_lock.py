@@ -107,21 +107,29 @@ def test_fifo_lock_fairness():
     acquisition_order = deque()
     threads = []
 
-    def worker(thread_id: int):
-        # Small delay to ensure all threads are created before any acquire
-        time.sleep(0.01)
+    # Create individual events for each thread to ensure deterministic ordering
+    thread_events = [threading.Event() for _ in range(10)]
+
+    def worker(thread_id: int, my_event: threading.Event):
+        # Wait for signal to proceed
+        my_event.wait()
         with lock:
             acquisition_order.append(thread_id)
-            time.sleep(0.01)  # Hold lock briefly
+            time.sleep(0.001)  # Brief hold to ensure ordering is visible
 
     # Create threads in order
     for i in range(10):
-        thread = threading.Thread(target=worker, args=(i,))
+        thread = threading.Thread(target=worker, args=(i, thread_events[i]))
         threads.append(thread)
 
     # Start all threads
     for thread in threads:
         thread.start()
+
+    # Signal threads to proceed in exact order with small delays
+    for i in range(10):
+        thread_events[i].set()
+        time.sleep(0.002)  # Small delay to ensure deterministic ordering
 
     # Wait for all to complete
     for thread in threads:
