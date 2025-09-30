@@ -8,8 +8,8 @@ from pydantic import SecretStr
 
 from openhands.sdk.llm import (
     LLM,
-    LLMToolCall,
     Message,
+    MessageToolCall,
     TextContent,
 )
 from openhands.sdk.tool.schema import ActionBase
@@ -97,7 +97,7 @@ def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
     mock_response.choices[0].message.tool_calls = [  # type: ignore
-        LLMToolCall(
+        MessageToolCall(
             id="call_123",
             name="test_tool",
             arguments_json='{"param": "value"}',

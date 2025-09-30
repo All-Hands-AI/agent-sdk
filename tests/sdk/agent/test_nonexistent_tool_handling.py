@@ -13,7 +13,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import AgentErrorEvent, MessageEvent
-from openhands.sdk.llm import LLM, LLMToolCall, Message, TextContent
+from openhands.sdk.llm import LLM, Message, MessageToolCall, TextContent
 
 
 def test_nonexistent_tool_returns_error_and_continues_conversation():
@@ -40,7 +40,7 @@ def test_nonexistent_tool_returns_error_and_continues_conversation():
                         role="assistant",
                         content="I'll use a non-existent tool to help you.",
                         tool_calls=[
-                            LLMToolCall(
+                            MessageToolCall(
                                 id="call_1",
                                 name="nonexistent_tool",
                                 arguments_json='{"param": "value"}',
@@ -130,7 +130,7 @@ def test_nonexistent_tool_error_includes_available_tools():
                         role="assistant",
                         content="I'll use a non-existent tool.",
                         tool_calls=[
-                            LLMToolCall(
+                            MessageToolCall(
                                 id="call_1",
                                 name="missing_tool",
                                 arguments_json="{}",
@@ -208,7 +208,7 @@ def test_conversation_continues_after_tool_error():
                             role="assistant",
                             content="I'll try a non-existent tool first.",
                             tool_calls=[
-                                LLMToolCall(
+                                MessageToolCall(
                                     id="call_1",
                                     name="bad_tool",
                                     arguments_json="{}",

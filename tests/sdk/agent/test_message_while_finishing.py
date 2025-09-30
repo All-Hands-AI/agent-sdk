@@ -54,8 +54,8 @@ from openhands.sdk.event import MessageEvent  # noqa: E402
 from openhands.sdk.llm import (  # noqa: E402
     LLM,
     ImageContent,
-    LLMToolCall,
     Message,
+    MessageToolCall,
     TextContent,
 )
 from openhands.sdk.tool import (  # noqa: E402
@@ -164,7 +164,7 @@ class TestMessageWhileFinishing:
 
         if self.step_count == 1:
             # Step 1: Process initial request - single sleep
-            sleep_call = LLMToolCall(
+            sleep_call = MessageToolCall(
                 id="sleep_call_1",
                 name="sleep_tool",
                 arguments_json='{"duration": 2.0, "message": "First sleep completed"}',
@@ -205,14 +205,14 @@ class TestMessageWhileFinishing:
                 final_message += " and butterfly"  # This should NOT happen
 
             # Multiple tool calls: sleep THEN finish
-            sleep_call = LLMToolCall(
+            sleep_call = MessageToolCall(
                 id="sleep_call_2",
                 name="sleep_tool",
                 arguments_json=f'{{"duration": 3.0, "message": "{sleep_message}"}}',
                 origin="completion",
             )
 
-            finish_call = LLMToolCall(
+            finish_call = MessageToolCall(
                 id="finish_call_2",
                 name="finish",
                 arguments_json=f'{{"message": "{final_message}"}}',

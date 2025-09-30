@@ -15,7 +15,7 @@ from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 logger = get_logger(__name__)
 
 
-class LLMToolCall(BaseModel):
+class MessageToolCall(BaseModel):
     """Transport-agnostic tool call representation.
 
     One canonical id is used for linking across actions/observations and
@@ -43,7 +43,7 @@ class LLMToolCall(BaseModel):
         raw: ChatCompletionMessageToolCall | ResponseFunctionToolCall | None = None,
         **kwargs,
     ):
-        """Initialize an LLMToolCall.
+        """Initialize a MessageToolCall.
 
         Args:
             id: Unique identifier for the tool call. If None, a UUID will be generated.
@@ -93,8 +93,8 @@ class LLMToolCall(BaseModel):
     @classmethod
     def from_litellm_tool_call(
         cls, tool_call: ChatCompletionMessageToolCall
-    ) -> "LLMToolCall":
-        """Create an LLMToolCall from a litellm ChatCompletionMessageToolCall.
+    ) -> "MessageToolCall":
+        """Create a MessageToolCall from a litellm ChatCompletionMessageToolCall.
 
         This method provides a migration path from litellm tool calls to our
         native implementation.
@@ -103,7 +103,7 @@ class LLMToolCall(BaseModel):
             tool_call: The litellm tool call to convert
 
         Returns:
-            A new LLMToolCall instance with the same data
+            A new MessageToolCall instance with the same data
         """
         return cls(
             id=tool_call.id,
@@ -114,7 +114,7 @@ class LLMToolCall(BaseModel):
         )
 
     def to_litellm_tool_call(self) -> ChatCompletionMessageToolCall:
-        """Convert this LLMToolCall to a litellm ChatCompletionMessageToolCall.
+        """Convert this MessageToolCall to a litellm ChatCompletionMessageToolCall.
 
         This method is primarily for testing and compatibility with existing code
         that expects litellm tool calls.
@@ -146,10 +146,6 @@ class LLMToolCall(BaseModel):
     def type(self) -> str:
         """Backward compatibility property for tool call type."""
         return "function"
-
-
-# Backward compatibility alias
-MessageToolCall = LLMToolCall
 
 
 class BaseContent(BaseModel):
@@ -214,7 +210,7 @@ class Message(BaseModel):
     # function calling
     function_calling_enabled: bool = False
     # - tool calls (from LLM)
-    tool_calls: list[LLMToolCall] | None = None
+    tool_calls: list[MessageToolCall] | None = None
     # - tool execution result (to LLM)
     tool_call_id: str | None = None
     name: str | None = None  # name of the tool
@@ -243,8 +239,8 @@ class Message(BaseModel):
 
     @field_validator("tool_calls", mode="before")
     @classmethod
-    def _coerce_tool_calls(cls, v: Any) -> list[LLMToolCall] | None:
-        """Convert tool_calls from various formats to LLMToolCall objects."""
+    def _coerce_tool_calls(cls, v: Any) -> list[MessageToolCall] | None:
+        """Convert tool_calls from various formats to MessageToolCall objects."""
         if v is None:
             return None
         if not isinstance(v, list):
@@ -252,15 +248,15 @@ class Message(BaseModel):
 
         result = []
         for item in v:
-            if isinstance(item, LLMToolCall):
+            if isinstance(item, MessageToolCall):
                 result.append(item)
             elif isinstance(item, dict):
-                # Convert dict to LLMToolCall
+                # Convert dict to MessageToolCall
                 if "function" in item and isinstance(item["function"], dict):
                     # Standard format: {"id": "...", "type": "function",
                     # "function": {"name": "...", "arguments": "..."}}
                     result.append(
-                        LLMToolCall(
+                        MessageToolCall(
                             id=item["id"],
                             name=item["function"]["name"],
                             arguments_json=item["function"]["arguments"],
@@ -270,7 +266,7 @@ class Message(BaseModel):
                 elif "name" in item and "arguments_json" in item:
                     # Direct format: {"id": "...", "name": "...",
                     # "arguments_json": "...", "origin": "..."}
-                    result.append(LLMToolCall(**item))
+                    result.append(MessageToolCall(**item))
                 else:
                     # Keep as-is if we can't convert
                     result.append(item)
@@ -376,11 +372,11 @@ class Message(BaseModel):
 
         rc = getattr(message, "reasoning_content", None)
 
-        # Convert litellm tool calls to our LLMToolCall format
+        # Convert litellm tool calls to our MessageToolCall format
         converted_tool_calls = None
         if message.tool_calls:
             converted_tool_calls = [
-                LLMToolCall.from_litellm_tool_call(tc) for tc in message.tool_calls
+                MessageToolCall.from_litellm_tool_call(tc) for tc in message.tool_calls
             ]
 
         return Message(

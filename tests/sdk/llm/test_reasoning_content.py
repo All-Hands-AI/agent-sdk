@@ -110,7 +110,7 @@ def test_action_event_with_reasoning_content():
     """Test ActionEvent with reasoning content fields."""
     from openhands.sdk.event.llm_convertible import ActionEvent
     from openhands.sdk.llm.message import (
-        LLMToolCall,
+        MessageToolCall,
         TextContent,
     )
     from openhands.sdk.tool import ActionBase
@@ -120,7 +120,7 @@ def test_action_event_with_reasoning_content():
         action: str = "test"
 
     # Create a tool call
-    tool_call = LLMToolCall(
+    tool_call = MessageToolCall(
         id="test-id",
         name="test_tool",
         arguments_json='{"arg": "value"}',

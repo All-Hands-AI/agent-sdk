@@ -17,8 +17,8 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.llm import (
     ImageContent,
-    LLMToolCall,
     Message,
+    MessageToolCall,
     TextContent,
 )
 from openhands.sdk.tool import ActionBase, ObservationBase
@@ -68,7 +68,7 @@ def test_system_prompt_event_serialization() -> None:
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
     action = TestEventsSerializationMockAction()
-    tool_call = LLMToolCall(
+    tool_call = MessageToolCall(
         id="call_123",
         name="mock_tool",
         arguments_json="{}",

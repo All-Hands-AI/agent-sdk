@@ -3,7 +3,6 @@ from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import (
     ImageContent,
-    LLMToolCall,
     Message,
     MessageToolCall,
     TextContent,
@@ -25,7 +24,6 @@ __all__ = [
     "RouterLLM",
     "RegistryEvent",
     "Message",
-    "LLMToolCall",
     "MessageToolCall",
     "TextContent",
     "ImageContent",

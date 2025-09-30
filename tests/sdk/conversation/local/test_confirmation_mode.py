@@ -24,8 +24,8 @@ from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
-    LLMToolCall,
     Message,
+    MessageToolCall,
     MetricsSnapshot,
     TextContent,
 )
@@ -171,7 +171,7 @@ class TestConfirmationMode:
 
     def _mock_finish_action(self, message: str = "Task completed") -> MagicMock:
         """Configure LLM to return a FinishAction tool call."""
-        tool_call = LLMToolCall(
+        tool_call = MessageToolCall(
             id="finish_call_1",
             name="finish",
             arguments_json=f'{{"message": "{message}"}}',
@@ -198,14 +198,14 @@ class TestConfirmationMode:
 
     def _mock_multiple_actions_with_finish(self) -> MagicMock:
         """Configure LLM to return both a regular action and a FinishAction."""
-        regular_tool_call = LLMToolCall(
+        regular_tool_call = MessageToolCall(
             id="call_1",
             name="test_tool",
             arguments_json='{"command": "test_command"}',
             origin="completion",
         )
 
-        finish_tool_call = LLMToolCall(
+        finish_tool_call = MessageToolCall(
             id="finish_call_1",
             name="finish",
             arguments_json='{"message": "Task completed!"}',
@@ -237,7 +237,7 @@ class TestConfirmationMode:
         """Helper to create test action events."""
         action = MockConfirmationModeAction(command=command)
 
-        tool_call = LLMToolCall(
+        tool_call = MessageToolCall(
             id=call_id,
             name="test_tool",
             arguments_json=f'{{"command": "{command}"}}',

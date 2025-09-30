@@ -3,7 +3,7 @@
 import pytest
 
 from openhands.sdk.event import ActionEvent
-from openhands.sdk.llm import LLMToolCall, TextContent
+from openhands.sdk.llm import MessageToolCall, TextContent
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool import ActionBase
@@ -24,7 +24,7 @@ def create_mock_action_event(
         action=action,
         tool_name="test_tool",
         tool_call_id="test_call_id",
-        tool_call=LLMToolCall(
+        tool_call=MessageToolCall(
             id="test_call_id",
             name="test_tool",
             arguments_json='{"command": "test"}',
