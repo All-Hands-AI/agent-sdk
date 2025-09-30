@@ -217,8 +217,13 @@ def run_fairness_test_multiple(num_runs: int = 100) -> list[bool]:
             acquisition_order = deque()
             worker_threads = []
 
+            # Use individual events to control each thread's acquire() call
+            thread_events = [threading.Event() for _ in range(10)]
+
             def worker(thread_id: int):
-                time.sleep(0.001)  # Small delay for thread creation
+                # Wait for this specific thread's signal
+                thread_events[thread_id].wait()
+
                 with lock:
                     acquisition_order.append(thread_id)
                     time.sleep(0.001)
@@ -231,6 +236,14 @@ def run_fairness_test_multiple(num_runs: int = 100) -> list[bool]:
             # Start all worker threads
             for thread in worker_threads:
                 thread.start()
+
+            # Give threads a moment to start and wait for their events
+            time.sleep(0.01)
+
+            # Signal threads to call acquire() in the exact order we want
+            for i in range(10):
+                thread_events[i].set()
+                time.sleep(0.002)  # Small delay to ensure ordering
 
             # Wait for completion
             for thread in worker_threads:
