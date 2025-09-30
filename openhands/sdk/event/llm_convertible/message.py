@@ -33,6 +33,11 @@ class MessageEvent(LLMConvertibleEvent):
         return self.llm_message.reasoning_content or ""
 
     @property
+    def thinking_blocks(self) -> list:
+        """Return the Anthropic thinking blocks from the LLM message."""
+        return self.llm_message.thinking_blocks
+
+    @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this message event."""
         content = Text()
@@ -58,6 +63,15 @@ class MessageEvent(LLMConvertibleEvent):
             text_parts = content_to_str(self.extended_content)
             content.append("\nPrompt Extension based on Agent Context:\n")
             content.append(" ".join(text_parts))
+
+        # Add thinking blocks if available (Anthropic extended thinking)
+        if self.thinking_blocks:
+            content.append("\nThinking Blocks (Anthropic Extended Thinking):\n")
+            for i, block in enumerate(self.thinking_blocks):
+                content.append(f"Block {i + 1}: {block.thinking[:200]}...")
+                if len(block.thinking) > 200:
+                    content.append(" [truncated]")
+                content.append("\n")
 
         return content
 
@@ -87,6 +101,14 @@ class MessageEvent(LLMConvertibleEvent):
                 if self.activated_microagents
                 else ""
             )
-            return f"{base_str}\n  {message.role}: {content_preview}{microagent_info}"
+            thinking_info = (
+                f" [Thinking blocks: {len(self.thinking_blocks)}]"
+                if self.thinking_blocks
+                else ""
+            )
+            return (
+                f"{base_str}\n  {message.role}: "
+                f"{content_preview}{microagent_info}{thinking_info}"
+            )
         else:
             return f"{base_str}\n  {message.role}: [no text content]"

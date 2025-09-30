@@ -13,6 +13,21 @@ from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 logger = get_logger(__name__)
 
 
+class ThinkingBlock(BaseModel):
+    """Anthropic thinking block for extended thinking feature.
+
+    This represents the raw thinking blocks returned by Anthropic models
+    when extended thinking is enabled. These blocks must be preserved
+    and passed back to the API for tool use scenarios.
+    """
+
+    type: Literal["thinking"] = "thinking"
+    thinking: str = Field(..., description="The thinking content")
+    signature: str | None = Field(
+        default=None, description="Cryptographic signature for the thinking block"
+    )
+
+
 class BaseContent(BaseModel):
     cache_prompt: bool = False
 
@@ -86,6 +101,11 @@ class Message(BaseModel):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
+    # Anthropic-specific thinking blocks (not normalized by LiteLLM)
+    thinking_blocks: list[ThinkingBlock] = Field(
+        default_factory=list,
+        description="Raw Anthropic thinking blocks for extended thinking feature",
+    )
 
     @property
     def contains_image(self) -> bool:
@@ -134,6 +154,11 @@ class Message(BaseModel):
     def _list_serializer(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
         role_tool_with_prompt_caching = False
+
+        # Add thinking blocks first (for Anthropic extended thinking)
+        for thinking_block in self.thinking_blocks:
+            thinking_dict = thinking_block.model_dump()
+            content.append(thinking_dict)
 
         for item in self.content:
             # All content types now return list[dict[str, Any]]
@@ -195,18 +220,40 @@ class Message(BaseModel):
 
         Provider-agnostic mapping for reasoning:
         - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
+        - Extract `thinking_blocks` from content array (Anthropic-specific)
         """
         assert message.role != "function", "Function role is not supported"
 
         rc = getattr(message, "reasoning_content", None)
+        content = []
+        thinking_blocks = []
+
+        # Handle content
+        if isinstance(message.content, str):
+            content = [TextContent(text=message.content)]
+
+        # Extract thinking blocks from LiteLLM's thinking_blocks field
+        litellm_thinking_blocks = getattr(message, "thinking_blocks", None)
+        if litellm_thinking_blocks:
+            for block in litellm_thinking_blocks:
+                # Convert LiteLLM thinking block to our ThinkingBlock
+                # LiteLLM thinking blocks are TypedDict objects
+                thinking_content = (
+                    block.get("thinking", "") if isinstance(block, dict) else ""
+                )
+                signature = block.get("signature") if isinstance(block, dict) else None
+                thinking_block = ThinkingBlock(
+                    thinking=thinking_content,
+                    signature=signature,
+                )
+                thinking_blocks.append(thinking_block)
 
         return Message(
             role=message.role,
-            content=[TextContent(text=message.content)]
-            if isinstance(message.content, str)
-            else [],
+            content=content,
             tool_calls=message.tool_calls,
             reasoning_content=rc,
+            thinking_blocks=thinking_blocks,
         )
 
 
