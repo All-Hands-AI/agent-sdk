@@ -221,7 +221,7 @@ class EventService:
         self._conversation = conversation
 
         # Register state change callback to automatically publish updates
-        self._conversation._state.set_on_state_change(self._on_state_change)
+        self._conversation._state.set_on_state_change(self._conversation._on_event)
 
         # Publish initial state update
         await self._publish_state_update()
@@ -270,30 +270,6 @@ class EventService:
         if not self._conversation:
             raise ValueError("inactive_service")
         return self._conversation._state
-
-    def _on_state_change(self, field_name: str, old_value, new_value):
-        """Callback for state changes - publishes state update via websocket."""
-        # Schedule the async state update in the event loop
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._publish_state_update())
-        except RuntimeError:
-            # No event loop running (e.g., called from executor thread)
-            # Try to schedule the update in the main event loop if available
-            try:
-                if hasattr(self, "_main_loop") and self._main_loop:
-                    self._main_loop.call_soon_threadsafe(
-                        lambda: self._main_loop.create_task(
-                            self._publish_state_update()
-                        )
-                    )
-                else:
-                    logger.warning(
-                        "No main event loop available, "
-                        "skipping state update publication"
-                    )
-            except Exception as ex:
-                logger.warning(f"Failed to schedule state update in main loop: {ex}")
 
     async def _publish_state_update(self):
         """Publish a ConversationStateUpdateEvent with the current state."""

@@ -1,8 +1,8 @@
 # state.py
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from pydantic import Field, PrivateAttr
 
@@ -12,7 +12,7 @@ from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
-from openhands.sdk.conversation.types import ConversationID
+from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
@@ -102,7 +102,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
     _autosave_enabled: bool = PrivateAttr(
         default=False
     )  # to avoid recursion during init
-    _on_state_change: Callable[[str, Any, Any], None] | None = PrivateAttr(
+    _on_state_change: ConversationCallbackType | None = PrivateAttr(
         default=None
     )  # callback for state changes
 
@@ -121,13 +121,11 @@ class ConversationState(OpenHandsModel, FIFOLock):
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
 
-    def set_on_state_change(
-        self, callback: Callable[[str, Any, Any], None] | None
-    ) -> None:
+    def set_on_state_change(self, callback: ConversationCallbackType | None) -> None:
         """Set a callback to be called when state changes.
 
         Args:
-            callback: A function that takes (field_name, old_value, new_value)
+            callback: A function that takes an EventBase (ConversationStateUpdateEvent)
                      or None to remove the callback
         """
         self._on_state_change = callback
@@ -249,7 +247,16 @@ class ConversationState(OpenHandsModel, FIFOLock):
             callback = getattr(self, "_on_state_change", None)
             if callback is not None and old is not _sentinel:
                 try:
-                    callback(name, old, value)
+                    # Import here to avoid circular imports
+                    from openhands.sdk.event.conversation_state import (
+                        ConversationStateUpdateEvent,
+                    )
+
+                    # Create a ConversationStateUpdateEvent with the changed field
+                    state_update_event = ConversationStateUpdateEvent(
+                        key=name, value=value
+                    )
+                    callback(state_update_event)
                 except Exception:
                     logger.exception(
                         f"State change callback failed for field {name}", exc_info=True
