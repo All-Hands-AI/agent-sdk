@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, Union
+from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
@@ -27,7 +27,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def events(self) -> Union["EventLog", "RemoteEventsList"]:
+    def events(self) -> "EventLog | RemoteEventsList":
         """Access to the events list."""
         ...
 
