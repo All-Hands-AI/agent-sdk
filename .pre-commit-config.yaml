@@ -38,3 +38,11 @@ repos:
             types: [python]
             pass_filenames: true
             always_run: false
+          - id: basedpyright
+            name: Type check with BasedPyright (warnings only)
+            entry: bash
+            args: [-c, uv run basedpyright "$@" || true, --]
+            language: system
+            types: [python]
+            pass_filenames: true
+            always_run: false

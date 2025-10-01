@@ -15,6 +15,7 @@ members = [
 
 [manifest.dependency-groups]
 dev = [
+    { name = "basedpyright", specifier = ">=1.21.0" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pycodestyle", specifier = ">=2.12.0" },
@@ -233,6 +234,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/47/d7/5bbeb12c44d7c4f2fb5b56abce497eb5ed9f34d85701de869acedd602619/backoff-2.2.1.tar.gz", hash = "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba", size = 17001, upload-time = "2022-10-05T19:19:32.061Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/df/73/b6e24bd22e6720ca8ee9a85a0c4a2971af8497d8f3193fa05390cbd46e09/backoff-2.2.1-py3-none-any.whl", hash = "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8", size = 15148, upload-time = "2022-10-05T19:19:30.546Z" },
+]
+
+[[package]]
+name = "basedpyright"
+version = "1.31.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "nodejs-wheel-binaries" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/23/c1/f50d6dfc35f87c75b109b414d48cdc55097b21d2f4b5fb7f74702ef0d26c/basedpyright-1.31.5.tar.gz", hash = "sha256:11bbc4af6107de1b1aa1eb76647f0c194095251dfff3c5f7aaf50376690142f5", size = 22511888, upload-time = "2025-09-24T12:53:13.202Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/71/b3/42b736baf91f5289f8907937575a1ea1a91484a8bf0985d03ed4251c5e4f/basedpyright-1.31.5-py3-none-any.whl", hash = "sha256:a345aae09fa6c12694f401514baf87fdb66ddade36a45bf978f1920a40b08df6", size = 11738983, upload-time = "2025-09-24T12:53:09.624Z" },
 ]
 
 [[package]]
