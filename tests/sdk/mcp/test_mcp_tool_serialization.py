@@ -91,7 +91,7 @@ def test_mcp_tool_fallback_behavior() -> None:
         "description": "A fallback test tool",
         "action_type": "MCPToolAction",
         "observation_type": "MCPToolObservation",
-        "kind": "MCPTool",
+        "kind": "MCPToolDefinition",
         "mcp_tool": {
             "name": "fallback-tool",
             "description": "A fallback test tool",
