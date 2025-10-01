@@ -32,35 +32,6 @@ class MessageToolCall(BaseModel):
         exclude=True,
     )
 
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        arguments_json: str,
-        origin: Literal["completion", "responses"] = "completion",
-        raw: ChatCompletionMessageToolCall | ResponseFunctionToolCall | None = None,
-        **kwargs,
-    ):
-        """Initialize a MessageToolCall.
-
-        Args:
-            id: Unique identifier for the tool call.
-            name: The name of the function to call
-            arguments_json: The arguments as a JSON string.
-            origin: The originating API family
-            raw: Original provider object for advanced consumers
-            **kwargs: Additional keyword arguments
-        """
-
-        super().__init__(
-            id=id,
-            name=name,
-            arguments_json=arguments_json,
-            origin=origin,
-            raw=raw,
-            **kwargs,
-        )
-
     def __contains__(self, key: str) -> bool:
         """Support 'in' operator for dictionary-style access."""
         return hasattr(self, key)
