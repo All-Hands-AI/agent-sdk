@@ -259,50 +259,23 @@ class Message(BaseModel):
         assert message.role != "function", "Function role is not supported"
 
         rc = getattr(message, "reasoning_content", None)
-        content = []
-        thinking_blocks = []
-
-        # Handle content
-        if isinstance(message.content, str):
-            content = [TextContent(text=message.content)]
-        elif isinstance(message.content, list):
-            # Process content list and extract thinking blocks
-            for item in message.content:  # type: ignore[union-attr]
-                if isinstance(item, dict):
-                    item_type = item.get("type", "")
-                    if item_type == "thinking":
-                        # Extract thinking block
-                        thinking_content = item.get("thinking", "")
-                        signature = item.get("signature")
-                        thinking_block = ThinkingBlock(
-                            thinking=thinking_content,
-                            signature=signature,
-                        )
-                        thinking_blocks.append(thinking_block)
-                    elif item_type == "text":
-                        # Extract text content
-                        text_content = TextContent(text=item.get("text", ""))
-                        content.append(text_content)
-
-        # Extract thinking blocks from LiteLLM's thinking_blocks field (fallback)
-        litellm_thinking_blocks = getattr(message, "thinking_blocks", None)
-        if litellm_thinking_blocks:
-            for block in litellm_thinking_blocks:
-                # Convert LiteLLM thinking block to our ThinkingBlock
-                # LiteLLM thinking blocks are TypedDict objects
-                thinking_content = (
-                    block.get("thinking", "") if isinstance(block, dict) else ""
-                )
-                signature = block.get("signature") if isinstance(block, dict) else None
-                thinking_block = ThinkingBlock(
-                    thinking=thinking_content,
-                    signature=signature,
-                )
-                thinking_blocks.append(thinking_block)
+        thinking_blocks = getattr(message, "thinking_blocks", None)
+        # Convert to list of ThinkingBlock or RedactedThinkingBlock
+        if thinking_blocks is not None:
+            thinking_blocks = [
+                ThinkingBlock(**tb)
+                if tb.get("type") == "thinking"
+                else RedactedThinkingBlock(**tb)
+                for tb in thinking_blocks
+            ]
+        else:
+            thinking_blocks = []
 
         return Message(
             role=message.role,
-            content=content,
+            content=[TextContent(text=message.content)]
+            if isinstance(message.content, str)
+            else [],
             tool_calls=message.tool_calls,
             reasoning_content=rc,
             thinking_blocks=thinking_blocks,
