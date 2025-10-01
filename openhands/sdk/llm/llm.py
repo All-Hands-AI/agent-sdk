@@ -745,34 +745,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 ].cache_prompt = True  # Last item inside the message content
                 break
 
-    def _is_anthropic_extended_thinking_active(self) -> bool:
-        """Check if we're using Anthropic extended thinking."""
-        # Check if this is an Anthropic model that supports reasoning effort
-        supports_reasoning = get_features(self.model).supports_reasoning_effort
-        if not supports_reasoning:
-            return False
-
-        # Check if reasoning effort is enabled (not None or "none")
-        reasoning_enabled = (
-            self.reasoning_effort is not None and self.reasoning_effort != "none"
-        )
-        if not reasoning_enabled:
-            return False
-
-        # Check if this is specifically an Anthropic model
-        model_lower = self.model.lower()
-        is_anthropic = "claude" in model_lower or "anthropic" in model_lower
-        return is_anthropic
-
     def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
         """Formats Message objects for LLM consumption."""
 
         messages = copy.deepcopy(messages)
         if self.is_caching_prompt_active():
             self._apply_prompt_caching(messages)
-
-        # Check if we need to ensure thinking blocks for Anthropic extended thinking
-        ensure_thinking_blocks = self._is_anthropic_extended_thinking_active()
 
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
@@ -783,10 +761,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        formatted_messages = [
-            message.to_llm_dict(ensure_thinking_blocks=ensure_thinking_blocks)
-            for message in messages
-        ]
+        formatted_messages = [message.to_llm_dict() for message in messages]
 
         return formatted_messages
 

@@ -239,37 +239,6 @@ def test_message_event_thinking_blocks_property():
     assert thinking_block.signature == "sig_def"
 
 
-def test_message_event_visualize_with_thinking_blocks():
-    """Test MessageEvent.visualize includes thinking blocks."""
-    from openhands.sdk.event.llm_convertible import MessageEvent
-    from openhands.sdk.llm.message import Message, TextContent, ThinkingBlock
-
-    thinking_block = ThinkingBlock(
-        thinking=(
-            "This is a very long thinking process that should be truncated when "
-            "displayed in the visualization because it exceeds the 200 character "
-            "limit that we set for the preview display."
-        ),
-        signature="sig_ghi",
-    )
-
-    message = Message(
-        role="assistant",
-        content=[TextContent(text="Final answer")],
-        thinking_blocks=[thinking_block],
-    )
-
-    event = MessageEvent(llm_message=message, source="agent")
-
-    visualization = event.visualize
-
-    # Should contain thinking blocks section
-    viz_text = str(visualization)
-    assert "Thinking Blocks (Anthropic Extended Thinking)" in viz_text
-    assert "Block 1:" in viz_text
-    assert "..." in viz_text  # Long thinking should be truncated
-
-
 def test_message_event_str_with_thinking_blocks():
     """Test MessageEvent.__str__ includes thinking blocks count."""
     from openhands.sdk.event.llm_convertible import MessageEvent

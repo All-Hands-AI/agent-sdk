@@ -133,24 +133,18 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    def to_llm_dict(self, ensure_thinking_blocks: bool = False) -> dict[str, Any]:
+    def to_llm_dict(self) -> dict[str, Any]:
         """Serialize message for LLM API consumption.
 
         This method chooses the appropriate serialization format based on the message
         configuration and provider capabilities:
         - String format: for providers that don't support list of content items
         - List format: for providers with vision/prompt caching/tool calls support
-
-        Args:
-            ensure_thinking_blocks: If True, ensure assistant messages have
-                thinking blocks
         """
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
-            message_dict = self._list_serializer(
-                ensure_thinking_blocks=ensure_thinking_blocks
-            )
+            message_dict = self._list_serializer()
         else:
             # some providers, like HF and Groq/llama, don't support a list here, but a
             # single string
@@ -168,7 +162,7 @@ class Message(BaseModel):
         # add tool call keys if we have a tool call or response
         return self._add_tool_call_keys(message_dict)
 
-    def _list_serializer(self, ensure_thinking_blocks: bool = False) -> dict[str, Any]:
+    def _list_serializer(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
         role_tool_with_prompt_caching = False
 
@@ -178,17 +172,6 @@ class Message(BaseModel):
             thinking_blocks = list(
                 self.thinking_blocks
             )  # Copy to avoid modifying original
-
-            # Add redacted thinking block if needed for Anthropic extended thinking
-            if ensure_thinking_blocks and not thinking_blocks:
-                thinking_blocks = [
-                    RedactedThinkingBlock(
-                        data=(
-                            "This message was generated before extended "
-                            "thinking was enabled."
-                        )
-                    )
-                ]
 
             for thinking_block in thinking_blocks:
                 thinking_dict = thinking_block.model_dump()
