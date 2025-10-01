@@ -248,7 +248,3 @@ class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
             add_security_risk_prediction=add_security_risk_prediction,
             action_type=mcp_action_type,
         )
-
-
-# Backward compatibility alias
-MCPTool = MCPToolDefinition
