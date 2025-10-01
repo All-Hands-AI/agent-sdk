@@ -36,6 +36,7 @@ class LocalConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
+        secrets: dict[str, str] | None = None,
         **_: object,
     ):
         """Initialize the conversation.
@@ -106,6 +107,12 @@ class LocalConversation(BaseConversation):
         self.llm_registry.subscribe(self._state.stats.register_llm)
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
+
+        # Initialize secrets if provided
+        if secrets:
+            # Convert dict[str, str] to dict[str, SecretValue]
+            secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
+            self.update_secrets(secret_values)
 
     @property
     def id(self) -> ConversationID:

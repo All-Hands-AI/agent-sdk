@@ -346,6 +346,7 @@ class RemoteConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = False,
+        secrets: dict[str, str] | None = None,
         **_: object,
     ) -> None:
         """Remote conversation proxy that talks to an agent server.
@@ -424,6 +425,12 @@ class RemoteConversation(BaseConversation):
             api_key=self.workspace.api_key,
         )
         self._ws_client.start()
+
+        # Initialize secrets if provided
+        if secrets:
+            # Convert dict[str, str] to dict[str, SecretValue]
+            secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
+            self.update_secrets(secret_values)
 
     @property
     def id(self) -> ConversationID:
