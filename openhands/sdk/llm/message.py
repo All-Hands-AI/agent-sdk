@@ -1,5 +1,3 @@
-import json
-import uuid
 from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
@@ -36,9 +34,9 @@ class MessageToolCall(BaseModel):
 
     def __init__(
         self,
-        id: str | None = None,
-        name: str | None = None,
-        arguments_json: str | dict | None = None,
+        id: str,
+        name: str,
+        arguments_json: str,
         origin: Literal["completion", "responses"] = "completion",
         raw: ChatCompletionMessageToolCall | ResponseFunctionToolCall | None = None,
         **kwargs,
@@ -54,16 +52,6 @@ class MessageToolCall(BaseModel):
             raw: Original provider object for advanced consumers
             **kwargs: Additional keyword arguments
         """
-        if id is None:
-            id = f"call_{uuid.uuid4().hex[:8]}"
-
-        if name is None:
-            name = ""
-
-        if arguments_json is None:
-            arguments_json = "{}"
-        elif isinstance(arguments_json, dict):
-            arguments_json = json.dumps(arguments_json)
 
         super().__init__(
             id=id,
