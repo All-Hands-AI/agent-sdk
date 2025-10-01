@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from typing import Any, Literal
 
 from litellm import ChatCompletionMessageToolCall, ResponseFunctionToolCall
-from litellm.types.utils import Message as LiteLLMMessage
+from litellm.types.utils import Function, Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
@@ -120,7 +120,6 @@ class MessageToolCall(BaseModel):
         Returns:
             A ChatCompletionMessageToolCall instance with the same data
         """
-        from litellm.types.utils import Function
 
         function = Function(name=self.name, arguments=self.arguments_json)
 
