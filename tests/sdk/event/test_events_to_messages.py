@@ -17,22 +17,22 @@ from openhands.sdk.event.llm_convertible import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.tool import Action, Observation
 
 
-class EventsToMessagesMockAction(ActionBase):
+class EventsToMessagesMockAction(Action):
     """Mock action for testing."""
 
     command: str
 
 
-class EventsToMessagesMockObservation(ObservationBase):
+class EventsToMessagesMockObservation(Observation):
     """Mock observation for testing."""
 
     result: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 

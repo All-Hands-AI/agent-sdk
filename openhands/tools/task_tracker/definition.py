@@ -13,8 +13,8 @@ from rich.text import Text
 from openhands.sdk import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
     ToolAnnotations,
     ToolExecutor,
@@ -34,7 +34,7 @@ class TaskItem(BaseModel):
     )
 
 
-class TaskTrackerAction(ActionBase):
+class TaskTrackerAction(Action):
     """An action where the agent writes or updates a task list for task management."""
 
     command: Literal["view", "plan"] = Field(
@@ -66,7 +66,7 @@ class TaskTrackerAction(ActionBase):
         return content
 
 
-class TaskTrackerObservation(ObservationBase):
+class TaskTrackerObservation(Observation):
     """This data class represents the result of a task tracking operation."""
 
     content: str = Field(
@@ -78,7 +78,7 @@ class TaskTrackerObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.content)]
 
     @property

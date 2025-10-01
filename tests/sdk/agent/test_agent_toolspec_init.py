@@ -7,18 +7,18 @@ from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import Tool
 from openhands.sdk.tool.registry import register_tool
 from openhands.sdk.tool.spec import ToolSpec
-from openhands.sdk.tool.tool import ActionBase, ObservationBase, ToolExecutor
+from openhands.sdk.tool.tool import Action, Observation, ToolExecutor
 
 
-class _Action(ActionBase):
+class _Action(Action):
     text: str
 
 
-class _Obs(ObservationBase):
+class _Obs(Observation):
     out: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.out)]
 
 

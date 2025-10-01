@@ -16,7 +16,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -84,7 +84,7 @@ def run_conversation(
 
     llm_messages = []
 
-    def conversation_callback(event: EventBase):
+    def conversation_callback(event: Event):
         logger.info(f"Found a conversation message: {str(event)[:200]}...")
         if isinstance(event, LLMConvertibleEvent):
             llm_messages.append(event.to_llm_message().to_llm_dict())

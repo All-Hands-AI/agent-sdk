@@ -34,23 +34,23 @@ def test_browser_observation_with_screenshot():
     assert observation.screenshot_data == screenshot_data
 
 
-def test_browser_observation_agent_observation_text_only():
-    """Test agent_observation property with text only."""
+def test_browser_observation_to_llm_content_text_only():
+    """Test to_llm_content property with text only."""
     observation = BrowserObservation(output="Test output")
-    agent_obs = observation.agent_observation
+    agent_obs = observation.to_llm_content
 
     assert len(agent_obs) == 1
     assert isinstance(agent_obs[0], TextContent)
     assert agent_obs[0].text == "Test output"
 
 
-def test_browser_observation_agent_observation_with_screenshot():
-    """Test agent_observation property with screenshot."""
+def test_browser_observation_to_llm_content_with_screenshot():
+    """Test to_llm_content property with screenshot."""
     screenshot_data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChAI9jU77zgAAAABJRU5ErkJggg=="  # noqa: E501
     observation = BrowserObservation(
         output="Screenshot taken", screenshot_data=screenshot_data
     )
-    agent_obs = observation.agent_observation
+    agent_obs = observation.to_llm_content
 
     assert len(agent_obs) == 2
     assert isinstance(agent_obs[0], TextContent)
@@ -61,10 +61,10 @@ def test_browser_observation_agent_observation_with_screenshot():
     assert screenshot_data in agent_obs[1].image_urls[0]
 
 
-def test_browser_observation_agent_observation_with_error():
-    """Test agent_observation property with error."""
+def test_browser_observation_to_llm_content_with_error():
+    """Test to_llm_content property with error."""
     observation = BrowserObservation(output="", error="Test error")
-    agent_obs = observation.agent_observation
+    agent_obs = observation.to_llm_content
 
     assert len(agent_obs) == 1
     assert isinstance(agent_obs[0], TextContent)
@@ -77,7 +77,7 @@ def test_browser_observation_output_truncation():
     long_output = "x" * 100000  # 100k characters
     observation = BrowserObservation(output=long_output)
 
-    agent_obs = observation.agent_observation
+    agent_obs = observation.to_llm_content
 
     # Should be truncated to MAX_BROWSER_OUTPUT_SIZE (50000)
     assert len(agent_obs) == 1
@@ -91,7 +91,7 @@ def test_browser_observation_screenshot_data_url_conversion():
     screenshot_data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChAI9jU77zgAAAABJRU5ErkJggg=="  # noqa: E501
     observation = BrowserObservation(output="Test", screenshot_data=screenshot_data)
 
-    agent_obs = observation.agent_observation
+    agent_obs = observation.to_llm_content
     expected_data_url = f"data:image/png;base64,{screenshot_data}"
 
     assert len(agent_obs) == 2
@@ -102,9 +102,9 @@ def test_browser_observation_screenshot_data_url_conversion():
 def test_browser_observation_empty_screenshot_handling():
     """Test handling of empty or None screenshot data."""
     observation = BrowserObservation(output="Test", screenshot_data="")
-    agent_obs = observation.agent_observation
+    agent_obs = observation.to_llm_content
     assert len(agent_obs) == 1  # Only text content, no image
 
     observation = BrowserObservation(output="Test", screenshot_data=None)
-    agent_obs = observation.agent_observation
+    agent_obs = observation.to_llm_content
     assert len(agent_obs) == 1  # Only text content, no image

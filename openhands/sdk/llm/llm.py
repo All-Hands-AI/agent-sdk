@@ -193,7 +193,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
-    service_id: str = Field(
+    service_id: str | None = Field(
+        default=None,
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
     metadata: dict[str, Any] = Field(

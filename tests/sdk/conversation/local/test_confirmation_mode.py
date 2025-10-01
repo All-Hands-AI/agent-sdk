@@ -21,29 +21,29 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 from openhands.sdk.tool import ToolExecutor, ToolSpec, register_tool
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import Action, Observation
 from openhands.sdk.tool.tool import Tool
 
 
-class MockConfirmationModeAction(ActionBase):
+class MockConfirmationModeAction(Action):
     """Mock action schema for testing."""
 
     command: str
 
 
-class MockConfirmationModeObservation(ObservationBase):
+class MockConfirmationModeObservation(Observation):
     """Mock observation schema for testing."""
 
     result: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 
@@ -249,7 +249,7 @@ class TestConfirmationMode:
         )
 
     def test_mock_observation(self):
-        # First test a round trip in the context of ObservationBase
+        # First test a round trip in the context of Observation
         obs = MockConfirmationModeObservation(result="executed")
 
         # Now test embeddding this into an ObservationEvent
@@ -298,7 +298,7 @@ class TestConfirmationMode:
         """Test getting unmatched events (actions without observations)."""
         # Create test action
         action_event = self._create_test_action()
-        events: list[EventBase] = [action_event]
+        events: list[Event] = [action_event]
 
         # Test: action without observation should be pending
         unmatched = ConversationState.get_unmatched_actions(events)

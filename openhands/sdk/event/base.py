@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 N_CHAR_PREVIEW = 500
 
 
-class EventBase(DiscriminatedUnionMixin, ABC):
+class Event(DiscriminatedUnionMixin, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -55,7 +55,7 @@ class EventBase(DiscriminatedUnionMixin, ABC):
         )
 
 
-class LLMConvertibleEvent(EventBase, ABC):
+class LLMConvertibleEvent(Event, ABC):
     """Base class for events that can be converted to LLM messages."""
 
     @abstractmethod

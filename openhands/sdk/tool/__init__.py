@@ -7,8 +7,8 @@ from openhands.sdk.tool.registry import (
     resolve_tool,
 )
 from openhands.sdk.tool.schema import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
 )
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import (
@@ -27,8 +27,8 @@ __all__ = [
     "ToolAnnotations",
     "ToolExecutor",
     "ExecutableTool",
-    "ActionBase",
-    "ObservationBase",
+    "Action",
+    "Observation",
     "FinishTool",
     "ThinkTool",
     "BUILT_IN_TOOLS",

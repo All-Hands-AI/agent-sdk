@@ -5,15 +5,15 @@ from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
     ToolAnnotations,
     ToolExecutor,
 )
 
 
-class ThinkAction(ActionBase):
+class ThinkAction(Action):
     """Action for logging a thought without making any changes."""
 
     thought: str = Field(description="The thought to log.")
@@ -39,7 +39,7 @@ class ThinkAction(ActionBase):
         return content
 
 
-class ThinkObservation(ObservationBase):
+class ThinkObservation(Observation):
     """Observation returned after logging a thought."""
 
     content: str = Field(
@@ -47,7 +47,7 @@ class ThinkObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.content)]
 
     @property

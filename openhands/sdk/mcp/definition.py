@@ -11,9 +11,9 @@ from rich.text import Text
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
-    ObservationBase,
+    Observation,
 )
-from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.tool.schema import Action
 from openhands.sdk.utils.visualize import display_dict
 
 
@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 # will be dynamically created from the MCP tool schema.
 
 
-class MCPToolAction(ActionBase):
+class MCPToolAction(Action):
     """Schema for MCP input action.
 
     It is just a thin wrapper around raw JSON and does
@@ -48,7 +48,7 @@ class MCPToolAction(ActionBase):
         return self.data
 
 
-class MCPToolObservation(ObservationBase):
+class MCPToolObservation(Observation):
     """Observation from MCP tool execution."""
 
     content: list[TextContent | ImageContent] = Field(
@@ -88,7 +88,7 @@ class MCPToolObservation(ObservationBase):
         )
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Format the observation for agent display."""
         initial_message = f"[Tool '{self.tool_name}' executed.]\n"
         if self.is_error:

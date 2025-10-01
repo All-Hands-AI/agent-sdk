@@ -19,7 +19,7 @@ from openhands.agent_server.models import (
 from openhands.agent_server.pub_sub import Subscriber
 from openhands.agent_server.server_details_router import update_last_execution_time
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import EventBase, Message
+from openhands.sdk import Event, Message
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 
 
@@ -317,7 +317,7 @@ class ConversationService:
 class _EventSubscriber(Subscriber):
     service: EventService
 
-    async def __call__(self, event: EventBase):
+    async def __call__(self, event: Event):
         self.service.stored.updated_at = utc_now()
         update_last_execution_time()
 
@@ -328,10 +328,10 @@ class WebhookSubscriber(Subscriber):
     service: EventService
     spec: WebhookSpec
     session_api_key: str | None = None
-    queue: list[EventBase] = field(default_factory=list)
+    queue: list[Event] = field(default_factory=list)
     _flush_timer: asyncio.Task | None = field(default=None, init=False)
 
-    async def __call__(self, event: EventBase):
+    async def __call__(self, event: Event):
         """Add event to queue and post to webhook when buffer size is reached."""
         self.queue.append(event)
 

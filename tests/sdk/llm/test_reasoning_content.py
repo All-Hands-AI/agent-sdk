@@ -120,10 +120,10 @@ def test_action_event_with_reasoning_content():
 
     from openhands.sdk.event.llm_convertible import ActionEvent
     from openhands.sdk.llm.message import TextContent
-    from openhands.sdk.tool import ActionBase
+    from openhands.sdk.tool import Action
 
     # Create a simple action for testing
-    class TestAction(ActionBase):
+    class TestAction(Action):
         action: str = "test"
 
     # Create a tool call
