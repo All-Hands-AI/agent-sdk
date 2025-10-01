@@ -156,8 +156,13 @@ class TestConfirmationMode:
         self, call_id: str = "call_1", command: str = "test_command"
     ) -> MagicMock:
         """Configure LLM to return one tool call (action)."""
-        action_event, litellm_tool_call = self._create_test_action_with_litellm(
-            call_id=call_id, command=command
+        litellm_tool_call = ChatCompletionMessageToolCall(
+            id=call_id,
+            type="function",
+            function=Function(
+                name="test_tool",
+                arguments=f'{{"command": "{command}"}}',
+            ),
         )
         return MagicMock(
             return_value=ModelResponse(
@@ -274,36 +279,6 @@ class TestConfirmationMode:
         )
 
         return action_event
-
-    def _create_test_action_with_litellm(
-        self, call_id="call_1", command="test_command"
-    ):
-        """Helper to create test action events and return both ActionEvent and litellm tool call."""  # noqa: E501
-        action = MockConfirmationModeAction(command=command)
-
-        litellm_tool_call = ChatCompletionMessageToolCall(
-            id=call_id,
-            type="function",
-            function=Function(
-                name="test_tool",
-                arguments=f'{{"command": "{command}"}}',
-            ),
-        )
-
-        # Convert to MessageToolCall for ActionEvent
-        tool_call = MessageToolCall.from_litellm_tool_call(litellm_tool_call)
-
-        action_event = ActionEvent(
-            source="agent",
-            thought=[TextContent(text="Test thought")],
-            action=action,
-            tool_name="test_tool",
-            tool_call_id=call_id,
-            tool_call=tool_call,
-            llm_response_id="response_1",
-        )
-
-        return action_event, litellm_tool_call
 
     def test_mock_observation(self):
         # First test a round trip in the context of Observation

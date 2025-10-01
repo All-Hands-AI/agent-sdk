@@ -32,22 +32,6 @@ class MessageToolCall(BaseModel):
         exclude=True,
     )
 
-    def __contains__(self, key: str) -> bool:
-        """Support 'in' operator for dictionary-style access."""
-        return hasattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get attribute with default value, similar to dict.get()."""
-        return getattr(self, key, default)
-
-    def __getitem__(self, key: str) -> Any:
-        """Support dictionary-style access to attributes."""
-        return getattr(self, key)
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        """Support dictionary-style assignment of attributes."""
-        setattr(self, key, value)
-
     @classmethod
     def from_litellm_tool_call(
         cls, tool_call: ChatCompletionMessageToolCall
