@@ -292,7 +292,9 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         """
         action_type = action_type or self.action_type
 
-        action_type_with_risk = _create_action_type_with_risk(self.action_type)
+        action_type_with_risk = _create_action_type_with_risk(
+            action_type  # type: ignore[arg-type]
+        )
 
         # We only add security_risk if the tool is not read-only
         add_security_risk_prediction = add_security_risk_prediction and (
