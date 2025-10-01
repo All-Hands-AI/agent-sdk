@@ -54,7 +54,7 @@ class StartConversationRequest(BaseModel):
     Contains an Agent configuration along with conversation-specific options.
     """
 
-    agent: Agent
+    agent: AgentBase
     workspace: BaseWorkspace = Field(
         ...,
         description="Working directory for agent operations and tool execution",
