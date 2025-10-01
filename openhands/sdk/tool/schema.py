@@ -199,8 +199,3 @@ class Observation(Schema, DiscriminatedUnionMixin, ABC):
         else:
             content.append("[no text content]")
         return content
-
-
-# Backward compatibility aliases
-ActionBase = Action
-ObservationBase = Observation

@@ -35,9 +35,7 @@ from openhands.sdk.mcp import (
 )
 from openhands.sdk.tool import (
     Action,
-    ActionBase,
     Observation,
-    ObservationBase,
     Tool,
     ToolBase,
     ToolDefinition,
@@ -75,9 +73,7 @@ __all__ = [
     "AgentBase",
     "Agent",
     "Action",
-    "ActionBase",
     "Observation",
-    "ObservationBase",
     "MCPClient",
     "MCPToolDefinition",
     "MCPToolObservation",
