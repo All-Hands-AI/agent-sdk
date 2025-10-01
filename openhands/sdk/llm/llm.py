@@ -179,6 +179,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         "This is a string that can be one of 'low', 'medium', 'high', or 'none'. "
         "Can apply to all reasoning models.",
     )
+    extended_thinking_budget: int | None = Field(
+        default=None,
+        description="The budget tokens for extended thinking, "
+        "supported by Anthropic models.",
+    )
     seed: int | None = Field(
         default=None, description="The seed to use for random number generation."
     )
@@ -555,6 +560,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if "gemini-2.5-pro" in self.model:
                 if self.reasoning_effort in {None, "none"}:
                     out["reasoning_effort"] = "low"
+
+        # Extended thinking models
+        if get_features(self.model).supports_extended_thinking:
+            if self.extended_thinking_budget:
+                out["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": self.extended_thinking_budget,
+                }
+            # Anthropic models ignore temp/top_p
+            out.pop("temperature", None)
+            out.pop("top_p", None)
 
         # Mistral / Gemini safety
         if self.safety_settings:
