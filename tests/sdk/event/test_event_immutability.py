@@ -1,7 +1,6 @@
 """Tests for event immutability."""
 
 from collections.abc import Sequence
-from typing import cast
 
 import pytest
 from litellm import ChatCompletionToolParam
@@ -67,18 +66,18 @@ def test_event_base_is_frozen():
 
 def test_system_prompt_event_is_frozen():
     """Test that SystemPromptEvent instances are frozen."""
-    tool = {
-        "type": "function",
-        "function": {
+    tool = ChatCompletionToolParam(
+        type="function",
+        function={
             "name": "test_tool",
             "description": "Test tool",
             "parameters": {"type": "object", "properties": {}},
         },
-    }
+    )
 
     event = SystemPromptEvent(
         system_prompt=TextContent(text="Test system prompt"),
-        tools=[cast(ChatCompletionToolParam, tool)],
+        tools=[tool],
     )
 
     # Test that we cannot modify any field
@@ -264,18 +263,18 @@ def test_event_model_copy_creates_new_instance():
 
 def test_event_immutability_prevents_mutation_bugs():
     """Test that frozen events prevent the type of mutation bugs fixed in PR #226."""
-    tool = {
-        "type": "function_with_very_long_type_name_exceeding_thirty_characters",
-        "function": {
+    tool = ChatCompletionToolParam(
+        type="function_with_very_long_type_name_exceeding_thirty_characters",
+        function={
             "name": "test_tool",
             "description": "Test tool with long description",
             "parameters": {"type": "object", "properties": {}},
         },
-    }
+    )
 
     event = SystemPromptEvent(
         system_prompt=TextContent(text="Test system prompt"),
-        tools=[cast(ChatCompletionToolParam, tool)],
+        tools=[tool],
     )
 
     # Store original tool data
