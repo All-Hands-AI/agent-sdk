@@ -665,6 +665,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 self.max_output_tokens = (
                     64000  # practical cap (litellm may allow 128k with header)
                 )
+                logger.debug(
+                    f"Setting max_output_tokens to {self.max_output_tokens} "
+                    f"for {self.model}"
+                )
             elif self._model_info is not None:
                 if isinstance(self._model_info.get("max_output_tokens"), int):
                     self.max_output_tokens = self._model_info.get("max_output_tokens")
