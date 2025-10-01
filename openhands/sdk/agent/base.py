@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser.base import CondenserBase
+from openhands.sdk.context.condenser import CondenserBase, LLMSummarizingCondenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
@@ -269,9 +269,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if self.condenser is not None and persisted.condenser is not None:
             # Check if both condensers are LLMSummarizingCondenser
             # (which has an llm field)
-            from openhands.sdk.context.condenser.llm_summarizing_condenser import (
-                LLMSummarizingCondenser,
-            )
 
             if isinstance(self.condenser, LLMSummarizingCondenser) and isinstance(
                 persisted.condenser, LLMSummarizingCondenser
@@ -283,9 +280,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                     update={"llm": new_condenser_llm}
                 )
                 updates["condenser"] = new_condenser
-
-        # Reconcile tools - delegate to each tool's resolve_diff_from_deserialized
-        reconciled_tools = []
 
         # Create maps by tool name for easy lookup
         runtime_tools_map = {tool.name: tool for tool in self.tools}
@@ -304,17 +298,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             if missing_in_persisted:
                 error_msg += f" Missing in persisted: {missing_in_persisted}."
             raise ValueError(error_msg)
-
-        # Reconcile each tool using its own resolve_diff_from_deserialized method
-        for runtime_tool in self.tools:
-            tool_name = runtime_tool.name
-            persisted_tool = persisted_tools_map[tool_name]
-            reconciled_tool = runtime_tool.resolve_diff_from_deserialized(
-                persisted_tool
-            )
-            reconciled_tools.append(reconciled_tool)
-
-        updates["tools"] = reconciled_tools
 
         reconciled = persisted.model_copy(update=updates)
         if self.model_dump(exclude_none=True) != reconciled.model_dump(
