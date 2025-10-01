@@ -15,8 +15,14 @@ from PyInstaller.utils.hooks import (
     copy_metadata
 )
 
+# Import our Jinja2 template detection utility
+from jinja_template_detector import get_jinja_template_data_files
+
 # Get the project root directory (current working directory when running PyInstaller)
 project_root = Path.cwd()
+
+# Automatically detect Jinja2 template directories
+jinja_template_dirs = get_jinja_template_data_files(project_root, verbose=True)
 
 a = Analysis(
     ['__main__.py'],
@@ -31,10 +37,8 @@ a = Analysis(
         *collect_data_files('fastmcp'),
         *collect_data_files('mcp'),
         # Include Jinja prompt templates required by the agent SDK
-        # Explicitly include template files since collect_data_files doesn't work for these modules
-        (str(project_root / 'openhands' / 'sdk' / 'agent' / 'prompts'), 'openhands/sdk/agent/prompts'),
-        (str(project_root / 'openhands' / 'sdk' / 'context' / 'condenser' / 'prompts'), 'openhands/sdk/context/condenser/prompts'),
-        (str(project_root / 'openhands' / 'sdk' / 'context' / 'prompts' / 'templates'), 'openhands/sdk/context/prompts/templates'),
+        # Automatically detected template directories
+        *jinja_template_dirs,
         # Include package metadata for importlib.metadata
         *copy_metadata('fastmcp'),
     ],
