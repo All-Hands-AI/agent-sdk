@@ -120,8 +120,7 @@ REASONING_EFFORT_PATTERNS: list[str] = [
 ]
 
 EXTENDED_THINKING_PATTERNS: list[str] = [
-    # Anthropic families
-    "claude-3-7-sonnet*",
+    # Anthropic model family
     # We did not include sonnet 3.7 and 4 here as they don't brings
     # significant performance improvements for agents
     "claude-sonnet-4-5*",
