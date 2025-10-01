@@ -1,6 +1,5 @@
 import os
 import uuid
-from typing import cast
 
 from pydantic import SecretStr
 
@@ -39,13 +38,13 @@ tool_specs = [
 ]
 
 # Add MCP Tools
-mcp_config = {
+mcp_config: dict[str, object] = {
     "mcpServers": {
         "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
     }
 }
 # Agent
-agent = Agent(llm=llm, tools=tool_specs, mcp_config=cast(dict[str, object], mcp_config))
+agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
 
