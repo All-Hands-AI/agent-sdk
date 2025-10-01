@@ -43,6 +43,13 @@ def _parse_build_tags(build_stdout: str) -> list[str]:
 
 
 def _resolve_build_script() -> Path | None:
+    # Check if AGENT_SDK_PATH environment variable is set
+    agent_sdk_path = os.environ.get("AGENT_SDK_PATH")
+    if agent_sdk_path:
+        p = Path(agent_sdk_path) / "openhands" / "agent_server" / "docker" / "build.sh"
+        if p.exists():
+            return p
+
     # Prefer locating via importlib without importing the module
     try:
         import importlib.util

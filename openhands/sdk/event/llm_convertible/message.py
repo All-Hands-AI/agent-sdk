@@ -1,11 +1,19 @@
 import copy
+from collections.abc import Sequence
 
 from pydantic import ConfigDict, Field
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
-from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    RedactedThinkingBlock,
+    TextContent,
+    ThinkingBlock,
+    content_to_str,
+)
 
 
 class MessageEvent(LLMConvertibleEvent):
@@ -31,6 +39,11 @@ class MessageEvent(LLMConvertibleEvent):
     @property
     def reasoning_content(self) -> str:
         return self.llm_message.reasoning_content or ""
+
+    @property
+    def thinking_blocks(self) -> Sequence[ThinkingBlock | RedactedThinkingBlock]:
+        """Return the Anthropic thinking blocks from the LLM message."""
+        return self.llm_message.thinking_blocks
 
     @property
     def visualize(self) -> Text:
@@ -87,6 +100,14 @@ class MessageEvent(LLMConvertibleEvent):
                 if self.activated_microagents
                 else ""
             )
-            return f"{base_str}\n  {message.role}: {content_preview}{microagent_info}"
+            thinking_info = (
+                f" [Thinking blocks: {len(self.thinking_blocks)}]"
+                if self.thinking_blocks
+                else ""
+            )
+            return (
+                f"{base_str}\n  {message.role}: "
+                f"{content_preview}{microagent_info}{thinking_info}"
+            )
         else:
             return f"{base_str}\n  {message.role}: [no text content]"

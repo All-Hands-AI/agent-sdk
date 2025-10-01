@@ -20,7 +20,6 @@ __all__ = [
     "SecretsManager",
     "StuckDetector",
     "EventLog",
-    "ListLike",
     "LocalConversation",
     "RemoteConversation",
     "EventsListBase",

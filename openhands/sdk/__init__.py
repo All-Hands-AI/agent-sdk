@@ -21,8 +21,10 @@ from openhands.sdk.llm import (
     ImageContent,
     LLMRegistry,
     Message,
+    RedactedThinkingBlock,
     RegistryEvent,
     TextContent,
+    ThinkingBlock,
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import MCPClient, MCPTool, MCPToolObservation, create_mcp_tools
@@ -56,6 +58,8 @@ __all__ = [
     "Message",
     "TextContent",
     "ImageContent",
+    "ThinkingBlock",
+    "RedactedThinkingBlock",
     "Tool",
     "ToolBase",
     "ToolSpec",

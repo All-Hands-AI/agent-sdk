@@ -5,7 +5,9 @@ from openhands.sdk.llm.message import (
     ImageContent,
     Message,
     MessageToolCall,
+    RedactedThinkingBlock,
     TextContent,
+    ThinkingBlock,
     content_to_str,
 )
 from openhands.sdk.llm.router import RouterLLM
@@ -27,6 +29,8 @@ __all__ = [
     "MessageToolCall",
     "TextContent",
     "ImageContent",
+    "ThinkingBlock",
+    "RedactedThinkingBlock",
     "content_to_str",
     "Metrics",
     "MetricsSnapshot",

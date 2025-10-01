@@ -19,7 +19,9 @@ from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.llm import (
     Message,
     MessageToolCall,
+    RedactedThinkingBlock,
     TextContent,
+    ThinkingBlock,
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
@@ -219,6 +221,8 @@ class Agent(AgentBase):
                     else [],  # Only first gets thought
                     # Only first gets reasoning content
                     reasoning_content=message.reasoning_content if i == 0 else None,
+                    # Only first gets thinking blocks
+                    thinking_blocks=list(message.thinking_blocks) if i == 0 else [],
                 )
                 if action_event is None:
                     continue
@@ -287,6 +291,7 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
         reasoning_content: str | None = None,
+        thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [],
     ) -> ActionEvent | None:
         """Converts a tool call into an ActionEvent, validating arguments.
 
@@ -347,6 +352,7 @@ class Agent(AgentBase):
             action=action,
             thought=thought,
             reasoning_content=reasoning_content,
+            thinking_blocks=thinking_blocks,
             tool_name=tool.name,
             tool_call_id=tool_call.id,
             tool_call=tool_call,

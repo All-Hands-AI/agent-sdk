@@ -5,7 +5,13 @@ from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
-from openhands.sdk.llm import Message, MessageToolCall, TextContent
+from openhands.sdk.llm import (
+    Message,
+    MessageToolCall,
+    RedactedThinkingBlock,
+    TextContent,
+    ThinkingBlock,
+)
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase
 
@@ -18,6 +24,10 @@ class ActionEvent(LLMConvertibleEvent):
     reasoning_content: str | None = Field(
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
+    )
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = Field(
+        default_factory=list,
+        description="Anthropic thinking blocks from the LLM response",
     )
     action: ActionBase = Field(
         ..., description="Single action (tool call) returned by LLM"
@@ -83,6 +93,7 @@ class ActionEvent(LLMConvertibleEvent):
             content=self.thought,
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
+            thinking_blocks=self.thinking_blocks,
         )
 
     def __str__(self) -> str:

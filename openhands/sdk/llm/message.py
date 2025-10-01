@@ -159,6 +159,32 @@ class MessageToolCall(BaseModel):
         return "function"
 
 
+class ThinkingBlock(BaseModel):
+    """Anthropic thinking block for extended thinking feature.
+
+    This represents the raw thinking blocks returned by Anthropic models
+    when extended thinking is enabled. These blocks must be preserved
+    and passed back to the API for tool use scenarios.
+    """
+
+    type: Literal["thinking"] = "thinking"
+    thinking: str = Field(..., description="The thinking content")
+    signature: str = Field(
+        ..., description="Cryptographic signature for the thinking block"
+    )
+
+
+class RedactedThinkingBlock(BaseModel):
+    """Redacted thinking block for previous responses without extended thinking.
+
+    This is used as a placeholder for assistant messages that were generated
+    before extended thinking was enabled.
+    """
+
+    type: Literal["redacted_thinking"] = "redacted_thinking"
+    data: str = Field(..., description="The redacted thinking content")
+
+
 class BaseContent(BaseModel):
     cache_prompt: bool = False
 
@@ -231,6 +257,11 @@ class Message(BaseModel):
     reasoning_content: str | None = Field(
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
+    )
+    # Anthropic-specific thinking blocks (not normalized by LiteLLM)
+    thinking_blocks: Sequence[ThinkingBlock | RedactedThinkingBlock] = Field(
+        default_factory=list,
+        description="Raw Anthropic thinking blocks for extended thinking feature",
     )
 
     @property
@@ -318,6 +349,17 @@ class Message(BaseModel):
         content: list[dict[str, Any]] = []
         role_tool_with_prompt_caching = False
 
+        # Add thinking blocks first (for Anthropic extended thinking)
+        # Only add thinking blocks for assistant messages
+        if self.role == "assistant":
+            thinking_blocks = list(
+                self.thinking_blocks
+            )  # Copy to avoid modifying original
+
+            for thinking_block in thinking_blocks:
+                thinking_dict = thinking_block.model_dump()
+                content.append(thinking_dict)
+
         for item in self.content:
             # All content types now return list[dict[str, Any]]
             item_dicts = item.to_llm_dict()
@@ -378,10 +420,22 @@ class Message(BaseModel):
 
         Provider-agnostic mapping for reasoning:
         - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
+        - Extract `thinking_blocks` from content array (Anthropic-specific)
         """
         assert message.role != "function", "Function role is not supported"
 
         rc = getattr(message, "reasoning_content", None)
+        thinking_blocks = getattr(message, "thinking_blocks", None)
+        # Convert to list of ThinkingBlock or RedactedThinkingBlock
+        if thinking_blocks is not None:
+            thinking_blocks = [
+                ThinkingBlock(**tb)
+                if tb.get("type") == "thinking"
+                else RedactedThinkingBlock(**tb)
+                for tb in thinking_blocks
+            ]
+        else:
+            thinking_blocks = []
 
         # Convert litellm tool calls to our MessageToolCall format
         converted_tool_calls = None
@@ -415,6 +469,7 @@ class Message(BaseModel):
             else [],
             tool_calls=converted_tool_calls,
             reasoning_content=rc,
+            thinking_blocks=thinking_blocks,
         )
 
 

@@ -143,4 +143,6 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
         role="assistant",
         content=events[0].thought,  # Shared thought content only in the first event
         tool_calls=[event.tool_call for event in events],
+        reasoning_content=events[0].reasoning_content,  # Shared reasoning content
+        thinking_blocks=events[0].thinking_blocks,  # Shared thinking blocks
     )
