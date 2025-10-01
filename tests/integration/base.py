@@ -20,6 +20,7 @@ from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
 from openhands.sdk.tool import Tool
+from tests.integration.utils.logging_visualizer import LoggingVisualizer
 
 
 class TestResult(BaseModel):
@@ -48,10 +49,12 @@ class BaseIntegrationTest(ABC):
         instruction: str,
         llm_config: dict[str, Any],
         cwd: str | None = None,
+        instance_id: str | None = None,
     ):
         self.instruction = instruction
         self.llm_config = llm_config
         self.cwd = cwd
+        self.instance_id = instance_id or "unknown_test"
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             raise ValueError(
@@ -74,10 +77,23 @@ class BaseIntegrationTest(ABC):
         self.agent = Agent(llm=self.llm, tools=self.tools)
         self.collected_events: list[Event] = []
         self.llm_messages: list[dict[str, Any]] = []
+
+        # Create log file path for this test instance
+        self.log_file_path = os.path.join(
+            self.cwd or "/tmp", f"{self.instance_id}_agent_logs.txt"
+        )
+
+        # Create logging visualizer
+        self.logging_visualizer = LoggingVisualizer(
+            log_file_path=self.log_file_path,
+            enable_console_output=True,  # Keep console output for debugging
+        )
+
         self.conversation: LocalConversation = LocalConversation(
             agent=self.agent,
             workspace=self.cwd or "/tmp",
-            callbacks=[self.conversation_callback],
+            callbacks=[self.conversation_callback, self.logging_visualizer.on_event],
+            visualize=False,  # Disable default visualizer since we use custom one
         )
 
     def conversation_callback(self, event: Event):

@@ -162,6 +162,12 @@ jobs:
                   merge-multiple: true
                   path: all_results
 
+            - name: Download all integration test artifacts
+              uses: actions/download-artifact@v5
+              with:
+                  pattern: integration-test-outputs-*
+                  path: artifacts
+
             - name: Consolidate test results
               env:
                   EVENT_NAME: ${{ github.event_name }}
@@ -172,7 +178,29 @@ jobs:
               run: |
                   uv run python tests/integration/utils/consolidate_json_results.py \
                     --results-dir all_results \
+                    --artifacts-dir artifacts \
                     --output-file consolidated_results.json
+
+                  # Update artifact URLs in the consolidated results with actual GitHub URLs
+                  python -c "
+                  import json
+                  import sys
+
+                  # Load consolidated results
+                  with open('consolidated_results.json', 'r') as f:
+                      data = json.load(f)
+
+                  # Update artifact URLs for each model
+                  base_url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+                  for model in data['model_results']:
+                      if model.get('artifact_url'):
+                          # artifact_url contains the artifact name, convert to full URL
+                          model['artifact_url'] = f'{base_url}#artifacts'
+
+                  # Save updated results
+                  with open('consolidated_results.json', 'w') as f:
+                      json.dump(data, f, indent=2)
+                  "
 
                   uv run python tests/integration/utils/generate_markdown_report.py \
                     --input-file consolidated_results.json \
