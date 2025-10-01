@@ -1,5 +1,6 @@
 import copy
 import time
+from typing import final
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -90,6 +91,7 @@ class MetricsSnapshot(BaseModel):
     )
 
 
+@final
 class Metrics(MetricsSnapshot):
     """Metrics class can record various metrics during running and evaluation.
     We track:

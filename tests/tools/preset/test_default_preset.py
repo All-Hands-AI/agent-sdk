@@ -108,8 +108,10 @@ def test_get_default_agent_has_mcp_config(basic_llm):
     assert "mcpServers" in agent.mcp_config
 
     # Should have fetch server configured
-    assert "fetch" in agent.mcp_config["mcpServers"]
-    fetch_config = agent.mcp_config["mcpServers"]["fetch"]
+    mcp_servers = agent.mcp_config["mcpServers"]
+    assert isinstance(mcp_servers, dict)
+    assert "fetch" in mcp_servers
+    fetch_config = mcp_servers["fetch"]
     assert fetch_config["command"] == "uvx"
     assert fetch_config["args"] == ["mcp-server-fetch"]
 

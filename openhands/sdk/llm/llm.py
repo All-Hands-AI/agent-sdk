@@ -6,7 +6,7 @@ import os
 import warnings
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -230,7 +230,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     _function_calling_active: bool = PrivateAttr(default=False)
     _telemetry: Telemetry | None = PrivateAttr(default=None)
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="forbid", arbitrary_types_allowed=True
+    )
 
     # =========================================================================
     # Validators

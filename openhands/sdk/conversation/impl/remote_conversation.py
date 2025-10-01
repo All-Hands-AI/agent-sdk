@@ -15,7 +15,10 @@ from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
-from openhands.sdk.conversation.visualizer import create_default_visualizer
+from openhands.sdk.conversation.visualizer import (
+    ConversationVisualizer,
+    create_default_visualizer,
+)
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.conversation_state import (
     FULL_STATE_KEY,
@@ -35,6 +38,13 @@ logger = get_logger(__name__)
 class WebSocketCallbackClient:
     """Minimal WS client: connects, forwards events, retries on error."""
 
+    host: str
+    conversation_id: str
+    callback: ConversationCallbackType
+    api_key: str | None
+    _thread: threading.Thread | None
+    _stop: threading.Event
+
     def __init__(
         self,
         host: str,
@@ -46,7 +56,7 @@ class WebSocketCallbackClient:
         self.conversation_id = conversation_id
         self.callback = callback
         self.api_key = api_key
-        self._thread: threading.Thread | None = None
+        self._thread = None
         self._stop = threading.Event()
 
     def start(self) -> None:
@@ -113,11 +123,17 @@ class RemoteEventsList(EventsListBase):
     it relies on the WebSocket stream to incrementally append new events.
     """
 
+    _client: httpx.Client
+    _conversation_id: str
+    _cached_events: list[EventBase]
+    _cached_event_ids: set[str]
+    _lock: threading.RLock
+
     def __init__(self, client: httpx.Client, conversation_id: str):
         self._client = client
         self._conversation_id = conversation_id
-        self._cached_events: list[EventBase] = []
-        self._cached_event_ids: set[str] = set()
+        self._cached_events = []
+        self._cached_event_ids = set()
         self._lock = threading.RLock()
         # Initial fetch to sync existing events
         self._do_full_sync()
@@ -193,13 +209,19 @@ class RemoteEventsList(EventsListBase):
 class RemoteState(ConversationStateProtocol):
     """A state-like interface for accessing remote conversation state."""
 
+    _client: httpx.Client
+    _conversation_id: str
+    _events: RemoteEventsList
+    _cached_state: dict | None
+    _lock: threading.RLock
+
     def __init__(self, client: httpx.Client, conversation_id: str):
         self._client = client
         self._conversation_id = conversation_id
         self._events = RemoteEventsList(client, conversation_id)
 
         # Cache for state information to avoid REST calls
-        self._cached_state: dict | None = None
+        self._cached_state = None
         self._lock = threading.RLock()
 
     def _get_conversation_info(self) -> dict:
@@ -337,6 +359,16 @@ class RemoteState(ConversationStateProtocol):
 
 
 class RemoteConversation(BaseConversation):
+    _id: uuid.UUID
+    _state: "RemoteState"
+    _visualizer: ConversationVisualizer | None
+    _ws_client: "WebSocketCallbackClient | None"
+    agent: AgentBase
+    _callbacks: list[ConversationCallbackType]
+    max_iteration_per_run: int
+    workspace: RemoteWorkspace
+    _client: httpx.Client
+
     def __init__(
         self,
         agent: AgentBase,
@@ -409,7 +441,8 @@ class RemoteConversation(BaseConversation):
         # Add default visualizer callback if requested
         if visualize:
             self._visualizer = create_default_visualizer()
-            self._callbacks.append(self._visualizer.on_event)
+            if self._visualizer is not None:
+                self._callbacks.append(self._visualizer.on_event)
         else:
             self._visualizer = None
 

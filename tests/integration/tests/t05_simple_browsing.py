@@ -2,9 +2,11 @@
 
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 
 from openhands.sdk import get_logger
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -94,12 +96,12 @@ logger = get_logger(__name__)
 class SimpleBrowsingTest(BaseIntegrationTest):
     """Test that an agent can browse a local web page and extract information."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.temp_dir = None
-        self.server_process = None
+        self.temp_dir: Path | None = None
+        self.server_process: subprocess.Popen[bytes] | None = None
 
     @property
     def tools(self) -> list[ToolSpec]:
@@ -120,7 +122,7 @@ class SimpleBrowsingTest(BaseIntegrationTest):
 
         try:
             # Create a temporary directory for the HTML file
-            self.temp_dir = tempfile.mkdtemp()
+            self.temp_dir: Path | None = tempfile.mkdtemp()
 
             # Write the HTML file
             html_path = os.path.join(self.temp_dir, "index.html")
@@ -128,7 +130,7 @@ class SimpleBrowsingTest(BaseIntegrationTest):
                 f.write(HTML_FILE)
 
             # Start the HTTP server in the background
-            self.server_process = subprocess.Popen(
+            self.server_process: subprocess.Popen[bytes] | None = subprocess.Popen(
                 ["python3", "-m", "http.server", "8000"],
                 cwd=self.temp_dir,
                 stdout=subprocess.DEVNULL,
@@ -199,8 +201,6 @@ class SimpleBrowsingTest(BaseIntegrationTest):
 
         if self.temp_dir and os.path.exists(self.temp_dir):
             try:
-                import shutil
-
                 shutil.rmtree(self.temp_dir)
             except Exception as e:
                 logger.warning(f"Error cleaning up temp directory: {e}")

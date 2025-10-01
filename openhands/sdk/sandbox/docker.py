@@ -153,6 +153,18 @@ class DockerSandboxedAgentServer:
             ...
     """
 
+    _forward_env: list[str]
+    _target: str
+    _platform: str | None
+    host_port: int
+    _extra_ports: bool
+    _image: str
+    host: str
+    base_url: str
+    _stop_logs: threading.Event
+    mount_dir: str | None
+    detach_logs: bool
+
     def __init__(
         self,
         *,
@@ -209,7 +221,7 @@ class DockerSandboxedAgentServer:
                 base_image=self._image,
                 target=self._target,
                 # we only support single platform for now
-                platforms=self._platform,
+                platforms=self._platform or "linux/amd64",
             )
 
         # Prepare env flags

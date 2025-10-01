@@ -18,7 +18,9 @@ class EncodingManager:
     """Manages file encodings across multiple operations to ensure consistency."""
 
     # Default maximum number of entries in the cache
-    DEFAULT_MAX_CACHE_SIZE = 1000  # ~= 300 KB
+    DEFAULT_MAX_CACHE_SIZE: int = 1000  # ~= 300 KB
+    default_encoding: str
+    confidence_threshold: float
 
     def __init__(self, max_cache_size=None):
         # Cache detected encodings to avoid repeated detection on the same file

@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 class BashHelloTest(BaseIntegrationTest):
     """Test that an agent can write a shell script that prints 'hello'."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     @property
     def tools(self) -> list[ToolSpec]:

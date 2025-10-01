@@ -34,7 +34,7 @@ logger = get_logger(__name__)
 class InteractiveCommandsTest(BaseIntegrationTest):
     """Test that an agent can execute interactive Python scripts with input."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     @property
     def tools(self) -> list[ToolSpec]:

@@ -1,4 +1,5 @@
 import os
+from typing import cast
 
 from pydantic import SecretStr
 
@@ -40,7 +41,7 @@ tool_specs = [
 mcp_config = {
     "mcpServers": {"Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"}}
 }
-agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
+agent = Agent(llm=llm, tools=tool_specs, mcp_config=cast(dict[str, object], mcp_config))
 
 llm_messages = []  # collect raw LLM messages
 

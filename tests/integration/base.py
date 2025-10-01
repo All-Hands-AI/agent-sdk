@@ -4,6 +4,7 @@ Base classes for agent-sdk integration tests.
 
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, SecretStr
@@ -19,6 +20,7 @@ from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
+from openhands.sdk.llm.config import LLMConfig
 from openhands.sdk.tool import ToolSpec
 
 
@@ -49,9 +51,9 @@ class BaseIntegrationTest(ABC):
         llm_config: dict[str, Any],
         cwd: str | None = None,
     ):
-        self.instruction = instruction
-        self.llm_config = llm_config
-        self.cwd = cwd
+        self.instruction: str = instruction
+        self.llm_config: LLMConfig = llm_config
+        self.cwd: Path = cwd
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             raise ValueError(
@@ -70,8 +72,8 @@ class BaseIntegrationTest(ABC):
             "api_key": SecretStr(api_key),
         }
 
-        self.llm = LLM(**llm_kwargs, service_id="test-llm")
-        self.agent = Agent(llm=self.llm, tools=self.tools)
+        self.llm: LLM = LLM(**llm_kwargs, service_id="test-llm")
+        self.agent: Agent = Agent(llm=self.llm, tools=self.tools)
         self.collected_events: list[EventBase] = []
         self.llm_messages: list[dict[str, Any]] = []
         self.conversation: LocalConversation = LocalConversation(

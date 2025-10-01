@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 class GitHubPRBrowsingTest(BaseIntegrationTest):
     """Test that an agent can browse a GitHub PR and extract information."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     @property
     def tools(self) -> list[ToolSpec]:

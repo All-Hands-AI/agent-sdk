@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 class TypoFixTest(BaseIntegrationTest):
     """Test that an agent can fix typos in a text file."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     @property
     def tools(self) -> list[ToolSpec]:

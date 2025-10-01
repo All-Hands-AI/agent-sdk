@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 class JupyterWriteFileTest(BaseIntegrationTest):
     """Test that an agent can use Jupyter IPython to write a text file."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     @property
     def tools(self) -> list[ToolSpec]:

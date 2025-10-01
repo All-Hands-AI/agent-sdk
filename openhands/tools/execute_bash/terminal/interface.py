@@ -17,6 +17,11 @@ class TerminalInterface(ABC):
     the same high-level session controller logic.
     """
 
+    work_dir: str
+    username: str | None
+    _initialized: bool
+    _closed: bool
+
     def __init__(
         self,
         work_dir: str,
@@ -123,6 +128,13 @@ class TerminalSessionBase(ABC):
     This class defines the common interface for all terminal session implementations,
     including tmux-based, subprocess-based, and PowerShell-based sessions.
     """
+
+    work_dir: str
+    username: str | None
+    no_change_timeout_seconds: int | None
+    _initialized: bool
+    _closed: bool
+    _cwd: str
 
     def __init__(
         self,

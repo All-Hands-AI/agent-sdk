@@ -162,7 +162,7 @@ def test_with_encoding_decorator():
     # Create a mock class with a method that will be decorated
     class MockEditor:
         def __init__(self):
-            self._encoding_manager = EncodingManager()
+            self._encoding_manager: EncodingManager = EncodingManager()
 
         @with_encoding
         def read_file(self, path, encoding="utf-8"):
@@ -205,7 +205,7 @@ def test_with_encoding_respects_provided_encoding():
 
     class MockEditor:
         def __init__(self):
-            self._encoding_manager = EncodingManager()
+            self._encoding_manager: EncodingManager = EncodingManager()
 
         @with_encoding
         def read_file(self, path, encoding="utf-8"):

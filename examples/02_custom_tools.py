@@ -24,6 +24,7 @@ from openhands.sdk.tool import (
     ToolSpec,
     register_tool,
 )
+from openhands.tools import BashTool
 from openhands.tools.execute_bash import (
     BashExecutor,
     ExecuteBashAction,
@@ -73,7 +74,7 @@ class GrepObservation(ObservationBase):
 
 class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
     def __init__(self, bash: BashExecutor):
-        self.bash = bash
+        self.bash: BashTool = bash
 
     def __call__(self, action: GrepAction) -> GrepObservation:
         root = os.path.abspath(action.path)

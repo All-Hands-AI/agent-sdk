@@ -32,7 +32,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     Agents are stateless and should be fully defined by their configuration.
     """
 
-    model_config = ConfigDict(
+    model_config: ConfigDict = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,
     )
@@ -60,7 +60,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             },
         ],
     )
-    mcp_config: dict[str, Any] = Field(
+    mcp_config: dict[str, object] = Field(
         default_factory=dict,
         description="Optional MCP configuration dictionary to create MCP tools.",
         examples=[
@@ -106,7 +106,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         ],
     )
     system_prompt_filename: str = Field(default="system_prompt.j2")
-    system_prompt_kwargs: dict = Field(
+    system_prompt_kwargs: dict[str, object] = Field(
         default_factory=dict,
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
@@ -134,7 +134,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     )
 
     # Runtime materialized tools; private and non-serializable
-    _tools: dict[str, Tool] = PrivateAttr(default_factory=dict)
+    _tools: dict[str, Tool[Any, Any]] = PrivateAttr(default_factory=dict)
 
     @property
     def prompt_dir(self) -> str:
@@ -191,7 +191,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             logger.warning("Agent already initialized; skipping re-initialization.")
             return
 
-        tools: list[Tool] = []
+        tools: list[Tool[Any, Any]] = []
         for tool_spec in self.tools:
             tools.extend(resolve_tool(tool_spec, state))
 
@@ -295,7 +295,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         yielded_ids: set[int] = set()
         visited: set[int] = set()
 
-        def _walk(obj: Any) -> Iterable[LLM]:
+        def _walk(obj: object) -> Iterable[LLM]:
             oid = id(obj)
             # Guard against cycles on anything we might recurse into
             if oid in visited:
@@ -306,12 +306,12 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             # e.g., LLMRouter that is a subclass of LLM
             # yet contains LLM in its fields
             if isinstance(obj, LLM):
-                out: list[LLM] = []
+                llm_out: list[LLM] = []
 
                 # Yield only the *raw* base-class LLM (exclude subclasses)
                 if type(obj) is LLM and oid not in yielded_ids:
                     yielded_ids.add(oid)
-                    out.append(obj)
+                    llm_out.append(obj)
 
                 # Traverse all fields for LLM objects
                 for name in type(obj).model_fields:
@@ -319,33 +319,33 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                         val = getattr(obj, name)
                     except Exception:
                         continue
-                    out.extend(_walk(val))
-                return out
+                    llm_out.extend(_walk(val))
+                return llm_out
 
             # Pydantic models: iterate declared fields
             if isinstance(obj, BaseModel):
-                out: list[LLM] = []
+                model_out: list[LLM] = []
                 for name in type(obj).model_fields:
                     try:
                         val = getattr(obj, name)
                     except Exception:
                         continue
-                    out.extend(_walk(val))
-                return out
+                    model_out.extend(_walk(val))
+                return model_out
 
             # Built-in containers
             if isinstance(obj, dict):
-                out: list[LLM] = []
+                dict_out: list[LLM] = []
                 for k, v in obj.items():
-                    out.extend(_walk(k))
-                    out.extend(_walk(v))
-                return out
+                    dict_out.extend(_walk(k))
+                    dict_out.extend(_walk(v))
+                return dict_out
 
             if isinstance(obj, (list, tuple, set, frozenset)):
-                out: list[LLM] = []
+                container_out: list[LLM] = []
                 for item in obj:
-                    out.extend(_walk(item))
-                return out
+                    container_out.extend(_walk(item))
+                return container_out
 
             # Unknown object types: nothing to do
             return ()
@@ -354,7 +354,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         yield from _walk(self)
 
     @property
-    def tools_map(self) -> dict[str, Tool]:
+    def tools_map(self) -> dict[str, Tool[Any, Any]]:
         """Get the initialized tools map.
         Raises:
             RuntimeError: If the agent has not been initialized.
