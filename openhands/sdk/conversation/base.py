@@ -16,6 +16,7 @@ from openhands.sdk.workspace.base import BaseWorkspace
 
 
 if TYPE_CHECKING:
+    from openhands.sdk.agent.base import AgentBase
     from openhands.sdk.conversation.state import AgentExecutionStatus
 
 
@@ -58,6 +59,11 @@ class ConversationStateProtocol(Protocol):
 
         If None, it means the conversation is not being persisted.
         """
+        ...
+
+    @property
+    def agent(self) -> "AgentBase":
+        """The agent running in the conversation."""
         ...
 
 
