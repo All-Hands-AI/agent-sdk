@@ -263,10 +263,10 @@ class TestResendAllFunctionality:
     """Test cases for resend_all parameter functionality."""
 
     @pytest.mark.asyncio
-    async def test_resend_all_false_no_replay(
+    async def test_resend_all_false_no_resend(
         self, mock_websocket, mock_event_service, sample_conversation_id
     ):
-        """Test that resend_all=False doesn't trigger event replay."""
+        """Test that resend_all=False doesn't trigger event resend."""
         mock_websocket.receive_json.side_effect = WebSocketDisconnect()
 
         with (
@@ -289,15 +289,15 @@ class TestResendAllFunctionality:
                 resend_all=False,
             )
 
-        # search_events should not be called for replay
+        # search_events should not be called when not resending
         mock_event_service.search_events.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_resend_all_true_replays_events(
+    async def test_resend_all_true_resends_events(
         self, mock_websocket, mock_event_service, sample_conversation_id
     ):
-        """Test that resend_all=True replays all existing events."""
-        # Create mock events to replay
+        """Test that resend_all=True resends all existing events."""
+        # Create mock events to resend
         mock_events = [
             MessageEvent(
                 id="event1",
@@ -393,7 +393,7 @@ class TestResendAllFunctionality:
         self, mock_websocket, mock_event_service, sample_conversation_id
     ):
         """Test that exceptions during send_json are handled gracefully."""
-        # Create mock events to replay
+        # Create mock events to resend
         mock_events = [
             MessageEvent(
                 id="event1",
@@ -412,7 +412,7 @@ class TestResendAllFunctionality:
         )
         mock_event_service.search_events = AsyncMock(return_value=mock_event_page)
 
-        # Make send_json fail during replay
+        # Make send_json fail during resend
         mock_websocket.send_json.side_effect = Exception("Send failed")
         mock_websocket.receive_json.side_effect = WebSocketDisconnect()
 
