@@ -11,7 +11,12 @@ if TYPE_CHECKING:
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import Action, Observation, Tool, ToolAnnotations
+from openhands.sdk.tool import (
+    Action,
+    Observation,
+    ToolAnnotations,
+    ToolDefinition,
+)
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
@@ -183,7 +188,7 @@ Remember: when making multiple file edits in a row to the same file, you should 
 """  # noqa: E501
 
 
-str_replace_editor_tool = Tool(
+str_replace_editor_tool = ToolDefinition(
     name="str_replace_editor",
     action_type=StrReplaceEditorAction,
     description=TOOL_DESCRIPTION,
@@ -197,8 +202,10 @@ str_replace_editor_tool = Tool(
 )
 
 
-class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
-    """A Tool subclass that automatically initializes a FileEditorExecutor."""
+class FileEditorTool(
+    ToolDefinition[StrReplaceEditorAction, StrReplaceEditorObservation]
+):
+    """A ToolDefinition subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
     def create(

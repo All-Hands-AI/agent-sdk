@@ -15,8 +15,8 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     Action,
     Observation,
-    Tool,
     ToolAnnotations,
+    ToolDefinition,
     ToolExecutor,
 )
 
@@ -384,7 +384,7 @@ When uncertain, favor using this tool. Proactive task management demonstrates
 systematic approach and ensures comprehensive requirement fulfillment."""  # noqa: E501
 
 
-task_tracker_tool = Tool(
+task_tracker_tool = ToolDefinition(
     name="task_tracker",
     description=TASK_TRACKER_DESCRIPTION,
     action_type=TaskTrackerAction,
@@ -398,8 +398,8 @@ task_tracker_tool = Tool(
 )
 
 
-class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
-    """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
+class TaskTrackerTool(ToolDefinition[TaskTrackerAction, TaskTrackerObservation]):
+    """A ToolDefinition subclass that automatically initializes a TaskTrackerExecutor."""  # noqa: E501
 
     @classmethod
     def create(cls, conv_state: "ConversationState") -> Sequence["TaskTrackerTool"]:

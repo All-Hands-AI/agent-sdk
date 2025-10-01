@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPTool
+from openhands.sdk.mcp.tool import MCPToolDefinition
 
 
 def _make_tool_with_schema(schema: dict):
@@ -15,7 +15,7 @@ def _make_tool_with_schema(schema: dict):
         inputSchema=schema,
     )
     client = Mock(spec=MCPClient)
-    return MCPTool.create(mcp_tool, client)[0]
+    return MCPToolDefinition.create(mcp_tool, client)[0]
 
 
 def test_mcp_action_from_arguments_validates_and_sanitizes():

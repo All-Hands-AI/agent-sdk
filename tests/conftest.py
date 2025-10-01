@@ -6,6 +6,7 @@ import pytest
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM
+from openhands.sdk.tool import ToolExecutor
 
 
 @pytest.fixture
@@ -24,7 +25,6 @@ def mock_llm():
 @pytest.fixture
 def mock_tool():
     """Create a mock tool for testing."""
-    from openhands.sdk.tool import ToolExecutor
 
     class MockExecutor(ToolExecutor):
         def __call__(self, action):

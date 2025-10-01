@@ -11,12 +11,12 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPTool
+from openhands.sdk.mcp.tool import MCPToolDefinition
 from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils.models import OpenHandsModel
 
 
-def create_mock_mcp_tool(name: str) -> MCPTool:
+def create_mock_mcp_tool(name: str) -> MCPToolDefinition:
     # Create mock MCP tool and client
     mock_mcp_tool = mcp.types.Tool(
         name=name,
@@ -30,7 +30,7 @@ def create_mock_mcp_tool(name: str) -> MCPTool:
         },
     )
     mock_client = Mock(spec=MCPClient)
-    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPToolDefinition.create(mock_mcp_tool, mock_client)
     return tools[0]  # Extract single tool from sequence
 
 

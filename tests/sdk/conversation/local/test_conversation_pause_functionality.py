@@ -36,7 +36,7 @@ from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
     Action,
     Observation,
-    Tool,
+    ToolDefinition,
     ToolExecutor,
     ToolSpec,
     register_tool,
@@ -95,9 +95,9 @@ class TestPauseFunctionality:
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool(conv_state=None, **params) -> Sequence[Tool]:
+        def _make_tool(conv_state=None, **params) -> Sequence[ToolDefinition]:
             return [
-                Tool(
+                ToolDefinition(
                     name="test_tool",
                     description="A test tool",
                     action_type=PauseFunctionalityMockAction,
@@ -291,9 +291,9 @@ class TestPauseFunctionality:
     def test_pause_while_running_continuous_actions(self, mock_completion):
         step_entered = threading.Event()
 
-        def _make_blocking_tool(conv_state=None, **kwargs) -> Sequence[Tool]:
+        def _make_blocking_tool(conv_state=None, **kwargs) -> Sequence[ToolDefinition]:
             return [
-                Tool(
+                ToolDefinition(
                     name="test_tool",
                     description="Blocking tool for pause test",
                     action_type=PauseFunctionalityMockAction,

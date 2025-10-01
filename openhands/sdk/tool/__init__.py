@@ -16,11 +16,13 @@ from openhands.sdk.tool.tool import (
     Tool,
     ToolAnnotations,
     ToolBase,
+    ToolDefinition,
     ToolExecutor,
 )
 
 
 __all__ = [
+    "ToolDefinition",
     "Tool",
     "ToolBase",
     "ToolSpec",

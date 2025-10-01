@@ -1,6 +1,6 @@
 """Test BrowserToolSet functionality."""
 
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolDefinition
 from openhands.sdk.tool.tool import ToolBase
 from openhands.tools.browser_use import (
     BrowserToolSet,
@@ -27,7 +27,7 @@ def test_browser_toolset_create_returns_list():
 
     # Verify all items are Tool instances
     for tool in tools:
-        assert isinstance(tool, Tool)
+        assert isinstance(tool, ToolDefinition)
 
 
 def test_browser_toolset_create_includes_all_browser_tools():

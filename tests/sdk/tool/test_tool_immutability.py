@@ -10,8 +10,8 @@ from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import (
     Action,
     Observation,
-    Tool,
     ToolAnnotations,
+    ToolDefinition,
     ToolExecutor,
 )
 
@@ -41,7 +41,7 @@ class TestToolImmutability:
 
     def test_tool_is_frozen(self):
         """Test that Tool instances are frozen and cannot be modified."""
-        tool = Tool(
+        tool = ToolDefinition(
             name="test_tool",
             description="Test tool",
             action_type=ToolImmutabilityMockAction,
@@ -62,7 +62,7 @@ class TestToolImmutability:
 
     def test_tool_set_executor_returns_new_instance(self):
         """Test that set_executor returns a new Tool instance."""
-        tool = Tool(
+        tool = ToolDefinition(
             name="test_tool",
             description="Test tool",
             action_type=ToolImmutabilityMockAction,
@@ -89,7 +89,7 @@ class TestToolImmutability:
 
     def test_tool_model_copy_creates_modified_instance(self):
         """Test that model_copy can create modified versions of Tool instances."""
-        tool = Tool(
+        tool = ToolDefinition(
             name="test_tool",
             description="Test tool",
             action_type=ToolImmutabilityMockAction,
@@ -111,7 +111,7 @@ class TestToolImmutability:
     def test_tool_meta_field_immutability(self):
         """Test that the meta field works correctly and is immutable."""
         meta_data = {"version": "1.0", "author": "test"}
-        tool = Tool(
+        tool = ToolDefinition(
             name="test_tool",
             description="Test tool",
             action_type=ToolImmutabilityMockAction,
@@ -135,7 +135,7 @@ class TestToolImmutability:
     def test_tool_constructor_parameter_validation(self):
         """Test that Tool constructor validates parameters correctly."""
         # Test that new parameter names work
-        tool = Tool(
+        tool = ToolDefinition(
             name="test_tool",
             description="Test tool",
             action_type=ToolImmutabilityMockAction,
@@ -146,7 +146,7 @@ class TestToolImmutability:
 
         # Test that invalid field types are rejected
         with pytest.raises(ValidationError):
-            Tool(
+            ToolDefinition(
                 name="test_tool",
                 description="Test tool",
                 action_type="invalid_type",  # type: ignore[arg-type] # Should be a class, not string
@@ -161,7 +161,7 @@ class TestToolImmutability:
             destructiveHint=False,
         )
 
-        tool = Tool(
+        tool = ToolDefinition(
             name="test_tool",
             description="Test tool",
             action_type=ToolImmutabilityMockAction,

@@ -15,7 +15,7 @@ from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolSpec, resolve_tool
+from openhands.sdk.tool import BUILT_IN_TOOLS, ToolDefinition, ToolSpec, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -134,7 +134,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     )
 
     # Runtime materialized tools; private and non-serializable
-    _tools: dict[str, Tool] = PrivateAttr(default_factory=dict)
+    _tools: dict[str, ToolDefinition] = PrivateAttr(default_factory=dict)
 
     @property
     def prompt_dir(self) -> str:
@@ -191,7 +191,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             logger.warning("Agent already initialized; skipping re-initialization.")
             return
 
-        tools: list[Tool] = []
+        tools: list[ToolDefinition] = []
         for tool_spec in self.tools:
             tools.extend(resolve_tool(tool_spec, state))
 
@@ -216,9 +216,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         # Check tool types
         for tool in tools:
-            if not isinstance(tool, Tool):
+            if not isinstance(tool, ToolDefinition):
                 raise ValueError(
-                    f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
+                    f"Tool {tool} is not an instance of 'ToolDefinition'. "
+                    f"Got type: {type(tool)}"
                 )
 
         # Check name duplicates
@@ -390,7 +391,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         yield from _walk(self)
 
     @property
-    def tools_map(self) -> dict[str, Tool]:
+    def tools_map(self) -> dict[str, ToolDefinition]:
         """Get the initialized tools map.
         Raises:
             RuntimeError: If the agent has not been initialized.

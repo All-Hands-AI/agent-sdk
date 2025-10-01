@@ -7,8 +7,8 @@ from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
-    Tool,
     ToolAnnotations,
+    ToolDefinition,
     ToolExecutor,
 )
 
@@ -74,7 +74,7 @@ class ThinkExecutor(ToolExecutor):
         return ThinkObservation()
 
 
-ThinkTool = Tool(
+ThinkTool = ToolDefinition(
     name="think",
     description=THINK_DESCRIPTION,
     action_type=ThinkAction,
