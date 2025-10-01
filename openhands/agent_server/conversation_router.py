@@ -19,7 +19,7 @@ from openhands.agent_server.models import (
     Success,
     UpdateSecretsRequest,
 )
-from openhands.sdk import LLM, Agent, TextContent, ToolSpec
+from openhands.sdk import LLM, Agent, TextContent, Tool
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.workspace import LocalWorkspace
 
@@ -39,9 +39,9 @@ START_CONVERSATION_EXAMPLES = [
                 api_key=SecretStr("secret"),
             ),
             tools=[
-                ToolSpec(name="BashTool"),
-                ToolSpec(name="FileEditorTool"),
-                ToolSpec(name="TaskTrackerTool"),
+                Tool(name="BashTool"),
+                Tool(name="FileEditorTool"),
+                Tool(name="TaskTrackerTool"),
             ],
         ),
         workspace=LocalWorkspace(working_dir="workspace/project"),

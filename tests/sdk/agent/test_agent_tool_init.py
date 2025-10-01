@@ -6,7 +6,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import ToolDefinition
 from openhands.sdk.tool.registry import register_tool
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.sdk.tool.tool import Action, Observation, ToolExecutor
 
 
@@ -44,7 +44,7 @@ def test_agent_initializes_tools_from_toolspec_locally(monkeypatch):
     register_tool("upper", _make_tool)
 
     llm = LLM(model="test-model", service_id="test-llm")
-    agent = Agent(llm=llm, tools=[ToolSpec(name="upper")])
+    agent = Agent(llm=llm, tools=[Tool(name="upper")])
 
     # Build a conversation; this should call agent._initialize() internally
     Conversation(agent=agent, visualize=False)

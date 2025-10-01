@@ -18,7 +18,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -42,11 +42,11 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 register_tool("TaskTrackerTool", TaskTrackerTool)
 tools = [
-    ToolSpec(
+    Tool(
         name="BashTool",
     ),
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="TaskTrackerTool"),
+    Tool(name="FileEditorTool"),
+    Tool(name="TaskTrackerTool"),
 ]
 
 # Create a condenser to manage the context. The condenser will automatically truncate

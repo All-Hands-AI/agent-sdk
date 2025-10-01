@@ -7,7 +7,7 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
 )
 from openhands.sdk.llm import LLM
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -25,16 +25,16 @@ def test_get_default_agent_includes_browser_toolset(basic_llm):
     tool_names = [tool.name for tool in agent.tools]
     assert "BrowserToolSet" in tool_names
 
-    # Find the BrowserToolSet spec
-    browser_toolset_spec = None
+    # Find the BrowserToolSet tool
+    browser_toolset_tool = None
     for tool in agent.tools:
         if tool.name == "BrowserToolSet":
-            browser_toolset_spec = tool
+            browser_toolset_tool = tool
             break
 
-    assert browser_toolset_spec is not None
-    assert isinstance(browser_toolset_spec, ToolSpec)
-    assert browser_toolset_spec.params == {}
+    assert browser_toolset_tool is not None
+    assert isinstance(browser_toolset_tool, Tool)
+    assert browser_toolset_tool.params == {}
 
 
 def test_get_default_agent_includes_expected_tools(basic_llm):
@@ -59,16 +59,16 @@ def test_get_default_agent_browser_toolset_parameters(basic_llm):
     """Test that BrowserToolSet in default spec has correct parameters."""
     agent = get_default_agent(llm=basic_llm)
 
-    # Find the BrowserToolSet spec
-    browser_toolset_spec = None
+    # Find the BrowserToolSet tool
+    browser_toolset_tool = None
     for tool in agent.tools:
         if tool.name == "BrowserToolSet":
-            browser_toolset_spec = tool
+            browser_toolset_tool = tool
             break
 
-    assert browser_toolset_spec is not None
+    assert browser_toolset_tool is not None
     # BrowserToolSet should have empty params (no customization needed)
-    assert browser_toolset_spec.params == {}
+    assert browser_toolset_tool.params == {}
 
 
 def test_get_default_agent_with_custom_working_dir(basic_llm):
@@ -76,28 +76,28 @@ def test_get_default_agent_with_custom_working_dir(basic_llm):
     agent = get_default_agent(llm=basic_llm)
 
     # Find BashTool and TaskTrackerTool to verify they have no directory params
-    bash_tool_spec = None
-    task_tracker_spec = None
-    browser_toolset_spec = None
+    bash_tool = None
+    task_tracker_tool = None
+    browser_toolset_tool = None
 
     for tool in agent.tools:
         if tool.name == "BashTool":
-            bash_tool_spec = tool
+            bash_tool = tool
         elif tool.name == "TaskTrackerTool":
-            task_tracker_spec = tool
+            task_tracker_tool = tool
         elif tool.name == "BrowserToolSet":
-            browser_toolset_spec = tool
+            browser_toolset_tool = tool
 
     # Tools should not have directory parameters - they get them from conversation
-    assert bash_tool_spec is not None
-    assert bash_tool_spec.params == {}
+    assert bash_tool is not None
+    assert bash_tool.params == {}
 
-    assert task_tracker_spec is not None
-    assert task_tracker_spec.params == {}
+    assert task_tracker_tool is not None
+    assert task_tracker_tool.params == {}
 
     # BrowserToolSet should also have no params
-    assert browser_toolset_spec is not None
-    assert browser_toolset_spec.params == {}
+    assert browser_toolset_tool is not None
+    assert browser_toolset_tool.params == {}
 
 
 def test_get_default_agent_has_mcp_config(basic_llm):
@@ -168,29 +168,29 @@ def test_get_default_agent_with_custom_persistence_dir(basic_llm):
     agent = get_default_agent(llm=basic_llm)
 
     # Find TaskTrackerTool to verify it has no directory params
-    task_tracker_spec = None
+    task_tracker_tool = None
     for tool in agent.tools:
         if tool.name == "TaskTrackerTool":
-            task_tracker_spec = tool
+            task_tracker_tool = tool
             break
 
-    assert task_tracker_spec is not None
+    assert task_tracker_tool is not None
     assert (
-        task_tracker_spec.params == {}
+        task_tracker_tool.params == {}
     )  # No directory params - gets from conversation
 
     # Test without persistence_dir (should still have no params)
     agent_default = get_default_agent(llm=basic_llm)
 
-    task_tracker_spec_default = None
+    task_tracker_tool_default = None
     for tool in agent_default.tools:
         if tool.name == "TaskTrackerTool":
-            task_tracker_spec_default = tool
+            task_tracker_tool_default = tool
             break
 
-    assert task_tracker_spec_default is not None
+    assert task_tracker_tool_default is not None
     assert (
-        task_tracker_spec_default.params == {}
+        task_tracker_tool_default.params == {}
     )  # No directory params - gets from conversation
 
 

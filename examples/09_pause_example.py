@@ -10,7 +10,7 @@ from openhands.sdk import (
     Conversation,
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -29,10 +29,10 @@ llm = LLM(
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(
+    Tool(
         name="BashTool",
     ),
-    ToolSpec(name="FileEditorTool"),
+    Tool(name="FileEditorTool"),
 ]
 
 # Agent

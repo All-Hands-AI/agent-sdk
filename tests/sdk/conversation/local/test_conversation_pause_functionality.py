@@ -36,9 +36,9 @@ from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
     Action,
     Observation,
+    Tool,
     ToolDefinition,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 
@@ -110,7 +110,7 @@ class TestPauseFunctionality:
 
         self.agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool")],
+            tools=[Tool(name="test_tool")],
         )
         self.conversation = Conversation(agent=self.agent)
 
@@ -305,7 +305,7 @@ class TestPauseFunctionality:
         register_tool("test_tool", _make_blocking_tool)
         agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool")],
+            tools=[Tool(name="test_tool")],
         )
         conversation = Conversation(agent=agent, stuck_detection=False)
 

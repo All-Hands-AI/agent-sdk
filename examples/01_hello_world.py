@@ -33,10 +33,10 @@ agent = get_default_agent(
     # available in all environments.
     cli_mode=True,
 )
-# # Alternatively, you can manually register tools and provide ToolSpecs to Agent.
+# # Alternatively, you can manually register tools and provide Tools to Agent.
 # from openhands.sdk import Agent
 # from openhands.sdk.tool.registry import register_tool
-# from openhands.sdk.tool.spec import ToolSpec
+# from openhands.sdk.tool.spec import Tool
 # from openhands.tools.execute_bash import BashTool
 # from openhands.tools.str_replace_editor import FileEditorTool
 # from openhands.tools.task_tracker import TaskTrackerTool
@@ -44,13 +44,13 @@ agent = get_default_agent(
 # register_tool("FileEditorTool", FileEditorTool)
 # register_tool("TaskTrackerTool", TaskTrackerTool)
 
-# # Provide ToolSpec so Agent can lazily materialize tools at runtime.
+# # Provide Tool so Agent can lazily materialize tools at runtime.
 # agent = Agent(
 #     llm=llm,
 #     tools=[
-#         ToolSpec(name="BashTool"),
-#         ToolSpec(name="FileEditorTool"),
-#         ToolSpec(name="TaskTrackerTool"),
+#         Tool(name="BashTool"),
+#         Tool(name="FileEditorTool"),
+#         Tool(name="TaskTrackerTool"),
 #     ],
 # )
 

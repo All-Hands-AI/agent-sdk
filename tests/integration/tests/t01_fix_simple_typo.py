@@ -3,7 +3,7 @@
 import os
 
 from openhands.sdk import get_logger
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
@@ -31,15 +31,15 @@ class TypoFixTest(BaseIntegrationTest):
     INSTRUCTION = INSTRUCTION
 
     @property
-    def tools(self) -> list[ToolSpec]:
+    def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
         if self.cwd is None:
             raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
-            ToolSpec(name="BashTool", params={"working_dir": self.cwd}),
-            ToolSpec(name="FileEditorTool", params={"workspace_root": self.cwd}),
+            Tool(name="BashTool", params={"working_dir": self.cwd}),
+            Tool(name="FileEditorTool", params={"workspace_root": self.cwd}),
         ]
 
     def setup(self) -> None:

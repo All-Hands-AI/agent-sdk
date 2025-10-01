@@ -20,8 +20,8 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool import (
+    Tool,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 from openhands.tools.execute_bash import (
@@ -151,8 +151,8 @@ register_tool("FileEditorTool", FileEditorTool)
 register_tool("BashAndGrepToolSet", _make_bash_and_grep_tools)
 
 tools = [
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="BashAndGrepToolSet", params={"working_dir": cwd}),
+    Tool(name="FileEditorTool"),
+    Tool(name="BashAndGrepToolSet", params={"working_dir": cwd}),
 ]
 
 # Agent

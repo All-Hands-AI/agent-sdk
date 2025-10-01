@@ -10,7 +10,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -30,17 +30,17 @@ llm = LLM(
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
-tool_specs = [
-    ToolSpec(
+tools = [
+    Tool(
         name="BashTool",
     ),
-    ToolSpec(name="FileEditorTool"),
+    Tool(name="FileEditorTool"),
 ]
 
 mcp_config = {
     "mcpServers": {"Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"}}
 }
-agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
+agent = Agent(llm=llm, tools=tools, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
 
