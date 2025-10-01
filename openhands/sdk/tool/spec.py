@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 
-class ToolSpec(BaseModel):
+class Tool(BaseModel):
     """Defines a tool to be initialized for the agent.
 
     This is only used in agent-sdk for type schema for server use.

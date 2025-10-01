@@ -10,7 +10,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -30,9 +30,9 @@ llm = LLM(
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
-tool_specs = [
-    ToolSpec(name="BashTool"),
-    ToolSpec(name="FileEditorTool"),
+tools = [
+    Tool(name="BashTool"),
+    Tool(name="FileEditorTool"),
 ]
 
 # Add MCP Tools
@@ -45,7 +45,7 @@ mcp_config = {
 # Agent
 agent = Agent(
     llm=llm,
-    tools=tool_specs,
+    tools=tools,
     mcp_config=mcp_config,
     # This regex filters out all repomix tools except pack_codebase
     filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",

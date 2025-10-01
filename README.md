@@ -154,7 +154,7 @@ agent = get_default_agent(
 
 ```python
 from openhands.sdk import Agent
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -168,9 +168,9 @@ register_tool("TaskTrackerTool", TaskTrackerTool)
 agent = Agent(
     llm=llm,
     tools=[
-        ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
-        ToolSpec(name="FileEditorTool"),
-        ToolSpec(name="TaskTrackerTool", params={"save_dir": os.getcwd()}),
+        Tool(name="BashTool", params={"working_dir": os.getcwd()}),
+        Tool(name="FileEditorTool"),
+        Tool(name="TaskTrackerTool", params={"save_dir": os.getcwd()}),
     ],
 )
 ```
@@ -224,7 +224,7 @@ agent = get_default_agent(
 For more control, you can configure tools explicitly:
 
 ```python
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -236,9 +236,9 @@ register_tool("TaskTrackerTool", TaskTrackerTool)
 
 # Create tool specifications
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="TaskTrackerTool", params={"save_dir": os.getcwd()}),
+    Tool(name="BashTool", params={"working_dir": os.getcwd()}),
+    Tool(name="FileEditorTool"),
+    Tool(name="TaskTrackerTool", params={"save_dir": os.getcwd()}),
 ]
 ```
 

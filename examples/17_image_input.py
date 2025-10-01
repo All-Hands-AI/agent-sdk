@@ -20,7 +20,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool.registry import register_tool
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -47,11 +47,11 @@ register_tool("TaskTrackerTool", TaskTrackerTool)
 agent = Agent(
     llm=llm,
     tools=[
-        ToolSpec(
+        Tool(
             name="BashTool",
         ),
-        ToolSpec(name="FileEditorTool"),
-        ToolSpec(name="TaskTrackerTool"),
+        Tool(name="FileEditorTool"),
+        Tool(name="TaskTrackerTool"),
     ],
 )
 

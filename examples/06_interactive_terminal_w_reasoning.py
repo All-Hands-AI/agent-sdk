@@ -10,7 +10,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 
 
@@ -31,7 +31,7 @@ llm = LLM(
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 tools = [
-    ToolSpec(
+    Tool(
         name="BashTool",
         params={"no_change_timeout_seconds": 3},
     )

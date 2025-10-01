@@ -3,7 +3,7 @@ from collections.abc import Callable, Sequence
 from threading import RLock
 from typing import TYPE_CHECKING, Any
 
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.sdk.tool.tool import ToolBase, ToolDefinition
 
 
@@ -138,7 +138,7 @@ def register_tool(
 
 
 def resolve_tool(
-    tool_spec: ToolSpec, conv_state: "ConversationState"
+    tool_spec: Tool, conv_state: "ConversationState"
 ) -> Sequence[ToolDefinition]:
     with _LOCK:
         resolver = _REG.get(tool_spec.name)

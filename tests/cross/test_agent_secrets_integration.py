@@ -9,7 +9,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.llm import LLM
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
@@ -28,13 +28,13 @@ def llm() -> LLM:
 
 
 @pytest.fixture
-def tools() -> list[ToolSpec]:
+def tools() -> list[Tool]:
     register_tool("BashTool", BashTool)
-    return [ToolSpec(name="BashTool")]
+    return [Tool(name="BashTool")]
 
 
 @pytest.fixture
-def agent(llm: LLM, tools: list[ToolSpec]) -> Agent:
+def agent(llm: LLM, tools: list[Tool]) -> Agent:
     return Agent(llm=llm, tools=tools)
 
 

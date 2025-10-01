@@ -21,7 +21,7 @@ from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
 from openhands.sdk.llm.config import LLMConfig
-from openhands.sdk.tool import ToolSpec
+from openhands.sdk.tool import Tool
 
 
 class TestResult(BaseModel):
@@ -119,7 +119,7 @@ class BaseIntegrationTest(ABC):
 
     @property
     @abstractmethod
-    def tools(self) -> list[ToolSpec]:
+    def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
         pass
 

@@ -59,9 +59,9 @@ from openhands.sdk.llm import LLM, ImageContent, Message, TextContent  # noqa: E
 from openhands.sdk.tool import (  # noqa: E402
     Action,
     Observation,
+    Tool,
     ToolDefinition,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 
@@ -150,7 +150,7 @@ class TestMessageWhileFinishing:
             model="gpt-4o", native_tool_calling=True, service_id="test-llm"
         )
         self.llm_completion_calls: list[Any] = []
-        self.agent: Agent = Agent(llm=self.llm, tools=[ToolSpec(name="SleepTool")])
+        self.agent: Agent = Agent(llm=self.llm, tools=[Tool(name="SleepTool")])
         self.step_count: int = 0
         self.final_step_started: bool = False
         self.timestamps: list[tuple[str, float]] = []  # Track key timing events
