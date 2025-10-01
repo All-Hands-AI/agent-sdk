@@ -81,9 +81,6 @@ def test_tool_examples_from_docstring():
     spec_with_params = Tool(name="TestTool", params={"custom_param": "/workspace"})
     assert spec_with_params.name == "TestTool"
     assert spec_with_params.params == {"custom_param": "/workspace"}
-    spec_with_params = Tool(name="TestTool", params={"working_dir": "/workspace"})
-    assert spec_with_params.name == "TestTool"
-    assert spec_with_params.params == {"working_dir": "/workspace"}
 
 
 def test_tool_different_tool_types():
@@ -154,12 +151,12 @@ def test_tool_default_params():
 
 def test_tool_immutability():
     """Test that Tool behaves correctly with parameter modifications."""
-    original_params = {"working_dir": "/workspace"}
+    original_params = {"test_param": "/workspace"}
     tool = Tool(name="BashTool", params=original_params)
 
     # Modifying the original params should not affect the tool
-    original_params["working_dir"] = "/changed"
-    assert tool.params["working_dir"] == "/workspace"
+    original_params["test_param"] = "/changed"
+    assert tool.params["test_param"] == "/workspace"
 
 
 def test_tool_validation_edge_cases():
