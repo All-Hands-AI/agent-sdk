@@ -36,7 +36,7 @@ class RedactedThinkingBlock(BaseModel):
     """
 
     type: Literal["redacted_thinking"] = "redacted_thinking"
-    thinking: str = Field(..., description="The redacted thinking content")
+    data: str = Field(..., description="The redacted thinking content")
 
 
 class BaseContent(BaseModel):
@@ -183,7 +183,7 @@ class Message(BaseModel):
             if ensure_thinking_blocks and not thinking_blocks:
                 thinking_blocks = [
                     RedactedThinkingBlock(
-                        thinking=(
+                        data=(
                             "This message was generated before extended "
                             "thinking was enabled."
                         )
