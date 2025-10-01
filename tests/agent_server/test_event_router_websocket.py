@@ -259,7 +259,7 @@ class TestWebSocketDisconnectHandling:
         mock_event_service.unsubscribe_from_events.assert_called_once()
 
 
-class TestReplayAllFunctionality:
+class TestResendAllFunctionality:
     """Test cases for resend_all parameter functionality."""
 
     @pytest.mark.asyncio
