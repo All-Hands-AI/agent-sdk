@@ -1,5 +1,4 @@
 import os
-from typing import cast
 
 from pydantic import SecretStr
 
@@ -37,7 +36,7 @@ tool_specs = [
 ]
 
 # Add MCP Tools
-mcp_config = {
+mcp_config: dict[str, object] = {
     "mcpServers": {
         "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
         "repomix": {"command": "npx", "args": ["-y", "repomix@1.4.2", "--mcp"]},
@@ -47,7 +46,7 @@ mcp_config = {
 agent = Agent(
     llm=llm,
     tools=tool_specs,
-    mcp_config=cast(dict[str, object], mcp_config),
+    mcp_config=mcp_config,
     # This regex filters out all repomix tools except pack_codebase
     filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
 )
