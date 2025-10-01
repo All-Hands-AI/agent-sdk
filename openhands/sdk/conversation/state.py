@@ -109,11 +109,6 @@ class ConversationState(OpenHandsModel):
         default_factory=FIFOLock
     )  # FIFO lock for thread safety
 
-    def model_post_init(self, __context) -> None:
-        """Initialize private attributes after Pydantic model initialization."""
-        # The _lock is already initialized by default_factory
-        pass
-
     # ===== Public "events" facade (Sequence[Event]) =====
     @property
     def events(self) -> EventLog:
