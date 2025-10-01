@@ -37,7 +37,7 @@ tools = [
     Tool(name="FileEditorTool"),
 ]
 
-mcp_config: dict[str, object] = {
+mcp_config = {
     "mcpServers": {"Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"}}
 }
 agent = Agent(llm=llm, tools=tools, mcp_config=mcp_config)

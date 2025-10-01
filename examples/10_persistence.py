@@ -38,7 +38,7 @@ tools = [
 ]
 
 # Add MCP Tools
-mcp_config: dict[str, object] = {
+mcp_config = {
     "mcpServers": {
         "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
     }
