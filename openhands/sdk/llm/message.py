@@ -133,18 +133,24 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    def to_llm_dict(self) -> dict[str, Any]:
+    def to_llm_dict(self, ensure_thinking_blocks: bool = False) -> dict[str, Any]:
         """Serialize message for LLM API consumption.
 
         This method chooses the appropriate serialization format based on the message
         configuration and provider capabilities:
         - String format: for providers that don't support list of content items
         - List format: for providers with vision/prompt caching/tool calls support
+
+        Args:
+            ensure_thinking_blocks: If True, ensure assistant messages have
+                thinking blocks
         """
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
-            message_dict = self._list_serializer()
+            message_dict = self._list_serializer(
+                ensure_thinking_blocks=ensure_thinking_blocks
+            )
         else:
             # some providers, like HF and Groq/llama, don't support a list here, but a
             # single string
@@ -162,14 +168,29 @@ class Message(BaseModel):
         # add tool call keys if we have a tool call or response
         return self._add_tool_call_keys(message_dict)
 
-    def _list_serializer(self) -> dict[str, Any]:
+    def _list_serializer(self, ensure_thinking_blocks: bool = False) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
         role_tool_with_prompt_caching = False
 
         # Add thinking blocks first (for Anthropic extended thinking)
         # Only add thinking blocks for assistant messages
         if self.role == "assistant":
-            for thinking_block in self.thinking_blocks:
+            thinking_blocks = list(
+                self.thinking_blocks
+            )  # Copy to avoid modifying original
+
+            # Add redacted thinking block if needed for Anthropic extended thinking
+            if ensure_thinking_blocks and not thinking_blocks:
+                thinking_blocks = [
+                    RedactedThinkingBlock(
+                        thinking=(
+                            "This message was generated before extended "
+                            "thinking was enabled."
+                        )
+                    )
+                ]
+
+            for thinking_block in thinking_blocks:
                 thinking_dict = thinking_block.model_dump()
                 content.append(thinking_dict)
 
@@ -237,20 +258,6 @@ class Message(BaseModel):
         """
         assert message.role != "function", "Function role is not supported"
 
-        # Debug logging to see what's in the LiteLLM message
-        logger.info(f"Converting LiteLLM message: role={message.role}")
-        logger.info(f"Message attributes: {dir(message)}")
-        logger.info(f"Message content type: {type(message.content)}")
-        if hasattr(message, "content") and isinstance(message.content, list):
-            logger.info(f"Content items: {len(message.content)}")
-            for i, item in enumerate(message.content):
-                logger.info(
-                    f"Content {i}: type={type(item)}, "
-                    f"keys={getattr(item, 'keys', lambda: 'N/A')()}"
-                )
-                if isinstance(item, dict):
-                    logger.info(f"Content {i} dict: {item}")
-
         rc = getattr(message, "reasoning_content", None)
         content = []
         thinking_blocks = []
@@ -272,9 +279,6 @@ class Message(BaseModel):
                             signature=signature,
                         )
                         thinking_blocks.append(thinking_block)
-                        logger.info(
-                            f"Extracted thinking block: {len(thinking_content)} chars"
-                        )
                     elif item_type == "text":
                         # Extract text content
                         text_content = TextContent(text=item.get("text", ""))
@@ -282,7 +286,6 @@ class Message(BaseModel):
 
         # Extract thinking blocks from LiteLLM's thinking_blocks field (fallback)
         litellm_thinking_blocks = getattr(message, "thinking_blocks", None)
-        logger.info(f"LiteLLM thinking_blocks attribute: {litellm_thinking_blocks}")
         if litellm_thinking_blocks:
             for block in litellm_thinking_blocks:
                 # Convert LiteLLM thinking block to our ThinkingBlock
@@ -296,11 +299,6 @@ class Message(BaseModel):
                     signature=signature,
                 )
                 thinking_blocks.append(thinking_block)
-
-        logger.info(
-            f"Final message: role={message.role}, content_items={len(content)}, "
-            f"thinking_blocks={len(thinking_blocks)}"
-        )
 
         return Message(
             role=message.role,

@@ -729,49 +729,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 ].cache_prompt = True  # Last item inside the message content
                 break
 
-    def _ensure_anthropic_thinking_blocks(self, messages: list[Message]) -> None:
-        """Ensure assistant messages have thinking blocks when using Anthropic extended thinking."""  # noqa: E501
-        # Only apply this for Anthropic models with extended thinking enabled
-        is_active = self._is_anthropic_extended_thinking_active()
-        logger.info(f"Anthropic extended thinking active: {is_active}")
-        if not is_active:
-            return
-
-        from openhands.sdk.llm.message import RedactedThinkingBlock
-
-        logger.info(f"Processing {len(messages)} messages for thinking blocks")
-        for i, message in enumerate(messages):
-            thinking_types = [type(block).__name__ for block in message.thinking_blocks]
-            logger.info(
-                f"Message {i}: role={message.role}, "
-                f"thinking_blocks={len(message.thinking_blocks)}, "
-                f"types={thinking_types}"
-            )
-            if message.role == "assistant" and not message.thinking_blocks:
-                logger.info(f"Adding redacted thinking block to assistant message {i}")
-                # Add a redacted thinking block for assistant messages without them
-                redacted_block = RedactedThinkingBlock(
-                    thinking=(
-                        "This message was generated before "
-                        "extended thinking was enabled."
-                    )
-                )
-                # Convert to mutable list and add the redacted block
-                message.thinking_blocks = list(message.thinking_blocks) + [
-                    redacted_block
-                ]
-                logger.info(
-                    f"Added redacted thinking block. "
-                    f"Now has {len(message.thinking_blocks)} blocks"
-                )
-
     def _is_anthropic_extended_thinking_active(self) -> bool:
         """Check if we're using Anthropic extended thinking."""
         # Check if this is an Anthropic model that supports reasoning effort
         supports_reasoning = get_features(self.model).supports_reasoning_effort
-        logger.debug(
-            f"Model {self.model} supports reasoning effort: {supports_reasoning}"
-        )
         if not supports_reasoning:
             return False
 
@@ -779,17 +740,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         reasoning_enabled = (
             self.reasoning_effort is not None and self.reasoning_effort != "none"
         )
-        logger.debug(
-            f"Reasoning effort enabled: {reasoning_enabled} "
-            f"(value: {self.reasoning_effort})"
-        )
         if not reasoning_enabled:
             return False
 
         # Check if this is specifically an Anthropic model
         model_lower = self.model.lower()
         is_anthropic = "claude" in model_lower or "anthropic" in model_lower
-        logger.debug(f"Is Anthropic model: {is_anthropic} (model: {model_lower})")
         return is_anthropic
 
     def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
@@ -799,8 +755,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if self.is_caching_prompt_active():
             self._apply_prompt_caching(messages)
 
-        # Handle Anthropic extended thinking requirement
-        self._ensure_anthropic_thinking_blocks(messages)
+        # Check if we need to ensure thinking blocks for Anthropic extended thinking
+        ensure_thinking_blocks = self._is_anthropic_extended_thinking_active()
 
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
@@ -811,18 +767,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        formatted_messages = [message.to_llm_dict() for message in messages]
-
-        # Log the final formatted messages for debugging
-        logger.info(f"Final formatted messages: {len(formatted_messages)}")
-        for i, msg in enumerate(formatted_messages):
-            role = msg.get("role", "unknown")
-            content_count = len(msg.get("content", []))
-            content_types = [c.get("type", "unknown") for c in msg.get("content", [])]
-            logger.info(
-                f"Formatted message {i}: role={role}, content_items={content_count}, "
-                f"types={content_types}"
-            )
+        formatted_messages = [
+            message.to_llm_dict(ensure_thinking_blocks=ensure_thinking_blocks)
+            for message in messages
+        ]
 
         return formatted_messages
 
