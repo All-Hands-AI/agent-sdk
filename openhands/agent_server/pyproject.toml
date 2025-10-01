@@ -19,12 +19,13 @@ dependencies = [
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+
 [tool.setuptools.packages.find]
 where = ["../.."]
 include = ["openhands*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.j2"]
+"*" = ["*.j2", "py.typed"]
 
 [project.scripts]
 agent-server = "openhands.agent_server.__main__:main"

@@ -105,7 +105,7 @@ async def get_conversation(conversation_id: UUID) -> ConversationInfo:
     return conversation
 
 
-@conversation_router.get("/")
+@conversation_router.get("")
 async def batch_get_conversations(
     ids: Annotated[list[UUID], Query()],
 ) -> list[ConversationInfo | None]:
@@ -119,7 +119,7 @@ async def batch_get_conversations(
 # Write Methods
 
 
-@conversation_router.post("/")
+@conversation_router.post("")
 async def start_conversation(
     request: Annotated[
         StartConversationRequest, Body(examples=START_CONVERSATION_EXAMPLES)
