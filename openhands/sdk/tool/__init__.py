@@ -21,10 +21,6 @@ from openhands.sdk.tool.tool import (
 )
 
 
-# Backward compatibility alias
-ToolDefinitionExecutor = ToolExecutor
-
-
 __all__ = [
     "Tool",
     "ToolDefinition",
@@ -32,7 +28,6 @@ __all__ = [
     "ToolSpec",
     "ToolAnnotations",
     "ToolExecutor",
-    "ToolDefinitionExecutor",
     "ExecutableTool",
     "ActionBase",
     "ObservationBase",
