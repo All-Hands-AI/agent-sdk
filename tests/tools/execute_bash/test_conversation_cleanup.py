@@ -30,7 +30,7 @@ def test_conversation_close_calls_executor_close(mock_llm):
         # Create agent and conversation
         agent = Agent(
             llm=mock_llm,
-            tools=[Tool(name="test_execute_bash", params={"working_dir": temp_dir})],
+            tools=[Tool(name="test_execute_bash")],
         )
         conversation = Conversation(agent=agent, workspace=temp_dir)
 
@@ -58,7 +58,7 @@ def test_conversation_del_calls_close(mock_llm):
         # Create agent and conversation
         agent = Agent(
             llm=mock_llm,
-            tools=[Tool(name="test_execute_bash", params={"working_dir": temp_dir})],
+            tools=[Tool(name="test_execute_bash")],
         )
         conversation = Conversation(agent=agent, workspace=temp_dir)
 
@@ -89,7 +89,7 @@ def test_conversation_close_handles_executor_exceptions(mock_llm):
         # Create agent and conversation
         agent = Agent(
             llm=mock_llm,
-            tools=[Tool(name="test_execute_bash", params={"working_dir": temp_dir})],
+            tools=[Tool(name="test_execute_bash")],
         )
         conversation = Conversation(agent=agent, workspace=temp_dir)
 
@@ -114,7 +114,7 @@ def test_conversation_close_skips_none_executors(mock_llm):
         # Create agent and conversation
         agent = Agent(
             llm=mock_llm,
-            tools=[Tool(name="test_execute_bash", params={"working_dir": temp_dir})],
+            tools=[Tool(name="test_execute_bash")],
         )
         conversation = Conversation(agent=agent, workspace=temp_dir)
 

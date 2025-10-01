@@ -129,10 +129,10 @@ llm = LLM(
 cwd = os.getcwd()
 
 
-def _make_bash_and_grep_tools(working_dir: str) -> list[ToolDefinition]:
+def _make_bash_and_grep_tools(conv_state) -> list[ToolDefinition]:
     """Create execute_bash and custom grep tools sharing one executor."""
 
-    bash_executor = BashExecutor(working_dir=working_dir)
+    bash_executor = BashExecutor(working_dir=conv_state.workspace.working_dir)
     bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
 
     grep_executor = GrepExecutor(bash_executor)
@@ -152,7 +152,7 @@ register_tool("BashAndGrepToolSet", _make_bash_and_grep_tools)
 
 tools = [
     Tool(name="FileEditorTool"),
-    Tool(name="BashAndGrepToolSet", params={"working_dir": cwd}),
+    Tool(name="BashAndGrepToolSet"),
 ]
 
 # Agent
