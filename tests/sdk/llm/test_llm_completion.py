@@ -3,13 +3,19 @@
 from unittest.mock import patch
 
 import pytest
-from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
+from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import (
+    Choices,
+    Function,
+    Message as LiteLLMMessage,
+    ModelResponse,
+    Usage,
+)
 from pydantic import SecretStr
 
 from openhands.sdk.llm import (
     LLM,
     Message,
-    MessageToolCall,
     TextContent,
 )
 from openhands.sdk.tool.schema import Action
@@ -97,12 +103,14 @@ def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
     mock_response.choices[0].message.tool_calls = [  # type: ignore
-        MessageToolCall(
+        ChatCompletionMessageToolCall(
             id="call_123",
-            name="test_tool",
-            arguments_json='{"param": "value"}',
-            origin="completion",
-        ).to_litellm_tool_call()
+            type="function",
+            function=Function(
+                name="test_tool",
+                arguments='{"param": "value"}',
+            ),
+        )
     ]
     mock_completion.return_value = mock_response
 

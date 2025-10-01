@@ -122,7 +122,7 @@ def test_message_with_tool_calls():
     tool_call = MessageToolCall(
         id="call_123",
         name="test_function",
-        arguments_json='{"arg": "value"}',
+        arguments='{"arg": "value"}',
         origin="completion",
     )
 

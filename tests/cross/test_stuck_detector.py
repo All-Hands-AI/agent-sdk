@@ -49,7 +49,7 @@ def test_history_too_short():
         tool_call=MessageToolCall(
             id="call_1",
             name="execute_bash",
-            arguments_json='{"command": "ls"}',
+            arguments='{"command": "ls"}',
             origin="completion",
         ),
         llm_response_id="response_1",
@@ -98,7 +98,7 @@ def test_repeating_action_observation_not_stuck_less_than_4_repeats():
             tool_call=MessageToolCall(
                 id=f"call_{i}",
                 name="execute_bash",
-                arguments_json='{"command": "ls"}',
+                arguments='{"command": "ls"}',
                 origin="completion",
             ),
             llm_response_id=f"response_{i}",
@@ -147,7 +147,7 @@ def test_repeating_action_observation_stuck():
             tool_call=MessageToolCall(
                 id=f"call_{i}",
                 name="execute_bash",
-                arguments_json='{"command": "ls"}',
+                arguments='{"command": "ls"}',
                 origin="completion",
             ),
             llm_response_id=f"response_{i}",
@@ -196,10 +196,9 @@ def test_repeating_action_error_stuck():
             tool_call_id=f"call_{i}",
             tool_call=MessageToolCall(
                 id=f"call_{i}",
-                function={
-                    "name": "execute_bash",
-                    "arguments": '{"command": "invalid_command"}',
-                },
+                name="execute_bash",
+                arguments='{"command": "invalid_command"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -288,10 +287,9 @@ def test_not_stuck_with_different_actions():
             tool_call_id=f"call_{i}",
             tool_call=MessageToolCall(
                 id=f"call_{i}",
-                function={
-                    "name": "execute_bash",
-                    "arguments": f'{{"command": "{cmd}"}}',
-                },
+                name="execute_bash",
+                arguments=f'{{"command": "{cmd}"}}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -339,7 +337,7 @@ def test_reset_after_user_message():
             tool_call=MessageToolCall(
                 id=f"call_{i}",
                 name="execute_bash",
-                arguments_json='{"command": "ls"}',
+                arguments='{"command": "ls"}',
                 origin="completion",
             ),
             llm_response_id=f"response_{i}",
@@ -382,7 +380,7 @@ def test_reset_after_user_message():
         tool_call=MessageToolCall(
             id="call_new",
             name="execute_bash",
-            arguments_json='{"command": "pwd"}',
+            arguments='{"command": "pwd"}',
             origin="completion",
         ),
         llm_response_id="response_new",

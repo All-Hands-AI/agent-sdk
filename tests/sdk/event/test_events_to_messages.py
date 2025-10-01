@@ -46,7 +46,7 @@ def create_tool_call(
     return MessageToolCall(
         id=call_id,
         name=function_name,
-        arguments_json=json.dumps(arguments),
+        arguments=json.dumps(arguments),
         origin="completion",
     )
 

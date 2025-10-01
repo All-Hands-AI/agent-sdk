@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from typing import Any, Literal
 
 from litellm import ChatCompletionMessageToolCall, ResponseFunctionToolCall
-from litellm.types.utils import Function, Message as LiteLLMMessage
+from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
@@ -22,7 +22,7 @@ class MessageToolCall(BaseModel):
 
     id: str = Field(..., description="Canonical tool call id")
     name: str = Field(..., description="Tool/function name")
-    arguments_json: str = Field(..., description="JSON string of arguments")
+    arguments: str = Field(..., description="JSON string of arguments")
     origin: Literal["completion", "responses"] = Field(
         ..., description="Originating API family"
     )
@@ -77,25 +77,9 @@ class MessageToolCall(BaseModel):
         return cls(
             id=tool_call.id,
             name=tool_call.function.name,
-            arguments_json=tool_call.function.arguments,
+            arguments=tool_call.function.arguments,
             origin="completion",
             raw=tool_call,
-        )
-
-    def to_litellm_tool_call(self) -> ChatCompletionMessageToolCall:
-        """Convert this MessageToolCall to a litellm ChatCompletionMessageToolCall.
-
-        This method is primarily for testing and compatibility with existing code
-        that expects litellm tool calls.
-
-        Returns:
-            A ChatCompletionMessageToolCall instance with the same data
-        """
-
-        function = Function(name=self.name, arguments=self.arguments_json)
-
-        return ChatCompletionMessageToolCall(
-            id=self.id, type="function", function=function
         )
 
 
@@ -301,7 +285,7 @@ class Message(BaseModel):
                     "type": "function",
                     "function": {
                         "name": tool_call.name,
-                        "arguments": tool_call.arguments_json,
+                        "arguments": tool_call.arguments,
                     },
                 }
                 for tool_call in self.tool_calls

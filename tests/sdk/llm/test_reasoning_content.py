@@ -123,7 +123,7 @@ def test_action_event_with_reasoning_content():
     tool_call = MessageToolCall(
         id="test-id",
         name="test_tool",
-        arguments_json='{"arg": "value"}',
+        arguments='{"arg": "value"}',
         origin="completion",
     )
 

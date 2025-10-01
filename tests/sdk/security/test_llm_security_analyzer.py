@@ -27,7 +27,7 @@ def create_mock_action_event(
         tool_call=MessageToolCall(
             id="test_call_id",
             name="test_tool",
-            arguments_json='{"command": "test"}',
+            arguments='{"command": "test"}',
             origin="completion",
         ),
         llm_response_id="test_response_id",

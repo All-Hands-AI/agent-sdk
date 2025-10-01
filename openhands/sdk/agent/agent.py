@@ -315,7 +315,7 @@ class Agent(AgentBase):
         # Validate arguments
         security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
-            arguments = json.loads(tool_call.arguments_json)
+            arguments = json.loads(tool_call.arguments)
 
             # if the tool has a security_risk field (when security analyzer = LLM),
             # pop it out as it's not part of the tool's action schema
@@ -337,7 +337,7 @@ class Agent(AgentBase):
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
-                f"Error validating args {tool_call.arguments_json} for tool "
+                f"Error validating args {tool_call.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
             event = AgentErrorEvent(

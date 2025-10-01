@@ -2,8 +2,10 @@
 
 from unittest.mock import patch
 
+from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
     Choices,
+    Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
@@ -13,7 +15,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import AgentErrorEvent, MessageEvent
-from openhands.sdk.llm import LLM, Message, MessageToolCall, TextContent
+from openhands.sdk.llm import LLM, Message, TextContent
 
 
 def test_nonexistent_tool_returns_error_and_continues_conversation():
@@ -40,12 +42,14 @@ def test_nonexistent_tool_returns_error_and_continues_conversation():
                         role="assistant",
                         content="I'll use a non-existent tool to help you.",
                         tool_calls=[
-                            MessageToolCall(
+                            ChatCompletionMessageToolCall(
                                 id="call_1",
-                                name="nonexistent_tool",
-                                arguments_json='{"param": "value"}',
-                                origin="completion",
-                            ).to_litellm_tool_call()
+                                type="function",
+                                function=Function(
+                                    name="nonexistent_tool",
+                                    arguments='{"param": "value"}',
+                                ),
+                            )
                         ],
                     ),
                     finish_reason="tool_calls",
@@ -130,12 +134,14 @@ def test_nonexistent_tool_error_includes_available_tools():
                         role="assistant",
                         content="I'll use a non-existent tool.",
                         tool_calls=[
-                            MessageToolCall(
+                            ChatCompletionMessageToolCall(
                                 id="call_1",
-                                name="missing_tool",
-                                arguments_json="{}",
-                                origin="completion",
-                            ).to_litellm_tool_call()
+                                type="function",
+                                function=Function(
+                                    name="missing_tool",
+                                    arguments="{}",
+                                ),
+                            )
                         ],
                     ),
                     finish_reason="tool_calls",
@@ -208,12 +214,14 @@ def test_conversation_continues_after_tool_error():
                             role="assistant",
                             content="I'll try a non-existent tool first.",
                             tool_calls=[
-                                MessageToolCall(
+                                ChatCompletionMessageToolCall(
                                     id="call_1",
-                                    name="bad_tool",
-                                    arguments_json="{}",
-                                    origin="completion",
-                                ).to_litellm_tool_call()
+                                    type="function",
+                                    function=Function(
+                                        name="bad_tool",
+                                        arguments="{}",
+                                    ),
+                                )
                             ],
                         ),
                         finish_reason="tool_calls",

@@ -96,7 +96,7 @@ def test_action_event_is_frozen():
     """Test that ActionEvent instances are frozen."""
     action = EventsImmutabilityMockAction()
     tool_call = MessageToolCall(
-        id="test_call_id", name="test_tool", arguments_json="{}", origin="completion"
+        id="test_call_id", name="test_tool", arguments="{}", origin="completion"
     )
 
     event = ActionEvent(

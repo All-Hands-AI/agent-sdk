@@ -71,7 +71,7 @@ def test_action_event_serialization() -> None:
     tool_call = MessageToolCall(
         id="call_123",
         name="mock_tool",
-        arguments_json="{}",
+        arguments="{}",
         origin="completion",
     )
     event = ActionEvent(
