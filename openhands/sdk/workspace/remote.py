@@ -23,9 +23,6 @@ class RemoteWorkspace(BaseWorkspace):
     _client: httpx.Client = PrivateAttr()
 
     def model_post_init(self, context: Any) -> None:
-        if not Path(self.working_dir).exists():
-            Path(self.working_dir).mkdir(parents=True, exist_ok=True)
-
         # Set up remote host and API key
         self.host = self.host.rstrip("/")
         self.api_key = self.api_key

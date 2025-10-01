@@ -1,4 +1,5 @@
 import uuid
+from pathlib import Path
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
@@ -60,6 +61,8 @@ class LocalConversation(BaseConversation):
             "workspace must be a LocalWorkspace instance"
         )
         self.workspace = workspace
+        if not Path(self.workspace.working_dir).exists():
+            Path(self.workspace.working_dir).mkdir(parents=True, exist_ok=True)
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
