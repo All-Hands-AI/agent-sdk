@@ -12,7 +12,7 @@ from openhands.sdk.llm import (
     MessageToolCall,
     TextContent,
 )
-from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.tool.schema import Action
 from openhands.sdk.tool.tool import Tool, ToolBase
 
 
@@ -119,7 +119,7 @@ def test_llm_completion_with_tools(mock_completion):
     # Test completion with tools
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
-    class _ArgsBasic(ActionBase):
+    class _ArgsBasic(Action):
         param: str
 
     tool: ToolBase = Tool(
@@ -324,7 +324,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
         )
     ]
 
-    class TestNonFCArgs(ActionBase):
+    class TestNonFCArgs(Action):
         param: str
 
     tools: list[ToolBase] = [
@@ -381,7 +381,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
 
-    class TestFCArgs(ActionBase):
+    class TestFCArgs(Action):
         param: str | None = None
 
     tools: list[ToolBase] = [

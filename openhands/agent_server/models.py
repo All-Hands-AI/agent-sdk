@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
+from openhands.sdk import AgentBase, Event, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
@@ -122,7 +122,7 @@ class Success(BaseModel):
 
 
 class EventPage(OpenHandsModel):
-    items: list[EventBase]
+    items: list[Event]
     next_page_id: str | None = None
 
 

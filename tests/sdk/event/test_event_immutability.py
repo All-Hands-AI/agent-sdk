@@ -11,7 +11,7 @@ from openhands.sdk.event import (
     AgentErrorEvent,
     Condensation,
     CondensationRequest,
-    EventBase,
+    Event,
     MessageEvent,
     ObservationEvent,
     PauseEvent,
@@ -24,32 +24,32 @@ from openhands.sdk.llm import (
     MessageToolCall,
     TextContent,
 )
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import Action, Observation
 
 
-class EventsImmutabilityMockAction(ActionBase):
+class EventsImmutabilityMockAction(Action):
     """Mock action for testing."""
 
     command: str = "test_command"
 
 
-class EventsImmutabilityMockObservation(ObservationBase):
+class EventsImmutabilityMockObservation(Observation):
     """Mock observation for testing."""
 
     result: str = "test_result"
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 
 def test_event_base_is_frozen():
-    """Test that EventBase instances are frozen and cannot be modified."""
+    """Test that Event instances are frozen and cannot be modified."""
 
-    class Event(EventBase):
+    class TestEvent(Event):
         test_field: str = "test_value"
 
-    event = Event(source="agent", test_field="initial_value")
+    event = TestEvent(source="agent", test_field="initial_value")
 
     # Test that we cannot modify any field
     with pytest.raises(Exception):  # Pydantic raises ValidationError for frozen models

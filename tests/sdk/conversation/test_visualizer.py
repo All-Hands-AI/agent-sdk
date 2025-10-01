@@ -23,17 +23,17 @@ from openhands.sdk.llm import (
     MessageToolCall,
     TextContent,
 )
-from openhands.sdk.tool import ActionBase
+from openhands.sdk.tool import Action
 
 
-class VisualizerMockAction(ActionBase):
+class VisualizerMockAction(Action):
     """Mock action for testing."""
 
     command: str = "test command"
     working_dir: str = "/tmp"
 
 
-class VisualizerCustomAction(ActionBase):
+class VisualizerCustomAction(Action):
     """Custom action with overridden visualize method."""
 
     task_list: list[dict] = []
@@ -62,7 +62,7 @@ def create_tool_call(
 
 
 def test_action_base_visualize():
-    """Test that ActionBase has a visualize property."""
+    """Test that Action has a visualize property."""
     action = VisualizerMockAction(command="echo hello", working_dir="/home")
 
     result = action.visualize
@@ -149,13 +149,13 @@ def test_action_event_visualize():
 
 def test_observation_event_visualize():
     """Test ObservationEvent visualization."""
-    from openhands.sdk.tool import ObservationBase
+    from openhands.sdk.tool import Observation
 
-    class VisualizerMockObservation(ObservationBase):
+    class VisualizerMockObservation(Observation):
         content: str = "Command output"
 
         @property
-        def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
             return [TextContent(text=self.content)]
 
     observation = VisualizerMockObservation(
@@ -300,11 +300,11 @@ def test_metrics_formatting():
 
 
 def test_event_base_fallback_visualize():
-    """Test that EventBase provides fallback visualization."""
-    from openhands.sdk.event.base import EventBase
+    """Test that Event provides fallback visualization."""
+    from openhands.sdk.event.base import Event
     from openhands.sdk.event.types import SourceType
 
-    class UnknownEvent(EventBase):
+    class UnknownEvent(Event):
         source: SourceType = "agent"
 
     event = UnknownEvent()

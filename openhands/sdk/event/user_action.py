@@ -1,10 +1,10 @@
 from rich.text import Text
 
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.types import SourceType
 
 
-class PauseEvent(EventBase):
+class PauseEvent(Event):
     """Event indicating that the agent execution was paused by user request."""
 
     source: SourceType = "user"

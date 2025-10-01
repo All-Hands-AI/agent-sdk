@@ -180,7 +180,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         "Can apply to all reasoning models.",
     )
     extended_thinking_budget: int | None = Field(
-        default=200000,
+        default=48_000,
         description="The budget tokens for extended thinking, "
         "supported by Anthropic models.",
     )
@@ -194,6 +194,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ),
     )
     service_id: str = Field(
+        default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
     metadata: dict[str, Any] = Field(
@@ -568,6 +569,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     "type": "enabled",
                     "budget_tokens": self.extended_thinking_budget,
                 }
+                # We need this to enable interleaved thinking
+                # https://docs.claude.com/en/docs/build-with-claude/extended-thinking#interleaved-thinking # noqa: E501
+                out["extra_headers"] = {
+                    "anthropic-beta": "interleaved-thinking-2025-05-14"
+                }
             # Anthropic models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
@@ -659,6 +665,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 self.max_output_tokens = (
                     64000  # practical cap (litellm may allow 128k with header)
+                )
+                logger.debug(
+                    f"Setting max_output_tokens to {self.max_output_tokens} "
+                    f"for {self.model}"
                 )
             elif self._model_info is not None:
                 if isinstance(self._model_info.get("max_output_tokens"), int):

@@ -4,7 +4,7 @@ from rich.text import Text
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import Message, TextContent, content_to_str
-from openhands.sdk.tool.schema import ObservationBase
+from openhands.sdk.tool.schema import Observation
 
 
 class ObservationBaseEvent(LLMConvertibleEvent):
@@ -23,7 +23,7 @@ class ObservationBaseEvent(LLMConvertibleEvent):
 
 
 class ObservationEvent(ObservationBaseEvent):
-    observation: ObservationBase = Field(
+    observation: Observation = Field(
         ..., description="The observation (tool call) sent to LLM"
     )
     action_id: EventID = Field(
@@ -45,7 +45,7 @@ class ObservationEvent(ObservationBaseEvent):
     def to_llm_message(self) -> Message:
         return Message(
             role="tool",
-            content=self.observation.agent_observation,
+            content=self.observation.to_llm_content,
             name=self.tool_name,
             tool_call_id=self.tool_call_id,
         )
@@ -53,7 +53,7 @@ class ObservationEvent(ObservationBaseEvent):
     def __str__(self) -> str:
         """Plain text string representation for ObservationEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        content_str = "".join(content_to_str(self.observation.agent_observation))
+        content_str = "".join(content_to_str(self.observation.to_llm_content))
         obs_preview = (
             content_str[:N_CHAR_PREVIEW] + "..."
             if len(content_str) > N_CHAR_PREVIEW

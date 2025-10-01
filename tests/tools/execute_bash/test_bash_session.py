@@ -319,14 +319,12 @@ def test_empty_command_error(terminal_type):
 
     assert obs.error is True
     assert obs.output == "ERROR: No previous running command to retrieve logs from."
-    assert len(obs.agent_observation) == 1
-    assert isinstance(obs.agent_observation[0], TextContent)
-    assert (
-        "There was an error during command execution." in obs.agent_observation[0].text
-    )
+    assert len(obs.to_llm_content) == 1
+    assert isinstance(obs.to_llm_content[0], TextContent)
+    assert "There was an error during command execution." in obs.to_llm_content[0].text
     assert (
         "ERROR: No previous running command to retrieve logs from."
-        in obs.agent_observation[0].text
+        in obs.to_llm_content[0].text
     )
     assert obs.metadata.exit_code == -1
     assert obs.metadata.prefix == ""

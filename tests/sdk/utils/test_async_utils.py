@@ -4,7 +4,7 @@ import asyncio
 import threading
 import time
 
-from openhands.sdk.event import EventBase
+from openhands.sdk.event import Event
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.utils.async_utils import (
     AsyncCallbackWrapper,
@@ -12,7 +12,7 @@ from openhands.sdk.utils.async_utils import (
 )
 
 
-class AsyncUtilsMockEvent(EventBase):
+class AsyncUtilsMockEvent(Event):
     """Mock event for testing."""
 
     data: str = "test"
@@ -22,7 +22,7 @@ class AsyncUtilsMockEvent(EventBase):
 def test_async_conversation_callback_type():
     """Test that AsyncConversationCallback type is properly defined."""
 
-    async def sample_callback(event: EventBase) -> None:
+    async def sample_callback(event: Event) -> None:
         pass
 
     # This should not raise any type errors
@@ -34,7 +34,7 @@ def test_async_callback_wrapper_basic():
     """Test basic functionality of AsyncCallbackWrapper."""
     events_processed = []
 
-    async def async_callback(event: EventBase) -> None:
+    async def async_callback(event: Event) -> None:
         events_processed.append(f"processed: {event.source}")
 
     async def run_test():
@@ -61,7 +61,7 @@ def test_async_callback_wrapper_multiple_events():
     """Test AsyncCallbackWrapper with multiple events."""
     events_processed = []
 
-    async def async_callback(event: EventBase) -> None:
+    async def async_callback(event: Event) -> None:
         events_processed.append(event.id)
 
     async def run_test():
@@ -88,7 +88,7 @@ def test_async_callback_wrapper_with_stopped_loop():
     """Test AsyncCallbackWrapper behavior when loop is not running."""
     events_processed = []
 
-    async def async_callback(event: EventBase) -> None:
+    async def async_callback(event: Event) -> None:
         events_processed.append("processed")
 
     # Create a loop but don't run it
@@ -112,7 +112,7 @@ def test_async_callback_wrapper_with_stopped_loop():
 def test_async_callback_wrapper_exception_handling():
     """Test that exceptions in async callbacks don't crash the wrapper."""
 
-    async def failing_callback(event: EventBase) -> None:
+    async def failing_callback(event: Event) -> None:
         raise ValueError("Test exception")
 
     async def run_test():
@@ -135,7 +135,7 @@ def test_async_callback_wrapper_concurrent_execution():
     """Test that AsyncCallbackWrapper can handle concurrent events."""
     events_processed = []
 
-    async def async_callback(event: EventBase) -> None:
+    async def async_callback(event: Event) -> None:
         await asyncio.sleep(0.05)  # Simulate async work
         events_processed.append(
             {
@@ -178,7 +178,7 @@ def test_async_callback_wrapper_from_different_thread():
     events_processed = []
     exception_caught = None
 
-    async def async_callback(event: EventBase) -> None:
+    async def async_callback(event: Event) -> None:
         events_processed.append(f"processed: {event.source}")
 
     def thread_function(wrapper):
@@ -213,7 +213,7 @@ def test_async_callback_wrapper_from_different_thread():
 def test_async_callback_wrapper_performance():
     """Test that the wrapper doesn't add significant overhead."""
 
-    async def simple_callback(event: EventBase) -> None:
+    async def simple_callback(event: Event) -> None:
         pass  # Do nothing
 
     async def run_test():

@@ -113,10 +113,10 @@ def test_action_event_with_reasoning_content():
         MessageToolCall,
         TextContent,
     )
-    from openhands.sdk.tool import ActionBase
+    from openhands.sdk.tool import Action
 
     # Create a simple action for testing
-    class TestAction(ActionBase):
+    class TestAction(Action):
         action: str = "test"
 
     # Create a tool call

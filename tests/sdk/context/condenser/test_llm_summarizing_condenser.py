@@ -8,7 +8,7 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.context.view import View
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import (
@@ -99,7 +99,7 @@ def test_condense_returns_view_when_no_condensation_needed(mock_llm: LLM) -> Non
     max_size = 100
     condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
 
-    events: list[EventBase] = [message_event(f"Event {i}") for i in range(max_size)]
+    events: list[Event] = [message_event(f"Event {i}") for i in range(max_size)]
     view = View.from_events(events)
 
     result = condenser.condense(view)
@@ -121,7 +121,7 @@ def test_condense_returns_condensation_when_needed(mock_llm: LLM) -> None:
     # Set up mock response
     cast(Any, mock_llm).set_mock_response_content("Summary of forgotten events")
 
-    events: list[EventBase] = [message_event(f"Event {i}") for i in range(max_size + 1)]
+    events: list[Event] = [message_event(f"Event {i}") for i in range(max_size + 1)]
     view = View.from_events(events)
 
     result = condenser.condense(view)

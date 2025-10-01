@@ -13,7 +13,7 @@ from openhands.sdk.event import (
     PauseEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.condenser import Condensation
 
 
@@ -76,7 +76,7 @@ class ConversationVisualizer:
         self._highlight_patterns: dict[str, str] = highlight_regex or {}
         self._conversation_stats = conversation_stats
 
-    def on_event(self, event: EventBase) -> None:
+    def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
         panel = self._create_event_panel(event)
         if panel:
@@ -105,7 +105,7 @@ class ConversationVisualizer:
 
         return highlighted
 
-    def _create_event_panel(self, event: EventBase) -> Panel | None:
+    def _create_event_panel(self, event: Event) -> Panel | None:
         """Create a Rich Panel for the event with appropriate styling."""
         # Use the event's visualize property for content
         content = event.visualize

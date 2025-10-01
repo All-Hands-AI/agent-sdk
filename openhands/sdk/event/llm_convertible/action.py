@@ -13,7 +13,7 @@ from openhands.sdk.llm import (
     ThinkingBlock,
 )
 from openhands.sdk.security import risk
-from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.tool.schema import Action
 
 
 class ActionEvent(LLMConvertibleEvent):
@@ -29,9 +29,7 @@ class ActionEvent(LLMConvertibleEvent):
         default_factory=list,
         description="Anthropic thinking blocks from the LLM response",
     )
-    action: ActionBase = Field(
-        ..., description="Single action (tool call) returned by LLM"
-    )
+    action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"

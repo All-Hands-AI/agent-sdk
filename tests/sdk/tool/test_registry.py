@@ -8,7 +8,7 @@ from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import Tool
 from openhands.sdk.tool.registry import resolve_tool
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import Action, Observation
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import ToolExecutor
 
@@ -21,15 +21,15 @@ def _create_mock_conv_state() -> ConversationState:
     return mock_conv_state
 
 
-class _HelloAction(ActionBase):
+class _HelloAction(Action):
     name: str
 
 
-class _HelloObservation(ObservationBase):
+class _HelloObservation(Observation):
     message: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
 
 

@@ -8,15 +8,15 @@ from pydantic import Field
 
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
     ToolAnnotations,
     ToolExecutor,
 )
 
 
-class ToolMockAction(ActionBase):
+class ToolMockAction(Action):
     """Mock action class for testing."""
 
     command: str = Field(description="Command to execute")
@@ -25,14 +25,14 @@ class ToolMockAction(ActionBase):
     array_field: list[int] = Field(default_factory=list, description="Array field")
 
 
-class ToolMockObservation(ObservationBase):
+class ToolMockObservation(Observation):
     """Mock observation class for testing."""
 
     result: str = Field(description="Result of the action")
     extra_field: str | None = Field(default=None, description="Extra field")
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 
@@ -184,7 +184,7 @@ class TestTool:
     def test_schema_generation_complex_types(self):
         """Test schema generation with complex field types."""
 
-        class ComplexAction(ActionBase):
+        class ComplexAction(Action):
             simple_field: str = Field(description="Simple string field")
             optional_int: int | None = Field(
                 default=None, description="Optional integer"
@@ -359,14 +359,14 @@ class TestTool:
     def test_complex_executor_return_types(self):
         """Test executor with complex return types."""
 
-        class ComplexObservation(ObservationBase):
+        class ComplexObservation(Observation):
             data: dict[str, Any] = Field(
                 default_factory=dict, description="Complex data"
             )
             count: int = Field(default=0, description="Count field")
 
             @property
-            def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+            def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
                 return [TextContent(text=f"Data: {self.data}, Count: {self.count}")]
 
         class MockComplexExecutor(ToolExecutor):
@@ -413,12 +413,12 @@ class TestTool:
     def test_executor_with_observation_validation(self):
         """Test that executor return values are validated."""
 
-        class StrictObservation(ObservationBase):
+        class StrictObservation(Observation):
             message: str = Field(description="Required message field")
             value: int = Field(description="Required value field")
 
             @property
-            def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+            def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
                 return [TextContent(text=f"{self.message}: {self.value}")]
 
         class ValidExecutor(ToolExecutor):
@@ -463,7 +463,7 @@ class TestTool:
     def test_mcp_tool_schema_required_fields(self):
         """Test that MCP tool schema includes required fields."""
 
-        class RequiredFieldAction(ActionBase):
+        class RequiredFieldAction(Action):
             required_field: str = Field(description="This field is required")
             optional_field: str | None = Field(
                 default=None, description="This field is optional"
@@ -505,7 +505,7 @@ class TestTool:
     def test_to_mcp_tool_complex_nested_types(self):
         """Test MCP tool schema generation with complex nested types."""
 
-        class ComplexNestedAction(ActionBase):
+        class ComplexNestedAction(Action):
             """Action with complex nested types for testing."""
 
             simple_string: str = Field(description="Simple string field")

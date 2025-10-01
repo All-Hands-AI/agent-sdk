@@ -59,8 +59,8 @@ from openhands.sdk.llm import (  # noqa: E402
     TextContent,
 )
 from openhands.sdk.tool import (  # noqa: E402
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
     ToolExecutor,
     ToolSpec,
@@ -69,16 +69,16 @@ from openhands.sdk.tool import (  # noqa: E402
 
 
 # Custom sleep tool for testing timing scenarios
-class SleepAction(ActionBase):
+class SleepAction(Action):
     duration: float = Field(description="Sleep duration in seconds")
     message: str = Field(description="Message to return after sleep")
 
 
-class SleepObservation(ObservationBase):
+class SleepObservation(Observation):
     message: str = Field(description="Message returned after sleep")
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
 
 

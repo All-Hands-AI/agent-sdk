@@ -1,4 +1,4 @@
-from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
+from openhands.sdk.event.base import Event, LLMConvertibleEvent
 from openhands.sdk.event.condenser import (
     Condensation,
     CondensationRequest,
@@ -19,7 +19,7 @@ from openhands.sdk.event.user_action import PauseEvent
 
 
 __all__ = [
-    "EventBase",
+    "Event",
     "LLMConvertibleEvent",
     "SystemPromptEvent",
     "ActionEvent",

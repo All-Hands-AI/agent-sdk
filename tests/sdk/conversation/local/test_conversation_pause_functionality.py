@@ -34,8 +34,8 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
     ToolExecutor,
     ToolSpec,
@@ -43,19 +43,19 @@ from openhands.sdk.tool import (
 )
 
 
-class PauseFunctionalityMockAction(ActionBase):
+class PauseFunctionalityMockAction(Action):
     """Mock action schema for testing."""
 
     command: str
 
 
-class PauseFunctionalityMockObservation(ObservationBase):
+class PauseFunctionalityMockObservation(Observation):
     """Mock observation schema for testing."""
 
     result: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 
@@ -261,7 +261,7 @@ class TestPauseFunctionality:
         agent_messages = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, ActionBase) and event.source == "agent"
+            if isinstance(event, Action) and event.source == "agent"
         ]
         assert len(agent_messages) == 0
 

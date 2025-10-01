@@ -13,8 +13,8 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
     ToolAnnotations,
     ToolExecutor,
@@ -81,7 +81,7 @@ def _create_mcp_action_type(action_type: mcp.types.Tool) -> type[Schema]:
     We create from "Schema" instead of:
     - "MCPToolAction" because MCPToolAction has a "data" field that
       wraps all dynamic fields, which we don't want here.
-    - "ActionBase" because ActionBase inherits from DiscriminatedUnionMixin,
+    - "Action" because Action inherits from DiscriminatedUnionMixin,
       which includes `kind` field that is not needed here.
 
     .from_mcp_schema simply defines a new Pydantic model class
@@ -107,7 +107,7 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
 
-    def __call__(self, action: ActionBase) -> ObservationBase:
+    def __call__(self, action: Action) -> Observation:
         """Execute the tool action using the MCP client.
 
         We dynamically create a new MCPToolAction class with

@@ -3,7 +3,7 @@ from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     CondensationSummaryEvent,
-    EventBase,
+    Event,
     MessageEvent,
     ObservationBaseEvent,
     ObservationEvent,
@@ -58,8 +58,8 @@ class StuckDetector:
 
         # the first few scenarios detect 3 or 4 repeated steps
         # prepare the last 4 actions and observations, to check them out
-        last_actions: list[EventBase] = []
-        last_observations: list[EventBase] = []
+        last_actions: list[Event] = []
+        last_observations: list[Event] = []
 
         # retrieve the last four actions and observations starting from
         # the end of history, wherever they are
@@ -97,7 +97,7 @@ class StuckDetector:
         return False
 
     def _is_stuck_repeating_action_observation(
-        self, last_actions: list[EventBase], last_observations: list[EventBase]
+        self, last_actions: list[Event], last_observations: list[Event]
     ) -> bool:
         # scenario 1: same action, same observation
         # it takes 4 actions and 4 observations to detect a loop
@@ -130,7 +130,7 @@ class StuckDetector:
         return False
 
     def _is_stuck_repeating_action_error(
-        self, last_actions: list[EventBase], last_observations: list[EventBase]
+        self, last_actions: list[Event], last_observations: list[Event]
     ) -> bool:
         # scenario 2: same action, errors
         # it takes 3 actions and 3 observations to detect a loop
@@ -148,7 +148,7 @@ class StuckDetector:
         # Check if observations are errors
         return False
 
-    def _is_stuck_monologue(self, events: list[EventBase]) -> bool:
+    def _is_stuck_monologue(self, events: list[Event]) -> bool:
         # scenario 3: monologue
         # check for repeated MessageActions with source=AGENT
         # see if the agent is engaged in a good old monologue, telling
@@ -174,12 +174,12 @@ class StuckDetector:
 
         return agent_message_count >= 3
 
-    def _is_stuck_alternating_action_observation(self, events: list[EventBase]) -> bool:
+    def _is_stuck_alternating_action_observation(self, events: list[Event]) -> bool:
         # scenario 4: alternating action-observation loop
         # needs 6 actions and 6 observations to detect the ping-pong pattern
 
-        last_actions: list[EventBase] = []
-        last_observations: list[EventBase] = []
+        last_actions: list[Event] = []
+        last_observations: list[Event] = []
 
         # collect most recent 6 actions and 6 observations
         for event in reversed(events):
@@ -214,7 +214,7 @@ class StuckDetector:
 
         return False
 
-    def _is_stuck_context_window_error(self, events: list[EventBase]) -> bool:
+    def _is_stuck_context_window_error(self, events: list[Event]) -> bool:
         """Detects if we're stuck in a loop of context window errors.
 
         This happens when we repeatedly get context window errors and try to trim,
@@ -225,7 +225,7 @@ class StuckDetector:
         # TODO: blocked by https://github.com/All-Hands-AI/agent-sdk/issues/282
         return False
 
-    def _event_eq(self, event1: EventBase, event2: EventBase) -> bool:
+    def _event_eq(self, event1: Event, event2: Event) -> bool:
         """
         Compare two events for equality, ignoring irrelevant
         details like ids, metrics.

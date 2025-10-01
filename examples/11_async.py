@@ -13,7 +13,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
@@ -57,7 +57,7 @@ llm_messages = []  # collect raw LLM messages
 
 
 # Callback coroutine
-async def callback_coro(event: EventBase):
+async def callback_coro(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

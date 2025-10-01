@@ -9,7 +9,7 @@ from openhands.sdk.conversation.persistence_const import (
     EVENT_NAME_RE,
     EVENTS_DIR,
 )
-from openhands.sdk.event import EventBase, EventID
+from openhands.sdk.event import Event, EventID
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
 
@@ -41,19 +41,19 @@ class EventLog(EventsListBase):
         return self._idx_to_id[idx]
 
     @overload
-    def __getitem__(self, idx: int) -> EventBase: ...
+    def __getitem__(self, idx: int) -> Event: ...
 
     @overload
-    def __getitem__(self, idx: slice) -> list[EventBase]: ...
+    def __getitem__(self, idx: slice) -> list[Event]: ...
 
-    def __getitem__(self, idx: SupportsIndex | slice) -> EventBase | list[EventBase]:
+    def __getitem__(self, idx: SupportsIndex | slice) -> Event | list[Event]:
         if isinstance(idx, slice):
             start, stop, step = idx.indices(self._length)
             return [self._get_single_item(i) for i in range(start, stop, step)]
         # idx is int-like (SupportsIndex)
         return self._get_single_item(idx)
 
-    def _get_single_item(self, idx: SupportsIndex) -> EventBase:
+    def _get_single_item(self, idx: SupportsIndex) -> Event:
         i = operator.index(idx)
         if i < 0:
             i += self._length
@@ -62,14 +62,14 @@ class EventLog(EventsListBase):
         txt = self._fs.read(self._path(i))
         if not txt:
             raise FileNotFoundError(f"Missing event file: {self._path(i)}")
-        return EventBase.model_validate_json(txt)
+        return Event.model_validate_json(txt)
 
-    def __iter__(self) -> Iterator[EventBase]:
+    def __iter__(self) -> Iterator[Event]:
         for i in range(self._length):
             txt = self._fs.read(self._path(i))
             if not txt:
                 continue
-            evt = EventBase.model_validate_json(txt)
+            evt = Event.model_validate_json(txt)
             evt_id = evt.id
             # only backfill mapping if missing
             if i not in self._idx_to_id:
@@ -77,7 +77,7 @@ class EventLog(EventsListBase):
                 self._id_to_idx.setdefault(evt_id, i)
             yield evt
 
-    def append(self, event: EventBase) -> None:
+    def append(self, event: Event) -> None:
         evt_id = event.id
         # Check for duplicate ID
         if evt_id in self._id_to_idx:
