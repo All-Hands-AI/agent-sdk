@@ -237,7 +237,10 @@ def test_message_event_thinking_blocks_property():
     # Test thinking_blocks property
     assert len(event.thinking_blocks) == 1
     assert event.thinking_blocks[0].thinking == "Complex reasoning..."
-    assert event.thinking_blocks[0].signature == "sig_def"
+    # Type assertion since we know this is a ThinkingBlock
+    thinking_block = event.thinking_blocks[0]
+    assert isinstance(thinking_block, ThinkingBlock)
+    assert thinking_block.signature == "sig_def"
 
 
 def test_message_event_visualize_with_thinking_blocks():
