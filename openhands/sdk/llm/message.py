@@ -105,6 +105,17 @@ class MessageToolCall(BaseModel):
         Returns:
             A new MessageToolCall instance with the same data
         """
+        if not tool_call.type == "function":
+            raise ValueError(
+                f"Unsupported tool call type for {tool_call=}, expected 'function'  "
+                f"not {tool_call.type}'"
+            )
+        if tool_call.function is None:
+            raise ValueError(f"tool_call.function is None for {tool_call=}")
+
+        if tool_call.function.name is None:
+            raise ValueError(f"tool_call.function.name is None for {tool_call=}")
+
         return cls(
             id=tool_call.id,
             name=tool_call.function.name,
