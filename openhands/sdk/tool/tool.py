@@ -343,10 +343,6 @@ class ToolDefinition[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
         )
 
 
-# Backward compatibility alias
-Tool = ToolDefinition
-
-
 def _create_action_type_with_risk(action_type: type[ActionBase]) -> type[ActionBase]:
     action_type_with_risk = _action_types_with_risk.get(action_type)
     if action_type_with_risk:
