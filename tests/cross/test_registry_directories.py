@@ -14,7 +14,7 @@ from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.event.llm_convertible import SystemPromptEvent
 from openhands.sdk.llm import LLM, TextContent
 from openhands.sdk.tool.registry import resolve_tool
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -74,7 +74,7 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         )
 
         # Test BashTool
-        bash_spec = ToolSpec(name="BashTool")
+        bash_spec = Tool(name="BashTool")
         bash_tools = resolve_tool(bash_spec, conv_state=conversation._state)
         assert len(bash_tools) == 1
         # Type ignore needed for test-specific executor access
@@ -82,7 +82,7 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         assert work_dir == working_dir
 
         # Test FileEditorTool
-        editor_spec = ToolSpec(name="FileEditorTool")
+        editor_spec = Tool(name="FileEditorTool")
         editor_tools = resolve_tool(editor_spec, conv_state=conversation._state)
         assert len(editor_tools) == 1
         # Type ignore needed for test-specific executor access
@@ -90,7 +90,7 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         assert cwd == working_dir
 
         # Test TaskTrackerTool
-        tracker_spec = ToolSpec(name="TaskTrackerTool")
+        tracker_spec = Tool(name="TaskTrackerTool")
         tracker_tools = resolve_tool(tracker_spec, conv_state=conversation._state)
         assert len(tracker_tools) == 1
         # Type ignore needed for test-specific executor access

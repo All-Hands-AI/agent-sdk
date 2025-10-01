@@ -23,7 +23,7 @@ from openhands.sdk.event.llm_convertible import (
     MessageEvent,
     ObservationEvent,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -163,12 +163,12 @@ class TestHelloWorld:
             api_key=SecretStr("mock-api-key"),
         )
 
-        # Tools setup with temporary directory - use registry + ToolSpec as in runtime
+        # Tools setup with temporary directory - use registry + Tool as in runtime
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         tool_specs = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
 
         # Agent setup
@@ -283,12 +283,12 @@ class TestHelloWorld:
             api_key=SecretStr("mock-api-key"),
         )
 
-        # Tools setup with temporary directory - use registry + ToolSpec as in runtime
+        # Tools setup with temporary directory - use registry + Tool as in runtime
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         tool_specs = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
 
         # Create agent and conversation

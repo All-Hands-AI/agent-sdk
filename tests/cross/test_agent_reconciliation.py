@@ -14,7 +14,7 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.preset.default import get_default_agent
 from openhands.tools.str_replace_editor import FileEditorTool
@@ -109,8 +109,8 @@ def test_conversation_with_different_agent_tools_fails():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create and save conversation with original agent
         original_tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -135,7 +135,7 @@ def test_conversation_with_different_agent_tools_fails():
         del conversation
 
         # Try to create new conversation with different tools (only bash tool)
-        different_tools = [ToolSpec(name="BashTool")]  # Missing FileEditorTool
+        different_tools = [Tool(name="BashTool")]  # Missing FileEditorTool
         llm2 = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
         )
@@ -159,8 +159,8 @@ def test_conversation_with_same_agent_succeeds():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create and save conversation
         tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -186,8 +186,8 @@ def test_conversation_with_same_agent_succeeds():
 
         # Create new conversation with same agent configuration
         same_tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
         llm2 = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -220,8 +220,8 @@ def test_conversation_persistence_lifecycle(mock_completion):
 
     with tempfile.TemporaryDirectory() as temp_dir:
         tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -288,7 +288,7 @@ def test_agent_resolve_diff_from_deserialized():
     """Test agent's resolve_diff_from_deserialized method."""
     with tempfile.TemporaryDirectory():
         # Create original agent
-        tools = [ToolSpec(name="BashTool")]
+        tools = [Tool(name="BashTool")]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
         )

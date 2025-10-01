@@ -27,9 +27,9 @@ from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextC
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 from openhands.sdk.tool import (
+    Tool,
     ToolDefinition,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 from openhands.sdk.tool.schema import Action, Observation
@@ -109,7 +109,7 @@ class TestConfirmationMode:
 
         self.agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool")],
+            tools=[Tool(name="test_tool")],
         )
         self.conversation = Conversation(agent=self.agent)
 

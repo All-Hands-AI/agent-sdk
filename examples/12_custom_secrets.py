@@ -7,7 +7,7 @@ from openhands.sdk import (
     Agent,
     Conversation,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -25,8 +25,8 @@ llm = LLM(
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
-    ToolSpec(name="FileEditorTool"),
+    Tool(name="BashTool", params={"working_dir": os.getcwd()}),
+    Tool(name="FileEditorTool"),
 ]
 
 # Agent

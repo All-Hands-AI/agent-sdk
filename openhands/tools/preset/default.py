@@ -8,7 +8,7 @@ from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 
 
 logger = get_logger(__name__)
@@ -36,7 +36,7 @@ def register_default_tools(enable_browser: bool = True) -> None:
 
 def get_default_tools(
     enable_browser: bool = True,
-) -> list[ToolSpec]:
+) -> list[Tool]:
     """Get the default set of tool specifications for the standard experience.
 
     Args:
@@ -45,12 +45,12 @@ def get_default_tools(
     register_default_tools(enable_browser=enable_browser)
 
     tool_specs = [
-        ToolSpec(name="BashTool"),
-        ToolSpec(name="FileEditorTool"),
-        ToolSpec(name="TaskTrackerTool"),
+        Tool(name="BashTool"),
+        Tool(name="FileEditorTool"),
+        Tool(name="TaskTrackerTool"),
     ]
     if enable_browser:
-        tool_specs.append(ToolSpec(name="BrowserToolSet"))
+        tool_specs.append(Tool(name="BrowserToolSet"))
     return tool_specs
 
 

@@ -9,7 +9,7 @@ from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import ToolDefinition
 from openhands.sdk.tool.registry import resolve_tool
 from openhands.sdk.tool.schema import Action, Observation
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.sdk.tool.tool import ToolExecutor
 
 
@@ -81,7 +81,7 @@ def _hello_tool_factory(conv_state=None, **params) -> list[ToolDefinition]:
 
 def test_register_and_resolve_callable_factory():
     register_tool("say_hello", _hello_tool_factory)
-    tools = resolve_tool(ToolSpec(name="say_hello"), _create_mock_conv_state())
+    tools = resolve_tool(Tool(name="say_hello"), _create_mock_conv_state())
     assert len(tools) == 1
     assert isinstance(tools[0], ToolDefinition)
     assert tools[0].name == "say_hello"
@@ -92,7 +92,7 @@ def test_register_tool_instance_rejects_params():
     register_tool("say_hello_instance", t)
     with pytest.raises(ValueError):
         resolve_tool(
-            ToolSpec(name="say_hello_instance", params={"x": 1}),
+            Tool(name="say_hello_instance", params={"x": 1}),
             _create_mock_conv_state(),
         )
 
@@ -102,10 +102,10 @@ def test_register_tool_instance_returns_same_object():
     register_tool("say_hello_instance_same", tool)
 
     resolved_first = resolve_tool(
-        ToolSpec(name="say_hello_instance_same"), _create_mock_conv_state()
+        Tool(name="say_hello_instance_same"), _create_mock_conv_state()
     )
     resolved_second = resolve_tool(
-        ToolSpec(name="say_hello_instance_same"), _create_mock_conv_state()
+        Tool(name="say_hello_instance_same"), _create_mock_conv_state()
     )
 
     assert resolved_first == [tool]
@@ -117,7 +117,7 @@ def test_register_tool_type_uses_create_params():
     register_tool("say_configurable_hello_type", _ConfigurableHelloTool)
 
     tools = resolve_tool(
-        ToolSpec(
+        Tool(
             name="say_configurable_hello_type",
             params={"greeting": "Howdy", "punctuation": "?"},
         ),

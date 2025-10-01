@@ -10,7 +10,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.browser_use import BrowserToolSet
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
@@ -34,11 +34,11 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 register_tool("BrowserToolSet", BrowserToolSet)
 tools = [
-    ToolSpec(
+    Tool(
         name="BashTool",
     ),
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="BrowserToolSet"),
+    Tool(name="FileEditorTool"),
+    Tool(name="BrowserToolSet"),
 ]
 
 # If you need fine-grained browser control, you can manually register individual browser

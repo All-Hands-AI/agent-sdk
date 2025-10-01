@@ -22,7 +22,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -57,14 +57,14 @@ def create_llm(
     return LLM(**llm_kwargs, service_id="test-llm")
 
 
-def create_tools(working_dir: str | None = None) -> list[ToolSpec]:
+def create_tools(working_dir: str | None = None) -> list[Tool]:
     """Create standard tool specifications for testing."""
     cwd = working_dir or os.getcwd()
     register_tool("BashTool", BashTool)
     register_tool("FileEditorTool", FileEditorTool)
     return [
-        ToolSpec(name="BashTool", params={"working_dir": cwd}),
-        ToolSpec(name="FileEditorTool"),
+        Tool(name="BashTool", params={"working_dir": cwd}),
+        Tool(name="FileEditorTool"),
     ]
 
 

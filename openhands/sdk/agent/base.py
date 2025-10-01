@@ -15,7 +15,7 @@ from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import BUILT_IN_TOOLS, ToolDefinition, ToolSpec, resolve_tool
+from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolDefinition, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -48,7 +48,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             }
         ],
     )
-    tools: list[ToolSpec] = Field(
+    tools: list[Tool] = Field(
         default_factory=list,
         description="List of tools to initialize for the agent.",
         examples=[

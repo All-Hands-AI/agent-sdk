@@ -7,7 +7,7 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
 )
 from openhands.sdk.llm import LLM
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -33,7 +33,7 @@ def test_get_default_agent_includes_browser_toolset(basic_llm):
             break
 
     assert browser_toolset_spec is not None
-    assert isinstance(browser_toolset_spec, ToolSpec)
+    assert isinstance(browser_toolset_spec, Tool)
     assert browser_toolset_spec.params == {}
 
 

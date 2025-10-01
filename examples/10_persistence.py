@@ -11,7 +11,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -33,8 +33,8 @@ cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tool_specs = [
-    ToolSpec(name="BashTool"),
-    ToolSpec(name="FileEditorTool"),
+    Tool(name="BashTool"),
+    Tool(name="FileEditorTool"),
 ]
 
 # Add MCP Tools

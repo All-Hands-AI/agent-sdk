@@ -362,7 +362,3 @@ def _create_action_type_with_risk(action_type: type[Action]) -> type[Action]:
     )
     _action_types_with_risk[action_type] = action_type_with_risk
     return action_type_with_risk
-
-
-# Backward compatibility aliases
-Tool = ToolDefinition
