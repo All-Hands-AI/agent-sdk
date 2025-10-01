@@ -343,9 +343,7 @@ class TestReplayAllFunctionality:
             )
 
         # search_events should be called to get all events
-        mock_event_service.search_events.assert_called_once_with(
-            page_id=None, limit=10000
-        )
+        mock_event_service.search_events.assert_called_once_with(page_id=None)
 
         # All events should be sent through websocket
         assert mock_websocket.send_json.call_count == 2
@@ -357,11 +355,10 @@ class TestReplayAllFunctionality:
     async def test_replay_all_handles_search_events_exception(
         self, mock_websocket, mock_event_service, sample_conversation_id
     ):
-        """Test that exceptions during search_events are handled gracefully."""
+        """Test that exceptions during search_events cause the WebSocket to fail."""
         mock_event_service.search_events = AsyncMock(
             side_effect=Exception("Search failed")
         )
-        mock_websocket.receive_json.side_effect = WebSocketDisconnect()
 
         with (
             patch(
@@ -376,17 +373,18 @@ class TestReplayAllFunctionality:
 
             from openhands.agent_server.sockets import events_socket
 
-            # Should not raise exception, should handle gracefully
-            await events_socket(
-                sample_conversation_id,
-                mock_websocket,
-                session_api_key=None,
-                replay_all=True,
-            )
+            # Should raise the exception from search_events
+            with pytest.raises(Exception, match="Search failed"):
+                await events_socket(
+                    sample_conversation_id,
+                    mock_websocket,
+                    session_api_key=None,
+                    replay_all=True,
+                )
 
-        # search_events should still be called
+        # search_events should be called
         mock_event_service.search_events.assert_called_once()
-        # WebSocket should still be subscribed and unsubscribed normally
+        # WebSocket should be subscribed but then unsubscribed due to exception
         mock_event_service.subscribe_to_events.assert_called_once()
         mock_event_service.unsubscribe_from_events.assert_called_once()
 
