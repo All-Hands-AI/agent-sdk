@@ -74,24 +74,24 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         )
 
         # Test BashTool
-        bash_spec = Tool(name="BashTool")
-        bash_tools = resolve_tool(bash_spec, conv_state=conversation._state)
+        bash_tool = Tool(name="BashTool")
+        bash_tools = resolve_tool(bash_tool, conv_state=conversation._state)
         assert len(bash_tools) == 1
         # Type ignore needed for test-specific executor access
         work_dir = bash_tools[0].executor.session.work_dir  # type: ignore[attr-defined]
         assert work_dir == working_dir
 
         # Test FileEditorTool
-        editor_spec = Tool(name="FileEditorTool")
-        editor_tools = resolve_tool(editor_spec, conv_state=conversation._state)
+        editor_tool = Tool(name="FileEditorTool")
+        editor_tools = resolve_tool(editor_tool, conv_state=conversation._state)
         assert len(editor_tools) == 1
         # Type ignore needed for test-specific executor access
         cwd = str(editor_tools[0].executor.editor._cwd)  # type: ignore[attr-defined]
         assert cwd == working_dir
 
         # Test TaskTrackerTool
-        tracker_spec = Tool(name="TaskTrackerTool")
-        tracker_tools = resolve_tool(tracker_spec, conv_state=conversation._state)
+        tracker_tool = Tool(name="TaskTrackerTool")
+        tracker_tools = resolve_tool(tracker_tool, conv_state=conversation._state)
         assert len(tracker_tools) == 1
         # Type ignore needed for test-specific executor access
         save_dir = str(tracker_tools[0].executor.save_dir)  # type: ignore[attr-defined]

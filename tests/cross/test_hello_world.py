@@ -166,13 +166,13 @@ class TestHelloWorld:
         # Tools setup with temporary directory - use registry + Tool as in runtime
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
-        tool_specs = [
+        tools = [
             Tool(name="BashTool"),
             Tool(name="FileEditorTool"),
         ]
 
         # Agent setup
-        agent = Agent(llm=llm, tools=tool_specs)
+        agent = Agent(llm=llm, tools=tools)
 
         # Conversation setup
         conversation = Conversation(
@@ -286,13 +286,13 @@ class TestHelloWorld:
         # Tools setup with temporary directory - use registry + Tool as in runtime
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
-        tool_specs = [
+        tools = [
             Tool(name="BashTool"),
             Tool(name="FileEditorTool"),
         ]
 
         # Create agent and conversation
-        agent = Agent(llm=llm, tools=tool_specs)
+        agent = Agent(llm=llm, tools=tools)
         conversation = Conversation(
             agent=agent,
             workspace=self.temp_dir,

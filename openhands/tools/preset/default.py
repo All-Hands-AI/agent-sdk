@@ -44,14 +44,14 @@ def get_default_tools(
     """
     register_default_tools(enable_browser=enable_browser)
 
-    tool_specs = [
+    tools = [
         Tool(name="BashTool"),
         Tool(name="FileEditorTool"),
         Tool(name="TaskTrackerTool"),
     ]
     if enable_browser:
-        tool_specs.append(Tool(name="BrowserToolSet"))
-    return tool_specs
+        tools.append(Tool(name="BrowserToolSet"))
+    return tools
 
 
 def get_default_condenser(llm: LLM) -> CondenserBase:
@@ -67,13 +67,13 @@ def get_default_agent(
     llm: LLM,
     cli_mode: bool = False,
 ) -> Agent:
-    tool_specs = get_default_tools(
+    tools = get_default_tools(
         # Disable browser tools in CLI mode
         enable_browser=not cli_mode,
     )
     agent = Agent(
         llm=llm,
-        tools=tool_specs,
+        tools=tools,
         mcp_config={
             "mcpServers": {
                 "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},

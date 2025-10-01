@@ -30,7 +30,7 @@ llm = LLM(
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
-tool_specs = [
+tools = [
     Tool(
         name="BashTool",
     ),
@@ -40,7 +40,7 @@ tool_specs = [
 mcp_config = {
     "mcpServers": {"Notion": {"url": "https://mcp.notion.com/mcp", "auth": "oauth"}}
 }
-agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
+agent = Agent(llm=llm, tools=tools, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
 
