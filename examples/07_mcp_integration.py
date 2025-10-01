@@ -10,6 +10,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
@@ -49,6 +50,7 @@ agent = Agent(
     mcp_config=mcp_config,
     # This regex filters out all repomix tools except pack_codebase
     filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
+    security_analyzer=LLMSecurityAnalyzer(),
 )
 
 llm_messages = []  # collect raw LLM messages
