@@ -7,8 +7,8 @@ from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
-    Tool,
     ToolAnnotations,
+    ToolDefinition,
     ToolExecutor,
 )
 
@@ -58,7 +58,7 @@ class FinishExecutor(ToolExecutor):
         return FinishObservation(message=action.message)
 
 
-FinishTool = Tool(
+FinishTool = ToolDefinition(
     name="finish",
     action_type=FinishAction,
     observation_type=FinishObservation,

@@ -59,7 +59,7 @@ from openhands.sdk.llm import LLM, ImageContent, Message, TextContent  # noqa: E
 from openhands.sdk.tool import (  # noqa: E402
     Action,
     Observation,
-    Tool,
+    ToolDefinition,
     ToolExecutor,
     ToolSpec,
     register_tool,
@@ -123,10 +123,10 @@ class SleepExecutor(ToolExecutor):
         return SleepObservation(message=action.message)
 
 
-def _make_sleep_tool(conv_state=None, **kwargs) -> Sequence[Tool]:
+def _make_sleep_tool(conv_state=None, **kwargs) -> Sequence[ToolDefinition]:
     """Create sleep tool for testing."""
     return [
-        Tool(
+        ToolDefinition(
             name="sleep_tool",
             action_type=SleepAction,
             observation_type=SleepObservation,

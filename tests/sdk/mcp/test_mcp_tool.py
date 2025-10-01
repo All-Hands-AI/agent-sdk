@@ -8,7 +8,7 @@ import mcp.types
 from openhands.sdk.llm import TextContent
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolObservation
-from openhands.sdk.mcp.tool import MCPTool, MCPToolExecutor
+from openhands.sdk.mcp.tool import MCPToolDefinition, MCPToolExecutor
 from openhands.sdk.tool import ToolAnnotations
 
 
@@ -227,8 +227,10 @@ class TestMCPTool:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = None
 
-        tools = MCPTool.create(mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client)
-        self.tool: Any = tools[0]  # Extract single tool from sequence
+        tools = MCPToolDefinition.create(
+            mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
+        )
+        self.tool = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_creation(self):
         """Test creating an MCP tool."""
@@ -261,7 +263,7 @@ class TestMCPTool:
         mock_tool_with_annotations.annotations = ToolAnnotations(title="Annotated Tool")
         mock_tool_with_annotations.meta = {"version": "1.0"}
 
-        tools = MCPTool.create(
+        tools = MCPToolDefinition.create(
             mcp_tool=mock_tool_with_annotations, mcp_client=self.mock_client
         )
         tool = tools[0]  # Extract single tool from sequence
@@ -280,7 +282,9 @@ class TestMCPTool:
         mock_tool_no_desc.annotations = None
         mock_tool_no_desc.meta = None
 
-        tools = MCPTool.create(mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client)
+        tools = MCPToolDefinition.create(
+            mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client
+        )
         tool = tools[0]  # Extract single tool from sequence
 
         assert tool.name == "no_desc_tool"

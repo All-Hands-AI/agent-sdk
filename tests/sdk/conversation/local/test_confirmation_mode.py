@@ -26,9 +26,13 @@ from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
-from openhands.sdk.tool import ToolExecutor, ToolSpec, register_tool
+from openhands.sdk.tool import (
+    ToolDefinition,
+    ToolExecutor,
+    ToolSpec,
+    register_tool,
+)
 from openhands.sdk.tool.schema import Action, Observation
-from openhands.sdk.tool.tool import Tool
 
 
 class MockConfirmationModeAction(Action):
@@ -90,9 +94,9 @@ class TestConfirmationMode:
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool(conv_state=None, **params) -> Sequence[Tool]:
+        def _make_tool(conv_state=None, **params) -> Sequence[ToolDefinition]:
             return [
-                Tool(
+                ToolDefinition(
                     name="test_tool",
                     description="A test tool",
                     action_type=MockConfirmationModeAction,

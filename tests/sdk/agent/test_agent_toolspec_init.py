@@ -4,7 +4,7 @@ from unittest.mock import patch
 from openhands.sdk import LLM, Conversation
 from openhands.sdk.agent import Agent
 from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolDefinition
 from openhands.sdk.tool.registry import register_tool
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import Action, Observation, ToolExecutor
@@ -27,9 +27,9 @@ class _Exec(ToolExecutor[_Action, _Obs]):
         return _Obs(out=action.text.upper())
 
 
-def _make_tool(conv_state=None, **kwargs) -> Sequence[Tool]:
+def _make_tool(conv_state=None, **kwargs) -> Sequence[ToolDefinition]:
     return [
-        Tool(
+        ToolDefinition(
             name="upper",
             description="Uppercase",
             action_type=_Action,

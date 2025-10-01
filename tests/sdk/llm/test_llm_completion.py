@@ -9,7 +9,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.tool.schema import Action
-from openhands.sdk.tool.tool import Tool, ToolBase
+from openhands.sdk.tool.tool import ToolBase, ToolDefinition
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -124,7 +124,7 @@ def test_llm_completion_with_tools(mock_completion):
     class _ArgsBasic(Action):
         param: str
 
-    tool: ToolBase = Tool(
+    tool: ToolBase = ToolDefinition(
         name="test_tool", description="A test tool", action_type=_ArgsBasic
     )
     tools_list: list[ToolBase] = [tool]
@@ -330,7 +330,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
         param: str
 
     tools: list[ToolBase] = [
-        Tool(
+        ToolDefinition(
             name="test_tool",
             description="A test tool for non-function call mode",
             action_type=TestNonFCArgs,
@@ -389,7 +389,9 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
         param: str | None = None
 
     tools: list[ToolBase] = [
-        Tool(name="test_tool", description="A test tool", action_type=TestFCArgs)
+        ToolDefinition(
+            name="test_tool", description="A test tool", action_type=TestFCArgs
+        )
     ]
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
