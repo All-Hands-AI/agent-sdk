@@ -76,10 +76,16 @@ class MessageEvent(LLMConvertibleEvent):
         if self.thinking_blocks:
             content.append("\nThinking Blocks (Anthropic Extended Thinking):\n")
             for i, block in enumerate(self.thinking_blocks):
-                content.append(f"Block {i + 1}: {block.thinking[:200]}...")
-                if len(block.thinking) > 200:
-                    content.append(" [truncated]")
-                content.append("\n")
+                if isinstance(block, RedactedThinkingBlock):
+                    content.append(f"Block {i + 1}: {block.data[:1000]}...")
+                    if len(block.data) > 1000:
+                        content.append(" [truncated]")
+                    content.append("\n")
+                elif isinstance(block, ThinkingBlock):
+                    content.append(f"Block {i + 1}: {block.thinking[:200]}...")
+                    if len(block.thinking) > 200:
+                        content.append(" [truncated]")
+                    content.append("\n")
 
         return content
 

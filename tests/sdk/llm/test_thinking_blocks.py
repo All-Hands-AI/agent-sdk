@@ -3,6 +3,8 @@
 from litellm.types.llms.openai import ChatCompletionThinkingBlock
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 
+from openhands.sdk import Message, TextContent, ThinkingBlock
+
 
 def create_mock_response_with_thinking(
     content: str = "Test response",
@@ -83,13 +85,10 @@ def test_message_with_thinking_blocks():
     )
 
     assert len(message.thinking_blocks) == 1
+    assert isinstance(message.thinking_blocks[0], ThinkingBlock)
     assert (
         message.thinking_blocks[0].thinking == "Let me think about this step by step..."
     )
-    # Type assertion since we know this is a ThinkingBlock
-    from openhands.sdk.llm.message import ThinkingBlock
-
-    assert isinstance(message.thinking_blocks[0], ThinkingBlock)
     assert message.thinking_blocks[0].signature == "sig123"
 
 
@@ -130,11 +129,8 @@ def test_message_from_litellm_message_with_thinking():
 
     # Check thinking blocks
     assert len(message.thinking_blocks) == 1
-    assert message.thinking_blocks[0].thinking == "Let me analyze this problem..."
-    # Type assertion since we know this is a ThinkingBlock from LiteLLM
-    from openhands.sdk.llm.message import ThinkingBlock
-
     assert isinstance(message.thinking_blocks[0], ThinkingBlock)
+    assert message.thinking_blocks[0].thinking == "Let me analyze this problem..."
     assert message.thinking_blocks[0].signature == "hash_456"
 
 
@@ -236,10 +232,9 @@ def test_message_event_thinking_blocks_property():
 
     # Test thinking_blocks property
     assert len(event.thinking_blocks) == 1
-    assert event.thinking_blocks[0].thinking == "Complex reasoning..."
-    # Type assertion since we know this is a ThinkingBlock
     thinking_block = event.thinking_blocks[0]
     assert isinstance(thinking_block, ThinkingBlock)
+    assert thinking_block.thinking == "Complex reasoning..."
     assert thinking_block.signature == "sig_def"
 
 
@@ -300,8 +295,6 @@ def test_message_event_str_with_thinking_blocks():
 
 def test_multiple_thinking_blocks():
     """Test handling multiple thinking blocks."""
-    from openhands.sdk.llm.message import Message, TextContent, ThinkingBlock
-
     thinking_blocks = [
         ThinkingBlock(thinking="First reasoning step", signature="sig1"),
         ThinkingBlock(thinking="Second reasoning step", signature="sig2"),
@@ -315,13 +308,12 @@ def test_multiple_thinking_blocks():
     )
 
     assert len(message.thinking_blocks) == 3
+    assert isinstance(message.thinking_blocks[0], ThinkingBlock)
     assert message.thinking_blocks[0].thinking == "First reasoning step"
+    assert isinstance(message.thinking_blocks[1], ThinkingBlock)
     assert message.thinking_blocks[1].thinking == "Second reasoning step"
-    assert message.thinking_blocks[2].thinking == "Final reasoning step"
-    # Type assertion since we know this is a ThinkingBlock (created without signature)
-    from openhands.sdk.llm.message import ThinkingBlock
-
     assert isinstance(message.thinking_blocks[2], ThinkingBlock)
+    assert message.thinking_blocks[2].thinking == "Final reasoning step"
     assert message.thinking_blocks[2].signature is None
 
     # Test serialization

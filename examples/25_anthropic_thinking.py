@@ -4,7 +4,15 @@ import os
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, Conversation, EventBase, LLMConvertibleEvent
+from openhands.sdk import (
+    LLM,
+    Agent,
+    Conversation,
+    EventBase,
+    LLMConvertibleEvent,
+    RedactedThinkingBlock,
+    ThinkingBlock,
+)
 from openhands.sdk.tool import ToolSpec, register_tool
 from openhands.tools.execute_bash import BashTool
 
@@ -34,7 +42,10 @@ def show_thinking(event: EventBase):
         if hasattr(message, "thinking_blocks") and message.thinking_blocks:
             print(f"\n🧠 Found {len(message.thinking_blocks)} thinking blocks")
             for i, block in enumerate(message.thinking_blocks):
-                print(f"  Block {i + 1}: {block.thinking[:100]}...")
+                if isinstance(block, RedactedThinkingBlock):
+                    print(f"  Block {i + 1}: {block.data[:1000]}...")
+                elif isinstance(block, ThinkingBlock):
+                    print(f"  Block {i + 1}: {block.thinking[:100]}...")
 
 
 conversation = Conversation(
