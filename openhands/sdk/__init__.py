@@ -36,6 +36,7 @@ from openhands.sdk.mcp import (
 from openhands.sdk.tool import (
     Action,
     Observation,
+    Tool,
     ToolBase,
     ToolDefinition,
     list_registered_tools,
@@ -64,6 +65,7 @@ __all__ = [
     "ImageContent",
     "ThinkingBlock",
     "RedactedThinkingBlock",
+    "Tool",
     "ToolDefinition",
     "ToolBase",
     "AgentBase",
