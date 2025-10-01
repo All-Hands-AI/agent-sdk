@@ -81,6 +81,9 @@ def test_tool_examples_from_docstring():
     spec_with_params = Tool(name="TestTool", params={"custom_param": "/workspace"})
     assert spec_with_params.name == "TestTool"
     assert spec_with_params.params == {"custom_param": "/workspace"}
+    spec_with_params = Tool(name="TestTool", params={"working_dir": "/workspace"})
+    assert spec_with_params.name == "TestTool"
+    assert spec_with_params.params == {"working_dir": "/workspace"}
 
 
 def test_tool_different_tool_types():

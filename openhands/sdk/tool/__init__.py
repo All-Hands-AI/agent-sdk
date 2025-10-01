@@ -21,6 +21,7 @@ from openhands.sdk.tool.tool import (
 
 
 __all__ = [
+    "Tool",
     "ToolDefinition",
     "ToolBase",
     "ToolAnnotations",
