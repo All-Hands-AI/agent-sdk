@@ -60,7 +60,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             },
         ],
     )
-    mcp_config: dict[str, object] = Field(
+    mcp_config: dict[str, Any] = Field(
         default_factory=dict,
         description="Optional MCP configuration dictionary to create MCP tools.",
         examples=[

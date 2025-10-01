@@ -36,7 +36,7 @@ tool_specs = [
 ]
 
 # Add MCP Tools
-mcp_config: dict[str, object] = {
+mcp_config = {
     "mcpServers": {
         "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
         "repomix": {"command": "npx", "args": ["-y", "repomix@1.4.2", "--mcp"]},
