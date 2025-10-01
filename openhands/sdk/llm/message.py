@@ -141,23 +141,6 @@ class MessageToolCall(BaseModel):
             id=self.id, type="function", function=function
         )
 
-    @property
-    def function(self) -> Any:
-        """Backward compatibility property to access function details."""
-
-        # Return an object that has name and arguments attributes
-        class FunctionInfo:
-            def __init__(self, name: str, arguments: str):
-                self.name = name
-                self.arguments = arguments
-
-        return FunctionInfo(self.name, self.arguments_json)
-
-    @property
-    def type(self) -> str:
-        """Backward compatibility property for tool call type."""
-        return "function"
-
 
 class ThinkingBlock(BaseModel):
     """Anthropic thinking block for extended thinking feature.
@@ -278,43 +261,6 @@ class Message(BaseModel):
         if isinstance(v, str):
             return [TextContent(text=v)]
         return v
-
-    @field_validator("tool_calls", mode="before")
-    @classmethod
-    def _coerce_tool_calls(cls, v: Any) -> list[MessageToolCall] | None:
-        """Convert tool_calls from various formats to MessageToolCall objects."""
-        if v is None:
-            return None
-        if not isinstance(v, list):
-            return v
-
-        result = []
-        for item in v:
-            if isinstance(item, MessageToolCall):
-                result.append(item)
-            elif isinstance(item, dict):
-                # Convert dict to MessageToolCall
-                if "function" in item and isinstance(item["function"], dict):
-                    # Standard format: {"id": "...", "type": "function",
-                    # "function": {"name": "...", "arguments": "..."}}
-                    result.append(
-                        MessageToolCall(
-                            id=item["id"],
-                            name=item["function"]["name"],
-                            arguments_json=item["function"]["arguments"],
-                            origin="completion",
-                        )
-                    )
-                elif "name" in item and "arguments_json" in item:
-                    # Direct format: {"id": "...", "name": "...",
-                    # "arguments_json": "...", "origin": "..."}
-                    result.append(MessageToolCall(**item))
-                else:
-                    # Keep as-is if we can't convert
-                    result.append(item)
-            else:
-                result.append(item)
-        return result
 
     def to_llm_dict(self) -> dict[str, Any]:
         """Serialize message for LLM API consumption.

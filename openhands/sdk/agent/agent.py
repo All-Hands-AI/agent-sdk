@@ -297,7 +297,7 @@ class Agent(AgentBase):
 
         NOTE: state will be mutated in-place.
         """
-        tool_name = tool_call.function.name
+        tool_name = tool_call.name
         tool = self.tools_map.get(tool_name, None)
         # Handle non-existing tools
         if tool is None:
@@ -315,7 +315,7 @@ class Agent(AgentBase):
         # Validate arguments
         security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
-            arguments = json.loads(tool_call.function.arguments)
+            arguments = json.loads(tool_call.arguments_json)
 
             # if the tool has a security_risk field (when security analyzer = LLM),
             # pop it out as it's not part of the tool's action schema
@@ -337,7 +337,7 @@ class Agent(AgentBase):
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
-                f"Error validating args {tool_call.function.arguments} for tool "
+                f"Error validating args {tool_call.arguments_json} for tool "
                 f"'{tool.name}': {e}"
             )
             event = AgentErrorEvent(

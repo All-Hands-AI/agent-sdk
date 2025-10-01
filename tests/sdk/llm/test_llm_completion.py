@@ -355,7 +355,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # At this point, tool_calls should be non-None; assert explicitly
     assert msg.tool_calls is not None
     tc = msg.tool_calls[0]
-    assert tc.type == "function"
+
     assert tc.name == "test_tool"
     # Ensure function-call markup was stripped from assistant content
     if msg.content:
