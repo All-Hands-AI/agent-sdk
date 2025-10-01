@@ -26,8 +26,6 @@ llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
-    temperature=0.1,
-    extended_thinking_budget=10000,  # Set high budget for testing
 )
 
 # Setup agent with bash tool

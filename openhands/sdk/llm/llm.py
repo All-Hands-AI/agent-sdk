@@ -180,7 +180,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         "Can apply to all reasoning models.",
     )
     extended_thinking_budget: int | None = Field(
-        default=200000,
+        default=48_000,
         description="The budget tokens for extended thinking, "
         "supported by Anthropic models.",
     )
