@@ -39,12 +39,19 @@ async def events_socket(
     conversation_id: UUID,
     websocket: WebSocket,
     session_api_key: Annotated[str | None, Query(alias="session_api_key")] = None,
+    replay_all: Annotated[bool, Query()] = False,
 ):
     """WebSocket endpoint for conversation events.
 
     Moved from /api/conversations/{conversation_id}/events/socket to
     /sockets/events/{conversation_id} to support browser connections with
     query parameter authentication.
+
+    Args:
+        conversation_id: UUID of the conversation
+        websocket: WebSocket connection
+        session_api_key: Optional API key for authentication
+        replay_all: If True, replay all existing events before subscribing to new ones
     """
     # Perform authentication check before accepting the WebSocket connection
     config = get_default_config()
@@ -62,6 +69,27 @@ async def events_socket(
     subscriber_id = await event_service.subscribe_to_events(
         _WebSocketSubscriber(websocket)
     )
+
+    # Replay all existing events if requested
+    if replay_all:
+        try:
+            # Get all events from the event service
+            event_page = await event_service.search_events(
+                page_id=None,
+                limit=10000,  # Large limit to get all events
+            )
+
+            # Send each event through the websocket
+            for event in event_page.items:
+                try:
+                    dumped = event.model_dump()
+                    await websocket.send_json(dumped)
+                except Exception:
+                    logger.exception("error_sending_replay_event", stack_info=True)
+
+        except Exception:
+            logger.exception("error_during_event_replay", stack_info=True)
+
     try:
         while True:
             try:

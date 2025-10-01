@@ -32,6 +32,7 @@ def mock_event_service():
     service.subscribe_to_events = AsyncMock(return_value=uuid4())
     service.unsubscribe_from_events = AsyncMock(return_value=True)
     service.send_message = AsyncMock()
+    service.search_events = AsyncMock()
     return service
 
 
@@ -255,4 +256,193 @@ class TestWebSocketDisconnectHandling:
                 )
 
         # Should still unsubscribe in the finally block
+        mock_event_service.unsubscribe_from_events.assert_called_once()
+
+
+class TestReplayAllFunctionality:
+    """Test cases for replay_all parameter functionality."""
+
+    @pytest.mark.asyncio
+    async def test_replay_all_false_no_replay(
+        self, mock_websocket, mock_event_service, sample_conversation_id
+    ):
+        """Test that replay_all=False doesn't trigger event replay."""
+        mock_websocket.receive_json.side_effect = WebSocketDisconnect()
+
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            mock_config.return_value.session_api_keys = None
+            mock_conv_service.get_event_service = AsyncMock(
+                return_value=mock_event_service
+            )
+
+            from openhands.agent_server.sockets import events_socket
+
+            await events_socket(
+                sample_conversation_id,
+                mock_websocket,
+                session_api_key=None,
+                replay_all=False,
+            )
+
+        # search_events should not be called for replay
+        mock_event_service.search_events.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_replay_all_true_replays_events(
+        self, mock_websocket, mock_event_service, sample_conversation_id
+    ):
+        """Test that replay_all=True replays all existing events."""
+        # Create mock events to replay
+        mock_events = [
+            MessageEvent(
+                id="event1",
+                source="user",
+                llm_message=Message(role="user", content=[TextContent(text="Hello")]),
+            ),
+            MessageEvent(
+                id="event2",
+                source="agent",
+                llm_message=Message(role="assistant", content=[TextContent(text="Hi")]),
+            ),
+        ]
+
+        from typing import cast
+
+        from openhands.agent_server.models import EventPage
+        from openhands.sdk.event import Event
+
+        mock_event_page = EventPage(
+            items=cast(list[Event], mock_events), next_page_id=None
+        )
+        mock_event_service.search_events = AsyncMock(return_value=mock_event_page)
+        mock_websocket.receive_json.side_effect = WebSocketDisconnect()
+
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            mock_config.return_value.session_api_keys = None
+            mock_conv_service.get_event_service = AsyncMock(
+                return_value=mock_event_service
+            )
+
+            from openhands.agent_server.sockets import events_socket
+
+            await events_socket(
+                sample_conversation_id,
+                mock_websocket,
+                session_api_key=None,
+                replay_all=True,
+            )
+
+        # search_events should be called to get all events
+        mock_event_service.search_events.assert_called_once_with(
+            page_id=None, limit=10000
+        )
+
+        # All events should be sent through websocket
+        assert mock_websocket.send_json.call_count == 2
+        sent_events = [call[0][0] for call in mock_websocket.send_json.call_args_list]
+        assert sent_events[0]["id"] == "event1"
+        assert sent_events[1]["id"] == "event2"
+
+    @pytest.mark.asyncio
+    async def test_replay_all_handles_search_events_exception(
+        self, mock_websocket, mock_event_service, sample_conversation_id
+    ):
+        """Test that exceptions during search_events are handled gracefully."""
+        mock_event_service.search_events = AsyncMock(
+            side_effect=Exception("Search failed")
+        )
+        mock_websocket.receive_json.side_effect = WebSocketDisconnect()
+
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            mock_config.return_value.session_api_keys = None
+            mock_conv_service.get_event_service = AsyncMock(
+                return_value=mock_event_service
+            )
+
+            from openhands.agent_server.sockets import events_socket
+
+            # Should not raise exception, should handle gracefully
+            await events_socket(
+                sample_conversation_id,
+                mock_websocket,
+                session_api_key=None,
+                replay_all=True,
+            )
+
+        # search_events should still be called
+        mock_event_service.search_events.assert_called_once()
+        # WebSocket should still be subscribed and unsubscribed normally
+        mock_event_service.subscribe_to_events.assert_called_once()
+        mock_event_service.unsubscribe_from_events.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_replay_all_handles_send_json_exception(
+        self, mock_websocket, mock_event_service, sample_conversation_id
+    ):
+        """Test that exceptions during send_json are handled gracefully."""
+        # Create mock events to replay
+        mock_events = [
+            MessageEvent(
+                id="event1",
+                source="user",
+                llm_message=Message(role="user", content=[TextContent(text="Hello")]),
+            ),
+        ]
+
+        from typing import cast
+
+        from openhands.agent_server.models import EventPage
+        from openhands.sdk.event import Event
+
+        mock_event_page = EventPage(
+            items=cast(list[Event], mock_events), next_page_id=None
+        )
+        mock_event_service.search_events = AsyncMock(return_value=mock_event_page)
+
+        # Make send_json fail during replay
+        mock_websocket.send_json.side_effect = Exception("Send failed")
+        mock_websocket.receive_json.side_effect = WebSocketDisconnect()
+
+        with (
+            patch(
+                "openhands.agent_server.sockets.conversation_service"
+            ) as mock_conv_service,
+            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+        ):
+            mock_config.return_value.session_api_keys = None
+            mock_conv_service.get_event_service = AsyncMock(
+                return_value=mock_event_service
+            )
+
+            from openhands.agent_server.sockets import events_socket
+
+            # Should not raise exception, should handle gracefully
+            await events_socket(
+                sample_conversation_id,
+                mock_websocket,
+                session_api_key=None,
+                replay_all=True,
+            )
+
+        # search_events should be called
+        mock_event_service.search_events.assert_called_once()
+        # send_json should be called (and fail)
+        mock_websocket.send_json.assert_called_once()
+        # WebSocket should still be subscribed and unsubscribed normally
+        mock_event_service.subscribe_to_events.assert_called_once()
         mock_event_service.unsubscribe_from_events.assert_called_once()
