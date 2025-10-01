@@ -27,9 +27,9 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
-    ActionBase,
+    Action,
     FinishTool,
-    ObservationBase,
+    Observation,
 )
 from openhands.sdk.tool.builtins import FinishAction
 
@@ -353,7 +353,7 @@ class Agent(AgentBase):
 
             # Arguments we passed in should not contains `security_risk`
             # as a field
-            action: ActionBase = tool.action_from_arguments(arguments)
+            action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -400,9 +400,9 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        observation: ObservationBase = tool(action_event.action)
-        assert isinstance(observation, ObservationBase), (
-            f"Tool '{tool.name}' executor must return an ObservationBase"
+        observation: Observation = tool(action_event.action)
+        assert isinstance(observation, Observation), (
+            f"Tool '{tool.name}' executor must return an Observation"
         )
 
         obs_event = ObservationEvent(

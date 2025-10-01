@@ -7,8 +7,8 @@ from pydantic import Field
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     ToolAnnotations,
     ToolDefinition,
 )
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 MAX_BROWSER_OUTPUT_SIZE = 50000
 
 
-class BrowserObservation(ObservationBase):
+class BrowserObservation(Observation):
     """Base observation for browser operations."""
 
     output: str = Field(description="The output message from the browser operation")
@@ -35,7 +35,7 @@ class BrowserObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=f"Error: {self.error}")]
 
@@ -54,7 +54,7 @@ class BrowserObservation(ObservationBase):
 # ============================================
 # `go_to_url`
 # ============================================
-class BrowserNavigateAction(ActionBase):
+class BrowserNavigateAction(Action):
     """Schema for browser navigation."""
 
     url: str = Field(description="The URL to navigate to")
@@ -111,7 +111,7 @@ class BrowserNavigateTool(ToolDefinition[BrowserNavigateAction, BrowserObservati
 # ============================================
 # `browser_click`
 # ============================================
-class BrowserClickAction(ActionBase):
+class BrowserClickAction(Action):
     """Schema for clicking elements."""
 
     index: int = Field(
@@ -170,7 +170,7 @@ class BrowserClickTool(ToolDefinition[BrowserClickAction, BrowserObservation]):
 # ============================================
 # `browser_type`
 # ============================================
-class BrowserTypeAction(ActionBase):
+class BrowserTypeAction(Action):
     """Schema for typing text into elements."""
 
     index: int = Field(
@@ -226,7 +226,7 @@ class BrowserTypeTool(ToolDefinition[BrowserTypeAction, BrowserObservation]):
 # ============================================
 # `browser_get_state`
 # ============================================
-class BrowserGetStateAction(ActionBase):
+class BrowserGetStateAction(Action):
     """Schema for getting browser state."""
 
     include_screenshot: bool = Field(
@@ -279,7 +279,7 @@ class BrowserGetStateTool(ToolDefinition[BrowserGetStateAction, BrowserObservati
 # ============================================
 # `browser_get_content`
 # ============================================
-class BrowserGetContentAction(ActionBase):
+class BrowserGetContentAction(Action):
     """Schema for getting page content in markdown."""
 
     extract_links: bool = Field(
@@ -335,7 +335,7 @@ class BrowserGetContentTool(
 # ============================================
 # `browser_scroll`
 # ============================================
-class BrowserScrollAction(ActionBase):
+class BrowserScrollAction(Action):
     """Schema for scrolling the page."""
 
     direction: Literal["up", "down"] = Field(
@@ -388,7 +388,7 @@ class BrowserScrollTool(ToolDefinition[BrowserScrollAction, BrowserObservation])
 # ============================================
 # `browser_go_back`
 # ============================================
-class BrowserGoBackAction(ActionBase):
+class BrowserGoBackAction(Action):
     """Schema for going back in browser history."""
 
     pass
@@ -435,7 +435,7 @@ class BrowserGoBackTool(ToolDefinition[BrowserGoBackAction, BrowserObservation])
 # ============================================
 # `browser_list_tabs`
 # ============================================
-class BrowserListTabsAction(ActionBase):
+class BrowserListTabsAction(Action):
     """Schema for listing browser tabs."""
 
     pass
@@ -482,7 +482,7 @@ class BrowserListTabsTool(ToolDefinition[BrowserListTabsAction, BrowserObservati
 # ============================================
 # `browser_switch_tab`
 # ============================================
-class BrowserSwitchTabAction(ActionBase):
+class BrowserSwitchTabAction(Action):
     """Schema for switching browser tabs."""
 
     tab_id: str = Field(
@@ -537,7 +537,7 @@ class BrowserSwitchTabTool(ToolDefinition[BrowserSwitchTabAction, BrowserObserva
 # ============================================
 # `browser_close_tab`
 # ============================================
-class BrowserCloseTabAction(ActionBase):
+class BrowserCloseTabAction(Action):
     """Schema for closing browser tabs."""
 
     tab_id: str = Field(

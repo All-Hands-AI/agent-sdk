@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.risk import SecurityRisk
@@ -38,7 +38,7 @@ class SecurityAnalyzerBase(DiscriminatedUnionMixin, ABC):
         """
         pass
 
-    def analyze_event(self, event: EventBase) -> SecurityRisk | None:
+    def analyze_event(self, event: Event) -> SecurityRisk | None:
         """Analyze an event for security risks.
 
         This is a convenience method that checks if the event is an action

@@ -6,7 +6,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
@@ -54,7 +54,7 @@ agent = Agent(
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

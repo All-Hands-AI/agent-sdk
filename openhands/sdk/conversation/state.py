@@ -14,7 +14,7 @@ from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
@@ -123,7 +123,7 @@ class ConversationState(OpenHandsModel):
         """Set a callback to be called when state changes.
 
         Args:
-            callback: A function that takes an EventBase (ConversationStateUpdateEvent)
+            callback: A function that takes an Event (ConversationStateUpdateEvent)
                      or None to remove the callback
         """
         self._on_state_change = callback
@@ -261,7 +261,7 @@ class ConversationState(OpenHandsModel):
                     )
 
     @staticmethod
-    def get_unmatched_actions(events: Sequence[EventBase]) -> list[ActionEvent]:
+    def get_unmatched_actions(events: Sequence[Event]) -> list[ActionEvent]:
         """Find actions in the event history that don't have matching observations.
 
         This method identifies ActionEvents that don't have corresponding
