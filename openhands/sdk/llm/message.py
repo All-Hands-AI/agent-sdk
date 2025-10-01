@@ -44,10 +44,9 @@ class MessageToolCall(BaseModel):
         """Initialize a MessageToolCall.
 
         Args:
-            id: Unique identifier for the tool call. If None, a UUID will be generated.
+            id: Unique identifier for the tool call.
             name: The name of the function to call
-            arguments_json: The arguments as a JSON string or dict. If dict, will be
-                converted to JSON string.
+            arguments_json: The arguments as a JSON string.
             origin: The originating API family
             raw: Original provider object for advanced consumers
             **kwargs: Additional keyword arguments
