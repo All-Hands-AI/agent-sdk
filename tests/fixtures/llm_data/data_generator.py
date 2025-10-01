@@ -5,7 +5,6 @@ test assets when the LLM implementation changes.
 """
 
 import json
-import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -59,11 +58,10 @@ def create_llm(
 
 def create_tools(working_dir: str | None = None) -> list[Tool]:
     """Create standard tool specifications for testing."""
-    cwd = working_dir or os.getcwd()
     register_tool("BashTool", BashTool)
     register_tool("FileEditorTool", FileEditorTool)
     return [
-        Tool(name="BashTool", params={"working_dir": cwd}),
+        Tool(name="BashTool"),
         Tool(name="FileEditorTool"),
     ]
 

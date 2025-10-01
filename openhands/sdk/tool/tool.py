@@ -292,7 +292,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         """
         action_type = action_type or self.action_type
 
-        action_type_with_risk = _create_action_type_with_risk(self.action_type)
+        action_type_with_risk = _create_action_type_with_risk(action_type)
 
         # We only add security_risk if the tool is not read-only
         add_security_risk_prediction = add_security_risk_prediction and (
@@ -343,7 +343,7 @@ class ToolDefinition[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
         )
 
 
-def _create_action_type_with_risk(action_type: type[Action]) -> type[Action]:
+def _create_action_type_with_risk(action_type: type[Schema]) -> type[Schema]:
     action_type_with_risk = _action_types_with_risk.get(action_type)
     if action_type_with_risk:
         return action_type_with_risk

@@ -180,3 +180,45 @@ def test_file_editor_tool_view_directory():
         assert not result.error
         assert "file1.txt" in result.output
         assert "file2.txt" in result.output
+
+
+def test_file_editor_tool_includes_working_directory_in_description():
+    """Test that FileEditorTool includes working directory info in description."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileEditorTool.create(conv_state)
+        tool = tools[0]
+
+        # Check that the tool description includes working directory information
+        assert f"Your current working directory is: {temp_dir}" in tool.description
+        assert (
+            "When exploring project structure, start with this directory "
+            "instead of the root filesystem."
+        ) in tool.description
+
+        # Verify the original description is still there
+        assert (
+            "Custom editing tool for viewing, creating and editing files"
+            in tool.description
+        )
+
+
+def test_file_editor_tool_openai_format_includes_working_directory():
+    """Test that OpenAI tool format includes working directory info."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileEditorTool.create(conv_state)
+        tool = tools[0]
+
+        # Convert to OpenAI tool format
+        openai_tool = tool.to_openai_tool()
+
+        # Check that the description includes working directory information
+        function_def = openai_tool["function"]
+        assert "description" in function_def
+        description = function_def["description"]
+        assert f"Your current working directory is: {temp_dir}" in description
+        assert (
+            "When exploring project structure, start with this directory "
+            "instead of the root filesystem."
+        ) in description

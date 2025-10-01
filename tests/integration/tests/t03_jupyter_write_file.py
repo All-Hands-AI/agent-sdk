@@ -31,8 +31,8 @@ class JupyterWriteFileTest(BaseIntegrationTest):
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
-            Tool(name="BashTool", params={"working_dir": self.cwd}),
-            Tool(name="FileEditorTool", params={"workspace_root": self.cwd}),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
 
     def setup(self) -> None:
