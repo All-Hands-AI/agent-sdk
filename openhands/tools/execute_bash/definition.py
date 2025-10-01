@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool import Action, Observation, Tool, ToolAnnotations
 from openhands.sdk.utils import maybe_truncate
 from openhands.tools.execute_bash.constants import (
     MAX_CMD_OUTPUT_SIZE,
@@ -21,7 +21,7 @@ from openhands.tools.execute_bash.constants import (
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 
 
-class ExecuteBashAction(ActionBase):
+class ExecuteBashAction(Action):
     """Schema for bash command execution."""
 
     command: str = Field(
@@ -71,7 +71,7 @@ class ExecuteBashAction(ActionBase):
         return content
 
 
-class ExecuteBashObservation(ObservationBase):
+class ExecuteBashObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
     output: str = Field(description="The raw output from the tool.")
@@ -101,7 +101,7 @@ class ExecuteBashObservation(ObservationBase):
         return self.metadata.pid
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"

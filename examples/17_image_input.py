@@ -12,7 +12,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     ImageContent,
     LLMConvertibleEvent,
     Message,
@@ -58,7 +58,7 @@ agent = Agent(
 llm_messages = []  # collect raw LLM messages for inspection
 
 
-def conversation_callback(event: EventBase) -> None:
+def conversation_callback(event: Event) -> None:
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

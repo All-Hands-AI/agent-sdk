@@ -12,7 +12,7 @@ import mcp.types
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands.sdk.mcp.tool import MCPTool
-from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.tool.schema import Action
 from openhands.sdk.tool.tool import ToolBase
 
 
@@ -102,7 +102,7 @@ def test_mcp_tool_fallback_behavior() -> None:
     deserialized_tool = ToolBase.model_validate(tool_data)
     assert isinstance(deserialized_tool, ToolBase)
     assert deserialized_tool.name == "fallback-tool"
-    assert issubclass(deserialized_tool.action_type, ActionBase)
+    assert issubclass(deserialized_tool.action_type, Action)
     assert deserialized_tool.observation_type and issubclass(
         deserialized_tool.observation_type, MCPToolObservation
     )

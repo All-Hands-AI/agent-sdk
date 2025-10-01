@@ -8,15 +8,15 @@ from pydantic import Field, ValidationError
 
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
     ToolAnnotations,
     ToolExecutor,
 )
 
 
-class ToolImmutabilityMockAction(ActionBase):
+class ToolImmutabilityMockAction(Action):
     """Mock action class for testing."""
 
     command: str = Field(description="Command to execute")
@@ -25,14 +25,14 @@ class ToolImmutabilityMockAction(ActionBase):
     array_field: list[int] = Field(default_factory=list, description="Array field")
 
 
-class ToolImmutabilityMockObservation(ObservationBase):
+class ToolImmutabilityMockObservation(Observation):
     """Mock observation class for testing."""
 
     result: str = Field(description="Result of the action")
     extra_field: str | None = Field(default=None, description="Extra field")
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 

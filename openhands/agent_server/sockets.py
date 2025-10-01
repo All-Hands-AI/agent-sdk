@@ -25,8 +25,7 @@ from openhands.agent_server.conversation_service import (
 )
 from openhands.agent_server.models import BashEventBase
 from openhands.agent_server.pub_sub import Subscriber
-from openhands.sdk import Message
-from openhands.sdk.event.base import EventBase
+from openhands.sdk import Event, Message
 
 
 sockets_router = APIRouter(prefix="/sockets", tags=["WebSockets"])
@@ -127,7 +126,7 @@ class _WebSocketSubscriber(Subscriber):
 
     websocket: WebSocket
 
-    async def __call__(self, event: EventBase):
+    async def __call__(self, event: Event):
         try:
             dumped = event.model_dump()
             await self.websocket.send_json(dumped)

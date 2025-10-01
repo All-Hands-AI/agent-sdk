@@ -3,7 +3,6 @@
 import logging
 import os
 import tempfile
-from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -19,7 +18,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     MessageEvent,
@@ -35,9 +34,9 @@ class TestHelloWorld:
 
     def setup_method(self):
         """Set up test environment."""
-        self.temp_dir: Path | None = tempfile.mkdtemp()
+        self.temp_dir: str = tempfile.mkdtemp()
         self.logger: logging.Logger = get_logger(__name__)
-        self.collected_events: list[EventBase] = []
+        self.collected_events: list[Event] = []
         self.llm_messages: list[dict[str, Any]] = []
 
         # Clean up any existing hello.py files
@@ -54,7 +53,7 @@ class TestHelloWorld:
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def conversation_callback(self, event: EventBase):
+    def conversation_callback(self, event: Event):
         """Callback to collect conversation events."""
         self.collected_events.append(event)
         if isinstance(event, ActionEvent):

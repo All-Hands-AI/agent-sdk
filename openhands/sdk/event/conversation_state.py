@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import Field, field_validator
 
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.types import SourceType
 
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 FULL_STATE_KEY = "full_state"
 
 
-class ConversationStateUpdateEvent(EventBase):
+class ConversationStateUpdateEvent(Event):
     """Event that contains conversation state updates.
 
     This event is sent via websocket whenever the conversation state changes,

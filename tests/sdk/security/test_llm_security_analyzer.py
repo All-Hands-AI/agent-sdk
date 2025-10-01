@@ -8,17 +8,17 @@ from openhands.sdk.event import ActionEvent
 from openhands.sdk.llm import TextContent
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.tool import ActionBase
+from openhands.sdk.tool import Action
 
 
-class LlmSecurityAnalyzerMockAction(ActionBase):
+class LlmSecurityAnalyzerMockAction(Action):
     """Mock action for testing."""
 
     command: str = "test_command"
 
 
 def create_mock_action_event(
-    action: ActionBase, security_risk: SecurityRisk
+    action: Action, security_risk: SecurityRisk
 ) -> ActionEvent:
     """Helper to create ActionEvent for testing."""
     return ActionEvent(

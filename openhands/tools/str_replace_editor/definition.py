@@ -11,14 +11,14 @@ if TYPE_CHECKING:
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool import Action, Observation, Tool, ToolAnnotations
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
 
 
-class StrReplaceEditorAction(ActionBase):
+class StrReplaceEditorAction(Action):
     """Schema for string replace editor operations."""
 
     command: CommandLiteral = Field(
@@ -58,7 +58,7 @@ class StrReplaceEditorAction(ActionBase):
     )
 
 
-class StrReplaceEditorObservation(ObservationBase):
+class StrReplaceEditorObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
     command: CommandLiteral = Field(
@@ -84,7 +84,7 @@ class StrReplaceEditorObservation(ObservationBase):
     _diff_cache: Text | None = PrivateAttr(default=None)
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=self.error)]
         return [TextContent(text=self.output)]

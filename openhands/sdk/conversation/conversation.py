@@ -34,6 +34,7 @@ class Conversation:
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
+        secrets: dict[str, str] | None = None,
     ) -> "LocalConversation": ...
 
     @overload
@@ -47,6 +48,7 @@ class Conversation:
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
+        secrets: dict[str, str] | None = None,
     ) -> "RemoteConversation": ...
 
     def __new__(
@@ -60,6 +62,7 @@ class Conversation:
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
+        secrets: dict[str, str] | None = None,
     ) -> BaseConversation:
         from openhands.sdk.conversation.impl.local_conversation import LocalConversation
         from openhands.sdk.conversation.impl.remote_conversation import (
@@ -81,6 +84,7 @@ class Conversation:
                 stuck_detection=stuck_detection,
                 visualize=visualize,
                 workspace=workspace,
+                secrets=secrets,
             )
 
         return LocalConversation(
@@ -92,4 +96,5 @@ class Conversation:
             visualize=visualize,
             workspace=workspace,
             persistence_dir=persistence_dir,
+            secrets=secrets,
         )

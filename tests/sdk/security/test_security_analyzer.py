@@ -7,10 +7,10 @@ from openhands.sdk.event import ActionEvent, PauseEvent
 from openhands.sdk.llm import TextContent
 from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.tool import ActionBase
+from openhands.sdk.tool import Action
 
 
-class SecurityAnalyzerMockAction(ActionBase):
+class SecurityAnalyzerMockAction(Action):
     """Mock action for testing."""
 
     command: str = "test_command"
@@ -41,7 +41,7 @@ class SecurityAnalyzer(SecurityAnalyzerBase):
         self.close_calls.append(True)
 
 
-def create_mock_action_event(action: ActionBase) -> ActionEvent:
+def create_mock_action_event(action: Action) -> ActionEvent:
     """Helper to create ActionEvent for testing."""
     return ActionEvent(
         thought=[TextContent(text="test thought")],
