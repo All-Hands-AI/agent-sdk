@@ -13,11 +13,6 @@ logger = get_logger(__name__)
 class LocalWorkspace(BaseWorkspace):
     """Mixin providing local workspace operations."""
 
-    def model_post_init(self, context: Any) -> None:
-        if not Path(self.working_dir).exists():
-            Path(self.working_dir).mkdir(parents=True, exist_ok=True)
-        return super().model_post_init(context)
-
     def execute_command(
         self,
         command: str,
