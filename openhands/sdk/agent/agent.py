@@ -225,7 +225,6 @@ class Agent(AgentBase):
             action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(tool_calls):
                 action_event = self._get_action_event(
-                    state,
                     tool_call,
                     llm_response_id=llm_response.id,
                     on_event=on_event,
@@ -297,7 +296,6 @@ class Agent(AgentBase):
 
     def _get_action_event(
         self,
-        state: ConversationState,
         tool_call: MessageToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
