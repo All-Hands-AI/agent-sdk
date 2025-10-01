@@ -225,11 +225,21 @@ class FileEditorTool(
         # Initialize the executor
         executor = FileEditorExecutor(workspace_root=conv_state.workspace.working_dir)
 
+        # Add working directory information to the tool description
+        # to guide the agent to use the correct directory instead of root
+        working_dir = conv_state.workspace.working_dir
+        enhanced_description = (
+            f"{TOOL_DESCRIPTION}\n\n"
+            f"Your current working directory is: {working_dir}\n"
+            f"When exploring project structure, start with this directory "
+            f"instead of the root filesystem."
+        )
+
         # Initialize the parent Tool with the executor
         return [
             cls(
                 name=str_replace_editor_tool.name,
-                description=TOOL_DESCRIPTION,
+                description=enhanced_description,
                 action_type=StrReplaceEditorAction,
                 observation_type=StrReplaceEditorObservation,
                 annotations=str_replace_editor_tool.annotations,

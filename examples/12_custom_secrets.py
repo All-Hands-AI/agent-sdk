@@ -25,7 +25,7 @@ llm = LLM(
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    Tool(name="BashTool", params={"working_dir": os.getcwd()}),
+    Tool(name="BashTool"),
     Tool(name="FileEditorTool"),
 ]
 
