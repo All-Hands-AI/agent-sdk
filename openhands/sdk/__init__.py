@@ -27,7 +27,13 @@ from openhands.sdk.llm import (
     ThinkingBlock,
 )
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import MCPClient, MCPTool, MCPToolObservation, create_mcp_tools
+from openhands.sdk.mcp import (
+    MCPClient,
+    MCPTool,
+    MCPToolDefinition,
+    MCPToolObservation,
+    create_mcp_tools,
+)
 from openhands.sdk.tool import (
     ActionBase,
     ObservationBase,
@@ -71,6 +77,7 @@ __all__ = [
     "ObservationBase",
     "MCPClient",
     "MCPTool",
+    "MCPToolDefinition",
     "MCPToolObservation",
     "MessageEvent",
     "create_mcp_tools",

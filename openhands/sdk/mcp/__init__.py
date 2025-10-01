@@ -4,6 +4,7 @@ from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands.sdk.mcp.tool import (
     MCPTool,
+    MCPToolDefinition,
     MCPToolExecutor,
 )
 from openhands.sdk.mcp.utils import (
@@ -14,6 +15,7 @@ from openhands.sdk.mcp.utils import (
 __all__ = [
     "MCPClient",
     "MCPTool",
+    "MCPToolDefinition",
     "MCPToolAction",
     "MCPToolObservation",
     "MCPToolExecutor",
