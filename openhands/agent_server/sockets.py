@@ -60,7 +60,7 @@ async def events_socket(
     )
 
     try:
-        # Replay all existing events if requested
+        # Resend all existing events if requested
         if resend_all:
             page_id = None
             while True:
@@ -109,7 +109,7 @@ async def bash_events_socket(
         _BashWebSocketSubscriber(websocket)
     )
     try:
-        # Replay all existing events if requested
+        # Resend all existing events if requested
         if resend_all:
             page_id = None
             while True:
