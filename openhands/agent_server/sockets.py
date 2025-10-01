@@ -39,7 +39,7 @@ async def events_socket(
     conversation_id: UUID,
     websocket: WebSocket,
     session_api_key: Annotated[str | None, Query(alias="session_api_key")] = None,
-    replay_all: Annotated[bool, Query()] = False,
+    resend_all: Annotated[bool, Query()] = False,
 ):
     """WebSocket endpoint for conversation events."""
     # Perform authentication check before accepting the WebSocket connection
@@ -61,7 +61,7 @@ async def events_socket(
 
     try:
         # Replay all existing events if requested
-        if replay_all:
+        if resend_all:
             page_id = None
             while True:
                 page = await event_service.search_events(page_id=page_id)
@@ -94,7 +94,7 @@ async def events_socket(
 async def bash_events_socket(
     websocket: WebSocket,
     session_api_key: Annotated[str | None, Query(alias="session_api_key")] = None,
-    replay_all: Annotated[bool, Query()] = False,
+    resend_all: Annotated[bool, Query()] = False,
 ):
     """WebSocket endpoint for bash events."""
     # Perform authentication check before accepting the WebSocket connection
@@ -110,7 +110,7 @@ async def bash_events_socket(
     )
     try:
         # Replay all existing events if requested
-        if replay_all:
+        if resend_all:
             page_id = None
             while True:
                 page = await bash_event_service.search_bash_events(page_id=page_id)

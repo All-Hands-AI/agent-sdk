@@ -260,13 +260,13 @@ class TestWebSocketDisconnectHandling:
 
 
 class TestReplayAllFunctionality:
-    """Test cases for replay_all parameter functionality."""
+    """Test cases for resend_all parameter functionality."""
 
     @pytest.mark.asyncio
-    async def test_replay_all_false_no_replay(
+    async def test_resend_all_false_no_replay(
         self, mock_websocket, mock_event_service, sample_conversation_id
     ):
-        """Test that replay_all=False doesn't trigger event replay."""
+        """Test that resend_all=False doesn't trigger event replay."""
         mock_websocket.receive_json.side_effect = WebSocketDisconnect()
 
         with (
@@ -286,17 +286,17 @@ class TestReplayAllFunctionality:
                 sample_conversation_id,
                 mock_websocket,
                 session_api_key=None,
-                replay_all=False,
+                resend_all=False,
             )
 
         # search_events should not be called for replay
         mock_event_service.search_events.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_replay_all_true_replays_events(
+    async def test_resend_all_true_replays_events(
         self, mock_websocket, mock_event_service, sample_conversation_id
     ):
-        """Test that replay_all=True replays all existing events."""
+        """Test that resend_all=True replays all existing events."""
         # Create mock events to replay
         mock_events = [
             MessageEvent(
@@ -339,7 +339,7 @@ class TestReplayAllFunctionality:
                 sample_conversation_id,
                 mock_websocket,
                 session_api_key=None,
-                replay_all=True,
+                resend_all=True,
             )
 
         # search_events should be called to get all events
@@ -352,7 +352,7 @@ class TestReplayAllFunctionality:
         assert sent_events[1]["id"] == "event2"
 
     @pytest.mark.asyncio
-    async def test_replay_all_handles_search_events_exception(
+    async def test_resend_all_handles_search_events_exception(
         self, mock_websocket, mock_event_service, sample_conversation_id
     ):
         """Test that exceptions during search_events cause the WebSocket to fail."""
@@ -379,7 +379,7 @@ class TestReplayAllFunctionality:
                     sample_conversation_id,
                     mock_websocket,
                     session_api_key=None,
-                    replay_all=True,
+                    resend_all=True,
                 )
 
         # search_events should be called
@@ -389,7 +389,7 @@ class TestReplayAllFunctionality:
         mock_event_service.unsubscribe_from_events.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_replay_all_handles_send_json_exception(
+    async def test_resend_all_handles_send_json_exception(
         self, mock_websocket, mock_event_service, sample_conversation_id
     ):
         """Test that exceptions during send_json are handled gracefully."""
@@ -434,7 +434,7 @@ class TestReplayAllFunctionality:
                 sample_conversation_id,
                 mock_websocket,
                 session_api_key=None,
-                replay_all=True,
+                resend_all=True,
             )
 
         # search_events should be called
