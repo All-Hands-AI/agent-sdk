@@ -1,7 +1,6 @@
 """VSCode service for managing OpenVSCode Server in the agent server."""
 
 import asyncio
-import os
 import uuid
 from pathlib import Path
 
@@ -16,9 +15,7 @@ class VSCodeService:
 
     def __init__(
         self,
-        workspace_path: Path,
         port: int = 8001,
-        create_workspace: bool = False,
     ):
         """Initialize VSCode service.
 
@@ -29,12 +26,6 @@ class VSCodeService:
                 exist
         """
         self.port = port
-        self.workspace_path = workspace_path.resolve()
-        if not self.workspace_path.exists():
-            if create_workspace:
-                self.workspace_path.mkdir(parents=True, exist_ok=True)
-            else:
-                raise ValueError(f"Workspace path {workspace_path} does not exist")
         self.connection_token: str | None = None
         self.process: asyncio.subprocess.Process | None = None
         self.openvscode_server_root = Path("/openhands/.openvscode-server")
@@ -63,16 +54,21 @@ class VSCodeService:
                 )
                 return False
 
-            # Setup VSCode settings
-            self._setup_vscode_settings()
-
             # Start VSCode server
+            # TODO: we need to reset settings.json
+            # for global settings
+            # settings_content = {
+            #     "workbench.colorTheme": "Default Dark+",
+            #     "editor.fontSize": 14,
+            #     "editor.tabSize": 4,
+            #     "files.autoSave": "afterDelay",
+            #     "files.autoSaveDelay": 1000,
+            # }
+            # This is not super easy to do:
+            # https://github.com/gitpod-io/openvscode-server/discussions/199#discussioncomment-1568487
             await self._start_vscode_process()
 
-            logger.info(
-                f"VSCode server started successfully on port {self.port}"
-                f" for workspace {self.workspace_path}"
-            )
+            logger.info(f"VSCode server started successfully on port {self.port}")
             return True
 
         except Exception as e:
@@ -95,7 +91,11 @@ class VSCodeService:
             finally:
                 self.process = None
 
-    def get_vscode_url(self, base_url: str = "http://localhost:8001") -> str | None:
+    def get_vscode_url(
+        self,
+        base_url: str = "http://localhost:8001",
+        workspace_dir: str = "workspace",
+    ) -> str | None:
         """Get the VSCode URL with authentication token.
 
         Args:
@@ -107,7 +107,7 @@ class VSCodeService:
         if not self.connection_token:
             return None
 
-        return f"{base_url}/?tkn={self.connection_token}&folder={self.workspace_path}"
+        return f"{base_url}/?tkn={self.connection_token}&folder={workspace_dir}"
 
     def is_running(self) -> bool:
         """Check if VSCode server is running.
@@ -143,41 +143,8 @@ class VSCodeService:
         except OSError:
             return False
 
-    def _setup_vscode_settings(self) -> None:
-        """Set up VSCode settings by creating .vscode directory and settings."""
-        try:
-            # Create .vscode directory in workspace
-            vscode_dir = self.workspace_path / ".vscode"
-            vscode_dir.mkdir(parents=True, exist_ok=True)
-
-            # Create basic settings.json
-            settings_content = {
-                "workbench.colorTheme": "Default Dark+",
-                "editor.fontSize": 14,
-                "editor.tabSize": 4,
-                "files.autoSave": "afterDelay",
-                "files.autoSaveDelay": 1000,
-            }
-
-            settings_file = vscode_dir / "settings.json"
-            import json
-
-            with open(settings_file, "w") as f:
-                json.dump(settings_content, f, indent=2)
-
-            # Make settings file readable and writable
-            os.chmod(settings_file, 0o666)
-
-            logger.debug(f"VSCode settings created at {settings_file}")
-
-        except Exception as e:
-            logger.warning(f"Failed to setup VSCode settings: {e}")
-
     async def _start_vscode_process(self) -> None:
         """Start the VSCode server process."""
-        # Ensure workspace directory exists
-        self.workspace_path.mkdir(parents=True, exist_ok=True)
-
         # Build the command to start VSCode server
         cmd = (
             f"exec {self.openvscode_server_root}/bin/openvscode-server "
@@ -255,7 +222,5 @@ def get_vscode_service() -> VSCodeService | None:
             logger.info("VSCode is disabled in configuration")
             return None
         else:
-            _vscode_service = VSCodeService(
-                workspace_path=config.workspace_path, create_workspace=True
-            )
+            _vscode_service = VSCodeService()
     return _vscode_service

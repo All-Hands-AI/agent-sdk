@@ -6,14 +6,12 @@ evaluate security risks of actions before execution.
 
 import os
 import signal
-import uuid
 from collections.abc import Callable
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Agent, BaseConversation, Conversation, LocalFileStore
-from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event.utils import get_unmatched_actions
+from openhands.sdk import LLM, Agent, BaseConversation, Conversation
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import ConfirmRisky
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import ToolSpec, register_tool
@@ -76,7 +74,7 @@ def run_until_finished_with_security(
             conversation.state.agent_status
             == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
         ):
-            pending = get_unmatched_actions(conversation.state.events)
+            pending = ConversationState.get_unmatched_actions(conversation.state.events)
             if not pending:
                 raise RuntimeError(
                     "⚠️ Agent is waiting for confirmation but no pending actions "
@@ -95,7 +93,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="security-analyzer",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -104,7 +102,9 @@ llm = LLM(
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
+    ToolSpec(
+        name="BashTool",
+    ),
     ToolSpec(name="FileEditorTool"),
 ]
 
@@ -113,10 +113,8 @@ security_analyzer = LLMSecurityAnalyzer()
 agent = Agent(llm=llm, tools=tools, security_analyzer=security_analyzer)
 
 # Conversation with persisted filestore
-conversation_id = uuid.uuid4()
-file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 conversation = Conversation(
-    agent=agent, conversation_id=conversation_id, persist_filestore=file_store
+    agent=agent, persistence_dir="./.conversations", workspace="."
 )
 conversation.set_confirmation_policy(ConfirmRisky())
 

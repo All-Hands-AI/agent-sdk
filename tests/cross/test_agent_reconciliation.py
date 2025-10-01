@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from pydantic import SecretStr
 
-from openhands.sdk import Agent, LocalFileStore
+from openhands.sdk import Agent
 from openhands.sdk.agent import AgentBase
 from openhands.sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
@@ -112,11 +112,9 @@ def test_conversation_with_different_agent_tools_fails():
     import pytest
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-
         # Create and save conversation with original agent
         original_tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(
@@ -124,7 +122,10 @@ def test_conversation_with_different_agent_tools_fails():
         )
         original_agent = Agent(llm=llm, tools=original_tools)
         conversation = LocalConversation(
-            agent=original_agent, persist_filestore=file_store, visualize=False
+            agent=original_agent,
+            workspace=temp_dir,
+            persistence_dir=temp_dir,
+            visualize=False,
         )
 
         # Send a message to create some state
@@ -139,9 +140,7 @@ def test_conversation_with_different_agent_tools_fails():
         del conversation
 
         # Try to create new conversation with different tools (only bash tool)
-        different_tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir})
-        ]  # Missing FileEditorTool
+        different_tools = [ToolSpec(name="BashTool")]  # Missing FileEditorTool
         llm2 = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
         )
@@ -153,7 +152,8 @@ def test_conversation_with_different_agent_tools_fails():
         ):
             LocalConversation(
                 agent=different_agent,
-                persist_filestore=file_store,
+                workspace=temp_dir,
+                persistence_dir=temp_dir,
                 conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
                 visualize=False,
             )
@@ -162,11 +162,9 @@ def test_conversation_with_different_agent_tools_fails():
 def test_conversation_with_same_agent_succeeds():
     """Test that using the same agent configuration succeeds."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-
         # Create and save conversation
         tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(
@@ -174,7 +172,10 @@ def test_conversation_with_same_agent_succeeds():
         )
         original_agent = Agent(llm=llm, tools=tools)
         conversation = LocalConversation(
-            agent=original_agent, persist_filestore=file_store, visualize=False
+            agent=original_agent,
+            workspace=temp_dir,
+            persistence_dir=temp_dir,
+            visualize=False,
         )
 
         # Send a message
@@ -190,7 +191,7 @@ def test_conversation_with_same_agent_succeeds():
 
         # Create new conversation with same agent configuration
         same_tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
         llm2 = LLM(
@@ -201,7 +202,8 @@ def test_conversation_with_same_agent_succeeds():
         # This should succeed
         new_conversation = LocalConversation(
             agent=same_agent,
-            persist_filestore=file_store,
+            workspace=temp_dir,
+            persistence_dir=temp_dir,
             conversation_id=conversation_id,  # Use same ID
             visualize=False,
         )
@@ -222,9 +224,8 @@ def test_conversation_persistence_lifecycle(mock_completion):
     mock_completion.return_value = mock_response
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
         tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(
@@ -234,7 +235,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
 
         # Create conversation and send messages
         conversation = LocalConversation(
-            agent=agent, persist_filestore=file_store, visualize=False
+            agent=agent, workspace=temp_dir, persistence_dir=temp_dir, visualize=False
         )
 
         # Send first message
@@ -262,7 +263,8 @@ def test_conversation_persistence_lifecycle(mock_completion):
         # Create new conversation (should load from persistence)
         new_conversation = LocalConversation(
             agent=agent,
-            persist_filestore=file_store,
+            workspace=temp_dir,
+            persistence_dir=temp_dir,
             conversation_id=original_id,  # Use same ID to load existing state
             visualize=False,
         )
@@ -289,9 +291,9 @@ def test_conversation_persistence_lifecycle(mock_completion):
 
 def test_agent_resolve_diff_from_deserialized():
     """Test agent's resolve_diff_from_deserialized method."""
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory():
         # Create original agent
-        tools = [ToolSpec(name="BashTool", params={"working_dir": temp_dir})]
+        tools = [ToolSpec(name="BashTool")]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
         )

@@ -63,7 +63,6 @@ Create a JSON configuration file (default: `workspace/openhands_agent_server_con
   "session_api_key": "your-secret-api-key",
   "allow_cors_origins": ["https://your-frontend.com"],
   "conversations_path": "workspace/conversations",
-  "workspace_path": "workspace/project",
   "webhooks": [
     {
       "webhook_url": "https://your-webhook-endpoint.com/events",
@@ -83,9 +82,9 @@ Create a JSON configuration file (default: `workspace/openhands_agent_server_con
 
 - **`session_api_key`**: Optional API key for securing the server. If set, all requests must include this key in the `Authorization` header as `Bearer <key>`
 - **`allow_cors_origins`**: List of allowed CORS origins (localhost is always allowed)
-- **`conversations_path`**: Directory where conversation data is stored
-- **`workspace_path`**: Directory where the agent reads/writes files
 - **`webhooks`**: Array of webhook configurations for event notifications
+
+**Note**: Directory configuration (`working_dir`) will be handled at the conversation level rather than globally. These directories are specified when starting a conversation through the API.
 
 ### Webhook Configuration
 

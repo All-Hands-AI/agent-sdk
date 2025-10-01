@@ -8,7 +8,7 @@ from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 
 
-class TestConversationDefaultCallbackDummyAgent(AgentBase):
+class ConversationDefaultCallbackDummyAgent(AgentBase):
     def __init__(self):
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -35,7 +35,7 @@ class TestConversationDefaultCallbackDummyAgent(AgentBase):
 
 
 def test_default_callback_appends_on_init():
-    agent = TestConversationDefaultCallbackDummyAgent()
+    agent = ConversationDefaultCallbackDummyAgent()
     events_seen: list[str] = []
 
     conversation = Conversation(
@@ -48,7 +48,7 @@ def test_default_callback_appends_on_init():
 
 
 def test_send_message_appends_once():
-    agent = TestConversationDefaultCallbackDummyAgent()
+    agent = ConversationDefaultCallbackDummyAgent()
     seen_ids: list[str] = []
 
     def user_cb(event):

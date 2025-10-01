@@ -62,7 +62,6 @@ a = Analysis(
         'numpy',
         'scipy',
         'pandas',
-        'PIL',
         'IPython',
         'jupyter',
         'notebook',

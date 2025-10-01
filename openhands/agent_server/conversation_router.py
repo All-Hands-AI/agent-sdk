@@ -6,7 +6,6 @@ from uuid import UUID
 from fastapi import APIRouter, Body, HTTPException, Query, status
 from pydantic import SecretStr
 
-from openhands.agent_server.config import get_default_config
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
@@ -22,11 +21,11 @@ from openhands.agent_server.models import (
 )
 from openhands.sdk import LLM, Agent, TextContent, ToolSpec
 from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.workspace import LocalWorkspace
 
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
 conversation_service = get_default_conversation_service()
-config = get_default_config()
 
 # Examples
 
@@ -35,26 +34,17 @@ START_CONVERSATION_EXAMPLES = [
         agent=Agent(
             llm=LLM(
                 service_id="test-llm",
-                model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
                 base_url="https://llm-proxy.app.all-hands.dev",
                 api_key=SecretStr("secret"),
             ),
             tools=[
-                ToolSpec(
-                    name="BashTool", params={"working_dir": config.workspace_path}
-                ),
-                ToolSpec(
-                    name="FileEditorTool",
-                    params={"workspace_root": config.workspace_path},
-                ),
-                ToolSpec(
-                    name="TaskTrackerTool",
-                    # task tracker json is a type of metadata,
-                    # so we save it in conversations_path
-                    params={"save_dir": f"{config.conversations_path}"},
-                ),
+                ToolSpec(name="BashTool"),
+                ToolSpec(name="FileEditorTool"),
+                ToolSpec(name="TaskTrackerTool"),
             ],
         ),
+        workspace=LocalWorkspace(working_dir="workspace/project"),
         initial_message=SendMessageRequest(
             role="user", content=[TextContent(text="Flip a coin!")]
         ),
@@ -115,7 +105,7 @@ async def get_conversation(conversation_id: UUID) -> ConversationInfo:
     return conversation
 
 
-@conversation_router.get("/")
+@conversation_router.get("")
 async def batch_get_conversations(
     ids: Annotated[list[UUID], Query()],
 ) -> list[ConversationInfo | None]:
@@ -129,7 +119,7 @@ async def batch_get_conversations(
 # Write Methods
 
 
-@conversation_router.post("/")
+@conversation_router.post("")
 async def start_conversation(
     request: Annotated[
         StartConversationRequest, Body(examples=START_CONVERSATION_EXAMPLES)

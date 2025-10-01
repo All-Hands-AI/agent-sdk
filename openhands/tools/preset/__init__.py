@@ -7,7 +7,7 @@ for common use cases, such as a default production agent with shell access,
 file editing, task tracking, and selected MCP integrations.
 
 Usage:
-    from openhands.sdk.presets.default import default_tools
+    from openhands.tools.preset.default import default_tools
 
     tools = default_tools()
 
@@ -17,3 +17,8 @@ Notes:
 - They are stable entry points meant to reduce boilerplate for typical
   setups.
 """
+
+from .default import get_default_agent
+
+
+__all__ = ["get_default_agent"]

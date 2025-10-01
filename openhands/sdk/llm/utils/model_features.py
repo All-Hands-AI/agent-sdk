@@ -70,6 +70,7 @@ def model_matches(model: str, patterns: list[str]) -> bool:
 class ModelFeatures:
     supports_function_calling: bool
     supports_reasoning_effort: bool
+    supports_extended_thinking: bool
     supports_prompt_cache: bool
     supports_stop_words: bool
 
@@ -118,11 +119,19 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "gpt-5*",
 ]
 
+EXTENDED_THINKING_PATTERNS: list[str] = [
+    # Anthropic model family
+    # We did not include sonnet 3.7 and 4 here as they don't brings
+    # significant performance improvements for agents
+    "claude-sonnet-4-5*",
+]
+
 PROMPT_CACHE_PATTERNS: list[str] = [
     "claude-3-7-sonnet*",
     "claude-3.7-sonnet*",
     "claude-sonnet-3-7-latest",
     "claude-3-5-sonnet*",
+    "claude-3.5-sonnet*",
     "claude-3-5-haiku*",
     "claude-3.5-haiku*",
     "claude-3-haiku-20240307*",
@@ -146,6 +155,7 @@ def get_features(model: str) -> ModelFeatures:
     return ModelFeatures(
         supports_function_calling=model_matches(model, FUNCTION_CALLING_PATTERNS),
         supports_reasoning_effort=model_matches(model, REASONING_EFFORT_PATTERNS),
+        supports_extended_thinking=model_matches(model, EXTENDED_THINKING_PATTERNS),
         supports_prompt_cache=model_matches(model, PROMPT_CACHE_PATTERNS),
         supports_stop_words=not model_matches(
             model, SUPPORTS_STOP_WORDS_FALSE_PATTERNS

@@ -1,20 +1,23 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.types import ConversationID
+from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.llm.message import Message
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.utils.protocol import ListLike
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 if TYPE_CHECKING:
+    from openhands.sdk.agent.base import AgentBase
     from openhands.sdk.conversation.state import AgentExecutionStatus
-    from openhands.sdk.event.base import EventBase
 
 
 class ConversationStateProtocol(Protocol):
@@ -26,7 +29,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def events(self) -> ListLike["EventBase"]:
+    def events(self) -> EventsListBase:
         """Access to the events list."""
         ...
 
@@ -43,6 +46,24 @@ class ConversationStateProtocol(Protocol):
     @property
     def activated_knowledge_microagents(self) -> list[str]:
         """List of activated knowledge microagents."""
+        ...
+
+    @property
+    def workspace(self) -> BaseWorkspace:
+        """The workspace for agent operations and tool execution."""
+        ...
+
+    @property
+    def persistence_dir(self) -> str | None:
+        """The persistence directory from the FileStore.
+
+        If None, it means the conversation is not being persisted.
+        """
+        ...
+
+    @property
+    def agent(self) -> "AgentBase":
+        """The agent running in the conversation."""
         ...
 
 
@@ -85,3 +106,30 @@ class BaseConversation(ABC):
 
     @abstractmethod
     def close(self) -> None: ...
+
+    @staticmethod
+    def get_persistence_dir(
+        persistence_base_dir: str, conversation_id: ConversationID
+    ) -> str:
+        """Get the persistence directory for the conversation."""
+        return str(Path(persistence_base_dir) / str(conversation_id))
+
+    @staticmethod
+    def compose_callbacks(
+        callbacks: Iterable[ConversationCallbackType],
+    ) -> ConversationCallbackType:
+        """Compose multiple callbacks into a single callback function.
+
+        Args:
+            callbacks: An iterable of callback functions
+
+        Returns:
+            A single callback function that calls all provided callbacks
+        """
+
+        def composed(event) -> None:
+            for cb in callbacks:
+                if cb:
+                    cb(event)
+
+        return composed

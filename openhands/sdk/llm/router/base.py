@@ -75,10 +75,19 @@ class RouterLLM(LLM):
 
     @abstractmethod
     def select_llm(self, messages: list[Message]) -> str:
+        """Select which LLM to use based on messages and events.
+
+        This method implements the core routing logic for the RouterLLM.
+        Subclasses should analyze the provided messages to determine which
+        LLM from llms_for_routing is most appropriate for handling the request.
+
+        Args:
+            messages: List of messages in the conversation that can be used
+                     to inform the routing decision.
+
+        Returns:
+            The key/name of the LLM to use from llms_for_routing dictionary.
         """
-        Select which LLM to use based on messages and events.
-        """
-        pass
 
     def __getattr__(self, name):
         """Delegate other attributes/methods to the active LLM."""
