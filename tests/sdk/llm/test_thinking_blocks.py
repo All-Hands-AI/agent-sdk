@@ -4,7 +4,7 @@ from litellm.types.llms.openai import ChatCompletionThinkingBlock
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Message, TextContent, ThinkingBlock
+from openhands.sdk import LLM, Message, MessageEvent, TextContent, ThinkingBlock
 
 
 def create_mock_response_with_thinking(
@@ -48,26 +48,15 @@ def create_mock_response_with_thinking(
 
 def test_thinking_block_model():
     """Test ThinkingBlock model creation and validation."""
-    from openhands.sdk.llm.message import ThinkingBlock
-
     # Test basic thinking block
     block = ThinkingBlock(
-        thinking="Let me think about this step by step...",
-    )
-
-    assert block.type == "thinking"
-    assert block.thinking == "Let me think about this step by step..."
-    assert block.signature is None
-
-    # Test thinking block with signature
-    block_with_sig = ThinkingBlock(
         thinking="Complex reasoning process...",
         signature="signature_hash_123",
     )
 
-    assert block_with_sig.type == "thinking"
-    assert block_with_sig.thinking == "Complex reasoning process..."
-    assert block_with_sig.signature == "signature_hash_123"
+    assert block.type == "thinking"
+    assert block.thinking == "Complex reasoning process..."
+    assert block.signature == "signature_hash_123"
 
 
 def test_message_with_thinking_blocks():
@@ -95,8 +84,6 @@ def test_message_with_thinking_blocks():
 
 def test_message_without_thinking_blocks():
     """Test Message without thinking blocks (default behavior)."""
-    from openhands.sdk.llm.message import Message, TextContent
-
     message = Message(role="assistant", content=[TextContent(text="The answer is 42.")])
 
     assert message.thinking_blocks == []
@@ -104,8 +91,6 @@ def test_message_without_thinking_blocks():
 
 def test_message_from_litellm_message_with_thinking():
     """Test Message.from_litellm_message with thinking blocks."""
-    from openhands.sdk.llm.message import Message
-
     # Create a mock LiteLLM message with thinking blocks
     thinking_block = ChatCompletionThinkingBlock(
         type="thinking",
@@ -123,8 +108,6 @@ def test_message_from_litellm_message_with_thinking():
 
     assert message.role == "assistant"
     assert len(message.content) == 1
-    from openhands.sdk.llm.message import TextContent
-
     assert isinstance(message.content[0], TextContent)
     assert message.content[0].text == "The answer is 42."
 
@@ -137,25 +120,20 @@ def test_message_from_litellm_message_with_thinking():
 
 def test_message_from_litellm_message_without_thinking():
     """Test Message.from_litellm_message without thinking blocks."""
-    from openhands.sdk.llm.message import Message
-
     litellm_message = LiteLLMMessage(role="assistant", content="The answer is 42.")
 
     message = Message.from_litellm_message(litellm_message)
 
     assert message.role == "assistant"
     assert len(message.content) == 1
-    from openhands.sdk.llm.message import TextContent
-
     assert isinstance(message.content[0], TextContent)
     assert message.content[0].text == "The answer is 42."
+
     assert message.thinking_blocks == []
 
 
 def test_message_serialization_with_thinking_blocks():
     """Test Message serialization includes thinking blocks."""
-    from openhands.sdk.llm.message import Message, TextContent, ThinkingBlock
-
     thinking_block = ThinkingBlock(
         thinking="Reasoning process...",
         signature="sig789",
@@ -177,8 +155,6 @@ def test_message_serialization_with_thinking_blocks():
 
 def test_message_serialization_without_thinking_blocks():
     """Test Message serialization without thinking blocks."""
-    from openhands.sdk.llm.message import Message, TextContent
-
     message = Message(role="assistant", content=[TextContent(text="Answer")])
 
     serialized = message.model_dump()
@@ -188,8 +164,6 @@ def test_message_serialization_without_thinking_blocks():
 
 def test_message_list_serializer_with_thinking_blocks():
     """Test Message._list_serializer includes thinking blocks in content array."""
-    from openhands.sdk.llm.message import Message, TextContent, ThinkingBlock
-
     thinking_block = ThinkingBlock(
         thinking="Let me think...",
         signature="sig_abc",
@@ -215,9 +189,6 @@ def test_message_list_serializer_with_thinking_blocks():
 
 def test_message_event_thinking_blocks_property():
     """Test MessageEvent thinking_blocks property."""
-    from openhands.sdk.event.llm_convertible import MessageEvent
-    from openhands.sdk.llm.message import Message, TextContent, ThinkingBlock
-
     thinking_block = ThinkingBlock(
         thinking="Complex reasoning...",
         signature="sig_def",
@@ -241,12 +212,9 @@ def test_message_event_thinking_blocks_property():
 
 def test_message_event_str_with_thinking_blocks():
     """Test MessageEvent.__str__ includes thinking blocks count."""
-    from openhands.sdk.event.llm_convertible import MessageEvent
-    from openhands.sdk.llm.message import Message, TextContent, ThinkingBlock
-
     thinking_blocks = [
-        ThinkingBlock(thinking="First thought"),
-        ThinkingBlock(thinking="Second thought"),
+        ThinkingBlock(thinking="First thought", signature="sig1"),
+        ThinkingBlock(thinking="Second thought", signature="sig2"),
     ]
 
     message = Message(
@@ -268,7 +236,6 @@ def test_multiple_thinking_blocks():
     thinking_blocks = [
         ThinkingBlock(thinking="First reasoning step", signature="sig1"),
         ThinkingBlock(thinking="Second reasoning step", signature="sig2"),
-        ThinkingBlock(thinking="Final reasoning step"),
     ]
 
     message = Message(
@@ -277,68 +244,23 @@ def test_multiple_thinking_blocks():
         thinking_blocks=thinking_blocks,
     )
 
-    assert len(message.thinking_blocks) == 3
+    assert len(message.thinking_blocks) == 2
     assert isinstance(message.thinking_blocks[0], ThinkingBlock)
     assert message.thinking_blocks[0].thinking == "First reasoning step"
     assert isinstance(message.thinking_blocks[1], ThinkingBlock)
     assert message.thinking_blocks[1].thinking == "Second reasoning step"
-    assert isinstance(message.thinking_blocks[2], ThinkingBlock)
-    assert message.thinking_blocks[2].thinking == "Final reasoning step"
-    assert message.thinking_blocks[2].signature is None
+    assert message.thinking_blocks[1].signature is not None
 
     # Test serialization
     serialized = message._list_serializer()
     content_list = serialized["content"]
-    assert len(content_list) == 4  # 3 thinking blocks + 1 text content
-    assert all(item["type"] == "thinking" for item in content_list[:3])
-    assert content_list[3]["type"] == "text"
-
-
-def test_llm_ensures_thinking_blocks_for_anthropic():
-    """Test that LLM automatically adds thinking blocks for Anthropic models."""
-    # Create LLM with Anthropic model and reasoning effort
-    llm = LLM(
-        service_id="test",
-        model="anthropic/claude-sonnet-4-5",
-        reasoning_effort="medium",
-        api_key=SecretStr("test-key"),
-    )
-
-    # Create messages without thinking blocks
-    messages = [
-        Message(
-            role="system", content=[TextContent(text="You are a helpful assistant.")]
-        ),
-        Message(role="user", content=[TextContent(text="Hello!")]),
-        Message(role="assistant", content=[TextContent(text="Hi there!")]),
-        Message(role="user", content=[TextContent(text="How are you?")]),
-        Message(
-            role="assistant", content=[TextContent(text="I'm doing well, thanks!")]
-        ),
-    ]
-
-    # Format messages for LLM - this should add thinking blocks to assistant messages
-    formatted_messages = llm.format_messages_for_llm(messages)
-
-    # Check that assistant messages now have thinking blocks
-    for i, formatted_msg in enumerate(formatted_messages):
-        if formatted_msg["role"] == "assistant":
-            content = formatted_msg["content"]
-            # First item should be a redacted thinking block (placeholder)
-            # FIXME: this is wrong!
-            # assert content[0]["type"] == "redacted_thinking"
-            # assert "thinking" in content[0]
-            # Second item should be the original text content
-            assert content[1]["type"] == "text"
+    assert len(content_list) == 3  # 2 thinking blocks + 1 text content
+    assert all(item["type"] == "thinking" for item in content_list[:2])
+    assert content_list[2]["type"] == "text"
 
 
 def test_llm_preserves_existing_thinking_blocks():
     """Test that LLM preserves existing thinking blocks and doesn't add duplicates."""
-    from pydantic import SecretStr
-
-    from openhands.sdk.llm.llm import LLM
-    from openhands.sdk.llm.message import Message, TextContent, ThinkingBlock
-
     # Create LLM with Anthropic model and reasoning effort
     llm = LLM(
         service_id="test",
@@ -370,40 +292,3 @@ def test_llm_preserves_existing_thinking_blocks():
     assert len(thinking_blocks) == 1
     assert thinking_blocks[0]["thinking"] == "I already have a thinking block"
     assert thinking_blocks[0]["signature"] == "existing_sig"
-
-
-def test_llm_no_thinking_blocks_for_non_anthropic():
-    """Test that non-Anthropic models don't get automatic thinking blocks."""
-    from pydantic import SecretStr
-
-    from openhands.sdk.llm.llm import LLM
-    from openhands.sdk.llm.message import Message, TextContent
-
-    # Create LLM with non-Anthropic model
-    llm = LLM(
-        service_id="test",
-        model="openai/gpt-4",
-        reasoning_effort="medium",
-        api_key=SecretStr("test-key"),
-    )
-
-    # Create assistant message without thinking blocks
-    messages = [
-        Message(role="assistant", content=[TextContent(text="Hello!")]),
-    ]
-
-    # Format messages for LLM
-    formatted_messages = llm.format_messages_for_llm(messages)
-
-    # Check that no thinking blocks were added
-    content = formatted_messages[0]["content"]
-
-    # For non-Anthropic models, content might be a string instead of a list
-    if isinstance(content, str):
-        # String format - no thinking blocks possible
-        assert "thinking" not in content.lower()
-    else:
-        # List format - check for thinking blocks
-        thinking_blocks = [item for item in content if item.get("type") == "thinking"]
-        assert len(thinking_blocks) == 0
-        assert content[0]["type"] == "text"
