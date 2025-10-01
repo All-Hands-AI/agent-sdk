@@ -568,6 +568,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     "type": "enabled",
                     "budget_tokens": self.extended_thinking_budget,
                 }
+                # We need this to enable interleaved thinking
+                # https://docs.claude.com/en/docs/build-with-claude/extended-thinking#interleaved-thinking # noqa: E501
+                out["extra_headers"] = {
+                    "anthropic-beta": "interleaved-thinking-2025-05-14"
+                }
             # Anthropic models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
