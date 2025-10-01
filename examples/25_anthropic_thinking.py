@@ -8,7 +8,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     RedactedThinkingBlock,
     ThinkingBlock,
@@ -36,7 +36,7 @@ agent = Agent(llm=llm, tools=[ToolSpec(name="BashTool")])
 
 
 # Callback to display thinking blocks
-def show_thinking(event: EventBase):
+def show_thinking(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         message = event.to_llm_message()
         if hasattr(message, "thinking_blocks") and message.thinking_blocks:

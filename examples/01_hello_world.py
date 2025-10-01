@@ -5,7 +5,7 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
@@ -57,7 +57,7 @@ agent = get_default_agent(
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
