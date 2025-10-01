@@ -386,9 +386,27 @@ class Message(BaseModel):
         # Convert litellm tool calls to our MessageToolCall format
         converted_tool_calls = None
         if message.tool_calls:
-            converted_tool_calls = [
-                MessageToolCall.from_litellm_tool_call(tc) for tc in message.tool_calls
+            # Validate tool calls - filter out non-function types
+            if any(tc.type != "function" for tc in message.tool_calls):
+                logger.warning(
+                    "LLM returned tool calls but some are not of type 'function' - "
+                    "ignoring those"
+                )
+
+            function_tool_calls = [
+                tc for tc in message.tool_calls if tc.type == "function"
             ]
+
+            if len(function_tool_calls) > 0:
+                converted_tool_calls = [
+                    MessageToolCall.from_litellm_tool_call(tc)
+                    for tc in function_tool_calls
+                ]
+            else:
+                # If no function tool calls remain after filtering, raise an error
+                raise ValueError(
+                    "LLM returned tool calls but none are of type 'function'"
+                )
 
         return Message(
             role=message.role,
