@@ -97,7 +97,7 @@ async def get_conversation_event(conversation_id: UUID, event_id: str) -> EventB
     return event
 
 
-@event_router.get("/")
+@event_router.get("")
 async def batch_get_conversation_events(
     conversation_id: UUID, event_ids: list[str]
 ) -> list[EventBase | None]:
@@ -110,7 +110,7 @@ async def batch_get_conversation_events(
     return events
 
 
-@event_router.post("/")
+@event_router.post("")
 async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Success:
     """Send a message to a conversation"""
     event_service = await conversation_service.get_event_service(conversation_id)
