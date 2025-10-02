@@ -1,10 +1,10 @@
 """Remote workspace implementations."""
 
 from .base import RemoteWorkspace
-from .docker import DockerRemoteWorkspace
+from .docker import DockerWorkspace
 
 
 __all__ = [
     "RemoteWorkspace",
-    "DockerRemoteWorkspace",
+    "DockerWorkspace",
 ]

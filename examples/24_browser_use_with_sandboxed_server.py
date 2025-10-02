@@ -5,7 +5,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
-from openhands.sdk.workspace import DockerRemoteWorkspace
+from openhands.sdk.workspace import DockerWorkspace
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -24,7 +24,7 @@ def main() -> None:
     )
 
     # Create a Docker-based remote workspace with extra ports for browser access
-    with DockerRemoteWorkspace(
+    with DockerWorkspace(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
         host_port=8010,
         # TODO: Change this to your platform if not linux/arm64
@@ -71,7 +71,7 @@ def main() -> None:
         y = None
         while y != "y":
             y = input(
-                "Because you've enabled extra_ports=True in DockerRemoteWorkspace, "
+                "Because you've enabled extra_ports=True in DockerWorkspace, "
                 "you can open a browser tab to see the *actual* browser OpenHands "
                 "is interacting with via VNC.\n\n"
                 "Link: http://localhost:8012/vnc.html?autoconnect=1&resize=remote\n\n"

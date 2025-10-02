@@ -1,13 +1,13 @@
 from .base import BaseWorkspace
 from .local import LocalWorkspace
 from .models import CommandResult, FileOperationResult
-from .remote import DockerRemoteWorkspace, RemoteWorkspace
+from .remote import DockerWorkspace, RemoteWorkspace
 from .workspace import Workspace
 
 
 __all__ = [
     "BaseWorkspace",
-    "DockerRemoteWorkspace",
+    "DockerWorkspace",
     "CommandResult",
     "FileOperationResult",
     "LocalWorkspace",

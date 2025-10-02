@@ -132,7 +132,7 @@ def build_agent_server_image(
         raise FileNotFoundError(
             "Could not locate openhands/agent_server/docker/build.sh. "
             "Ensure you're running in the OpenHands repo or pass an explicit "
-            "image to DockerRemoteWorkspace(image=...)."
+            "image to DockerWorkspace(image=...)."
         )
 
     env = os.environ.copy()
@@ -178,7 +178,7 @@ def build_agent_server_image(
     return image
 
 
-class DockerRemoteWorkspace(RemoteWorkspace):
+class DockerWorkspace(RemoteWorkspace):
     """Remote workspace that sets up and manages a Docker container.
 
     This workspace creates a Docker container running the OpenHands agent server,
@@ -186,7 +186,7 @@ class DockerRemoteWorkspace(RemoteWorkspace):
     through the container's HTTP API.
 
     Example:
-        with DockerRemoteWorkspace(base_image="python:3.12") as workspace:
+        with DockerWorkspace(base_image="python:3.12") as workspace:
             result = workspace.execute_command("ls -la")
     """
 
@@ -404,7 +404,7 @@ class DockerRemoteWorkspace(RemoteWorkspace):
             time.sleep(1)
         raise RuntimeError("Container failed to become healthy in time")
 
-    def __enter__(self) -> "DockerRemoteWorkspace":
+    def __enter__(self) -> "DockerWorkspace":
         """Context manager entry - returns the workspace itself."""
         return self
 

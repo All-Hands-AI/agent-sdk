@@ -9,7 +9,7 @@ from openhands.sdk import (
     RemoteConversation,
     get_logger,
 )
-from openhands.sdk.workspace import DockerRemoteWorkspace
+from openhands.sdk.workspace import DockerWorkspace
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -30,7 +30,7 @@ def main() -> None:
 
     # 2) Create a Docker-based remote workspace that will set up and manage
     #    the Docker container automatically
-    with DockerRemoteWorkspace(
+    with DockerWorkspace(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
         host_port=8010,
         # TODO: Change this to your platform if not linux/arm64
