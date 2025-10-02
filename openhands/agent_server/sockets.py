@@ -39,13 +39,9 @@ async def events_socket(
     conversation_id: UUID,
     websocket: WebSocket,
     session_api_key: Annotated[str | None, Query(alias="session_api_key")] = None,
+    resend_all: Annotated[bool, Query()] = False,
 ):
-    """WebSocket endpoint for conversation events.
-
-    Moved from /api/conversations/{conversation_id}/events/socket to
-    /sockets/events/{conversation_id} to support browser connections with
-    query parameter authentication.
-    """
+    """WebSocket endpoint for conversation events."""
     # Perform authentication check before accepting the WebSocket connection
     config = get_default_config()
     if config.session_api_keys and session_api_key not in config.session_api_keys:
@@ -62,7 +58,20 @@ async def events_socket(
     subscriber_id = await event_service.subscribe_to_events(
         _WebSocketSubscriber(websocket)
     )
+
     try:
+        # Resend all existing events if requested
+        if resend_all:
+            page_id = None
+            while True:
+                page = await event_service.search_events(page_id=page_id)
+                for event in page.items:
+                    await _send_event(event, websocket)
+                page_id = page.next_page_id
+                if not page_id:
+                    break
+
+        # Listen for messages over the socket
         while True:
             try:
                 data = await websocket.receive_json()
@@ -85,12 +94,9 @@ async def events_socket(
 async def bash_events_socket(
     websocket: WebSocket,
     session_api_key: Annotated[str | None, Query(alias="session_api_key")] = None,
+    resend_all: Annotated[bool, Query()] = False,
 ):
-    """WebSocket endpoint for bash events.
-
-    Moved from /api/bash/bash_events/socket to /sockets/bash-events
-    to support browser connections with query parameter authentication.
-    """
+    """WebSocket endpoint for bash events."""
     # Perform authentication check before accepting the WebSocket connection
     config = get_default_config()
     if config.session_api_keys and session_api_key not in config.session_api_keys:
@@ -103,6 +109,17 @@ async def bash_events_socket(
         _BashWebSocketSubscriber(websocket)
     )
     try:
+        # Resend all existing events if requested
+        if resend_all:
+            page_id = None
+            while True:
+                page = await bash_event_service.search_bash_events(page_id=page_id)
+                for event in page.items:
+                    await _send_bash_event(event, websocket)
+                page_id = page.next_page_id
+                if not page_id:
+                    break
+
         while True:
             try:
                 # Keep the connection alive and handle any incoming messages
@@ -120,6 +137,14 @@ async def bash_events_socket(
         await bash_event_service.unsubscribe_from_events(subscriber_id)
 
 
+async def _send_event(event: Event, websocket: WebSocket):
+    try:
+        dumped = event.model_dump()
+        await websocket.send_json(dumped)
+    except Exception:
+        logger.exception("error_sending_event:{event}", stack_info=True)
+
+
 @dataclass
 class _WebSocketSubscriber(Subscriber):
     """WebSocket subscriber for conversation events."""
@@ -127,11 +152,15 @@ class _WebSocketSubscriber(Subscriber):
     websocket: WebSocket
 
     async def __call__(self, event: Event):
-        try:
-            dumped = event.model_dump()
-            await self.websocket.send_json(dumped)
-        except Exception:
-            logger.exception("error_sending_event:{event}", stack_info=True)
+        await _send_event(event, self.websocket)
+
+
+async def _send_bash_event(event: BashEventBase, websocket: WebSocket):
+    try:
+        dumped = event.model_dump()
+        await websocket.send_json(dumped)
+    except Exception:
+        logger.exception("error_sending_event:{event}", stack_info=True)
 
 
 @dataclass
@@ -141,8 +170,4 @@ class _BashWebSocketSubscriber(Subscriber[BashEventBase]):
     websocket: WebSocket
 
     async def __call__(self, event: BashEventBase):
-        try:
-            dumped = event.model_dump()
-            await self.websocket.send_json(dumped)
-        except Exception:
-            logger.exception("error_sending_bash_event:{event}", stack_info=True)
+        await _send_bash_event(event, self.websocket)
