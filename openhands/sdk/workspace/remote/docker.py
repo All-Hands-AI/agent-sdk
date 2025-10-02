@@ -168,12 +168,19 @@ class DockerRemoteWorkspace(RemoteWorkspace):
     through the container's HTTP API.
 
     Example:
-        workspace = DockerRemoteWorkspace(
-            base_image="python:3.12",
-            working_dir="/workspace"
-        )
-        result = workspace.execute_command("ls -la")
+        with DockerRemoteWorkspace(base_image="python:3.12") as workspace:
+            result = workspace.execute_command("ls -la")
     """
+
+    # Override parent fields with defaults
+    working_dir: str = Field(
+        default="/workspace",
+        description="Working directory inside the container.",
+    )
+    host: str = Field(
+        default="",
+        description=("Remote host URL (set automatically during container startup)."),
+    )
 
     base_image: str = Field(
         description="Base Docker image to use for the agent server container."
@@ -377,6 +384,14 @@ class DockerRemoteWorkspace(RemoteWorkspace):
                     raise RuntimeError(msg)
             time.sleep(1)
         raise RuntimeError("Container failed to become healthy in time")
+
+    def __enter__(self) -> "DockerRemoteWorkspace":
+        """Context manager entry - returns the workspace itself."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[no-untyped-def]
+        """Context manager exit - cleans up the Docker container."""
+        self.cleanup()
 
     def __del__(self) -> None:
         """Clean up the Docker container when the workspace is destroyed."""
