@@ -78,8 +78,16 @@ def find_artifact_url(run_suffix: str, artifacts_dir: str) -> str | None:
 
     for artifact_dir in artifacts_path.iterdir():
         if artifact_dir.is_dir() and artifact_dir.name.startswith(expected_prefix):
-            # Return the artifact name for URL generation in the workflow
-            return artifact_dir.name
+            # Generate GitHub Actions URL using environment variables
+            server_url = os.getenv("GITHUB_SERVER_URL", "https://github.com")
+            repository = os.getenv("GITHUB_REPOSITORY", "")
+            run_id = os.getenv("GITHUB_RUN_ID", "")
+
+            if repository and run_id:
+                return f"{server_url}/{repository}/actions/runs/{run_id}#artifacts"
+            else:
+                # Fallback to artifact name if environment variables not available
+                return artifact_dir.name
 
     return None
 

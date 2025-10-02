@@ -3,7 +3,10 @@ Base classes for agent-sdk integration tests.
 """
 
 import os
+import sys
 from abc import ABC, abstractmethod
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from typing import Any
 
 from pydantic import BaseModel, SecretStr
@@ -20,7 +23,6 @@ from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
 from openhands.sdk.tool import Tool
-from tests.integration.utils.logging_visualizer import LoggingVisualizer
 
 
 class TestResult(BaseModel):
@@ -83,17 +85,11 @@ class BaseIntegrationTest(ABC):
             self.cwd or "/tmp", f"{self.instance_id}_agent_logs.txt"
         )
 
-        # Create logging visualizer
-        self.logging_visualizer = LoggingVisualizer(
-            log_file_path=self.log_file_path,
-            enable_console_output=True,  # Keep console output for debugging
-        )
-
         self.conversation: LocalConversation = LocalConversation(
             agent=self.agent,
             workspace=self.cwd or "/tmp",
-            callbacks=[self.conversation_callback, self.logging_visualizer.on_event],
-            visualize=False,  # Disable default visualizer since we use custom one
+            callbacks=[self.conversation_callback],
+            visualize=True,  # Use default visualizer and capture its output
         )
 
     def conversation_callback(self, event: Event):
@@ -113,12 +109,42 @@ class BaseIntegrationTest(ABC):
             # Setup
             self.setup()
 
-            self.conversation.send_message(
-                message=Message(
-                    role="user", content=[TextContent(text=self.instruction)]
+            # Initialize log file with header
+            with open(self.log_file_path, "w") as f:
+                f.write(f"Agent Logs for Test: {self.instance_id}\n")
+                f.write("=" * 50 + "\n\n")
+
+            # Capture stdout and stderr during conversation
+            stdout_buffer = StringIO()
+            stderr_buffer = StringIO()
+
+            with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+                self.conversation.send_message(
+                    message=Message(
+                        role="user", content=[TextContent(text=self.instruction)]
+                    )
                 )
-            )
-            self.conversation.run()
+                self.conversation.run()
+
+            # Save captured output to log file
+            captured_output = stdout_buffer.getvalue()
+            captured_errors = stderr_buffer.getvalue()
+
+            with open(self.log_file_path, "a") as f:
+                if captured_output:
+                    f.write("STDOUT:\n")
+                    f.write(captured_output)
+                    f.write("\n")
+                if captured_errors:
+                    f.write("STDERR:\n")
+                    f.write(captured_errors)
+                    f.write("\n")
+
+            # Also print to console for debugging
+            if captured_output:
+                print(captured_output, end="")
+            if captured_errors:
+                print(captured_errors, file=sys.stderr, end="")
 
             # Verify results
             result = self.verify_result()

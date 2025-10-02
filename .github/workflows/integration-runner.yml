@@ -175,32 +175,16 @@ jobs:
                   MANUAL_REASON: ${{ github.event.inputs.reason }}
                   COMMIT_SHA: ${{ github.sha }}
                   PYTHONPATH: ${{ github.workspace }}
+                  GITHUB_SERVER_URL: ${{ github.server_url }}
+                  GITHUB_REPOSITORY: ${{ github.repository }}
+                  GITHUB_RUN_ID: ${{ github.run_id }}
               run: |
                   uv run python tests/integration/utils/consolidate_json_results.py \
                     --results-dir all_results \
                     --artifacts-dir artifacts \
                     --output-file consolidated_results.json
 
-                  # Update artifact URLs in the consolidated results with actual GitHub URLs
-                  python -c "
-                  import json
-                  import sys
-
-                  # Load consolidated results
-                  with open('consolidated_results.json', 'r') as f:
-                      data = json.load(f)
-
-                  # Update artifact URLs for each model
-                  base_url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
-                  for model in data['model_results']:
-                      if model.get('artifact_url'):
-                          # Point to the GitHub Actions run page where users can download artifacts
-                          model['artifact_url'] = f'{base_url}#artifacts'
-
-                  # Save updated results
-                  with open('consolidated_results.json', 'w') as f:
-                      json.dump(data, f, indent=2)
-                  "
+                  echo "Consolidated results generated successfully"
 
                   uv run python tests/integration/utils/generate_markdown_report.py \
                     --input-file consolidated_results.json \
