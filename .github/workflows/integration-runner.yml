@@ -194,7 +194,7 @@ jobs:
                   base_url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
                   for model in data['model_results']:
                       if model.get('artifact_url'):
-                          # artifact_url contains the artifact name, convert to full URL
+                          # Point to the GitHub Actions run page where users can download artifacts
                           model['artifact_url'] = f'{base_url}#artifacts'
 
                   # Save updated results

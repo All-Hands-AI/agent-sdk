@@ -115,8 +115,8 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
                 "## 📁 Detailed Logs & Artifacts",
                 "",
                 (
-                    "The following artifacts contain detailed agent/LLM logs showing "
-                    "the complete reasoning process:"
+                    "Click the links below to download detailed agent/LLM logs showing "
+                    "the complete reasoning process for each model:"
                 ),
                 "",
             ]
@@ -126,17 +126,24 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
             if result.artifact_url:
                 report_lines.append(
                     f"- **{result.model_name}**: "
-                    f"[Download Logs & Results]({result.artifact_url})"
+                    f"[📥 Download Logs & Results]({result.artifact_url})"
                 )
 
         report_lines.extend(
             [
                 "",
-                "Each artifact contains:",
-                "- Complete agent reasoning logs with visualize=True output",
-                "- Tool interactions and observations",
-                "- LLM request/response details",
-                "- Test results and metrics",
+                "**What's included in each artifact:**",
+                "- 📝 Complete agent reasoning logs with `visualize=True` output",
+                "- 🔧 Tool interactions and observations",
+                "- 🤖 LLM request/response details",
+                "- 📊 Test results and metrics",
+                "- 📁 Compressed archive ready for download",
+                "",
+                (
+                    "💡 **Tip**: After clicking a link above, scroll down to the "
+                    "'Artifacts' section on the GitHub Actions page to download "
+                    "the files."
+                ),
                 "",
             ]
         )

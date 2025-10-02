@@ -73,8 +73,11 @@ def find_artifact_url(run_suffix: str, artifacts_dir: str) -> str | None:
         return None
 
     # Look for artifact directories that match the run suffix
+    # Artifact naming pattern: integration-test-outputs-{run-suffix}-{run-id}-{run-attempt}  # noqa: E501
+    expected_prefix = f"integration-test-outputs-{run_suffix}-"
+
     for artifact_dir in artifacts_path.iterdir():
-        if artifact_dir.is_dir() and run_suffix in artifact_dir.name:
+        if artifact_dir.is_dir() and artifact_dir.name.startswith(expected_prefix):
             # Return the artifact name for URL generation in the workflow
             return artifact_dir.name
 
