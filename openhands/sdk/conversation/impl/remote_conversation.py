@@ -14,7 +14,6 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.conversation.system_mixins import RemoteSystemMixin
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event.base import Event
@@ -337,7 +336,7 @@ class RemoteState(ConversationStateProtocol):
         pass
 
 
-class RemoteConversation(RemoteSystemMixin, BaseConversation):
+class RemoteConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,

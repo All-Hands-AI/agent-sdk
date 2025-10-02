@@ -16,10 +16,6 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.shell_execution import (
-    ShellOutput,
-    execute_shell_command,
-)
 
 
 logger = get_logger(__name__)
@@ -182,38 +178,121 @@ class BashEventService:
 
     async def _execute_bash_command(self, command: BashCommand) -> None:
         """Execute the bash event and create an observation event."""
-        output_order = 0
-
-        def output_callback(shell_output: ShellOutput):
-            nonlocal output_order
-            # Create and publish BashOutput event
-            bash_output = BashOutput(
-                command_id=command.id,
-                order=shell_output.order
-                if shell_output.order is not None
-                else output_order,
-                stdout=shell_output.stdout,
-                stderr=shell_output.stderr,
-                exit_code=shell_output.exit_code,
-            )
-
-            self._save_event_to_file(bash_output)
-            # Note: We need to use asyncio.create_task to handle the async pub_sub call
-            # within the synchronous callback
-            asyncio.create_task(self._pub_sub(bash_output))
-            output_order += 1
-
         try:
-            # Use the shared shell execution utility
-            await execute_shell_command(
-                command=command.command,
+            # Create subprocess
+            process = await asyncio.create_subprocess_shell(
+                command.command,
                 cwd=command.cwd,
-                timeout=command.timeout,
-                output_callback=output_callback,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                shell=True,
             )
 
-            # The output_callback handles all the output events, including the final one
-            # with the exit code, so we don't need to create additional events here
+            # Track output order and buffers
+            output_order = 0
+            stdout_buffer = ""
+            stderr_buffer = ""
+
+            async def read_stream(stream, is_stderr=False):
+                nonlocal output_order, stdout_buffer, stderr_buffer
+
+                buffer = stderr_buffer if is_stderr else stdout_buffer
+
+                while True:
+                    try:
+                        # Read data from stream
+                        data = await stream.read(8192)  # Read in chunks
+                        if not data:
+                            break
+
+                        text = data.decode("utf-8", errors="replace")
+                        buffer += text
+
+                        # Update the appropriate buffer
+                        if is_stderr:
+                            stderr_buffer = buffer
+                        else:
+                            stdout_buffer = buffer
+
+                        # Check if we need to split the output
+                        while len(buffer) > MAX_CONTENT_CHAR_LENGTH:
+                            # Split at the max length
+                            chunk = buffer[:MAX_CONTENT_CHAR_LENGTH]
+                            buffer = buffer[MAX_CONTENT_CHAR_LENGTH:]
+
+                            # Create and publish BashOutput event
+                            output_event = BashOutput(
+                                command_id=command.id,
+                                order=output_order,
+                                stdout=chunk if not is_stderr else None,
+                                stderr=chunk if is_stderr else None,
+                            )
+
+                            self._save_event_to_file(output_event)
+                            await self._pub_sub(output_event)
+                            output_order += 1
+
+                            # Update the appropriate buffer
+                            if is_stderr:
+                                stderr_buffer = buffer
+                            else:
+                                stdout_buffer = buffer
+
+                    except Exception as e:
+                        logger.error(f"Error reading from stream: {e}")
+                        break
+
+            # Execute the entire command with timeout
+            try:
+                # Run stream reading and process waiting concurrently with timeout
+                await asyncio.wait_for(
+                    asyncio.gather(
+                        read_stream(process.stdout, is_stderr=False),
+                        read_stream(process.stderr, is_stderr=True),
+                        process.wait(),
+                        return_exceptions=True,
+                    ),
+                    timeout=command.timeout,
+                )
+                exit_code = process.returncode
+            except TimeoutError:
+                # Kill the process if it times out
+                process.kill()
+                try:
+                    # Give the process a short time to die gracefully
+                    await asyncio.wait_for(process.wait(), timeout=1.0)
+                except TimeoutError:
+                    # If it still won't die, terminate it more forcefully
+                    process.terminate()
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=1.0)
+                    except TimeoutError:
+                        logger.error(
+                            f"Failed to kill process for command: {command.command}"
+                        )
+                exit_code = -1
+                logger.warning(
+                    f"Command timed out after {command.timeout} seconds: "
+                    f"{command.command}"
+                )
+
+            # Create final output event with any remaining buffer content and exit code
+            final_stdout = stdout_buffer if stdout_buffer else None
+            final_stderr = stderr_buffer if stderr_buffer else None
+
+            # Only create final event if there's remaining content or we need to report
+            # exit code
+            if final_stdout or final_stderr or exit_code is not None:
+                final_output = BashOutput(
+                    command_id=command.id,
+                    order=output_order,
+                    exit_code=exit_code,
+                    stdout=final_stdout,
+                    stderr=final_stderr,
+                )
+
+                self._save_event_to_file(final_output)
+                await self._pub_sub(final_output)
 
         except Exception as e:
             logger.error(f"Error executing bash command '{command.command}': {e}")
