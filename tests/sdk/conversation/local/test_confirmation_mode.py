@@ -23,7 +23,14 @@ from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationS
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import UserRejectObservation
-from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm import (
+    LLM,
+    ImageContent,
+    Message,
+    MessageToolCall,
+    MetricsSnapshot,
+    TextContent,
+)
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 from openhands.sdk.tool import (
@@ -149,7 +156,14 @@ class TestConfirmationMode:
         self, call_id: str = "call_1", command: str = "test_command"
     ) -> MagicMock:
         """Configure LLM to return one tool call (action)."""
-        tool_call = self._create_test_action(call_id=call_id, command=command).tool_call
+        litellm_tool_call = ChatCompletionMessageToolCall(
+            id=call_id,
+            type="function",
+            function=Function(
+                name="test_tool",
+                arguments=f'{{"command": "{command}"}}',
+            ),
+        )
         return MagicMock(
             return_value=ModelResponse(
                 id="response_action",
@@ -158,7 +172,7 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=f"I'll execute {command}",
-                            tool_calls=[tool_call],
+                            tool_calls=[litellm_tool_call],
                         )
                     )
                 ],
@@ -173,7 +187,10 @@ class TestConfirmationMode:
         tool_call = ChatCompletionMessageToolCall(
             id="finish_call_1",
             type="function",
-            function=Function(name="finish", arguments=f'{{"message": "{message}"}}'),
+            function=Function(
+                name="finish",
+                arguments=f'{{"message": "{message}"}}',
+            ),
         )
 
         return MagicMock(
@@ -200,7 +217,8 @@ class TestConfirmationMode:
             id="call_1",
             type="function",
             function=Function(
-                name="test_tool", arguments='{"command": "test_command"}'
+                name="test_tool",
+                arguments='{"command": "test_command"}',
             ),
         )
 
@@ -208,7 +226,8 @@ class TestConfirmationMode:
             id="finish_call_1",
             type="function",
             function=Function(
-                name="finish", arguments='{"message": "Task completed!"}'
+                name="finish",
+                arguments='{"message": "Task completed!"}',
             ),
         )
 
@@ -220,7 +239,10 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content="I'll execute the command and then finish",
-                            tool_calls=[regular_tool_call, finish_tool_call],
+                            tool_calls=[
+                                regular_tool_call,
+                                finish_tool_call,
+                            ],
                         )
                     )
                 ],
@@ -234,15 +256,19 @@ class TestConfirmationMode:
         """Helper to create test action events."""
         action = MockConfirmationModeAction(command=command)
 
-        tool_call = ChatCompletionMessageToolCall(
+        litellm_tool_call = ChatCompletionMessageToolCall(
             id=call_id,
             type="function",
             function=Function(
-                name="test_tool", arguments=f'{{"command": "{command}"}}'
+                name="test_tool",
+                arguments=f'{{"command": "{command}"}}',
             ),
         )
 
-        return ActionEvent(
+        # Convert to MessageToolCall for ActionEvent
+        tool_call = MessageToolCall.from_litellm_tool_call(litellm_tool_call)
+
+        action_event = ActionEvent(
             source="agent",
             thought=[TextContent(text="Test thought")],
             action=action,
@@ -251,6 +277,8 @@ class TestConfirmationMode:
             tool_call=tool_call,
             llm_response_id="response_1",
         )
+
+        return action_event
 
     def test_mock_observation(self):
         # First test a round trip in the context of Observation

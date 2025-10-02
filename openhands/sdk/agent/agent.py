@@ -1,6 +1,5 @@
 import json
 
-from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
@@ -19,6 +18,7 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.llm import (
     Message,
+    MessageToolCall,
     RedactedThinkingBlock,
     TextContent,
     ThinkingBlock,
@@ -201,21 +201,6 @@ class Agent(AgentBase):
         message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
-            tool_call: ChatCompletionMessageToolCall
-            if any(tc.type != "function" for tc in message.tool_calls):
-                logger.warning(
-                    "LLM returned tool calls but some are not of type 'function' - "
-                    "ignoring those"
-                )
-
-            tool_calls = [
-                tool_call
-                for tool_call in message.tool_calls
-                if tool_call.type == "function"
-            ]
-            assert len(tool_calls) > 0, (
-                "LLM returned tool calls but none are of type 'function'"
-            )
             if not all(isinstance(c, TextContent) for c in message.content):
                 logger.warning(
                     "LLM returned tool calls but message content is not all "
@@ -226,9 +211,8 @@ class Agent(AgentBase):
             thought_content = [c for c in message.content if isinstance(c, TextContent)]
 
             action_events: list[ActionEvent] = []
-            for i, tool_call in enumerate(tool_calls):
+            for i, tool_call in enumerate(message.tool_calls):
                 action_event = self._get_action_event(
-                    state,
                     tool_call,
                     llm_response_id=llm_response.id,
                     on_event=on_event,
@@ -302,8 +286,7 @@ class Agent(AgentBase):
 
     def _get_action_event(
         self,
-        state: ConversationState,
-        tool_call: ChatCompletionMessageToolCall,
+        tool_call: MessageToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
@@ -314,9 +297,7 @@ class Agent(AgentBase):
 
         NOTE: state will be mutated in-place.
         """
-        assert tool_call.type == "function"
-        tool_name = tool_call.function.name
-        assert tool_name is not None, "Tool call must have a name"
+        tool_name = tool_call.name
         tool = self.tools_map.get(tool_name, None)
         # Handle non-existing tools
         if tool is None:
@@ -334,7 +315,7 @@ class Agent(AgentBase):
         # Validate arguments
         security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
-            arguments = json.loads(tool_call.function.arguments)
+            arguments = json.loads(tool_call.arguments)
 
             # if the tool has a security_risk field (when security analyzer = LLM),
             # pop it out as it's not part of the tool's action schema
@@ -356,7 +337,7 @@ class Agent(AgentBase):
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
-                f"Error validating args {tool_call.function.arguments} for tool "
+                f"Error validating args {tool_call.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
             event = AgentErrorEvent(

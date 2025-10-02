@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 import pytest
-from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
+from litellm import ChatCompletionToolParam
 
 from openhands.sdk.event import (
     ActionEvent,
@@ -17,7 +17,12 @@ from openhands.sdk.event import (
     SystemPromptEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
 from openhands.sdk.tool.schema import Action, Observation
 
 
@@ -61,17 +66,18 @@ def test_event_base_is_frozen():
 
 def test_system_prompt_event_is_frozen():
     """Test that SystemPromptEvent instances are frozen."""
-    tool: ChatCompletionToolParam = {
-        "type": "function",
-        "function": {
+    tool = ChatCompletionToolParam(
+        type="function",
+        function={
             "name": "test_tool",
             "description": "Test tool",
             "parameters": {"type": "object", "properties": {}},
         },
-    }
+    )
 
     event = SystemPromptEvent(
-        system_prompt=TextContent(text="Test system prompt"), tools=[tool]
+        system_prompt=TextContent(text="Test system prompt"),
+        tools=[tool],
     )
 
     # Test that we cannot modify any field
@@ -88,8 +94,8 @@ def test_system_prompt_event_is_frozen():
 def test_action_event_is_frozen():
     """Test that ActionEvent instances are frozen."""
     action = EventsImmutabilityMockAction()
-    tool_call = ChatCompletionMessageToolCall(
-        id="test_call_id", function={"name": "test_tool", "arguments": "{}"}
+    tool_call = MessageToolCall(
+        id="test_call_id", name="test_tool", arguments="{}", origin="completion"
     )
 
     event = ActionEvent(
@@ -257,17 +263,18 @@ def test_event_model_copy_creates_new_instance():
 
 def test_event_immutability_prevents_mutation_bugs():
     """Test that frozen events prevent the type of mutation bugs fixed in PR #226."""
-    tool: ChatCompletionToolParam = {
-        "type": "function_with_very_long_type_name_exceeding_thirty_characters",
-        "function": {
+    tool = ChatCompletionToolParam(
+        type="function_with_very_long_type_name_exceeding_thirty_characters",
+        function={
             "name": "test_tool",
             "description": "Test tool with long description",
             "parameters": {"type": "object", "properties": {}},
         },
-    }
+    )
 
     event = SystemPromptEvent(
-        system_prompt=TextContent(text="Test system prompt"), tools=[tool]
+        system_prompt=TextContent(text="Test system prompt"),
+        tools=[tool],
     )
 
     # Store original tool data

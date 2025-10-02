@@ -133,11 +133,7 @@ class TestTelemetryLifecycle:
         # Create a ModelResponse with usage data
         response = ModelResponse(
             id="test-response-id",
-            usage=Usage(
-                prompt_tokens=100,
-                completion_tokens=50,
-                total_tokens=150,
-            ),
+            usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
         )
 
         basic_telemetry.on_response(response)
@@ -480,11 +476,7 @@ class TestTelemetryIntegration:
             # Create response with usage (ModelResponse format)
             response = ModelResponse(
                 id="test-response-id",
-                usage=Usage(
-                    prompt_tokens=100,
-                    completion_tokens=50,
-                    total_tokens=150,
-                ),
+                usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
             )
 
             with patch(

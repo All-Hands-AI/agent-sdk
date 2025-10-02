@@ -40,6 +40,7 @@ import time  # noqa: E402
 from collections.abc import Sequence  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
+# noqa: E402
 from litellm import ChatCompletionMessageToolCall  # noqa: E402
 from litellm.types.utils import (  # noqa: E402
     Choices,
@@ -52,7 +53,12 @@ from pydantic import Field  # noqa: E402
 from openhands.sdk.agent import Agent  # noqa: E402
 from openhands.sdk.conversation import Conversation  # noqa: E402
 from openhands.sdk.event import MessageEvent  # noqa: E402
-from openhands.sdk.llm import LLM, ImageContent, Message, TextContent  # noqa: E402
+from openhands.sdk.llm import (  # noqa: E402
+    LLM,
+    ImageContent,
+    Message,
+    TextContent,
+)
 from openhands.sdk.tool import (  # noqa: E402
     Action,
     Observation,
@@ -227,7 +233,10 @@ class TestMessageWhileFinishing:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=response_content,
-                            tool_calls=[sleep_call, finish_call],
+                            tool_calls=[
+                                sleep_call,
+                                finish_call,
+                            ],
                         )
                     )
                 ],

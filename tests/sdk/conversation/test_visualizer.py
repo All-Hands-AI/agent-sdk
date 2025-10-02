@@ -3,8 +3,6 @@
 import json
 from collections.abc import Sequence
 
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 from rich.text import Text
 
 from openhands.sdk.conversation.visualizer import (
@@ -19,7 +17,12 @@ from openhands.sdk.event import (
     PauseEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
 from openhands.sdk.tool import Action
 
 
@@ -48,12 +51,13 @@ class VisualizerCustomAction(Action):
 
 def create_tool_call(
     call_id: str, function_name: str, arguments: dict
-) -> ChatCompletionMessageToolCall:
-    """Helper to create a ChatCompletionMessageToolCall."""
-    return ChatCompletionMessageToolCall(
+) -> MessageToolCall:
+    """Helper to create a MessageToolCall."""
+    return MessageToolCall(
         id=call_id,
-        function=Function(name=function_name, arguments=json.dumps(arguments)),
-        type="function",
+        name=function_name,
+        arguments=json.dumps(arguments),
+        origin="completion",
     )
 
 

@@ -1,12 +1,17 @@
 from collections.abc import Sequence
 
-from litellm import ChatCompletionMessageToolCall
 from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
-from openhands.sdk.llm import Message, RedactedThinkingBlock, TextContent, ThinkingBlock
+from openhands.sdk.llm import (
+    Message,
+    MessageToolCall,
+    RedactedThinkingBlock,
+    TextContent,
+    ThinkingBlock,
+)
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import Action
 
@@ -29,7 +34,7 @@ class ActionEvent(LLMConvertibleEvent):
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"
     )
-    tool_call: ChatCompletionMessageToolCall = Field(
+    tool_call: MessageToolCall = Field(
         ...,
         description=(
             "The tool call received from the LLM response. We keep a copy of it "

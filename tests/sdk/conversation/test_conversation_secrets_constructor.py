@@ -10,6 +10,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
+from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.llm import LLM
 from openhands.sdk.workspace import RemoteWorkspace
 
@@ -81,16 +82,18 @@ def test_local_conversation_constructor_with_callable_secrets():
     """Test LocalConversation constructor with callable secrets."""
     agent = create_test_agent()
 
-    def get_dynamic_token():
-        return "dynamic-token-789"
+    class MyLocalConversationConstructorDynamicTokenSource(SecretSource):
+        def get_value(self):
+            return "dynamic-token-789"
 
-    def get_api_key():
-        return "callable-api-key"
+    class MyLocalConversationConstructorApiKeySource(SecretSource):
+        def get_value(self):
+            return "callable-api-key"
 
     test_secrets = {
         "STATIC_KEY": "static-value",
-        "DYNAMIC_TOKEN": get_dynamic_token,
-        "API_KEY": get_api_key,
+        "DYNAMIC_TOKEN": MyLocalConversationConstructorDynamicTokenSource(),
+        "API_KEY": MyLocalConversationConstructorApiKeySource(),
     }
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -334,12 +337,10 @@ def test_secrets_parameter_type_validation():
         conv = Conversation(agent=agent, workspace=tmpdir, secrets={"KEY": "value"})
         assert isinstance(conv, LocalConversation)
 
-    # Test with callable values
-    def get_secret():
-        return "secret-value"
-
     with tempfile.TemporaryDirectory() as tmpdir:
-        conv = Conversation(agent=agent, workspace=tmpdir, secrets={"KEY": get_secret})  # type: ignore[dict-item]
+        conv = Conversation(
+            agent=agent, workspace=tmpdir, secrets={"KEY": "secret-value"}
+        )  # type: ignore[dict-item]
         assert isinstance(conv, LocalConversation)
 
     # Test with None (should work)

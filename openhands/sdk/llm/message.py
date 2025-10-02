@@ -13,6 +13,54 @@ from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 logger = get_logger(__name__)
 
 
+class MessageToolCall(BaseModel):
+    """Transport-agnostic tool call representation.
+
+    One canonical id is used for linking across actions/observations and
+    for Responses function_call_output call_id.
+    """
+
+    id: str = Field(..., description="Canonical tool call id")
+    name: str = Field(..., description="Tool/function name")
+    arguments: str = Field(..., description="JSON string of arguments")
+    origin: Literal["completion", "responses"] = Field(
+        ..., description="Originating API family"
+    )
+
+    @classmethod
+    def from_litellm_tool_call(
+        cls, tool_call: ChatCompletionMessageToolCall
+    ) -> "MessageToolCall":
+        """Create a MessageToolCall from a litellm ChatCompletionMessageToolCall.
+
+        This method provides a migration path from litellm tool calls to our
+        native implementation.
+
+        Args:
+            tool_call: The litellm tool call to convert
+
+        Returns:
+            A new MessageToolCall instance with the same data
+        """
+        if not tool_call.type == "function":
+            raise ValueError(
+                f"Unsupported tool call type for {tool_call=}, expected 'function'  "
+                f"not {tool_call.type}'"
+            )
+        if tool_call.function is None:
+            raise ValueError(f"tool_call.function is None for {tool_call=}")
+
+        if tool_call.function.name is None:
+            raise ValueError(f"tool_call.function.name is None for {tool_call=}")
+
+        return cls(
+            id=tool_call.id,
+            name=tool_call.function.name,
+            arguments=tool_call.function.arguments,
+            origin="completion",
+        )
+
+
 class ThinkingBlock(BaseModel):
     """Anthropic thinking block for extended thinking feature.
 
@@ -101,7 +149,7 @@ class Message(BaseModel):
     # function calling
     function_calling_enabled: bool = False
     # - tool calls (from LLM)
-    tool_calls: list[ChatCompletionMessageToolCall] | None = None
+    tool_calls: list[MessageToolCall] | None = None
     # - tool execution result (to LLM)
     tool_call_id: str | None = None
     name: str | None = None  # name of the tool
@@ -214,8 +262,8 @@ class Message(BaseModel):
                     "id": tool_call.id,
                     "type": "function",
                     "function": {
-                        "name": tool_call.function.name,
-                        "arguments": tool_call.function.arguments,
+                        "name": tool_call.name,
+                        "arguments": tool_call.arguments,
                     },
                 }
                 for tool_call in self.tool_calls
@@ -254,12 +302,37 @@ class Message(BaseModel):
         else:
             thinking_blocks = []
 
+        # Convert litellm tool calls to our MessageToolCall format
+        converted_tool_calls = None
+        if message.tool_calls:
+            # Validate tool calls - filter out non-function types
+            if any(tc.type != "function" for tc in message.tool_calls):
+                logger.warning(
+                    "LLM returned tool calls but some are not of type 'function' - "
+                    "ignoring those"
+                )
+
+            function_tool_calls = [
+                tc for tc in message.tool_calls if tc.type == "function"
+            ]
+
+            if len(function_tool_calls) > 0:
+                converted_tool_calls = [
+                    MessageToolCall.from_litellm_tool_call(tc)
+                    for tc in function_tool_calls
+                ]
+            else:
+                # If no function tool calls remain after filtering, raise an error
+                raise ValueError(
+                    "LLM returned tool calls but none are of type 'function'"
+                )
+
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
-            tool_calls=message.tool_calls,
+            tool_calls=converted_tool_calls,
             reasoning_content=rc,
             thinking_blocks=thinking_blocks,
         )

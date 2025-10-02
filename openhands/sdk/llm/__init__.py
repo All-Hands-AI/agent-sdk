@@ -4,6 +4,7 @@ from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import (
     ImageContent,
     Message,
+    MessageToolCall,
     RedactedThinkingBlock,
     TextContent,
     ThinkingBlock,
@@ -25,6 +26,7 @@ __all__ = [
     "RouterLLM",
     "RegistryEvent",
     "Message",
+    "MessageToolCall",
     "TextContent",
     "ImageContent",
     "ThinkingBlock",
