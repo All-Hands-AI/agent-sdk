@@ -574,7 +574,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 out["extra_headers"] = {
                     "anthropic-beta": "interleaved-thinking-2025-05-14"
                 }
-                # We need this to fix a problematic behavior in litellm: https://github.com/BerriAI/litellm/blob/f6b67fd9bd6d019b08512eb9453fa5828977bad0/litellm/llms/bedrock/chat/converse_transformation.py#L652-L665 # noqa: E501
+                # We need this to fix a problematic behavior in litellm: https://github.com/BerriAI/litellm/blob/f6b67fd9bd6d019b08512eb9453fa5828977bad0/litellm/llms/base_llm/chat/transformation.py#L134-L144 # noqa: E501
                 out["max_tokens"] = self.max_output_tokens
             # Anthropic models ignore temp/top_p
             out.pop("temperature", None)
