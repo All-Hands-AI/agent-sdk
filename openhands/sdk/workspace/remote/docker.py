@@ -1,4 +1,4 @@
-from __future__ import annotations
+"""Docker-based remote workspace implementation."""
 
 import os
 import re
@@ -7,26 +7,59 @@ import sys
 import threading
 import time
 import uuid
-from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
 
+from pydantic import Field, PrivateAttr
+
 from openhands.sdk.logger import get_logger
-from openhands.sdk.sandbox.port_utils import (
-    check_port_available,
-    find_available_tcp_port,
-)
 from openhands.sdk.utils.command import execute_command
+from openhands.sdk.workspace.remote.base import RemoteWorkspace
 
 
 logger = get_logger(__name__)
 
 
+def check_port_available(port: int) -> bool:
+    """Check if a port is available for binding."""
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("0.0.0.0", port))
+        return True
+    except OSError:
+        time.sleep(0.1)
+        return False
+    finally:
+        sock.close()
+
+
+def find_available_tcp_port(
+    min_port: int = 30000, max_port: int = 39999, max_attempts: int = 50
+) -> int:
+    """Find an available TCP port in a specified range."""
+    import random
+
+    rng = random.SystemRandom()
+    ports = list(range(min_port, max_port + 1))
+    rng.shuffle(ports)
+
+    for port in ports[:max_attempts]:
+        if check_port_available(port):
+            return port
+    return -1
+
+
 def _parse_build_tags(build_stdout: str) -> list[str]:
-    # build.sh prints at the end:
-    # [build] Done. Tags:
-    #  - <tag1>
-    #  - <tag2>
+    """Parse Docker image tags from build.sh output.
+
+    build.sh prints at the end:
+    [build] Done. Tags:
+     - <tag1>
+     - <tag2>
+    """
     tags: list[str] = []
     collecting = False
     for ln in build_stdout.splitlines():
@@ -43,7 +76,7 @@ def _parse_build_tags(build_stdout: str) -> list[str]:
 
 
 def _resolve_build_script() -> Path | None:
-    # Check if AGENT_SDK_PATH environment variable is set
+    """Locate the agent server build.sh script."""
     agent_sdk_path = os.environ.get("AGENT_SDK_PATH")
     if agent_sdk_path:
         p = Path(agent_sdk_path) / "openhands" / "agent_server" / "docker" / "build.sh"
@@ -99,7 +132,7 @@ def build_agent_server_image(
         raise FileNotFoundError(
             "Could not locate openhands/agent_server/docker/build.sh. "
             "Ensure you're running in the OpenHands repo or pass an explicit "
-            "image to DockerSandboxedAgentServer(image=...)."
+            "image to DockerWorkspace(image=...)."
         )
 
     env = os.environ.copy()
@@ -119,9 +152,10 @@ def build_agent_server_image(
     if extra_env:
         env.update(extra_env)
 
-    # Default project root is repo root (two levels above openhands/)
     if not project_root:
-        project_root = str(Path(__file__).resolve().parents[3])
+        # Path is: openhands/sdk/workspace/remote/docker.py
+        # parents[4] gives us the SDK root
+        project_root = str(Path(__file__).resolve().parents[4])
 
     proc = execute_command(["bash", str(script_path)], env=env, cwd=project_root)
 
@@ -144,34 +178,75 @@ def build_agent_server_image(
     return image
 
 
-class DockerSandboxedAgentServer:
-    """Run the Agent Server inside Docker for sandboxed development.
+class DockerWorkspace(RemoteWorkspace):
+    """Remote workspace that sets up and manages a Docker container.
+
+    This workspace creates a Docker container running the OpenHands agent server,
+    waits for it to become healthy, and then provides remote workspace operations
+    through the container's HTTP API.
 
     Example:
-        with DockerSandboxedAgentServer(host_port=8010) as server:
-            # use server.base_url as the host for RemoteConversation
-            ...
+        with DockerWorkspace(base_image="python:3.12") as workspace:
+            result = workspace.execute_command("ls -la")
     """
 
-    def __init__(
-        self,
-        *,
-        base_image: str,
-        host_port: int | None = None,
-        host: str = "127.0.0.1",
-        forward_env: Iterable[str] | None = None,
-        mount_dir: str | None = None,
-        detach_logs: bool = True,
-        target: str = "source",
-        platform: str = "linux/amd64",
-        extra_ports: bool = False,
-    ) -> None:
-        self.host_port = int(host_port) if host_port else find_available_tcp_port()
+    # Override parent fields with defaults
+    working_dir: str = Field(
+        default="/workspace",
+        description="Working directory inside the container.",
+    )
+    host: str = Field(
+        default="",
+        description=("Remote host URL (set automatically during container startup)."),
+    )
+
+    # Docker-specific configuration
+    base_image: str = Field(
+        description="Base Docker image to use for the agent server container."
+    )
+    host_port: int | None = Field(
+        default=None,
+        description="Port to bind the container to. If None, finds available port.",
+    )
+    forward_env: list[str] = Field(
+        default_factory=lambda: ["DEBUG"],
+        description="Environment variables to forward to the container.",
+    )
+    mount_dir: str | None = Field(
+        default=None,
+        description="Optional host directory to mount into the container.",
+    )
+    detach_logs: bool = Field(
+        default=True, description="Whether to stream Docker logs in background."
+    )
+    target: str = Field(
+        default="source", description="Build target for the Docker image."
+    )
+    platform: str = Field(
+        default="linux/amd64", description="Platform for the Docker image."
+    )
+    extra_ports: bool = Field(
+        default=False,
+        description="Whether to expose additional ports (VSCode, VNC).",
+    )
+
+    _container_id: str | None = PrivateAttr(default=None)
+    _logs_thread: threading.Thread | None = PrivateAttr(default=None)
+    _stop_logs: threading.Event = PrivateAttr(default_factory=threading.Event)
+    _image: str = PrivateAttr()
+
+    def model_post_init(self, context: Any) -> None:
+        """Set up the Docker container and initialize the remote workspace."""
+        # Determine port
+        if self.host_port is None:
+            self.host_port = find_available_tcp_port()
+        else:
+            self.host_port = int(self.host_port)
+
         if not check_port_available(self.host_port):
             raise RuntimeError(f"Port {self.host_port} is not available")
 
-        self._extra_ports = extra_ports
-        if extra_ports:
+        if self.extra_ports:
             if not check_port_available(self.host_port + 1):
                 raise RuntimeError(
                     f"Port {self.host_port + 1} is not available for VSCode"
@@ -181,20 +256,7 @@ class DockerSandboxedAgentServer:
                     f"Port {self.host_port + 2} is not available for VNC"
                 )
 
-        self._image = base_image
-        self.host = host
-        self.base_url = f"http://{host}:{self.host_port}"
-        self.container_id: str | None = None
-        self._logs_thread: threading.Thread | None = None
-        self._stop_logs = threading.Event()
-        self.mount_dir = mount_dir
-        self.detach_logs = detach_logs
-        self._forward_env = list(forward_env or ["DEBUG"])
-        self._target = target
-        self._platform = platform
-
-    def __enter__(self) -> DockerSandboxedAgentServer:
-        # Ensure docker exists
+        # Ensure docker is available
         docker_ver = execute_command(["docker", "version"]).returncode
         if docker_ver != 0:
             raise RuntimeError(
@@ -202,35 +264,36 @@ class DockerSandboxedAgentServer:
                 "Docker Desktop/daemon."
             )
 
-        # Build if base image is provided, BUT not if
-        # it's not an pre-built official image
-        if self._image and "ghcr.io/all-hands-ai/agent-server" not in self._image:
+        # Build image if needed
+        if "ghcr.io/all-hands-ai/agent-server" not in self.base_image:
             self._image = build_agent_server_image(
-                base_image=self._image,
-                target=self._target,
-                # we only support single platform for now
-                platforms=self._platform,
+                base_image=self.base_image,
+                target=self.target,
+                platforms=self.platform,
             )
+        else:
+            self._image = self.base_image
 
-        # Prepare env flags
+        # Prepare Docker run flags
         flags: list[str] = []
-        for key in self._forward_env:
+        for key in self.forward_env:
             if key in os.environ:
                 flags += ["-e", f"{key}={os.environ[key]}"]
 
-        # Prepare mount flags
         if self.mount_dir:
             mount_path = "/workspace"
             flags += ["-v", f"{self.mount_dir}:{mount_path}"]
             logger.info(
-                "Mounting host dir %s to container path %s", self.mount_dir, mount_path
+                "Mounting host dir %s to container path %s",
+                self.mount_dir,
+                mount_path,
             )
 
         ports = ["-p", f"{self.host_port}:8000"]
-        if self._extra_ports:
+        if self.extra_ports:
             ports += [
                 "-p",
-                f"{self.host_port + 1}:8001",  # VScode
+                f"{self.host_port + 1}:8001",  # VSCode
                 "-p",
                 f"{self.host_port + 2}:8002",  # Desktop VNC
             ]
@@ -242,7 +305,7 @@ class DockerSandboxedAgentServer:
             "run",
             "-d",
             "--platform",
-            self._platform,
+            self.platform,
             "--rm",
             "--name",
             f"agent-server-{uuid.uuid4()}",
@@ -257,8 +320,8 @@ class DockerSandboxedAgentServer:
         if proc.returncode != 0:
             raise RuntimeError(f"Failed to run docker container: {proc.stderr}")
 
-        self.container_id = proc.stdout.strip()
-        logger.info("Started container: %s", self.container_id)
+        self._container_id = proc.stdout.strip()
+        logger.info("Started container: %s", self._container_id)
 
         # Optionally stream logs in background
         if self.detach_logs:
@@ -267,17 +330,26 @@ class DockerSandboxedAgentServer:
             )
             self._logs_thread.start()
 
-        # Wait for health
+        # Set host for RemoteWorkspace to use
+        # The container exposes port 8000, mapped to self.host_port
+        # Override parent's host initialization
+        object.__setattr__(self, "host", f"http://localhost:{self.host_port}")
+        object.__setattr__(self, "api_key", None)
+
+        # Wait for container to be healthy
         self._wait_for_health()
-        logger.info("API server is ready at %s", self.base_url)
-        return self
+        logger.info("Docker workspace is ready at %s", self.host)
+
+        # Now initialize the parent RemoteWorkspace with the container URL
+        super().model_post_init(context)
 
     def _stream_docker_logs(self) -> None:
-        if not self.container_id:
+        """Stream Docker logs to stdout in the background."""
+        if not self._container_id:
             return
         try:
             p = subprocess.Popen(
-                ["docker", "logs", "-f", self.container_id],
+                ["docker", "logs", "-f", self._container_id],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -299,8 +371,9 @@ class DockerSandboxedAgentServer:
                 pass
 
     def _wait_for_health(self, timeout: float = 120.0) -> None:
+        """Wait for the Docker container to become healthy."""
         start = time.time()
-        health_url = f"{self.base_url}/health"
+        health_url = f"http://127.0.0.1:{self.host_port}/health"
 
         while time.time() - start < timeout:
             try:
@@ -309,30 +382,49 @@ class DockerSandboxedAgentServer:
                         return
             except Exception:
                 pass
+
             # Check if container is still running
-            if self.container_id:
+            if self._container_id:
                 ps = execute_command(
-                    ["docker", "inspect", "-f", "{{.State.Running}}", self.container_id]
+                    [
+                        "docker",
+                        "inspect",
+                        "-f",
+                        "{{.State.Running}}",
+                        self._container_id,
+                    ]
                 )
                 if ps.stdout.strip() != "true":
-                    logs = execute_command(["docker", "logs", self.container_id])
+                    logs = execute_command(["docker", "logs", self._container_id])
                     msg = (
                         "Container stopped unexpectedly. Logs:\n"
                         f"{logs.stdout}\n{logs.stderr}"
                     )
                     raise RuntimeError(msg)
             time.sleep(1)
-        raise RuntimeError("Server failed to become healthy in time")
+        raise RuntimeError("Container failed to become healthy in time")
 
-    def __exit__(self, exc_type, exc, tb) -> None:
-        if self.container_id:
-            try:
-                execute_command(["docker", "rm", "-f", self.container_id])
-            except Exception:
-                pass
-        if self._logs_thread:
-            try:
-                self._stop_logs.set()
+    def __enter__(self) -> "DockerWorkspace":
+        """Context manager entry - returns the workspace itself."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[no-untyped-def]
+        """Context manager exit - cleans up the Docker container."""
+        self.cleanup()
+
+    def __del__(self) -> None:
+        """Clean up the Docker container when the workspace is destroyed."""
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Stop and remove the Docker container."""
+        if self._container_id:
+            # Stop logs streaming
+            self._stop_logs.set()
+            if self._logs_thread and self._logs_thread.is_alive():
                 self._logs_thread.join(timeout=2)
-            except Exception:
-                pass
+
+            # Stop and remove the container
+            logger.info("Stopping container: %s", self._container_id)
+            execute_command(["docker", "stop", self._container_id])
+            self._container_id = None

@@ -173,9 +173,7 @@ class ConversationService:
             raise ValueError("inactive_service")
         conversation_id = uuid4()
         stored = StoredConversation(id=conversation_id, **request.model_dump())
-        file_store_path = (
-            self.event_services_path / conversation_id.hex / "event_service"
-        )
+        file_store_path = self.event_services_path / "event_service"
         file_store_path.mkdir(parents=True)
         event_service = EventService(
             stored=stored,

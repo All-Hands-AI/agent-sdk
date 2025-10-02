@@ -7,10 +7,9 @@ from openhands.sdk import (
     LLM,
     Conversation,
     RemoteConversation,
-    Workspace,
     get_logger,
 )
-from openhands.sdk.sandbox import DockerSandboxedAgentServer
+from openhands.sdk.workspace import DockerWorkspace
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -29,22 +28,22 @@ def main() -> None:
         api_key=SecretStr(api_key),
     )
 
-    # 2) Start the dev image in Docker via the SDK helper and wait for health
-    #    Forward LITELLM_API_KEY into the container so remote tools can use it.
-    with DockerSandboxedAgentServer(
+    # 2) Create a Docker-based remote workspace that will set up and manage
+    #    the Docker container automatically
+    with DockerWorkspace(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
         host_port=8010,
         # TODO: Change this to your platform if not linux/arm64
         platform="linux/arm64",
-    ) as server:
-        # 3) Create agent – IMPORTANT: working_dir must be the path inside container
-        #    where we mounted the current repo.
+        forward_env=["LITELLM_API_KEY"],  # Forward API key to container
+    ) as workspace:
+        # 3) Create agent
         agent = get_default_agent(
             llm=llm,
             cli_mode=True,
         )
 
-        # 4) Set up callback collection, like example 22
+        # 4) Set up callback collection
         received_events: list = []
         last_event_time = {"ts": time.time()}
 
@@ -54,12 +53,14 @@ def main() -> None:
             received_events.append(event)
             last_event_time["ts"] = time.time()
 
-        # 5) Create RemoteConversation and do the same 2-step task
-        workspace = Workspace(host=server.base_url)
+        # 5) Test the workspace with a simple command
         result = workspace.execute_command(
             "echo 'Hello from sandboxed environment!' && pwd"
         )
-        logger.info(f"Result of command execution: {result}")
+        logger.info(
+            f"Command '{result.command}' completed with exit code {result.exit_code}"
+        )
+        logger.info(f"Output: {result.stdout}")
         conversation = Conversation(
             agent=agent,
             workspace=workspace,

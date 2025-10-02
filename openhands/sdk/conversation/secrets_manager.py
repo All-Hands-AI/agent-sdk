@@ -1,14 +1,19 @@
 """Secrets manager for handling sensitive data in conversations."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 
+from pydantic import SecretStr
+
+from openhands.sdk.conversation.secret_source import (
+    SecretSource,
+    StaticSecret,
+)
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
 
-SecretProvider = Callable[[], str]
-SecretValue = str | SecretProvider
+SecretValue = str | SecretSource
 
 
 class SecretsManager:
@@ -25,7 +30,7 @@ class SecretsManager:
 
     def __init__(self) -> None:
         """Initialize an empty secrets manager."""
-        self._secrets: dict[str, SecretValue] = {}
+        self._secret_sources: dict[str, SecretSource] = {}
         # Track the latest successfully exported values for masking
         self._exported_values: dict[str, str] = {}
 
@@ -39,7 +44,8 @@ class SecretsManager:
             secrets: Dictionary mapping secret keys to either string values
                     or callable functions that return string values
         """
-        self._secrets.update(secrets)
+        secret_sources = {name: _wrap_secret(value) for name, value in secrets.items()}
+        self._secret_sources.update(secret_sources)
 
     def find_secrets_in_text(self, text: str) -> set[str]:
         """Find all secret keys mentioned in the given text.
@@ -51,7 +57,7 @@ class SecretsManager:
             Set of secret keys found in the text
         """
         found_keys = set()
-        for key in self._secrets.keys():
+        for key in self._secret_sources.keys():
             if key.lower() in text.lower():
                 found_keys.add(key)
         return found_keys
@@ -75,15 +81,12 @@ class SecretsManager:
         env_vars = {}
         for key in found_secrets:
             try:
-                provider_or_value = self._secrets[key]
-                value = (
-                    provider_or_value()
-                    if callable(provider_or_value)
-                    else provider_or_value
-                )
-                env_vars[key] = value
-                # Track successfully exported values for masking
-                self._exported_values[key] = value
+                source = self._secret_sources[key]
+                value = source.get_value()
+                if value:
+                    env_vars[key] = value
+                    # Track successfully exported values for masking
+                    self._exported_values[key] = value
             except Exception as e:
                 logger.error(f"Failed to retrieve secret for key '{key}': {e}")
                 continue
@@ -113,3 +116,12 @@ class SecretsManager:
             masked_text = masked_text.replace(value, "<secret-hidden>")
 
         return masked_text
+
+
+def _wrap_secret(value: SecretValue) -> SecretSource:
+    """Convert the value given to a secret source"""
+    if isinstance(value, SecretSource):
+        return value
+    if isinstance(value, str):
+        return StaticSecret(value=SecretStr(value))
+    raise ValueError("Invalid SecretValue")

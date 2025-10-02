@@ -7,6 +7,7 @@ from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.workspace.base import BaseWorkspace
+from openhands.sdk.workspace.models import CommandResult, FileOperationResult
 
 
 logger = get_logger(__name__)
@@ -44,7 +45,7 @@ class RemoteWorkspace(BaseWorkspace):
         command: str,
         cwd: str | Path | None = None,
         timeout: float = 30.0,
-    ) -> dict[str, Any]:
+    ) -> CommandResult:
         """Execute a bash command on the remote system.
 
         This method starts a bash command via the remote agent server API,
@@ -56,7 +57,7 @@ class RemoteWorkspace(BaseWorkspace):
             timeout: Timeout in seconds
 
         Returns:
-            dict: Result with stdout, stderr, exit_code, and other metadata
+            CommandResult: Result with stdout, stderr, exit_code, and other metadata
         """
         logger.debug(f"Executing remote command: {command}")
 
@@ -131,29 +132,29 @@ class RemoteWorkspace(BaseWorkspace):
             stdout = "".join(stdout_parts)
             stderr = "".join(stderr_parts)
 
-            return {
-                "command": command,
-                "exit_code": exit_code,
-                "stdout": stdout,
-                "stderr": stderr,
-                "timeout_occurred": exit_code == -1 and "timed out" in stderr,
-            }
+            return CommandResult(
+                command=command,
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                timeout_occurred=exit_code == -1 and "timed out" in stderr,
+            )
 
         except Exception as e:
             logger.error(f"Remote command execution failed: {e}")
-            return {
-                "command": command,
-                "exit_code": -1,
-                "stdout": "",
-                "stderr": f"Remote execution error: {str(e)}",
-                "timeout_occurred": False,
-            }
+            return CommandResult(
+                command=command,
+                exit_code=-1,
+                stdout="",
+                stderr=f"Remote execution error: {str(e)}",
+                timeout_occurred=False,
+            )
 
     def file_upload(
         self,
         source_path: str | Path,
         destination_path: str | Path,
-    ) -> dict[str, Any]:
+    ) -> FileOperationResult:
         """Upload a file to the remote system.
 
         Reads the local file and sends it to the remote system via HTTP API.
@@ -163,7 +164,7 @@ class RemoteWorkspace(BaseWorkspace):
             destination_path: Path where the file should be uploaded on remote system
 
         Returns:
-            dict: Result with success status and metadata
+            FileOperationResult: Result with success status and metadata
         """
         source = Path(source_path)
         destination = Path(destination_path)
@@ -187,22 +188,31 @@ class RemoteWorkspace(BaseWorkspace):
                 timeout=60.0,
             )
             response.raise_for_status()
-            return response.json()
+            result_data = response.json()
+
+            # Convert the API response to our model
+            return FileOperationResult(
+                success=result_data.get("success", True),
+                source_path=str(source),
+                destination_path=str(destination),
+                file_size=result_data.get("file_size"),
+                error=result_data.get("error"),
+            )
 
         except Exception as e:
             logger.error(f"Remote file upload failed: {e}")
-            return {
-                "success": False,
-                "source_path": str(source),
-                "destination_path": str(destination),
-                "error": str(e),
-            }
+            return FileOperationResult(
+                success=False,
+                source_path=str(source),
+                destination_path=str(destination),
+                error=str(e),
+            )
 
     def file_download(
         self,
         source_path: str | Path,
         destination_path: str | Path,
-    ) -> dict[str, Any]:
+    ) -> FileOperationResult:
         """Download a file from the remote system.
 
         Requests the file from the remote system via HTTP API and saves it locally.
@@ -212,7 +222,7 @@ class RemoteWorkspace(BaseWorkspace):
             destination_path: Path where the file should be saved locally
 
         Returns:
-            dict: Result with success status and metadata
+            FileOperationResult: Result with success status and metadata
         """
         source = Path(source_path)
         destination = Path(destination_path)
@@ -238,18 +248,18 @@ class RemoteWorkspace(BaseWorkspace):
             with open(destination, "wb") as f:
                 f.write(response.content)
 
-            return {
-                "success": True,
-                "source_path": str(source),
-                "destination_path": str(destination),
-                "file_size": len(response.content),
-            }
+            return FileOperationResult(
+                success=True,
+                source_path=str(source),
+                destination_path=str(destination),
+                file_size=len(response.content),
+            )
 
         except Exception as e:
             logger.error(f"Remote file download failed: {e}")
-            return {
-                "success": False,
-                "source_path": str(source),
-                "destination_path": str(destination),
-                "error": str(e),
-            }
+            return FileOperationResult(
+                success=False,
+                source_path=str(source),
+                destination_path=str(destination),
+                error=str(e),
+            )
