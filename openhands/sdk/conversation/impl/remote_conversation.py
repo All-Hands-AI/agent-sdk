@@ -346,7 +346,7 @@ class RemoteConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = False,
-        secrets: dict[str, SecretValue] | None = None,
+        secrets: dict[str, SecretValue] | dict[str, str] | None = None,
         **_: object,
     ) -> None:
         """Remote conversation proxy that talks to an agent server.
