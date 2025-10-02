@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
