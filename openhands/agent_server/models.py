@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import AgentBase, Event, ImageContent, Message, TextContent
+from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
@@ -129,7 +130,7 @@ class EventPage(OpenHandsModel):
 class UpdateSecretsRequest(BaseModel):
     """Payload to update secrets in a conversation."""
 
-    secrets: dict[str, str] = Field(
+    secrets: dict[str, SecretSource] = Field(
         description="Dictionary mapping secret keys to values"
     )
 
