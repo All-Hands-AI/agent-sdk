@@ -150,7 +150,10 @@ with ManagedAPIServer(port=8001) as server:
     # NOTE: Workspace is required for RemoteConversation
     workspace = Workspace(host=server.base_url)
     result = workspace.execute_command("pwd")
-    logger.info(f"Result of command execution: {result}")
+    logger.info(
+        f"Command '{result.command}' completed with exit code {result.exit_code}"
+    )
+    logger.info(f"Output: {result.stdout}")
 
     conversation = Conversation(
         agent=agent,

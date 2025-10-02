@@ -57,9 +57,10 @@ def main() -> None:
         result = workspace.execute_command(
             "echo 'Hello from sandboxed environment!' && pwd"
         )
-        logger.info(f"Result of command execution: {result}")
-
-        # 6) Create RemoteConversation using the workspace
+        logger.info(
+            f"Command '{result.command}' completed with exit code {result.exit_code}"
+        )
+        logger.info(f"Output: {result.stdout}")
         conversation = Conversation(
             agent=agent,
             workspace=workspace,
