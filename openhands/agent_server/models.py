@@ -15,7 +15,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import DiscriminatedUnionMixin, OpenHandsModel
-from openhands.sdk.workspace.base import BaseWorkspace
+from openhands.sdk.workspace import LocalWorkspace
 
 
 class ConversationSortOrder(str, Enum):
@@ -55,7 +55,7 @@ class StartConversationRequest(BaseModel):
     """
 
     agent: AgentBase
-    workspace: BaseWorkspace = Field(
+    workspace: LocalWorkspace = Field(
         ...,
         description="Working directory for agent operations and tool execution",
     )
