@@ -1,11 +1,10 @@
 """Secrets manager for handling sensitive data in conversations."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 
 from pydantic import SecretStr
 
 from openhands.sdk.conversation.secret_source import (
-    CallableSecret,
     SecretSource,
     StaticSecret,
 )
@@ -14,7 +13,7 @@ from openhands.sdk.logger import get_logger
 
 logger = get_logger(__name__)
 
-SecretValue = str | Callable[[], str] | SecretSource
+SecretValue = str | SecretSource
 
 
 class SecretsManager:
@@ -125,6 +124,4 @@ def _wrap_secret(value: SecretValue) -> SecretSource:
         return value
     if isinstance(value, str):
         return StaticSecret(value=SecretStr(value))
-    if callable(value):
-        return CallableSecret(fn=value)
     raise ValueError("Invalid SecretValue")

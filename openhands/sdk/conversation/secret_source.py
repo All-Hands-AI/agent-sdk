@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 
 import httpx
 from pydantic import Field, SecretStr
@@ -39,12 +38,3 @@ class LookupSecret(SecretSource):
         response = httpx.get(self.url, headers=self.headers)
         response.raise_for_status()
         return response.text
-
-
-class CallableSecret(SecretSource):
-    """A secret from a callable. This will not be serializable."""
-
-    fn: Callable[[], str | None]
-
-    def get_value(self):
-        return self.fn()
