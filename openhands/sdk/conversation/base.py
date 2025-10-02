@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
@@ -67,7 +67,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
 
-class BaseConversation(SystemMixin):
+class BaseConversation(ABC):
     @property
     @abstractmethod
     def id(self) -> ConversationID: ...

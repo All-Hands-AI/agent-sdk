@@ -1,22 +1,3 @@
-"""
-Enhanced Hello World with Sandboxed Server Example
-
-This example demonstrates:
-1. Direct bash command execution with the improved execute_bash method
-2. Agent conversation capabilities in a sandboxed environment
-3. Verification of agent work using direct bash commands
-4. Error handling and comprehensive logging
-
-The example shows how you can:
-- Execute bash commands directly and get complete results (exit code, output)
-- Run agent conversations that can interact with the sandboxed environment
-- Verify and inspect the agent's work using direct system commands
-- Handle both successful operations and error conditions
-
-This showcases the dual nature of the sandboxed server: it can both host
-agent conversations AND provide direct programmatic access to the environment.
-"""
-
 import os
 import time
 
@@ -106,33 +87,10 @@ def main() -> None:
                 time.sleep(0.1)
             logger.info("✅ Events have stopped")
 
-            # Verify the agent's work using direct bash execution
-            logger.info("\n🔍 Verifying agent's work with direct bash execution...")
-            verify_result = server.execute_bash(
-                "ls -la FACTS.txt && echo '--- Content of FACTS.txt ---' && "
-                "cat FACTS.txt"
-            )
-            if verify_result.exit_code == 0:
-                logger.info("✅ Agent successfully created FACTS.txt:")
-                logger.info(f"{verify_result.output}")
-            else:
-                logger.info("❌ FACTS.txt not found or error reading it:")
-                logger.info(f"{verify_result.output}")
-
             logger.info("🚀 Running conversation again...")
             conversation.send_message("Great! Now delete that file.")
             conversation.run()
             logger.info("✅ Second task completed!")
-
-            # Verify deletion using direct bash execution
-            logger.info("\n🔍 Verifying file deletion...")
-            delete_verify_result = server.execute_bash(
-                "ls -la FACTS.txt 2>&1 || echo 'File successfully deleted'"
-            )
-            logger.info("🗑️ Deletion verification:")
-            logger.info(f"   Exit Code: {delete_verify_result.exit_code}")
-            logger.info(f"   Output: {delete_verify_result.output.strip()}")
-
         finally:
             print("\n🧹 Cleaning up conversation...")
             conversation.close()
