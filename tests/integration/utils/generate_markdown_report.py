@@ -129,24 +129,6 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
                     f"[📥 Download Logs & Results]({result.artifact_url})"
                 )
 
-        report_lines.extend(
-            [
-                "",
-                "**What's included in each artifact:**",
-                "- 📝 Complete agent reasoning logs with `visualize=True` output",
-                "- 🔧 Tool interactions and observations",
-                "- 🤖 LLM request/response details",
-                "- 📊 Test results and metrics",
-                "- 📁 Compressed archive ready for download",
-                "",
-                (
-                    "💡 **Tip**: After clicking a link above, scroll down to the "
-                    "'Artifacts' section on the GitHub Actions page to download "
-                    "the files."
-                ),
-                "",
-            ]
-        )
 
     # Summary table
     report_lines.extend(
