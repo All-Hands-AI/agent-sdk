@@ -1,6 +1,8 @@
 """Tests for SecretsManager class."""
 
-from openhands.sdk.conversation.secret_source import SecretSource
+from pydantic import SecretStr
+
+from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
@@ -13,7 +15,10 @@ def test_update_secrets_with_static_values():
     }
 
     manager.update_secrets(secrets)
-    assert manager._exported_values == secrets
+    assert manager._secret_sources == {
+        "API_KEY": StaticSecret(value=SecretStr("test-api-key")),
+        "DATABASE_URL": StaticSecret(value=SecretStr("postgresql://localhost/test")),
+    }
 
 
 def test_update_secrets_overwrites_existing():
@@ -22,14 +27,20 @@ def test_update_secrets_overwrites_existing():
 
     # Add initial secrets
     manager.update_secrets({"API_KEY": "old-value"})
-    assert manager._exported_values["API_KEY"] == "old-value"
+    assert manager._secret_sources["API_KEY"] == StaticSecret(
+        value=SecretStr("old-value")
+    )
 
     # Update with new value
     manager.update_secrets({"API_KEY": "new-value", "NEW_KEY": "key-value"})
-    assert manager._exported_values["API_KEY"] == "new-value"
+    assert manager._secret_sources["API_KEY"] == StaticSecret(
+        value=SecretStr("new-value")
+    )
 
     manager.update_secrets({"API_KEY": "new-value-2"})
-    assert manager._exported_values["API_KEY"] == "new-value-2"
+    assert manager._secret_sources["API_KEY"] == StaticSecret(
+        value=SecretStr("new-value-2")
+    )
 
 
 def test_find_secrets_in_text_case_insensitive():
