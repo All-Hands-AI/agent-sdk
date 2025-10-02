@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
 
 from pydantic import Field
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
+from openhands.sdk.workspace.models import CommandResult, FileOperationResult
 
 
 logger = get_logger(__name__)
@@ -24,7 +24,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
         command: str,
         cwd: str | Path | None = None,
         timeout: float = 30.0,
-    ) -> dict[str, Any]:
+    ) -> CommandResult:
         """Execute a bash command on the system.
 
         Args:
@@ -33,7 +33,8 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
             timeout: Timeout in seconds (defaults to 30.0)
 
         Returns:
-            dict: Result containing stdout, stderr, exit_code, and other metadata
+            CommandResult: Result containing stdout, stderr, exit_code, and other
+                metadata
 
         Raises:
             Exception: If command execution fails
@@ -45,7 +46,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
         self,
         source_path: str | Path,
         destination_path: str | Path,
-    ) -> dict[str, Any]:
+    ) -> FileOperationResult:
         """Upload a file to the system.
 
         Args:
@@ -53,7 +54,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
             destination_path: Path where the file should be uploaded
 
         Returns:
-            dict: Result containing success status and metadata
+            FileOperationResult: Result containing success status and metadata
 
         Raises:
             Exception: If file upload fails
@@ -65,7 +66,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
         self,
         source_path: str | Path,
         destination_path: str | Path,
-    ) -> dict[str, Any]:
+    ) -> FileOperationResult:
         """Download a file from the system.
 
         Args:
@@ -73,7 +74,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
             destination_path: Path where the file should be downloaded
 
         Returns:
-            dict: Result containing success status and metadata
+            FileOperationResult: Result containing success status and metadata
 
         Raises:
             Exception: If file download fails
