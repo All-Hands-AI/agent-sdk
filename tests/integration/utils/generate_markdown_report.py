@@ -129,7 +129,6 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
                     f"[📥 Download Logs & Results]({result.artifact_url})"
                 )
 
-
     # Summary table
     report_lines.extend(
         [
