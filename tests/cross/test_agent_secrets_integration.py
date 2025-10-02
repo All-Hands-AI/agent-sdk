@@ -1,6 +1,7 @@
 """Tests for agent integration with secrets manager."""
 
 from typing import cast
+from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
@@ -8,6 +9,7 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.secret_source import LookupSecret, SecretSource
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
@@ -96,13 +98,14 @@ def test_agent_env_provider_with_callable_secrets(
     """Test that agent env provider works with callable secrets."""
 
     # Add callable secrets
-    def get_dynamic_token():
-        return "dynamic-token-123"
+    class MySecretSource(SecretSource):
+        def get_value(self):
+            return "dynamic-token-123"
 
     conversation.update_secrets(
         {
             "STATIC_KEY": "static-value",
-            "DYNAMIC_TOKEN": get_dynamic_token,
+            "DYNAMIC_TOKEN": MySecretSource(),
         }
     )
 
@@ -117,13 +120,14 @@ def test_agent_env_provider_handles_exceptions(
     """Test that agent env provider handles exceptions gracefully."""
 
     # Add a failing callable secret
-    def failing_secret():
-        raise ValueError("Secret retrieval failed")
+    class MyFailingSecretSource(SecretSource):
+        def get_value(self):
+            raise ValueError("Secret retrieval failed")
 
     conversation.update_secrets(
         {
             "WORKING_KEY": "working-value",
-            "FAILING_KEY": failing_secret,
+            "FAILING_KEY": MyFailingSecretSource(),
         }
     )
 
@@ -154,7 +158,6 @@ def test_agent_env_provider_no_matches(
 
 def test_agent_without_bash_throws_warning(llm):
     """Test that agent works correctly when no bash tools are present."""
-    from unittest.mock import patch
 
     with patch("openhands.sdk.agent.agent.logger") as mock_logger:
         _ = Conversation(agent=Agent(llm=llm, tools=[]))
@@ -171,35 +174,36 @@ def test_agent_secrets_integration_workflow(
     """Test complete workflow of agent secrets integration."""
 
     # Add secrets with mixed types
-    def get_auth_token():
-        return "bearer-token-456"
 
-    conversation.update_secrets(
-        {
+    with patch("httpx.get") as mock_get:
+        mock_get.return_value.text = "bearer-token-456"
+
+        conversation.update_secrets(
+            {
+                "API_KEY": "static-api-key-123",
+                "AUTH_TOKEN": LookupSecret(url="https://my-idp.com/"),
+                "DATABASE_URL": "postgresql://localhost/test",
+            }
+        )
+
+        # Single secret
+        assert bash_executor.env_provider is not None
+        env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
+        assert env_vars == {"API_KEY": "static-api-key-123"}
+
+        # Multiple secrets
+        command = "export API_KEY=$API_KEY && export AUTH_TOKEN=$AUTH_TOKEN"
+        assert bash_executor.env_provider is not None
+        env_vars = bash_executor.env_provider(command)
+        assert env_vars == {
             "API_KEY": "static-api-key-123",
-            "AUTH_TOKEN": get_auth_token,
-            "DATABASE_URL": "postgresql://localhost/test",
+            "AUTH_TOKEN": "bearer-token-456",
         }
-    )
 
-    # Single secret
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
-    assert env_vars == {"API_KEY": "static-api-key-123"}
-
-    # Multiple secrets
-    command = "export API_KEY=$API_KEY && export AUTH_TOKEN=$AUTH_TOKEN"
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider(command)
-    assert env_vars == {
-        "API_KEY": "static-api-key-123",
-        "AUTH_TOKEN": "bearer-token-456",
-    }
-
-    # No secrets referenced
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("echo hello world")
-    assert env_vars == {}
+        # No secrets referenced
+        assert bash_executor.env_provider is not None
+        env_vars = bash_executor.env_provider("echo hello world")
+        assert env_vars == {}
 
     # Step 5: Update secrets and verify changes propagate
     conversation.update_secrets({"API_KEY": "updated-api-key-789"})
@@ -214,14 +218,15 @@ def test_mask_secrets(
 ):
     """Test that agent configures bash tools with env provider."""
 
-    def dynamic_secret() -> str:
-        return "dynamic-secret"
+    class MyDynamicSecretSource(SecretSource):
+        def get_value(self):
+            return "dynamic-secret"
 
     # Add secrets to conversation
     conversation.update_secrets(
         {
             "API_KEY": "test-api-key",
-            "DB_PASSWORD": dynamic_secret,
+            "DB_PASSWORD": MyDynamicSecretSource(),
         }
     )
 
@@ -243,16 +248,16 @@ def test_mask_secrets(
 def test_mask_changing_secrets(
     conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
-    counter = 0
+    class MyChangingDynamicSecretSource(SecretSource):
+        counter: int = 0
 
-    def dynamic_secret() -> str:
-        nonlocal counter
-        counter += 1
-        return f"changing-secret-{counter}"
+        def get_value(self):
+            self.counter += 1
+            return f"changing-secret-{self.counter}"
 
     conversation.update_secrets(
         {
-            "DB_PASSWORD": dynamic_secret,
+            "DB_PASSWORD": MyChangingDynamicSecretSource(),
         }
     )
 
@@ -274,19 +279,19 @@ def test_mask_changing_secrets(
 def test_masking_persists(
     conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
-    counter = 0
-    raised_on_second = False
+    class MyChangingFailingDynamicSecretSource(SecretSource):
+        counter: int = 0
+        raised_on_second: bool = False
 
-    def dynamic_secret() -> str:
-        nonlocal counter, raised_on_second
-        counter += 1
+        def get_value(self):
+            self.counter += 1
+            if self.counter == 1:
+                return f"changing-secret-{self.counter}"
+            else:
+                self.raised_on_second = True
+                raise Exception("Blip occured, failed to refresh token")
 
-        if counter == 1:
-            return f"changing-secret-{counter}"
-        else:
-            raised_on_second = True
-            raise Exception("Blip occured, failed to refresh token")
-
+    dynamic_secret = MyChangingFailingDynamicSecretSource()
     conversation.update_secrets(
         {
             "DB_PASSWORD": dynamic_secret,
@@ -304,7 +309,7 @@ def test_masking_persists(
         result = bash_executor(action)
         assert "changing-secret" not in result.output
         assert "<secret-hidden>" in result.output
-        assert raised_on_second
+        assert dynamic_secret.raised_on_second
 
     finally:
         bash_executor.close()

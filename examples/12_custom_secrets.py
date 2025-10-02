@@ -7,6 +7,7 @@ from openhands.sdk import (
     Agent,
     Conversation,
 )
+from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
@@ -34,12 +35,13 @@ agent = Agent(llm=llm, tools=tools)
 conversation = Conversation(agent)
 
 
-def output_token() -> str:
-    return "callable-based-secret"
+class MySecretSource(SecretSource):
+    def get_value(self) -> str:
+        return "callable-based-secret"
 
 
 conversation.update_secrets(
-    {"SECRET_TOKEN": "my-secret-token-value", "SECRET_FUNCTION_TOKEN": output_token}
+    {"SECRET_TOKEN": "my-secret-token-value", "SECRET_FUNCTION_TOKEN": MySecretSource()}
 )
 
 conversation.send_message("just echo $SECRET_TOKEN")

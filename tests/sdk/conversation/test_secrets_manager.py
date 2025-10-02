@@ -1,5 +1,6 @@
 """Tests for SecretsManager class."""
 
+from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
@@ -97,13 +98,14 @@ def test_get_secrets_as_env_vars_callable_values():
     """Test get_secrets_as_env_vars with callable values."""
     manager = SecretsManager()
 
-    def get_dynamic_token():
-        return "dynamic-token-456"
+    class MyTokenSource(SecretSource):
+        def get_value(self):
+            return "dynamic-token-456"
 
     manager.update_secrets(
         {
             "STATIC_KEY": "static-value",
-            "DYNAMIC_TOKEN": get_dynamic_token,
+            "DYNAMIC_TOKEN": MyTokenSource(),
         }
     )
 
@@ -115,16 +117,18 @@ def test_get_secrets_as_env_vars_handles_callable_exceptions():
     """Test that get_secrets_as_env_vars handles exceptions from callables."""
     manager = SecretsManager()
 
-    def failing_callable():
-        raise ValueError("Secret retrieval failed")
+    class MyFailingTokenSource(SecretSource):
+        def get_value(self):
+            raise ValueError("Secret retrieval failed")
 
-    def working_callable():
-        return "working-value"
+    class MyWorkingTokenSource(SecretSource):
+        def get_value(self):
+            return "working-value"
 
     manager.update_secrets(
         {
-            "FAILING_SECRET": failing_callable,
-            "WORKING_SECRET": working_callable,
+            "FAILING_SECRET": MyFailingTokenSource(),
+            "WORKING_SECRET": MyWorkingTokenSource(),
         }
     )
 
