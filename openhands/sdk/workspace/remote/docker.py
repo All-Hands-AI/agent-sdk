@@ -53,7 +53,13 @@ def find_available_tcp_port(
 
 
 def _parse_build_tags(build_stdout: str) -> list[str]:
-    """Parse Docker image tags from build.sh output."""
+    """Parse Docker image tags from build.sh output.
+
+    build.sh prints at the end:
+    [build] Done. Tags:
+     - <tag1>
+     - <tag2>
+    """
     tags: list[str] = []
     collecting = False
     for ln in build_stdout.splitlines():
@@ -77,6 +83,7 @@ def _resolve_build_script() -> Path | None:
         if p.exists():
             return p
 
+    # Prefer locating via importlib without importing the module
     try:
         import importlib.util
 
@@ -88,6 +95,7 @@ def _resolve_build_script() -> Path | None:
     except Exception:
         pass
 
+    # Try common project layouts relative to CWD and this file
     candidates: list[Path] = [
         Path.cwd() / "openhands" / "agent_server" / "docker" / "build.sh",
         Path(__file__).resolve().parents[3]
@@ -110,7 +118,15 @@ def build_agent_server_image(
     extra_env: dict[str, str] | None = None,
     project_root: str | None = None,
 ) -> str:
-    """Build the agent-server Docker image via the repo's build.sh."""
+    """Build the agent-server Docker image via the repo's build.sh.
+
+    This is a dev convenience that shells out to the build script provided in
+    openhands/agent_server/docker/build.sh. Returns the first image tag printed
+    by the script.
+
+    If the script cannot be located, raise a helpful error. In that case,
+    users can manually provide an image to DockerSandboxedAgentServer(image="...").
+    """
     script_path = _resolve_build_script()
     if not script_path:
         raise FileNotFoundError(
@@ -184,6 +200,7 @@ class DockerRemoteWorkspace(RemoteWorkspace):
         description=("Remote host URL (set automatically during container startup)."),
     )
 
+    # Docker-specific configuration
     base_image: str = Field(
         description="Base Docker image to use for the agent server container."
     )
@@ -316,7 +333,7 @@ class DockerRemoteWorkspace(RemoteWorkspace):
         # Set host for RemoteWorkspace to use
         # The container exposes port 8000, mapped to self.host_port
         # Override parent's host initialization
-        object.__setattr__(self, "host", f"http://127.0.0.1:{self.host_port}")
+        object.__setattr__(self, "host", f"http://localhost:{self.host_port}")
         object.__setattr__(self, "api_key", None)
 
         # Wait for container to be healthy
