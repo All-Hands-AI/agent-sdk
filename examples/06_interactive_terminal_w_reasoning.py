@@ -6,11 +6,11 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 
 
@@ -31,9 +31,9 @@ llm = LLM(
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 tools = [
-    ToolSpec(
+    Tool(
         name="BashTool",
-        params={"working_dir": cwd, "no_change_timeout_seconds": 3},
+        params={"no_change_timeout_seconds": 3},
     )
 ]
 
@@ -43,12 +43,14 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
+)
 
 conversation.send_message(
     "Enter python interactive mode by directly running `python3`, then tell me "

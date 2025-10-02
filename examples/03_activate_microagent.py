@@ -7,7 +7,7 @@ from openhands.sdk import (
     Agent,
     AgentContext,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
@@ -15,7 +15,7 @@ from openhands.sdk.context import (
     KnowledgeMicroagent,
     RepoMicroagent,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -27,7 +27,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -37,8 +37,10 @@ cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
-    ToolSpec(name="FileEditorTool"),
+    Tool(
+        name="BashTool",
+    ),
+    Tool(name="FileEditorTool"),
 ]
 
 agent_context = AgentContext(
@@ -69,12 +71,14 @@ agent = Agent(llm=llm, tools=tools, agent_context=agent_context)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
+)
 
 print("=" * 100)
 print("Checking if the repo microagent is activated.")

@@ -25,9 +25,10 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
+    RemoteConversation,
+    Workspace,
     get_logger,
 )
-from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.sandbox import DockerSandboxedAgentServer
 from openhands.tools.preset.default import get_default_agent
 
@@ -42,7 +43,7 @@ def main() -> None:
 
     llm = LLM(
         service_id="agent",
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+        model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
         base_url="https://llm-proxy.eval.all-hands.dev",
         api_key=SecretStr(api_key),
     )
@@ -59,7 +60,6 @@ def main() -> None:
         #    where we mounted the current repo.
         agent = get_default_agent(
             llm=llm,
-            working_dir="/",
             cli_mode=True,
         )
 
@@ -74,90 +74,22 @@ def main() -> None:
             last_event_time["ts"] = time.time()
 
         # 5) Create RemoteConversation and do the same 2-step task
+        workspace = Workspace(host=server.base_url)
+        result = workspace.execute_command(
+            "echo 'Hello from sandboxed environment!' && pwd"
+        )
+        logger.info(f"Result of command execution: {result}")
         conversation = Conversation(
             agent=agent,
-            host=server.base_url,
+            workspace=workspace,
             callbacks=[event_callback],
             visualize=True,
         )
         assert isinstance(conversation, RemoteConversation)
 
         try:
-            # First, demonstrate direct bash execution capabilities
-            logger.info("\n🔧 === DEMONSTRATING DIRECT BASH EXECUTION ===")
+            logger.info(f"\n📋 Conversation ID: {conversation.state.id}")
 
-            # Test 1: Simple command with successful output
-            logger.info("🧪 Test 1: Basic command execution")
-            result = server.execute_bash(
-                "echo 'Hello from sandboxed environment!' && pwd"
-            )
-            logger.info("✅ Command completed:")
-            logger.info(f"   Command ID: {result.command_id}")
-            logger.info(f"   Exit Code: {result.exit_code}")
-            logger.info(f"   Output: {result.output.strip()}")
-
-            # Test 2: Command that produces error
-            logger.info("\n🧪 Test 2: Command with error")
-            error_result = server.execute_bash("ls /nonexistent_directory")
-            logger.info("❌ Command failed as expected:")
-            logger.info(f"   Exit Code: {error_result.exit_code}")
-            logger.info(f"   Output: {error_result.output.strip()}")
-
-            # Test 3: Multi-line command with environment info
-            logger.info("\n🧪 Test 3: Environment information")
-            env_result = server.execute_bash("""
-                echo "=== Environment Information ==="
-                echo "Python version: $(python --version)"
-                echo "Node version: $(node --version)"
-                echo "Current directory: $(pwd)"
-                echo "Available disk space:"
-                df -h / | tail -1
-                echo "Memory info:"
-                free -h | head -2
-            """)
-            logger.info("📊 Environment info:")
-            logger.info(f"   Exit Code: {env_result.exit_code}")
-            logger.info(f"   Output:\n{env_result.output}")
-
-            # Test 4: Create and execute a Python script
-            logger.info("\n🧪 Test 4: Create and run Python script")
-            script_result = server.execute_bash("""
-                cat > test_script.py << 'EOF'
-import sys
-import os
-print("Hello from Python script!")
-print(f"Python version: {sys.version}")
-print(f"Current working directory: {os.getcwd()}")
-print("Files in current directory:")
-for item in os.listdir('.'):
-    print(f"  - {item}")
-EOF
-                python test_script.py
-            """)
-            logger.info("🐍 Python script execution:")
-            logger.info(f"   Exit Code: {script_result.exit_code}")
-            logger.info(f"   Output:\n{script_result.output}")
-
-            # Test 5: File operations
-            logger.info("\n🧪 Test 5: File operations")
-            file_result = server.execute_bash("""
-                echo "Creating test files..."
-                echo "This is test file 1" > file1.txt
-                echo "This is test file 2" > file2.txt
-                echo "Files created:"
-                ls -la *.txt
-                echo "Content of file1.txt:"
-                cat file1.txt
-                echo "Cleaning up..."
-                rm file1.txt file2.txt test_script.py
-                echo "Cleanup complete!"
-            """)
-            logger.info("📁 File operations:")
-            logger.info(f"   Exit Code: {file_result.exit_code}")
-            logger.info(f"   Output:\n{file_result.output}")
-
-            logger.info("\n🤖 === NOW STARTING AGENT CONVERSATION ===")
-            logger.info(f"📋 Conversation ID: {conversation.state.id}")
             logger.info("📝 Sending first message...")
             conversation.send_message(
                 "Read the current repo and write 3 facts about the project into "

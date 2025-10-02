@@ -30,47 +30,43 @@ from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
+    ToolDefinition,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 
 
-class TestPauseFunctionalityMockAction(ActionBase):
+class PauseFunctionalityMockAction(Action):
     """Mock action schema for testing."""
 
     command: str
 
 
-class TestPauseFunctionalityMockObservation(ObservationBase):
+class PauseFunctionalityMockObservation(Observation):
     """Mock observation schema for testing."""
 
     result: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 
 class BlockingExecutor(
-    ToolExecutor[
-        TestPauseFunctionalityMockAction, TestPauseFunctionalityMockObservation
-    ]
+    ToolExecutor[PauseFunctionalityMockAction, PauseFunctionalityMockObservation]
 ):
     def __init__(self, step_entered: threading.Event):
         self.step_entered = step_entered
 
     def __call__(
-        self, action: TestPauseFunctionalityMockAction
-    ) -> TestPauseFunctionalityMockObservation:
+        self, action: PauseFunctionalityMockAction
+    ) -> PauseFunctionalityMockObservation:
         # Signal we've entered tool execution for this step
         self.step_entered.set()
-        return TestPauseFunctionalityMockObservation(
-            result=f"Executed: {action.command}"
-        )
+        return PauseFunctionalityMockObservation(result=f"Executed: {action.command}")
 
 
 class TestPauseFunctionality:
@@ -85,23 +81,23 @@ class TestPauseFunctionality:
 
         class TestExecutor(
             ToolExecutor[
-                TestPauseFunctionalityMockAction, TestPauseFunctionalityMockObservation
+                PauseFunctionalityMockAction, PauseFunctionalityMockObservation
             ]
         ):
             def __call__(
-                self, action: TestPauseFunctionalityMockAction
-            ) -> TestPauseFunctionalityMockObservation:
-                return TestPauseFunctionalityMockObservation(
+                self, action: PauseFunctionalityMockAction
+            ) -> PauseFunctionalityMockObservation:
+                return PauseFunctionalityMockObservation(
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool() -> Sequence[Tool]:
+        def _make_tool(conv_state=None, **params) -> Sequence[ToolDefinition]:
             return [
-                Tool(
+                ToolDefinition(
                     name="test_tool",
                     description="A test tool",
-                    action_type=TestPauseFunctionalityMockAction,
-                    observation_type=TestPauseFunctionalityMockObservation,
+                    action_type=PauseFunctionalityMockAction,
+                    observation_type=PauseFunctionalityMockObservation,
                     executor=TestExecutor(),
                 )
             ]
@@ -110,7 +106,7 @@ class TestPauseFunctionality:
 
         self.agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool")],
+            tools=[Tool(name="test_tool")],
         )
         self.conversation = Conversation(agent=self.agent)
 
@@ -260,7 +256,7 @@ class TestPauseFunctionality:
         agent_messages = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, ActionBase) and event.source == "agent"
+            if isinstance(event, Action) and event.source == "agent"
         ]
         assert len(agent_messages) == 0
 
@@ -290,13 +286,13 @@ class TestPauseFunctionality:
     def test_pause_while_running_continuous_actions(self, mock_completion):
         step_entered = threading.Event()
 
-        def _make_blocking_tool() -> Sequence[Tool]:
+        def _make_blocking_tool(conv_state=None, **kwargs) -> Sequence[ToolDefinition]:
             return [
-                Tool(
+                ToolDefinition(
                     name="test_tool",
                     description="Blocking tool for pause test",
-                    action_type=TestPauseFunctionalityMockAction,
-                    observation_type=TestPauseFunctionalityMockObservation,
+                    action_type=PauseFunctionalityMockAction,
+                    observation_type=PauseFunctionalityMockObservation,
                     executor=BlockingExecutor(step_entered),
                 )
             ]
@@ -304,7 +300,7 @@ class TestPauseFunctionality:
         register_tool("test_tool", _make_blocking_tool)
         agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool")],
+            tools=[Tool(name="test_tool")],
         )
         conversation = Conversation(agent=agent, stuck_detection=False)
 

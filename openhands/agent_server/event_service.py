@@ -11,12 +11,14 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import Agent, EventBase, LocalFileStore, Message, get_logger
+from openhands.sdk import Agent, Event, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
+from openhands.sdk.workspace import LocalWorkspace
 
 
 logger = get_logger(__name__)
@@ -30,32 +32,44 @@ class EventService:
     """
 
     stored: StoredConversation
-    file_store_path: Path
+    file_store_path: Path  # Base path for conversation persistence
+    # conversation will be persisted to "file_store_path / conversation_id"
+    # and can be accessible via .persistence_dir property
     working_dir: Path
     _conversation: LocalConversation | None = field(default=None, init=False)
-    _pub_sub: PubSub[EventBase] = field(
-        default_factory=lambda: PubSub[EventBase](), init=False
-    )
+    _pub_sub: PubSub[Event] = field(default_factory=lambda: PubSub[Event](), init=False)
     _run_task: asyncio.Task | None = field(default=None, init=False)
 
+    @property
+    def persistence_dir(self) -> Path:
+        """Path to the persistence directory for this conversation.
+
+        It would typically be:
+            self.file_store_path / str(conversation_id)
+        """
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        persistence_dir = self._conversation.state.persistence_dir
+        assert persistence_dir is not None, (
+            "persistence_dir should be set in LocalConversation"
+        )
+        return Path(persistence_dir)
+
     async def load_meta(self):
-        meta_file = self.file_store_path / "meta.json"
+        meta_file = self.persistence_dir / "meta.json"
         self.stored = StoredConversation.model_validate_json(meta_file.read_text())
 
     async def save_meta(self):
         self.stored.updated_at = utc_now()
-        meta_file = self.file_store_path / "meta.json"
+        meta_file = self.persistence_dir / "meta.json"
         meta_file.write_text(self.stored.model_dump_json())
 
-    async def get_event(self, event_id: str) -> EventBase | None:
+    async def get_event(self, event_id: str) -> Event | None:
         if not self._conversation:
             raise ValueError("inactive_service")
         with self._conversation._state as state:
-            # TODO: It would be nice if the agent sdk had a method for
-            #       getting events by id
-            event = next(
-                (event for event in state.events if event.id == event_id), None
-            )
+            index = state.events.get_index(event_id)
+            event = state.events[index]
             return event
 
     async def search_events(
@@ -132,7 +146,7 @@ class EventService:
 
         return count
 
-    async def batch_get_events(self, event_ids: list[str]) -> list[EventBase | None]:
+    async def batch_get_events(self, event_ids: list[str]) -> list[Event | None]:
         """Given a list of ids, get events (Or none for any which were not found)"""
         results = []
         for event_id in event_ids:
@@ -146,24 +160,48 @@ class EventService:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._conversation.send_message, message)
 
-    async def subscribe_to_events(self, subscriber: Subscriber[EventBase]) -> UUID:
-        return self._pub_sub.subscribe(subscriber)
+    async def subscribe_to_events(self, subscriber: Subscriber[Event]) -> UUID:
+        subscriber_id = self._pub_sub.subscribe(subscriber)
+
+        # Send current state to the new subscriber immediately
+        if self._conversation:
+            state = self._conversation._state
+            with state:
+                # Create state update event with current state information
+                state_update_event = (
+                    ConversationStateUpdateEvent.from_conversation_state(state)
+                )
+
+                # Send state update directly to the new subscriber
+                try:
+                    await subscriber(state_update_event)
+                except Exception as e:
+                    logger.error(
+                        f"Error sending initial state to subscriber "
+                        f"{subscriber_id}: {e}"
+                    )
+
+        return subscriber_id
 
     async def unsubscribe_from_events(self, subscriber_id: UUID) -> bool:
         return self._pub_sub.unsubscribe(subscriber_id)
 
     async def start(self):
+        # Store the main event loop for cross-thread communication
+        self._main_loop = asyncio.get_running_loop()
+
         # self.stored contains an Agent configuration we can instantiate
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
+        # Convert workspace to LocalWorkspace if needed
+        workspace = self.stored.workspace
+        if not isinstance(workspace, LocalWorkspace):
+            workspace = LocalWorkspace(working_dir=workspace.working_dir)
         conversation = LocalConversation(
             agent=agent,
-            persist_filestore=LocalFileStore(
-                str(self.file_store_path)
-                # inside Conversation, events will be saved to
-                # "file_store_path/{convo_id}/events"
-            ),
+            workspace=workspace,
+            persistence_dir=str(self.file_store_path),
             conversation_id=self.stored.id,
             callbacks=[
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
@@ -176,6 +214,12 @@ class EventService:
         # Set confirmation mode if enabled
         conversation.set_confirmation_policy(self.stored.confirmation_policy)
         self._conversation = conversation
+
+        # Register state change callback to automatically publish updates
+        self._conversation._state.set_on_state_change(self._conversation._on_event)
+
+        # Publish initial state update
+        await self._publish_state_update()
 
     async def run(self):
         """Run the conversation asynchronously."""
@@ -221,6 +265,21 @@ class EventService:
         if not self._conversation:
             raise ValueError("inactive_service")
         return self._conversation._state
+
+    async def _publish_state_update(self):
+        """Publish a ConversationStateUpdateEvent with the current state."""
+        if not self._conversation:
+            return
+
+        state = self._conversation._state
+        with state:
+            # Create state update event with current state information
+            state_update_event = ConversationStateUpdateEvent.from_conversation_state(
+                state
+            )
+
+            # Publish the state update event
+            await self._pub_sub(state_update_event)
 
     async def __aenter__(self):
         await self.start()

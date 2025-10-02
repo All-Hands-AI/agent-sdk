@@ -23,16 +23,18 @@ config = get_default_config()
 
 @file_router.post("/upload/{path}")
 async def upload_file(
-    path: Annotated[
-        str, FastApiPath(alias="path", description="Target path relative to workspace")
-    ],
+    path: Annotated[str, FastApiPath(alias="path", description="Absolute file path.")],
     file: UploadFile = File(...),
 ) -> Success:
     """Upload a file to the workspace."""
-    # Determine target path
-    target_path = _get_target_path(path)
-
     try:
+        target_path = Path(path)
+        if not target_path.is_absolute():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Path must be absolute",
+            )
+
         # Ensure target directory exists
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -54,11 +56,16 @@ async def upload_file(
 
 @file_router.get("/download/{path}")
 async def download_file(
-    path: Annotated[str, FastApiPath(description="File path relative to workspace")],
+    path: Annotated[str, FastApiPath(description="Absolute file path.")],
 ) -> FileResponse:
     """Download a file from the workspace."""
     try:
-        target_path = _get_target_path(path)
+        target_path = Path(path)
+        if not target_path.is_absolute():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Path must be absolute",
+            )
 
         if not target_path.exists():
             raise HTTPException(
@@ -84,19 +91,3 @@ async def download_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to download file: {str(e)}",
         )
-
-
-def _get_target_path(path: str) -> Path:
-    # Get the target path from the variable given, making sure it
-    # is within the workspace
-    target_path = config.workspace_path / path
-    target_path = target_path.resolve()
-    workspace_path = config.workspace_path.resolve()
-    try:
-        target_path.relative_to(workspace_path)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot upload file outside workspace",
-        )
-    return target_path

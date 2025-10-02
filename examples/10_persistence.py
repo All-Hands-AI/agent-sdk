@@ -7,12 +7,11 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
-    LocalFileStore,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -24,7 +23,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -33,9 +32,9 @@ llm = LLM(
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
-tool_specs = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
-    ToolSpec(name="FileEditorTool"),
+tools = [
+    Tool(name="BashTool"),
+    Tool(name="FileEditorTool"),
 ]
 
 # Add MCP Tools
@@ -45,23 +44,24 @@ mcp_config = {
     }
 }
 # Agent
-agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
+agent = Agent(llm=llm, tools=tools, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
 conversation_id = uuid.uuid4()
-file_store = LocalFileStore(f"./.conversations/{conversation_id}")
+persistence_dir = "./.conversations"
 
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
+    workspace=cwd,
+    persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
 conversation.send_message(
@@ -88,7 +88,8 @@ print("Deserializing conversation...")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
+    workspace=cwd,
+    persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
 

@@ -200,6 +200,6 @@ cache
 .jinja_cache/
 
 .conversations*
-workspace/
+/workspace/
 openapi.json
 .client/

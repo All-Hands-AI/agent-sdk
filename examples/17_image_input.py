@@ -12,7 +12,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     ImageContent,
     LLMConvertibleEvent,
     Message,
@@ -20,7 +20,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool.registry import register_tool
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -33,7 +33,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="vision-llm",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -47,21 +47,25 @@ register_tool("TaskTrackerTool", TaskTrackerTool)
 agent = Agent(
     llm=llm,
     tools=[
-        ToolSpec(name="BashTool", params={"working_dir": cwd}),
-        ToolSpec(name="FileEditorTool"),
-        ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+        Tool(
+            name="BashTool",
+        ),
+        Tool(name="FileEditorTool"),
+        Tool(name="TaskTrackerTool"),
     ],
 )
 
 llm_messages = []  # collect raw LLM messages for inspection
 
 
-def conversation_callback(event: EventBase) -> None:
+def conversation_callback(event: Event) -> None:
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
+)
 
 IMAGE_URL = (
     "https://github.com/All-Hands-AI/OpenHands/raw/main/docs/static/img/logo.png"

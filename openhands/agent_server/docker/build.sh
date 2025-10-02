@@ -72,11 +72,12 @@ fi
 # ------------------------------------------------------------
 # Build flags
 # ------------------------------------------------------------
+AGENT_SDK_PATH="${AGENT_SDK_PATH:-.}"
 COMMON_ARGS=(
   --build-arg "BASE_IMAGE=${BASE_IMAGE}"
   --target "${TARGET}"
   --file "${DOCKERFILE}"
-  .
+  $AGENT_SDK_PATH
 )
 
 echo "[build] Building target='${TARGET}' image='${IMAGE}' variant='${VARIANT_NAME}' from base='${BASE_IMAGE}' for platforms='${PLATFORMS}'"

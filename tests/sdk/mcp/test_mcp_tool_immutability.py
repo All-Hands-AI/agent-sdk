@@ -7,7 +7,7 @@ import mcp.types
 import pytest
 
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPTool, MCPToolExecutor
+from openhands.sdk.mcp.tool import MCPToolDefinition, MCPToolExecutor
 
 
 class MockMCPClient(MCPClient):
@@ -36,7 +36,9 @@ class TestMCPToolImmutability:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = {"version": "1.0"}
 
-        tools = MCPTool.create(mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client)
+        tools = MCPToolDefinition.create(
+            mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
+        )
         self.tool = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_is_frozen(self):
@@ -102,7 +104,7 @@ class TestMCPToolImmutability:
         assert self.tool.mcp_tool is self.mock_mcp_tool
 
     def test_mcp_tool_create_immutable_instance(self):
-        """Test that MCPTool.create() creates immutable instances."""
+        """Test that MCPToolDefinition.create() creates immutable instances."""
         # Create another tool using create
         mock_tool2 = MagicMock(spec=mcp.types.Tool)
         mock_tool2.name = "another_tool"
@@ -111,7 +113,9 @@ class TestMCPToolImmutability:
         mock_tool2.annotations = None
         mock_tool2.meta = None
 
-        tools2 = MCPTool.create(mcp_tool=mock_tool2, mcp_client=self.mock_client)
+        tools2 = MCPToolDefinition.create(
+            mcp_tool=mock_tool2, mcp_client=self.mock_client
+        )
         tool2 = tools2[0]  # Extract single tool from sequence
 
         # Verify it's immutable

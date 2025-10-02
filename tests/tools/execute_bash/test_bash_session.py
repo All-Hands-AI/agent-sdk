@@ -166,6 +166,7 @@ def test_environment_variable_inheritance_from_parent(terminal_type):
             os.environ.pop(test_var_name, None)
 
 
+@pytest.mark.timeout(60)  # Add 60 second timeout to prevent hanging in CI
 def test_long_running_command_follow_by_execute():
     session = create_terminal_session(work_dir=os.getcwd(), no_change_timeout_seconds=2)
     session.initialize()
@@ -212,6 +213,7 @@ def test_long_running_command_follow_by_execute():
 
 
 @parametrize_terminal_types
+@pytest.mark.timeout(60)  # Add 60 second timeout to prevent hanging in CI
 def test_interactive_command(terminal_type):
     session = create_terminal_session(
         work_dir=os.getcwd(), no_change_timeout_seconds=3, terminal_type=terminal_type
@@ -273,6 +275,7 @@ def test_interactive_command(terminal_type):
 
 
 @parametrize_terminal_types
+@pytest.mark.timeout(60)  # Add 60 second timeout to prevent hanging in CI
 def test_ctrl_c(terminal_type):
     session = create_terminal_session(
         work_dir=os.getcwd(), no_change_timeout_seconds=2, terminal_type=terminal_type
@@ -316,14 +319,12 @@ def test_empty_command_error(terminal_type):
 
     assert obs.error is True
     assert obs.output == "ERROR: No previous running command to retrieve logs from."
-    assert len(obs.agent_observation) == 1
-    assert isinstance(obs.agent_observation[0], TextContent)
-    assert (
-        "There was an error during command execution." in obs.agent_observation[0].text
-    )
+    assert len(obs.to_llm_content) == 1
+    assert isinstance(obs.to_llm_content[0], TextContent)
+    assert "There was an error during command execution." in obs.to_llm_content[0].text
     assert (
         "ERROR: No previous running command to retrieve logs from."
-        in obs.agent_observation[0].text
+        in obs.to_llm_content[0].text
     )
     assert obs.metadata.exit_code == -1
     assert obs.metadata.prefix == ""
@@ -334,6 +335,7 @@ def test_empty_command_error(terminal_type):
 
 
 @parametrize_terminal_types
+@pytest.mark.timeout(60)  # Add 60 second timeout to prevent hanging in CI
 def test_command_output_continuation(terminal_type):
     """Test that we can continue to get output from a long-running command.
 
@@ -886,6 +888,7 @@ def test_pwd_property(terminal_type):
 
 
 @parametrize_terminal_types
+@pytest.mark.timeout(180)  # Add 3 minute timeout for this intensive test
 def test_long_output_from_nested_directories(terminal_type):
     """Test long output from nested directory operations."""
     with tempfile.TemporaryDirectory() as temp_dir:

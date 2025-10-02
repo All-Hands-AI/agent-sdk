@@ -150,7 +150,7 @@ class Schema(BaseModel):
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
+class Action(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for input action."""
 
     @property
@@ -176,12 +176,12 @@ class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
         return content
 
 
-class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
+class Observation(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for output observation."""
 
     @property
     @abstractmethod
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
 
     @property
@@ -192,7 +192,7 @@ class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
         The base implementation displays all action fields systematically.
         """
         content = Text()
-        text_parts = content_to_str(self.agent_observation)
+        text_parts = content_to_str(self.to_llm_content)
         if text_parts:
             full_content = "".join(text_parts)
             content.append(full_content)

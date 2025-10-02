@@ -6,14 +6,14 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     LLMRegistry,
     Message,
     TextContent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 
 
@@ -26,7 +26,7 @@ assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 # Create LLM instance
 main_llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -41,7 +41,7 @@ llm = llm_registry.get("agent")
 # Tools
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
-tools = [ToolSpec(name="BashTool", params={"working_dir": cwd})]
+tools = [Tool(name="BashTool")]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -49,12 +49,14 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
+)
 
 conversation.send_message("Please echo 'Hello!'")
 conversation.run()

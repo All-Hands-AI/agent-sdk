@@ -13,13 +13,12 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
-from openhands.sdk.io.local import LocalFileStore
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -32,7 +31,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -43,9 +42,11 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 register_tool("TaskTrackerTool", TaskTrackerTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+    Tool(
+        name="BashTool",
+    ),
+    Tool(name="FileEditorTool"),
+    Tool(name="TaskTrackerTool"),
 ]
 
 # Create a condenser to manage the context. The condenser will automatically truncate
@@ -63,15 +64,16 @@ agent = Agent(llm=llm, tools=tools, condenser=condenser)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-file_store = LocalFileStore("./.conversations")
-
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+    agent=agent,
+    callbacks=[conversation_callback],
+    persistence_dir="./.conversations",
+    workspace=".",
 )
 
 # Send multiple messages to demonstrate condensation
@@ -115,7 +117,10 @@ del conversation
 # Deserialize the conversation
 print("Deserializing conversation...")
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], persist_filestore=file_store
+    agent=agent,
+    callbacks=[conversation_callback],
+    persistence_dir="./.conversations",
+    workspace=".",
 )
 
 print("Sending message to deserialized conversation...")

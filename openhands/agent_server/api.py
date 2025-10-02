@@ -17,6 +17,8 @@ from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
 from openhands.agent_server.dependencies import create_session_api_key_dependency
+from openhands.agent_server.desktop_router import desktop_router
+from openhands.agent_server.desktop_service import get_desktop_service
 from openhands.agent_server.event_router import event_router
 from openhands.agent_server.file_router import file_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
@@ -38,6 +40,7 @@ logger = get_logger(__name__)
 async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
     service = get_default_conversation_service()
     vscode_service = get_vscode_service()
+    desktop_service = get_desktop_service()
 
     # Start VSCode service if enabled
     if vscode_service is not None:
@@ -49,13 +52,27 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
     else:
         logger.info("VSCode service is disabled")
 
+    # Start Desktop service if enabled
+    if desktop_service is not None:
+        desktop_started = await desktop_service.start()
+        if desktop_started:
+            logger.info("Desktop service started successfully")
+        else:
+            logger.warning(
+                "Desktop service failed to start, continuing without desktop"
+            )
+    else:
+        logger.info("Desktop service is disabled")
+
     async with service:
         try:
             yield
         finally:
-            # Stop VSCode service on shutdown
+            # Stop services on shutdown
             if vscode_service is not None:
                 await vscode_service.stop()
+            if desktop_service is not None:
+                await desktop_service.stop()
 
 
 def _create_fastapi_instance() -> FastAPI:
@@ -112,6 +129,7 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
     api_router.include_router(bash_router)
     api_router.include_router(file_router)
     api_router.include_router(vscode_router)
+    api_router.include_router(desktop_router)
     app.include_router(api_router)
     app.include_router(sockets_router)
 

@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Iterable
+from pathlib import Path
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
@@ -14,47 +14,38 @@ from openhands.sdk.event import (
     PauseEvent,
     UserRejectObservation,
 )
-from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.io import FileStore
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
+from openhands.sdk.workspace import LocalWorkspace
 
 
 logger = get_logger(__name__)
 
 
-def compose_callbacks(
-    callbacks: Iterable[ConversationCallbackType],
-) -> ConversationCallbackType:
-    def composed(event) -> None:
-        for cb in callbacks:
-            if cb:
-                cb(event)
-
-    return composed
-
-
-class LocalConversation(LocalSystemMixin, BaseConversation):
+class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        persist_filestore: FileStore | None = None,
+        workspace: str | LocalWorkspace,
+        persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
+        secrets: dict[str, str] | None = None,
         **_: object,
     ):
         """Initialize the conversation.
 
         Args:
             agent: The agent to use for the conversation
-            persist_filestore: Optional FileStore to persist conversation state
+            workspace: Working directory for agent operations and tool execution
+            persistence_dir: Directory for persisting conversation state and events
             conversation_id: Optional ID for the conversation. If provided, will
                       be used to identify the conversation. The user might want to
                       suffix their persistent filestore with this ID.
@@ -66,14 +57,24 @@ class LocalConversation(LocalSystemMixin, BaseConversation):
             stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
-        self._persist_filestore = persist_filestore
+        if isinstance(workspace, str):
+            workspace = LocalWorkspace(working_dir=workspace)
+        assert isinstance(workspace, LocalWorkspace), (
+            "workspace must be a LocalWorkspace instance"
+        )
+        self.workspace = workspace
+        if not Path(self.workspace.working_dir).exists():
+            Path(self.workspace.working_dir).mkdir(parents=True, exist_ok=True)
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
         self._state = ConversationState.create(
             id=desired_id,
             agent=agent,
-            file_store=self._persist_filestore,
+            workspace=self.workspace,
+            persistence_dir=self.get_persistence_dir(persistence_dir, desired_id)
+            if persistence_dir
+            else None,
             max_iterations=max_iteration_per_run,
             stuck_detection=stuck_detection,
         )
@@ -93,7 +94,7 @@ class LocalConversation(LocalSystemMixin, BaseConversation):
         else:
             self._visualizer = None
 
-        self._on_event = compose_callbacks(composed_list)
+        self._on_event = BaseConversation.compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
         # Initialize stuck detector
@@ -107,6 +108,12 @@ class LocalConversation(LocalSystemMixin, BaseConversation):
         self.llm_registry.subscribe(self._state.stats.register_llm)
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
+
+        # Initialize secrets if provided
+        if secrets:
+            # Convert dict[str, str] to dict[str, SecretValue]
+            secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
+            self.update_secrets(secret_values)
 
     @property
     def id(self) -> ConversationID:
@@ -264,7 +271,7 @@ class LocalConversation(LocalSystemMixin, BaseConversation):
         This is a non-invasive method to reject actions between run() calls.
         Also clears the agent_waiting_for_confirmation flag.
         """
-        pending_actions = get_unmatched_actions(self._state.events)
+        pending_actions = ConversationState.get_unmatched_actions(self._state.events)
 
         with self._state:
             # Always clear the agent_waiting_for_confirmation flag

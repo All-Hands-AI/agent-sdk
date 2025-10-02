@@ -1,18 +1,22 @@
 import json
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field, ValidationError
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
-    Tool,
+    Action,
+    Observation,
     ToolAnnotations,
+    ToolDefinition,
     ToolExecutor,
 )
 
@@ -30,7 +34,7 @@ class TaskItem(BaseModel):
     )
 
 
-class TaskTrackerAction(ActionBase):
+class TaskTrackerAction(Action):
     """An action where the agent writes or updates a task list for task management."""
 
     command: Literal["view", "plan"] = Field(
@@ -62,7 +66,7 @@ class TaskTrackerAction(ActionBase):
         return content
 
 
-class TaskTrackerObservation(ObservationBase):
+class TaskTrackerObservation(Observation):
     """This data class represents the result of a task tracking operation."""
 
     content: str = Field(
@@ -74,7 +78,7 @@ class TaskTrackerObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.content)]
 
     @property
@@ -380,7 +384,7 @@ When uncertain, favor using this tool. Proactive task management demonstrates
 systematic approach and ensures comprehensive requirement fulfillment."""  # noqa: E501
 
 
-task_tracker_tool = Tool(
+task_tracker_tool = ToolDefinition(
     name="task_tracker",
     description=TASK_TRACKER_DESCRIPTION,
     action_type=TaskTrackerAction,
@@ -394,18 +398,19 @@ task_tracker_tool = Tool(
 )
 
 
-class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
-    """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
+class TaskTrackerTool(ToolDefinition[TaskTrackerAction, TaskTrackerObservation]):
+    """A ToolDefinition subclass that automatically initializes a TaskTrackerExecutor."""  # noqa: E501
 
     @classmethod
-    def create(cls, save_dir: str | None = None) -> Sequence["TaskTrackerTool"]:
+    def create(cls, conv_state: "ConversationState") -> Sequence["TaskTrackerTool"]:
         """Initialize TaskTrackerTool with a TaskTrackerExecutor.
 
         Args:
-            save_dir: Optional directory to save tasks to. If provided, tasks will be
-                     persisted to save_dir/TASKS.json
+            conv_state: Conversation state to get persistence directory from.
+                         If provided, save_dir will be taken from
+                         conv_state.persistence_dir
         """
-        executor = TaskTrackerExecutor(save_dir=save_dir)
+        executor = TaskTrackerExecutor(save_dir=conv_state.persistence_dir)
 
         # Initialize the parent Tool with the executor
         return [

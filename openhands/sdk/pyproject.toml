@@ -26,5 +26,4 @@ where = ["../.."]
 include = ["openhands*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.j2"]
-
+"*" = ["py.typed", "*.j2"]

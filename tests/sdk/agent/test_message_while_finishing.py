@@ -54,26 +54,26 @@ from openhands.sdk.conversation import Conversation  # noqa: E402
 from openhands.sdk.event import MessageEvent  # noqa: E402
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent  # noqa: E402
 from openhands.sdk.tool import (  # noqa: E402
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
+    ToolDefinition,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 
 
 # Custom sleep tool for testing timing scenarios
-class SleepAction(ActionBase):
+class SleepAction(Action):
     duration: float = Field(description="Sleep duration in seconds")
     message: str = Field(description="Message to return after sleep")
 
 
-class SleepObservation(ObservationBase):
+class SleepObservation(Observation):
     message: str = Field(description="Message returned after sleep")
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
 
 
@@ -114,10 +114,10 @@ class SleepExecutor(ToolExecutor):
         return SleepObservation(message=action.message)
 
 
-def _make_sleep_tool() -> Sequence[Tool]:
+def _make_sleep_tool(conv_state=None, **kwargs) -> Sequence[ToolDefinition]:
     """Create sleep tool for testing."""
     return [
-        Tool(
+        ToolDefinition(
             name="sleep_tool",
             action_type=SleepAction,
             observation_type=SleepObservation,
@@ -139,7 +139,7 @@ class TestMessageWhileFinishing:
         # Use gpt-4o which supports native function calling and multiple tool calls
         self.llm = LLM(model="gpt-4o", native_tool_calling=True, service_id="test-llm")
         self.llm_completion_calls = []
-        self.agent = Agent(llm=self.llm, tools=[ToolSpec(name="SleepTool")])
+        self.agent = Agent(llm=self.llm, tools=[Tool(name="SleepTool")])
         self.step_count = 0
         self.final_step_started = False
         self.timestamps = []  # Track key timing events

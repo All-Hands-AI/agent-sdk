@@ -1,20 +1,29 @@
 """String replace editor tool implementation."""
 
 from collections.abc import Sequence
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field, PrivateAttr
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool import (
+    Action,
+    Observation,
+    ToolAnnotations,
+    ToolDefinition,
+)
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
 
 
-class StrReplaceEditorAction(ActionBase):
+class StrReplaceEditorAction(Action):
     """Schema for string replace editor operations."""
 
     command: CommandLiteral = Field(
@@ -54,7 +63,7 @@ class StrReplaceEditorAction(ActionBase):
     )
 
 
-class StrReplaceEditorObservation(ObservationBase):
+class StrReplaceEditorObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
     command: CommandLiteral = Field(
@@ -80,7 +89,7 @@ class StrReplaceEditorObservation(ObservationBase):
     _diff_cache: Text | None = PrivateAttr(default=None)
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=self.error)]
         return [TextContent(text=self.output)]
@@ -179,7 +188,7 @@ Remember: when making multiple file edits in a row to the same file, you should 
 """  # noqa: E501
 
 
-str_replace_editor_tool = Tool(
+str_replace_editor_tool = ToolDefinition(
     name="str_replace_editor",
     action_type=StrReplaceEditorAction,
     description=TOOL_DESCRIPTION,
@@ -193,28 +202,44 @@ str_replace_editor_tool = Tool(
 )
 
 
-class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
-    """A Tool subclass that automatically initializes a FileEditorExecutor."""
+class FileEditorTool(
+    ToolDefinition[StrReplaceEditorAction, StrReplaceEditorObservation]
+):
+    """A ToolDefinition subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
-    def create(cls, workspace_root: str | None = None) -> Sequence["FileEditorTool"]:
+    def create(
+        cls,
+        conv_state: "ConversationState",
+    ) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
         Args:
-            workspace_root: Root directory for file operations. If provided,
-                          tool descriptions will use this path in examples.
+            conv_state: Conversation state to get working directory from.
+                         If provided, workspace_root will be taken from
+                         conv_state.workspace
         """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=workspace_root)
+        executor = FileEditorExecutor(workspace_root=conv_state.workspace.working_dir)
+
+        # Add working directory information to the tool description
+        # to guide the agent to use the correct directory instead of root
+        working_dir = conv_state.workspace.working_dir
+        enhanced_description = (
+            f"{TOOL_DESCRIPTION}\n\n"
+            f"Your current working directory is: {working_dir}\n"
+            f"When exploring project structure, start with this directory "
+            f"instead of the root filesystem."
+        )
 
         # Initialize the parent Tool with the executor
         return [
             cls(
                 name=str_replace_editor_tool.name,
-                description=TOOL_DESCRIPTION,
+                description=enhanced_description,
                 action_type=StrReplaceEditorAction,
                 observation_type=StrReplaceEditorObservation,
                 annotations=str_replace_editor_tool.annotations,

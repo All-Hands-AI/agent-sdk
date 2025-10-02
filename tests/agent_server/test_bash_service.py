@@ -17,7 +17,6 @@ def bash_service():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         yield BashEventService(
-            working_dir=temp_path / "workspace",
             bash_events_dir=temp_path / "bash_events",
         )
 

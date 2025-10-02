@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
+from openhands.sdk import AgentBase, Event, ImageContent, Message, TextContent
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
@@ -15,6 +15,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import DiscriminatedUnionMixin, OpenHandsModel
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 class ConversationSortOrder(str, Enum):
@@ -54,6 +55,10 @@ class StartConversationRequest(BaseModel):
     """
 
     agent: AgentBase
+    workspace: BaseWorkspace = Field(
+        ...,
+        description="Working directory for agent operations and tool execution",
+    )
     confirmation_policy: ConfirmationPolicyBase = Field(
         default=NeverConfirm(),
         description="Controls when the conversation will prompt the user before "
@@ -117,7 +122,7 @@ class Success(BaseModel):
 
 
 class EventPage(OpenHandsModel):
-    items: list[EventBase]
+    items: list[Event]
     next_page_id: str | None = None
 
 

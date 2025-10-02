@@ -1,7 +1,5 @@
 """Default preset configuration for OpenHands agents."""
 
-import os
-
 from openhands.sdk import Agent
 from openhands.sdk.context.condenser import (
     LLMSummarizingCondenser,
@@ -10,7 +8,7 @@ from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 
 
 logger = get_logger(__name__)
@@ -37,22 +35,23 @@ def register_default_tools(enable_browser: bool = True) -> None:
 
 
 def get_default_tools(
-    working_dir: str,
-    persistence_dir: str | None = None,
     enable_browser: bool = True,
-) -> list[ToolSpec]:
-    """Get the default set of tool specifications for the standard experience."""
+) -> list[Tool]:
+    """Get the default set of tool specifications for the standard experience.
+
+    Args:
+        enable_browser: Whether to include browser tools.
+    """
     register_default_tools(enable_browser=enable_browser)
 
-    persistence_path = persistence_dir or os.path.join(working_dir, ".openhands")
-    tool_specs = [
-        ToolSpec(name="BashTool", params={"working_dir": working_dir}),
-        ToolSpec(name="FileEditorTool", params={"workspace_root": working_dir}),
-        ToolSpec(name="TaskTrackerTool", params={"save_dir": persistence_path}),
+    tools = [
+        Tool(name="BashTool"),
+        Tool(name="FileEditorTool"),
+        Tool(name="TaskTrackerTool"),
     ]
     if enable_browser:
-        tool_specs.append(ToolSpec(name="BrowserToolSet"))
-    return tool_specs
+        tools.append(Tool(name="BrowserToolSet"))
+    return tools
 
 
 def get_default_condenser(llm: LLM) -> CondenserBase:
@@ -66,19 +65,15 @@ def get_default_condenser(llm: LLM) -> CondenserBase:
 
 def get_default_agent(
     llm: LLM,
-    working_dir: str,
-    persistence_dir: str | None = None,
     cli_mode: bool = False,
 ) -> Agent:
-    tool_specs = get_default_tools(
-        working_dir=working_dir,
-        persistence_dir=persistence_dir,
+    tools = get_default_tools(
         # Disable browser tools in CLI mode
         enable_browser=not cli_mode,
     )
     agent = Agent(
         llm=llm,
-        tools=tool_specs,
+        tools=tools,
         mcp_config={
             "mcpServers": {
                 "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},

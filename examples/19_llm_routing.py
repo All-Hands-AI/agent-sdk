@@ -6,7 +6,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     ImageContent,
     LLMConvertibleEvent,
     Message,
@@ -25,7 +25,7 @@ assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 primary_llm = LLM(
     service_id="agent-primary",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -41,8 +41,7 @@ multimodal_router = MultimodalRouter(
 )
 
 # Tools
-cwd = os.getcwd()
-tools = get_default_tools(working_dir=cwd)  # Use our default openhands experience
+tools = get_default_tools()  # Use our default openhands experience
 
 # Agent
 agent = Agent(llm=multimodal_router, tools=tools)
@@ -50,12 +49,14 @@ agent = Agent(llm=multimodal_router, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], workspace=os.getcwd()
+)
 
 conversation.send_message(
     message=Message(

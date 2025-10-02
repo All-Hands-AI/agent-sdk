@@ -12,42 +12,42 @@ from openhands.sdk.event import (
     AgentErrorEvent,
     Condensation,
     CondensationRequest,
-    EventBase,
+    Event,
     MessageEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.tool import Action, Observation
 
 
-class TestEventSerializationMockEvent(EventBase):
+class EventSerializationMockEvent(Event):
     test_field: str = "test_value"
 
 
-class TestEventsSerializationMockAction(ActionBase):
+class EventsSerializationMockAction(Action):
     """Mock action for testing."""
 
-    def execute(self) -> "TestEventsSerializationMockObservation":
-        return TestEventsSerializationMockObservation(content="mock result")
+    def execute(self) -> "EventsSerializationMockObservation":
+        return EventsSerializationMockObservation(content="mock result")
 
 
-class TestEventsSerializationMockObservation(ObservationBase):
+class EventsSerializationMockObservation(Observation):
     """Mock observation for testing."""
 
     content: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.content)]
 
 
 def test_event_base_serialization() -> None:
-    """Test basic EventBase serialization/deserialization."""
-    event = TestEventSerializationMockEvent(source="agent", test_field="custom_value")
+    """Test basic Event serialization/deserialization."""
+    event = EventSerializationMockEvent(source="agent", test_field="custom_value")
 
     json_data = event.model_dump_json()
-    deserialized = TestEventSerializationMockEvent.model_validate_json(json_data)
+    deserialized = EventSerializationMockEvent.model_validate_json(json_data)
     assert deserialized == event
 
 
@@ -64,7 +64,7 @@ def test_system_prompt_event_serialization() -> None:
 
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
-    action = TestEventsSerializationMockAction()
+    action = EventsSerializationMockAction()
     tool_call = ChatCompletionMessageToolCall(
         id="call_123",
         function=Function(name="mock_tool", arguments="{}"),
@@ -91,12 +91,12 @@ def test_action_event_serialization() -> None:
     assert deserialized.tool_call_id == event.tool_call_id
     assert deserialized.tool_call == event.tool_call
     assert deserialized.llm_response_id == event.llm_response_id
-    # Action is deserialized as ActionBase, so we can't check exact equality
+    # Action is deserialized as Action, so we can't check exact equality
 
 
 def test_observation_event_serialization() -> None:
     """Test ObservationEvent serialization/deserialization."""
-    observation = TestEventsSerializationMockObservation(content="test result")
+    observation = EventsSerializationMockObservation(content="test result")
     event = ObservationEvent(
         observation=observation,
         action_id="action_123",
@@ -114,7 +114,7 @@ def test_observation_event_serialization() -> None:
     assert deserialized.action_id == event.action_id
     assert deserialized.tool_name == event.tool_name
     assert deserialized.tool_call_id == event.tool_call_id
-    # Observation is deserialized as ObservationBase, so we can't check exact equality
+    # Observation is deserialized as Observation, so we can't check exact equality
 
 
 def test_message_event_serialization() -> None:
@@ -197,5 +197,5 @@ def test_event_deserialize():
         extended_content=[],
     )
     dumped = original.model_dump_json()
-    loaded = EventBase.model_validate_json(dumped)
+    loaded = Event.model_validate_json(dumped)
     assert loaded == original
