@@ -50,13 +50,13 @@ class BaseIntegrationTest(ABC):
         self,
         instruction: str,
         llm_config: dict[str, Any],
+        instance_id: str,
         cwd: str | None = None,
-        instance_id: str | None = None,
     ):
         self.instruction = instruction
         self.llm_config = llm_config
         self.cwd = cwd
-        self.instance_id = instance_id or "unknown_test"
+        self.instance_id = instance_id
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             raise ValueError(
