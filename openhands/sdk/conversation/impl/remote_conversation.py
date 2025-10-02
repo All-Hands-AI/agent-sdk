@@ -26,7 +26,7 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
-from openhands.sdk.workspace import RemoteWorkspace
+from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 
 
 logger = get_logger(__name__)
@@ -377,7 +377,10 @@ class RemoteConversation(BaseConversation):
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
                 "stuck_detection": stuck_detection,
-                "workspace": self.workspace.model_dump(),
+                # We need to convert RemoteWorkspace to LocalWorkspace for the server
+                "workspace": LocalWorkspace(
+                    working_dir=self.workspace.working_dir
+                ).model_dump(),
             }
             resp = self._client.post("/api/conversations", json=payload)
             resp.raise_for_status()
