@@ -169,51 +169,86 @@ class ConversationService:
         self, request: StartConversationRequest
     ) -> ConversationInfo:
         """Start a local event_service and return its id."""
+        logger.info(
+            f"start_conversation called with request: agent={request.agent}, "
+            f"workspace={request.workspace}"
+        )
         if self._event_services is None:
+            logger.error("start_conversation: event_services is None")
             raise ValueError("inactive_service")
         conversation_id = uuid4()
-        stored = StoredConversation(id=conversation_id, **request.model_dump())
+        logger.info(f"Generated conversation_id: {conversation_id}")
+        try:
+            stored = StoredConversation(id=conversation_id, **request.model_dump())
+            logger.info(f"Created StoredConversation: {stored}")
+        except Exception as e:
+            logger.error(f"Failed to create StoredConversation: {e}", exc_info=True)
+            raise
         file_store_path = (
             self.event_services_path / conversation_id.hex / "event_service"
         )
+        logger.info(f"Creating file_store_path: {file_store_path}")
         file_store_path.mkdir(parents=True)
-        event_service = EventService(
-            stored=stored,
-            file_store_path=file_store_path,
-            working_dir=Path(request.workspace.working_dir),
-        )
+        try:
+            event_service = EventService(
+                stored=stored,
+                file_store_path=file_store_path,
+                working_dir=Path(request.workspace.working_dir),
+            )
+            logger.info(f"Created EventService: {event_service}")
+        except Exception as e:
+            logger.error(f"Failed to create EventService: {e}", exc_info=True)
+            raise
 
         # Create subscribers...
-        await event_service.subscribe_to_events(_EventSubscriber(service=event_service))
-        asyncio.gather(
-            *[
-                event_service.subscribe_to_events(
-                    WebhookSubscriber(
-                        conversation_id=conversation_id,
-                        service=event_service,
-                        spec=webhook_spec,
-                        session_api_key=self.session_api_key,
+        logger.info("Subscribing event subscribers")
+        try:
+            await event_service.subscribe_to_events(
+                _EventSubscriber(service=event_service)
+            )
+            asyncio.gather(
+                *[
+                    event_service.subscribe_to_events(
+                        WebhookSubscriber(
+                            conversation_id=conversation_id,
+                            service=event_service,
+                            spec=webhook_spec,
+                            session_api_key=self.session_api_key,
+                        )
                     )
-                )
-                for webhook_spec in self.webhook_specs
-            ]
-        )
+                    for webhook_spec in self.webhook_specs
+                ]
+            )
+            logger.info("Event subscribers registered")
+        except Exception as e:
+            logger.error(f"Failed to subscribe event subscribers: {e}", exc_info=True)
+            raise
 
         self._event_services[conversation_id] = event_service
-        await event_service.start()
+        logger.info("Starting event service")
+        try:
+            await event_service.start()
+            logger.info("Event service started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start event service: {e}", exc_info=True)
+            raise
         initial_message = request.initial_message
         if initial_message:
+            logger.info(f"Sending initial message: {initial_message}")
             message = Message(
                 role=initial_message.role, content=initial_message.content
             )
             await event_service.send_message(message)
 
+        logger.info("Getting conversation state")
         state = await event_service.get_state()
         conversation_info = _compose_conversation_info(event_service.stored, state)
+        logger.info(f"Conversation info created: {conversation_info.id}")
 
         # Notify conversation webhooks about the started conversation
         await self._notify_conversation_webhooks(conversation_info)
 
+        logger.info(f"Conversation {conversation_id} started successfully")
         return conversation_info
 
     async def pause_conversation(self, conversation_id: UUID) -> bool:
