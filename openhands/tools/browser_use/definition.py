@@ -585,7 +585,22 @@ class BrowserCloseTabTool(ToolDefinition[BrowserCloseTabAction, BrowserObservati
         ]
 
 
-class BrowserToolSet(ToolBase):
+# Union type for all browser actions
+BrowserAction = (
+    BrowserNavigateAction
+    | BrowserClickAction
+    | BrowserTypeAction
+    | BrowserGetStateAction
+    | BrowserGetContentAction
+    | BrowserScrollAction
+    | BrowserGoBackAction
+    | BrowserListTabsAction
+    | BrowserSwitchTabAction
+    | BrowserCloseTabAction
+)
+
+
+class BrowserToolSet(ToolBase[BrowserAction, BrowserObservation]):
     """A set of all browser tools.
 
     This tool set includes all available browser-related tools
@@ -599,7 +614,7 @@ class BrowserToolSet(ToolBase):
     def create(
         cls,
         **executor_config,
-    ) -> list[ToolBase]:
+    ) -> list[ToolBase[BrowserAction, BrowserObservation]]:
         # Import executor only when actually needed to
         # avoid hanging during module import
         from openhands.tools.browser_use.impl import BrowserToolExecutor

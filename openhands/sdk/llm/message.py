@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
@@ -56,7 +56,9 @@ class TextContent(BaseContent):
     text: str
     # We use populate_by_name since mcp.types.TextContent
     # alias meta -> _meta, but .model_dumps() will output "meta"
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="forbid", populate_by_name=True
+    )
 
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""

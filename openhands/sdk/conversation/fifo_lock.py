@@ -26,6 +26,9 @@ class FIFOLock:
     - Thread-safe: Safe for concurrent access
     """
 
+    _mutex: threading.Lock
+    _count: int
+
     def __init__(self) -> None:
         self._mutex = threading.Lock()  # Protects internal state
         self._waiters: deque[threading.Condition] = (

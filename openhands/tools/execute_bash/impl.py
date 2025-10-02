@@ -9,12 +9,17 @@ from openhands.tools.execute_bash.definition import (
     ExecuteBashObservation,
 )
 from openhands.tools.execute_bash.terminal.factory import create_terminal_session
+from openhands.tools.execute_bash.terminal.terminal_session import TerminalSession
 
 
 logger = get_logger(__name__)
 
 
-class BashExecutor(ToolExecutor):
+class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
+    session: TerminalSession
+    env_provider: Callable[[str], dict[str, str]] | None
+    env_masker: Callable[[str], str] | None
+
     def __init__(
         self,
         working_dir: str,

@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import ClassVar
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
@@ -13,7 +14,7 @@ logger = get_logger(__name__)
 class RegistryEvent(BaseModel):
     llm: LLM
 
-    model_config = ConfigDict(
+    model_config: ClassVar[ConfigDict] = ConfigDict(
         arbitrary_types_allowed=True,
     )
 
@@ -24,6 +25,9 @@ class LLMRegistry:
     This registry provides a simple way to manage multiple LLM instances,
     avoiding the need to recreate LLMs with the same configuration.
     """
+
+    registry_id: str
+    retry_listener: Callable[[int, int], None] | None
 
     def __init__(
         self,

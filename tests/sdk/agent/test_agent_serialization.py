@@ -1,6 +1,7 @@
 """Test agent JSON serialization with DiscriminatedUnionMixin."""
 
 import json
+from typing import cast
 from unittest.mock import Mock
 
 import mcp.types
@@ -66,7 +67,7 @@ def test_agent_serialization_should_include_mcp_tool() -> None:
             "dummy": {"command": "echo", "args": ["dummy-mcp"]},
         }
     }
-    agent = Agent(llm=llm, tools=[], mcp_config=mcp_config)
+    agent = Agent(llm=llm, tools=[], mcp_config=cast(dict[str, object], mcp_config))
 
     # Serialize to JSON (excluding non-serializable fields)
     agent_dump = agent.model_dump()

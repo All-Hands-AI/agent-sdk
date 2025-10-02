@@ -22,6 +22,12 @@ class TmuxTerminal(TerminalInterface):
     with full screen capture and history management capabilities.
     """
 
+    PS1: str
+    server: libtmux.Server
+    session: libtmux.Session
+    window: libtmux.Window
+    pane: libtmux.Pane
+
     def __init__(
         self,
         work_dir: str,
@@ -70,8 +76,9 @@ class TmuxTerminal(TerminalInterface):
             start_directory=self.work_dir,
             environment=env,
         )
-        self.pane = self.window.active_pane
-        assert isinstance(self.pane, libtmux.Pane)
+        active_pane = self.window.active_pane
+        assert active_pane is not None, "Window should have an active pane"
+        self.pane = active_pane
         logger.debug(f"pane: {self.pane}; history_limit: {self.session.history_limit}")
         _initial_window.kill()
 
@@ -82,7 +89,7 @@ class TmuxTerminal(TerminalInterface):
         time.sleep(0.1)  # Wait for command to take effect
 
         logger.debug(f"Tmux terminal initialized with work dir: {self.work_dir}")
-        self._initialized = True
+        self._initialized: bool = True
         self.clear_screen()
 
     def close(self) -> None:
@@ -95,7 +102,7 @@ class TmuxTerminal(TerminalInterface):
         except ImportError:
             # Python is shutting down, let the OS handle cleanup
             pass
-        self._closed = True
+        self._closed: bool = True
 
     def send_keys(self, text: str, enter: bool = True) -> None:
         """Send text/keys to the tmux pane.

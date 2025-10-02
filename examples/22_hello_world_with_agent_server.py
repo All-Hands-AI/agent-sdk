@@ -31,12 +31,12 @@ class ManagedAPIServer:
     """Context manager for subprocess-managed OpenHands API server."""
 
     def __init__(self, port: int = 8000, host: str = "127.0.0.1"):
-        self.port = port
-        self.host = host
-        self.process = None
-        self.base_url = f"http://{host}:{port}"
-        self.stdout_thread = None
-        self.stderr_thread = None
+        self.port: int = port
+        self.host: str = host
+        self.process: subprocess.Popen[bytes] | None = None
+        self.base_url: str = f"http://{host}:{port}"
+        self.stdout_thread: threading.Thread | None = None
+        self.stderr_thread: threading.Thread | None = None
 
     def __enter__(self):
         """Start the API server subprocess."""

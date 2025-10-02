@@ -1,7 +1,9 @@
 class ToolError(Exception):
     """Raised when a tool encounters an error."""
 
-    def __init__(self, message):
+    message: str
+
+    def __init__(self, message: str):
         self.message = message
         super().__init__(message)
 
@@ -12,19 +14,27 @@ class ToolError(Exception):
 class EditorToolParameterMissingError(ToolError):
     """Raised when a required parameter is missing for a tool command."""
 
-    def __init__(self, command, parameter):
+    command: str
+    parameter: str
+
+    def __init__(self, command: str, parameter: str):
         self.command = command
         self.parameter = parameter
-        self.message = f"Parameter `{parameter}` is required for command: {command}."
+        self.message: str = (
+            f"Parameter `{parameter}` is required for command: {command}."
+        )
 
 
 class EditorToolParameterInvalidError(ToolError):
     """Raised when a parameter is invalid for a tool command."""
 
-    def __init__(self, parameter, value, hint=None):
+    parameter: str
+    value: str
+
+    def __init__(self, parameter: str, value: str, hint: str | None = None):
         self.parameter = parameter
         self.value = value
-        self.message = (
+        self.message: str = (
             f"Invalid `{parameter}` parameter: {value}. {hint}"
             if hint
             else f"Invalid `{parameter}` parameter: {value}."
@@ -34,8 +44,11 @@ class EditorToolParameterInvalidError(ToolError):
 class FileValidationError(ToolError):
     """Raised when a file fails validation checks (size, type, etc.)."""
 
+    path: str
+    reason: str
+
     def __init__(self, path: str, reason: str):
         self.path = path
         self.reason = reason
-        self.message = f"File validation failed for {path}: {reason}"
+        self.message: str = f"File validation failed for {path}: {reason}"
         super().__init__(self.message)

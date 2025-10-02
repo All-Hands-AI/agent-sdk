@@ -11,7 +11,7 @@ class TestLLMRegistry(unittest.TestCase):
     def setUp(self):
         """Set up test environment before each test."""
         # Create a registry for testing
-        self.registry = LLMRegistry()
+        self.registry: LLMRegistry = LLMRegistry()
 
     def test_subscribe_and_notify(self):
         """Test the subscription and notification system."""

@@ -15,6 +15,8 @@ class AsyncExecutor:
     timeout support, and thread safety.
     """
 
+    _lock: threading.Lock
+
     def __init__(self):
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None

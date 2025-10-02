@@ -8,13 +8,14 @@ import argparse
 import importlib.util
 import json
 import os
+import shutil
 import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from openhands.sdk.logger import get_logger
 from tests.integration.base import BaseIntegrationTest, TestResult
@@ -28,7 +29,7 @@ logger = get_logger(__name__)
 class TestInstance(BaseModel):
     """Represents a single test instance."""
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     instance_id: str
     file_path: str
@@ -159,8 +160,6 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
     finally:
         # Clean up temporary directory if we created one
         if temp_dir and os.path.exists(temp_dir):
-            import shutil
-
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 

@@ -141,8 +141,10 @@ class TaskTrackerObservation(Observation):
         return content
 
 
-class TaskTrackerExecutor(ToolExecutor):
+class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation]):
     """Executor for the task tracker tool."""
+
+    save_dir: Path | None
 
     def __init__(self, save_dir: str | None = None):
         """Initialize TaskTrackerExecutor.

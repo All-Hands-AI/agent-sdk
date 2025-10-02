@@ -18,6 +18,8 @@ class MCPClient(AsyncMCPClient):
       - call_sync_from_async(fn, *args, **kwargs)  # await this from async code
     """
 
+    _executor: AsyncExecutor
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._executor = AsyncExecutor()

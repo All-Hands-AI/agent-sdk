@@ -73,7 +73,7 @@ class GrepObservation(Observation):
 
 class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
     def __init__(self, bash: BashExecutor):
-        self.bash = bash
+        self.bash: BashExecutor = bash
 
     def __call__(self, action: GrepAction) -> GrepObservation:
         root = os.path.abspath(action.path)

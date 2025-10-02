@@ -19,7 +19,7 @@ class DesktopService:
 
     def __init__(self):
         self._proc: asyncio.subprocess.Process | None = None
-        self.novnc_port = int(os.getenv("NOVNC_PORT", "8002"))
+        self.novnc_port: int = int(os.getenv("NOVNC_PORT", "8002"))
 
     async def start(self) -> bool:
         """Start the VNC desktop stack."""

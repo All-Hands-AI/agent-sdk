@@ -38,6 +38,9 @@ def to_camel_case(s: str) -> str:
 class MCPToolExecutor(ToolExecutor):
     """Executor for MCP tools."""
 
+    tool_name: str
+    client: MCPClient
+
     def __init__(self, tool_name: str, client: MCPClient):
         self.tool_name = tool_name
         self.client = client

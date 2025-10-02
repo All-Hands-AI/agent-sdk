@@ -1,5 +1,6 @@
 import copy
 from collections.abc import Sequence
+from typing import ClassVar
 
 from pydantic import ConfigDict, Field
 from rich.text import Text
@@ -21,7 +22,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     This is originally the "MessageAction", but it suppose not to be tool call."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
 
     source: SourceType
     llm_message: Message = Field(

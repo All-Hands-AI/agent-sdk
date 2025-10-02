@@ -41,6 +41,14 @@ class SubprocessTerminal(TerminalInterface):
     and prompt detection instead of blind sleeps.
     """
 
+    PS1: str
+    process: subprocess.Popen | None
+    _pty_master_fd: int | None
+    output_buffer: deque[str]
+    output_lock: threading.Lock
+    reader_thread: threading.Thread | None
+    _current_command_running: bool
+
     def __init__(
         self,
         work_dir: str,
@@ -48,15 +56,13 @@ class SubprocessTerminal(TerminalInterface):
     ):
         super().__init__(work_dir, username)
         self.PS1 = CmdOutputMetadata.to_ps1_prompt()
-        self.process: subprocess.Popen | None = None
-        self._pty_master_fd: int | None = None
+        self.process = None
+        self._pty_master_fd = None
         # Use a slightly larger buffer to match tmux behavior which seems to keep
         # ~10,001 lines instead of exactly 10,000
-        self.output_buffer: deque[str] = deque(
-            maxlen=HISTORY_LIMIT + 50
-        )  # Circular buffer
+        self.output_buffer = deque(maxlen=HISTORY_LIMIT + 50)  # Circular buffer
         self.output_lock = threading.Lock()
-        self.reader_thread: threading.Thread | None = None
+        self.reader_thread = None
         self._current_command_running = False
 
     # ------------------------- Lifecycle -------------------------
@@ -109,7 +115,7 @@ class SubprocessTerminal(TerminalInterface):
             target=self._read_output_continuously_pty, daemon=True
         )
         self.reader_thread.start()
-        self._initialized = True
+        self._initialized: bool = True
 
         # ===== Deterministic readiness (no blind sleeps) =====
         # 1) Single atomic init line: clear PROMPT_COMMAND, set PS2/PS1, print sentinel
@@ -168,7 +174,7 @@ class SubprocessTerminal(TerminalInterface):
                 self.reader_thread.join(timeout=1)
 
             self.process = None
-            self._closed = True
+            self._closed: bool = True
 
     # ------------------------- I/O Core -------------------------
 

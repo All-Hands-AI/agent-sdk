@@ -29,7 +29,7 @@ def run_shell_cmd(
 
     start_time = time.time()
 
-    process: subprocess.Popen | None = None
+    process: subprocess.Popen[str] | None = None
     try:
         process = subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True

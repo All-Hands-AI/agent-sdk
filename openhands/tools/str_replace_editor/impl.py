@@ -12,7 +12,11 @@ from openhands.tools.str_replace_editor.exceptions import ToolError
 _GLOBAL_EDITOR: FileEditor | None = None
 
 
-class FileEditorExecutor(ToolExecutor):
+class FileEditorExecutor(
+    ToolExecutor[StrReplaceEditorAction, StrReplaceEditorObservation]
+):
+    editor: FileEditor
+
     def __init__(self, workspace_root: str | None = None):
         self.editor = FileEditor(workspace_root=workspace_root)
 

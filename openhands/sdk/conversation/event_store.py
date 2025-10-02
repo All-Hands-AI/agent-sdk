@@ -18,6 +18,10 @@ logger = get_logger(__name__)
 
 
 class EventLog(EventsListBase):
+    _fs: FileStore
+    _dir: str
+    _length: int
+
     def __init__(self, fs: FileStore, dir_path: str = EVENTS_DIR) -> None:
         self._fs = fs
         self._dir = dir_path
