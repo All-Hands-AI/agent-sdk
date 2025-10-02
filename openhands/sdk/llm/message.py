@@ -2,7 +2,7 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
 
-from litellm import ChatCompletionMessageToolCall, ResponseFunctionToolCall
+from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -25,11 +25,6 @@ class MessageToolCall(BaseModel):
     arguments: str = Field(..., description="JSON string of arguments")
     origin: Literal["completion", "responses"] = Field(
         ..., description="Originating API family"
-    )
-    raw: ChatCompletionMessageToolCall | ResponseFunctionToolCall | None = Field(
-        default=None,
-        description="Original provider object for advanced consumers",
-        exclude=True,
     )
 
     @classmethod
@@ -63,7 +58,6 @@ class MessageToolCall(BaseModel):
             name=tool_call.function.name,
             arguments=tool_call.function.arguments,
             origin="completion",
-            raw=tool_call,
         )
 
 
