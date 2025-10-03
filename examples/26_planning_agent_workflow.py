@@ -16,9 +16,8 @@ from pathlib import Path
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation
-from openhands.sdk.agent import Agent
 from openhands.sdk.llm import content_to_str
-from openhands.tools.preset.planning import get_planning_tools
+from openhands.tools.preset import get_planning_agent
 
 
 def get_event_content(event):
@@ -79,11 +78,7 @@ def main():
     print("=" * 80)
 
     # Create Planning Agent with read-only tools
-    planning_agent = Agent(
-        llm=llm,
-        tools=get_planning_tools(),
-        system_prompt_filename="planning_system_prompt.j2",
-    )
+    planning_agent = get_planning_agent(llm=llm)
 
     # Create conversation for planning
     planning_conversation = Conversation(

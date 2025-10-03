@@ -1,6 +1,6 @@
 """Planning agent preset configuration."""
 
-from openhands.sdk.agent.planning import PlanningAgent
+from openhands.sdk import Agent
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
@@ -67,7 +67,7 @@ def get_planning_condenser(llm: LLM) -> LLMSummarizingCondenser:
 def get_planning_agent(
     llm: LLM,
     enable_security_analyzer: bool = True,
-) -> PlanningAgent:
+) -> Agent:
     """Get a configured planning agent.
 
     Args:
@@ -91,11 +91,12 @@ def get_planning_agent(
     # Filter to only read-only MCP tools
     filter_tools_regex = "^(?!repomix)(.*)|^repomix.*pack_codebase.*$"
 
-    agent = PlanningAgent(
+    agent = Agent(
         llm=llm,
         tools=tools,
         mcp_config=mcp_config,
         filter_tools_regex=filter_tools_regex,
+        system_prompt_filename="planning_system_prompt.j2",
         condenser=get_planning_condenser(
             llm=llm.model_copy(update={"service_id": "planning_condenser"})
         ),
