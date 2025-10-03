@@ -4,21 +4,21 @@ from unittest.mock import patch
 from openhands.sdk import LLM, Conversation
 from openhands.sdk.agent import Agent
 from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolDefinition
 from openhands.sdk.tool.registry import register_tool
-from openhands.sdk.tool.spec import ToolSpec
-from openhands.sdk.tool.tool import ActionBase, ObservationBase, ToolExecutor
+from openhands.sdk.tool.spec import Tool
+from openhands.sdk.tool.tool import Action, Observation, ToolExecutor
 
 
-class _Action(ActionBase):
+class _Action(Action):
     text: str
 
 
-class _Obs(ObservationBase):
+class _Obs(Observation):
     out: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.out)]
 
 
@@ -27,9 +27,9 @@ class _Exec(ToolExecutor[_Action, _Obs]):
         return _Obs(out=action.text.upper())
 
 
-def _make_tool(conv_state=None, **kwargs) -> Sequence[Tool]:
+def _make_tool(conv_state=None, **kwargs) -> Sequence[ToolDefinition]:
     return [
-        Tool(
+        ToolDefinition(
             name="upper",
             description="Uppercase",
             action_type=_Action,
@@ -44,7 +44,7 @@ def test_agent_initializes_tools_from_toolspec_locally(monkeypatch):
     register_tool("upper", _make_tool)
 
     llm = LLM(model="test-model", service_id="test-llm")
-    agent = Agent(llm=llm, tools=[ToolSpec(name="upper")])
+    agent = Agent(llm=llm, tools=[Tool(name="upper")])
 
     # Build a conversation; this should call agent._initialize() internally
     Conversation(agent=agent, visualize=False)

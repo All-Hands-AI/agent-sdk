@@ -13,7 +13,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool.registry import register_tool
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.tools.execute_bash import (
     BashTool,
 )
@@ -49,14 +49,14 @@ cwd = os.getcwd()
 agent = Agent(
     llm=llm,
     tools=[
-        ToolSpec(
+        Tool(
             name="BashTool",
         ),
     ],
     condenser=condenser,
 )
 
-conversation = Conversation(agent=agent, working_dir=cwd)
+conversation = Conversation(agent=agent, workspace=cwd)
 conversation.send_message(
     message=Message(
         role="user",

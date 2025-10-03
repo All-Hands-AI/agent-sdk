@@ -9,7 +9,7 @@ import tempfile
 from unittest.mock import Mock
 
 from openhands.sdk import Agent, Conversation
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashExecutor, BashTool
 
 
@@ -30,11 +30,9 @@ def test_conversation_close_calls_executor_close(mock_llm):
         # Create agent and conversation
         agent = Agent(
             llm=mock_llm,
-            tools=[
-                ToolSpec(name="test_execute_bash", params={"working_dir": temp_dir})
-            ],
+            tools=[Tool(name="test_execute_bash")],
         )
-        conversation = Conversation(agent=agent, working_dir=temp_dir)
+        conversation = Conversation(agent=agent, workspace=temp_dir)
 
         # Close the conversation
         conversation.close()
@@ -60,11 +58,9 @@ def test_conversation_del_calls_close(mock_llm):
         # Create agent and conversation
         agent = Agent(
             llm=mock_llm,
-            tools=[
-                ToolSpec(name="test_execute_bash", params={"working_dir": temp_dir})
-            ],
+            tools=[Tool(name="test_execute_bash")],
         )
-        conversation = Conversation(agent=agent, working_dir=temp_dir)
+        conversation = Conversation(agent=agent, workspace=temp_dir)
 
         # Manually call __del__ to simulate garbage collection
         conversation.__del__()
@@ -93,11 +89,9 @@ def test_conversation_close_handles_executor_exceptions(mock_llm):
         # Create agent and conversation
         agent = Agent(
             llm=mock_llm,
-            tools=[
-                ToolSpec(name="test_execute_bash", params={"working_dir": temp_dir})
-            ],
+            tools=[Tool(name="test_execute_bash")],
         )
-        conversation = Conversation(agent=agent, working_dir=temp_dir)
+        conversation = Conversation(agent=agent, workspace=temp_dir)
 
         # Close should not raise an exception even if executor.close() fails
         # We can see from the captured stderr that the warning is logged correctly
@@ -120,11 +114,9 @@ def test_conversation_close_skips_none_executors(mock_llm):
         # Create agent and conversation
         agent = Agent(
             llm=mock_llm,
-            tools=[
-                ToolSpec(name="test_execute_bash", params={"working_dir": temp_dir})
-            ],
+            tools=[Tool(name="test_execute_bash")],
         )
-        conversation = Conversation(agent=agent, working_dir=temp_dir)
+        conversation = Conversation(agent=agent, workspace=temp_dir)
 
         # This should not raise an exception
         conversation.close()

@@ -5,7 +5,7 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
@@ -29,7 +29,7 @@ agent = get_default_agent(llm=llm)
 llm_messages = []
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -38,7 +38,7 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    working_dir=os.getcwd(),
+    workspace=os.getcwd(),
     # This is by default True, shown here for clarity of the example
     stuck_detection=True,
 )

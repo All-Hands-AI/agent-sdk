@@ -7,11 +7,11 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -32,9 +32,9 @@ llm = LLM(
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
-tool_specs = [
-    ToolSpec(name="BashTool"),
-    ToolSpec(name="FileEditorTool"),
+tools = [
+    Tool(name="BashTool"),
+    Tool(name="FileEditorTool"),
 ]
 
 # Add MCP Tools
@@ -44,12 +44,12 @@ mcp_config = {
     }
 }
 # Agent
-agent = Agent(llm=llm, tools=tool_specs, mcp_config=mcp_config)
+agent = Agent(llm=llm, tools=tools, mcp_config=mcp_config)
 
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -60,7 +60,7 @@ persistence_dir = "./.conversations"
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    working_dir=cwd,
+    workspace=cwd,
     persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )
@@ -88,7 +88,7 @@ print("Deserializing conversation...")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    working_dir=cwd,
+    workspace=cwd,
     persistence_dir=persistence_dir,
     conversation_id=conversation_id,
 )

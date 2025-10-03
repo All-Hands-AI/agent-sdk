@@ -6,14 +6,14 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     LLMRegistry,
     Message,
     TextContent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 
 
@@ -41,7 +41,7 @@ llm = llm_registry.get("agent")
 # Tools
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
-tools = [ToolSpec(name="BashTool")]
+tools = [Tool(name="BashTool")]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -49,13 +49,13 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
 )
 
 conversation.send_message("Please echo 'Hello!'")

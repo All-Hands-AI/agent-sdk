@@ -6,30 +6,30 @@ import pytest
 from openhands.sdk import register_tool
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolDefinition
 from openhands.sdk.tool.registry import resolve_tool
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.schema import Action, Observation
+from openhands.sdk.tool.spec import Tool
 from openhands.sdk.tool.tool import ToolExecutor
 
 
 def _create_mock_conv_state() -> ConversationState:
     """Create a mock ConversationState for testing."""
     mock_conv_state = MagicMock(spec=ConversationState)
-    mock_conv_state.working_dir = "workspace/project"
+    mock_conv_state.workspace = "workspace/project"
     mock_conv_state.persistence_dir = None
     return mock_conv_state
 
 
-class _HelloAction(ActionBase):
+class _HelloAction(Action):
     name: str
 
 
-class _HelloObservation(ObservationBase):
+class _HelloObservation(Observation):
     message: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
 
 
@@ -38,7 +38,7 @@ class _HelloExec(ToolExecutor[_HelloAction, _HelloObservation]):
         return _HelloObservation(message=f"Hello, {action.name}!")
 
 
-class _ConfigurableHelloTool(Tool):
+class _ConfigurableHelloTool(ToolDefinition):
     @classmethod
     def create(
         cls,
@@ -67,9 +67,9 @@ class _ConfigurableHelloTool(Tool):
         ]
 
 
-def _hello_tool_factory(conv_state=None, **params) -> list[Tool]:
+def _hello_tool_factory(conv_state=None, **params) -> list[ToolDefinition]:
     return [
-        Tool(
+        ToolDefinition(
             name="say_hello",
             description="Says hello",
             action_type=_HelloAction,
@@ -81,9 +81,9 @@ def _hello_tool_factory(conv_state=None, **params) -> list[Tool]:
 
 def test_register_and_resolve_callable_factory():
     register_tool("say_hello", _hello_tool_factory)
-    tools = resolve_tool(ToolSpec(name="say_hello"), _create_mock_conv_state())
+    tools = resolve_tool(Tool(name="say_hello"), _create_mock_conv_state())
     assert len(tools) == 1
-    assert isinstance(tools[0], Tool)
+    assert isinstance(tools[0], ToolDefinition)
     assert tools[0].name == "say_hello"
 
 
@@ -92,7 +92,7 @@ def test_register_tool_instance_rejects_params():
     register_tool("say_hello_instance", t)
     with pytest.raises(ValueError):
         resolve_tool(
-            ToolSpec(name="say_hello_instance", params={"x": 1}),
+            Tool(name="say_hello_instance", params={"x": 1}),
             _create_mock_conv_state(),
         )
 
@@ -102,10 +102,10 @@ def test_register_tool_instance_returns_same_object():
     register_tool("say_hello_instance_same", tool)
 
     resolved_first = resolve_tool(
-        ToolSpec(name="say_hello_instance_same"), _create_mock_conv_state()
+        Tool(name="say_hello_instance_same"), _create_mock_conv_state()
     )
     resolved_second = resolve_tool(
-        ToolSpec(name="say_hello_instance_same"), _create_mock_conv_state()
+        Tool(name="say_hello_instance_same"), _create_mock_conv_state()
     )
 
     assert resolved_first == [tool]
@@ -117,7 +117,7 @@ def test_register_tool_type_uses_create_params():
     register_tool("say_configurable_hello_type", _ConfigurableHelloTool)
 
     tools = resolve_tool(
-        ToolSpec(
+        Tool(
             name="say_configurable_hello_type",
             params={"greeting": "Howdy", "punctuation": "?"},
         ),

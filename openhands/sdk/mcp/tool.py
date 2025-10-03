@@ -13,10 +13,10 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
-    Tool,
+    Action,
+    Observation,
     ToolAnnotations,
+    ToolDefinition,
     ToolExecutor,
 )
 from openhands.sdk.tool.schema import Schema
@@ -81,7 +81,7 @@ def _create_mcp_action_type(action_type: mcp.types.Tool) -> type[Schema]:
     We create from "Schema" instead of:
     - "MCPToolAction" because MCPToolAction has a "data" field that
       wraps all dynamic fields, which we don't want here.
-    - "ActionBase" because ActionBase inherits from DiscriminatedUnionMixin,
+    - "Action" because Action inherits from DiscriminatedUnionMixin,
       which includes `kind` field that is not needed here.
 
     .from_mcp_schema simply defines a new Pydantic model class
@@ -102,12 +102,12 @@ def _create_mcp_action_type(action_type: mcp.types.Tool) -> type[Schema]:
     return mcp_action_type
 
 
-class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
+class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
 
-    def __call__(self, action: ActionBase) -> ObservationBase:
+    def __call__(self, action: Action) -> Observation:
         """Execute the tool action using the MCP client.
 
         We dynamically create a new MCPToolAction class with
@@ -125,31 +125,53 @@ class MCPTool(Tool[MCPToolAction, MCPToolObservation]):
             )
         assert self.name == self.mcp_tool.name
         mcp_action_type = _create_mcp_action_type(self.mcp_tool)
-        mcp_action_type.model_validate(action.data)
+        try:
+            mcp_action_type.model_validate(action.data)
+        except ValidationError as e:
+            # Surface validation errors as an observation instead of crashing
+            error_msg = f"Validation error for MCP tool '{self.name}' args: {e}"
+            logger.error(error_msg, exc_info=True)
+            return MCPToolObservation(
+                content=[TextContent(text=error_msg)],
+                is_error=True,
+                tool_name=self.name,
+            )
 
         return super().__call__(action)
 
     def action_from_arguments(self, arguments: dict[str, Any]) -> MCPToolAction:
-        """Create an MCPToolAction from parsed arguments.
+        """Create an MCPToolAction from parsed arguments with early validation.
 
-        This method puts the arguments into the .data field
-        of the MCPToolAction, avoiding the need for dynamic class creation
-        during action instantiation.
+        We validate the raw arguments against the MCP tool's input schema here so
+        Agent._get_action_event can catch ValidationError and surface an
+        AgentErrorEvent back to the model instead of crashing later during tool
+        execution. On success, we return MCPToolAction with sanitized arguments.
 
         Args:
             arguments: The parsed arguments from the tool call.
 
         Returns:
             The MCPToolAction instance with data populated from the arguments.
+
+        Raises:
+            ValidationError: If the arguments do not conform to the tool schema.
         """
-        return MCPToolAction(data=arguments)
+        # Drop None-valued keys before validation to avoid type errors
+        # on optional fields
+        prefiltered_args = {k: v for k, v in (arguments or {}).items() if v is not None}
+        # Validate against the dynamically created action type (from MCP schema)
+        mcp_action_type = _create_mcp_action_type(self.mcp_tool)
+        validated = mcp_action_type.model_validate(prefiltered_args)
+        # Use exclude_none to avoid injecting nulls back to the call
+        sanitized = validated.model_dump(exclude_none=True)
+        return MCPToolAction(data=sanitized)
 
     @classmethod
     def create(
         cls,
         mcp_tool: mcp.types.Tool,
         mcp_client: MCPClient,
-    ) -> Sequence["MCPTool"]:
+    ) -> Sequence["MCPToolDefinition"]:
         try:
             annotations = (
                 ToolAnnotations.model_validate(

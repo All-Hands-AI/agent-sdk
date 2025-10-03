@@ -15,6 +15,7 @@ from openhands.sdk import LLM, Agent, Conversation, Message
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.security.confirmation_policy import NeverConfirm
+from openhands.sdk.workspace import LocalWorkspace
 
 
 @pytest.fixture
@@ -23,6 +24,7 @@ def sample_stored_conversation():
     return StoredConversation(
         id=uuid4(),
         agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+        workspace=LocalWorkspace(working_dir="workspace/project"),
         confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,

@@ -13,12 +13,12 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -42,11 +42,11 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 register_tool("TaskTrackerTool", TaskTrackerTool)
 tools = [
-    ToolSpec(
+    Tool(
         name="BashTool",
     ),
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="TaskTrackerTool"),
+    Tool(name="FileEditorTool"),
+    Tool(name="TaskTrackerTool"),
 ]
 
 # Create a condenser to manage the context. The condenser will automatically truncate
@@ -64,7 +64,7 @@ agent = Agent(llm=llm, tools=tools, condenser=condenser)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -73,7 +73,7 @@ conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
     persistence_dir="./.conversations",
-    working_dir=".",
+    workspace=".",
 )
 
 # Send multiple messages to demonstrate condensation
@@ -120,7 +120,7 @@ conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
     persistence_dir="./.conversations",
-    working_dir=".",
+    workspace=".",
 )
 
 print("Sending message to deserialized conversation...")

@@ -8,7 +8,7 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.context.view import View
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import (
@@ -18,7 +18,6 @@ from openhands.sdk.llm import (
     MetricsSnapshot,
     TextContent,
 )
-from openhands.sdk.utils.protocol import ListLike
 
 
 def message_event(content: str) -> MessageEvent:
@@ -84,13 +83,13 @@ def test_should_condense(mock_llm: LLM) -> None:
 
     # Create events below the threshold
     small_events = [message_event(f"Event {i}") for i in range(max_size)]
-    small_view = View.from_events(cast(ListLike[EventBase], small_events))
+    small_view = View.from_events(small_events)
 
     assert not condenser.should_condense(small_view)
 
     # Create events above the threshold
     large_events = [message_event(f"Event {i}") for i in range(max_size + 1)]
-    large_view = View.from_events(cast(ListLike[EventBase], large_events))
+    large_view = View.from_events(large_events)
 
     assert condenser.should_condense(large_view)
 
@@ -100,8 +99,8 @@ def test_condense_returns_view_when_no_condensation_needed(mock_llm: LLM) -> Non
     max_size = 100
     condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
 
-    events: list[EventBase] = [message_event(f"Event {i}") for i in range(max_size)]
-    view = View.from_events(cast(ListLike[EventBase], events))
+    events: list[Event] = [message_event(f"Event {i}") for i in range(max_size)]
+    view = View.from_events(events)
 
     result = condenser.condense(view)
 
@@ -122,8 +121,8 @@ def test_condense_returns_condensation_when_needed(mock_llm: LLM) -> None:
     # Set up mock response
     cast(Any, mock_llm).set_mock_response_content("Summary of forgotten events")
 
-    events: list[EventBase] = [message_event(f"Event {i}") for i in range(max_size + 1)]
-    view = View.from_events(cast(ListLike[EventBase], events))
+    events: list[Event] = [message_event(f"Event {i}") for i in range(max_size + 1)]
+    view = View.from_events(events)
 
     result = condenser.condense(view)
 
@@ -160,7 +159,7 @@ def test_get_condensation_with_previous_summary(mock_llm: LLM) -> None:
         events[:keep_first] + [condensation] + events[keep_first:]
     )
 
-    view = View.from_events(cast(ListLike[EventBase], events_with_condensation))
+    view = View.from_events(events_with_condensation)
 
     result = condenser.get_condensation(view)
 

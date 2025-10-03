@@ -2,8 +2,8 @@
 
 from unittest.mock import patch
 
+from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
-    ChatCompletionMessageToolCall,
     Choices,
     Function,
     Message as LiteLLMMessage,

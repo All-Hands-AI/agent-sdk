@@ -87,7 +87,7 @@ llm = LLM(
 )
 
 agent = get_default_agent(llm=llm)
-conversation = Conversation(agent=agent, working_dir=os.getcwd())
+conversation = Conversation(agent=agent, workspace=os.getcwd())
 
 # 1) Confirmation mode ON
 conversation.set_confirmation_policy(AlwaysConfirm())

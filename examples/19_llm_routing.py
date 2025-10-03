@@ -6,7 +6,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     ImageContent,
     LLMConvertibleEvent,
     Message,
@@ -49,13 +49,13 @@ agent = Agent(llm=multimodal_router, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], working_dir=os.getcwd()
+    agent=agent, callbacks=[conversation_callback], workspace=os.getcwd()
 )
 
 conversation.send_message(

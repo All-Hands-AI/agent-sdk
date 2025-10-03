@@ -3,44 +3,49 @@
 from collections.abc import Sequence
 
 import pytest
-from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
+from litellm import ChatCompletionToolParam
 
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     Condensation,
     CondensationRequest,
-    EventBase,
+    Event,
     MessageEvent,
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
+from openhands.sdk.tool.schema import Action, Observation
 
 
-class TestEventsImmutabilityMockAction(ActionBase):
+class EventsImmutabilityMockAction(Action):
     """Mock action for testing."""
 
     command: str = "test_command"
 
 
-class TestEventsImmutabilityMockObservation(ObservationBase):
+class EventsImmutabilityMockObservation(Observation):
     """Mock observation for testing."""
 
     result: str = "test_result"
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 
 def test_event_base_is_frozen():
-    """Test that EventBase instances are frozen and cannot be modified."""
+    """Test that Event instances are frozen and cannot be modified."""
 
-    class TestEvent(EventBase):
+    class TestEvent(Event):
         test_field: str = "test_value"
 
     event = TestEvent(source="agent", test_field="initial_value")
@@ -61,17 +66,18 @@ def test_event_base_is_frozen():
 
 def test_system_prompt_event_is_frozen():
     """Test that SystemPromptEvent instances are frozen."""
-    tool: ChatCompletionToolParam = {
-        "type": "function",
-        "function": {
+    tool = ChatCompletionToolParam(
+        type="function",
+        function={
             "name": "test_tool",
             "description": "Test tool",
             "parameters": {"type": "object", "properties": {}},
         },
-    }
+    )
 
     event = SystemPromptEvent(
-        system_prompt=TextContent(text="Test system prompt"), tools=[tool]
+        system_prompt=TextContent(text="Test system prompt"),
+        tools=[tool],
     )
 
     # Test that we cannot modify any field
@@ -87,9 +93,9 @@ def test_system_prompt_event_is_frozen():
 
 def test_action_event_is_frozen():
     """Test that ActionEvent instances are frozen."""
-    action = TestEventsImmutabilityMockAction()
-    tool_call = ChatCompletionMessageToolCall(
-        id="test_call_id", function={"name": "test_tool", "arguments": "{}"}
+    action = EventsImmutabilityMockAction()
+    tool_call = MessageToolCall(
+        id="test_call_id", name="test_tool", arguments="{}", origin="completion"
     )
 
     event = ActionEvent(
@@ -106,7 +112,7 @@ def test_action_event_is_frozen():
         event.thought = [TextContent(text="Modified thought")]
 
     with pytest.raises(Exception):
-        event.action = TestEventsImmutabilityMockAction(command="modified_command")
+        event.action = EventsImmutabilityMockAction(command="modified_command")
 
     with pytest.raises(Exception):
         event.tool_name = "modified_tool"
@@ -117,7 +123,7 @@ def test_action_event_is_frozen():
 
 def test_observation_event_is_frozen():
     """Test that ObservationEvent instances are frozen."""
-    observation = TestEventsImmutabilityMockObservation()
+    observation = EventsImmutabilityMockObservation()
 
     event = ObservationEvent(
         observation=observation,
@@ -128,9 +134,7 @@ def test_observation_event_is_frozen():
 
     # Test that we cannot modify any field
     with pytest.raises(Exception):
-        event.observation = TestEventsImmutabilityMockObservation(
-            result="modified_result"
-        )
+        event.observation = EventsImmutabilityMockObservation(result="modified_result")
 
     with pytest.raises(Exception):
         event.action_id = "modified_action_id"
@@ -259,17 +263,18 @@ def test_event_model_copy_creates_new_instance():
 
 def test_event_immutability_prevents_mutation_bugs():
     """Test that frozen events prevent the type of mutation bugs fixed in PR #226."""
-    tool: ChatCompletionToolParam = {
-        "type": "function_with_very_long_type_name_exceeding_thirty_characters",
-        "function": {
+    tool = ChatCompletionToolParam(
+        type="function_with_very_long_type_name_exceeding_thirty_characters",
+        function={
             "name": "test_tool",
             "description": "Test tool with long description",
             "parameters": {"type": "object", "properties": {}},
         },
-    }
+    )
 
     event = SystemPromptEvent(
-        system_prompt=TextContent(text="Test system prompt"), tools=[tool]
+        system_prompt=TextContent(text="Test system prompt"),
+        tools=[tool],
     )
 
     # Store original tool data

@@ -5,8 +5,6 @@ from collections.abc import Sequence
 from typing import cast
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 
 from openhands.sdk.event.base import LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import (
@@ -16,34 +14,40 @@ from openhands.sdk.event.llm_convertible import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
+from openhands.sdk.tool import Action, Observation
 
 
-class TestEventsToMessagesMockAction(ActionBase):
+class EventsToMessagesMockAction(Action):
     """Mock action for testing."""
 
     command: str
 
 
-class TestEventsToMessagesMockObservation(ObservationBase):
+class EventsToMessagesMockObservation(Observation):
     """Mock observation for testing."""
 
     result: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 
 def create_tool_call(
     call_id: str, function_name: str, arguments: dict
-) -> ChatCompletionMessageToolCall:
-    """Helper to create a ChatCompletionMessageToolCall."""
-    return ChatCompletionMessageToolCall(
+) -> MessageToolCall:
+    """Helper to create a MessageToolCall."""
+    return MessageToolCall(
         id=call_id,
-        function=Function(name=function_name, arguments=json.dumps(arguments)),
-        type="function",
+        name=function_name,
+        arguments=json.dumps(arguments),
+        origin="completion",
     )
 
 
@@ -55,7 +59,7 @@ def create_action_event(
     action_args: dict,
 ) -> ActionEvent:
     """Helper to create an ActionEvent."""
-    action = TestEventsToMessagesMockAction(command=action_args.get("command", "test"))
+    action = EventsToMessagesMockAction(command=action_args.get("command", "test"))
     tool_call = create_tool_call(tool_call_id, tool_name, action_args)
 
     return ActionEvent(
@@ -117,7 +121,7 @@ class TestEventsToMessages:
         assert messages[0].tool_calls is not None
         assert len(messages[0].tool_calls) == 1
         assert messages[0].tool_calls[0].id == "call_123"
-        assert messages[0].tool_calls[0].function.name == "execute_bash"
+        assert messages[0].tool_calls[0].name == "execute_bash"
 
     def test_parallel_function_calling_same_response_id(self):
         """Test parallel function calling with multiple ActionEvents having same ID.
@@ -138,7 +142,7 @@ class TestEventsToMessages:
         action2 = ActionEvent(
             source="agent",
             thought=[],  # Empty thought for subsequent actions in parallel call
-            action=TestEventsToMessagesMockAction(command="test"),
+            action=EventsToMessagesMockAction(command="test"),
             tool_name="get_current_weather",
             tool_call_id="call_Tokyo",
             tool_call=create_tool_call(
@@ -152,7 +156,7 @@ class TestEventsToMessages:
         action3 = ActionEvent(
             source="agent",
             thought=[],  # Empty thought for subsequent actions in parallel call
-            action=TestEventsToMessagesMockAction(command="test"),
+            action=EventsToMessagesMockAction(command="test"),
             tool_name="get_current_weather",
             tool_call_id="call_Paris",
             tool_call=create_tool_call(
@@ -190,7 +194,7 @@ class TestEventsToMessages:
 
         # All should be weather function calls
         for tool_call in tool_calls:
-            assert tool_call.function.name == "get_current_weather"
+            assert tool_call.name == "get_current_weather"
 
     def test_multiple_separate_action_events(self):
         """Test multiple ActionEvents with different response_ids (separate calls)."""
@@ -251,7 +255,7 @@ class TestEventsToMessages:
         # Observation event
         observation_event = ObservationEvent(
             source="environment",
-            observation=TestEventsToMessagesMockObservation(result="Sunny, 72°F"),
+            observation=EventsToMessagesMockObservation(result="Sunny, 72°F"),
             action_id="action_123",
             tool_name="get_weather",
             tool_call_id="call_weather",
@@ -322,7 +326,7 @@ class TestEventsToMessages:
         weather_nyc = ActionEvent(
             source="agent",
             thought=[],  # Empty for parallel call
-            action=TestEventsToMessagesMockAction(command="test"),
+            action=EventsToMessagesMockAction(command="test"),
             tool_name="get_weather",
             tool_call_id="call_nyc_weather",
             tool_call=create_tool_call(
@@ -334,7 +338,7 @@ class TestEventsToMessages:
         # Third: Weather observations
         obs_sf = ObservationEvent(
             source="environment",
-            observation=TestEventsToMessagesMockObservation(result="SF: Sunny, 65°F"),
+            observation=EventsToMessagesMockObservation(result="SF: Sunny, 65°F"),
             action_id="action_sf",
             tool_name="get_weather",
             tool_call_id="call_sf_weather",
@@ -342,7 +346,7 @@ class TestEventsToMessages:
 
         obs_nyc = ObservationEvent(
             source="environment",
-            observation=TestEventsToMessagesMockObservation(result="NYC: Cloudy, 45°F"),
+            observation=EventsToMessagesMockObservation(result="NYC: Cloudy, 45°F"),
             action_id="action_nyc",
             tool_name="get_weather",
             tool_call_id="call_nyc_weather",
@@ -399,7 +403,7 @@ class TestEventsToMessages:
         action2 = ActionEvent(
             source="agent",
             thought=[TextContent(text="This should not be here!")],  # Non-empty thought
-            action=TestEventsToMessagesMockAction(command="test"),
+            action=EventsToMessagesMockAction(command="test"),
             tool_name="get_weather",
             tool_call_id="call_2",
             tool_call=create_tool_call("call_2", "get_weather", {"location": "NYC"}),

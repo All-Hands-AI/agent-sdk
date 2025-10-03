@@ -105,6 +105,30 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
         "",
     ]
 
+    # Add artifacts section if any model has artifact URLs
+    artifacts_available = any(
+        result.artifact_url for result in consolidated.model_results
+    )
+    if artifacts_available:
+        report_lines.extend(
+            [
+                "## 📁 Detailed Logs & Artifacts",
+                "",
+                (
+                    "Click the links below to download detailed agent/LLM logs showing "
+                    "the complete reasoning process for each model:"
+                ),
+                "",
+            ]
+        )
+
+        for result in consolidated.model_results:
+            if result.artifact_url:
+                report_lines.append(
+                    f"- **{result.model_name}**: "
+                    f"[📥 Download Logs & Results]({result.artifact_url})"
+                )
+
     # Summary table
     report_lines.extend(
         [

@@ -13,12 +13,12 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
 from openhands.sdk.conversation.types import ConversationCallbackType
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
@@ -43,11 +43,11 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 register_tool("TaskTrackerTool", TaskTrackerTool)
 tools = [
-    ToolSpec(
+    Tool(
         name="BashTool",
     ),
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="TaskTrackerTool"),
+    Tool(name="FileEditorTool"),
+    Tool(name="TaskTrackerTool"),
 ]
 
 # Agent
@@ -57,7 +57,7 @@ llm_messages = []  # collect raw LLM messages
 
 
 # Callback coroutine
-async def callback_coro(event: EventBase):
+async def callback_coro(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 

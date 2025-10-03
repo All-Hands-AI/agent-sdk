@@ -8,20 +8,20 @@ from pydantic import Field, SecretStr
 
 from openhands.sdk import (
     LLM,
+    Action,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     ImageContent,
     LLMConvertibleEvent,
+    Observation,
     TextContent,
-    Tool,
+    ToolDefinition,
     get_logger,
 )
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Tool,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 from openhands.tools.execute_bash import (
@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 # --- Action / Observation ---
 
 
-class GrepAction(ActionBase):
+class GrepAction(Action):
     pattern: str = Field(description="Regex to search for")
     path: str = Field(
         default=".", description="Directory to search (absolute or relative)"
@@ -48,13 +48,13 @@ class GrepAction(ActionBase):
     )
 
 
-class GrepObservation(ObservationBase):
+class GrepObservation(Observation):
     matches: list[str] = Field(default_factory=list)
     files: list[str] = Field(default_factory=list)
     count: int = 0
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if not self.count:
             return [TextContent(text="No matches found.")]
         files_list = "\n".join(f"- {f}" for f in self.files[:20])
@@ -129,14 +129,14 @@ llm = LLM(
 cwd = os.getcwd()
 
 
-def _make_bash_and_grep_tools(working_dir: str) -> list[Tool]:
+def _make_bash_and_grep_tools(conv_state) -> list[ToolDefinition]:
     """Create execute_bash and custom grep tools sharing one executor."""
 
-    bash_executor = BashExecutor(working_dir=working_dir)
+    bash_executor = BashExecutor(working_dir=conv_state.workspace.working_dir)
     bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
 
     grep_executor = GrepExecutor(bash_executor)
-    grep_tool = Tool(
+    grep_tool = ToolDefinition(
         name="grep",
         description=_GREP_DESCRIPTION,
         action_type=GrepAction,
@@ -151,8 +151,8 @@ register_tool("FileEditorTool", FileEditorTool)
 register_tool("BashAndGrepToolSet", _make_bash_and_grep_tools)
 
 tools = [
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="BashAndGrepToolSet", params={"working_dir": cwd}),
+    Tool(name="FileEditorTool"),
+    Tool(name="BashAndGrepToolSet"),
 ]
 
 # Agent
@@ -161,13 +161,13 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
 )
 
 conversation.send_message(

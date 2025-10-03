@@ -5,7 +5,6 @@ test assets when the LLM implementation changes.
 """
 
 import json
-import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -16,13 +15,13 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     Message,
     TextContent,
     get_logger,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -57,14 +56,13 @@ def create_llm(
     return LLM(**llm_kwargs, service_id="test-llm")
 
 
-def create_tools(working_dir: str | None = None) -> list[ToolSpec]:
+def create_tools(working_dir: str | None = None) -> list[Tool]:
     """Create standard tool specifications for testing."""
-    cwd = working_dir or os.getcwd()
     register_tool("BashTool", BashTool)
     register_tool("FileEditorTool", FileEditorTool)
     return [
-        ToolSpec(name="BashTool", params={"working_dir": cwd}),
-        ToolSpec(name="FileEditorTool"),
+        Tool(name="BashTool"),
+        Tool(name="FileEditorTool"),
     ]
 
 
@@ -84,7 +82,7 @@ def run_conversation(
 
     llm_messages = []
 
-    def conversation_callback(event: EventBase):
+    def conversation_callback(event: Event):
         logger.info(f"Found a conversation message: {str(event)[:200]}...")
         if isinstance(event, LLMConvertibleEvent):
             llm_messages.append(event.to_llm_message().to_llm_dict())

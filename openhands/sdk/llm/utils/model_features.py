@@ -70,6 +70,7 @@ def model_matches(model: str, patterns: list[str]) -> bool:
 class ModelFeatures:
     supports_function_calling: bool
     supports_reasoning_effort: bool
+    supports_extended_thinking: bool
     supports_prompt_cache: bool
     supports_stop_words: bool
 
@@ -116,8 +117,13 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "gemini-2.5-pro",
     # OpenAI GPT-5 family (includes mini variants)
     "gpt-5*",
-    # Anthropic Claude Sonnet 4.5
-    "claude-sonnet-4-5-20250929",
+]
+
+EXTENDED_THINKING_PATTERNS: list[str] = [
+    # Anthropic model family
+    # We did not include sonnet 3.7 and 4 here as they don't brings
+    # significant performance improvements for agents
+    "claude-sonnet-4-5*",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
@@ -149,6 +155,7 @@ def get_features(model: str) -> ModelFeatures:
     return ModelFeatures(
         supports_function_calling=model_matches(model, FUNCTION_CALLING_PATTERNS),
         supports_reasoning_effort=model_matches(model, REASONING_EFFORT_PATTERNS),
+        supports_extended_thinking=model_matches(model, EXTENDED_THINKING_PATTERNS),
         supports_prompt_cache=model_matches(model, PROMPT_CACHE_PATTERNS),
         supports_stop_words=not model_matches(
             model, SUPPORTS_STOP_WORDS_FALSE_PATTERNS

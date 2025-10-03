@@ -1,17 +1,22 @@
-"""Test ConversationState integration with tools from openhands.tools package."""
+"""Test agent reconciliation logic in agent deserialization and conversation restart."""
 
 import tempfile
+import uuid
 from unittest.mock import patch
 
-import pytest
 from pydantic import SecretStr
 
 from openhands.sdk import Agent
 from openhands.sdk.agent import AgentBase
+from openhands.sdk.context.condenser.llm_summarizing_condenser import (
+    LLMSummarizingCondenser,
+)
+from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
+from openhands.tools.preset.default import get_default_agent
 from openhands.tools.str_replace_editor import FileEditorTool
 
 
@@ -19,13 +24,93 @@ register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 
 
-def test_conversation_with_different_agent_tools_raises_error():
-    """Test that using an agent with different tools raises ValueError."""
+# Tests from test_llm_reconciliation.py
+def test_conversation_restart_with_nested_llms(tmp_path):
+    """Test conversation restart with agent containing nested LLMs."""
+    # Create a default agent with dummy LLM + models + keys
+
+    working_dir = str(tmp_path)
+
+    llm = LLM(
+        model="gpt-4o-mini", api_key=SecretStr("llm-api-key"), service_id="main-llm"
+    )
+
+    # Use the standard Agent class to avoid polymorphic deserialization issues
+    agent = get_default_agent(llm)
+
+    conversation_id = uuid.uuid4()
+
+    # Create a conversation with the default agent + persistence
+    conversation1 = Conversation(
+        agent=agent,
+        persistence_dir=working_dir,
+        conversation_id=conversation_id,
+    )
+
+    # Verify the conversation was created successfully
+    assert conversation1.id == conversation_id
+    assert conversation1.agent.llm.api_key is not None
+    assert conversation1.agent.llm.api_key.get_secret_value() == "llm-api-key"
+    assert isinstance(conversation1.agent.condenser, LLMSummarizingCondenser)
+    assert conversation1.agent.condenser.llm.api_key is not None
+    assert conversation1.agent.condenser.llm.api_key.get_secret_value() == "llm-api-key"
+
+    # Attempt to restart the conversation - this should work without errors
+    conversation2 = Conversation(
+        agent=agent,
+        persistence_dir=working_dir,
+        conversation_id=conversation_id,  # Same conversation_id
+    )
+
+    # Make sure the conversation gets initialized properly with no errors
+    assert conversation2.id == conversation_id
+    assert conversation2.agent.llm.api_key is not None
+    assert conversation2.agent.llm.api_key.get_secret_value() == "llm-api-key"
+    assert isinstance(conversation2.agent.condenser, LLMSummarizingCondenser)
+    assert conversation2.agent.condenser.llm.api_key is not None
+    assert conversation2.agent.condenser.llm.api_key.get_secret_value() == "llm-api-key"
+
+    # Verify that the agent configuration is properly reconciled
+    assert conversation2.agent.llm.model == "gpt-4o-mini"
+    assert conversation2.agent.condenser.llm.model == "gpt-4o-mini"
+    assert conversation2.agent.condenser.max_size == 80
+    assert conversation2.agent.condenser.keep_first == 4
+
+
+def test_conversation_restarted_with_changed_working_directory(tmp_path_factory):
+    working_dir = str(tmp_path_factory.mktemp("persist"))
+
+    llm = LLM(
+        model="gpt-4o-mini", api_key=SecretStr("llm-api-key"), service_id="main-llm"
+    )
+
+    agent1 = get_default_agent(llm)
+    conversation_id = uuid.uuid4()
+
+    # first conversation
+    _ = Conversation(
+        agent=agent1, persistence_dir=working_dir, conversation_id=conversation_id
+    )
+
+    # agent built in a *different* temp dir
+    agent2 = get_default_agent(llm)
+
+    # restart with new agent working dir but same conversation id
+    _ = Conversation(
+        agent=agent2, persistence_dir=working_dir, conversation_id=conversation_id
+    )
+
+
+# Tests from test_local_conversation_tools_integration.py
+def test_conversation_with_different_agent_tools_fails():
+    """Test that using an agent with different tools fails (tools must match)."""
+    import pytest
+
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create and save conversation with original agent
         original_tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -33,7 +118,7 @@ def test_conversation_with_different_agent_tools_raises_error():
         original_agent = Agent(llm=llm, tools=original_tools)
         conversation = LocalConversation(
             agent=original_agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             persistence_dir=temp_dir,
             visualize=False,
         )
@@ -50,19 +135,19 @@ def test_conversation_with_different_agent_tools_raises_error():
         del conversation
 
         # Try to create new conversation with different tools (only bash tool)
-        different_tools = [ToolSpec(name="BashTool")]  # Missing FileEditorTool
+        different_tools = [Tool(name="BashTool")]  # Missing FileEditorTool
         llm2 = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
         )
         different_agent = Agent(llm=llm2, tools=different_tools)
 
-        # This should raise ValueError due to tool differences
+        # This should fail - tools must match during reconciliation
         with pytest.raises(
-            ValueError, match="different from the one in persisted state"
+            ValueError, match="Tools don't match between runtime and persisted agents"
         ):
             LocalConversation(
                 agent=different_agent,
-                working_dir=temp_dir,
+                workspace=temp_dir,
                 persistence_dir=temp_dir,
                 conversation_id=conversation_id,  # Use same ID to avoid ID mismatch
                 visualize=False,
@@ -74,8 +159,8 @@ def test_conversation_with_same_agent_succeeds():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create and save conversation
         tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -83,7 +168,7 @@ def test_conversation_with_same_agent_succeeds():
         original_agent = Agent(llm=llm, tools=tools)
         conversation = LocalConversation(
             agent=original_agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             persistence_dir=temp_dir,
             visualize=False,
         )
@@ -101,8 +186,8 @@ def test_conversation_with_same_agent_succeeds():
 
         # Create new conversation with same agent configuration
         same_tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
         llm2 = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -112,7 +197,7 @@ def test_conversation_with_same_agent_succeeds():
         # This should succeed
         new_conversation = LocalConversation(
             agent=same_agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             persistence_dir=temp_dir,
             conversation_id=conversation_id,  # Use same ID
             visualize=False,
@@ -135,8 +220,8 @@ def test_conversation_persistence_lifecycle(mock_completion):
 
     with tempfile.TemporaryDirectory() as temp_dir:
         tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -145,7 +230,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
 
         # Create conversation and send messages
         conversation = LocalConversation(
-            agent=agent, working_dir=temp_dir, persistence_dir=temp_dir, visualize=False
+            agent=agent, workspace=temp_dir, persistence_dir=temp_dir, visualize=False
         )
 
         # Send first message
@@ -173,7 +258,7 @@ def test_conversation_persistence_lifecycle(mock_completion):
         # Create new conversation (should load from persistence)
         new_conversation = LocalConversation(
             agent=agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             persistence_dir=temp_dir,
             conversation_id=original_id,  # Use same ID to load existing state
             visualize=False,
@@ -203,7 +288,7 @@ def test_agent_resolve_diff_from_deserialized():
     """Test agent's resolve_diff_from_deserialized method."""
     with tempfile.TemporaryDirectory():
         # Create original agent
-        tools = [ToolSpec(name="BashTool")]
+        tools = [Tool(name="BashTool")]
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
         )

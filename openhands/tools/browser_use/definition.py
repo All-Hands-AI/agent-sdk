@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING, Literal, Self
 from pydantic import Field
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool import (
+    Action,
+    Observation,
+    ToolAnnotations,
+    ToolDefinition,
+)
 from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
 
@@ -20,7 +25,7 @@ if TYPE_CHECKING:
 MAX_BROWSER_OUTPUT_SIZE = 50000
 
 
-class BrowserObservation(ObservationBase):
+class BrowserObservation(Observation):
     """Base observation for browser operations."""
 
     output: str = Field(description="The output message from the browser operation")
@@ -30,7 +35,7 @@ class BrowserObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             return [TextContent(text=f"Error: {self.error}")]
 
@@ -49,7 +54,7 @@ class BrowserObservation(ObservationBase):
 # ============================================
 # `go_to_url`
 # ============================================
-class BrowserNavigateAction(ActionBase):
+class BrowserNavigateAction(Action):
     """Schema for browser navigation."""
 
     url: str = Field(description="The URL to navigate to")
@@ -71,7 +76,7 @@ Examples:
 - Open GitHub in new tab: url="https://github.com", new_tab=True
 """  # noqa: E501
 
-browser_navigate_tool = Tool(
+browser_navigate_tool = ToolDefinition(
     name="browser_navigate",
     action_type=BrowserNavigateAction,
     observation_type=BrowserObservation,
@@ -86,7 +91,7 @@ browser_navigate_tool = Tool(
 )
 
 
-class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
+class BrowserNavigateTool(ToolDefinition[BrowserNavigateAction, BrowserObservation]):
     """Tool for browser navigation."""
 
     @classmethod
@@ -106,7 +111,7 @@ class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
 # ============================================
 # `browser_click`
 # ============================================
-class BrowserClickAction(ActionBase):
+class BrowserClickAction(Action):
     """Schema for clicking elements."""
 
     index: int = Field(
@@ -130,7 +135,7 @@ Parameters:
 Important: Only use indices that appear in your current browser_get_state output.
 """  # noqa: E501
 
-browser_click_tool = Tool(
+browser_click_tool = ToolDefinition(
     name="browser_click",
     action_type=BrowserClickAction,
     observation_type=BrowserObservation,
@@ -145,7 +150,7 @@ browser_click_tool = Tool(
 )
 
 
-class BrowserClickTool(Tool[BrowserClickAction, BrowserObservation]):
+class BrowserClickTool(ToolDefinition[BrowserClickAction, BrowserObservation]):
     """Tool for clicking browser elements."""
 
     @classmethod
@@ -165,7 +170,7 @@ class BrowserClickTool(Tool[BrowserClickAction, BrowserObservation]):
 # ============================================
 # `browser_type`
 # ============================================
-class BrowserTypeAction(ActionBase):
+class BrowserTypeAction(Action):
     """Schema for typing text into elements."""
 
     index: int = Field(
@@ -186,7 +191,7 @@ Parameters:
 Important: Only use indices that appear in your current browser_get_state output.
 """  # noqa: E501
 
-browser_type_tool = Tool(
+browser_type_tool = ToolDefinition(
     name="browser_type",
     action_type=BrowserTypeAction,
     observation_type=BrowserObservation,
@@ -201,7 +206,7 @@ browser_type_tool = Tool(
 )
 
 
-class BrowserTypeTool(Tool[BrowserTypeAction, BrowserObservation]):
+class BrowserTypeTool(ToolDefinition[BrowserTypeAction, BrowserObservation]):
     """Tool for typing text into browser elements."""
 
     @classmethod
@@ -221,7 +226,7 @@ class BrowserTypeTool(Tool[BrowserTypeAction, BrowserObservation]):
 # ============================================
 # `browser_get_state`
 # ============================================
-class BrowserGetStateAction(ActionBase):
+class BrowserGetStateAction(Action):
     """Schema for getting browser state."""
 
     include_screenshot: bool = Field(
@@ -239,7 +244,7 @@ Parameters:
 - include_screenshot: Whether to include a screenshot (optional, default: False)
 """  # noqa: E501
 
-browser_get_state_tool = Tool(
+browser_get_state_tool = ToolDefinition(
     name="browser_get_state",
     action_type=BrowserGetStateAction,
     observation_type=BrowserObservation,
@@ -254,7 +259,7 @@ browser_get_state_tool = Tool(
 )
 
 
-class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
+class BrowserGetStateTool(ToolDefinition[BrowserGetStateAction, BrowserObservation]):
     """Tool for getting browser state."""
 
     @classmethod
@@ -274,7 +279,7 @@ class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
 # ============================================
 # `browser_get_content`
 # ============================================
-class BrowserGetContentAction(ActionBase):
+class BrowserGetContentAction(Action):
     """Schema for getting page content in markdown."""
 
     extract_links: bool = Field(
@@ -293,7 +298,7 @@ BROWSER_GET_CONTENT_DESCRIPTION = """Extract the main content of the current pag
 If the content was truncated and you need more information, use start_from_char parameter to continue from where truncation occurred.
 """  # noqa: E501
 
-browser_get_content_tool = Tool(
+browser_get_content_tool = ToolDefinition(
     name="browser_get_content",
     action_type=BrowserGetContentAction,
     observation_type=BrowserObservation,
@@ -308,7 +313,9 @@ browser_get_content_tool = Tool(
 )
 
 
-class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
+class BrowserGetContentTool(
+    ToolDefinition[BrowserGetContentAction, BrowserObservation]
+):
     """Tool for getting page content in markdown."""
 
     @classmethod
@@ -328,7 +335,7 @@ class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
 # ============================================
 # `browser_scroll`
 # ============================================
-class BrowserScrollAction(ActionBase):
+class BrowserScrollAction(Action):
     """Schema for scrolling the page."""
 
     direction: Literal["up", "down"] = Field(
@@ -346,7 +353,7 @@ Parameters:
 - direction: Direction to scroll - "up" or "down" (optional, default: "down")
 """  # noqa: E501
 
-browser_scroll_tool = Tool(
+browser_scroll_tool = ToolDefinition(
     name="browser_scroll",
     action_type=BrowserScrollAction,
     observation_type=BrowserObservation,
@@ -361,7 +368,7 @@ browser_scroll_tool = Tool(
 )
 
 
-class BrowserScrollTool(Tool[BrowserScrollAction, BrowserObservation]):
+class BrowserScrollTool(ToolDefinition[BrowserScrollAction, BrowserObservation]):
     """Tool for scrolling the browser page."""
 
     @classmethod
@@ -381,7 +388,7 @@ class BrowserScrollTool(Tool[BrowserScrollAction, BrowserObservation]):
 # ============================================
 # `browser_go_back`
 # ============================================
-class BrowserGoBackAction(ActionBase):
+class BrowserGoBackAction(Action):
     """Schema for going back in browser history."""
 
     pass
@@ -393,7 +400,7 @@ Use this tool to navigate back to the previously visited page, similar to clicki
 browser's back button.
 """  # noqa: E501
 
-browser_go_back_tool = Tool(
+browser_go_back_tool = ToolDefinition(
     name="browser_go_back",
     action_type=BrowserGoBackAction,
     observation_type=BrowserObservation,
@@ -408,7 +415,7 @@ browser_go_back_tool = Tool(
 )
 
 
-class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
+class BrowserGoBackTool(ToolDefinition[BrowserGoBackAction, BrowserObservation]):
     """Tool for going back in browser history."""
 
     @classmethod
@@ -428,7 +435,7 @@ class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
 # ============================================
 # `browser_list_tabs`
 # ============================================
-class BrowserListTabsAction(ActionBase):
+class BrowserListTabsAction(Action):
     """Schema for listing browser tabs."""
 
     pass
@@ -440,7 +447,7 @@ This tool shows all currently open tabs with their IDs, titles, and URLs. Use th
 with browser_switch_tab or browser_close_tab.
 """  # noqa: E501
 
-browser_list_tabs_tool = Tool(
+browser_list_tabs_tool = ToolDefinition(
     name="browser_list_tabs",
     action_type=BrowserListTabsAction,
     observation_type=BrowserObservation,
@@ -455,7 +462,7 @@ browser_list_tabs_tool = Tool(
 )
 
 
-class BrowserListTabsTool(Tool[BrowserListTabsAction, BrowserObservation]):
+class BrowserListTabsTool(ToolDefinition[BrowserListTabsAction, BrowserObservation]):
     """Tool for listing browser tabs."""
 
     @classmethod
@@ -475,7 +482,7 @@ class BrowserListTabsTool(Tool[BrowserListTabsAction, BrowserObservation]):
 # ============================================
 # `browser_switch_tab`
 # ============================================
-class BrowserSwitchTabAction(ActionBase):
+class BrowserSwitchTabAction(Action):
     """Schema for switching browser tabs."""
 
     tab_id: str = Field(
@@ -492,7 +499,7 @@ Parameters:
 - tab_id: 4 Character Tab ID of the tab to switch to
 """
 
-browser_switch_tab_tool = Tool(
+browser_switch_tab_tool = ToolDefinition(
     name="browser_switch_tab",
     action_type=BrowserSwitchTabAction,
     observation_type=BrowserObservation,
@@ -507,7 +514,7 @@ browser_switch_tab_tool = Tool(
 )
 
 
-class BrowserSwitchTabTool(Tool[BrowserSwitchTabAction, BrowserObservation]):
+class BrowserSwitchTabTool(ToolDefinition[BrowserSwitchTabAction, BrowserObservation]):
     """Tool for switching browser tabs."""
 
     # Override executor to be non-optional for initialized BrowserSwitchTabTool
@@ -530,7 +537,7 @@ class BrowserSwitchTabTool(Tool[BrowserSwitchTabAction, BrowserObservation]):
 # ============================================
 # `browser_close_tab`
 # ============================================
-class BrowserCloseTabAction(ActionBase):
+class BrowserCloseTabAction(Action):
     """Schema for closing browser tabs."""
 
     tab_id: str = Field(
@@ -546,7 +553,7 @@ Parameters:
 - tab_id: 4 Character Tab ID of the tab to close
 """
 
-browser_close_tab_tool = Tool(
+browser_close_tab_tool = ToolDefinition(
     name="browser_close_tab",
     action_type=BrowserCloseTabAction,
     observation_type=BrowserObservation,
@@ -561,7 +568,7 @@ browser_close_tab_tool = Tool(
 )
 
 
-class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
+class BrowserCloseTabTool(ToolDefinition[BrowserCloseTabAction, BrowserObservation]):
     """Tool for closing browser tabs."""
 
     @classmethod

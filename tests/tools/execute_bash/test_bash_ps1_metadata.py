@@ -278,12 +278,12 @@ def test_cmd_output_observation_properties():
     assert obs.command_id == 123
     assert obs.exit_code == 0
     assert not obs.error
-    assert len(obs.agent_observation) == 1
-    assert isinstance(obs.agent_observation[0], TextContent)
-    assert "exit code 0" in obs.agent_observation[0].text
-    assert "ls" not in obs.agent_observation[0].text
-    assert "file1\n" in obs.agent_observation[0].text
-    assert "file2\n" in obs.agent_observation[0].text
+    assert len(obs.to_llm_content) == 1
+    assert isinstance(obs.to_llm_content[0], TextContent)
+    assert "exit code 0" in obs.to_llm_content[0].text
+    assert "ls" not in obs.to_llm_content[0].text
+    assert "file1\n" in obs.to_llm_content[0].text
+    assert "file2\n" in obs.to_llm_content[0].text
 
     # Test with failed command
     metadata = CmdOutputMetadata(exit_code=1, pid=456)
@@ -293,9 +293,9 @@ def test_cmd_output_observation_properties():
     assert obs.command_id == 456
     assert obs.exit_code == 1
     assert obs.error
-    assert len(obs.agent_observation) == 1
-    assert isinstance(obs.agent_observation[0], TextContent)
-    assert "exit code 1" in obs.agent_observation[0].text
+    assert len(obs.to_llm_content) == 1
+    assert isinstance(obs.to_llm_content[0], TextContent)
+    assert "exit code 1" in obs.to_llm_content[0].text
     assert obs.error
 
 

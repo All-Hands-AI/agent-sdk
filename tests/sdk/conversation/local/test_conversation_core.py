@@ -34,7 +34,7 @@ def test_conversation_basic_creation():
     agent = create_test_agent()
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        conv = Conversation(agent=agent, persistence_dir=tmpdir, working_dir=tmpdir)
+        conv = Conversation(agent=agent, persistence_dir=tmpdir, workspace=tmpdir)
 
         # Basic properties should be set
         assert conv.id is not None
@@ -48,7 +48,7 @@ def test_conversation_event_log_functionality():
     agent = create_test_agent()
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        conv = Conversation(agent=agent, persistence_dir=tmpdir, working_dir=tmpdir)
+        conv = Conversation(agent=agent, persistence_dir=tmpdir, workspace=tmpdir)
 
         # Add events directly to test EventLog functionality
         events = [
@@ -81,7 +81,7 @@ def test_conversation_state_persistence():
     agent = create_test_agent()
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        conv = Conversation(agent=agent, persistence_dir=tmpdir, working_dir=tmpdir)
+        conv = Conversation(agent=agent, persistence_dir=tmpdir, workspace=tmpdir)
 
         # Add an event
         event = create_test_event("persist-test", "Persistence test")
@@ -116,7 +116,7 @@ def test_conversation_with_custom_id():
         conv = Conversation(
             agent=agent,
             persistence_dir=tmpdir,
-            working_dir=tmpdir,
+            workspace=tmpdir,
             conversation_id=custom_id,
         )
 
@@ -131,7 +131,7 @@ def test_conversation_event_id_validation():
     agent = create_test_agent()
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        conv = Conversation(agent=agent, persistence_dir=tmpdir, working_dir=tmpdir)
+        conv = Conversation(agent=agent, persistence_dir=tmpdir, workspace=tmpdir)
 
         # Add first event
         event1 = create_test_event("unique-id-1", "First event")
@@ -163,7 +163,7 @@ def test_conversation_large_event_handling():
     agent = create_test_agent()
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        conv = Conversation(agent=agent, persistence_dir=tmpdir, working_dir=tmpdir)
+        conv = Conversation(agent=agent, persistence_dir=tmpdir, workspace=tmpdir)
 
         # Add many events to test memory bounds
         num_events = 5000  # Large number to test memory usage
@@ -225,7 +225,7 @@ def test_conversation_error_handling():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Should create conversation with valid directories
-        conv = Conversation(agent=agent, persistence_dir=tmpdir, working_dir=tmpdir)
+        conv = Conversation(agent=agent, persistence_dir=tmpdir, workspace=tmpdir)
 
         # Should have basic properties
         assert conv.id is not None
@@ -238,7 +238,7 @@ def test_conversation_memory_vs_local_filestore():
 
     # Test with temporary directory (LocalFileStore)
     with tempfile.TemporaryDirectory() as temp_dir:
-        conv = Conversation(agent=agent, persistence_dir=temp_dir, working_dir=temp_dir)
+        conv = Conversation(agent=agent, persistence_dir=temp_dir, workspace=temp_dir)
 
         event = create_test_event("local-test", "Local test")
         conv.state.events.append(event)

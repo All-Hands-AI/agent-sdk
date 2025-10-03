@@ -8,7 +8,7 @@ from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 
 
 logger = get_logger(__name__)
@@ -36,7 +36,7 @@ def register_default_tools(enable_browser: bool = True) -> None:
 
 def get_default_tools(
     enable_browser: bool = True,
-) -> list[ToolSpec]:
+) -> list[Tool]:
     """Get the default set of tool specifications for the standard experience.
 
     Args:
@@ -44,14 +44,14 @@ def get_default_tools(
     """
     register_default_tools(enable_browser=enable_browser)
 
-    tool_specs = [
-        ToolSpec(name="BashTool"),
-        ToolSpec(name="FileEditorTool"),
-        ToolSpec(name="TaskTrackerTool"),
+    tools = [
+        Tool(name="BashTool"),
+        Tool(name="FileEditorTool"),
+        Tool(name="TaskTrackerTool"),
     ]
     if enable_browser:
-        tool_specs.append(ToolSpec(name="BrowserToolSet"))
-    return tool_specs
+        tools.append(Tool(name="BrowserToolSet"))
+    return tools
 
 
 def get_default_condenser(llm: LLM) -> CondenserBase:
@@ -67,13 +67,13 @@ def get_default_agent(
     llm: LLM,
     cli_mode: bool = False,
 ) -> Agent:
-    tool_specs = get_default_tools(
+    tools = get_default_tools(
         # Disable browser tools in CLI mode
         enable_browser=not cli_mode,
     )
     agent = Agent(
         llm=llm,
-        tools=tool_specs,
+        tools=tools,
         mcp_config={
             "mcpServers": {
                 "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},

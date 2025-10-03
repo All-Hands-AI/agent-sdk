@@ -7,7 +7,7 @@ from fastmcp.client.logging import LogMessage
 from fastmcp.mcp_config import MCPConfig
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import MCPClient, MCPTool
+from openhands.sdk.mcp import MCPClient, MCPToolDefinition
 from openhands.sdk.tool.tool import ToolBase
 
 
@@ -38,7 +38,9 @@ async def _list_tools(client: MCPClient) -> list[ToolBase]:
         assert client.is_connected(), "MCP client is not connected."
         mcp_type_tools: list[mcp.types.Tool] = await client.list_tools()
         for mcp_tool in mcp_type_tools:
-            tool_sequence = MCPTool.create(mcp_tool=mcp_tool, mcp_client=client)
+            tool_sequence = MCPToolDefinition.create(
+                mcp_tool=mcp_tool, mcp_client=client
+            )
             tools.extend(tool_sequence)  # Flatten sequence into list
     assert not client.is_connected(), (
         "MCP client should be disconnected after listing tools."
@@ -49,9 +51,9 @@ async def _list_tools(client: MCPClient) -> list[ToolBase]:
 def create_mcp_tools(
     config: dict | MCPConfig,
     timeout: float = 30.0,
-) -> list[MCPTool]:
+) -> list[MCPToolDefinition]:
     """Create MCP tools from MCP configuration."""
-    tools: list[MCPTool] = []
+    tools: list[MCPToolDefinition] = []
     if isinstance(config, dict):
         config = MCPConfig.model_validate(config)
     client = MCPClient(config, log_handler=log_handler)

@@ -1,7 +1,8 @@
 # state.py
 import json
+from collections.abc import Sequence
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import Field, PrivateAttr
 
@@ -11,9 +12,9 @@ from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
-from openhands.sdk.conversation.types import ConversationID
+from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
@@ -21,7 +22,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import OpenHandsModel
-from openhands.sdk.utils.protocol import ListLike
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 logger = get_logger(__name__)
@@ -45,7 +46,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
-class ConversationState(OpenHandsModel, FIFOLock):
+class ConversationState(OpenHandsModel):
     # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
 
@@ -58,8 +59,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
-    working_dir: str = Field(
-        default="workspace/project",
+    workspace: BaseWorkspace = Field(
+        ...,
         description="Working directory for agent operations and tool execution",
     )
     persistence_dir: str | None = Field(
@@ -101,21 +102,31 @@ class ConversationState(OpenHandsModel, FIFOLock):
     _autosave_enabled: bool = PrivateAttr(
         default=False
     )  # to avoid recursion during init
+    _on_state_change: ConversationCallbackType | None = PrivateAttr(
+        default=None
+    )  # callback for state changes
+    _lock: FIFOLock = PrivateAttr(
+        default_factory=FIFOLock
+    )  # FIFO lock for thread safety
 
-    def model_post_init(self, __context) -> None:
-        """Initialize FIFOLock after Pydantic model initialization."""
-        # Initialize FIFOLock
-        FIFOLock.__init__(self)
-
-    # ===== Public "events" facade (ListLike[Event]) =====
+    # ===== Public "events" facade (Sequence[Event]) =====
     @property
-    def events(self) -> ListLike[EventBase]:
+    def events(self) -> EventLog:
         return self._events
 
     @property
     def secrets_manager(self) -> SecretsManager:
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
+
+    def set_on_state_change(self, callback: ConversationCallbackType | None) -> None:
+        """Set a callback to be called when state changes.
+
+        Args:
+            callback: A function that takes an Event (ConversationStateUpdateEvent)
+                     or None to remove the callback
+        """
+        self._on_state_change = callback
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:
@@ -131,7 +142,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
-        working_dir: str,
+        workspace: BaseWorkspace,
         persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
@@ -188,7 +199,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         state = cls(
             id=id,
             agent=agent,
-            working_dir=working_dir,
+            workspace=workspace,
             persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
@@ -230,8 +241,27 @@ class ConversationState(OpenHandsModel, FIFOLock):
                 logger.exception("Auto-persist base_state failed", exc_info=True)
                 raise e
 
+            # Call state change callback if set
+            callback = getattr(self, "_on_state_change", None)
+            if callback is not None and old is not _sentinel:
+                try:
+                    # Import here to avoid circular imports
+                    from openhands.sdk.event.conversation_state import (
+                        ConversationStateUpdateEvent,
+                    )
+
+                    # Create a ConversationStateUpdateEvent with the changed field
+                    state_update_event = ConversationStateUpdateEvent(
+                        key=name, value=value
+                    )
+                    callback(state_update_event)
+                except Exception:
+                    logger.exception(
+                        f"State change callback failed for field {name}", exc_info=True
+                    )
+
     @staticmethod
-    def get_unmatched_actions(events: ListLike[EventBase]) -> list[ActionEvent]:
+    def get_unmatched_actions(events: Sequence[Event]) -> list[ActionEvent]:
         """Find actions in the event history that don't have matching observations.
 
         This method identifies ActionEvents that don't have corresponding
@@ -257,3 +287,49 @@ class ConversationState(OpenHandsModel, FIFOLock):
                     unmatched_actions.insert(0, event)
 
         return unmatched_actions
+
+    # ===== FIFOLock delegation methods =====
+    def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
+        """
+        Acquire the lock.
+
+        Args:
+            blocking: If True, block until lock is acquired. If False, return
+                     immediately.
+            timeout: Maximum time to wait for lock (ignored if blocking=False).
+                    -1 means wait indefinitely.
+
+        Returns:
+            True if lock was acquired, False otherwise.
+        """
+        return self._lock.acquire(blocking=blocking, timeout=timeout)
+
+    def release(self) -> None:
+        """
+        Release the lock.
+
+        Raises:
+            RuntimeError: If the current thread doesn't own the lock.
+        """
+        self._lock.release()
+
+    def __enter__(self: Self) -> Self:
+        """Context manager entry."""
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Context manager exit."""
+        self._lock.release()
+
+    def locked(self) -> bool:
+        """
+        Return True if the lock is currently held by any thread.
+        """
+        return self._lock.locked()
+
+    def owned(self) -> bool:
+        """
+        Return True if the lock is currently held by the calling thread.
+        """
+        return self._lock.owned()

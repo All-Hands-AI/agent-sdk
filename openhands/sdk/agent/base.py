@@ -9,13 +9,13 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser.base import CondenserBase
+from openhands.sdk.context.condenser import CondenserBase, LLMSummarizingCondenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolSpec, resolve_tool
+from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolDefinition, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -48,7 +48,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             }
         ],
     )
-    tools: list[ToolSpec] = Field(
+    tools: list[Tool] = Field(
         default_factory=list,
         description="List of tools to initialize for the agent.",
         examples=[
@@ -134,7 +134,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     )
 
     # Runtime materialized tools; private and non-serializable
-    _tools: dict[str, Tool] = PrivateAttr(default_factory=dict)
+    _tools: dict[str, ToolDefinition] = PrivateAttr(default_factory=dict)
 
     @property
     def prompt_dir(self) -> str:
@@ -191,7 +191,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             logger.warning("Agent already initialized; skipping re-initialization.")
             return
 
-        tools: list[Tool] = []
+        tools: list[ToolDefinition] = []
         for tool_spec in self.tools:
             tools.extend(resolve_tool(tool_spec, state))
 
@@ -216,9 +216,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         # Check tool types
         for tool in tools:
-            if not isinstance(tool, Tool):
+            if not isinstance(tool, ToolDefinition):
                 raise ValueError(
-                    f"Tool {tool} is not an instance of 'Tool'. Got type: {type(tool)}"
+                    f"Tool {tool} is not an instance of 'ToolDefinition'. "
+                    f"Got type: {type(tool)}"
                 )
 
         # Check name duplicates
@@ -261,9 +262,45 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                 f"{self.__class__.__name__}."
             )
 
+        # Get all LLMs from both self and persisted to reconcile them
         new_llm = self.llm.resolve_diff_from_deserialized(persisted.llm)
-        reconciled = persisted.model_copy(update={"llm": new_llm})
+        updates: dict[str, Any] = {"llm": new_llm}
 
+        # Reconcile the condenser's LLM if it exists
+        if self.condenser is not None and persisted.condenser is not None:
+            # Check if both condensers are LLMSummarizingCondenser
+            # (which has an llm field)
+
+            if isinstance(self.condenser, LLMSummarizingCondenser) and isinstance(
+                persisted.condenser, LLMSummarizingCondenser
+            ):
+                new_condenser_llm = self.condenser.llm.resolve_diff_from_deserialized(
+                    persisted.condenser.llm
+                )
+                new_condenser = persisted.condenser.model_copy(
+                    update={"llm": new_condenser_llm}
+                )
+                updates["condenser"] = new_condenser
+
+        # Create maps by tool name for easy lookup
+        runtime_tools_map = {tool.name: tool for tool in self.tools}
+        persisted_tools_map = {tool.name: tool for tool in persisted.tools}
+
+        # Check that tool names match
+        runtime_names = set(runtime_tools_map.keys())
+        persisted_names = set(persisted_tools_map.keys())
+
+        if runtime_names != persisted_names:
+            missing_in_runtime = persisted_names - runtime_names
+            missing_in_persisted = runtime_names - persisted_names
+            error_msg = "Tools don't match between runtime and persisted agents."
+            if missing_in_runtime:
+                error_msg += f" Missing in runtime: {missing_in_runtime}."
+            if missing_in_persisted:
+                error_msg += f" Missing in persisted: {missing_in_persisted}."
+            raise ValueError(error_msg)
+
+        reconciled = persisted.model_copy(update=updates)
         if self.model_dump(exclude_none=True) != reconciled.model_dump(
             exclude_none=True
         ):
@@ -354,7 +391,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         yield from _walk(self)
 
     @property
-    def tools_map(self) -> dict[str, Tool]:
+    def tools_map(self) -> dict[str, ToolDefinition]:
         """Get the initialized tools map.
         Raises:
             RuntimeError: If the agent has not been initialized.

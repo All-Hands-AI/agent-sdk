@@ -7,7 +7,7 @@ from openhands.sdk import (
     Agent,
     AgentContext,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
@@ -15,7 +15,7 @@ from openhands.sdk.context import (
     KnowledgeMicroagent,
     RepoMicroagent,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.str_replace_editor import FileEditorTool
 
@@ -37,10 +37,10 @@ cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(
+    Tool(
         name="BashTool",
     ),
-    ToolSpec(name="FileEditorTool"),
+    Tool(name="FileEditorTool"),
 ]
 
 agent_context = AgentContext(
@@ -71,13 +71,13 @@ agent = Agent(llm=llm, tools=tools, agent_context=agent_context)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], working_dir=cwd
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
 )
 
 print("=" * 100)

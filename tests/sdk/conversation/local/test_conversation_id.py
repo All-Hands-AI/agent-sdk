@@ -11,7 +11,7 @@ from openhands.sdk.llm import LLM, TextContent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 
 
-class TestConversationIdDummyAgent(AgentBase):
+class ConversationIdDummyAgent(AgentBase):
     def __init__(self):
         llm = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
@@ -34,7 +34,7 @@ class TestConversationIdDummyAgent(AgentBase):
 
 def test_conversation_has_unique_id():
     """Test that each conversation gets a unique UUID."""
-    agent = TestConversationIdDummyAgent()
+    agent = ConversationIdDummyAgent()
     conversation = Conversation(agent=agent)
 
     # Check that id exists and is a UUID
@@ -44,8 +44,8 @@ def test_conversation_has_unique_id():
 
 def test_conversation_ids_are_unique():
     """Test that different conversations get different IDs."""
-    agent1 = TestConversationIdDummyAgent()
-    agent2 = TestConversationIdDummyAgent()
+    agent1 = ConversationIdDummyAgent()
+    agent2 = ConversationIdDummyAgent()
 
     conversation1 = Conversation(agent=agent1)
     conversation2 = Conversation(agent=agent2)
@@ -60,7 +60,7 @@ def test_conversation_ids_are_unique():
 
 def test_conversation_id_persists():
     """Test that the conversation ID doesn't change during the conversation lifecycle."""  # noqa: E501
-    agent = TestConversationIdDummyAgent()
+    agent = ConversationIdDummyAgent()
     conversation = Conversation(agent=agent)
 
     original_id = conversation.id

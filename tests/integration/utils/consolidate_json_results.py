@@ -33,7 +33,9 @@ def find_json_results(results_dir: str) -> list[Path]:
     return json_files
 
 
-def load_and_validate_results(json_files: list[Path]) -> list[ModelTestResults]:
+def load_and_validate_results(
+    json_files: list[Path], artifacts_dir: str | None = None
+) -> list[ModelTestResults]:
     """Load and validate JSON result files."""
     model_results = []
 
@@ -45,6 +47,13 @@ def load_and_validate_results(json_files: list[Path]) -> list[ModelTestResults]:
 
             # Validate using Pydantic schema
             model_result = ModelTestResults.model_validate(data)
+
+            # Add artifact URL if artifacts directory is provided
+            if artifacts_dir:
+                artifact_url = find_artifact_url(model_result.run_suffix, artifacts_dir)
+                if artifact_url:
+                    model_result.artifact_url = artifact_url
+
             model_results.append(model_result)
             model_name = model_result.model_name
             total_tests = model_result.total_tests
@@ -55,6 +64,32 @@ def load_and_validate_results(json_files: list[Path]) -> list[ModelTestResults]:
             raise
 
     return model_results
+
+
+def find_artifact_url(run_suffix: str, artifacts_dir: str) -> str | None:
+    """Find the artifact URL for a given run suffix."""
+    artifacts_path = Path(artifacts_dir)
+    if not artifacts_path.exists():
+        return None
+
+    # Look for artifact directories that match the run suffix
+    # Artifact naming pattern: integration-test-outputs-{run-suffix}-{run-id}-{run-attempt}  # noqa: E501
+    expected_prefix = f"integration-test-outputs-{run_suffix}-"
+
+    for artifact_dir in artifacts_path.iterdir():
+        if artifact_dir.is_dir() and artifact_dir.name.startswith(expected_prefix):
+            # Generate GitHub Actions URL using environment variables
+            server_url = os.getenv("GITHUB_SERVER_URL", "https://github.com")
+            repository = os.getenv("GITHUB_REPOSITORY", "")
+            run_id = os.getenv("GITHUB_RUN_ID", "")
+
+            if repository and run_id:
+                return f"{server_url}/{repository}/actions/runs/{run_id}#artifacts"
+            else:
+                # Fallback to artifact name if environment variables not available
+                return artifact_dir.name
+
+    return None
 
 
 def consolidate_results(model_results: list[ModelTestResults]) -> ConsolidatedResults:
@@ -100,6 +135,10 @@ def main():
         required=True,
         help="Output file for consolidated results",
     )
+    parser.add_argument(
+        "--artifacts-dir",
+        help="Directory containing downloaded artifacts for URL generation",
+    )
 
     args = parser.parse_args()
 
@@ -112,7 +151,7 @@ def main():
             return 1
 
         # Load and validate results
-        model_results = load_and_validate_results(json_files)
+        model_results = load_and_validate_results(json_files, args.artifacts_dir)
 
         # Consolidate results
         consolidated = consolidate_results(model_results)
