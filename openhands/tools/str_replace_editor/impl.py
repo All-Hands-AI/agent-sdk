@@ -13,10 +13,19 @@ _GLOBAL_EDITOR: FileEditor | None = None
 
 
 class FileEditorExecutor(ToolExecutor):
-    def __init__(self, workspace_root: str | None = None):
+    def __init__(self, workspace_root: str | None = None, read_only: bool = False):
         self.editor = FileEditor(workspace_root=workspace_root)
+        self.read_only = read_only
 
     def __call__(self, action: StrReplaceEditorAction) -> StrReplaceEditorObservation:
+        # Enforce read-only restrictions
+        if self.read_only and action.command not in ["view", "list"]:
+            return StrReplaceEditorObservation(
+                command=action.command,
+                error=f"Operation '{action.command}' is not allowed in read-only mode. "
+                "Only 'view' and 'list' commands are permitted.",
+            )
+
         result: StrReplaceEditorObservation | None = None
         try:
             result = self.editor(

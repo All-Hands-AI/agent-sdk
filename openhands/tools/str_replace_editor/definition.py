@@ -211,6 +211,7 @@ class FileEditorTool(
     def create(
         cls,
         conv_state: "ConversationState",
+        read_only: bool = False,
     ) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
@@ -218,18 +219,41 @@ class FileEditorTool(
             conv_state: Conversation state to get working directory from.
                          If provided, workspace_root will be taken from
                          conv_state.workspace
+            read_only: If True, restricts the tool to read-only operations
+                      (view and list commands only).
         """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=conv_state.workspace.working_dir)
+        executor = FileEditorExecutor(
+            workspace_root=conv_state.workspace.working_dir, read_only=read_only
+        )
 
         # Add working directory information to the tool description
         # to guide the agent to use the correct directory instead of root
         working_dir = conv_state.workspace.working_dir
+        base_description = TOOL_DESCRIPTION
+        if read_only:
+            base_description = (
+                "Custom editing tool for viewing files in plain-text format\n"
+                "* State is persistent across command calls and discussions "
+                "with the user\n"
+                "* If `path` is a text file, `view` displays the result of "
+                "applying `cat -n`. "
+                "If `path` is a directory, `view` lists non-hidden files and "
+                "directories up to 2 levels deep\n"
+                "* The following binary file extensions can be viewed in "
+                "Markdown format: "
+                '[".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", '
+                '".docx"]. '
+                "IT DOES NOT HANDLE IMAGES.\n"
+                "* This tool is in READ-ONLY mode and only supports `view` and "
+                "`list` commands."
+            )
+
         enhanced_description = (
-            f"{TOOL_DESCRIPTION}\n\n"
+            f"{base_description}\n\n"
             f"Your current working directory is: {working_dir}\n"
             f"When exploring project structure, start with this directory "
             f"instead of the root filesystem."
