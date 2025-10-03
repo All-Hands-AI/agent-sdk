@@ -74,14 +74,14 @@ class FileViewerTool(ToolDefinition[FileViewerAction, FileViewerObservation]):
     @classmethod
     def create(
         cls,
-        conversation_state: "ConversationState",
+        conv_state: "ConversationState",
         **kwargs,
     ) -> Sequence["FileViewerTool"]:
         """Create a FileViewerTool instance."""
         # Import here to avoid circular imports
         from openhands.tools.file_viewer.impl import FileViewerExecutor
 
-        working_dir = conversation_state.workspace.working_dir
+        working_dir = conv_state.workspace.working_dir
 
         # Create a read-only executor
         executor = FileViewerExecutor(workspace_root=working_dir)
