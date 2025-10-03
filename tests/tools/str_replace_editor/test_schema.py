@@ -11,7 +11,7 @@ def test_to_mcp_tool_detailed_type_validation_editor():
     mock_conv_state.workspace.working_dir = "/test/workspace"
 
     # Create a FileEditorTool instance (non-read-only)
-    tools = FileEditorTool.create(conv_state=mock_conv_state, read_only=False)
+    tools = FileEditorTool.create(conv_state=mock_conv_state)
     str_replace_editor_tool = tools[0]
 
     # Test str_replace_editor tool schema

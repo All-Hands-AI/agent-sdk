@@ -154,22 +154,15 @@ Command = Literal[
 ]
 
 
-TOOL_VIEWING_DESCRIPTION = (
-    "Custom tool for viewing files in plain-text format\n"
-    "* State is persistent across command calls and discussions with the user\n"
-    "* If `path` is a text file, `view` displays the result of applying `cat -n`. "
-    "If `path` is a directory, `view` lists non-hidden files and directories up to "
-    "2 levels deep\n"
-    "* The following binary file extensions can be viewed in Markdown format: "
-    '[".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", '
-    '".docx"]. IT DOES NOT HANDLE IMAGES.\n'
-    "* If a `command` generates a long output, it will be truncated and marked "
-    "with `<response clipped>`"
-)
-
-TOOL_EDITING_DESCRIPTION = """* The `create` command cannot be used if the specified `path` already exists as a file
+TOOL_DESCRIPTION = """Custom editing tool for viewing, creating and editing files in plain-text format
+* State is persistent across command calls and discussions with the user
+* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
+* The following binary file extensions can be viewed in Markdown format: [".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", ".docx"]. IT DOES NOT HANDLE IMAGES.
+* The `create` command cannot be used if the specified `path` already exists as a file
+* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
 * The `undo_edit` command will revert the last edit made to the file at `path`
 * This tool can be used for creating and editing files in plain-text format.
+
 
 Before using this tool:
 1. Use the view tool to understand the file's contents and context
@@ -192,7 +185,21 @@ CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 3. REPLACEMENT: The `new_str` parameter should contain the edited lines that replace the `old_str`. Both strings must be different.
 
 Remember: when making multiple file edits in a row to the same file, you should prefer to send all edits in a single message with multiple calls to this tool, rather than multiple messages with a single call each.
-"""  # noqa
+"""  # noqa: E501
+
+
+str_replace_editor_tool = ToolDefinition(
+    name="str_replace_editor",
+    action_type=StrReplaceEditorAction,
+    description=TOOL_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="str_replace_editor",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
+    ),
+)
 
 
 class FileEditorTool(
@@ -204,7 +211,6 @@ class FileEditorTool(
     def create(
         cls,
         conv_state: "ConversationState",
-        read_only: bool = False,
     ) -> Sequence["FileEditorTool"]:
         """Initialize FileEditorTool with a FileEditorExecutor.
 
@@ -212,50 +218,31 @@ class FileEditorTool(
             conv_state: Conversation state to get working directory from.
                          If provided, workspace_root will be taken from
                          conv_state.workspace
-            read_only: If True, restricts the tool to read-only operations
-                      (view and list commands only).
         """
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
         # Initialize the executor
-        executor = FileEditorExecutor(
-            workspace_root=conv_state.workspace.working_dir, read_only=read_only
-        )
+        executor = FileEditorExecutor(workspace_root=conv_state.workspace.working_dir)
 
         # Add working directory information to the tool description
         # to guide the agent to use the correct directory instead of root
         working_dir = conv_state.workspace.working_dir
-        base_description = (
-            TOOL_VIEWING_DESCRIPTION
-            if read_only
-            else TOOL_VIEWING_DESCRIPTION + "\n\n" + TOOL_EDITING_DESCRIPTION
-        )
-
         enhanced_description = (
-            f"{base_description}\n\n"
+            f"{TOOL_DESCRIPTION}\n\n"
             f"Your current working directory is: {working_dir}\n"
             f"When exploring project structure, start with this directory "
             f"instead of the root filesystem."
         )
 
-        # Create tool annotations based on read_only mode
-        annotations = ToolAnnotations(
-            title="str_replace_editor",
-            readOnlyHint=read_only,
-            destructiveHint=not read_only,
-            idempotentHint=False,
-            openWorldHint=False,
-        )
-
         # Initialize the parent Tool with the executor
         return [
             cls(
-                name="str_replace_editor",
+                name=str_replace_editor_tool.name,
                 description=enhanced_description,
                 action_type=StrReplaceEditorAction,
                 observation_type=StrReplaceEditorObservation,
-                annotations=annotations,
+                annotations=str_replace_editor_tool.annotations,
                 executor=executor,
             )
         ]

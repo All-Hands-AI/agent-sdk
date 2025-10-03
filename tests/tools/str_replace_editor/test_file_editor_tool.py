@@ -197,7 +197,10 @@ def test_file_editor_tool_includes_working_directory_in_description():
         ) in tool.description
 
         # Verify the original description is still there
-        assert "Custom tool for viewing files in plain-text format" in tool.description
+        assert (
+            "Custom editing tool for viewing, creating and editing files in "
+            "plain-text format" in tool.description
+        )
 
 
 def test_file_editor_tool_openai_format_includes_working_directory():
