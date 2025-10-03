@@ -10,6 +10,7 @@ The task: Create a Python web scraper that extracts article titles and URLs
 from a news website, handles rate limiting, and saves results to JSON.
 """
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -34,11 +35,15 @@ def get_event_content(event):
 workspace_dir = Path(tempfile.mkdtemp())
 print(f"Working in: {workspace_dir}")
 
-# Initialize LLM (you'll need to set your API key)
+# Configure LLM
+api_key = os.getenv("LITELLM_API_KEY")
+assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="gpt-4o-mini",
-    api_key=SecretStr("your-api-key-here"),  # Replace with your actual API key
-    service_id="openai",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
+    service_id="agent",
+    drop_params=True,
 )
 
 # Task description
