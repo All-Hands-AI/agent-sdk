@@ -21,8 +21,9 @@ def test_get_planning_tools():
     """Test that planning tools are returned correctly."""
     tools = get_planning_tools()
 
-    assert len(tools) == 3
+    assert len(tools) == 4
     tool_names = [tool.name for tool in tools]
+    assert "BashTool" in tool_names
     assert "FileViewerTool" in tool_names
     assert "PlanWriterTool" in tool_names
     assert "TaskTrackerTool" in tool_names

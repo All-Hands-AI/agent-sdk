@@ -13,10 +13,13 @@ logger = get_logger(__name__)
 
 def register_planning_tools() -> None:
     """Register the planning agent tools."""
+    from openhands.tools.execute_bash import BashTool
     from openhands.tools.file_viewer import FileViewerTool
     from openhands.tools.plan_writer import PlanWriterTool
     from openhands.tools.task_tracker import TaskTrackerTool
 
+    register_tool("BashTool", BashTool)
+    logger.debug("Tool: BashTool registered.")
     register_tool("FileViewerTool", FileViewerTool)
     logger.debug("Tool: FileViewerTool registered.")
     register_tool("PlanWriterTool", PlanWriterTool)
@@ -29,11 +32,13 @@ def get_planning_tools() -> list[Tool]:
     """Get the planning agent tool specifications.
 
     Returns:
-        List of tools optimized for planning and analysis tasks.
+        List of tools optimized for planning and analysis tasks, including
+        command-line capabilities for advanced code discovery and navigation.
     """
     register_planning_tools()
 
     return [
+        Tool(name="BashTool"),
         Tool(name="FileViewerTool"),
         Tool(name="PlanWriterTool"),
         Tool(name="TaskTrackerTool"),
@@ -69,7 +74,8 @@ def get_planning_agent(
         enable_security_analyzer: Whether to enable security analysis.
 
     Returns:
-        A fully configured planning agent with read-only tools.
+        A fully configured planning agent with read-only file access and
+        command-line capabilities for comprehensive code discovery.
     """
     tools = get_planning_tools()
 
