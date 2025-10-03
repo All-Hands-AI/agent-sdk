@@ -1,10 +1,10 @@
-from openhands.tools.str_replace_editor.definition import (
+from openhands.tools.file_editor.definition import (
     FileEditorAction,
     FileEditorObservation,
     FileEditorTool,
     file_editor_tool,
 )
-from openhands.tools.str_replace_editor.impl import FileEditorExecutor, file_editor
+from openhands.tools.file_editor.impl import FileEditorExecutor, file_editor
 
 
 __all__ = [

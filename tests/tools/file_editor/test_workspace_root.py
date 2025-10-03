@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from openhands.tools.str_replace_editor.editor import FileEditor
-from openhands.tools.str_replace_editor.exceptions import (
+from openhands.tools.file_editor.editor import FileEditor
+from openhands.tools.file_editor.exceptions import (
     EditorToolParameterInvalidError,
 )
 

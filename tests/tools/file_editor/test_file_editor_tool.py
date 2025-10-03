@@ -10,7 +10,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm import LLM
 from openhands.sdk.workspace import LocalWorkspace
-from openhands.tools.str_replace_editor import (
+from openhands.tools.file_editor import (
     FileEditorAction,
     FileEditorObservation,
     FileEditorTool,

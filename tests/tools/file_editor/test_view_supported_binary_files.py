@@ -1,8 +1,8 @@
 import tempfile
 from pathlib import Path
 
-from openhands.tools.str_replace_editor import file_editor
-from openhands.tools.str_replace_editor.definition import (
+from openhands.tools.file_editor import file_editor
+from openhands.tools.file_editor.definition import (
     FileEditorObservation,
 )
 

@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 def register_default_tools(enable_browser: bool = True) -> None:
     """Register the default set of tools."""
     from openhands.tools.execute_bash import BashTool
-    from openhands.tools.str_replace_editor import FileEditorTool
+    from openhands.tools.file_editor import FileEditorTool
     from openhands.tools.task_tracker import TaskTrackerTool
 
     register_tool("BashTool", BashTool)

@@ -17,7 +17,7 @@ from openhands.sdk.tool import (
     ToolAnnotations,
     ToolDefinition,
 )
-from openhands.tools.str_replace_editor.utils.diff import visualize_diff
+from openhands.tools.file_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
@@ -219,7 +219,7 @@ class FileEditorTool(ToolDefinition[FileEditorAction, FileEditorObservation]):
                          conv_state.workspace
         """
         # Import here to avoid circular imports
-        from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+        from openhands.tools.file_editor.impl import FileEditorExecutor
 
         # Initialize the executor
         executor = FileEditorExecutor(workspace_root=conv_state.workspace.working_dir)

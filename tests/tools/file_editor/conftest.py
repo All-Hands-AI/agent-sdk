@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from openhands.tools.str_replace_editor.definition import (
+from openhands.tools.file_editor.definition import (
     FileEditorObservation,
 )
-from openhands.tools.str_replace_editor.editor import FileEditor
+from openhands.tools.file_editor.editor import FileEditor
 
 
 @pytest.fixture
