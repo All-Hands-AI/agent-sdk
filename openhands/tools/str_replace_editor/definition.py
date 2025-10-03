@@ -14,6 +14,7 @@ from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import (
     Action,
     Observation,
+    ToolAnnotations,
     ToolDefinition,
 )
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
@@ -153,12 +154,18 @@ Command = Literal[
 ]
 
 
-TOOL_VIEWING_DESCRIPTION = """Custom tool for viewing files in plain-text format
-* State is persistent across command calls and discussions with the user
-* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
-* The following binary file extensions can be viewed in Markdown format: [".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", ".docx"]. IT DOES NOT HANDLE IMAGES.
-* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
-"""
+TOOL_VIEWING_DESCRIPTION = (
+    "Custom editing tool for viewing, creating and editing files in plain-text format\n"
+    "* State is persistent across command calls and discussions with the user\n"
+    "* If `path` is a text file, `view` displays the result of applying `cat -n`. "
+    "If `path` is a directory, `view` lists non-hidden files and directories up to "
+    "2 levels deep\n"
+    "* The following binary file extensions can be viewed in Markdown format: "
+    '[".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", '
+    '".docx"]. IT DOES NOT HANDLE IMAGES.\n'
+    "* If a `command` generates a long output, it will be truncated and marked "
+    "with `<response clipped>`"
+)
 
 TOOL_EDITING_DESCRIPTION = """* The `create` command cannot be used if the specified `path` already exists as a file
 * The `undo_edit` command will revert the last edit made to the file at `path`
@@ -186,21 +193,6 @@ CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 
 Remember: when making multiple file edits in a row to the same file, you should prefer to send all edits in a single message with multiple calls to this tool, rather than multiple messages with a single call each.
 """  # noqa
-
-
-# TODO how to define this variable now that we have read_only mode?
-# str_replace_editor_tool = ToolDefinition(
-#     name="str_replace_editor",
-#     action_type=StrReplaceEditorAction,
-#     description=TOOL_DESCRIPTION,
-#     annotations=ToolAnnotations(
-#         title="str_replace_editor",
-#         readOnlyHint=False,
-#         destructiveHint=True,
-#         idempotentHint=False,
-#         openWorldHint=False,
-#     ),
-# )
 
 
 class FileEditorTool(
@@ -236,7 +228,7 @@ class FileEditorTool(
         working_dir = conv_state.workspace.working_dir
         base_description = (
             TOOL_VIEWING_DESCRIPTION
-            if not read_only
+            if read_only
             else TOOL_VIEWING_DESCRIPTION + "\n\n" + TOOL_EDITING_DESCRIPTION
         )
 
@@ -247,14 +239,23 @@ class FileEditorTool(
             f"instead of the root filesystem."
         )
 
+        # Create tool annotations based on read_only mode
+        annotations = ToolAnnotations(
+            title="str_replace_editor",
+            readOnlyHint=read_only,
+            destructiveHint=not read_only,
+            idempotentHint=False,
+            openWorldHint=False,
+        )
+
         # Initialize the parent Tool with the executor
         return [
             cls(
-                name=str_replace_editor_tool.name,  # TODO
+                name="str_replace_editor",
                 description=enhanced_description,
                 action_type=StrReplaceEditorAction,
                 observation_type=StrReplaceEditorObservation,
-                annotations=str_replace_editor_tool.annotations,  # TTODO
+                annotations=annotations,
                 executor=executor,
             )
         ]
