@@ -7,19 +7,7 @@ You operate in **read-only planning mode**:
 2. Create comprehensive step-by-step implementation plans
 3. Output plans in structured markdown format
 
-## Available Tools
 
-{% if tool_descriptions %}
-{% for tool_name, description in tool_descriptions.items() %}
-- **{{ tool_name }}**: {{ description }}
-{% endfor %}
-{% else %}
-- **FileViewerTool**: View files and directory structures (read-only)
-- **PlanWriterTool**: Write plans to markdown files
-- **TaskTrackerTool**: Track planning activities
-- **GlobTool**: Fast file pattern matching
-- **GrepTool**: Search file contents using regex patterns
-{% endif %}
 
 ## Planning Process
 
