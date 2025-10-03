@@ -16,7 +16,6 @@ def register_planning_tools() -> None:
     from openhands.tools.glob import GlobTool
     from openhands.tools.grep import GrepTool
     from openhands.tools.plan_writer import PlanWriterTool
-    from openhands.tools.task_tracker import TaskTrackerTool
 
     register_tool("GlobTool", GlobTool)
     logger.debug("Tool: GlobTool registered.")
@@ -26,8 +25,6 @@ def register_planning_tools() -> None:
     logger.debug("Tool: FileViewerTool registered.")
     register_tool("PlanWriterTool", PlanWriterTool)
     logger.debug("Tool: PlanWriterTool registered.")
-    register_tool("TaskTrackerTool", TaskTrackerTool)
-    logger.debug("Tool: TaskTrackerTool registered.")
 
 
 def get_planning_tools() -> list[Tool]:
@@ -45,7 +42,6 @@ def get_planning_tools() -> list[Tool]:
         Tool(name="GrepTool"),
         Tool(name="FileViewerTool"),
         Tool(name="PlanWriterTool"),
-        Tool(name="TaskTrackerTool"),
     ]
 
 

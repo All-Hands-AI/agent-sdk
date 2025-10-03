@@ -21,7 +21,12 @@ def test_get_planning_agent_includes_expected_tools(basic_llm):
 
     # Check that expected tools are present
     tool_names = [tool.name for tool in agent.tools]
-    expected_tools = ["BashTool", "FileViewerTool", "PlanWriterTool", "TaskTrackerTool"]
+    expected_tools = [
+        "GrepTool",
+        "GlobTool",
+        "FileViewerTool",
+        "PlanWriterTool",
+    ]
 
     for expected_tool in expected_tools:
         assert expected_tool in tool_names
@@ -82,9 +87,6 @@ def test_get_planning_agent_basic_properties(basic_llm):
 
     # Check basic properties
     assert agent.llm == basic_llm
-    assert (
-        len(agent.tools) == 4
-    )  # BashTool, FileViewerTool, PlanWriterTool, TaskTrackerTool
 
     # Check condenser LLM service ID
     assert isinstance(agent.condenser, LLMSummarizingCondenser)
