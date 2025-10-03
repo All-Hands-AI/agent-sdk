@@ -4,7 +4,6 @@ from openhands.sdk import Agent
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import Tool, register_tool
 
 
@@ -66,7 +65,6 @@ def get_planning_condenser(llm: LLM) -> LLMSummarizingCondenser:
 
 def get_planning_agent(
     llm: LLM,
-    enable_security_analyzer: bool = True,
 ) -> Agent:
     """Get a configured planning agent.
 
@@ -100,7 +98,7 @@ def get_planning_agent(
         condenser=get_planning_condenser(
             llm=llm.model_copy(update={"service_id": "planning_condenser"})
         ),
-        security_analyzer=LLMSecurityAnalyzer() if enable_security_analyzer else None,
+        security_analyzer=None,
     )
 
     return agent
