@@ -1,4 +1,4 @@
-"""Tests for FileEditorTool subclass."""
+"""Tests for FileViewerTool - read-only file viewing tool."""
 
 import os
 import tempfile
@@ -11,7 +11,7 @@ from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm import LLM
 from openhands.sdk.workspace import LocalWorkspace
 from openhands.tools.str_replace_editor import (
-    FileEditorTool,
+    FileViewerTool,
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
 )
@@ -28,55 +28,30 @@ def _create_test_conv_state(temp_dir: str) -> ConversationState:
     )
 
 
-def test_file_editor_tool_initialization():
-    """Test that FileEditorTool initializes correctly."""
+def test_file_viewer_tool_initialization():
+    """Test that FileViewerTool initializes correctly."""
     with tempfile.TemporaryDirectory() as temp_dir:
         conv_state = _create_test_conv_state(temp_dir)
-        tools = FileEditorTool.create(conv_state)
+        tools = FileViewerTool.create(conv_state)
         tool = tools[0]
 
         # Check that the tool has the correct name and properties
-        assert tool.name == "str_replace_editor"
+        assert tool.name == "file_viewer"
         assert tool.executor is not None
         assert issubclass(tool.action_type, StrReplaceEditorAction)
 
+        # Check that it's configured as read-only
+        assert tool.annotations is not None
+        assert tool.annotations.readOnlyHint is True
+        assert tool.annotations.destructiveHint is False
+        assert tool.annotations.idempotentHint is True
 
-def test_file_editor_tool_create_file():
-    """Test that FileEditorTool can create files."""
+
+def test_file_viewer_tool_view_file():
+    """Test that FileViewerTool can view files."""
     with tempfile.TemporaryDirectory() as temp_dir:
         conv_state = _create_test_conv_state(temp_dir)
-        tools = FileEditorTool.create(conv_state)
-        tool = tools[0]
-
-        test_file = os.path.join(temp_dir, "test.txt")
-
-        # Create an action to create a file
-        action = StrReplaceEditorAction(
-            command="create",
-            path=test_file,
-            file_text="Hello, World!",
-        )
-
-        # Execute the action
-        result = tool(action)
-
-        # Check the result
-        assert result is not None
-        assert isinstance(result, StrReplaceEditorObservation)
-        assert not result.error
-        assert os.path.exists(test_file)
-
-        # Check file contents
-        with open(test_file) as f:
-            content = f.read()
-        assert content == "Hello, World!"
-
-
-def test_file_editor_tool_view_file():
-    """Test that FileEditorTool can view files."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        conv_state = _create_test_conv_state(temp_dir)
-        tools = FileEditorTool.create(conv_state)
+        tools = FileViewerTool.create(conv_state)
         tool = tools[0]
 
         test_file = os.path.join(temp_dir, "test.txt")
@@ -100,63 +75,11 @@ def test_file_editor_tool_view_file():
         assert "Line 3" in result.output
 
 
-def test_file_editor_tool_str_replace():
-    """Test that FileEditorTool can perform string replacement."""
+def test_file_viewer_tool_view_directory():
+    """Test that FileViewerTool can view directories."""
     with tempfile.TemporaryDirectory() as temp_dir:
         conv_state = _create_test_conv_state(temp_dir)
-        tools = FileEditorTool.create(conv_state)
-        tool = tools[0]
-
-        test_file = os.path.join(temp_dir, "test.txt")
-
-        # Create a test file
-        with open(test_file, "w") as f:
-            f.write("Hello, World!\nThis is a test.")
-
-        # Create an action to replace text
-        action = StrReplaceEditorAction(
-            command="str_replace",
-            path=test_file,
-            old_str="World",
-            new_str="Universe",
-        )
-
-        # Execute the action
-        result = tool(action)
-
-        # Check the result
-        assert result is not None
-        assert isinstance(result, StrReplaceEditorObservation)
-        assert not result.error
-
-        # Check file contents
-        with open(test_file) as f:
-            content = f.read()
-        assert "Hello, Universe!" in content
-
-
-def test_file_editor_tool_to_openai_tool():
-    """Test that FileEditorTool can be converted to OpenAI tool format."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        conv_state = _create_test_conv_state(temp_dir)
-        tools = FileEditorTool.create(conv_state)
-        tool = tools[0]
-
-        # Convert to OpenAI tool format
-        openai_tool = tool.to_openai_tool()
-
-        # Check the format
-        assert openai_tool["type"] == "function"
-        assert openai_tool["function"]["name"] == "str_replace_editor"
-        assert "description" in openai_tool["function"]
-        assert "parameters" in openai_tool["function"]
-
-
-def test_file_editor_tool_view_directory():
-    """Test that FileEditorTool can view directories."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        conv_state = _create_test_conv_state(temp_dir)
-        tools = FileEditorTool.create(conv_state)
+        tools = FileViewerTool.create(conv_state)
         tool = tools[0]
 
         # Create some test files
@@ -182,11 +105,92 @@ def test_file_editor_tool_view_directory():
         assert "file2.txt" in result.output
 
 
-def test_file_editor_tool_includes_working_directory_in_description():
-    """Test that FileEditorTool includes working directory info in description."""
+def test_file_viewer_tool_blocks_create():
+    """Test that FileViewerTool blocks create operations."""
     with tempfile.TemporaryDirectory() as temp_dir:
         conv_state = _create_test_conv_state(temp_dir)
-        tools = FileEditorTool.create(conv_state)
+        tools = FileViewerTool.create(conv_state)
+        tool = tools[0]
+
+        test_file = os.path.join(temp_dir, "test.txt")
+
+        # Create an action to create a file (should be blocked)
+        action = StrReplaceEditorAction(
+            command="create",
+            path=test_file,
+            file_text="Hello, World!",
+        )
+
+        # Execute the action
+        result = tool(action)
+
+        # Check that it was blocked
+        assert result is not None
+        assert isinstance(result, StrReplaceEditorObservation)
+        assert result.error is not None
+        assert "not allowed in read-only mode" in result.error
+        assert not os.path.exists(test_file)
+
+
+def test_file_viewer_tool_blocks_str_replace():
+    """Test that FileViewerTool blocks str_replace operations."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileViewerTool.create(conv_state)
+        tool = tools[0]
+
+        test_file = os.path.join(temp_dir, "test.txt")
+
+        # Create a test file first
+        with open(test_file, "w") as f:
+            f.write("Hello, World!\nThis is a test.")
+
+        # Create an action to replace text (should be blocked)
+        action = StrReplaceEditorAction(
+            command="str_replace",
+            path=test_file,
+            old_str="World",
+            new_str="Universe",
+        )
+
+        # Execute the action
+        result = tool(action)
+
+        # Check that it was blocked
+        assert result is not None
+        assert isinstance(result, StrReplaceEditorObservation)
+        assert result.error is not None
+        assert "not allowed in read-only mode" in result.error
+
+        # Check that file content wasn't changed
+        with open(test_file) as f:
+            content = f.read()
+        assert "Hello, World!" in content
+        assert "Universe" not in content
+
+
+def test_file_viewer_tool_to_openai_tool():
+    """Test that FileViewerTool can be converted to OpenAI tool format."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileViewerTool.create(conv_state)
+        tool = tools[0]
+
+        # Convert to OpenAI tool format
+        openai_tool = tool.to_openai_tool()
+
+        # Check the format
+        assert openai_tool["type"] == "function"
+        assert openai_tool["function"]["name"] == "file_viewer"
+        assert "description" in openai_tool["function"]
+        assert "parameters" in openai_tool["function"]
+
+
+def test_file_viewer_tool_includes_working_directory_in_description():
+    """Test that FileViewerTool includes working directory info in description."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        conv_state = _create_test_conv_state(temp_dir)
+        tools = FileViewerTool.create(conv_state)
         tool = tools[0]
 
         # Check that the tool description includes working directory information
@@ -200,11 +204,11 @@ def test_file_editor_tool_includes_working_directory_in_description():
         assert "Custom tool for viewing files in plain-text format" in tool.description
 
 
-def test_file_editor_tool_openai_format_includes_working_directory():
+def test_file_viewer_tool_openai_format_includes_working_directory():
     """Test that OpenAI tool format includes working directory info."""
     with tempfile.TemporaryDirectory() as temp_dir:
         conv_state = _create_test_conv_state(temp_dir)
-        tools = FileEditorTool.create(conv_state)
+        tools = FileViewerTool.create(conv_state)
         tool = tools[0]
 
         # Convert to OpenAI tool format

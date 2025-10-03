@@ -155,7 +155,7 @@ Command = Literal[
 
 
 TOOL_VIEWING_DESCRIPTION = (
-    "Custom editing tool for viewing, creating and editing files in plain-text format\n"
+    "Custom tool for viewing files in plain-text format\n"
     "* State is persistent across command calls and discussions with the user\n"
     "* If `path` is a text file, `view` displays the result of applying `cat -n`. "
     "If `path` is a directory, `view` lists non-hidden files and directories up to "
@@ -193,6 +193,21 @@ CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 
 Remember: when making multiple file edits in a row to the same file, you should prefer to send all edits in a single message with multiple calls to this tool, rather than multiple messages with a single call each.
 """  # noqa
+
+
+# TODO how to define this variable now that we have read_only mode?
+# str_replace_editor_tool = ToolDefinition(
+#     name="str_replace_editor",
+#     action_type=StrReplaceEditorAction,
+#     description=TOOL_DESCRIPTION,
+#     annotations=ToolAnnotations(
+#         title="str_replace_editor",
+#         readOnlyHint=False,
+#         destructiveHint=True,
+#         idempotentHint=False,
+#         openWorldHint=False,
+#     ),
+# )
 
 
 class FileEditorTool(
