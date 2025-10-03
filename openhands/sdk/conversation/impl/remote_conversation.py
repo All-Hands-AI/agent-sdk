@@ -2,6 +2,7 @@ import asyncio
 import json
 import threading
 import uuid
+from collections.abc import Mapping
 from typing import SupportsIndex, overload
 from urllib.parse import urlparse
 
@@ -346,7 +347,7 @@ class RemoteConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = False,
-        secrets: dict[str, SecretValue] | dict[str, str] | None = None,
+        secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
     ) -> None:
         """Remote conversation proxy that talks to an agent server.
@@ -506,7 +507,7 @@ class RemoteConversation(BaseConversation):
         resp = self._client.post(f"/api/conversations/{self._id}/pause")
         resp.raise_for_status()
 
-    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
+    def update_secrets(self, secrets: Mapping[str, SecretValue]) -> None:
         # Convert SecretValue to strings for JSON serialization
         # SecretValue can be str or callable, we need to handle both
         serializable_secrets = {}

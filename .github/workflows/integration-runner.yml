@@ -162,6 +162,12 @@ jobs:
                   merge-multiple: true
                   path: all_results
 
+            - name: Download all integration test artifacts
+              uses: actions/download-artifact@v5
+              with:
+                  pattern: integration-test-outputs-*
+                  path: artifacts
+
             - name: Consolidate test results
               env:
                   EVENT_NAME: ${{ github.event_name }}
@@ -169,10 +175,16 @@ jobs:
                   MANUAL_REASON: ${{ github.event.inputs.reason }}
                   COMMIT_SHA: ${{ github.sha }}
                   PYTHONPATH: ${{ github.workspace }}
+                  GITHUB_SERVER_URL: ${{ github.server_url }}
+                  GITHUB_REPOSITORY: ${{ github.repository }}
+                  GITHUB_RUN_ID: ${{ github.run_id }}
               run: |
                   uv run python tests/integration/utils/consolidate_json_results.py \
                     --results-dir all_results \
+                    --artifacts-dir artifacts \
                     --output-file consolidated_results.json
+
+                  echo "Consolidated results generated successfully"
 
                   uv run python tests/integration/utils/generate_markdown_report.py \
                     --input-file consolidated_results.json \

@@ -43,6 +43,7 @@ class EvalOutput(BaseModel):
     llm_model: str
     cost: float = 0.0
     error_message: str | None = None
+    log_file_path: str | None = None
 
 
 def load_integration_tests() -> list[TestInstance]:
@@ -121,6 +122,7 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
             instruction=instruction,
             llm_config=llm_config,  # Use the provided config
             cwd=temp_dir,  # Pass the CWD (either from module or temp dir)
+            instance_id=instance.instance_id,  # Pass the instance ID for logging
         )
 
         # Run the test
@@ -139,11 +141,19 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
             format_cost(llm_cost),
         )
 
+        # Copy log file to a location that will be preserved
+        log_file_path = None
+        if hasattr(test_instance, "log_file_path") and os.path.exists(
+            test_instance.log_file_path
+        ):
+            log_file_path = test_instance.log_file_path
+
         return EvalOutput(
             instance_id=instance.instance_id,
             test_result=test_result,
             llm_model=llm_config.get("model", "unknown"),
             cost=llm_cost,
+            log_file_path=log_file_path,
         )
 
     except Exception as e:
@@ -219,6 +229,21 @@ def generate_structured_results(
 
     with open(results_file, "w") as f:
         f.write(structured_results.model_dump_json(indent=2))
+
+    # Copy log files to output directory
+    logs_dir = os.path.join(output_dir, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    for eval_output in eval_outputs:
+        if eval_output.log_file_path and os.path.exists(eval_output.log_file_path):
+            import shutil
+
+            log_filename = f"{eval_output.instance_id}_agent_logs.txt"
+            dest_path = os.path.join(logs_dir, log_filename)
+            shutil.copy2(eval_output.log_file_path, dest_path)
+            logger.info(
+                "Copied log file for %s to %s", eval_output.instance_id, dest_path
+            )
 
     # Print summary for console output
     success_rate = structured_results.success_rate

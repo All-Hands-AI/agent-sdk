@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 import httpx
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_serializer
 
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
@@ -26,6 +26,19 @@ class StaticSecret(SecretSource):
 
     def get_value(self):
         return self.value.get_secret_value()
+
+    @field_serializer("value", when_used="always")
+    def _serialize_secrets(self, v: SecretStr | None, info):
+        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Check if the 'expose_secrets' flag is in the serialization context
+        if info.context and info.context.get("expose_secrets"):
+            return v.get_secret_value()
+
+        # Let Pydantic handle the default masking
+        return v
 
 
 class LookupSecret(SecretSource):

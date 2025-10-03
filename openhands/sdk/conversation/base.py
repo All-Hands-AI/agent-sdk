@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -102,7 +102,7 @@ class BaseConversation(ABC):
     def pause(self) -> None: ...
 
     @abstractmethod
-    def update_secrets(self, secrets: dict[str, SecretValue]) -> None: ...
+    def update_secrets(self, secrets: Mapping[str, SecretValue]) -> None: ...
 
     @abstractmethod
     def close(self) -> None: ...
