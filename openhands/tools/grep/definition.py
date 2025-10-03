@@ -122,21 +122,6 @@ Examples:
 """  # noqa
 
 
-grep_tool = ToolDefinition(
-    name="grep",
-    action_type=GrepAction,
-    observation_type=GrepObservation,
-    description=TOOL_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="grep",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
-    ),
-)
-
-
 class GrepTool(ToolDefinition[GrepAction, GrepObservation]):
     """A ToolDefinition subclass that automatically initializes a GrepExecutor."""
 
@@ -172,11 +157,17 @@ class GrepTool(ToolDefinition[GrepAction, GrepObservation]):
         # Initialize the parent ToolDefinition with the executor
         return [
             cls(
-                name=grep_tool.name,
+                name="grep",
                 description=enhanced_description,
                 action_type=GrepAction,
                 observation_type=GrepObservation,
-                annotations=grep_tool.annotations,
+                annotations=ToolAnnotations(
+                    title="grep",
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=False,
+                ),
                 executor=executor,
             )
         ]

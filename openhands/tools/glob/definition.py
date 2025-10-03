@@ -83,21 +83,6 @@ Examples:
 """  # noqa
 
 
-glob_tool = ToolDefinition(
-    name="glob",
-    action_type=GlobAction,
-    observation_type=GlobObservation,
-    description=TOOL_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="glob",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
-    ),
-)
-
-
 class GlobTool(ToolDefinition[GlobAction, GlobObservation]):
     """A ToolDefinition subclass that automatically initializes a GlobExecutor."""
 
@@ -133,11 +118,17 @@ class GlobTool(ToolDefinition[GlobAction, GlobObservation]):
         # Initialize the parent ToolDefinition with the executor
         return [
             cls(
-                name=glob_tool.name,
+                name="glob",
                 description=enhanced_description,
                 action_type=GlobAction,
                 observation_type=GlobObservation,
-                annotations=glob_tool.annotations,
+                annotations=ToolAnnotations(
+                    title="glob",
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=False,
+                ),
                 executor=executor,
             )
         ]
