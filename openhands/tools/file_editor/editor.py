@@ -9,29 +9,29 @@ from binaryornot.check import is_binary
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.truncate import maybe_truncate
-from openhands.tools.str_replace_editor.definition import (
+from openhands.tools.file_editor.definition import (
     CommandLiteral,
-    StrReplaceEditorObservation,
+    FileEditorObservation,
 )
-from openhands.tools.str_replace_editor.exceptions import (
+from openhands.tools.file_editor.exceptions import (
     EditorToolParameterInvalidError,
     EditorToolParameterMissingError,
     FileValidationError,
     ToolError,
 )
-from openhands.tools.str_replace_editor.utils.config import SNIPPET_CONTEXT_WINDOW
-from openhands.tools.str_replace_editor.utils.constants import (
+from openhands.tools.file_editor.utils.config import SNIPPET_CONTEXT_WINDOW
+from openhands.tools.file_editor.utils.constants import (
     BINARY_FILE_CONTENT_TRUNCATED_NOTICE,
     DIRECTORY_CONTENT_TRUNCATED_NOTICE,
     MAX_RESPONSE_LEN_CHAR,
     TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
 )
-from openhands.tools.str_replace_editor.utils.encoding import (
+from openhands.tools.file_editor.utils.encoding import (
     EncodingManager,
     with_encoding,
 )
-from openhands.tools.str_replace_editor.utils.history import FileHistoryManager
-from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
+from openhands.tools.file_editor.utils.history import FileHistoryManager
+from openhands.tools.file_editor.utils.shell import run_shell_cmd
 
 
 logger = get_logger(__name__)
@@ -94,7 +94,7 @@ class FileEditor:
         old_str: str | None = None,
         new_str: str | None = None,
         insert_line: int | None = None,
-    ) -> StrReplaceEditorObservation:
+    ) -> FileEditorObservation:
         _path = Path(path)
         self.validate_path(command, _path)
         if command == "view":
@@ -104,7 +104,7 @@ class FileEditor:
                 raise EditorToolParameterMissingError(command, "file_text")
             self.write_file(_path, file_text)
             self._history_manager.add_history(_path, file_text)
-            return StrReplaceEditorObservation(
+            return FileEditorObservation(
                 command=command,
                 path=str(_path),
                 new_content=file_text,
@@ -158,7 +158,7 @@ class FileEditor:
         path: Path,
         old_str: str,
         new_str: str | None,
-    ) -> StrReplaceEditorObservation:
+    ) -> FileEditorObservation:
         """
         Implement the str_replace command, which replaces old_str with new_str in
         the file content.
@@ -247,7 +247,7 @@ class FileEditor:
             "Review the changes and make sure they are as expected. Edit the "
             "file again if necessary."
         )
-        return StrReplaceEditorObservation(
+        return FileEditorObservation(
             command="str_replace",
             output=success_message,
             prev_exist=True,
@@ -258,7 +258,7 @@ class FileEditor:
 
     def view(
         self, path: Path, view_range: list[int] | None = None
-    ) -> StrReplaceEditorObservation:
+    ) -> FileEditorObservation:
         """
         View the contents of a file or a directory.
         """
@@ -307,7 +307,7 @@ class FileEditor:
                         f"are excluded. You can use 'ls -la {path}' to see them."
                     )
                 stdout = "\n".join(msg)
-            return StrReplaceEditorObservation(
+            return FileEditorObservation(
                 command="view",
                 output=stdout,
                 error=stderr,
@@ -324,7 +324,7 @@ class FileEditor:
             file_content = self.read_file(path)
             output = self._make_output(file_content, str(path), start_line)
 
-            return StrReplaceEditorObservation(
+            return FileEditorObservation(
                 command="view",
                 output=output,
                 path=str(path),
@@ -377,7 +377,7 @@ class FileEditor:
         if warning_message:
             output = f"NOTE: {warning_message}\n{output}"
 
-        return StrReplaceEditorObservation(
+        return FileEditorObservation(
             command="view",
             path=str(path),
             output=output,
@@ -411,7 +411,7 @@ class FileEditor:
         insert_line: int,
         new_str: str,
         encoding: str = "utf-8",
-    ) -> StrReplaceEditorObservation:
+    ) -> FileEditorObservation:
         """
         Implement the insert command, which inserts new_str at the specified line
         in the file content.
@@ -490,7 +490,7 @@ class FileEditor:
             "Review the changes and make sure they are as expected (correct "
             "indentation, no duplicate lines, etc). Edit the file again if necessary."
         )
-        return StrReplaceEditorObservation(
+        return FileEditorObservation(
             command="insert",
             output=success_message,
             prev_exist=True,
@@ -548,7 +548,7 @@ class FileEditor:
                     "be used on directories.",
                 )
 
-    def undo_edit(self, path: Path) -> StrReplaceEditorObservation:
+    def undo_edit(self, path: Path) -> FileEditorObservation:
         """
         Implement the undo_edit command.
         """
@@ -559,7 +559,7 @@ class FileEditor:
 
         self.write_file(path, old_text)
 
-        return StrReplaceEditorObservation(
+        return FileEditorObservation(
             command="undo_edit",
             output=(
                 f"Last edit to {path} undone successfully. "

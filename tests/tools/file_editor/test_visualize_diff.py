@@ -1,9 +1,9 @@
-"""Tests for the visualize_diff functionality in StrReplaceEditorObservation."""
+"""Tests for the visualize_diff functionality in FileEditorObservation."""
 
 from rich.text import Text
 
-from openhands.tools.str_replace_editor.definition import StrReplaceEditorObservation
-from openhands.tools.str_replace_editor.utils.diff import (
+from openhands.tools.file_editor.definition import FileEditorObservation
+from openhands.tools.file_editor.utils.diff import (
     get_edit_groups,
     visualize_diff,
 )
@@ -19,7 +19,7 @@ def test_visualize_diff_simple_replacement():
     print("Hello, Universe!")
     return True"""
 
-    observation = StrReplaceEditorObservation(
+    observation = FileEditorObservation(
         command="str_replace",
         path="/test/file.py",
         old_content=old_content,
@@ -49,7 +49,7 @@ def test_visualize_diff_no_changes():
     print("Hello, World!")
     return True"""
 
-    observation = StrReplaceEditorObservation(
+    observation = FileEditorObservation(
         command="str_replace",
         path="/test/file.py",
         old_content=content,
@@ -92,7 +92,7 @@ def main():
     y = 10
     calculate(x, y)"""
 
-    observation = StrReplaceEditorObservation(
+    observation = FileEditorObservation(
         command="str_replace",
         path="/test/calc.py",
         old_content=old_content,
@@ -120,7 +120,7 @@ def test_visualize_diff_attempted_edit():
     old_content = "old line"
     new_content = "new line"
 
-    observation = StrReplaceEditorObservation(
+    observation = FileEditorObservation(
         command="str_replace",
         path="/test/file.py",
         old_content=old_content,
@@ -148,7 +148,7 @@ def test_visualize_diff_caching():
     old_content = "old line"
     new_content = "new line"
 
-    observation = StrReplaceEditorObservation(
+    observation = FileEditorObservation(
         command="str_replace",
         path="/test/file.py",
         old_content=old_content,
@@ -189,7 +189,7 @@ line5
 line6
 line7"""
 
-    observation = StrReplaceEditorObservation(
+    observation = FileEditorObservation(
         command="str_replace",
         path="/test/file.py",
         old_content=old_content,
@@ -231,7 +231,7 @@ line3"""
 new_line2
 line3"""
 
-    observation = StrReplaceEditorObservation(
+    observation = FileEditorObservation(
         command="str_replace",
         path="/test/file.py",
         old_content=old_content,
@@ -279,7 +279,7 @@ def test_get_edit_groups_no_content():
 
 def test_visualize_diff_none_content():
     """Test visualize_diff when content is None."""
-    observation = StrReplaceEditorObservation(
+    observation = FileEditorObservation(
         command="str_replace",
         path="/test/file.py",
         old_content=None,

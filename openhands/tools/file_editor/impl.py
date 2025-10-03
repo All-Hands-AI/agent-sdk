@@ -1,11 +1,11 @@
 from openhands.sdk.tool import ToolExecutor
-from openhands.tools.str_replace_editor.definition import (
+from openhands.tools.file_editor.definition import (
     CommandLiteral,
-    StrReplaceEditorAction,
-    StrReplaceEditorObservation,
+    FileEditorAction,
+    FileEditorObservation,
 )
-from openhands.tools.str_replace_editor.editor import FileEditor
-from openhands.tools.str_replace_editor.exceptions import ToolError
+from openhands.tools.file_editor.editor import FileEditor
+from openhands.tools.file_editor.exceptions import ToolError
 
 
 # Module-global editor instance (lazily initialized in file_editor)
@@ -16,8 +16,8 @@ class FileEditorExecutor(ToolExecutor):
     def __init__(self, workspace_root: str | None = None):
         self.editor = FileEditor(workspace_root=workspace_root)
 
-    def __call__(self, action: StrReplaceEditorAction) -> StrReplaceEditorObservation:
-        result: StrReplaceEditorObservation | None = None
+    def __call__(self, action: FileEditorAction) -> FileEditorObservation:
+        result: FileEditorObservation | None = None
         try:
             result = self.editor(
                 command=action.command,
@@ -29,9 +29,7 @@ class FileEditorExecutor(ToolExecutor):
                 insert_line=action.insert_line,
             )
         except ToolError as e:
-            result = StrReplaceEditorObservation(
-                command=action.command, error=e.message
-            )
+            result = FileEditorObservation(command=action.command, error=e.message)
         assert result is not None, "file_editor should always return a result"
         return result
 
@@ -44,14 +42,14 @@ def file_editor(
     old_str: str | None = None,
     new_str: str | None = None,
     insert_line: int | None = None,
-) -> StrReplaceEditorObservation:
+) -> FileEditorObservation:
     """A global FileEditor instance to be used by the tool."""
 
     global _GLOBAL_EDITOR
     if _GLOBAL_EDITOR is None:
         _GLOBAL_EDITOR = FileEditor()
 
-    result: StrReplaceEditorObservation | None = None
+    result: FileEditorObservation | None = None
     try:
         result = _GLOBAL_EDITOR(
             command=command,
@@ -63,6 +61,6 @@ def file_editor(
             insert_line=insert_line,
         )
     except ToolError as e:
-        result = StrReplaceEditorObservation(command=command, error=e.message)
+        result = FileEditorObservation(command=command, error=e.message)
     assert result is not None, "file_editor should always return a result"
     return result

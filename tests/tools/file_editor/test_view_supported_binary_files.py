@@ -1,9 +1,9 @@
 import tempfile
 from pathlib import Path
 
-from openhands.tools.str_replace_editor import file_editor
-from openhands.tools.str_replace_editor.definition import (
-    StrReplaceEditorObservation,
+from openhands.tools.file_editor import file_editor
+from openhands.tools.file_editor.definition import (
+    FileEditorObservation,
 )
 
 from .conftest import assert_successful_result
@@ -72,7 +72,7 @@ startxref
     try:
         result = file_editor(command="view", path=test_file)
 
-        assert isinstance(result, StrReplaceEditorObservation)
+        assert isinstance(result, FileEditorObservation)
         assert_successful_result(result)
         assert f"Here's the result of running `cat -n` on {test_file}" in result.output
 

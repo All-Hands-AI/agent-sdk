@@ -9,7 +9,7 @@ import psutil
 import pytest
 from filelock import FileLock
 
-from openhands.tools.str_replace_editor import file_editor
+from openhands.tools.file_editor import file_editor
 
 from .conftest import assert_successful_result
 

@@ -21,7 +21,7 @@ from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.tool import Tool, register_tool
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
 
 

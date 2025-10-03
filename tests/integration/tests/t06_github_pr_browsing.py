@@ -3,7 +3,7 @@
 from openhands.sdk import get_logger
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
 
 

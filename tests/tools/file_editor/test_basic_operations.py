@@ -4,17 +4,17 @@ from pathlib import Path
 
 import pytest
 
-from openhands.tools.str_replace_editor import (
-    StrReplaceEditorObservation,
+from openhands.tools.file_editor import (
+    FileEditorObservation,
     file_editor,
 )
-from openhands.tools.str_replace_editor.editor import FileEditor
-from openhands.tools.str_replace_editor.exceptions import (
+from openhands.tools.file_editor.editor import FileEditor
+from openhands.tools.file_editor.exceptions import (
     EditorToolParameterInvalidError,
     EditorToolParameterMissingError,
     ToolError,
 )
-from openhands.tools.str_replace_editor.utils.constants import (
+from openhands.tools.file_editor.utils.constants import (
     DIRECTORY_CONTENT_TRUNCATED_NOTICE,
     TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
 )
@@ -241,7 +241,7 @@ def test_create_operation(temp_file):
 
 def test_view_operation_truncation(temp_file):
     """Test that view operation truncates large files correctly."""
-    from openhands.tools.str_replace_editor.utils.constants import (
+    from openhands.tools.file_editor.utils.constants import (
         MAX_RESPONSE_LEN_CHAR,
         TEXT_FILE_CONTENT_TRUNCATED_NOTICE,
     )
@@ -276,7 +276,7 @@ def test_view_operation_truncation(temp_file):
 def test_view_file(editor):
     editor, test_file = editor
     result = editor(command="view", path=str(test_file))
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert f"Here's the result of running `cat -n` on {test_file}:" in result.output
     assert "1\tThis is a test file." in result.output
     assert "2\tThis file is for testing purposes." in result.output
@@ -361,7 +361,7 @@ def test_str_replace_no_linting(editor):
         old_str="test file",
         new_str="sample file",
     )
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
 
     # Test str_replace command
     assert (
@@ -384,7 +384,7 @@ def test_str_replace_multi_line_no_linting(editor):
         old_str="This is a test file.\nThis file is for testing purposes.",
         new_str="This is a sample file.\nThis file is for testing purposes.",
     )
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
 
     # Test str_replace command
     assert (
@@ -404,7 +404,7 @@ def test_str_replace_multi_line_with_tabs_no_linting(editor_python_file_with_tab
         old_str='def test():\n\tprint("Hello, World!")',
         new_str='def test():\n\tprint("Hello, Universe!")',
     )
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
 
     assert (
         result.output
@@ -470,7 +470,7 @@ def test_str_replace_with_empty_new_str(editor):
         old_str="Line to remove\n",
         new_str="",
     )
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert test_file.read_text() == "Line 1\nLine 3"
 
 
@@ -507,7 +507,7 @@ def test_insert_no_linting(editor):
     result = editor(
         command="insert", path=str(test_file), insert_line=1, new_str="Inserted line"
     )
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert "Inserted line" in test_file.read_text()
     assert (
         result.output
@@ -542,7 +542,7 @@ def test_insert_with_empty_string(editor):
         insert_line=1,
         new_str="",
     )
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     content = test_file.read_text().splitlines()
     assert "" in content
     assert len(content) == 3  # Original 2 lines plus empty line
@@ -556,7 +556,7 @@ def test_insert_chinese_text_into_english_file(editor):
         insert_line=0,
         new_str="中文文本",
     )
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert "中文文本" in test_file.read_text()
     assert (
         result.output
@@ -591,7 +591,7 @@ def test_undo_edit(editor):
     )
     # Undo the edit
     result = editor(command="undo_edit", path=str(test_file))
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert "Last edit to" in result.output
     assert "test file" in test_file.read_text()  # Original content restored
 
@@ -614,13 +614,13 @@ def test_multiple_undo_edits(editor):
     )
     # Undo the last edit
     result = editor(command="undo_edit", path=str(test_file))
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert "Last edit to" in result.output
     assert "sample file v1" in test_file.read_text()  # Previous content restored
 
     # Undo the first edit
     result = editor(command="undo_edit", path=str(test_file))
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert "Last edit to" in result.output
     assert "test file" in test_file.read_text()  # Original content restored
 
@@ -696,7 +696,7 @@ def test_view_directory_with_hidden_files(tmp_path):
     result = editor(command="view", path=str(test_dir))
 
     # Verify output
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert str(test_dir) in result.output
     assert "visible.txt" in result.output  # Visible file is shown
     assert "visible_dir" in result.output  # Visible directory is shown
@@ -731,7 +731,7 @@ def test_view_symlinked_directory(tmp_path):
     result = editor(command="view", path=str(symlink_dir))
 
     # Verify that all files are listed through the symlink
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert str(symlink_dir) in result.output
     assert "file1.txt" in result.output
     assert "file2.txt" in result.output
@@ -748,7 +748,7 @@ def test_view_large_directory_with_truncation(editor, tmp_path):
         (large_dir / f"file_{i}.txt").write_text("content")
 
     result = editor(command="view", path=str(large_dir))
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert DIRECTORY_CONTENT_TRUNCATED_NOTICE in result.output
 
 
@@ -789,7 +789,7 @@ def test_view_directory_on_hidden_path(tmp_path):
     result = editor(command="view", path=str(hidden_test_dir))
 
     # Verify output
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     # Depth 1: Visible files/dirs shown, hidden files/dirs not shown
     assert "visible1.txt" in result.output
     assert "visible_dir" in result.output
@@ -818,7 +818,7 @@ def test_view_large_file_with_truncation(editor, tmp_path):
     large_file.write_text(large_content)
 
     result = editor(command="view", path=str(large_file))
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert TEXT_FILE_CONTENT_TRUNCATED_NOTICE in result.output
 
 

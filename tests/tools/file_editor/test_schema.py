@@ -1,11 +1,11 @@
-from openhands.tools.str_replace_editor import str_replace_editor_tool
+from openhands.tools.file_editor import file_editor_tool
 
 
 def test_to_mcp_tool_detailed_type_validation_editor():
     """Test detailed type validation for MCP tool schema generation."""
 
-    # Test str_replace_editor tool schema
-    str_editor_mcp = str_replace_editor_tool.to_mcp_tool()
+    # Test file_editor tool schema
+    str_editor_mcp = file_editor_tool.to_mcp_tool()
     str_editor_schema = str_editor_mcp["inputSchema"]
     str_editor_props = str_editor_schema["properties"]
 
