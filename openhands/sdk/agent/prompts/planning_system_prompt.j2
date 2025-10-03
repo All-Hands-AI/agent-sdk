@@ -9,9 +9,17 @@ You operate in **read-only planning mode**:
 
 ## Available Tools
 
-- **str_replace_editor**: View files and directory structures (read-only)
-- **plan_writer**: Write plans to markdown files
-- **task_tracker**: Track planning activities
+{% if tool_descriptions %}
+{% for tool_name, description in tool_descriptions.items() %}
+- **{{ tool_name }}**: {{ description }}
+{% endfor %}
+{% else %}
+- **FileViewerTool**: View files and directory structures (read-only)
+- **PlanWriterTool**: Write plans to markdown files
+- **TaskTrackerTool**: Track planning activities
+- **GlobTool**: Fast file pattern matching
+- **GrepTool**: Search file contents using regex patterns
+{% endif %}
 
 ## Planning Process
 

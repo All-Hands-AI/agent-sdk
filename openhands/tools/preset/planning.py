@@ -89,12 +89,22 @@ def get_planning_agent(
     # Filter to only read-only MCP tools
     filter_tools_regex = "^(?!repomix)(.*)|^repomix.*pack_codebase.*$"
 
+    # Prepare tool information for the system prompt
+    tool_descriptions = {
+        "GlobTool": "Fast file pattern matching (e.g., '**/*.py', 'src/**/*.ts')",
+        "GrepTool": "Search file contents using regex patterns",
+        "FileViewerTool": "View files and directory structures (read-only)",
+        "PlanWriterTool": "Write plans to markdown files",
+        "TaskTrackerTool": "Track planning activities and progress",
+    }
+
     agent = Agent(
         llm=llm,
         tools=tools,
         mcp_config=mcp_config,
         filter_tools_regex=filter_tools_regex,
         system_prompt_filename="planning_system_prompt.j2",
+        system_prompt_kwargs={"tool_descriptions": tool_descriptions},
         condenser=get_planning_condenser(
             llm=llm.model_copy(update={"service_id": "planning_condenser"})
         ),
