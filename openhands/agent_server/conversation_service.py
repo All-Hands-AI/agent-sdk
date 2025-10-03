@@ -255,6 +255,22 @@ class ConversationService:
             raise ValueError("inactive_service")
         return self._event_services.get(conversation_id)
 
+    async def generate_conversation_title(
+        self, conversation_id: UUID, max_length: int = 50
+    ) -> str | None:
+        """Generate a title for the conversation using LLM."""
+        if self._event_services is None:
+            raise ValueError("inactive_service")
+        event_service = self._event_services.get(conversation_id)
+        if event_service is None or event_service._conversation is None:
+            return None
+
+        loop = asyncio.get_event_loop()
+        title = await loop.run_in_executor(
+            None, event_service._conversation.generate_title, None, max_length
+        )
+        return title
+
     async def __aenter__(self):
         self.event_services_path.mkdir(parents=True, exist_ok=True)
         event_services = {}
