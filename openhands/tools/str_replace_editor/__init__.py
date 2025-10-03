@@ -3,7 +3,6 @@ from openhands.tools.str_replace_editor.definition import (
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
 )
-from openhands.tools.str_replace_editor.file_viewer import FileViewerTool
 from openhands.tools.str_replace_editor.impl import FileEditorExecutor, file_editor
 
 
@@ -13,5 +12,4 @@ __all__ = [
     "file_editor",
     "FileEditorExecutor",
     "FileEditorTool",
-    "FileViewerTool",
 ]

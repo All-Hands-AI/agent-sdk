@@ -195,21 +195,6 @@ Remember: when making multiple file edits in a row to the same file, you should 
 """  # noqa
 
 
-# TODO how to define this variable now that we have read_only mode?
-# str_replace_editor_tool = ToolDefinition(
-#     name="str_replace_editor",
-#     action_type=StrReplaceEditorAction,
-#     description=TOOL_DESCRIPTION,
-#     annotations=ToolAnnotations(
-#         title="str_replace_editor",
-#         readOnlyHint=False,
-#         destructiveHint=True,
-#         idempotentHint=False,
-#         openWorldHint=False,
-#     ),
-# )
-
-
 class FileEditorTool(
     ToolDefinition[StrReplaceEditorAction, StrReplaceEditorObservation]
 ):
