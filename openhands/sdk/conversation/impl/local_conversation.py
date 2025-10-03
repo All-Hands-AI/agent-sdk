@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
 
 from openhands.sdk.agent.base import AgentBase
@@ -36,7 +37,7 @@ class LocalConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
-        secrets: dict[str, SecretValue] | dict[str, str] | None = None,
+        secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
     ):
         """Initialize the conversation.
@@ -320,7 +321,7 @@ class LocalConversation(BaseConversation):
                 self._on_event(pause_event)
                 logger.info("Agent execution pause requested")
 
-    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
+    def update_secrets(self, secrets: Mapping[str, SecretValue]) -> None:
         """Add secrets to the conversation.
 
         Args:

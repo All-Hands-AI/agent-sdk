@@ -209,6 +209,7 @@ class EventService:
             max_iteration_per_run=self.stored.max_iterations,
             stuck_detection=self.stored.stuck_detection,
             visualize=False,
+            secrets=self.stored.secrets,
         )
 
         # Set confirmation mode if enabled

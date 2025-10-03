@@ -79,6 +79,10 @@ class StartConversationRequest(BaseModel):
         description="If true, the conversation will use stuck detection to "
         "prevent infinite loops.",
     )
+    secrets: dict[str, SecretSource] = Field(
+        default_factory=dict,
+        description="Secrets available in the conversation",
+    )
 
 
 class StoredConversation(StartConversationRequest):
