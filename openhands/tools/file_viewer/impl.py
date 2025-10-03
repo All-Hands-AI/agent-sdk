@@ -1,7 +1,7 @@
 from openhands.sdk.tool import ToolExecutor
+from openhands.tools.file_editor.definition import FileEditorAction
+from openhands.tools.file_editor.impl import FileEditorExecutor
 from openhands.tools.file_viewer.definition import FileViewerObservation
-from openhands.tools.str_replace_editor.definition import StrReplaceEditorAction
-from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
 
 class FileViewerExecutor(ToolExecutor):
@@ -15,8 +15,8 @@ class FileViewerExecutor(ToolExecutor):
 
     def __call__(self, action):
         """Execute a file viewer action by converting it to a file editor action."""
-        # Convert FileViewerAction to StrReplaceEditorAction
-        editor_action = StrReplaceEditorAction(
+        # Convert FileViewerAction to FileEditorAction
+        editor_action = FileEditorAction(
             command=action.command,
             path=action.path,
             view_range=action.view_range,

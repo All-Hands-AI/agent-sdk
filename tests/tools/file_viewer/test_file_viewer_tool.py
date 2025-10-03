@@ -32,7 +32,7 @@ def test_file_viewer_tool_initialization():
     """Test FileViewerTool initialization."""
     with tempfile.TemporaryDirectory() as temp_dir:
         conv_state = _create_test_conv_state(temp_dir)
-        tools = FileViewerTool.create(conversation_state=conv_state)
+        tools = FileViewerTool.create(conv_state=conv_state)
         assert len(tools) == 1
         tool = tools[0]
         assert tool.name == "file_viewer"
@@ -50,7 +50,7 @@ def test_file_viewer_tool_view_file():
         test_file.write_text("Hello, World!\nThis is a test file.")
 
         conv_state = _create_test_conv_state(temp_dir)
-        tool = FileViewerTool.create(conversation_state=conv_state)[0]
+        tool = FileViewerTool.create(conv_state=conv_state)[0]
 
         # Test viewing the file
         action = FileViewerAction(command="view", path=str(test_file))
@@ -70,7 +70,7 @@ def test_file_viewer_tool_view_directory():
         (Path(temp_dir) / "file2.py").write_text("print('hello')")
 
         conv_state = _create_test_conv_state(temp_dir)
-        tool = FileViewerTool.create(conversation_state=conv_state)[0]
+        tool = FileViewerTool.create(conv_state=conv_state)[0]
 
         # Test viewing the directory
         action = FileViewerAction(command="view", path=temp_dir)
@@ -86,7 +86,7 @@ def test_file_viewer_tool_blocks_create():
     """Test that FileViewerTool blocks create operations."""
     with tempfile.TemporaryDirectory() as temp_dir:
         conv_state = _create_test_conv_state(temp_dir)
-        FileViewerTool.create(conversation_state=conv_state)[0]
+        FileViewerTool.create(conv_state=conv_state)[0]
 
         # Test that create is blocked - this should fail at action creation level
         try:
@@ -105,7 +105,7 @@ def test_file_viewer_tool_blocks_str_replace():
         test_file.write_text("Hello, World!")
 
         conv_state = _create_test_conv_state(temp_dir)
-        FileViewerTool.create(conversation_state=conv_state)[0]
+        FileViewerTool.create(conv_state=conv_state)[0]
 
         # Test that str_replace is blocked - this should fail at action creation level
         try:
@@ -126,7 +126,7 @@ def test_file_viewer_tool_blocks_insert():
         test_file.write_text("Line 1\nLine 2")
 
         conv_state = _create_test_conv_state(temp_dir)
-        FileViewerTool.create(conversation_state=conv_state)[0]
+        FileViewerTool.create(conv_state=conv_state)[0]
 
         # Test that insert is blocked - this should fail at action creation level
         try:
@@ -145,7 +145,7 @@ def test_file_viewer_tool_blocks_undo_edit():
         test_file.write_text("Hello, World!")
 
         conv_state = _create_test_conv_state(temp_dir)
-        FileViewerTool.create(conversation_state=conv_state)[0]
+        FileViewerTool.create(conv_state=conv_state)[0]
 
         # Test that undo_edit is blocked - this should fail at action creation level
         try:
@@ -160,7 +160,7 @@ def test_file_viewer_tool_to_openai_tool():
     """Test FileViewerTool OpenAI tool format."""
     with tempfile.TemporaryDirectory() as temp_dir:
         conv_state = _create_test_conv_state(temp_dir)
-        tool = FileViewerTool.create(conversation_state=conv_state)[0]
+        tool = FileViewerTool.create(conv_state=conv_state)[0]
         openai_tool = tool.to_openai_tool()
 
     assert openai_tool["type"] == "function"
