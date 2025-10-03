@@ -8,25 +8,15 @@ from pydantic import Field
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
-from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import (
-    Action,
-    Observation,
-    ToolAnnotations,
-    ToolDefinition,
-    ToolExecutor,
-)
-
-
-CommandLiteral = Literal["view"]
+from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinition
 
 
 class FileViewerAction(Action):
     """Schema for file viewer operations - read-only."""
 
-    command: CommandLiteral = Field(
+    command: Literal["view"] = Field(
         description="The commands to run. Only `view` is allowed for read-only access."
     )
     path: str = Field(description="Absolute path to file or directory.")
@@ -47,17 +37,10 @@ class FileViewerObservation(Observation):
 
     content: str = Field(description="The content of the file or directory listing.")
     error: bool = Field(default=False, description="Whether an error occurred.")
-    diff: str | None = Field(
-        default=None, description="Diff visualization (not applicable for viewer)."
-    )
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Convert observation to LLM content."""
-        if self.diff:
-            # This shouldn't happen for viewer, but handle gracefully
-            diff_text = Text.from_ansi(self.diff)
-            return [TextContent(text=diff_text.plain)]
         return [TextContent(text=self.content)]
 
 
@@ -86,7 +69,7 @@ CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 
 
 class FileViewerTool(ToolDefinition[FileViewerAction, FileViewerObservation]):
-    """A read-only file viewer tool that uses FileEditorExecutor in read-only mode."""
+    """A read-only file viewer tool that uses FileViewerExecutor."""
 
     @classmethod
     def create(
@@ -96,12 +79,12 @@ class FileViewerTool(ToolDefinition[FileViewerAction, FileViewerObservation]):
     ) -> Sequence["FileViewerTool"]:
         """Create a FileViewerTool instance."""
         # Import here to avoid circular imports
-        from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+        from openhands.tools.str_replace_editor.impl import FileViewerExecutor
 
         working_dir = conversation_state.workspace.working_dir
 
         # Create a read-only executor
-        executor = FileEditorExecutor(workspace_root=working_dir, read_only=True)
+        executor = FileViewerExecutor(workspace_root=working_dir)
 
         # Add working directory information to the tool description
         enhanced_description = (
@@ -124,40 +107,6 @@ class FileViewerTool(ToolDefinition[FileViewerAction, FileViewerObservation]):
                     idempotentHint=True,
                     openWorldHint=False,
                 ),
-                executor=FileViewerExecutor(executor),
+                executor=executor,
             )
         ]
-
-
-class FileViewerExecutor(ToolExecutor[FileViewerAction, FileViewerObservation]):
-    """Executor that adapts FileEditorExecutor for FileViewer actions."""
-
-    def __init__(self, file_editor_executor):
-        self.file_editor_executor = file_editor_executor
-
-    def __call__(self, action: FileViewerAction) -> FileViewerObservation:
-        """Execute a file viewer action by converting it to a file editor action."""
-        # Import here to avoid circular imports
-        from openhands.tools.str_replace_editor.definition import StrReplaceEditorAction
-
-        # Convert FileViewerAction to StrReplaceEditorAction
-        editor_action = StrReplaceEditorAction(
-            command=action.command,
-            path=action.path,
-            view_range=action.view_range,
-        )
-
-        # Execute using the file editor executor
-        result = self.file_editor_executor(editor_action)
-
-        # Convert result to FileViewerObservation
-        if result.error:
-            return FileViewerObservation(
-                content=result.error,
-                error=True,
-            )
-        else:
-            return FileViewerObservation(
-                content=result.output,
-                error=False,
-            )

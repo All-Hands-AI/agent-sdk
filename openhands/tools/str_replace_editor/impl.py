@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from openhands.sdk.tool import ToolExecutor
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
@@ -8,11 +10,17 @@ from openhands.tools.str_replace_editor.editor import FileEditor
 from openhands.tools.str_replace_editor.exceptions import ToolError
 
 
+if TYPE_CHECKING:
+    pass
+
+
 # Module-global editor instance (lazily initialized in file_editor)
 _GLOBAL_EDITOR: FileEditor | None = None
 
 
-class FileEditorExecutor(ToolExecutor):
+class BaseFileExecutor(ToolExecutor):
+    """Base executor class for file operations with configurable read-only mode."""
+
     def __init__(self, workspace_root: str | None = None, read_only: bool = False):
         self.editor = FileEditor(workspace_root=workspace_root)
         self.read_only = read_only
@@ -43,6 +51,49 @@ class FileEditorExecutor(ToolExecutor):
             )
         assert result is not None, "file_editor should always return a result"
         return result
+
+
+class FileEditorExecutor(BaseFileExecutor):
+    """File editor executor with full read-write capabilities."""
+
+    def __init__(self, workspace_root: str | None = None):
+        super().__init__(workspace_root=workspace_root, read_only=False)
+
+
+class FileViewerExecutor(ToolExecutor):
+    """File viewer executor with read-only capabilities."""
+
+    def __init__(self, workspace_root: str | None = None):
+        self._base_executor = BaseFileExecutor(
+            workspace_root=workspace_root, read_only=True
+        )
+
+    def __call__(self, action):
+        """Execute a file viewer action by converting it to a file editor action."""
+        # Import here to avoid circular imports
+        from openhands.tools.file_viewer.definition import FileViewerObservation
+
+        # Convert FileViewerAction to StrReplaceEditorAction
+        editor_action = StrReplaceEditorAction(
+            command=action.command,
+            path=action.path,
+            view_range=action.view_range,
+        )
+
+        # Execute using the base file editor functionality
+        result = self._base_executor(editor_action)
+
+        # Convert result to FileViewerObservation
+        if result.error:
+            return FileViewerObservation(
+                content=result.error,
+                error=True,
+            )
+        else:
+            return FileViewerObservation(
+                content=result.output,
+                error=False,
+            )
 
 
 def file_editor(
