@@ -1,7 +1,7 @@
 """File viewer tool implementation - read-only version of file editor."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 
@@ -16,14 +16,11 @@ from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinit
 class FileViewerAction(Action):
     """Schema for file viewer operations - read-only."""
 
-    command: Literal["view"] = Field(
-        description="The commands to run. Only `view` is allowed for read-only access."
-    )
     path: str = Field(description="Absolute path to file or directory.")
     view_range: list[int] | None = Field(
         default=None,
         description=(
-            "Optional parameter of `view` command when `path` points to a file. "
+            "Optional parameter. "
             "If none is given, the full file is shown. If provided, the file will be "
             "shown in the indicated line number range, e.g. [11, 12] will show lines "
             "11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all "
@@ -50,7 +47,6 @@ This is a read-only tool that only supports viewing operations.
 
 * State is persistent across command calls and discussions with the user
 * If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
-* The following binary file extensions can be viewed in Markdown format: [".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", ".docx"]. IT DOES NOT HANDLE IMAGES.
 * If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
 
 Before using this tool:

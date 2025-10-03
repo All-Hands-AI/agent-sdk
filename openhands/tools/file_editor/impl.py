@@ -21,11 +21,11 @@ class FileEditorExecutor(ToolExecutor):
 
     def __call__(self, action: FileEditorAction) -> FileEditorObservation:
         # Enforce read-only restrictions
-        if self.read_only and action.command not in ["view", "list"]:
+        if self.read_only and action.command != "view":
             return FileEditorObservation(
                 command=action.command,
                 error=f"Operation '{action.command}' is not allowed in read-only mode. "
-                "Only 'view' and 'list' commands are permitted.",
+                "Only 'view' commands is permitted.",
             )
         result: FileEditorObservation | None = None
         try:

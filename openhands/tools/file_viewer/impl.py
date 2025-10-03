@@ -17,7 +17,7 @@ class FileViewerExecutor(ToolExecutor):
         """Execute a file viewer action by converting it to a file editor action."""
         # Convert FileViewerAction to FileEditorAction
         editor_action = FileEditorAction(
-            command=action.command,
+            command="view",
             path=action.path,
             view_range=action.view_range,
         )
