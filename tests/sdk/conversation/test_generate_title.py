@@ -11,7 +11,7 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLM, LLMResponse, Message, MetricsSnapshot, TextContent
 
 
 def create_test_agent() -> Agent:
@@ -28,23 +28,23 @@ def create_user_message_event(content: str) -> MessageEvent:
     )
 
 
-def create_mock_llm_response(content: str) -> ModelResponse:
+def create_mock_llm_response(content: str) -> LLMResponse:
     """Create a properly structured LiteLLM mock response."""
-    # Create proper LiteLLM message
+    # Create LiteLLM message
     message = LiteLLMMessage(content=content, role="assistant")
 
-    # Create proper choice
+    # Create choice
     choice = Choices(finish_reason="stop", index=0, message=message)
 
-    # Create proper usage
+    # Create usage
     usage = Usage(
         prompt_tokens=10,
         completion_tokens=5,
         total_tokens=15,
     )
 
-    # Create proper ModelResponse
-    response = ModelResponse(
+    # Create ModelResponse
+    model_response = ModelResponse(
         id="test-id",
         choices=[choice],
         created=1234567890,
@@ -52,8 +52,18 @@ def create_mock_llm_response(content: str) -> ModelResponse:
         object="chat.completion",
         usage=usage,
     )
-
-    return response
+    message = Message.from_litellm_message(choice["message"])
+    metrics = MetricsSnapshot(
+        model_name="gpt-4o-mini",
+        accumulated_cost=0.0,
+        max_budget_per_task=None,
+        accumulated_token_usage=None,
+    )
+    return LLMResponse(
+        message=message,
+        metrics=metrics,
+        raw_response=model_response,
+    )
 
 
 @patch("openhands.sdk.llm.llm.LLM.completion")

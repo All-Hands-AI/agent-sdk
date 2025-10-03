@@ -1,19 +1,17 @@
 """Utility functions for generating conversation titles."""
 
-from typing import Optional
-
-from litellm.types.utils import Choices
+from collections.abc import Sequence
 
 from openhands.sdk.event import MessageEvent
+from openhands.sdk.event.base import Event
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.protocol import ListLike
 
 
 logger = get_logger(__name__)
 
 
-def extract_first_user_message(events: ListLike) -> Optional[str]:
+def extract_first_user_message(events: Sequence[Event]) -> str | None:
     """Extract the first user message from conversation events.
 
     Args:
@@ -40,9 +38,7 @@ def extract_first_user_message(events: ListLike) -> Optional[str]:
     return None
 
 
-def generate_title_with_llm(
-    message: str, llm: LLM, max_length: int = 50
-) -> Optional[str]:
+def generate_title_with_llm(message: str, llm: LLM, max_length: int = 50) -> str | None:
     """Generate a conversation title using LLM.
 
     Args:
@@ -98,12 +94,10 @@ def generate_title_with_llm(
         response = llm.completion(messages)
 
         # Extract the title from the response
-        if (
-            response.choices
-            and isinstance(response.choices[0], Choices)
-            and response.choices[0].message.content
+        if response.message.content and isinstance(
+            response.message.content[0], TextContent
         ):
-            title = response.choices[0].message.content.strip()
+            title = response.message.content[0].text.strip()
 
             # Ensure the title isn't too long
             if len(title) > max_length:
@@ -136,7 +130,7 @@ def generate_fallback_title(message: str, max_length: int = 50) -> str:
 
 
 def generate_conversation_title(
-    events: ListLike, llm: Optional[LLM] = None, max_length: int = 50
+    events: Sequence[Event], llm: LLM | None = None, max_length: int = 50
 ) -> str:
     """Generate a title for a conversation based on the first user message.
 
