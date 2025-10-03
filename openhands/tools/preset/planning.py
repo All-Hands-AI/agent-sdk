@@ -12,13 +12,16 @@ logger = get_logger(__name__)
 
 def register_planning_tools() -> None:
     """Register the planning agent tools."""
-    from openhands.tools.execute_bash import BashTool
     from openhands.tools.file_viewer import FileViewerTool
+    from openhands.tools.glob import GlobTool
+    from openhands.tools.grep import GrepTool
     from openhands.tools.plan_writer import PlanWriterTool
     from openhands.tools.task_tracker import TaskTrackerTool
 
-    register_tool("BashTool", BashTool)
-    logger.debug("Tool: BashTool registered.")
+    register_tool("GlobTool", GlobTool)
+    logger.debug("Tool: GlobTool registered.")
+    register_tool("GrepTool", GrepTool)
+    logger.debug("Tool: GrepTool registered.")
     register_tool("FileViewerTool", FileViewerTool)
     logger.debug("Tool: FileViewerTool registered.")
     register_tool("PlanWriterTool", PlanWriterTool)
@@ -38,7 +41,8 @@ def get_planning_tools() -> list[Tool]:
     register_planning_tools()
 
     return [
-        Tool(name="BashTool"),
+        Tool(name="GlobTool"),
+        Tool(name="GrepTool"),
         Tool(name="FileViewerTool"),
         Tool(name="PlanWriterTool"),
         Tool(name="TaskTrackerTool"),
