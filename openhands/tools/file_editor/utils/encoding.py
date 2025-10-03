@@ -11,7 +11,7 @@ from cachetools import LRUCache
 
 
 if TYPE_CHECKING:
-    from openhands.tools.str_replace_editor.impl import FileEditor
+    from openhands.tools.file_editor.impl import FileEditor
 
 
 class EncodingManager:

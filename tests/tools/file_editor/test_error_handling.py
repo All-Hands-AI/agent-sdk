@@ -1,6 +1,6 @@
 """Tests for error handling in file editor."""
 
-from openhands.tools.str_replace_editor.impl import file_editor
+from openhands.tools.file_editor.impl import file_editor
 
 from .conftest import assert_error_result
 

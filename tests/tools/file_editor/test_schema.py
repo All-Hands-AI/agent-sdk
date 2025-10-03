@@ -1,21 +1,11 @@
-from unittest.mock import Mock
-
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import file_editor_tool
 
 
 def test_to_mcp_tool_detailed_type_validation_editor():
     """Test detailed type validation for MCP tool schema generation."""
 
-    # Create a mock conversation state
-    mock_conv_state = Mock()
-    mock_conv_state.workspace.working_dir = "/test/workspace"
-
-    # Create a FileEditorTool instance (non-read-only)
-    tools = FileEditorTool.create(conv_state=mock_conv_state)
-    str_replace_editor_tool = tools[0]
-
-    # Test str_replace_editor tool schema
-    str_editor_mcp = str_replace_editor_tool.to_mcp_tool()
+    # Test file_editor tool schema
+    str_editor_mcp = file_editor_tool.to_mcp_tool()
     str_editor_schema = str_editor_mcp["inputSchema"]
     str_editor_props = str_editor_schema["properties"]
 

@@ -1,6 +1,6 @@
 import pytest
 
-from openhands.tools.str_replace_editor.exceptions import (
+from openhands.tools.file_editor.exceptions import (
     EditorToolParameterInvalidError,
     EditorToolParameterMissingError,
     ToolError,

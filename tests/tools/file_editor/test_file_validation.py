@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from binaryornot.check import is_binary
 
-from openhands.tools.str_replace_editor.editor import FileEditor
-from openhands.tools.str_replace_editor.exceptions import (
+from openhands.tools.file_editor.editor import FileEditor
+from openhands.tools.file_editor.exceptions import (
     FileValidationError,
 )
 

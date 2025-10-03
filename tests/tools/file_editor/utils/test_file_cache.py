@@ -3,7 +3,7 @@ import tempfile
 
 import pytest
 
-from openhands.tools.str_replace_editor.utils.file_cache import FileCache
+from openhands.tools.file_editor.utils.file_cache import FileCache
 
 
 @pytest.fixture
