@@ -21,9 +21,10 @@ _GLOBAL_EDITOR: FileEditor | None = None
 class BaseFileExecutor(ToolExecutor):
     """Base executor class for file operations with configurable read-only mode."""
 
-    def __init__(self, workspace_root: str | None = None, read_only: bool = False):
+    read_only: bool = False  # Class attribute - subclasses can override
+
+    def __init__(self, workspace_root: str | None = None):
         self.editor = FileEditor(workspace_root=workspace_root)
-        self.read_only = read_only
 
     def __call__(self, action: StrReplaceEditorAction) -> StrReplaceEditorObservation:
         # Enforce read-only restrictions
@@ -56,44 +57,7 @@ class BaseFileExecutor(ToolExecutor):
 class FileEditorExecutor(BaseFileExecutor):
     """File editor executor with full read-write capabilities."""
 
-    def __init__(self, workspace_root: str | None = None):
-        super().__init__(workspace_root=workspace_root, read_only=False)
-
-
-class FileViewerExecutor(ToolExecutor):
-    """File viewer executor with read-only capabilities."""
-
-    def __init__(self, workspace_root: str | None = None):
-        self._base_executor = BaseFileExecutor(
-            workspace_root=workspace_root, read_only=True
-        )
-
-    def __call__(self, action):
-        """Execute a file viewer action by converting it to a file editor action."""
-        # Import here to avoid circular imports
-        from openhands.tools.file_viewer.definition import FileViewerObservation
-
-        # Convert FileViewerAction to StrReplaceEditorAction
-        editor_action = StrReplaceEditorAction(
-            command=action.command,
-            path=action.path,
-            view_range=action.view_range,
-        )
-
-        # Execute using the base file editor functionality
-        result = self._base_executor(editor_action)
-
-        # Convert result to FileViewerObservation
-        if result.error:
-            return FileViewerObservation(
-                content=result.error,
-                error=True,
-            )
-        else:
-            return FileViewerObservation(
-                content=result.output,
-                error=False,
-            )
+    read_only: bool = False
 
 
 def file_editor(

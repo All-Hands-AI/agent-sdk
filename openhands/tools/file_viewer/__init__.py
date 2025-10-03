@@ -5,7 +5,7 @@ from openhands.tools.file_viewer.definition import (
     FileViewerObservation,
     FileViewerTool,
 )
-from openhands.tools.str_replace_editor.impl import FileViewerExecutor
+from openhands.tools.file_viewer.impl import FileViewerExecutor
 
 
 __all__ = [

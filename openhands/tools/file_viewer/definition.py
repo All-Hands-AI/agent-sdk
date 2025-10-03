@@ -79,7 +79,7 @@ class FileViewerTool(ToolDefinition[FileViewerAction, FileViewerObservation]):
     ) -> Sequence["FileViewerTool"]:
         """Create a FileViewerTool instance."""
         # Import here to avoid circular imports
-        from openhands.tools.str_replace_editor.impl import FileViewerExecutor
+        from openhands.tools.file_viewer.impl import FileViewerExecutor
 
         working_dir = conversation_state.workspace.working_dir
 
