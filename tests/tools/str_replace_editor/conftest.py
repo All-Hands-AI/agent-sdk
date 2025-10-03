@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from openhands.tools.str_replace_editor.definition import (
-    StrReplaceEditorObservation,
+    FileEditorObservation,
 )
 from openhands.tools.str_replace_editor.editor import FileEditor
 
@@ -52,20 +52,20 @@ def editor_python_file_with_tabs(tmp_path):
 
 
 def assert_successful_result(
-    result: StrReplaceEditorObservation, expected_path: str | None = None
+    result: FileEditorObservation, expected_path: str | None = None
 ):
     """Assert that a result is successful (no error)."""
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert result.error is None
     if expected_path:
         assert result.path == expected_path
 
 
 def assert_error_result(
-    result: StrReplaceEditorObservation, expected_error_substring: str | None = None
+    result: FileEditorObservation, expected_error_substring: str | None = None
 ):
     """Assert that a result contains an error."""
-    assert isinstance(result, StrReplaceEditorObservation)
+    assert isinstance(result, FileEditorObservation)
     assert result.error is not None
     if expected_error_substring:
         assert expected_error_substring in result.error
