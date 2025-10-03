@@ -242,9 +242,65 @@ jobs:
                   path: coverage-cross.dat
                   if-no-files-found: warn
 
+    examples-tests:
+        runs-on: blacksmith-2vcpu-ubuntu-2404
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with: {fetch-depth: 0}
+
+            - name: Detect examples changes
+              id: changed
+              uses: tj-actions/changed-files@v47
+              with:
+                  files: |
+                      examples/**
+                      openhands/**
+                      pyproject.toml
+                      uv.lock
+                      .github/workflows/tests.yml
+
+            - name: Install uv
+              if: steps.changed.outputs.any_changed == 'true'
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
+
+            - name: Install deps
+              if: steps.changed.outputs.any_changed == 'true'
+              run: uv sync --frozen --group dev
+
+            - name: Run examples tests with coverage
+              if: steps.changed.outputs.any_changed == 'true'
+              run: |
+                  # Clean up any existing coverage file
+                  rm -f .coverage
+                  CI=true uv run python -m pytest -vvs \
+                    --basetemp="${{ runner.temp }}/pytest" \
+                    -o tmp_path_retention=none \
+                    -o tmp_path_retention_count=0 \
+                    --cov=openhands \
+                    --cov-report=term-missing \
+                    --cov-fail-under=0 \
+                    --cov-config=pyproject.toml \
+                    examples/**/tests/
+                  # Rename coverage file for upload
+                  if [ -f .coverage ]; then
+                    mv .coverage coverage-examples.dat
+                    echo "Examples coverage file prepared for upload"
+                  fi
+
+            - name: Upload examples coverage
+              if: steps.changed.outputs.any_changed == 'true' && always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage-examples
+                  path: coverage-examples.dat
+                  if-no-files-found: warn
+
     coverage-report:
         runs-on: blacksmith-2vcpu-ubuntu-2404
-        needs: [sdk-tests, tools-tests, agent-server-tests, cross-tests]
+        needs: [sdk-tests, tools-tests, agent-server-tests, cross-tests, examples-tests]
         if: always() && github.event_name == 'pull_request'
         steps:
             - name: Checkout
@@ -277,6 +333,8 @@ jobs:
                       cp "$dat_file" .coverage.tools  
                     elif [[ "$dat_file" == *coverage-cross.dat ]]; then
                       cp "$dat_file" .coverage.cross
+                    elif [[ "$dat_file" == *coverage-examples.dat ]]; then
+                      cp "$dat_file" .coverage.examples
                     fi
                   done
 
