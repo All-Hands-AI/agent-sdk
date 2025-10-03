@@ -6,7 +6,6 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.llm import LLM
-from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.tools.preset.planning import get_planning_agent
 
 
@@ -69,20 +68,11 @@ def test_get_planning_agent_condenser_config(basic_llm):
     assert agent.condenser.keep_first == 6
 
 
-def test_get_planning_agent_has_security_analyzer(basic_llm):
+def test_get_planning_agent_has_no_security_analyzer(basic_llm):
     """Test that the planning agent has security analyzer by default."""
     agent = get_planning_agent(llm=basic_llm)
 
     # Check security analyzer
-    assert agent.security_analyzer is not None
-    assert isinstance(agent.security_analyzer, LLMSecurityAnalyzer)
-
-
-def test_get_planning_agent_can_disable_security_analyzer(basic_llm):
-    """Test that the planning agent can disable security analyzer."""
-    agent = get_planning_agent(llm=basic_llm, enable_security_analyzer=False)
-
-    # Check security analyzer is disabled
     assert agent.security_analyzer is None
 
 

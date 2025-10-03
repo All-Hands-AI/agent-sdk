@@ -49,33 +49,10 @@ llm = LLM(
 # Task description
 task = """
 Create a Python web scraper with the following requirements:
-
-1. **Target**: Scrape article titles and URLs from a news website (e.g., BBC News)
-2. **Features**:
-    - Extract article titles and their corresponding URLs
-    - Implement proper rate limiting (1 request per second)
-    - Handle HTTP errors gracefully with retry logic
-    - Save results to a JSON file with timestamp
-    - Include proper logging
-    - Add command-line interface with argparse
-
-3. **Technical Requirements**:
-    - Use requests and BeautifulSoup for scraping
-    - Implement proper error handling and validation
-    - Follow PEP 8 style guidelines
-    - Include docstrings and type hints
-    - Create a requirements.txt file
-    - Add a simple README with usage instructions
-
-4. **Structure**:
-    - Main scraper module
-    - Configuration file for settings
-    - Utility functions for common operations
-    - Example usage script
-
-This is a moderately complex task that requires planning multiple components,
-handling external dependencies, and implementing proper software engineering
-practices.
+- Scrape article titles and URLs from a news website
+- Handle HTTP errors gracefully with retry logic
+- Save results to a JSON file with timestamp
+- Use requests and BeautifulSoup for scraping
 """
 
 print("=" * 80)
