@@ -1,14 +1,19 @@
+from openhands.sdk.tool import ToolExecutor
 from openhands.tools.file_viewer.definition import FileViewerObservation
 from openhands.tools.str_replace_editor.definition import StrReplaceEditorAction
-from openhands.tools.str_replace_editor.impl import BaseFileExecutor
+from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
 
-class FileViewerExecutor(BaseFileExecutor):
-    """File viewer executor with read-only capabilities."""
+class FileViewerExecutor(ToolExecutor):
+    """File viewer executor that uses FileEditorExecutor in read-only mode."""
 
-    read_only: bool = True
+    def __init__(self, workspace_root: str | None = None):
+        # Create a read-only FileEditorExecutor
+        self.editor_executor = FileEditorExecutor(
+            workspace_root=workspace_root, read_only=True
+        )
 
-    def __call__(self, action):  # type: ignore[override]
+    def __call__(self, action):
         """Execute a file viewer action by converting it to a file editor action."""
         # Convert FileViewerAction to StrReplaceEditorAction
         editor_action = StrReplaceEditorAction(
@@ -17,8 +22,8 @@ class FileViewerExecutor(BaseFileExecutor):
             view_range=action.view_range,
         )
 
-        # Execute using the base file editor functionality
-        result = super().__call__(editor_action)
+        # Execute using the read-only file editor
+        result = self.editor_executor(editor_action)
 
         # Convert result to FileViewerObservation
         if result.error:

@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from openhands.sdk.tool import ToolExecutor
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
@@ -10,21 +8,16 @@ from openhands.tools.str_replace_editor.editor import FileEditor
 from openhands.tools.str_replace_editor.exceptions import ToolError
 
 
-if TYPE_CHECKING:
-    pass
-
-
 # Module-global editor instance (lazily initialized in file_editor)
 _GLOBAL_EDITOR: FileEditor | None = None
 
 
-class BaseFileExecutor(ToolExecutor):
-    """Base executor class for file operations with configurable read-only mode."""
+class FileEditorExecutor(ToolExecutor):
+    """File editor executor with configurable read-only mode."""
 
-    read_only: bool = False  # Class attribute - subclasses can override
-
-    def __init__(self, workspace_root: str | None = None):
+    def __init__(self, workspace_root: str | None = None, read_only: bool = False):
         self.editor = FileEditor(workspace_root=workspace_root)
+        self.read_only = read_only
 
     def __call__(self, action: StrReplaceEditorAction) -> StrReplaceEditorObservation:
         # Enforce read-only restrictions
@@ -52,12 +45,6 @@ class BaseFileExecutor(ToolExecutor):
             )
         assert result is not None, "file_editor should always return a result"
         return result
-
-
-class FileEditorExecutor(BaseFileExecutor):
-    """File editor executor with full read-write capabilities."""
-
-    read_only: bool = False
 
 
 def file_editor(
