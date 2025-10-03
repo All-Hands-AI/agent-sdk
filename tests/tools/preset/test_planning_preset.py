@@ -32,12 +32,12 @@ def test_get_planning_agent_includes_expected_tools(basic_llm):
         assert expected_tool in tool_names
 
 
-def test_get_planning_agent_uses_planning_system_prompt(basic_llm):
+def test_get_planning_agent_uses_system_prompt_planning(basic_llm):
     """Test that the planning agent uses the planning system prompt."""
     agent = get_planning_agent(llm=basic_llm)
 
     # Check that the planning system prompt is used
-    assert agent.system_prompt_filename == "planning_system_prompt.j2"
+    assert agent.system_prompt_filename == "system_prompt_planning.j2"
 
 
 def test_get_planning_agent_has_mcp_config(basic_llm):

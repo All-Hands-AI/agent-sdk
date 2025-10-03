@@ -94,7 +94,7 @@ def get_planning_agent(
         tools=tools,
         mcp_config=mcp_config,
         filter_tools_regex=filter_tools_regex,
-        system_prompt_filename="planning_system_prompt.j2",
+        system_prompt_filename="system_prompt_planning.j2",
         condenser=get_planning_condenser(
             llm=llm.model_copy(update={"service_id": "planning_condenser"})
         ),
