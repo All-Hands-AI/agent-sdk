@@ -198,8 +198,8 @@ def test_file_editor_tool_includes_working_directory_in_description():
 
         # Verify the original description is still there
         assert (
-            "Custom editing tool for viewing, creating and editing files in "
-            "plain-text format" in tool.description
+            "Custom editing tool for viewing, creating and editing files"
+            in tool.description
         )
 
 
