@@ -73,6 +73,9 @@ conversation.send_message(
 )
 conversation.run()
 
+title = conversation.generate_title(max_length=60)
+logger.info(f"Generated conversation title: {title}")
+
 conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
