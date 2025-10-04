@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sequence
 
 from pydantic import Field
@@ -14,6 +15,7 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import Action
+from openhands.sdk.utils.visualize import display_dict
 
 
 class ActionEvent(LLMConvertibleEvent):
@@ -86,9 +88,19 @@ class ActionEvent(LLMConvertibleEvent):
         if self.action:
             content.append(self.action.visualize)
         else:
-            # When action is None (non-executable), show the function call
+            # When action is None (non-executable), show the function call and arguments
+            content.append("Action: ", style="bold")
+            content.append("(not executed)")
+            content.append("\n\n")
             content.append("Function call:\n", style="bold")
-            content.append(f"- {self.tool_call.name} ({self.tool_call.id})\n")
+            content.append(f"- {self.tool_call.name} ({self.tool_call.id})\n\n")
+            # Pretty print arguments if JSON is valid
+            try:
+                args = json.loads(self.tool_call.arguments)
+            except Exception:
+                args = {"raw": self.tool_call.arguments}
+            content.append("Arguments:", style="bold")
+            content.append(display_dict(args))
 
         return content
 
@@ -117,4 +129,7 @@ class ActionEvent(LLMConvertibleEvent):
         else:
             # When action is None (non-executable), show the tool call
             call = f"{self.tool_call.name}:{self.tool_call.id}"
-            return f"{base_str}\n  Thought: {thought_preview}\n  Call: {call}"
+            return (
+                f"{base_str}\n  Thought: {thought_preview}\n  Action: (not executed)"
+                f"\n  Call: {call}"
+            )
