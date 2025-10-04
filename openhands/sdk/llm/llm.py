@@ -328,6 +328,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             model_name=self.model,
             log_enabled=self.log_completions,
             log_dir=self.log_completions_folder if self.log_completions else None,
+            input_cost_per_token=self.input_cost_per_token,
+            output_cost_per_token=self.output_cost_per_token,
             metrics=self._metrics,
         )
 

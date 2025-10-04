@@ -65,6 +65,10 @@ def mock_llm() -> LLM:
     mock_llm.reasoning_effort = None
     mock_llm.metadata = {}
 
+    # Explicitly set pricing attributes required by LLM -> Telemetry wiring
+    mock_llm.input_cost_per_token = None
+    mock_llm.output_cost_per_token = None
+
     mock_llm._metrics = None
 
     # Helper method to set mock response content

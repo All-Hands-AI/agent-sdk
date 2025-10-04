@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import uuid
 import warnings
 from typing import Any
 
@@ -66,6 +67,8 @@ class Telemetry(BaseModel):
 
         # 2) cost
         cost = self._compute_cost(resp)
+        # Intentionally skip logging zero-cost (0.0) responses; only record
+        # positive cost
         if cost:
             self.metrics.add_cost(cost)
 
@@ -221,10 +224,14 @@ class Telemetry(BaseModel):
 
             fname = os.path.join(
                 self.log_dir,
-                f"{self.model_name.replace('/', '__')}-{time.time():.3f}.json",
+                (
+                    f"{self.model_name.replace('/', '__')}-"
+                    f"{time.time():.3f}-"
+                    f"{uuid.uuid4().hex[:4]}.json"
+                ),
             )
             data = self._req_ctx.copy()
-            data["response"] = resp.model_dump()
+            data["response"] = resp  # ModelResponse; serialized via _safe_json
             data["cost"] = float(cost or 0.0)
             data["timestamp"] = time.time()
             data["latency_sec"] = self._last_latency
@@ -272,10 +279,16 @@ class Telemetry(BaseModel):
 
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
-                data["raw_response"] = raw_resp
-            # pop duplicated tools
-            if "tool" in data and "tool" in data.get("kwargs", {}):
-                data["kwargs"].pop("tool")
+                data["raw_response"] = (
+                    raw_resp  # ModelResponse; serialized via _safe_json
+                )
+            # Pop duplicated tools to avoid logging twice
+            if (
+                "tools" in data
+                and isinstance(data.get("kwargs"), dict)
+                and "tools" in data["kwargs"]
+            ):
+                data["kwargs"].pop("tools")
             with open(fname, "w") as f:
                 f.write(json.dumps(data, default=_safe_json))
         except Exception as e:
@@ -283,6 +296,39 @@ class Telemetry(BaseModel):
 
 
 def _safe_json(obj: Any) -> Any:
+    # Centralized safe serializer for telemetry logs.
+    # Today, responses are Pydantic ModelResponse; rely on that shape.
+    if isinstance(obj, ModelResponse):
+        data = obj.model_dump()
+
+        # Redact obvious secret-like keys recursively
+        def redact_value(key: str, value: Any) -> Any:
+            key_l = key.lower()
+            sensitive = (
+                "api_key",
+                "authorization",
+                "access_token",
+                "bearer",
+                "password",
+                "secret",
+                "cookie",
+            )
+            if any(sk in key_l for sk in sensitive):
+                return "[redacted]"
+            return value
+
+        def recurse(o: Any) -> Any:
+            if isinstance(o, dict):
+                return {k: recurse(redact_value(k, v)) for k, v in o.items()}
+            if isinstance(o, list):
+                return [recurse(v) for v in o]
+            if isinstance(o, tuple):
+                return tuple(recurse(v) for v in o)
+            return o
+
+        return recurse(data)
+
+    # Fallbacks for non-Pydantic objects used elsewhere in the log payload
     try:
         return obj.__dict__
     except Exception:
