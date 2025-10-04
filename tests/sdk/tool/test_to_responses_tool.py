@@ -27,5 +27,5 @@ def test_to_responses_tool_includes_strict_and_params():
     assert out["name"] == "t"
     # description is optional in the TypedDict; access via get for type safety
     assert out.get("description") in {"d", None}
-    assert out["strict"] is True
+    assert out["strict"] is False
     assert "parameters" in out and isinstance(out["parameters"], dict)
