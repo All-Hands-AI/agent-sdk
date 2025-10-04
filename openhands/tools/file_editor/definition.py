@@ -49,9 +49,12 @@ class FileEditorAction(Action):
     )
     insert_line: int | None = Field(
         default=None,
-        ge=1,
-        description="Required parameter of `insert` command. The `new_str` will "
-        "be inserted AFTER the line `insert_line` of `path`.",
+        ge=0,
+        description=(
+            "Required parameter of `insert` command. The `new_str` will be inserted"
+            " AFTER the line `insert_line` of `path`. Use 0 to insert at the"
+            " beginning of the file."
+        ),
     )
     view_range: list[int] | None = Field(
         default=None,
