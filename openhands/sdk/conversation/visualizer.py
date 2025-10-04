@@ -9,7 +9,6 @@ from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
-    NonExecutableActionEvent,
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
@@ -127,24 +126,18 @@ class ConversationVisualizer:
                 padding=_PANEL_PADDING,
                 expand=True,
             )
-        elif isinstance(event, ActionEvent) and not isinstance(
-            event, NonExecutableActionEvent
-        ):
-            return Panel(
-                content,
-                title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
-                subtitle=self._format_metrics_subtitle(),
-                border_style=_ACTION_COLOR,
-                padding=_PANEL_PADDING,
-                expand=True,
-            )
-        elif isinstance(event, NonExecutableActionEvent):
-            return Panel(
-                content,
-                title=(
+        elif isinstance(event, ActionEvent):
+            # Check if action is None (non-executable)
+            if event.action is None:
+                title = (
                     f"[bold {_ACTION_COLOR}]Agent Action (Not Executed)"
                     f"[/bold {_ACTION_COLOR}]"
-                ),
+                )
+            else:
+                title = f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]"
+            return Panel(
+                content,
+                title=title,
                 subtitle=self._format_metrics_subtitle(),
                 border_style=_ACTION_COLOR,
                 padding=_PANEL_PADDING,

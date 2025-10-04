@@ -1,4 +1,4 @@
-"""Tests that the agent emits NonExecutableActionEvent on missing tools."""
+"""Tests that the agent emits ActionEvent with action=None on missing tools."""
 
 import json
 from unittest.mock import patch
@@ -15,14 +15,15 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event.llm_convertible import (
+    ActionEvent,
     AgentErrorEvent,
     MessageEvent,
-    NonExecutableActionEvent,
 )
 from openhands.sdk.llm import LLM, Message, TextContent
 
 
-def test_emits_non_executable_action_event_then_error_on_missing_tool() -> None:
+def test_emits_action_event_with_none_action_then_error_on_missing_tool() -> None:
+    """Test that agent emits ActionEvent(action=None) when tool is missing."""
     llm = LLM(
         service_id="test-llm",
         model="test-model",
@@ -72,24 +73,31 @@ def test_emits_non_executable_action_event_then_error_on_missing_tool() -> None:
         conv.send_message(Message(role="user", content=[TextContent(text="go")]))
         agent.step(conv.state, on_event=cb)
 
-    # We expect a NonExecutableActionEvent followed by an AgentErrorEvent
-    types = [type(e) for e in collected]
-    assert NonExecutableActionEvent in types
-    assert AgentErrorEvent in types
+    # Find ActionEvent with action=None
+    action_events_none = [
+        e for e in collected if isinstance(e, ActionEvent) and e.action is None
+    ]
+    error_events = [e for e in collected if isinstance(e, AgentErrorEvent)]
 
-    # Ensure ordering: NEA occurs before AgentErrorEvent for same call id
-    first_nea_idx = next(
-        i for i, e in enumerate(collected) if isinstance(e, NonExecutableActionEvent)
+    # We expect at least one ActionEvent with action=None and one AgentErrorEvent
+    assert len(action_events_none) > 0
+    assert len(error_events) > 0
+
+    # Ensure ordering: ActionEvent(action=None) occurs before AgentErrorEvent
+    first_action_none_idx = next(
+        i
+        for i, e in enumerate(collected)
+        if isinstance(e, ActionEvent) and e.action is None
     )
     first_err_idx = next(
         i for i, e in enumerate(collected) if isinstance(e, AgentErrorEvent)
     )
-    assert first_nea_idx < first_err_idx
+    assert first_action_none_idx < first_err_idx
 
     # Verify tool_call_id continuity
-    nea = next(e for e in collected if isinstance(e, NonExecutableActionEvent))
-    tc_id = nea.tool_call.id
-    err = next(e for e in collected if isinstance(e, AgentErrorEvent))
+    action_event = action_events_none[0]
+    tc_id = action_event.tool_call.id
+    err = error_events[0]
     assert err.tool_call_id == tc_id
 
     # Ensure message event exists for the initial system prompt

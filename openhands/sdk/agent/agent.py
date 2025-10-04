@@ -12,7 +12,6 @@ from openhands.sdk.event import (
     AgentErrorEvent,
     LLMConvertibleEvent,
     MessageEvent,
-    NonExecutableActionEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
@@ -307,7 +306,7 @@ class Agent(AgentBase):
             logger.error(err)
             # Persist assistant function_calls so next turn
             # has matching call_id for tool output
-            tc_event = NonExecutableActionEvent(
+            tc_event = ActionEvent(
                 source="agent",
                 thought=thought,
                 reasoning_content=reasoning_content,
@@ -316,6 +315,7 @@ class Agent(AgentBase):
                 tool_name=tool_call.name,
                 tool_call_id=tool_call.id,
                 llm_response_id=llm_response_id,
+                action=None,
             )
             on_event(tc_event)
             event = AgentErrorEvent(
@@ -356,7 +356,7 @@ class Agent(AgentBase):
             )
             # Persist assistant function_calls so next turn
             # has matching call_id for tool output
-            tc_event = NonExecutableActionEvent(
+            tc_event = ActionEvent(
                 source="agent",
                 thought=thought,
                 reasoning_content=reasoning_content,
@@ -365,6 +365,7 @@ class Agent(AgentBase):
                 tool_name=tool_call.name,
                 tool_call_id=tool_call.id,
                 llm_response_id=llm_response_id,
+                action=None,
             )
             on_event(tc_event)
             event = AgentErrorEvent(

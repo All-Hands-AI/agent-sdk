@@ -85,6 +85,10 @@ class ActionEvent(LLMConvertibleEvent):
         # Display action information using action's visualize method
         if self.action:
             content.append(self.action.visualize)
+        else:
+            # When action is None (non-executable), show the function call
+            content.append("Function call:\n", style="bold")
+            content.append(f"- {self.tool_call.name} ({self.tool_call.id})\n")
 
         return content
 
@@ -107,46 +111,10 @@ class ActionEvent(LLMConvertibleEvent):
             if len(thought_text) > N_CHAR_PREVIEW
             else thought_text
         )
-        action_name = self.action.__class__.__name__
-        return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
-
-
-class NonExecutableActionEvent(ActionEvent):
-    """Assistant function_call persisted without a validated Action.
-
-    Emitted when LLM returned a tool call but validation failed (or tool missing),
-    so we persist the function_call for the next turn to match tool outputs.
-    """
-
-    # Inherit from ActionEvent
-    # - but mark as non-executable by omitting validated action
-    action: Action | None = Field(
-        default=None, description="No validated action is available"
-    )
-
-    @property
-    def visualize(self) -> Text:
-        content = Text()
-        if self.reasoning_content:
-            content.append("Reasoning:\n", style="bold")
-            content.append(self.reasoning_content)
-            content.append("\n\n")
-        thought_text = " ".join([t.text for t in self.thought])
-        if thought_text:
-            content.append("Thought:\n", style="bold")
-            content.append(thought_text)
-            content.append("\n\n")
-        content.append("Function call:\n", style="bold")
-        content.append(f"- {self.tool_call.name} ({self.tool_call.id})\n")
-        return content
-
-    def __str__(self) -> str:
-        base_str = f"{self.__class__.__name__} ({self.source})"
-        thought_text = " ".join([t.text for t in self.thought])
-        thought_preview = (
-            thought_text[:N_CHAR_PREVIEW] + "..."
-            if len(thought_text) > N_CHAR_PREVIEW
-            else thought_text
-        )
-        call = f"{self.tool_call.name}:{self.tool_call.id}"
-        return f"{base_str}\n  Thought: {thought_preview}\n  Call: {call}"
+        if self.action:
+            action_name = self.action.__class__.__name__
+            return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
+        else:
+            # When action is None (non-executable), show the tool call
+            call = f"{self.tool_call.name}:{self.tool_call.id}"
+            return f"{base_str}\n  Thought: {thought_preview}\n  Call: {call}"

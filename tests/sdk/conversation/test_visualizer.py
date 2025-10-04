@@ -13,7 +13,6 @@ from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
-    NonExecutableActionEvent,
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
@@ -262,18 +261,19 @@ def test_visualizer_event_panel_creation():
     assert hasattr(panel, "renderable")
 
 
-def test_visualizer_non_executable_action_event_panel():
-    """NEA should render as an Action-like panel, not UNKNOWN."""
+def test_visualizer_action_event_with_none_action_panel():
+    """ActionEvent with action=None should render as 'Agent Action (Not Executed)'."""
     visualizer = ConversationVisualizer()
     tc = create_tool_call("call_ne_1", "missing_fn", {})
-    nea = NonExecutableActionEvent(
+    action_event = ActionEvent(
         thought=[TextContent(text="...")],
         tool_call=tc,
         tool_name=tc.name,
         tool_call_id=tc.id,
         llm_response_id="resp_viz_1",
+        action=None,
     )
-    panel = visualizer._create_event_panel(nea)
+    panel = visualizer._create_event_panel(action_event)
     assert panel is not None
     # Ensure it doesn't fall back to UNKNOWN
     assert "UNKNOWN Event" not in str(panel.title)

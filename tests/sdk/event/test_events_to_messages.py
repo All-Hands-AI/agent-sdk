@@ -11,7 +11,6 @@ from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
-    NonExecutableActionEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
@@ -419,20 +418,22 @@ class TestEventsToMessages:
         ):
             LLMConvertibleEvent.events_to_messages(events)  # type: ignore
 
-    def test_non_executable_action_event_round_trip_and_observation_match(self):
+    def test_action_event_with_none_action_round_trip_and_observation_match(self):
+        """Test ActionEvent with action=None round trip and observation match."""
         thought = [TextContent(text="thinking...")]
         tc = create_tool_call("call_ne", "missing_tool", {"x": 1})
-        nea = NonExecutableActionEvent(
+        action_event = ActionEvent(
             source="agent",
             thought=thought,
             tool_call=tc,
             tool_name=tc.name,
             tool_call_id=tc.id,
             llm_response_id="resp_events_1",
+            action=None,
         )
 
         # Convert to messages and ensure assistant message has single tool_call
-        messages = LLMConvertibleEvent.events_to_messages([nea])
+        messages = LLMConvertibleEvent.events_to_messages([action_event])
         assert len(messages) == 1
         assert messages[0].role == "assistant"
         assert messages[0].tool_calls is not None and len(messages[0].tool_calls) == 1
@@ -446,7 +447,7 @@ class TestEventsToMessages:
             tool_name="missing_tool",
         )
 
-        msgs = LLMConvertibleEvent.events_to_messages([nea, err])
+        msgs = LLMConvertibleEvent.events_to_messages([action_event, err])
         # Should produce two messages: assistant tool call + tool error
         assert len(msgs) == 2
         assert msgs[0].role == "assistant"
