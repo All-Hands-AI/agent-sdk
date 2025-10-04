@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from openhands.sdk.llm.options.common import coerce_and_default
+
 
 def select_responses_options(
     llm,
@@ -11,7 +13,13 @@ def select_responses_options(
     store: bool | None,
 ) -> dict[str, Any]:
     """Behavior-preserving extraction of _normalize_responses_kwargs."""
-    out = dict(user_kwargs)
+    # Apply defaults for keys that are not forced by policy
+    out = coerce_and_default(
+        user_kwargs,
+        {
+            "max_output_tokens": llm.max_output_tokens,
+        },
+    )
 
     # Enforce sampling/tool behavior for Responses path
     out["temperature"] = 1.0
@@ -29,10 +37,6 @@ def select_responses_options(
         out["store"] = bool(store)
     else:
         out.setdefault("store", False)
-
-    # Respect max_output_tokens if configured at LLM level
-    if llm.max_output_tokens is not None:
-        out.setdefault("max_output_tokens", llm.max_output_tokens)
 
     # Request plaintext reasoning summary
     effort = llm.reasoning_effort or "high"

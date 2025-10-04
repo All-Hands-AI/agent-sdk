@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from openhands.sdk.llm.utils.model_features import get_features
+from openhands.sdk.llm.options.common import coerce_and_default
 
 
 def select_chat_options(llm, user_kwargs: dict[str, Any], has_tools: bool) -> dict[str, Any]:
@@ -10,20 +11,15 @@ def select_chat_options(llm, user_kwargs: dict[str, Any], has_tools: bool) -> di
 
     This keeps the exact provider-aware mappings and precedence.
     """
-    out = dict(user_kwargs)
-
-    # Respect configured sampling params unless reasoning models override
-    if llm.top_k is not None:
-        out.setdefault("top_k", llm.top_k)
-    if llm.top_p is not None:
-        out.setdefault("top_p", llm.top_p)
-    if llm.temperature is not None:
-        out.setdefault("temperature", llm.temperature)
-
-    # Max tokens wiring differences
-    if llm.max_output_tokens is not None:
+    # First pass: apply simple defaults without touching user-supplied values
+    schema: dict[str, Any] = {
+        "top_k": llm.top_k,
+        "top_p": llm.top_p,
+        "temperature": llm.temperature,
         # OpenAI-compatible param is `max_completion_tokens`
-        out.setdefault("max_completion_tokens", llm.max_output_tokens)
+        "max_completion_tokens": llm.max_output_tokens,
+    }
+    out = coerce_and_default(user_kwargs, schema)
 
     # Azure -> uses max_tokens instead
     if llm.model.startswith("azure"):
