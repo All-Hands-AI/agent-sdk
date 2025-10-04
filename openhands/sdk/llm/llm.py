@@ -665,24 +665,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         finally:
             litellm.modify_params = old
 
-    def _normalize_call_kwargs(self, opts: dict, *, has_tools: bool) -> dict:
-        """Deprecated: kept for backward compatibility; use options.select_chat_options."""
-        from openhands.sdk.llm.options.chat_options import select_chat_options
-        return select_chat_options(self, opts, has_tools=has_tools)
-
-    def _normalize_responses_kwargs(
-        self,
-        opts: dict,
-        *,
-        include: list[str] | None,
-        store: bool | None,
-    ) -> dict:
-        """Deprecated: kept for backward compatibility; use options.select_responses_options."""
-        from openhands.sdk.llm.options.responses_options import (
-            select_responses_options,
-        )
-        return select_responses_options(self, opts, include=include, store=store)
-
     # =========================================================================
     # Capabilities, formatting, and info
     # =========================================================================
