@@ -14,11 +14,6 @@ class Obs(Observation):
 
 
 class T(ToolBase[A, Obs]):
-    name = "t"
-    description = "desc"
-    action_type = A
-    observation_type = Obs
-
     @classmethod
     def create(cls, *args, **kwargs):  # pragma: no cover
         raise NotImplementedError

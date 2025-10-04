@@ -14,7 +14,7 @@ def test_system_to_responses_value_instructions_concat():
     # system messages become instructions string, concatenated with separators
     from openhands.sdk.llm.llm import LLM
 
-    llm = LLM(model="openai/gpt-4.1-mini")
+    llm = LLM(model="gpt-5-mini")
     instr, inputs = llm.format_messages_for_responses([m1, m2])
     assert instr == "A\nB\n\n---\n\nC"
     assert inputs == []

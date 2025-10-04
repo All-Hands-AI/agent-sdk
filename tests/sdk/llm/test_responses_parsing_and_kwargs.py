@@ -57,7 +57,9 @@ def test_from_llm_responses_output_parsing():
 
 
 def test_normalize_responses_kwargs_policy():
-    llm = LLM(model="openai/gpt-4.1-mini")
+    llm = LLM(model="gpt-5-mini")
+    # Use a model that is explicitly Responses-capable per model_features
+
     # enable encrypted reasoning and set max_output_tokens to test passthrough
     llm.enable_encrypted_reasoning = True
     llm.max_output_tokens = 128
@@ -83,7 +85,7 @@ def test_normalize_responses_kwargs_policy():
 @patch("openhands.sdk.llm.llm.litellm_responses")
 def test_llm_responses_end_to_end(mock_responses_call):
     # Configure LLM
-    llm = LLM(model="openai/gpt-4.1-mini")
+    llm = LLM(model="gpt-5-mini")
     # messages: system + user
     sys = Message(role="system", content=[TextContent(text="inst")])
     user = Message(role="user", content=[TextContent(text="hi")])
