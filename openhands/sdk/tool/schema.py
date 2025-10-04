@@ -106,7 +106,16 @@ class Schema(BaseModel):
         full_schema = cls.model_json_schema()
         # This will get rid of all "anyOf" in the schema,
         # so it is fully compatible with MCP tool schema
-        return _process_schema_node(full_schema, full_schema.get("$defs", {}))
+        result = _process_schema_node(full_schema, full_schema.get("$defs", {}))
+
+        # Remove 'kind' from properties if present (discriminator field, not for LLM)
+        if "properties" in result and "kind" in result["properties"]:
+            result["properties"].pop("kind")
+            # Also remove from required if present
+            if "required" in result and "kind" in result["required"]:
+                result["required"].remove("kind")
+
+        return result
 
     @classmethod
     def from_mcp_schema(
