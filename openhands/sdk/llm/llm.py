@@ -36,6 +36,7 @@ from typing import cast
 
 from litellm import (
     ChatCompletionToolParam,
+    ResponseInputParam,
     completion as litellm_completion,
 )
 from litellm.exceptions import (
@@ -57,7 +58,6 @@ from litellm.utils import (
     supports_vision,
     token_counter,
 )
-from openai.types.responses.response_input_param import ResponseInputParam
 
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 
