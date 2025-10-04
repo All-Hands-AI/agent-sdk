@@ -423,7 +423,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Only pass tools when native FC is active
         kwargs["tools"] = cc_tools if (bool(cc_tools) and use_native_fc) else None
         has_tools_flag = bool(cc_tools) and use_native_fc
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
+        # Behavior-preserving: delegate to select_chat_options
+        from openhands.sdk.llm.options.chat_options import select_chat_options
+        call_kwargs = select_chat_options(self, kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
         assert self._telemetry is not None
@@ -532,8 +534,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
 
         # Normalize/override Responses kwargs consistently
-        call_kwargs = self._normalize_responses_kwargs(
-            kwargs, include=include, store=store
+        from openhands.sdk.llm.options.responses_options import (
+            select_responses_options,
+        )
+        call_kwargs = select_responses_options(
+            self, kwargs, include=include, store=store
         )
 
         # Optional request logging
@@ -661,75 +666,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             litellm.modify_params = old
 
     def _normalize_call_kwargs(self, opts: dict, *, has_tools: bool) -> dict:
-        """Central place for provider quirks + param harmonization."""
-        out = dict(opts)
-
-        # Respect configured sampling params unless reasoning models override
-        if self.top_k is not None:
-            out.setdefault("top_k", self.top_k)
-        if self.top_p is not None:
-            out.setdefault("top_p", self.top_p)
-        if self.temperature is not None:
-            out.setdefault("temperature", self.temperature)
-
-        # Max tokens wiring differences
-        if self.max_output_tokens is not None:
-            # OpenAI-compatible param is `max_completion_tokens`
-            out.setdefault("max_completion_tokens", self.max_output_tokens)
-
-        # Azure -> uses max_tokens instead
-        if self.model.startswith("azure"):
-            if "max_completion_tokens" in out:
-                out["max_tokens"] = out.pop("max_completion_tokens")
-
-        # Reasoning-model quirks
-        if get_features(self.model).supports_reasoning_effort:
-            # Preferred: use reasoning_effort
-            if self.reasoning_effort is not None:
-                out["reasoning_effort"] = self.reasoning_effort
-            # Anthropic/OpenAI reasoning models ignore temp/top_p
-            out.pop("temperature", None)
-            out.pop("top_p", None)
-            # Gemini 2.5-pro default to low if not set
-            # otherwise litellm doesn't send reasoning, even though it happens
-            if "gemini-2.5-pro" in self.model:
-                if self.reasoning_effort in {None, "none"}:
-                    out["reasoning_effort"] = "low"
-
-        # Extended thinking models
-        if get_features(self.model).supports_extended_thinking:
-            if self.extended_thinking_budget:
-                out["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": self.extended_thinking_budget,
-                }
-                # We need this to enable interleaved thinking
-                # https://docs.claude.com/en/docs/build-with-claude/extended-thinking#interleaved-thinking # noqa: E501
-                out["extra_headers"] = {
-                    "anthropic-beta": "interleaved-thinking-2025-05-14"
-                }
-                # We need this to fix a problematic behavior in litellm: https://github.com/BerriAI/litellm/blob/f6b67fd9bd6d019b08512eb9453fa5828977bad0/litellm/llms/base_llm/chat/transformation.py#L134-L144 # noqa: E501
-                out["max_tokens"] = self.max_output_tokens
-            # Anthropic models ignore temp/top_p
-            out.pop("temperature", None)
-            out.pop("top_p", None)
-
-        # Mistral / Gemini safety
-        if self.safety_settings:
-            ml = self.model.lower()
-            if "mistral" in ml or "gemini" in ml:
-                out["safety_settings"] = self.safety_settings
-
-        # Tools: if not using native, strip tool_choice so we don't confuse providers
-        if not has_tools:
-            out.pop("tools", None)
-            out.pop("tool_choice", None)
-
-        # non litellm proxy special-case: keep `extra_body` off unless model requires it
-        if "litellm_proxy" not in self.model:
-            out.pop("extra_body", None)
-
-        return out
+        """Deprecated: kept for backward compatibility; use options.select_chat_options."""
+        from openhands.sdk.llm.options.chat_options import select_chat_options
+        return select_chat_options(self, opts, has_tools=has_tools)
 
     def _normalize_responses_kwargs(
         self,
@@ -738,48 +677,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         include: list[str] | None,
         store: bool | None,
     ) -> dict:
-        """Central place to normalize kwargs for the Responses API path.
-
-        Policy:
-        - Start from user-provided opts and override a few keys consistently:
-          • temperature=1.0
-          • tool_choice="auto"
-          • include: append reasoning.encrypted_content if enabled
-          • store: defaults to False (unless explicitly provided)
-          • metadata: default to LLM.metadata if not provided
-          • max_output_tokens: default to LLM.max_output_tokens if not provided
-        """
-        out = dict(opts)
-
-        # Enforce sampling/tool behavior for Responses path
-        out["temperature"] = 1.0
-        out["tool_choice"] = "auto"
-
-        # Include encrypted reasoning if enabled
-        include_list = list(include) if include is not None else []
-        if (
-            self.enable_encrypted_reasoning
-            and "reasoning.encrypted_content" not in include_list
-        ):
-            include_list.append("reasoning.encrypted_content")
-        if include_list:
-            out["include"] = include_list
-
-        # Store defaults to False (stateless) unless explicitly provided
-        if store is not None:
-            out["store"] = bool(store)
-        else:
-            out.setdefault("store", False)
-
-        # Respect max_output_tokens if configured at LLM level
-        if self.max_output_tokens is not None:
-            out.setdefault("max_output_tokens", self.max_output_tokens)
-
-        # Request plaintext reasoning summary
-        effort = self.reasoning_effort or "high"
-        out["reasoning"] = {"effort": effort, "summary": "detailed"}
-
-        return out
+        """Deprecated: kept for backward compatibility; use options.select_responses_options."""
+        from openhands.sdk.llm.options.responses_options import (
+            select_responses_options,
+        )
+        return select_responses_options(self, opts, include=include, store=store)
 
     # =========================================================================
     # Capabilities, formatting, and info

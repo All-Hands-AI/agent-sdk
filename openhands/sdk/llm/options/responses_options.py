@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+from typing import Any
+
+
+def select_responses_options(
+    llm,
+    user_kwargs: dict[str, Any],
+    *,
+    include: list[str] | None,
+    store: bool | None,
+) -> dict[str, Any]:
+    """Behavior-preserving extraction of _normalize_responses_kwargs."""
+    out = dict(user_kwargs)
+
+    # Enforce sampling/tool behavior for Responses path
+    out["temperature"] = 1.0
+    out["tool_choice"] = "auto"
+
+    # Include encrypted reasoning if enabled
+    include_list = list(include) if include is not None else []
+    if llm.enable_encrypted_reasoning and "reasoning.encrypted_content" not in include_list:
+        include_list.append("reasoning.encrypted_content")
+    if include_list:
+        out["include"] = include_list
+
+    # Store defaults to False (stateless) unless explicitly provided
+    if store is not None:
+        out["store"] = bool(store)
+    else:
+        out.setdefault("store", False)
+
+    # Respect max_output_tokens if configured at LLM level
+    if llm.max_output_tokens is not None:
+        out.setdefault("max_output_tokens", llm.max_output_tokens)
+
+    # Request plaintext reasoning summary
+    effort = llm.reasoning_effort or "high"
+    out["reasoning"] = {"effort": effort, "summary": "detailed"}
+
+    return out
