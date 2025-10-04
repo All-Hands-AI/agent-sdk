@@ -963,7 +963,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        formatted_messages = [message.to_llm_dict() for message in messages]
+        formatted_messages = [message.to_chat_dict() for message in messages]
 
         return formatted_messages
 

@@ -153,9 +153,10 @@ class BaseContent(BaseModel):
     cache_prompt: bool = False
 
     @abstractmethod
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format. Always returns a list of dictionaries.
+    def _to_content_dicts(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to content dictionaries for LLM API format.
 
+        Internal method. Always returns a list of dictionaries.
         Subclasses should implement this method to return a list of dictionaries,
         even if they only have a single item.
         """
@@ -168,8 +169,8 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format."""
+    def _to_content_dicts(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to content dictionaries for LLM API format."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
             logger.warning(
@@ -191,8 +192,8 @@ class ImageContent(BaseContent):
     type: Literal["image"] = "image"
     image_urls: list[str]
 
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format."""
+    def _to_content_dicts(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to content dictionaries for LLM API format."""
         images: list[dict[str, str | dict[str, str]]] = []
         for url in self.image_urls:
             images.append({"type": "image_url", "image_url": {"url": url}})
@@ -278,10 +279,6 @@ class Message(BaseModel):
 
         return message_dict
 
-    # Backward-compatible alias
-    def to_llm_dict(self) -> dict[str, Any]:
-        return self.to_chat_dict()
-
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
         content = "\n".join(
@@ -289,7 +286,7 @@ class Message(BaseModel):
         )
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 
-        # tool call keys are added in to_llm_dict to centralize behavior
+        # tool call keys are added in to_chat_dict to centralize behavior
         return message_dict
 
     def _list_serializer(self) -> dict[str, Any]:
@@ -309,7 +306,7 @@ class Message(BaseModel):
 
         for item in self.content:
             # All content types now return list[dict[str, Any]]
-            item_dicts = item.to_llm_dict()
+            item_dicts = item._to_content_dicts()
 
             # We have to remove cache_prompt for tool content and move it up to the
             # message level
@@ -330,7 +327,7 @@ class Message(BaseModel):
         if role_tool_with_prompt_caching:
             message_dict["cache_control"] = {"type": "ephemeral"}
 
-        # tool call keys are added in to_llm_dict to centralize behavior
+        # tool call keys are added in to_chat_dict to centralize behavior
         return message_dict
 
     def to_responses_value(self, *, vision_enabled: bool) -> str | list[dict[str, Any]]:
@@ -571,11 +568,6 @@ class Message(BaseModel):
             tool_calls=tool_calls or None,
             responses_reasoning_item=responses_reasoning_item,
         )
-
-    @classmethod
-    def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
-        """Backward-compatible alias for Chat Completions path."""
-        return cls.from_llm_chat_message(message)
 
 
 def content_to_str(contents: Sequence[TextContent | ImageContent]) -> list[str]:
