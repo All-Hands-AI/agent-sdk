@@ -341,7 +341,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             "parameters": self._get_tool_schema(
                 add_security_risk_prediction, action_type
             ),
-            "strict": True,
+            "strict": False,
         }
 
     @classmethod
