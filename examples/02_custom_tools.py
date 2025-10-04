@@ -26,8 +26,8 @@ from openhands.sdk.tool import (
 )
 from openhands.tools.execute_bash import (
     BashExecutor,
+    BashTool,
     ExecuteBashAction,
-    execute_bash_tool,
 )
 from openhands.tools.file_editor import FileEditorTool
 
@@ -133,7 +133,8 @@ def _make_bash_and_grep_tools(conv_state) -> list[ToolDefinition]:
     """Create execute_bash and custom grep tools sharing one executor."""
 
     bash_executor = BashExecutor(working_dir=conv_state.workspace.working_dir)
-    bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
+    bash_tools = BashTool.create(conv_state)
+    bash_tool = bash_tools[0]
 
     grep_executor = GrepExecutor(bash_executor)
     grep_tool = ToolDefinition(

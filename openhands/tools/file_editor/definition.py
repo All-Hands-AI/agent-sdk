@@ -188,21 +188,6 @@ Remember: when making multiple file edits in a row to the same file, you should 
 """  # noqa: E501
 
 
-file_editor_tool = ToolDefinition(
-    name="str_replace_editor",
-    action_type=FileEditorAction,
-    observation_type=FileEditorObservation,
-    description=TOOL_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="str_replace_editor",
-        readOnlyHint=False,
-        destructiveHint=True,
-        idempotentHint=False,
-        openWorldHint=False,
-    ),
-)
-
-
 class FileEditorTool(ToolDefinition[FileEditorAction, FileEditorObservation]):
     """A ToolDefinition subclass that automatically initializes a FileEditorExecutor."""
 
@@ -237,11 +222,17 @@ class FileEditorTool(ToolDefinition[FileEditorAction, FileEditorObservation]):
         # Initialize the parent Tool with the executor
         return [
             cls(
-                name=file_editor_tool.name,
+                name="str_replace_editor",
                 description=enhanced_description,
                 action_type=FileEditorAction,
                 observation_type=FileEditorObservation,
-                annotations=file_editor_tool.annotations,
+                annotations=ToolAnnotations(
+                    title="str_replace_editor",
+                    readOnlyHint=False,
+                    destructiveHint=True,
+                    idempotentHint=False,
+                    openWorldHint=False,
+                ),
                 executor=executor,
             )
         ]

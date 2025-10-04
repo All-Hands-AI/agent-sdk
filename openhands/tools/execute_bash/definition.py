@@ -217,21 +217,6 @@ TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent
 """  # noqa
 
 
-execute_bash_tool = ToolDefinition(
-    name="execute_bash",
-    action_type=ExecuteBashAction,
-    observation_type=ExecuteBashObservation,
-    description=TOOL_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="execute_bash",
-        readOnlyHint=False,
-        destructiveHint=True,
-        idempotentHint=False,
-        openWorldHint=True,
-    ),
-)
-
-
 class BashTool(ToolDefinition[ExecuteBashAction, ExecuteBashObservation]):
     """A ToolDefinition subclass that automatically initializes a BashExecutor with auto-detection."""  # noqa: E501
 
@@ -285,11 +270,17 @@ class BashTool(ToolDefinition[ExecuteBashAction, ExecuteBashObservation]):
         # Initialize the parent ToolDefinition with the executor
         return [
             cls(
-                name=execute_bash_tool.name,
+                name="execute_bash",
                 description=TOOL_DESCRIPTION,
                 action_type=ExecuteBashAction,
                 observation_type=ExecuteBashObservation,
-                annotations=execute_bash_tool.annotations,
+                annotations=ToolAnnotations(
+                    title="execute_bash",
+                    readOnlyHint=False,
+                    destructiveHint=True,
+                    idempotentHint=False,
+                    openWorldHint=True,
+                ),
                 executor=executor,
             )
         ]
