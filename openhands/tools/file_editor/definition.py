@@ -49,7 +49,7 @@ class FileEditorAction(Action):
     )
     insert_line: int | None = Field(
         default=None,
-        ge=1,
+        ge=0,
         description="Required parameter of `insert` command. The `new_str` will "
         "be inserted AFTER the line `insert_line` of `path`.",
     )
