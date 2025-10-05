@@ -67,6 +67,8 @@ from openhands.sdk.llm.message import (
     Message,
 )
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
+from openhands.sdk.llm.options.chat_options import select_chat_options
+from openhands.sdk.llm.options.responses_options import select_responses_options
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
@@ -424,8 +426,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         kwargs["tools"] = cc_tools if (bool(cc_tools) and use_native_fc) else None
         has_tools_flag = bool(cc_tools) and use_native_fc
         # Behavior-preserving: delegate to select_chat_options
-        from openhands.sdk.llm.options.chat_options import select_chat_options
-
         call_kwargs = select_chat_options(self, kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
@@ -535,10 +535,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
 
         # Normalize/override Responses kwargs consistently
-        from openhands.sdk.llm.options.responses_options import (
-            select_responses_options,
-        )
-
         call_kwargs = select_responses_options(
             self, kwargs, include=include, store=store
         )
