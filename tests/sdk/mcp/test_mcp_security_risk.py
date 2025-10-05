@@ -126,7 +126,9 @@ def test_mcp_tool_action_from_arguments_with_security_risk():
     action = tool.action_from_arguments(arguments)
 
     assert isinstance(action, MCPToolAction)
-    assert action.data == {"url": "https://google.com"}
+    # Note: action.data includes 'kind' field from DiscriminatedUnionMixin
+    # which is part of the internal representation
+    assert action.data == {"kind": "FetchFetchAction", "url": "https://google.com"}
 
 
 def test_mcp_tool_validates_correctly_after_security_risk_pop():
@@ -169,7 +171,9 @@ def test_mcp_tool_validates_correctly_after_security_risk_pop():
 
     # Verify the action is created correctly
     assert isinstance(action, MCPToolAction)
-    assert action.data == {"url": "https://google.com"}
+    # Note: action.data includes 'kind' field from DiscriminatedUnionMixin
+    # which is part of the internal representation
+    assert action.data == {"kind": "FetchFetchAction", "url": "https://google.com"}
 
     # 4. Execute the action (this should also work)
     observation = tool(action)
