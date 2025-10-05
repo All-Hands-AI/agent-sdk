@@ -145,6 +145,20 @@ class SetConfirmationPolicyRequest(BaseModel):
     policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
 
 
+class GenerateTitleRequest(BaseModel):
+    """Payload to generate a title for a conversation."""
+
+    max_length: int = Field(
+        default=50, ge=1, le=200, description="Maximum length of the generated title"
+    )
+
+
+class GenerateTitleResponse(BaseModel):
+    """Response containing the generated conversation title."""
+
+    title: str = Field(description="The generated title for the conversation")
+
+
 class BashEventBase(DiscriminatedUnionMixin, ABC):
     """Base class for all bash event types"""
 
