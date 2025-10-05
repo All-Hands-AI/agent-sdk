@@ -296,37 +296,10 @@ class Telemetry(BaseModel):
 
 
 def _safe_json(obj: Any) -> Any:
-    # Centralized safe serializer for telemetry logs.
-    # Today, responses are Pydantic ModelResponse; rely on that shape.
-    if isinstance(obj, ModelResponse):
-        data = obj.model_dump()
-
-        # Redact obvious secret-like keys recursively
-        def redact_value(key: str, value: Any) -> Any:
-            key_l = key.lower()
-            sensitive = (
-                "api_key",
-                "authorization",
-                "access_token",
-                "bearer",
-                "password",
-                "secret",
-                "cookie",
-            )
-            if any(sk in key_l for sk in sensitive):
-                return "[redacted]"
-            return value
-
-        def recurse(o: Any) -> Any:
-            if isinstance(o, dict):
-                return {k: recurse(redact_value(k, v)) for k, v in o.items()}
-            if isinstance(o, list):
-                return [recurse(v) for v in o]
-            if isinstance(o, tuple):
-                return tuple(recurse(v) for v in o)
-            return o
-
-        return recurse(data)
+    # Centralized serializer for telemetry logs.
+    # Today, responses are Pydantic ModelResponse or ResponsesAPIResponse; rely on it.
+    if isinstance(obj, ModelResponse) or isinstance(obj, ResponsesAPIResponse):
+        return obj.model_dump()
 
     # Fallbacks for non-Pydantic objects used elsewhere in the log payload
     try:
