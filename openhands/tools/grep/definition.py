@@ -91,14 +91,7 @@ TOOL_DESCRIPTION = """Fast content search tool.
 * Filter files by pattern with the include parameter (eg. "*.js", "*.{ts,tsx}")
 * Returns matching file paths sorted by modification time.
 * Only the first 100 results are returned. Consider narrowing your search with stricter regex patterns or provide path parameter if you need more results.
-* Use this tool when you need to find files containing specific patterns
-* When you are doing an open ended search that may require multiple rounds of globbing and grepping, use the Agent tool instead
-
-Examples:
-- Find error logs: "error|Error|ERROR"
-- Find function definitions: "def\\s+\\w+"
-- Find TODO comments: "TODO|FIXME|XXX"
-- Find imports: "^import\\s+|^from\\s+\\w+\\s+import"
+* Use this tool when you need to find files containing specific patterns.
 """  # noqa
 
 
