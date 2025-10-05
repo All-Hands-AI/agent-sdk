@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.options.common import apply_defaults_if_absent
+from openhands.sdk.llm.utils.model_features import get_features
 
 
-def select_chat_options(llm, user_kwargs: dict[str, Any], has_tools: bool) -> dict[str, Any]:
+def select_chat_options(
+    llm, user_kwargs: dict[str, Any], has_tools: bool
+) -> dict[str, Any]:
     """Behavior-preserving extraction of _normalize_call_kwargs.
 
     This keeps the exact provider-aware mappings and precedence.

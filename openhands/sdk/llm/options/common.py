@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 
-def apply_defaults_if_absent(user_kwargs: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
+def apply_defaults_if_absent(
+    user_kwargs: dict[str, Any], defaults: dict[str, Any]
+) -> dict[str, Any]:
     """Return a new dict with defaults applied when keys are absent.
 
     - Pure and deterministic; does not mutate inputs
