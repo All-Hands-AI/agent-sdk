@@ -16,7 +16,7 @@ def test_text_content_with_cache_prompt():
     from openhands.sdk.llm.message import TextContent
 
     content = TextContent(text="Hello world", cache_prompt=True)
-    result = content._to_content_dicts()
+    result = content.to_llm_dict()
 
     assert len(result) == 1
     assert result[0]["type"] == "text"
@@ -32,7 +32,7 @@ def test_image_content_with_cache_prompt():
         image_urls=["data:image/png;base64,abc123", "data:image/jpeg;base64,def456"],
         cache_prompt=True,
     )
-    result = content._to_content_dicts()
+    result = content.to_llm_dict()
 
     assert len(result) == 2
     assert result[0]["type"] == "image_url"
@@ -173,7 +173,7 @@ def test_text_content_truncation_under_limit():
     from openhands.sdk.llm.message import TextContent
 
     content = TextContent(text="Short text")
-    result = content._to_content_dicts()
+    result = content.to_llm_dict()
 
     assert len(result) == 1
     assert result[0]["text"] == "Short text"
@@ -189,7 +189,7 @@ def test_text_content_truncation_over_limit():
 
     with patch("openhands.sdk.llm.message.logger") as mock_logger:
         content = TextContent(text=long_text)
-        result = content._to_content_dicts()
+        result = content.to_llm_dict()
 
         # Check that warning was logged
         mock_logger.warning.assert_called_once()
@@ -220,7 +220,7 @@ def test_text_content_truncation_exact_limit():
 
     with patch("openhands.sdk.llm.message.logger") as mock_logger:
         content = TextContent(text=exact_text)
-        result = content._to_content_dicts()
+        result = content.to_llm_dict()
 
         # Check that no warning was logged
         mock_logger.warning.assert_not_called()

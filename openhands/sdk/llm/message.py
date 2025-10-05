@@ -153,10 +153,9 @@ class BaseContent(BaseModel):
     cache_prompt: bool = False
 
     @abstractmethod
-    def _to_content_dicts(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to content dictionaries for LLM API format.
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format. Always returns a list of dictionaries.
 
-        Internal method. Always returns a list of dictionaries.
         Subclasses should implement this method to return a list of dictionaries,
         even if they only have a single item.
         """
@@ -169,8 +168,8 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def _to_content_dicts(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to content dictionaries for LLM API format."""
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
             logger.warning(
@@ -192,8 +191,8 @@ class ImageContent(BaseContent):
     type: Literal["image"] = "image"
     image_urls: list[str]
 
-    def _to_content_dicts(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to content dictionaries for LLM API format."""
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format."""
         images: list[dict[str, str | dict[str, str]]] = []
         for url in self.image_urls:
             images.append({"type": "image_url", "image_url": {"url": url}})
@@ -306,7 +305,7 @@ class Message(BaseModel):
 
         for item in self.content:
             # All content types now return list[dict[str, Any]]
-            item_dicts = item._to_content_dicts()
+            item_dicts = item.to_llm_dict()
 
             # We have to remove cache_prompt for tool content and move it up to the
             # message level
