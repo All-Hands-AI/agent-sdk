@@ -1,5 +1,6 @@
 """String replace editor tool implementation."""
 
+import os
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
@@ -61,6 +62,26 @@ class FileEditorAction(Action):
         "show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, "
         "-1]` shows all lines from `start_line` to the end of the file.",
     )
+
+    @property
+    def summary(self) -> str:
+        """Return a brief summary showing the command and file path."""
+        filename = os.path.basename(self.path) if self.path else "file"
+
+        if self.command == "view":
+            if self.view_range:
+                return f"view {filename} [{self.view_range[0]}-{self.view_range[1]}]"
+            return f"view {filename}"
+        elif self.command == "create":
+            return f"create {filename}"
+        elif self.command == "str_replace":
+            return f"edit {filename}"
+        elif self.command == "insert":
+            return f"insert in {filename}"
+        elif self.command == "undo_edit":
+            return f"undo edit {filename}"
+        else:
+            return f"{self.command} {filename}"
 
 
 class FileEditorObservation(Observation):
