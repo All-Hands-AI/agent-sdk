@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import uuid
 import warnings
 from typing import Any
 
@@ -66,6 +67,8 @@ class Telemetry(BaseModel):
 
         # 2) cost
         cost = self._compute_cost(resp)
+        # Intentionally skip logging zero-cost (0.0) responses; only record
+        # positive cost
         if cost:
             self.metrics.add_cost(cost)
 
@@ -221,10 +224,17 @@ class Telemetry(BaseModel):
 
             fname = os.path.join(
                 self.log_dir,
-                f"{self.model_name.replace('/', '__')}-{time.time():.3f}.json",
+                (
+                    f"{self.model_name.replace('/', '__')}-"
+                    f"{time.time():.3f}-"
+                    f"{uuid.uuid4().hex[:4]}.json"
+                ),
             )
             data = self._req_ctx.copy()
-            data["response"] = resp.model_dump()
+            data["response"] = (
+                resp  # ModelResponse | ResponsesAPIResponse;
+                # serialized via _safe_json
+            )
             data["cost"] = float(cost or 0.0)
             data["timestamp"] = time.time()
             data["latency_sec"] = self._last_latency
@@ -272,10 +282,17 @@ class Telemetry(BaseModel):
 
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
-                data["raw_response"] = raw_resp
-            # pop duplicated tools
-            if "tool" in data and "tool" in data.get("kwargs", {}):
-                data["kwargs"].pop("tool")
+                data["raw_response"] = (
+                    raw_resp  # ModelResponse | ResponsesAPIResponse;
+                    # serialized via _safe_json
+                )
+            # Pop duplicated tools to avoid logging twice
+            if (
+                "tools" in data
+                and isinstance(data.get("kwargs"), dict)
+                and "tools" in data["kwargs"]
+            ):
+                data["kwargs"].pop("tools")
             with open(fname, "w") as f:
                 f.write(json.dumps(data, default=_safe_json))
         except Exception as e:
@@ -283,6 +300,12 @@ class Telemetry(BaseModel):
 
 
 def _safe_json(obj: Any) -> Any:
+    # Centralized serializer for telemetry logs.
+    # Today, responses are Pydantic ModelResponse or ResponsesAPIResponse; rely on it.
+    if isinstance(obj, ModelResponse) or isinstance(obj, ResponsesAPIResponse):
+        return obj.model_dump()
+
+    # Fallbacks for non-Pydantic objects used elsewhere in the log payload
     try:
         return obj.__dict__
     except Exception:
