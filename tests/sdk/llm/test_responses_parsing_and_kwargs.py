@@ -11,6 +11,7 @@ from openai.types.responses.response_reasoning_item import (
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.message import Message, ReasoningItemModel, TextContent
+from openhands.sdk.llm.options.responses_options import select_responses_options
 
 
 def build_responses_message_output(texts: list[str]) -> ResponseOutputMessage:
@@ -63,8 +64,6 @@ def test_normalize_responses_kwargs_policy():
     # enable encrypted reasoning and set max_output_tokens to test passthrough
     llm.enable_encrypted_reasoning = True
     llm.max_output_tokens = 128
-
-    from openhands.sdk.llm.options.responses_options import select_responses_options
 
     out = select_responses_options(
         llm, {"temperature": 0.3}, include=["text.output_text"], store=None
