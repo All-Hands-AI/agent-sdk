@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinition
-from openhands.tools.common import BASE_TOOL_DESCRIPTION
+from openhands.tools.common import BASE_FILE_TOOL_DESCRIPTION
 
 
 class FileViewerAction(Action):
@@ -42,7 +42,7 @@ class FileViewerObservation(Observation):
         return [TextContent(text=self.content)]
 
 
-TOOL_DESCRIPTION = BASE_TOOL_DESCRIPTION.format(
+TOOL_DESCRIPTION = BASE_FILE_TOOL_DESCRIPTION.format(
     editing_capabilities="",
     extra_viewing_capabilities="",
     extra_features="",

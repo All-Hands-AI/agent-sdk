@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field, PrivateAttr
 
-from openhands.tools.common import BASE_TOOL_DESCRIPTION
+from openhands.tools.common import BASE_FILE_TOOL_DESCRIPTION
 
 
 if TYPE_CHECKING:
@@ -183,7 +183,7 @@ Remember: when making multiple file edits in a row to the same file, you should 
 """  # noqa: E501
 
 
-TOOL_DESCRIPTION = BASE_TOOL_DESCRIPTION.format(
+TOOL_DESCRIPTION = BASE_FILE_TOOL_DESCRIPTION.format(
     editing_capabilities=" editing",
     extra_viewing_capabilities=", creating and editing",
     extra_features=extra_features,
