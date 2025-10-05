@@ -224,7 +224,15 @@ class Telemetry(BaseModel):
                 f"{self.model_name.replace('/', '__')}-{time.time():.3f}.json",
             )
             data = self._req_ctx.copy()
-            data["response"] = resp.model_dump()
+
+            # Suppress Pydantic serialization warnings from LiteLLM's ModelResponse
+            # These warnings occur due to internal type mismatches in LiteLLM
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message="Pydantic serializer warnings"
+                )
+                data["response"] = resp.model_dump()
+
             data["cost"] = float(cost or 0.0)
             data["timestamp"] = time.time()
             data["latency_sec"] = self._last_latency

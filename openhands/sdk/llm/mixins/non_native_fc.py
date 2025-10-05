@@ -79,6 +79,7 @@ class NonNativeToolCallingMixin:
         # Preserve provider-specific reasoning fields before conversion
         orig_msg = resp.choices[0].message
         non_fn_message: dict = orig_msg.model_dump()
+
         fn_msgs: list[dict] = convert_non_fncall_messages_to_fncall_messages(
             nonfncall_msgs + [non_fn_message], tools
         )
