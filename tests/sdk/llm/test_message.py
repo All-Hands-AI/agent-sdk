@@ -77,7 +77,7 @@ def test_message_tool_role_with_cache_prompt():
         cache_enabled=True,
     )
 
-    result = message.to_llm_dict()
+    result = message.to_chat_dict()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
     assert result["cache_control"] == {"type": "ephemeral"}
@@ -103,7 +103,7 @@ def test_message_tool_role_with_image_cache_prompt():
         cache_enabled=True,
     )
 
-    result = message.to_llm_dict()
+    result = message.to_chat_dict()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
     assert result["cache_control"] == {"type": "ephemeral"}
@@ -132,7 +132,7 @@ def test_message_with_tool_calls():
         tool_calls=[tool_call],
     )
 
-    result = message.to_llm_dict()
+    result = message.to_chat_dict()
     assert result["role"] == "assistant"
     assert "tool_calls" in result
     assert len(result["tool_calls"]) == 1
@@ -142,8 +142,8 @@ def test_message_with_tool_calls():
     assert result["tool_calls"][0]["function"]["arguments"] == '{"arg": "value"}'
 
 
-def test_message_from_litellm_message_function_role_error():
-    """Test Message.from_litellm_message with function role raises error."""
+def test_message_from_llm_chat_message_function_role_error():
+    """Test Message.from_llm_chat_message with function role raises error."""
     from litellm.types.utils import Message as LiteLLMMessage
 
     from openhands.sdk.llm.message import Message
@@ -151,11 +151,11 @@ def test_message_from_litellm_message_function_role_error():
     litellm_message = LiteLLMMessage(role="function", content="Function response")  # type: ignore
 
     with pytest.raises(AssertionError, match="Function role is not supported"):
-        Message.from_litellm_message(litellm_message)
+        Message.from_llm_chat_message(litellm_message)
 
 
-def test_message_from_litellm_message_with_non_string_content():
-    """Test Message.from_litellm_message with non-string content."""
+def test_message_from_llm_chat_message_with_non_string_content():
+    """Test Message.from_llm_chat_message with non-string content."""
     from litellm.types.utils import Message as LiteLLMMessage
 
     from openhands.sdk.llm.message import Message
@@ -163,7 +163,7 @@ def test_message_from_litellm_message_with_non_string_content():
     # Create a message with non-string content (None or list)
     litellm_message = LiteLLMMessage(role="assistant", content=None)
 
-    result = Message.from_litellm_message(litellm_message)
+    result = Message.from_llm_chat_message(litellm_message)
     assert result.role == "assistant"
     assert result.content == []  # Empty list for non-string content
 
