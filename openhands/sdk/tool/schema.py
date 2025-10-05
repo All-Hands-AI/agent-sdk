@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import ConfigDict, Field, create_model
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -95,7 +95,7 @@ def _process_schema_node(node, defs):
     return result
 
 
-class Schema(BaseModel):
+class Schema(DiscriminatedUnionMixin):
     """Base schema for input action / output observation."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -109,11 +109,13 @@ class Schema(BaseModel):
         result = _process_schema_node(full_schema, full_schema.get("$defs", {}))
 
         # Remove 'kind' from properties if present (discriminator field, not for LLM)
-        if "properties" in result and "kind" in result["properties"]:
-            result["properties"].pop("kind")
-            # Also remove from required if present
-            if "required" in result and "kind" in result["required"]:
-                result["required"].remove("kind")
+        EXCLUDE_FIELDS = DiscriminatedUnionMixin.model_fields.keys()
+        for f in EXCLUDE_FIELDS:
+            if "properties" in result and f in result["properties"]:
+                result["properties"].pop(f)
+                # Also remove from required if present
+                if "required" in result and f in result["required"]:
+                    result["required"].remove(f)
 
         return result
 
@@ -159,7 +161,7 @@ class Schema(BaseModel):
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class Action(Schema, DiscriminatedUnionMixin, ABC):
+class Action(Schema, ABC):
     """Base schema for input action."""
 
     @property
@@ -185,7 +187,7 @@ class Action(Schema, DiscriminatedUnionMixin, ABC):
         return content
 
 
-class Observation(Schema, DiscriminatedUnionMixin, ABC):
+class Observation(Schema, ABC):
     """Base schema for output observation."""
 
     @property
