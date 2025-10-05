@@ -53,7 +53,7 @@ def test_file_viewer_tool_view_file():
         tool = FileViewerTool.create(conv_state=conv_state)[0]
 
         # Test viewing the file
-        action = FileViewerAction(command="view", path=str(test_file))
+        action = FileViewerAction(path=str(test_file))
         observation = tool(action)
 
         assert isinstance(observation, FileViewerObservation)
@@ -73,7 +73,7 @@ def test_file_viewer_tool_view_directory():
         tool = FileViewerTool.create(conv_state=conv_state)[0]
 
         # Test viewing the directory
-        action = FileViewerAction(command="view", path=temp_dir)
+        action = FileViewerAction(path=temp_dir)
         observation = tool(action)
 
         assert isinstance(observation, FileViewerObservation)
@@ -169,16 +169,3 @@ def test_file_viewer_tool_to_openai_tool():
     assert function_def["name"] == "file_viewer"
     description = function_def.get("description", "")
     assert "read-only tool" in description
-
-    # Check that only view command is allowed
-    parameters = function_def.get("parameters")
-    assert parameters is not None
-    command_property = parameters["properties"]["command"]
-    # The command should be restricted to "view" only
-    if "enum" in command_property:
-        assert command_property["enum"] == ["view"]
-    elif "const" in command_property:
-        assert command_property["const"] == "view"
-    else:
-        # Check if it's a literal type restriction
-        assert "view" in str(command_property)
