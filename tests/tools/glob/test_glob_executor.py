@@ -30,7 +30,7 @@ def test_glob_executor_basic_pattern():
         assert len(observation.files) == 2
         assert all(f.endswith(".py") for f in observation.files)
         assert observation.pattern == "*.py"
-        assert observation.search_path == temp_dir
+        assert observation.search_path == str(Path(temp_dir).resolve())
 
 
 def test_glob_executor_recursive_pattern():
@@ -72,7 +72,7 @@ def test_glob_executor_custom_path():
 
         assert observation.error is None
         assert len(observation.files) == 2
-        assert observation.search_path == str(sub_dir)
+        assert observation.search_path == str(sub_dir.resolve())
         assert all(str(sub_dir) in f for f in observation.files)
 
 

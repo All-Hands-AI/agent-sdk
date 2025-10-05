@@ -88,7 +88,7 @@ def test_glob_tool_find_files():
         assert observation.error is None
         assert len(observation.files) == 3  # test.py, src/app.py, tests/test_main.py
         assert observation.pattern == "**/*.py"
-        assert observation.search_path == temp_dir
+        assert observation.search_path == str(Path(temp_dir).resolve())
         assert not observation.truncated
 
         # Check that all found files are Python files
@@ -121,7 +121,7 @@ def test_glob_tool_specific_directory():
 
         assert observation.error is None
         assert len(observation.files) == 2  # app.py, utils.py
-        assert observation.search_path == str(src_dir)
+        assert observation.search_path == str(src_dir.resolve())
 
         # Check that all found files are in src directory
         for file_path in observation.files:
@@ -219,9 +219,15 @@ def test_glob_tool_directories_excluded():
         observation = tool.executor(action)
 
         assert observation.error is None
-        # Should only find files, not directories
-        assert len(observation.files) == 1  # Only app.py
-        assert observation.files[0].endswith("app.py")
+        # Should find all files recursively, but not directories
+        assert len(observation.files) == 2  # app.py and src/utils.py
+        # Verify both files are present
+        file_names = [Path(f).name for f in observation.files]
+        assert "app.py" in file_names
+        assert "utils.py" in file_names
+        # Verify no directory paths are included
+        for file_path in observation.files:
+            assert Path(file_path).is_file() or not Path(file_path).exists()
 
 
 def test_glob_tool_to_llm_content():

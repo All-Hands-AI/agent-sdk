@@ -34,31 +34,17 @@ class GrepAction(Action):
     )
 
 
-class GrepMatch:
-    """A single grep match result."""
-
-    def __init__(self, file_path: str, line_number: int, line_content: str):
-        self.file_path = file_path
-        self.line_number = line_number
-        self.line_content = line_content
-
-    def __str__(self) -> str:
-        return f"{self.file_path}:{self.line_number}:{self.line_content}"
-
-
 class GrepObservation(Observation):
     """Observation from grep content search operations."""
 
-    matches: list[dict[str, str | int]] = Field(
-        description="List of matches with file_path, line_number, and line_content"
-    )
+    matches: list[str] = Field(description="List of file paths containing the pattern")
     pattern: str = Field(description="The regex pattern that was used")
     search_path: str = Field(description="The directory that was searched")
     include_pattern: str | None = Field(
         default=None, description="The file pattern filter that was used"
     )
     truncated: bool = Field(
-        default=False, description="Whether results were truncated to 100 matches"
+        default=False, description="Whether results were truncated to 100 files"
     )
     error: str | None = Field(default=None, description="Error message if any")
 
@@ -75,30 +61,24 @@ class GrepObservation(Observation):
                 else ""
             )
             content = (
-                f"No matches found for pattern '{self.pattern}' "
+                f"No files found containing pattern '{self.pattern}' "
                 f"in directory '{self.search_path}'{include_info}"
             )
         else:
-            match_lines = []
-            for match in self.matches:
-                match_lines.append(
-                    f"{match['file_path']}:{match['line_number']}:"
-                    f"{match['line_content']}"
-                )
-
             include_info = (
                 f" (filtered by '{self.include_pattern}')"
                 if self.include_pattern
                 else ""
             )
+            file_list = "\n".join(self.matches)
             content = (
-                f"Found {len(self.matches)} match(es) for pattern "
+                f"Found {len(self.matches)} file(s) containing pattern "
                 f"'{self.pattern}' in '{self.search_path}'{include_info}:\n"
-                + "\n".join(match_lines)
+                f"{file_list}"
             )
             if self.truncated:
                 content += (
-                    "\n\n[Results truncated to first 100 matches. "
+                    "\n\n[Results truncated to first 100 files. "
                     "Consider using a more specific pattern.]"
                 )
 

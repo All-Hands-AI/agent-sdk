@@ -1,8 +1,7 @@
 """Grep tool executor implementation."""
 
-import fnmatch
-import os
 import re
+import subprocess
 from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
@@ -10,7 +9,13 @@ from openhands.tools.grep.definition import GrepAction, GrepObservation
 
 
 class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
-    """Executor for grep content search operations."""
+    """Executor for grep content search operations.
+
+    This implementation
+    - Case-insensitive search (rg -i)
+    - Returns only file paths (rg -l)
+    - Sorted by modification time (--sortr=modified)
+    """
 
     def __init__(self, working_dir: str):
         """Initialize the grep executor.
@@ -21,13 +26,13 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
         self.working_dir = Path(working_dir).resolve()
 
     def __call__(self, action: GrepAction) -> GrepObservation:
-        """Execute grep content search.
+        """Execute grep content search using ripgrep.
 
         Args:
             action: The grep action containing pattern, path, and include filter
 
         Returns:
-            GrepObservation with matching lines or error information
+            GrepObservation with matching file paths
         """
         try:
             # Determine search path
@@ -44,9 +49,9 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
             else:
                 search_path = self.working_dir
 
-            # Compile regex pattern
+            # Validate regex pattern
             try:
-                regex = re.compile(action.pattern)
+                re.compile(action.pattern)
             except re.error as e:
                 return GrepObservation(
                     matches=[],
@@ -56,58 +61,34 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
                     error=f"Invalid regex pattern: {e}",
                 )
 
-            # Find all files to search
-            files_to_search = []
-            for root, dirs, files in os.walk(search_path):
-                # Skip hidden directories
-                dirs[:] = [d for d in dirs if not d.startswith(".")]
+            # Build ripgrep command: rg -li pattern --sortr=modified
+            cmd = [
+                "rg",
+                "-l",  # files-with-matches
+                "-i",  # ignore-case
+                action.pattern,
+                str(search_path),
+                "--sortr=modified",
+            ]
 
-                for file in files:
-                    # Skip hidden files
-                    if file.startswith("."):
-                        continue
+            # Apply include glob pattern if specified
+            if action.include:
+                cmd.extend(["-g", action.include])
 
-                    file_path = Path(root) / file
+            # Execute ripgrep
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=30, check=False
+            )
 
-                    # Apply include filter if specified
-                    if action.include:
-                        if not fnmatch.fnmatch(file, action.include):
-                            continue
-
-                    # Only search text files (skip binary files)
-                    if self._is_text_file(file_path):
-                        files_to_search.append(file_path)
-
-            # Sort files by modification time (newest first)
-            files_to_search.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-
-            # Search for pattern in files
+            # Parse output into file paths
             matches = []
-            for file_path in files_to_search:
-                try:
-                    with open(file_path, encoding="utf-8", errors="ignore") as f:
-                        for line_num, line in enumerate(f, 1):
-                            line = line.rstrip("\n\r")
-                            if regex.search(line):
-                                matches.append(
-                                    {
-                                        "file_path": str(file_path),
-                                        "line_number": line_num,
-                                        "line_content": line,
-                                    }
-                                )
-
-                                # Limit to first 100 matches
-                                if len(matches) >= 100:
-                                    break
-
-                    # Break if we've reached the limit
-                    if len(matches) >= 100:
-                        break
-
-                except (OSError, UnicodeDecodeError):
-                    # Skip files that can't be read
-                    continue
+            if result.stdout:
+                for line in result.stdout.strip().split("\n"):
+                    if line:
+                        matches.append(line)
+                        # Limit to first 100 files
+                        if len(matches) >= 100:
+                            break
 
             truncated = len(matches) >= 100
 
@@ -136,109 +117,3 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
                 include_pattern=action.include,
                 error=str(e),
             )
-
-    def _is_text_file(self, file_path: Path) -> bool:
-        """Check if a file is likely a text file.
-
-        Args:
-            file_path: Path to the file to check
-
-        Returns:
-            True if the file is likely a text file, False otherwise
-        """
-        # Check file extension
-        text_extensions = {
-            ".txt",
-            ".py",
-            ".js",
-            ".ts",
-            ".jsx",
-            ".tsx",
-            ".html",
-            ".htm",
-            ".css",
-            ".scss",
-            ".sass",
-            ".less",
-            ".json",
-            ".xml",
-            ".yaml",
-            ".yml",
-            ".toml",
-            ".ini",
-            ".cfg",
-            ".conf",
-            ".md",
-            ".rst",
-            ".tex",
-            ".sh",
-            ".bash",
-            ".zsh",
-            ".fish",
-            ".ps1",
-            ".bat",
-            ".cmd",
-            ".c",
-            ".cpp",
-            ".cc",
-            ".cxx",
-            ".h",
-            ".hpp",
-            ".hxx",
-            ".java",
-            ".kt",
-            ".scala",
-            ".go",
-            ".rs",
-            ".rb",
-            ".php",
-            ".pl",
-            ".pm",
-            ".r",
-            ".R",
-            ".sql",
-            ".dockerfile",
-            ".makefile",
-            ".cmake",
-            ".gitignore",
-            ".gitattributes",
-            ".editorconfig",
-            ".env",
-            ".properties",
-            ".log",
-        }
-
-        if file_path.suffix.lower() in text_extensions:
-            return True
-
-        # Check common filenames without extensions
-        text_filenames = {
-            "readme",
-            "license",
-            "changelog",
-            "makefile",
-            "dockerfile",
-            "jenkinsfile",
-            "vagrantfile",
-            "gemfile",
-            "rakefile",
-            "procfile",
-        }
-
-        if file_path.name.lower() in text_filenames:
-            return True
-
-        # For files without clear extensions, try to read a small sample
-        try:
-            with open(file_path, "rb") as f:
-                sample = f.read(1024)
-                # Check if the sample contains mostly printable ASCII characters
-                if not sample:
-                    return True  # Empty file is considered text
-                # Count printable characters
-                printable_chars = sum(
-                    1 for byte in sample if 32 <= byte <= 126 or byte in (9, 10, 13)
-                )
-                return printable_chars / len(sample) > 0.7
-        except (OSError, PermissionError):
-            return False
