@@ -41,27 +41,17 @@ class FileViewerObservation(Observation):
         return [TextContent(text=self.content)]
 
 
-TOOL_DESCRIPTION = """
-Custom file viewer tool for viewing files and directories in plain-text format.
-This is a read-only tool that only supports viewing operations.
-
+BASE_TOOL_DESCRIPTION = """Custom tool for viewing{editing_capabilities} files and directories in plain-text format.
 * State is persistent across command calls and discussions with the user
-* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
-* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
-
-Before using this tool:
-1. Use the view tool to understand the file's contents and context
-2. Verify the directory path is correct
-
-When viewing files:
-   - Always use absolute file paths (starting with /)
-
-CRITICAL REQUIREMENTS FOR USING THIS TOOL:
-
-1. READ-ONLY ACCESS: This tool only supports viewing files and directories. No editing operations are available.
-
-2. VIEW OPERATION: Use the `view` command to inspect file contents or directory listings.
+* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep{extra_features}
+* If the tool generates a long output, it will be truncated and marked with `<response clipped>`
+* When working with files, always use absolute files paths (starting with /){extra_features}
 """  # noqa
+
+TOOL_DESCRIPTION = BASE_TOOL_DESCRIPTION.format(
+    editing_capabilities=" (no editing capabilities)",
+    extra_features="",
+)
 
 
 class FileViewerTool(ToolDefinition[FileViewerAction, FileViewerObservation]):

@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field, PrivateAttr
 
+from openhands.tools.file_viewer.definition import BASE_TOOL_DESCRIPTION
+
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
@@ -153,15 +155,11 @@ Command = Literal[
     "undo_edit",
 ]
 
+extra_features = """
 
-TOOL_DESCRIPTION = """Custom editing tool for viewing, creating and editing files in plain-text format
-* State is persistent across command calls and discussions with the user
-* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
 * The `create` command cannot be used if the specified `path` already exists as a file
-* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
 * The `undo_edit` command will revert the last edit made to the file at `path`
 * This tool can be used for creating and editing files in plain-text format.
-
 
 Before using this tool:
 1. Use the view tool to understand the file's contents and context
@@ -171,8 +169,6 @@ Before using this tool:
 When making edits:
    - Ensure the edit results in idiomatic, correct code
    - Do not leave the code in a broken state
-   - Always use absolute file paths (starting with /)
-
 CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 
 1. EXACT MATCHING: The `old_str` parameter must match EXACTLY one or more consecutive lines from the file, including all whitespace and indentation. The tool will fail if `old_str` matches multiple locations or doesn't match exactly with the file content.
@@ -185,6 +181,12 @@ CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 
 Remember: when making multiple file edits in a row to the same file, you should prefer to send all edits in a single message with multiple calls to this tool, rather than multiple messages with a single call each.
 """  # noqa: E501
+
+
+TOOL_DESCRIPTION = BASE_TOOL_DESCRIPTION.format(
+    editing_capabilities=", creating and editing",
+    extra_features=extra_features,
+)
 
 
 file_editor_tool = ToolDefinition(
