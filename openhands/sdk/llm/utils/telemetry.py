@@ -231,7 +231,10 @@ class Telemetry(BaseModel):
                 ),
             )
             data = self._req_ctx.copy()
-            data["response"] = resp  # ModelResponse; serialized via _safe_json
+            data["response"] = (
+                resp  # ModelResponse | ResponsesAPIResponse;
+                # serialized via _safe_json
+            )
             data["cost"] = float(cost or 0.0)
             data["timestamp"] = time.time()
             data["latency_sec"] = self._last_latency
@@ -280,7 +283,8 @@ class Telemetry(BaseModel):
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
                 data["raw_response"] = (
-                    raw_resp  # ModelResponse; serialized via _safe_json
+                    raw_resp  # ModelResponse | ResponsesAPIResponse;
+                    # serialized via _safe_json
                 )
             # Pop duplicated tools to avoid logging twice
             if (
