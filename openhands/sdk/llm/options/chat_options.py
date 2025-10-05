@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from openhands.sdk.llm.utils.model_features import get_features
-from openhands.sdk.llm.options.common import coerce_and_default
+from openhands.sdk.llm.options.common import apply_defaults_if_absent
 
 
 def select_chat_options(llm, user_kwargs: dict[str, Any], has_tools: bool) -> dict[str, Any]:
@@ -12,14 +12,14 @@ def select_chat_options(llm, user_kwargs: dict[str, Any], has_tools: bool) -> di
     This keeps the exact provider-aware mappings and precedence.
     """
     # First pass: apply simple defaults without touching user-supplied values
-    schema: dict[str, Any] = {
+    defaults: dict[str, Any] = {
         "top_k": llm.top_k,
         "top_p": llm.top_p,
         "temperature": llm.temperature,
         # OpenAI-compatible param is `max_completion_tokens`
         "max_completion_tokens": llm.max_output_tokens,
     }
-    out = coerce_and_default(user_kwargs, schema)
+    out = apply_defaults_if_absent(user_kwargs, defaults)
 
     # Azure -> uses max_tokens instead
     if llm.model.startswith("azure"):

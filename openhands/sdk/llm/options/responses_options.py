@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openhands.sdk.llm.options.common import coerce_and_default
+from openhands.sdk.llm.options.common import apply_defaults_if_absent
 
 
 def select_responses_options(
@@ -14,7 +14,7 @@ def select_responses_options(
 ) -> dict[str, Any]:
     """Behavior-preserving extraction of _normalize_responses_kwargs."""
     # Apply defaults for keys that are not forced by policy
-    out = coerce_and_default(
+    out = apply_defaults_if_absent(
         user_kwargs,
         {
             "max_output_tokens": llm.max_output_tokens,
