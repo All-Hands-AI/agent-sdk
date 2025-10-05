@@ -127,9 +127,17 @@ class ConversationVisualizer:
                 expand=True,
             )
         elif isinstance(event, ActionEvent):
+            # Check if action is None (non-executable)
+            if event.action is None:
+                title = (
+                    f"[bold {_ACTION_COLOR}]Agent Action (Not Executed)"
+                    f"[/bold {_ACTION_COLOR}]"
+                )
+            else:
+                title = f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]"
             return Panel(
                 content,
-                title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
+                title=title,
                 subtitle=self._format_metrics_subtitle(),
                 border_style=_ACTION_COLOR,
                 padding=_PANEL_PADDING,

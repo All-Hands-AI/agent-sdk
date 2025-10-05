@@ -121,6 +121,8 @@ class AgentErrorEvent(ObservationBaseEvent):
         return content
 
     def to_llm_message(self) -> Message:
+        # Provide plain string error content; serializers handle Chat vs Responses.
+        # For Responses API, output is a string; JSON is not required.
         return Message(
             role="tool",
             content=[TextContent(text=self.error)],

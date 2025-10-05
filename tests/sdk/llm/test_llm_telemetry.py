@@ -341,7 +341,7 @@ class TestTelemetryLogging:
         )
 
         # Should return early without error
-        telemetry._log_completion(mock_response, 0.25)
+        telemetry.log_llm_call(mock_response, 0.25)
 
     def test_log_completion_success(self, mock_metrics, mock_response):
         """Test successful completion logging."""
@@ -357,7 +357,7 @@ class TestTelemetryLogging:
             telemetry.on_request({"user_id": "test-user", "context_window": 4096})
             telemetry._last_latency = 1.5
 
-            telemetry._log_completion(mock_response, 0.25)
+            telemetry.log_llm_call(mock_response, 0.25)
 
             # Should create a log file
             files = os.listdir(temp_dir)
@@ -393,7 +393,7 @@ class TestTelemetryLogging:
             )
 
             telemetry.on_request({})
-            telemetry._log_completion(mock_response, 0.25, raw_resp=raw_response)
+            telemetry.log_llm_call(mock_response, 0.25, raw_resp=raw_response)
 
             files = os.listdir(temp_dir)
             with open(os.path.join(temp_dir, files[0])) as f:
@@ -412,7 +412,7 @@ class TestTelemetryLogging:
             )
 
             telemetry.on_request({})
-            telemetry._log_completion(mock_response, 0.25)
+            telemetry.log_llm_call(mock_response, 0.25)
 
             files = os.listdir(temp_dir)
             assert len(files) == 1
@@ -438,7 +438,7 @@ class TestTelemetryLogging:
 
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                telemetry._log_completion(mock_response, 0.25)
+                telemetry.log_llm_call(mock_response, 0.25)
 
                 # Should issue a warning but not crash
                 assert len(w) == 1
