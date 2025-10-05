@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
-from openhands.tools.glob.definition import GlobAction, GlobObservation
+from openhands.tools.file_glob.definition import GlobAction, GlobObservation
 
 
 class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
