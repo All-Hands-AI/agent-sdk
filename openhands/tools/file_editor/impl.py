@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from openhands.sdk.tool import ToolExecutor
 from openhands.tools.file_editor.definition import (
     CommandLiteral,
@@ -13,11 +15,21 @@ _GLOBAL_EDITOR: FileEditor | None = None
 
 
 class FileEditorExecutor(ToolExecutor):
-    """File editor executor with configurable read-only mode."""
+    """File editor executor with configurable read-only mode and file restrictions."""
 
-    def __init__(self, workspace_root: str | None = None, read_only: bool = False):
+    def __init__(
+        self,
+        workspace_root: str | None = None,
+        read_only: bool = False,
+        allowed_edits_files: list[str] | None = None,
+    ):
         self.editor = FileEditor(workspace_root=workspace_root)
         self.read_only = read_only
+        self.allowed_edits_files = (
+            [Path(f).resolve() for f in allowed_edits_files]
+            if allowed_edits_files
+            else None
+        )
 
     def __call__(self, action: FileEditorAction) -> FileEditorObservation:
         # Enforce read-only restrictions
@@ -27,6 +39,19 @@ class FileEditorExecutor(ToolExecutor):
                 error=f"Operation '{action.command}' is not allowed in read-only mode. "
                 "Only 'view' commands is permitted.",
             )
+
+        # Enforce allowed_edits_files restrictions
+        if self.allowed_edits_files is not None and action.command != "view":
+            action_path = Path(action.path).resolve()
+            if action_path not in self.allowed_edits_files:
+                return FileEditorObservation(
+                    command=action.command,
+                    error=f"Operation '{action.command}' is not allowed "
+                    "on file '{action.path}'. "
+                    f"Only the following files can be edited: "
+                    f"{[str(p) for p in self.allowed_edits_files]}",
+                )
+
         result: FileEditorObservation | None = None
         try:
             result = self.editor(
