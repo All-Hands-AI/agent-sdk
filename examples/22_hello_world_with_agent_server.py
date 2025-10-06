@@ -128,7 +128,7 @@ llm = LLM(
 )
 title_gen_llm = LLM(
     service_id="title-gen-llm",
-    model="litellm_proxy/moonshot/kimi-k2-0711-preview",
+    model="litellm_proxy/openai/gpt-5-mini",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
