@@ -24,7 +24,7 @@ class FileEditorExecutor(ToolExecutor):
     ):
         self.editor = FileEditor(workspace_root=workspace_root)
         self.allowed_edits_files = (
-            [Path(f).resolve() for f in allowed_edits_files]
+            {Path(f).resolve() for f in allowed_edits_files}
             if allowed_edits_files
             else None
         )
@@ -39,7 +39,7 @@ class FileEditorExecutor(ToolExecutor):
                     error=f"Operation '{action.command}' is not allowed "
                     "on file '{action.path}'. "
                     f"Only the following files can be edited: "
-                    f"{[str(p) for p in self.allowed_edits_files]}",
+                    f"{sorted(str(p) for p in self.allowed_edits_files)}",
                 )
 
         result: FileEditorObservation | None = None
