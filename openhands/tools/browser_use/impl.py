@@ -86,24 +86,24 @@ def _ensure_chromium_available() -> str:
     """Ensure Chromium is available for browser operations.
 
     Raises:
-        Exception: If Chromium is not available and cannot be installed
+        Exception: If Chromium is not available
     """
     if path := _check_chromium_available():
         logger.info(f"Chromium is available for browser operations at {path}")
         return path
 
-    logger.info("Chromium not found, attempting auto-installation...")
-    if _install_chromium() and (path := _check_chromium_available()):
-        logger.info("Chromium successfully installed and verified")
-        return path
-
-    # Chromium not available and couldn't be installed
+    # Chromium not available - provide clear installation instructions
     error_msg = (
         "Chromium is required for browser operations but is not installed.\n\n"
         "To install Chromium, run one of the following commands:\n"
         "  1. Using uvx (recommended): uvx playwright install chromium "
         "--with-deps --no-shell\n"
-        "  2. Using pip: pip install playwright && playwright install chromium\n\n"
+        "  2. Using pip: pip install playwright && playwright install chromium\n"
+        "  3. Using system package manager:\n"
+        "     - Ubuntu/Debian: sudo apt install chromium-browser\n"
+        "     - macOS: brew install chromium\n"
+        "     - Windows: winget install Chromium.Chromium\n\n"
+        "After installation, restart your application to use the browser tool."
     )
     raise Exception(error_msg)
 

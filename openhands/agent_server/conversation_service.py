@@ -262,22 +262,11 @@ class ConversationService:
         if self._event_services is None:
             raise ValueError("inactive_service")
         event_service = self._event_services.get(conversation_id)
-        if event_service is None or event_service._conversation is None:
+        if event_service is None:
             return None
 
-        # Get the LLM from the registry if service_id is provided
-        llm_service_id = llm.service_id if llm else None
-        if llm and llm_service_id:
-            try:
-                llm = event_service._conversation.llm_registry.get(llm_service_id)
-            except KeyError:
-                # If service_id not found, register it as a new LLM
-                event_service._conversation.llm_registry.add(llm)
-
-        loop = asyncio.get_event_loop()
-        title = await loop.run_in_executor(
-            None, event_service._conversation.generate_title, llm, max_length
-        )
+        # Delegate to EventService to avoid accessing private conversation internals
+        title = await event_service.generate_title(llm=llm, max_length=max_length)
         return title
 
     async def __aenter__(self):
