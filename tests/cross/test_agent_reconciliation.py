@@ -17,7 +17,7 @@ from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.preset.default import get_default_agent
+from openhands.tools.preset import get_default_agent
 
 
 register_tool("BashTool", BashTool)
