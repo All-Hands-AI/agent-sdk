@@ -126,6 +126,12 @@ llm = LLM(
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
+title_gen_llm = LLM(
+    service_id="title-gen-llm",
+    model="litellm_proxy/openai/gpt-5-mini",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
+)
 
 # Use managed API server
 with ManagedAPIServer(port=8001) as server:
@@ -171,6 +177,10 @@ with ManagedAPIServer(port=8001) as server:
         conversation.send_message(
             "Read the current repo and write 3 facts about the project into FACTS.txt."
         )
+
+        # Generate title using a specific LLM
+        title = conversation.generate_title(max_length=60, llm=title_gen_llm)
+        logger.info(f"Generated conversation title: {title}")
 
         logger.info("🚀 Running conversation...")
         conversation.run()
