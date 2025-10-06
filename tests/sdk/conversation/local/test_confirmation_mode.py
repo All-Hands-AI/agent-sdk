@@ -266,7 +266,7 @@ class TestConfirmationMode:
         )
 
         # Convert to MessageToolCall for ActionEvent
-        tool_call = MessageToolCall.from_litellm_tool_call(litellm_tool_call)
+        tool_call = MessageToolCall.from_chat_tool_call(litellm_tool_call)
 
         action_event = ActionEvent(
             source="agent",

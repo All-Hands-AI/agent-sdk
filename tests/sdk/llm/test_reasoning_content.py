@@ -43,8 +43,8 @@ def test_message_without_reasoning_content():
     assert message.reasoning_content is None
 
 
-def test_message_from_litellm_message_with_reasoning():
-    """Test Message.from_litellm_message with reasoning content."""
+def test_message_from_llm_chat_message_with_reasoning():
+    """Test Message.from_llm_chat_message with reasoning content."""
     from openhands.sdk.llm.message import Message
 
     # Create a mock LiteLLM message with reasoning content
@@ -52,7 +52,7 @@ def test_message_from_litellm_message_with_reasoning():
     # Add reasoning content as attributes
     litellm_message.reasoning_content = "Let me think about this..."
 
-    message = Message.from_litellm_message(litellm_message)
+    message = Message.from_llm_chat_message(litellm_message)
 
     assert message.role == "assistant"
     assert len(message.content) == 1
@@ -63,13 +63,13 @@ def test_message_from_litellm_message_with_reasoning():
     assert message.reasoning_content == "Let me think about this..."
 
 
-def test_message_from_litellm_message_without_reasoning():
-    """Test Message.from_litellm_message without reasoning content."""
+def test_message_from_llm_chat_message_without_reasoning():
+    """Test Message.from_llm_chat_message without reasoning content."""
     from openhands.sdk.llm.message import Message
 
     litellm_message = LiteLLMMessage(role="assistant", content="The answer is 42.")
 
-    message = Message.from_litellm_message(litellm_message)
+    message = Message.from_llm_chat_message(litellm_message)
 
     assert message.role == "assistant"
     assert len(message.content) == 1

@@ -32,7 +32,13 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import ChatCompletionToolParam, completion as litellm_completion
+from typing import cast
+
+from litellm import (
+    ChatCompletionToolParam,
+    ResponseInputParam,
+    completion as litellm_completion,
+)
 from litellm.exceptions import (
     APIConnectionError,
     BadRequestError,
@@ -43,6 +49,8 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
 )
+from litellm.responses.main import responses as litellm_responses
+from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.utils import ModelResponse
 from litellm.utils import (
     create_pretrained_tokenizer,
@@ -55,7 +63,9 @@ from openhands.sdk.llm.exceptions import LLMNoResponseError
 
 # OpenHands utilities
 from openhands.sdk.llm.llm_response import LLMResponse
-from openhands.sdk.llm.message import Message
+from openhands.sdk.llm.message import (
+    Message,
+)
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
@@ -178,6 +188,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         description="The effort to put into reasoning. "
         "This is a string that can be one of 'low', 'medium', 'high', or 'none'. "
         "Can apply to all reasoning models.",
+    )
+    enable_encrypted_reasoning: bool = Field(
+        default=False,
+        description="If True, ask for ['reasoning.encrypted_content'] "
+        "in Responses API include.",
     )
     extended_thinking_budget: int | None = Field(
         default=200_000,
@@ -313,6 +328,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             model_name=self.model,
             log_enabled=self.log_completions,
             log_dir=self.log_completions_folder if self.log_completions else None,
+            input_cost_per_token=self.input_cost_per_token,
+            output_cost_per_token=self.output_cost_per_token,
             metrics=self._metrics,
         )
 
@@ -460,7 +477,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
             # Convert the first choice to an OpenHands Message
             first_choice = resp["choices"][0]
-            message = Message.from_litellm_message(first_choice["message"])
+            message = Message.from_llm_chat_message(first_choice["message"])
 
             # Get current metrics snapshot
             metrics_snapshot = MetricsSnapshot(
@@ -471,6 +488,125 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             )
 
             # Create and return LLMResponse
+            return LLMResponse(
+                message=message, metrics=metrics_snapshot, raw_response=resp
+            )
+        except Exception as e:
+            self._telemetry.on_error(e)
+            raise
+
+    # =========================================================================
+    # Responses API (non-stream, v1)
+    # =========================================================================
+    def responses(
+        self,
+        messages: list[Message],
+        tools: Sequence[ToolBase] | None = None,
+        include: list[str] | None = None,
+        store: bool | None = None,
+        return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
+        **kwargs,
+    ) -> LLMResponse:
+        """Alternative invocation path using OpenAI Responses API via LiteLLM.
+
+        Maps Message[] -> (instructions, input[]) and returns LLMResponse.
+        Non-stream only for v1.
+        """
+        # Streaming not yet supported
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported for Responses API yet")
+
+        # Build instructions + input list using dedicated Responses formatter
+        instructions, input_items = self.format_messages_for_responses(messages)
+
+        # Convert Tool objects to Responses ToolParam
+        # (Responses path always supports function tools)
+        resp_tools = (
+            [
+                t.to_responses_tool(
+                    add_security_risk_prediction=add_security_risk_prediction
+                )
+                for t in tools
+            ]
+            if tools
+            else None
+        )
+
+        # Normalize/override Responses kwargs consistently
+        call_kwargs = self._normalize_responses_kwargs(
+            kwargs, include=include, store=store
+        )
+
+        # Optional request logging
+        assert self._telemetry is not None
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "llm_path": "responses",
+                "input": input_items[:],
+                "tools": tools,
+                "kwargs": {k: v for k, v in call_kwargs.items()},
+                "context_window": self.max_input_tokens,
+            }
+        self._telemetry.on_request(log_ctx=log_ctx)
+
+        # Perform call with retries
+        @self.retry_decorator(
+            num_retries=self.num_retries,
+            retry_exceptions=LLM_RETRY_EXCEPTIONS,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
+            retry_listener=self.retry_listener,
+        )
+        def _one_attempt(**retry_kwargs) -> ResponsesAPIResponse:
+            final_kwargs = {**call_kwargs, **retry_kwargs}
+            with self._litellm_modify_params_ctx(self.modify_params):
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=DeprecationWarning)
+                    typed_input: ResponseInputParam | str = (
+                        cast(ResponseInputParam, input_items) if input_items else ""
+                    )
+                    ret = litellm_responses(
+                        model=self.model,
+                        input=typed_input,
+                        instructions=instructions,
+                        tools=resp_tools,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        api_base=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        drop_params=self.drop_params,
+                        seed=self.seed,
+                        **final_kwargs,
+                    )
+                    assert isinstance(ret, ResponsesAPIResponse), (
+                        f"Expected ResponsesAPIResponse, got {type(ret)}"
+                    )
+                    # telemetry (latency, cost). Token usage mapping we handle after.
+                    assert self._telemetry is not None
+                    self._telemetry.on_response(ret)
+                    return ret
+
+        try:
+            resp: ResponsesAPIResponse = _one_attempt()
+
+            # Parse output -> Message (typed)
+            # Cast to a typed sequence
+            # accepted by from_llm_responses_output
+            output_seq = cast(Sequence[Any], resp.output or [])
+            message = Message.from_llm_responses_output(output_seq)
+
+            metrics_snapshot = MetricsSnapshot(
+                model_name=self.metrics.model_name,
+                accumulated_cost=self.metrics.accumulated_cost,
+                max_budget_per_task=self.metrics.max_budget_per_task,
+                accumulated_token_usage=self.metrics.accumulated_token_usage,
+            )
+
             return LLMResponse(
                 message=message, metrics=metrics_snapshot, raw_response=resp
             )
@@ -594,6 +730,56 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
         if "litellm_proxy" not in self.model:
             out.pop("extra_body", None)
+
+        return out
+
+    def _normalize_responses_kwargs(
+        self,
+        opts: dict,
+        *,
+        include: list[str] | None,
+        store: bool | None,
+    ) -> dict:
+        """Central place to normalize kwargs for the Responses API path.
+
+        Policy:
+        - Start from user-provided opts and override a few keys consistently:
+          • temperature=1.0
+          • tool_choice="auto"
+          • include: append reasoning.encrypted_content if enabled
+          • store: defaults to False (unless explicitly provided)
+          • metadata: default to LLM.metadata if not provided
+          • max_output_tokens: default to LLM.max_output_tokens if not provided
+        """
+        out = dict(opts)
+
+        # Enforce sampling/tool behavior for Responses path
+        out["temperature"] = 1.0
+        out["tool_choice"] = "auto"
+
+        # Include encrypted reasoning if enabled
+        include_list = list(include) if include is not None else []
+        if (
+            self.enable_encrypted_reasoning
+            and "reasoning.encrypted_content" not in include_list
+        ):
+            include_list.append("reasoning.encrypted_content")
+        if include_list:
+            out["include"] = include_list
+
+        # Store defaults to False (stateless) unless explicitly provided
+        if store is not None:
+            out["store"] = bool(store)
+        else:
+            out.setdefault("store", False)
+
+        # Respect max_output_tokens if configured at LLM level
+        if self.max_output_tokens is not None:
+            out.setdefault("max_output_tokens", self.max_output_tokens)
+
+        # Request plaintext reasoning summary
+        effort = self.reasoning_effort or "high"
+        out["reasoning"] = {"effort": effort, "summary": "detailed"}
 
         return out
 
@@ -733,6 +919,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         """
         return bool(self._function_calling_active)
 
+    def uses_responses_api(self) -> bool:
+        """Whether this model uses the OpenAI Responses API path."""
+
+        # by default, uses = supports
+        return get_features(self.model).supports_responses_api
+
     @property
     def model_info(self) -> dict | None:
         """Returns the model info dictionary."""
@@ -773,9 +965,43 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        formatted_messages = [message.to_llm_dict() for message in messages]
+        formatted_messages = [message.to_chat_dict() for message in messages]
 
         return formatted_messages
+
+    def format_messages_for_responses(
+        self, messages: list[Message]
+    ) -> tuple[str | None, list[dict[str, Any]]]:
+        """Prepare (instructions, input[]) for the OpenAI Responses API.
+
+        - Skips prompt caching flags and string serializer concerns
+        - Uses Message.to_responses_value to get either instructions (system)
+         or input items (others)
+        - Concatenates system instructions into a single instructions string
+        """
+        msgs = copy.deepcopy(messages)
+
+        # Set only vision flag; skip cache_enabled and force_string_serializer
+        vision_active = self.vision_is_active()
+        for m in msgs:
+            m.vision_enabled = vision_active
+
+        # Assign system instructions as a string, collect input items
+        instructions: str | None = None
+        input_items: list[dict[str, Any]] = []
+        for m in msgs:
+            val = m.to_responses_value(vision_enabled=vision_active)
+            if isinstance(val, str):
+                s = val.strip()
+                if not s:
+                    continue
+                instructions = (
+                    s if instructions is None else f"{instructions}\n\n---\n\n{s}"
+                )
+            else:
+                if val:
+                    input_items.extend(val)
+        return instructions, input_items
 
     def get_token_count(self, messages: list[Message]) -> int:
         logger.debug(
