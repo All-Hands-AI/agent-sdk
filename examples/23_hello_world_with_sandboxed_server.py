@@ -10,7 +10,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.workspace import DockerWorkspace
-from openhands.tools.preset import get_default_agent
+from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
