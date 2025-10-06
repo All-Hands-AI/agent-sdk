@@ -76,13 +76,10 @@ planning_conversation.send_message(
 )
 planning_conversation.run()
 
-# Get the last message from the conversation
-planning_result = planning_conversation.state.events[-1]
-
 print("\n" + "=" * 80)
-print("PLANNING RESULT:")
+print("PLANNING COMPLETE")
 print("=" * 80)
-print(get_event_content(planning_result))
+print(f"Implementation plan saved to: {workspace_dir}/PLAN.md")
 
 print("\n" + "=" * 80)
 print("PHASE 2: EXECUTION")
@@ -97,19 +94,16 @@ execution_conversation = Conversation(
     workspace=str(workspace_dir),
 )
 
-# Prepare execution prompt with the plan
+# Prepare execution prompt with reference to the plan file
 execution_prompt = f"""
-Based on the following implementation plan, please implement the web scraper
-project:
+Please implement the web scraping project according to the implementation plan.
 
-IMPLEMENTATION PLAN:
-{get_event_content(planning_result)}
+The detailed implementation plan has been created and saved at: {workspace_dir}/PLAN.md
 
-ORIGINAL TASK:
-{task}
+Please read the plan from PLAN.md and implement all components according to it.
 
-Please implement all the components according to the plan. Create all necessary
-files, implement the functionality, and ensure everything works together properly.
+Create all necessary files, implement the functionality, and ensure everything
+works together properly.
 """
 
 print("Execution Agent is implementing the plan...")

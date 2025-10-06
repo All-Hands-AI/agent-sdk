@@ -19,31 +19,49 @@ from openhands.sdk.tool import (
 
 
 class PlanWriterAction(Action):
-    """Schema for plan writing operations."""
+    """Schema for plan writing operations.
 
-    command: Literal["write", "append"] = Field(
-        description="The command to run. 'write' creates or overwrites the plan file, "
-        "'append' adds content to the existing plan file."
+    All operations are restricted to PLAN.md only.
+    Uses FileEditor commands editing.
+    """
+
+    command: Literal["view", "str_replace", "insert"] = Field(
+        description="The editing command to run on PLAN.md:\n"
+        "- 'view': Display the current content of PLAN.md\n"
+        "- 'str_replace': Replace a specific section of text in PLAN.md\n"
+        "- 'insert': Insert new text after a specific line number"
     )
-    content: str = Field(
-        description="The markdown content to write or append to the plan file."
+    old_str: str | None = Field(
+        default=None,
+        description="Required for 'str_replace' command. The exact text to find and replace in PLAN.md. "  # noqa
+        "Must match exactly (including whitespace).",
     )
-    filename: str = Field(
-        default="PLAN.md",
-        description="The filename for the plan (default: PLAN.md). Must end with .md",
+    new_str: str | None = Field(
+        default=None,
+        description="Required for 'str_replace' and 'insert' commands. "
+        "For 'str_replace': the new text to replace old_str with. "
+        "For 'insert': the text to insert after the specified line.",
+    )
+    insert_line: int | None = Field(
+        default=None,
+        ge=0,
+        description="Required for 'insert' command. The line number after which to insert new_str. "  # noqa
+        "Use 0 to insert at the beginning of the file.",
+    )
+    view_range: list[int] | None = Field(
+        default=None,
+        description="Optional for 'view' command. View only specific lines [start, end]. "  # noqa
+        "Example: [10, 20] shows lines 10-20. Use [start, -1] to show from start to end of file.",  # noqa
     )
 
 
 class PlanWriterObservation(Observation):
     """Observation from plan writing operations."""
 
-    command: Literal["write", "append"] = Field(
+    command: Literal["view", "str_replace", "insert"] = Field(
         description="The command that was executed."
     )
-    output: str = Field(default="", description="Success message or error details.")
-    filename: str | None = Field(
-        default=None, description="The plan file that was written."
-    )
+    output: str = Field(default="", description="Success message or file content.")
     error: str | None = Field(default=None, description="Error message if any.")
 
     @property
@@ -53,23 +71,21 @@ class PlanWriterObservation(Observation):
         return [TextContent(text=self.output)]
 
 
-TOOL_DESCRIPTION = """Plan writer tool for creating and updating markdown plan files.
-This tool allows planning agents to document their analysis and create structured plans.
+TOOL_DESCRIPTION = """Plan writer tool for editing the PLAN.md file.
 
-* Use 'write' command to create or overwrite a plan file with new content
-* Use 'append' command to add additional content to an existing plan file
-* Plans are written in markdown format for better readability
-* Default filename is PLAN.md but can be customized
-* Only allows writing to .md files for safety
+This tool is **restricted to only modify PLAN.md** in the workspace root.
+PLAN.md is pre-initialized as an empty file when the planning agent starts.
 
-This tool is specifically designed for planning agents to output their structured
-analysis and implementation plans in a format that can be easily read by other
-agents or humans.
+1. EXACT MATCHING: The `old_str` parameter must match EXACTLY one or more consecutive lines from the file, including all whitespace and indentation. The tool will fail if `old_str` matches multiple locations or doesn't match exactly with the file content.
 
-Examples:
-- write "# Project Analysis\n\n## Overview\n..." - Create new plan
-- append "\n## Next Steps\n- Step 1\n- Step 2" - Add to existing plan
-"""
+2. UNIQUENESS: The `old_str` must uniquely identify a single instance in the file:
+   - Include sufficient context before and after the change point (3-5 lines recommended)
+   - If not unique, the replacement will not be performed
+
+3. REPLACEMENT: The `new_str` parameter should contain the edited lines that replace the `old_str`. Both strings must be different.
+
+Remember: when making multiple file edits in a row to the same file, you should prefer to send all edits in a single message with multiple calls to this tool, rather than multiple messages with a single call each.
+"""  # noqa # TODO make base prompt for editing rules
 
 
 plan_writer_tool = ToolDefinition(
@@ -109,8 +125,8 @@ class PlanWriterTool(ToolDefinition[PlanWriterAction, PlanWriterObservation]):
         working_dir = conv_state.workspace.working_dir
         enhanced_description = (
             f"{TOOL_DESCRIPTION}\n\n"
-            f"Plans will be written to: {working_dir}\n"
-            f"The plan file will be accessible to other agents in the workflow."
+            f"Your plan file location: {working_dir}/PLAN.md\n"
+            f"This file will be accessible to other agents in the workflow."
         )
 
         # Initialize the parent Tool with the executor
