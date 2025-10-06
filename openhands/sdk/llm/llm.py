@@ -636,6 +636,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     message=r"There is no current event loop",
                     category=DeprecationWarning,
                 )
+                warnings.filterwarnings(
+                    "ignore",
+                    category=UserWarning,
+                )
                 # Some providers need renames handled in _normalize_call_kwargs.
                 ret = litellm_completion(
                     model=self.model,

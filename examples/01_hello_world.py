@@ -71,10 +71,9 @@ conversation = Conversation(
 conversation.send_message(
     "Read the current repo and write 3 facts about the project into FACTS.txt."
 )
-conversation.run()
-
 title = conversation.generate_title(max_length=60)
 logger.info(f"Generated conversation title: {title}")
+conversation.run()
 
 conversation.send_message("Great! Now delete that file.")
 conversation.run()
