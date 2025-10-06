@@ -126,6 +126,12 @@ llm = LLM(
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
+title_gen_llm = LLM(
+    service_id="title-gen-llm",
+    model="litellm_proxy/moonshot/kimi-k2-0711-preview",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
+)
 
 # Use managed API server
 with ManagedAPIServer(port=8001) as server:
@@ -177,6 +183,10 @@ with ManagedAPIServer(port=8001) as server:
 
         logger.info("✅ First task completed!")
         logger.info(f"Agent status: {conversation.state.agent_status}")
+
+        # Generate title using a specific LLM
+        title = conversation.generate_title(max_length=60, llm=title_gen_llm)
+        logger.info(f"Generated conversation title: {title}")
 
         # Wait for events to stop coming (no events for 2 seconds)
         logger.info("⏳ Waiting for events to stop...")

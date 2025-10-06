@@ -527,15 +527,21 @@ class RemoteConversation(BaseConversation):
         """Generate a title for the conversation based on the first user message.
 
         Args:
-            llm: Optional LLM to use for title generation. If not provided,
-                 uses the agent's LLM.
+            llm: Optional LLM to use for title generation. If provided, its service_id
+                 will be sent to the server. If not provided, uses the agent's LLM.
             max_length: Maximum length of the generated title.
 
         Returns:
             A generated title for the conversation.
         """
         # For remote conversations, delegate to the server endpoint
-        payload = {"max_length": max_length}
+        payload = {
+            "max_length": max_length,
+            "llm": llm.model_dump(mode="json", context={"expose_secrets": True})
+            if llm
+            else None,
+        }
+
         resp = self._client.post(
             f"/api/conversations/{self._id}/generate_title", json=payload
         )

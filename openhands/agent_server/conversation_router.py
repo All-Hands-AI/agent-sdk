@@ -226,7 +226,7 @@ async def generate_conversation_title(
 ) -> GenerateTitleResponse:
     """Generate a title for the conversation using LLM."""
     title = await conversation_service.generate_conversation_title(
-        conversation_id, request.max_length
+        conversation_id, request.max_length, request.llm
     )
     if title is None:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
