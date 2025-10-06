@@ -118,7 +118,9 @@ class PlanningFileEditorTool(
             conv_state: Conversation state to get working directory from.
         """
         # Import here to avoid circular imports
-        from openhands.tools.file_editor.impl import FileEditorExecutor
+        from openhands.tools.planning_file_editor.impl import (
+            PlanningFileEditorExecutor,
+        )
 
         working_dir = conv_state.workspace.working_dir
         workspace_root = Path(working_dir).resolve()
@@ -130,9 +132,9 @@ class PlanningFileEditorTool(
             plan_file.write_text("")
 
         # Create executor with restricted edit access to PLAN.md only
-        executor = FileEditorExecutor(
+        executor = PlanningFileEditorExecutor(
             workspace_root=working_dir,
-            allowed_edits_files=[plan_path],
+            plan_path=plan_path,
         )
 
         # Add working directory information to the tool description
