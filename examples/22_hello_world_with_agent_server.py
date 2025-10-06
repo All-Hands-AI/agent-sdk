@@ -178,15 +178,15 @@ with ManagedAPIServer(port=8001) as server:
             "Read the current repo and write 3 facts about the project into FACTS.txt."
         )
 
+        # Generate title using a specific LLM
+        title = conversation.generate_title(max_length=60, llm=title_gen_llm)
+        logger.info(f"Generated conversation title: {title}")
+
         logger.info("🚀 Running conversation...")
         conversation.run()
 
         logger.info("✅ First task completed!")
         logger.info(f"Agent status: {conversation.state.agent_status}")
-
-        # Generate title using a specific LLM
-        title = conversation.generate_title(max_length=60, llm=title_gen_llm)
-        logger.info(f"Generated conversation title: {title}")
 
         # Wait for events to stop coming (no events for 2 seconds)
         logger.info("⏳ Waiting for events to stop...")
