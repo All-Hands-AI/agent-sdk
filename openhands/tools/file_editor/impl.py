@@ -37,7 +37,7 @@ class FileEditorExecutor(ToolExecutor):
                 return FileEditorObservation(
                     command=action.command,
                     error=f"Operation '{action.command}' is not allowed "
-                    "on file '{action.path}'. "
+                    f"on file '{action_path}'. "
                     f"Only the following files can be edited: "
                     f"{sorted(str(p) for p in self.allowed_edits_files)}",
                 )
