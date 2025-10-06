@@ -36,7 +36,7 @@ def test_file_viewer_tool_initialization():
         assert len(tools) == 1
         tool = tools[0]
         assert tool.name == "file_viewer"
-        assert "read-only tool" in tool.description
+        assert "Custom tool for viewing" in tool.description
         assert tool.annotations is not None
         assert tool.annotations.readOnlyHint is True
         assert tool.annotations.destructiveHint is False
@@ -168,4 +168,4 @@ def test_file_viewer_tool_to_openai_tool():
     assert function_def is not None
     assert function_def["name"] == "file_viewer"
     description = function_def.get("description", "")
-    assert "read-only tool" in description
+    assert "Custom tool for viewing" in description
