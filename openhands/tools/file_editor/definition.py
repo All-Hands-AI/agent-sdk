@@ -154,15 +154,15 @@ Command = Literal[
 ]
 
 
-TOOL_DESCRIPTION = """Custom editing tool for viewing, creating and editing files and directories in plain-text format.
+TOOL_DESCRIPTION = """Custom editing tool for viewing, creating and editing files in plain-text format
 * State is persistent across command calls and discussions with the user
-* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep{extra_features}
-* If the tool generates a long output, it will be truncated and marked with `<response clipped>`
-* When working with files, always use absolute files paths (starting with /)
-
+* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
+* The following binary file extensions can be viewed in Markdown format: [".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", ".docx"]. IT DOES NOT HANDLE IMAGES.
 * The `create` command cannot be used if the specified `path` already exists as a file
+* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
 * The `undo_edit` command will revert the last edit made to the file at `path`
 * This tool can be used for creating and editing files in plain-text format.
+
 
 Before using this tool:
 1. Use the view tool to understand the file's contents and context
@@ -172,6 +172,8 @@ Before using this tool:
 When making edits:
    - Ensure the edit results in idiomatic, correct code
    - Do not leave the code in a broken state
+   - Always use absolute file paths (starting with /)
+
 CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 
 1. EXACT MATCHING: The `old_str` parameter must match EXACTLY one or more consecutive lines from the file, including all whitespace and indentation. The tool will fail if `old_str` matches multiple locations or doesn't match exactly with the file content.
