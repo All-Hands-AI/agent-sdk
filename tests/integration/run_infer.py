@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Integration test runner for agent-sdk.
-Adapted from OpenHands evaluation/integration_tests/run_infer.py
 """
 
 import argparse

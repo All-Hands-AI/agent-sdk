@@ -25,11 +25,11 @@ tests/integration/
 The main test runner script provides flexible options for running integration tests:
 
 ```bash
-# Run all tests with default settings
-python tests/integration/run_infer.py
+# Run all tests
+uv run python tests/integration/run_infer.py --llm-config '{"model": "litellm_proxy/anthropic/claude-sonnet-4-5-20250929"}'
 
-# Or using uv
-uv run python tests/integration/run_infer.py
+# Run a specific test
+uv run python tests/integration/run_infer.py --llm-config '{"model": "litellm_proxy/anthropic/claude-sonnet-4-5-20250929"}' --eval-ids t01_fix_simple_typo
 ```
 
 ## Automated Testing with GitHub Actions
