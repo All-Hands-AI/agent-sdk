@@ -13,18 +13,15 @@ logger = get_logger(__name__)
 def register_planning_tools() -> None:
     """Register the planning agent tools."""
     from openhands.tools.file_glob import GlobTool
-    from openhands.tools.file_viewer import FileViewerTool
     from openhands.tools.grep import GrepTool
-    from openhands.tools.plan_writer import PlanWriterTool
+    from openhands.tools.planning_file_editor import PlanningFileEditorTool
 
     register_tool("GlobTool", GlobTool)
     logger.debug("Tool: GlobTool registered.")
     register_tool("GrepTool", GrepTool)
     logger.debug("Tool: GrepTool registered.")
-    register_tool("FileViewerTool", FileViewerTool)
-    logger.debug("Tool: FileViewerTool registered.")
-    register_tool("PlanWriterTool", PlanWriterTool)
-    logger.debug("Tool: PlanWriterTool registered.")
+    register_tool("PlanningFileEditorTool", PlanningFileEditorTool)
+    logger.debug("Tool: PlanningFileEditorTool registered.")
 
 
 def get_planning_tools() -> list[Tool]:
@@ -32,7 +29,7 @@ def get_planning_tools() -> list[Tool]:
 
     Returns:
         List of tools optimized for planning and analysis tasks, including
-        read-only file operations and command-line capabilities for advanced
+        file viewing and PLAN.md editing capabilities for advanced
         code discovery and navigation.
     """
     register_planning_tools()
@@ -40,8 +37,7 @@ def get_planning_tools() -> list[Tool]:
     return [
         Tool(name="GlobTool"),
         Tool(name="GrepTool"),
-        Tool(name="FileViewerTool"),
-        Tool(name="PlanWriterTool"),
+        Tool(name="PlanningFileEditorTool"),
     ]
 
 

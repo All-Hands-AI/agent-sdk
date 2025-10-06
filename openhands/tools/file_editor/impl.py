@@ -15,16 +15,14 @@ _GLOBAL_EDITOR: FileEditor | None = None
 
 
 class FileEditorExecutor(ToolExecutor):
-    """File editor executor with configurable read-only mode and file restrictions."""
+    """File editor executor with configurable file restrictions."""
 
     def __init__(
         self,
         workspace_root: str | None = None,
-        read_only: bool = False,
         allowed_edits_files: list[str] | None = None,
     ):
         self.editor = FileEditor(workspace_root=workspace_root)
-        self.read_only = read_only
         self.allowed_edits_files = (
             [Path(f).resolve() for f in allowed_edits_files]
             if allowed_edits_files
@@ -32,14 +30,6 @@ class FileEditorExecutor(ToolExecutor):
         )
 
     def __call__(self, action: FileEditorAction) -> FileEditorObservation:
-        # Enforce read-only restrictions
-        if self.read_only and action.command != "view":
-            return FileEditorObservation(
-                command=action.command,
-                error=f"Operation '{action.command}' is not allowed in read-only mode. "
-                "Only 'view' commands is permitted.",
-            )
-
         # Enforce allowed_edits_files restrictions
         if self.allowed_edits_files is not None and action.command != "view":
             action_path = Path(action.path).resolve()
