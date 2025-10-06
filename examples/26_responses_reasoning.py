@@ -24,8 +24,8 @@ from openhands.tools.preset.default import get_default_agent
 logger = get_logger(__name__)
 
 
-api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
-assert api_key, "Set LITELLM_API_KEY or OPENAI_API_KEY in your environment."
+api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+assert api_key, "Set LLM_API_KEY or OPENAI_API_KEY in your environment."
 
 model = os.getenv("OPENAI_RESPONSES_MODEL", "openai/gpt-5-mini")
 base_url = os.getenv("LITELLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
