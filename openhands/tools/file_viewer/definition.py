@@ -11,7 +11,6 @@ if TYPE_CHECKING:
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinition
-from openhands.tools.common import BASE_FILE_TOOL_DESCRIPTION
 
 
 class FileViewerAction(Action):
@@ -42,11 +41,11 @@ class FileViewerObservation(Observation):
         return [TextContent(text=self.content)]
 
 
-TOOL_DESCRIPTION = BASE_FILE_TOOL_DESCRIPTION.format(
-    editing_capabilities="",
-    extra_viewing_capabilities="",
-    extra_features="",
-)
+TOOL_DESCRIPTION = """Custom tool for viewing files and directories in plain-text format.
+* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
+* If the tool generates a long output, it will be truncated and marked with `<response clipped>`
+* When working with files, always use absolute files paths (starting with /)
+"""  # noqa
 
 
 class FileViewerTool(ToolDefinition[FileViewerAction, FileViewerObservation]):

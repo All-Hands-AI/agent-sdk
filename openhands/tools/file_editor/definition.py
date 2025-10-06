@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field, PrivateAttr
 
-from openhands.tools.common import BASE_FILE_TOOL_DESCRIPTION
-
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
@@ -155,7 +153,12 @@ Command = Literal[
     "undo_edit",
 ]
 
-extra_features = """
+
+TOOL_DESCRIPTION = """Custom editing tool for viewing, creating and editing files and directories in plain-text format.
+* State is persistent across command calls and discussions with the user
+* If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep{extra_features}
+* If the tool generates a long output, it will be truncated and marked with `<response clipped>`
+* When working with files, always use absolute files paths (starting with /)
 
 * The `create` command cannot be used if the specified `path` already exists as a file
 * The `undo_edit` command will revert the last edit made to the file at `path`
@@ -181,13 +184,6 @@ CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 
 Remember: when making multiple file edits in a row to the same file, you should prefer to send all edits in a single message with multiple calls to this tool, rather than multiple messages with a single call each.
 """  # noqa: E501
-
-
-TOOL_DESCRIPTION = BASE_FILE_TOOL_DESCRIPTION.format(
-    editing_capabilities=" editing",
-    extra_viewing_capabilities=", creating and editing",
-    extra_features=extra_features,
-)
 
 
 file_editor_tool = ToolDefinition(
