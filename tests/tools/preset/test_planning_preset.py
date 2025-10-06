@@ -24,8 +24,7 @@ def test_get_planning_agent_includes_expected_tools(basic_llm):
     expected_tools = [
         "GrepTool",
         "GlobTool",
-        "FileViewerTool",
-        "PlanWriterTool",
+        "PlanningFileEditorTool",
     ]
 
     for expected_tool in expected_tools:
