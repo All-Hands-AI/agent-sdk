@@ -52,7 +52,7 @@ def create_mock_llm_response(content: str) -> LLMResponse:
         object="chat.completion",
         usage=usage,
     )
-    message = Message.from_litellm_message(choice["message"])
+    message = Message.from_llm_chat_message(choice["message"])
     metrics = MetricsSnapshot(
         model_name="gpt-4o-mini",
         accumulated_cost=0.0,
