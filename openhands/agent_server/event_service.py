@@ -275,7 +275,7 @@ class EventService:
             raise ValueError("inactive_service")
 
         resolved_llm = llm
-        if llm and getattr(llm, "service_id", None):
+        if llm is not None:
             service_id = llm.service_id
             try:
                 resolved_llm = self._conversation.llm_registry.get(service_id)
