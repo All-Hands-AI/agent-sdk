@@ -10,8 +10,8 @@ from tests.integration.base import BaseIntegrationTest, TestResult
 
 
 INSTRUCTION = (
-    "Use Jupyter IPython to write a text file containing 'hello world' "
-    "to '/workspace/test.txt'."
+    "Use Jupyter IPython to write a text file in your workspace 'test.txt'"
+    " containing 'hello world'."
 )
 
 
