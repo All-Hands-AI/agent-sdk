@@ -48,11 +48,11 @@ class BashHelloTest(BaseIntegrationTest):
         if self.cwd is None:
             return TestResult(success=False, reason="CWD not set")
 
-        script_path = os.path.join(self.cwd, "workspace", "hello.sh")
+        script_path = os.path.join(self.cwd, "shell", "hello.sh")
 
         if not os.path.exists(script_path):
             return TestResult(
-                success=False, reason="Shell script '/workspace/hello.sh' not found"
+                success=False, reason="Shell script '/shell/hello.sh' not found"
             )
 
         # Check if the script is executable
