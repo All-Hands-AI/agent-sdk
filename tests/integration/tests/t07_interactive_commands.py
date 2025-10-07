@@ -11,7 +11,7 @@ from tests.integration.base import BaseIntegrationTest, TestResult
 
 
 INSTRUCTION = (
-    'Execute the python script /workspace/python_script.py with input "John" '
+    'Execute the python script in your workspace python_script.py with input "John" '
     'and "25" and tell me the secret number.'
 )
 
