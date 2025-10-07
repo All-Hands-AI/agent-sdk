@@ -24,7 +24,7 @@ WORKDIR /agent-server
 COPY --chown=${USERNAME}:${USERNAME} pyproject.toml uv.lock README.md LICENSE ./
 COPY --chown=${USERNAME}:${USERNAME} openhands ./openhands
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
-    uv sync --frozen --no-editable
+    uv sync --frozen --no-editable --dev
 
 ############################
 # Build a standalone binary
@@ -164,7 +164,7 @@ RUN chown -R ${USERNAME}:${USERNAME} ${NOVNC_WEB}
 
 # Override default XFCE wallpaper
 COPY --chown=${USERNAME}:${USERNAME} openhands/agent_server/docker/wallpaper.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
-ENV ENABLE_VNC=true
+ENV OH_ENABLE_VNC=true
 
 USER ${USERNAME}
 WORKDIR /
