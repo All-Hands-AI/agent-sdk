@@ -11,6 +11,7 @@ members = [
     "openhands-agent-server",
     "openhands-sdk",
     "openhands-tools",
+    "openhands-workspace",
 ]
 
 [manifest.dependency-groups]
@@ -1851,6 +1852,21 @@ requires-dist = [
     { name = "cachetools" },
     { name = "func-timeout", specifier = ">=4.3.5" },
     { name = "libtmux", specifier = ">=0.46.2" },
+    { name = "openhands-sdk", editable = "openhands/sdk" },
+    { name = "pydantic", specifier = ">=2.11.7" },
+]
+
+[[package]]
+name = "openhands-workspace"
+version = "1.0.0"
+source = { editable = "openhands/workspace" }
+dependencies = [
+    { name = "openhands-sdk" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
     { name = "openhands-sdk", editable = "openhands/sdk" },
     { name = "pydantic", specifier = ">=2.11.7" },
 ]
