@@ -52,7 +52,7 @@ class BashHelloTest(BaseIntegrationTest):
 
         if not os.path.exists(script_path):
             return TestResult(
-                success=False, reason="Shell script '/shell/hello.sh' not found"
+                success=False, reason="Shell script 'shell/hello.sh' not found"
             )
 
         # Check if the script is executable
