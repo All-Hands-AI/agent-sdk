@@ -22,7 +22,7 @@ from openhands.sdk.event.conversation_state import (
     FULL_STATE_KEY,
     ConversationStateUpdateEvent,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -522,6 +522,32 @@ class RemoteConversation(BaseConversation):
         payload = {"secrets": serializable_secrets}
         resp = self._client.post(f"/api/conversations/{self._id}/secrets", json=payload)
         resp.raise_for_status()
+
+    def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
+        """Generate a title for the conversation based on the first user message.
+
+        Args:
+            llm: Optional LLM to use for title generation. If provided, its service_id
+                 will be sent to the server. If not provided, uses the agent's LLM.
+            max_length: Maximum length of the generated title.
+
+        Returns:
+            A generated title for the conversation.
+        """
+        # For remote conversations, delegate to the server endpoint
+        payload = {
+            "max_length": max_length,
+            "llm": llm.model_dump(mode="json", context={"expose_secrets": True})
+            if llm
+            else None,
+        }
+
+        resp = self._client.post(
+            f"/api/conversations/{self._id}/generate_title", json=payload
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["title"]
 
     def close(self) -> None:
         try:

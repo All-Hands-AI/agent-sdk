@@ -7,6 +7,7 @@ from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
+from openhands.sdk.conversation.title_utils import generate_conversation_title
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event import (
@@ -14,7 +15,7 @@ from openhands.sdk.event import (
     PauseEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
@@ -346,6 +347,27 @@ class LocalConversation(BaseConversation):
                 continue
             except Exception as e:
                 logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
+
+    def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
+        """Generate a title for the conversation based on the first user message.
+
+        Args:
+            llm: Optional LLM to use for title generation. If not provided,
+                 uses self.agent.llm.
+            max_length: Maximum length of the generated title.
+
+        Returns:
+            A generated title for the conversation.
+
+        Raises:
+            ValueError: If no user messages are found in the conversation.
+        """
+        # Use provided LLM or fall back to agent's LLM
+        llm_to_use = llm or self.agent.llm
+
+        return generate_conversation_title(
+            events=self._state.events, llm=llm_to_use, max_length=max_length
+        )
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""

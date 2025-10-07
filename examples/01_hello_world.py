@@ -15,8 +15,8 @@ from openhands.tools.preset.default import get_default_agent
 logger = get_logger(__name__)
 
 # Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
@@ -71,6 +71,8 @@ conversation = Conversation(
 conversation.send_message(
     "Read the current repo and write 3 facts about the project into FACTS.txt."
 )
+title = conversation.generate_title(max_length=60)
+logger.info(f"Generated conversation title: {title}")
 conversation.run()
 
 conversation.send_message("Great! Now delete that file.")
