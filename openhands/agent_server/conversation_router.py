@@ -232,7 +232,7 @@ async def update_conversation(
         conversation_id, request.title
     )
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
+        return Success(success=False)
     return Success()
 
 
