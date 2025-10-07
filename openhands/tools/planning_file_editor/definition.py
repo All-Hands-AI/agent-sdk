@@ -30,16 +30,12 @@ class PlanningFileEditorAction(FileEditorAction):
     Allows viewing any file but only editing PLAN.md.
     """
 
-    kind: str = "PlanningFileEditorAction"
-
 
 class PlanningFileEditorObservation(FileEditorObservation):
     """Observation from planning file editor operations.
 
     Inherits from FileEditorObservation - same structure, just different type.
     """
-
-    kind: str = "PlanningFileEditorObservation"
 
 
 TOOL_DESCRIPTION = (
