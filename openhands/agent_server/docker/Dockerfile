@@ -164,7 +164,7 @@ RUN chown -R ${USERNAME}:${USERNAME} ${NOVNC_WEB}
 
 # Override default XFCE wallpaper
 COPY --chown=${USERNAME}:${USERNAME} openhands/agent_server/docker/wallpaper.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
-ENV ENABLE_VNC=true
+ENV OH_ENABLE_VNC=true
 
 USER ${USERNAME}
 WORKDIR /

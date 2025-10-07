@@ -9,8 +9,8 @@ from openhands.sdk import (
     RemoteConversation,
     get_logger,
 )
-from openhands.sdk.workspace import DockerWorkspace
 from openhands.tools.preset.default import get_default_agent
+from openhands.workspace import DockerWorkspace
 
 
 logger = get_logger(__name__)
