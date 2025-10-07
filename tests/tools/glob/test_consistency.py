@@ -51,18 +51,17 @@ class TestGlobConsistency:
         assert not ripgrep_result.error
         assert not fallback_result.error
 
-        # Both should find Python files
-        assert len(ripgrep_result.files) > 0
-        assert len(fallback_result.files) > 0
+        # Convert to sets of relative paths for exact comparison
+        ripgrep_files = set(ripgrep_result.files)
+        fallback_files = set(fallback_result.files)
 
-        # Convert to basenames for comparison (paths might differ slightly)
-        ripgrep_basenames = {Path(f).name for f in ripgrep_result.files}
-        fallback_basenames = {Path(f).name for f in fallback_result.files}
-
-        # Should find the same files (at least the top-level Python files)
-        expected_files = {"app.py", "main.py", "test.py"}
-        assert expected_files.issubset(ripgrep_basenames)
-        assert expected_files.issubset(fallback_basenames)
+        # Both methods must return exactly the same files
+        assert ripgrep_files == fallback_files, (
+            f"Ripgrep found: {ripgrep_files}\n"
+            f"Fallback found: {fallback_files}\n"
+            f"Difference (ripgrep - fallback): {ripgrep_files - fallback_files}\n"
+            f"Difference (fallback - ripgrep): {fallback_files - ripgrep_files}"
+        )
 
     def test_recursive_pattern_consistency(self, temp_dir_with_files):
         """Test that both methods handle recursive patterns consistently."""
@@ -79,18 +78,17 @@ class TestGlobConsistency:
         assert not ripgrep_result.error
         assert not fallback_result.error
 
-        # Both should find Python files including in subdirectories
-        assert len(ripgrep_result.files) >= 5  # At least 5 Python files
-        assert len(fallback_result.files) >= 5
+        # Convert to sets of relative paths for exact comparison
+        ripgrep_files = set(ripgrep_result.files)
+        fallback_files = set(fallback_result.files)
 
-        # Convert to basenames for comparison
-        ripgrep_basenames = {Path(f).name for f in ripgrep_result.files}
-        fallback_basenames = {Path(f).name for f in fallback_result.files}
-
-        # Should find files in subdirectories
-        expected_files = {"app.py", "main.py", "test.py", "utils.py", "models.py"}
-        assert expected_files.issubset(ripgrep_basenames)
-        assert expected_files.issubset(fallback_basenames)
+        # Both methods must return exactly the same files
+        assert ripgrep_files == fallback_files, (
+            f"Ripgrep found: {ripgrep_files}\n"
+            f"Fallback found: {fallback_files}\n"
+            f"Difference (ripgrep - fallback): {ripgrep_files - fallback_files}\n"
+            f"Difference (fallback - ripgrep): {fallback_files - ripgrep_files}"
+        )
 
     def test_no_matches_consistency(self, temp_dir_with_files):
         """Test that both methods handle no matches consistently."""
@@ -103,11 +101,16 @@ class TestGlobConsistency:
         )
         fallback_result = executor._execute_with_glob(action, Path(temp_dir_with_files))
 
-        # Both should succeed but find no files
+        # Both should succeed with identical empty results
         assert not ripgrep_result.error
         assert not fallback_result.error
-        assert len(ripgrep_result.files) == 0
-        assert len(fallback_result.files) == 0
+
+        # Convert to sets for exact comparison
+        ripgrep_files = set(ripgrep_result.files)
+        fallback_files = set(fallback_result.files)
+
+        # Both must return exactly the same (empty) set
+        assert ripgrep_files == fallback_files == set()
 
     @pytest.mark.skipif(
         not Path("/usr/bin/rg").exists() and not Path("/usr/local/bin/rg").exists(),
@@ -125,9 +128,8 @@ class TestGlobConsistency:
             assert executor._ripgrep_available
 
             # Should use ripgrep method
-            result = executor(action)
-            assert not result.error
-            assert len(result.files) > 0
+            result_ripgrep = executor(action)
+            assert not result_ripgrep.error
 
         # Test with ripgrep not available
         with patch(
@@ -138,6 +140,16 @@ class TestGlobConsistency:
             assert not executor._ripgrep_available
 
             # Should use fallback method
-            result = executor(action)
-            assert not result.error
-            assert len(result.files) > 0
+            result_fallback = executor(action)
+            assert not result_fallback.error
+
+        # Both methods must return exactly the same files
+        ripgrep_files = set(result_ripgrep.files)
+        fallback_files = set(result_fallback.files)
+
+        assert ripgrep_files == fallback_files, (
+            f"Ripgrep found: {ripgrep_files}\n"
+            f"Fallback found: {fallback_files}\n"
+            f"Difference (ripgrep - fallback): {ripgrep_files - fallback_files}\n"
+            f"Difference (fallback - ripgrep): {fallback_files - ripgrep_files}"
+        )
