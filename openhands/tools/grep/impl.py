@@ -1,7 +1,5 @@
 """Grep tool executor implementation."""
 
-import fnmatch
-import os
 import re
 import subprocess
 from pathlib import Path
@@ -140,31 +138,20 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
         self, action: GrepAction, search_path: Path
     ) -> GrepObservation:
         """Execute grep content search using regular grep command."""
-        # Find files to search
-        files_to_search = []
+        # Build grep command: grep -r -l -I -i pattern path
+        cmd = [
+            "grep",
+            "-r",  # recursive
+            "-l",  # files-with-matches
+            "-I",  # ignore binary files
+            "-i",  # ignore-case
+            action.pattern,
+            str(search_path),
+        ]
 
-        # Walk through directory to find files
-        for root, dirs, files in os.walk(search_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-
-                # Apply include pattern filter if specified
-                if action.include:
-                    if not fnmatch.fnmatch(file, action.include):
-                        continue
-
-                # Skip binary files and common non-text files
-                if self._is_likely_text_file(file_path):
-                    files_to_search.append(file_path)
-
-        # Sort files by modification time (newest first)
-        files_to_search.sort(key=lambda f: os.path.getmtime(f), reverse=True)
-
-        # Limit files to search to avoid performance issues
-        files_to_search = files_to_search[:1000]
-
-        # Build grep command: grep -l -i pattern files...
-        cmd = ["grep", "-l", "-i", action.pattern] + files_to_search
+        # Add include pattern using --include if specified
+        if action.include:
+            cmd.extend(["--include", action.include])
 
         # Execute grep
         result = subprocess.run(
@@ -177,7 +164,6 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
             for line in result.stdout.strip().split("\n"):
                 if line:
                     matches.append(line)
-                    # Limit to first 100 files
                     if len(matches) >= 100:
                         break
 
@@ -190,67 +176,3 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
             include_pattern=action.include,
             truncated=truncated,
         )
-
-    def _is_likely_text_file(self, file_path: str) -> bool:
-        """Check if a file is likely to be a text file."""
-        # Skip common binary file extensions
-        binary_extensions = {
-            ".exe",
-            ".dll",
-            ".so",
-            ".dylib",
-            ".bin",
-            ".obj",
-            ".o",
-            ".a",
-            ".lib",
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".gif",
-            ".bmp",
-            ".ico",
-            ".svg",
-            ".webp",
-            ".mp3",
-            ".mp4",
-            ".avi",
-            ".mov",
-            ".wav",
-            ".flac",
-            ".ogg",
-            ".zip",
-            ".tar",
-            ".gz",
-            ".bz2",
-            ".xz",
-            ".7z",
-            ".rar",
-            ".pdf",
-            ".doc",
-            ".docx",
-            ".xls",
-            ".xlsx",
-            ".ppt",
-            ".pptx",
-            ".pyc",
-            ".pyo",
-            ".class",
-            ".jar",
-        }
-
-        file_ext = os.path.splitext(file_path)[1].lower()
-        if file_ext in binary_extensions:
-            return False
-
-        # Try to read a small portion to check if it's text
-        try:
-            with open(file_path, "rb") as f:
-                chunk = f.read(1024)
-                if b"\0" in chunk:  # Null bytes indicate binary file
-                    return False
-                # Try to decode as UTF-8
-                chunk.decode("utf-8")
-                return True
-        except (OSError, UnicodeDecodeError):
-            return False
