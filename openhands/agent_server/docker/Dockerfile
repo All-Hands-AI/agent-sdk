@@ -24,7 +24,7 @@ WORKDIR /agent-server
 COPY --chown=${USERNAME}:${USERNAME} pyproject.toml uv.lock README.md LICENSE ./
 COPY --chown=${USERNAME}:${USERNAME} openhands ./openhands
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
-    uv sync --frozen --no-editable --dev
+    uv sync --frozen --no-editable
 
 ############################
 # Build a standalone binary
