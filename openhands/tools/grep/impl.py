@@ -147,6 +147,8 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
             "-i",  # ignore-case
             action.pattern,
             str(search_path),
+            "--exclude-dir=.*",  # exclude hidden directories to match ripgrep behavior
+            "--exclude=.*",  # exclude hidden files to match ripgrep behavior
         ]
 
         # Add include pattern using --include if specified
