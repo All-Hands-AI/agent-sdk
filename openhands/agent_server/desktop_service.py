@@ -203,7 +203,11 @@ def get_desktop_service() -> DesktopService | None:
     global _desktop_service
     config = get_default_config()
 
-    if not config.enable_vnc:
+    if not config.enable_vnc and os.getenv("ENABLE_VNC", "").lower() not in (
+        "1",
+        "true",
+        "yes",
+    ):
         logger.info("VNC desktop is disabled in configuration")
         return None
 
