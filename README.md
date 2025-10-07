@@ -1,80 +1,42 @@
 # OpenHands Agent SDK
 
-A clean, modular SDK for building AI agents with OpenHands. This project represents a complete architectural refactor from OpenHands V0, emphasizing simplicity, maintainability, and developer experience.
+The OpenHands SDK allows you to build things with agents that write software. For instance, some use cases include:
 
-## Project Overview
+1. A documentation system that checks the changes made to your codebase this week and updates them
+2. An SRE system that reads your server logs and your codebase, then uses this info to debug new errors that are appearing in prod
+3. A customer onboarding system that takes all of their documents in unstructured format and enters information into your database
 
-The OpenHands Agent SDK provides a streamlined framework for creating AI agents that can interact with tools, manage conversations, and integrate with various LLM providers.
+This SDK also powers [OpenHands](https://github.com/All-Hands-AI/OpenHands), an all-batteries-included coding agent that you can access through a GUI, CLI, or API.
 
-## Packages
+## Hello World Example
 
-This repository contains three main packages:
+This is what it looks like to write a program with an OpenHands agent:
 
-- **`openhands-sdk`**: Core SDK functionality including agents, conversations, LLM integration, and tool system
-- **`openhands-tools`**: Runtime tool implementations (BashTool, FileEditorTool, TaskTrackerTool, BrowserToolSet)
-- **`openhands-agent-server`**: REST API and WebSocket server for remote agent interactions
+```python
+import os
+from pydantic import SecretStr
+from openhands.sdk import LLM, Conversation
+from openhands.sdk.preset.default import get_default_agent
 
-## Repository Structure
+# Configure LLM
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
+llm = LLM(
+    model="openhands/claude-sonnet-4-5-20250929",
+    api_key=SecretStr(api_key),
+)
 
-```plain
-agent-sdk/
-├── Makefile                            # Build and development commands
-├── pyproject.toml                      # Workspace configuration
-├── uv.lock                             # Dependency lock file
-├── examples/                           # Usage examples
-│   ├── 01_hello_world.py               # Basic agent setup (default tools preset)
-│   ├── 02_custom_tools.py              # Custom tool implementation with explicit executor
-│   ├── 03_activate_microagent.py       # Microagent usage
-│   ├── 04_confirmation_mode_example.py # Interactive confirmation mode
-│   ├── 05_use_llm_registry.py          # LLM registry usage
-│   ├── 06_interactive_terminal_w_reasoning.py # Terminal interaction with reasoning models
-│   ├── 07_mcp_integration.py           # MCP integration
-│   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
-│   ├── 09_pause_example.py             # Pause and resume agent execution
-│   ├── 10_persistence.py               # Conversation persistence
-│   ├── 11_async.py                     # Async agent usage
-│   ├── 12_custom_secrets.py            # Custom secrets management
-│   ├── 13_get_llm_metrics.py           # LLM metrics and monitoring
-│   ├── 14_context_condenser.py         # Context condensation
-│   ├── 15_browser_use.py               # Browser automation tools
-│   ├── 16_llm_security_analyzer.py     # LLM security analysis
-│   └── 17_image_input.py               # Image input and vision support
-├── openhands/              # Main SDK packages
-│   ├── agent_server/       # REST API and WebSocket server
-│   │   ├── api.py          # FastAPI application
-│   │   ├── config.py       # Server configuration
-│   │   ├── models.py       # API models
-│   │   └── pyproject.toml  # Agent server package configuration
-│   ├── sdk/                # Core SDK functionality
-│   │   ├── agent/          # Agent implementations
-│   │   ├── context/        # Context management system
-│   │   ├── conversation/   # Conversation management
-│   │   ├── event/          # Event system
-│   │   ├── io/             # I/O abstractions
-│   │   ├── llm/            # LLM integration layer
-│   │   ├── mcp/            # Model Context Protocol integration
-│   │   ├── preset/         # Default agent presets
-│   │   ├── security/       # Security analysis tools
-│   │   ├── tool/           # Tool system
-│   │   ├── utils/          # Core utilities
-│   │   ├── logger.py       # Logging configuration
-│   │   └── pyproject.toml  # SDK package configuration
-│   └── tools/              # Runtime tool implementations
-│       ├── execute_bash/   # Bash execution tool
-│       ├── str_replace_editor/  # File editing tool
-│       ├── task_tracker/   # Task tracking tool
-│       ├── browser_use/    # Browser automation tools
-│       ├── utils/          # Tool utilities
-│       └── pyproject.toml  # Tools package configuration
-├── scripts/                # Utility scripts
-│   └── conversation_viewer.py # Conversation visualization tool
-└── tests/                  # Test suites
-    ├── agent_server/       # Agent server tests
-    ├── cross/              # Cross-package tests
-    ├── fixtures/           # Test fixtures and data
-    ├── integration/        # Integration tests
-    ├── sdk/                # SDK unit tests
-    └── tools/              # Tools unit tests
+# Create agent with default tools and configuration
+agent = get_default_agent(
+    llm=llm,
+    working_dir=os.getcwd(),
+    cli_mode=True,  # Disable browser tools for CLI environments
+)
+
+# Create conversation, send a message, and run
+conversation = Conversation(agent=agent)
+conversation.send_message("Create a Python file that prints 'Hello, World!'")
+conversation.run()
 ```
 
 ## Installation & Quickstart
@@ -84,7 +46,21 @@ agent-sdk/
 - Python 3.12+
 - `uv` package manager (version 0.8.13+)
 
+### Acquire and Set an LLM API Key
+
+Obtain an API key from your favorite LLM provider, any [provider supported by LiteLLM](https://docs.litellm.ai/docs/providers)
+is supported by the Agent SDK, although we have a set of [recommended models](https://docs.all-hands.dev/usage/llms/llms) that
+work well with OpenHands agents.
+
+If you want to get started quickly, you can sign up for the [OpenHands Cloud](https://app.all-hands.dev) and go to the
+[API key page](https://app.all-hands.dev/settings/api-keys), which allows you to use most of our recommended models
+with no markup -- documentation is [here](https://docs.all-hands.dev/usage/llms/openhands-llms).
+
+Once you do this, you can `export LLM_API_KEY=xxx` to use all the examples.
+
 ### Setup
+
+Once this is done, run the following to do a Hello World example.
 
 ```bash
 # Clone the repository
@@ -98,38 +74,7 @@ make build
 uv run python examples/01_hello_world.py
 ```
 
-### Hello World Example
-
-```python
-import os
-from pydantic import SecretStr
-from openhands.sdk import LLM, Conversation
-from openhands.sdk.preset.default import get_default_agent
-
-# Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
-llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-    base_url="https://llm-proxy.eval.all-hands.dev",
-    api_key=SecretStr(api_key),
-)
-
-# Create agent with default tools and configuration
-cwd = os.getcwd()
-agent = get_default_agent(
-    llm=llm,
-    working_dir=cwd,
-    cli_mode=True,  # Disable browser tools for CLI environments
-)
-
-# Create conversation and interact with agent
-conversation = Conversation(agent=agent)
-
-# Send message and run
-conversation.send_message("Create a Python file that prints 'Hello, World!'")
-conversation.run()
-```
+For more detailed documentation and examples, refer to the `examples/` directory which contains comprehensive usage examples covering all major features of the SDK.
 
 ## Core Concepts
 
@@ -137,7 +82,9 @@ conversation.run()
 
 Agents are the central orchestrators that coordinate between LLMs and tools. The SDK provides two main approaches for creating agents:
 
-#### Using Default Presets (Recommended)
+#### Using Default Presets
+
+We recommend that you try out the default presets at first, which gives you a powerful agent with our default set of tools.
 
 ```python
 from openhands.sdk.preset.default import get_default_agent
@@ -205,23 +152,7 @@ Tools provide agents with capabilities to interact with the environment. The SDK
 - **TaskTrackerTool**: Organize and track development tasks systematically
 - **BrowserToolSet**: Automate web browser interactions (disabled in CLI mode)
 
-#### Using Default Preset (Recommended)
-
-The easiest way to get started is using the default agent preset, which includes all tools:
-
-```python
-from openhands.sdk.preset.default import get_default_agent
-
-agent = get_default_agent(
-    llm=llm,
-    working_dir=os.getcwd(),
-    cli_mode=True,  # Disable browser tools for CLI environments
-)
-```
-
-#### Manual Tool Configuration
-
-For more control, you can configure tools explicitly:
+The default contains all of these tools, but for more control, you can configure tools explicitly:
 
 ```python
 from openhands.sdk.tool import Tool, register_tool
@@ -321,10 +252,6 @@ The agent server provides:
 - `GET /conversations/{id}` - Get conversation details
 - `POST /conversations/{id}/messages` - Send message to conversation
 - `WebSocket /ws/{conversation_id}` - Real-time conversation updates
-
-## Documentation
-
-For detailed documentation and examples, refer to the `examples/` directory which contains comprehensive usage examples covering all major features of the SDK.
 
 ## Development Workflow
 

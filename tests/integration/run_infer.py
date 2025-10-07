@@ -145,7 +145,28 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
         if hasattr(test_instance, "log_file_path") and os.path.exists(
             test_instance.log_file_path
         ):
-            log_file_path = test_instance.log_file_path
+            # Copy the log file to a permanent location before temp_dir is cleaned up
+            import shutil
+
+            # Create a permanent logs directory in the current working directory
+            permanent_logs_dir = os.path.join(os.getcwd(), "integration_test_logs")
+            os.makedirs(permanent_logs_dir, exist_ok=True)
+
+            # Create a unique filename to avoid conflicts
+            permanent_log_filename = f"{instance.instance_id}_agent_logs.txt"
+            permanent_log_path = os.path.join(
+                permanent_logs_dir, permanent_log_filename
+            )
+
+            # Copy the log file
+            shutil.copy2(test_instance.log_file_path, permanent_log_path)
+            log_file_path = permanent_log_path
+
+            logger.info(
+                "Preserved log file for %s at %s",
+                instance.instance_id,
+                permanent_log_path,
+            )
 
         return EvalOutput(
             instance_id=instance.instance_id,
@@ -233,7 +254,16 @@ def generate_structured_results(
     logs_dir = os.path.join(output_dir, "logs")
     os.makedirs(logs_dir, exist_ok=True)
 
+    logger.info("Attempting to copy log files to %s", logs_dir)
     for eval_output in eval_outputs:
+        logger.info(
+            "Checking log file for %s: path=%s, exists=%s",
+            eval_output.instance_id,
+            eval_output.log_file_path,
+            os.path.exists(eval_output.log_file_path)
+            if eval_output.log_file_path
+            else False,
+        )
         if eval_output.log_file_path and os.path.exists(eval_output.log_file_path):
             import shutil
 
@@ -242,6 +272,12 @@ def generate_structured_results(
             shutil.copy2(eval_output.log_file_path, dest_path)
             logger.info(
                 "Copied log file for %s to %s", eval_output.instance_id, dest_path
+            )
+        else:
+            logger.warning(
+                "Log file not found for %s: %s",
+                eval_output.instance_id,
+                eval_output.log_file_path,
             )
 
     # Print summary for console output
@@ -256,6 +292,15 @@ def generate_structured_results(
         logger.info("%s: %s - %s", instance.instance_id, status, reason)
     logger.info("Total cost: %s", format_cost(structured_results.total_cost))
     logger.info("Structured results saved to %s", results_file)
+
+    # Clean up temporary logs directory
+    permanent_logs_dir = os.path.join(os.getcwd(), "integration_test_logs")
+    if os.path.exists(permanent_logs_dir):
+        import shutil
+
+        shutil.rmtree(permanent_logs_dir, ignore_errors=True)
+        logger.info("Cleaned up temporary logs directory: %s", permanent_logs_dir)
+
     return results_file
 
 
