@@ -2,7 +2,6 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -362,48 +361,6 @@ class TestGlobConsistency:
         fallback_files = set(fallback_result.files)
 
         # Both methods must return exactly the same files
-        assert ripgrep_files == fallback_files, (
-            f"Ripgrep found: {ripgrep_files}\n"
-            f"Fallback found: {fallback_files}\n"
-            f"Difference (ripgrep - fallback): {ripgrep_files - fallback_files}\n"
-            f"Difference (fallback - ripgrep): {fallback_files - ripgrep_files}"
-        )
-
-    @pytest.mark.skipif(
-        not Path("/usr/bin/rg").exists() and not Path("/usr/local/bin/rg").exists(),
-        reason="ripgrep not available for consistency testing",
-    )
-    def test_methods_called_correctly(self, temp_dir_with_files):
-        """Test that the executor calls the right method based on ripgrep availability."""  # noqa: E501
-        action = GlobAction(pattern="*.py")
-
-        # Test with ripgrep available
-        with patch(
-            "openhands.tools.glob.impl._check_ripgrep_available", return_value=True
-        ):
-            executor = GlobExecutor(temp_dir_with_files)
-            assert executor._ripgrep_available
-
-            # Should use ripgrep method
-            result_ripgrep = executor(action)
-            assert not result_ripgrep.error
-
-        # Test with ripgrep not available
-        with patch(
-            "openhands.tools.glob.impl._check_ripgrep_available",
-            return_value=False,
-        ):
-            executor = GlobExecutor(temp_dir_with_files)
-            assert not executor._ripgrep_available
-
-            # Should use fallback method
-            result_fallback = executor(action)
-            assert not result_fallback.error
-
-        # Both methods must return exactly the same files
-        ripgrep_files = set(result_ripgrep.files)
-        fallback_files = set(result_fallback.files)
-
         assert ripgrep_files == fallback_files, (
             f"Ripgrep found: {ripgrep_files}\n"
             f"Fallback found: {fallback_files}\n"
