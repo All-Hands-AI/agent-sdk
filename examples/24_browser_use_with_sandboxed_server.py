@@ -5,8 +5,8 @@ from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
-from openhands.sdk.workspace import DockerWorkspace
 from openhands.tools.preset.default import get_default_agent
+from openhands.workspace import DockerWorkspace
 
 
 logger = get_logger(__name__)

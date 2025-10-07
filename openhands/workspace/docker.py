@@ -15,7 +15,7 @@ from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
-from openhands.sdk.workspace.remote.base import RemoteWorkspace
+from openhands.sdk.workspace import RemoteWorkspace
 
 
 logger = get_logger(__name__)
