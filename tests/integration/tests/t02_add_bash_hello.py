@@ -9,7 +9,7 @@ from openhands.tools.file_editor import FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
 
 
-INSTRUCTION = "Write a shell script '/shell/hello.sh' that prints 'hello'."
+INSTRUCTION = "Write a shell script 'shell/hello.sh' that prints 'hello'."
 
 
 logger = get_logger(__name__)
