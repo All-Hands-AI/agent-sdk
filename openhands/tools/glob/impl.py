@@ -125,13 +125,23 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
         try:
             os.chdir(search_path)
 
-            # Use glob to find matching files
-            matches = glob(action.pattern, recursive=True)
+            # Ripgrep's -g flag is always recursive, so we need to make the pattern
+            # recursive if it doesn't already contain **
+            pattern = action.pattern
+            if "**" not in pattern:
+                # Convert non-recursive patterns like "*.py" to "**/*.py"
+                # to match ripgrep's recursive behavior
+                pattern = f"**/{pattern}"
 
-            # Convert to absolute paths and sort by modification time
+            # Use glob to find matching files
+            matches = glob(pattern, recursive=True)
+
+            # Convert to absolute paths (without resolving symlinks) a
+            # nd sort by modification time
             file_paths = []
             for match in matches:
-                abs_path = str((search_path / match).resolve())
+                # Use absolute() instead of resolve() to avoid resolving symlinks
+                abs_path = str((search_path / match).absolute())
                 if os.path.isfile(abs_path):
                     file_paths.append((abs_path, os.path.getmtime(abs_path)))
 
