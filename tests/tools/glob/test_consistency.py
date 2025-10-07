@@ -7,8 +7,13 @@ import pytest
 
 from openhands.tools.glob.definition import GlobAction
 from openhands.tools.glob.impl import GlobExecutor
+from openhands.tools.utils import _check_ripgrep_available
 
 
+@pytest.mark.skipif(
+    not _check_ripgrep_available(),
+    reason="ripgrep not available - consistency tests require ripgrep",
+)
 class TestGlobConsistency:
     """Test that ripgrep and fallback methods produce consistent results."""
 

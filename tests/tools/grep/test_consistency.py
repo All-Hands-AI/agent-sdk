@@ -8,11 +8,16 @@ import pytest
 
 from openhands.tools.grep.definition import GrepAction
 from openhands.tools.grep.impl import GrepExecutor
+from openhands.tools.utils import _check_ripgrep_available
 
 
 # ruff: noqa
 
 
+@pytest.mark.skipif(
+    not _check_ripgrep_available(),
+    reason="ripgrep not available - consistency tests require ripgrep",
+)
 class TestGrepConsistency:
     """Test that ripgrep and fallback methods produce consistent results."""
 

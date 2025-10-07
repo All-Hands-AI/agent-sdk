@@ -10,8 +10,11 @@ import tempfile
 import time
 from pathlib import Path
 
+import pytest
+
 from openhands.tools.grep import GrepAction
 from openhands.tools.grep.impl import GrepExecutor
+from openhands.tools.utils import _check_ripgrep_available
 
 
 def test_grep_executor_initialization():
@@ -134,6 +137,10 @@ def test_grep_executor_hidden_files_excluded():
         assert ".hidden" not in observation.matches[0]
 
 
+@pytest.mark.skipif(
+    not _check_ripgrep_available(),
+    reason="ripgrep not available - sorting test requires ripgrep",
+)
 def test_grep_executor_sorting():
     """Test that files are sorted by modification time (newest first)."""
     with tempfile.TemporaryDirectory() as temp_dir:
