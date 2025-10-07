@@ -10,7 +10,7 @@ from tests.integration.base import BaseIntegrationTest, TestResult
 
 
 INSTRUCTION = (
-    "Fix all the typos in the file 'document.txt' that is in "
+    "Please fix all the typos in the file 'document.txt' that is in "
     "the current directory. "
     "Read the file first, identify the typos, and correct them. "
 )
