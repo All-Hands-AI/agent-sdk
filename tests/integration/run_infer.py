@@ -7,6 +7,7 @@ import argparse
 import importlib.util
 import json
 import os
+import shutil
 import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -146,7 +147,6 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
             test_instance.log_file_path
         ):
             # Copy the log file to a permanent location before temp_dir is cleaned up
-            import shutil
 
             # Create a permanent logs directory in the current working directory
             permanent_logs_dir = os.path.join(os.getcwd(), "integration_test_logs")
@@ -189,8 +189,6 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
     finally:
         # Clean up temporary directory if we created one
         if temp_dir and os.path.exists(temp_dir):
-            import shutil
-
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -265,8 +263,6 @@ def generate_structured_results(
             else False,
         )
         if eval_output.log_file_path and os.path.exists(eval_output.log_file_path):
-            import shutil
-
             log_filename = f"{eval_output.instance_id}_agent_logs.txt"
             dest_path = os.path.join(logs_dir, log_filename)
             shutil.copy2(eval_output.log_file_path, dest_path)
@@ -296,8 +292,6 @@ def generate_structured_results(
     # Clean up temporary logs directory
     permanent_logs_dir = os.path.join(os.getcwd(), "integration_test_logs")
     if os.path.exists(permanent_logs_dir):
-        import shutil
-
         shutil.rmtree(permanent_logs_dir, ignore_errors=True)
         logger.info("Cleaned up temporary logs directory: %s", permanent_logs_dir)
 
