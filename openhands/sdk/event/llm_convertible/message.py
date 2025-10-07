@@ -50,6 +50,7 @@ class MessageEvent(LLMConvertibleEvent):
         """Return Rich Text representation of this message event."""
         content = Text()
 
+        # Message text content
         text_parts = content_to_str(self.llm_message.content)
         if text_parts:
             full_content = "".join(text_parts)
@@ -57,10 +58,21 @@ class MessageEvent(LLMConvertibleEvent):
         else:
             content.append("[no text content]")
 
+        # Responses API reasoning (plaintext only; never render encrypted_content)
+        reasoning_item = self.llm_message.responses_reasoning_item
+        if reasoning_item is not None:
+            content.append("\n\nReasoning:\n", style="bold")
+            if reasoning_item.summary:
+                for s in reasoning_item.summary:
+                    content.append(f"- {s}\n")
+            if reasoning_item.content:
+                for b in reasoning_item.content:
+                    content.append(f"{b}\n")
+
         # Add microagent information if present
         if self.activated_microagents:
             content.append(
-                f"\nActivated Microagents: {', '.join(self.activated_microagents)}",
+                f"\n\nActivated Microagents: {', '.join(self.activated_microagents)}",
             )
 
         # Add extended content if available
@@ -69,7 +81,9 @@ class MessageEvent(LLMConvertibleEvent):
                 isinstance(c, ImageContent) for c in self.extended_content
             ), "Extended content should not contain images"
             text_parts = content_to_str(self.extended_content)
-            content.append("\nPrompt Extension based on Agent Context:\n")
+            content.append(
+                "\n\nPrompt Extension based on Agent Context:\n", style="bold"
+            )
             content.append(" ".join(text_parts))
 
         return content

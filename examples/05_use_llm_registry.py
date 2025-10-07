@@ -20,8 +20,8 @@ from openhands.tools.execute_bash import BashTool
 logger = get_logger(__name__)
 
 # Configure LLM using LLMRegistry
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 # Create LLM instance
 main_llm = LLM(

@@ -19,6 +19,7 @@ from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.llm import (
     Message,
     MessageToolCall,
+    ReasoningItemModel,
     RedactedThinkingBlock,
     TextContent,
     ThinkingBlock,
@@ -169,16 +170,26 @@ class Agent(AgentBase):
         _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
         logger.debug(
             "Sending messages to LLM: "
-            f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
+            f"{json.dumps([m.model_dump() for m in _messages[1:]], indent=2)}"
         )
 
         try:
-            llm_response = self.llm.completion(
-                messages=_messages,
-                tools=list(self.tools_map.values()),
-                extra_body={"metadata": self.llm.metadata},
-                add_security_risk_prediction=self._add_security_risk_prediction,
-            )
+            if self.llm.uses_responses_api():
+                llm_response = self.llm.responses(
+                    messages=_messages,
+                    tools=list(self.tools_map.values()),
+                    include=None,
+                    store=False,
+                    add_security_risk_prediction=self._add_security_risk_prediction,
+                    metadata=self.llm.metadata,
+                )
+            else:
+                llm_response = self.llm.completion(
+                    messages=_messages,
+                    tools=list(self.tools_map.values()),
+                    extra_body={"metadata": self.llm.metadata},
+                    add_security_risk_prediction=self._add_security_risk_prediction,
+                )
         except Exception as e:
             # If there is a condenser registered and the exception is a context window
             # exceeded, we can recover by triggering a condensation request.
@@ -223,6 +234,9 @@ class Agent(AgentBase):
                     reasoning_content=message.reasoning_content if i == 0 else None,
                     # Only first gets thinking blocks
                     thinking_blocks=list(message.thinking_blocks) if i == 0 else [],
+                    responses_reasoning_item=message.responses_reasoning_item
+                    if i == 0
+                    else None,
                 )
                 if action_event is None:
                     continue
@@ -292,6 +306,7 @@ class Agent(AgentBase):
         thought: list[TextContent] = [],
         reasoning_content: str | None = None,
         thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [],
+        responses_reasoning_item: ReasoningItemModel | None = None,
     ) -> ActionEvent | None:
         """Converts a tool call into an ActionEvent, validating arguments.
 
@@ -304,6 +319,20 @@ class Agent(AgentBase):
             available = list(self.tools_map.keys())
             err = f"Tool '{tool_name}' not found. Available: {available}"
             logger.error(err)
+            # Persist assistant function_call so next turn has matching call_id
+            tc_event = ActionEvent(
+                source="agent",
+                thought=thought,
+                reasoning_content=reasoning_content,
+                thinking_blocks=thinking_blocks,
+                responses_reasoning_item=responses_reasoning_item,
+                tool_call=tool_call,
+                tool_name=tool_call.name,
+                tool_call_id=tool_call.id,
+                llm_response_id=llm_response_id,
+                action=None,
+            )
+            on_event(tc_event)
             event = AgentErrorEvent(
                 error=err,
                 tool_name=tool_name,
@@ -340,6 +369,20 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
+            # Persist assistant function_call so next turn has matching call_id
+            tc_event = ActionEvent(
+                source="agent",
+                thought=thought,
+                reasoning_content=reasoning_content,
+                thinking_blocks=thinking_blocks,
+                responses_reasoning_item=responses_reasoning_item,
+                tool_call=tool_call,
+                tool_name=tool_call.name,
+                tool_call_id=tool_call.id,
+                llm_response_id=llm_response_id,
+                action=None,
+            )
+            on_event(tc_event)
             event = AgentErrorEvent(
                 error=err,
                 tool_name=tool_name,
@@ -353,6 +396,7 @@ class Agent(AgentBase):
             thought=thought,
             reasoning_content=reasoning_content,
             thinking_blocks=thinking_blocks,
+            responses_reasoning_item=responses_reasoning_item,
             tool_name=tool.name,
             tool_call_id=tool_call.id,
             tool_call=tool_call,

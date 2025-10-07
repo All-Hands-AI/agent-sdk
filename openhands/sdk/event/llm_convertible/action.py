@@ -8,6 +8,7 @@ from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import (
     Message,
     MessageToolCall,
+    ReasoningItemModel,
     RedactedThinkingBlock,
     TextContent,
     ThinkingBlock,
@@ -29,7 +30,13 @@ class ActionEvent(LLMConvertibleEvent):
         default_factory=list,
         description="Anthropic thinking blocks from the LLM response",
     )
-    action: Action = Field(..., description="Single action (tool call) returned by LLM")
+    responses_reasoning_item: ReasoningItemModel | None = Field(
+        default=None, description="OpenAI Responses reasoning item from model output"
+    )
+    action: Action | None = Field(
+        default=None,
+        description="Single tool call returned by LLM (None when non-executable)",
+    )
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"
@@ -79,8 +86,24 @@ class ActionEvent(LLMConvertibleEvent):
             content.append(thought_text)
             content.append("\n\n")
 
+        # Responses API reasoning (plaintext only; never render encrypted_content)
+        reasoning_item = self.responses_reasoning_item
+        if reasoning_item is not None:
+            content.append("Reasoning:\n", style="bold")
+            if reasoning_item.summary:
+                for s in reasoning_item.summary:
+                    content.append(f"- {s}\n")
+            if reasoning_item.content:
+                for b in reasoning_item.content:
+                    content.append(f"{b}\n")
+
         # Display action information using action's visualize method
-        content.append(self.action.visualize)
+        if self.action:
+            content.append(self.action.visualize)
+        else:
+            # When action is None (non-executable), show the function call
+            content.append("Function call:\n", style="bold")
+            content.append(f"- {self.tool_call.name} ({self.tool_call.id})\n")
 
         return content
 
@@ -92,6 +115,7 @@ class ActionEvent(LLMConvertibleEvent):
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
             thinking_blocks=self.thinking_blocks,
+            responses_reasoning_item=self.responses_reasoning_item,
         )
 
     def __str__(self) -> str:
@@ -103,5 +127,13 @@ class ActionEvent(LLMConvertibleEvent):
             if len(thought_text) > N_CHAR_PREVIEW
             else thought_text
         )
-        action_name = self.action.__class__.__name__
-        return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
+        if self.action:
+            action_name = self.action.__class__.__name__
+            return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
+        else:
+            # When action is None (non-executable), show the tool call
+            call = f"{self.tool_call.name}:{self.tool_call.id}"
+            return (
+                f"{base_str}\n  Thought: {thought_preview}\n  Action: (not executed)"
+                f"\n  Call: {call}"
+            )

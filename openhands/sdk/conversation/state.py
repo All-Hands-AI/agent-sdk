@@ -282,7 +282,8 @@ class ConversationState(OpenHandsModel):
             if isinstance(event, (ObservationEvent, UserRejectObservation)):
                 observed_action_ids.add(event.action_id)
             elif isinstance(event, ActionEvent):
-                if event.id not in observed_action_ids:
+                # Only executable actions (validated) are considered pending
+                if event.action is not None and event.id not in observed_action_ids:
                     # Insert at beginning to maintain chronological order in result
                     unmatched_actions.insert(0, event)
 
