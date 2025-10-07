@@ -13,8 +13,8 @@ logger = get_logger(__name__)
 
 
 def main() -> None:
-    api_key = os.getenv("LITELLM_API_KEY")
-    assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+    api_key = os.getenv("LLM_API_KEY")
+    assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
     llm = LLM(
         service_id="agent",
@@ -30,7 +30,7 @@ def main() -> None:
         # TODO: Change this to your platform if not linux/arm64
         platform="linux/arm64",
         extra_ports=True,  # Expose extra ports for VSCode and VNC
-        forward_env=["LITELLM_API_KEY"],  # Forward API key to container
+        forward_env=["LLM_API_KEY"],  # Forward API key to container
     ) as workspace:
         """Extra ports allows you to check localhost:8012 for VNC"""
 
