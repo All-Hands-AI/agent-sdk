@@ -43,7 +43,7 @@ def _log_ripgrep_fallback_warning(tool_name: str, fallback_method: str) -> None:
     """Log a warning about falling back from ripgrep to alternative method.
 
     Args:
-        tool_name: Name of the tool (e.g., "file_glob", "grep")
+        tool_name: Name of the tool (e.g., "glob", "grep")
         fallback_method: Description of the fallback method being used
     """
     # Check if this is due to explicit disabling

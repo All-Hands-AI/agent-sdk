@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from openhands.tools.file_glob.definition import GlobAction
-from openhands.tools.file_glob.impl import GlobExecutor
+from openhands.tools.glob.definition import GlobAction
+from openhands.tools.glob.impl import GlobExecutor
 
 
 class TestGlobConsistency:
@@ -119,7 +119,7 @@ class TestGlobConsistency:
 
         # Test with ripgrep available
         with patch(
-            "openhands.tools.file_glob.impl._check_ripgrep_available", return_value=True
+            "openhands.tools.glob.impl._check_ripgrep_available", return_value=True
         ):
             executor = GlobExecutor(temp_dir_with_files)
             assert executor._ripgrep_available
@@ -131,7 +131,7 @@ class TestGlobConsistency:
 
         # Test with ripgrep not available
         with patch(
-            "openhands.tools.file_glob.impl._check_ripgrep_available",
+            "openhands.tools.glob.impl._check_ripgrep_available",
             return_value=False,
         ):
             executor = GlobExecutor(temp_dir_with_files)

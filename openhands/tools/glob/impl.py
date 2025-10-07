@@ -1,12 +1,12 @@
 """Glob tool executor implementation."""
 
-import glob
 import os
 import subprocess
+from glob import glob
 from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
-from openhands.tools.file_glob.definition import GlobAction, GlobObservation
+from openhands.tools.glob.definition import GlobAction, GlobObservation
 from openhands.tools.utils import (
     _check_ripgrep_available,
     _log_ripgrep_fallback_warning,
@@ -31,7 +31,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
         self.working_dir = Path(working_dir).resolve()
         self._ripgrep_available = _check_ripgrep_available()
         if not self._ripgrep_available:
-            _log_ripgrep_fallback_warning("file_glob", "Python glob module")
+            _log_ripgrep_fallback_warning("glob", "Python glob module")
 
     def __call__(self, action: GlobAction) -> GlobObservation:
         """Execute glob pattern matching using ripgrep or fallback to Python glob.
@@ -126,7 +126,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
             os.chdir(search_path)
 
             # Use glob to find matching files
-            matches = glob.glob(action.pattern, recursive=True)
+            matches = glob(action.pattern, recursive=True)
 
             # Convert to absolute paths and sort by modification time
             file_paths = []
