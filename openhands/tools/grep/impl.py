@@ -165,6 +165,15 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
         if result.stdout:
             for line in result.stdout.strip().split("\n"):
                 if line:
+                    # Apply include pattern filtering if --include didn't work properly
+                    # This ensures consistent behavior across different grep versions
+                    if action.include:
+                        import fnmatch
+
+                        filename = Path(line).name
+                        if not fnmatch.fnmatch(filename, action.include):
+                            continue
+
                     matches.append(line)
                     if len(matches) >= 100:
                         break
