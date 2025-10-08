@@ -62,6 +62,7 @@ class EventService:
     async def save_meta(self):
         self.stored.updated_at = utc_now()
         meta_file = self.persistence_dir / "meta.json"
+        meta_file.parent.mkdir(parents=True, exist_ok=True)
         meta_file.write_text(self.stored.model_dump_json())
 
     async def get_event(self, event_id: str) -> Event | None:

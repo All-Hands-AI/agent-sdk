@@ -1,5 +1,6 @@
 """Conversation router for OpenHands SDK."""
 
+import logging
 from typing import Annotated
 from uuid import UUID
 
@@ -25,6 +26,8 @@ from openhands.sdk import LLM, Agent, TextContent, Tool
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.workspace import LocalWorkspace
 
+
+logger = logging.getLogger(__name__)
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
 conversation_service = get_default_conversation_service()
@@ -127,8 +130,23 @@ async def start_conversation(
     ],
 ) -> ConversationInfo:
     """Start a conversation in the local environment."""
-    info = await conversation_service.start_conversation(request)
-    return info
+    logger.info(
+        f"POST /conversations - Received request to start conversation: "
+        f"agent={request.agent.model_dump(exclude={'llm': {'api_key'}})} "
+        f"workspace={request.workspace}"
+    )
+    try:
+        info = await conversation_service.start_conversation(request)
+        logger.info(
+            f"POST /conversations - Successfully started conversation {info.id}"
+        )
+        return info
+    except Exception as e:
+        logger.error(
+            f"POST /conversations - Failed to start conversation: {e}",
+            exc_info=True,
+        )
+        raise
 
 
 @conversation_router.post(
