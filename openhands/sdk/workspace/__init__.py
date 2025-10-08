@@ -11,6 +11,5 @@ __all__ = [
     "FileOperationResult",
     "LocalWorkspace",
     "RemoteWorkspace",
-    "APIRemoteWorkspace",
     "Workspace",
 ]
