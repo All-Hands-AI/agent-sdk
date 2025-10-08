@@ -1,6 +1,5 @@
 """API-based remote workspace implementation using runtime API."""
 
-import base64
 import time
 from typing import Any
 from urllib.request import urlopen
@@ -36,8 +35,7 @@ class APIRemoteWorkspace(RemoteWorkspace):
     )
     host: str = Field(
         default="undefined",
-        description=
-        "The remote host URL for the workspace."
+        description="The remote host URL for the workspace."
         " It will be set to the runtime URL after connecting.",
     )
 
@@ -72,7 +70,6 @@ class APIRemoteWorkspace(RemoteWorkspace):
     _runtime_url: str | None = PrivateAttr(default=None)
     _session_api_key: str | None = PrivateAttr(default=None)
     _client: httpx.Client = PrivateAttr()
-
 
     def model_post_init(self, context: Any) -> None:
         """Set up the remote runtime and initialize the workspace."""
@@ -154,7 +151,10 @@ class APIRemoteWorkspace(RemoteWorkspace):
         logger.info(f"Starting runtime with {self.server_image}")
         logger.info(f"Payload: {payload}")
         resp = self._send_api_request(
-            "POST", f"{self.runtime_api_url}/start", json=payload, timeout=self.init_timeout
+            "POST",
+            f"{self.runtime_api_url}/start",
+            json=payload,
+            timeout=self.init_timeout,
         )
         self._parse_runtime_response(resp)
         logger.info(f"Runtime {self._runtime_id} at {self._runtime_url}")
@@ -194,7 +194,7 @@ class APIRemoteWorkspace(RemoteWorkspace):
         data = resp.json()
         pod_status = data.get("pod_status", "").lower()
         logger.info(f"Pod status: {pod_status}")
-        
+
         # Log additional details for debugging
         if pod_status == "pending":
             container_statuses = data.get("container_statuses", [])
