@@ -94,6 +94,20 @@ class BaseConversation(ABC):
     def confirmation_policy_active(self) -> bool:
         return not isinstance(self.state.confirmation_policy, NeverConfirm)
 
+    @property
+    def is_confirmation_mode_active(self) -> bool:
+        """Check if confirmation mode is active.
+
+        Returns True if BOTH conditions are met:
+        1. The agent has a security analyzer set (not None)
+        2. The confirmation policy is active
+
+        """
+        return (
+            self.state.agent.security_analyzer is not None
+            and self.confirmation_policy_active
+        )
+
     @abstractmethod
     def reject_pending_actions(
         self, reason: str = "User rejected the action"
