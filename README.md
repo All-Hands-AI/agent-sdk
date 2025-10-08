@@ -253,6 +253,57 @@ The agent server provides:
 - `POST /conversations/{id}/messages` - Send message to conversation
 - `WebSocket /ws/{conversation_id}` - Real-time conversation updates
 
+## Scheduled Maintenance Tasks
+
+The SDK includes a GitHub Actions workflow for running scheduled maintenance tasks with the agent. This allows you to automate recurring operations like dependency updates, security audits, or documentation maintenance.
+
+### Features
+
+- **Configurable schedule**: Run tasks at fixed intervals using cron syntax
+- **Remote prompts**: Load task instructions from URLs or local files
+- **Flexible LLM configuration**: Customize model, API key, and base URL
+- **Custom scripts**: Use your own agent scripts for specialized tasks
+
+### Quick Start
+
+1. **Create a prompt file** with your task instructions:
+
+```text
+Check the repository for any outdated dependencies and create a summary report.
+```
+
+2. **Run locally** to test:
+
+```bash
+export LLM_API_KEY="your-api-key"
+export LLM_MODEL="anthropic/claude-sonnet-4-5-20250929"
+python examples/28_maintenance_task_runner.py examples/prompts/maintenance_example.txt
+```
+
+3. **Configure GitHub Actions** (`.github/workflows/maintenance-task.yml`):
+   - Set `LLM_API_KEY` secret in your repository settings
+   - Optionally set `LLM_MODEL` and `LLM_BASE_URL` secrets
+   - Uncomment and customize the cron schedule
+   - Run manually or wait for scheduled execution
+
+4. **Manual workflow dispatch**:
+   - Go to Actions → "Scheduled Maintenance Task"
+   - Click "Run workflow"
+   - Provide prompt location (file path or URL)
+   - Configure LLM settings as needed
+
+### Configuration Options
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `AGENT_SCRIPT` | Python script to run the agent | `examples/28_maintenance_task_runner.py` |
+| `PROMPT_LOCATION` | URL or path to prompt file | Required |
+| `LLM_MODEL` | Language model to use | `anthropic/claude-sonnet-4-5-20250929` |
+| `LLM_API_KEY` | API key for the LLM | Required (from secrets) |
+| `LLM_BASE_URL` | Optional base URL for LLM API | None |
+
+See [`examples/prompts/README.md`](examples/prompts/README.md) for more examples and best practices.
+
 ## Development Workflow
 
 ### Environment Setup

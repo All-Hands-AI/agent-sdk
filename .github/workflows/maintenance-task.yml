@@ -1,0 +1,101 @@
+---
+name: Scheduled Maintenance Task
+
+on:
+    # Allow manual trigger with custom parameters
+    workflow_dispatch:
+        inputs:
+            agent_script:
+                description: "The Python script to run for the maintenance task"
+                required: false
+                type: string
+                default: "examples/28_maintenance_task_runner.py"
+            prompt_location:
+                description: "URL or file path to the prompt (Jinja2 template)"
+                required: true
+                type: string
+            llm_model:
+                description: "LLM model to use"
+                required: false
+                type: string
+                default: "anthropic/claude-sonnet-4-5-20250929"
+            llm_base_url:
+                description: "Optional base URL for the LLM API"
+                required: false
+                type: string
+    # Scheduled trigger (disabled by default, uncomment and customize as needed)
+    # schedule:
+    #   # Run at 2 AM UTC every day
+    #   - cron: "0 2 * * *"
+
+permissions:
+    contents: write
+    pull-requests: write
+    issues: write
+
+jobs:
+    run-maintenance-task:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.12"
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
+
+            - name: Install dependencies
+              run: uv sync --frozen --group dev
+
+            - name: Check required environment variables
+              env:
+                  LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+                  LLM_MODEL: >-
+                      ${{ secrets.LLM_MODEL || inputs.llm_model ||
+                      'anthropic/claude-sonnet-4-5-20250929' }}
+                  LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || inputs.llm_base_url }}
+              run: |
+                  if [ -z "$LLM_API_KEY" ]; then
+                    echo "Error: LLM_API_KEY secret is not set."
+                    exit 1
+                  fi
+
+                  echo "Using LLM model: $LLM_MODEL"
+                  if [ -n "$LLM_BASE_URL" ]; then
+                    echo "Using LLM base URL: $LLM_BASE_URL"
+                  fi
+
+            - name: Run maintenance task
+              env:
+                  LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+                  LLM_MODEL: >-
+                      ${{ secrets.LLM_MODEL || inputs.llm_model ||
+                      'anthropic/claude-sonnet-4-5-20250929' }}
+                  LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || inputs.llm_base_url }}
+                  AGENT_SCRIPT: >-
+                      ${{ inputs.agent_script ||
+                      'examples/28_maintenance_task_runner.py' }}
+                  PROMPT_LOCATION: >-
+                      ${{ inputs.prompt_location ||
+                      'https://example.com/prompt.txt' }}
+                  PYTHONPATH: ""
+              run: |
+                  echo "Running agent script: $AGENT_SCRIPT"
+                  echo "With prompt from: $PROMPT_LOCATION"
+                  uv run python "$AGENT_SCRIPT" "$PROMPT_LOCATION"
+
+            - name: Upload logs as artifact
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: maintenance-task-logs
+                  path: |
+                      *.log
+                      output/
+                  retention-days: 7

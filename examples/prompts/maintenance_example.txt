@@ -1,0 +1,6 @@
+Check the repository for any outdated dependencies and create a summary report.
+
+Please:
+1. List all Python dependencies defined in pyproject.toml files
+2. Check if there are any known security vulnerabilities
+3. Provide a summary of findings in a markdown file called DEPENDENCY_REPORT.md
