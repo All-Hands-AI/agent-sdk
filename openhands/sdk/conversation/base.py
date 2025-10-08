@@ -99,7 +99,7 @@ class BaseConversation(ABC):
         """Check if confirmation mode is active.
 
         Returns True if BOTH conditions are met:
-        1. The agent has an LLM security analyzer set (not None)
+        1. The agent has a security analyzer set (not None)
         2. The confirmation policy is active
 
         Returns:
