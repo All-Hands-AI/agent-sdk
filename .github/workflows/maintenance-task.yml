@@ -6,21 +6,21 @@ on:
     workflow_dispatch:
         inputs:
             agent_script:
-                description: "The Python script to run for the maintenance task"
+                description: The Python script to run for the maintenance task
                 required: false
                 type: string
-                default: "examples/28_maintenance_task_runner/run.py"
+                default: examples/28_maintenance_task_runner/run.py
             prompt_location:
-                description: "URL or file path to the prompt (Jinja2 template)"
+                description: URL or file path to the prompt (Jinja2 template)
                 required: true
                 type: string
             llm_model:
-                description: "LLM model to use"
+                description: LLM model to use
                 required: false
                 type: string
-                default: "openhands/claude-sonnet-4-5-20250929"
+                default: openhands/claude-sonnet-4-5-20250929
             llm_base_url:
-                description: "Optional base URL for the LLM API"
+                description: Optional base URL for the LLM API
                 required: false
                 type: string
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
@@ -43,7 +43,7 @@ jobs:
             - name: Set up Python
               uses: actions/setup-python@v5
               with:
-                  python-version: "3.12"
+                  python-version: '3.12'
 
             - name: Install uv
               uses: astral-sh/setup-uv@v6
@@ -84,7 +84,7 @@ jobs:
                   PROMPT_LOCATION: >-
                       ${{ inputs.prompt_location ||
                       'https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28_maintenance_task_runner/maintenance_example.txt' }}
-                  PYTHONPATH: ""
+                  PYTHONPATH: ''
               run: |
                   echo "Running agent script: $AGENT_SCRIPT"
                   echo "With prompt from: $PROMPT_LOCATION"
