@@ -91,7 +91,6 @@ class RemoteWorkspace(BaseWorkspace):
             while time.time() - start_time < timeout:
                 # Search for BashOutput events for this specific command
                 # Note: limit=10 handles outputs up to ~10MB (1MB per chunk)
-                # which covers 99%+ of real-world use cases
                 search_response = self._client.get(
                     "/api/bash/bash_events/search",
                     params={
