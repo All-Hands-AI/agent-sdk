@@ -256,8 +256,7 @@ class APIRemoteWorkspace(RemoteWorkspace):
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError:
-            # Log the error response body for debugging
-            logger.error(f"Request headers: {response.request.headers}")
+            logger.debug(f"Request headers: {response.request.headers}")
             try:
                 error_detail = response.json()
                 logger.error(f"API request failed: {error_detail}")
