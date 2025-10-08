@@ -153,9 +153,9 @@ def build_agent_server_image(
         env.update(extra_env)
 
     if not project_root:
-        # Path is: openhands/sdk/workspace/remote/docker.py
-        # parents[4] gives us the SDK root
-        project_root = str(Path(__file__).resolve().parents[4])
+        # Path is: openhands/workspace/docker/workspace.py
+        # parents[3] gives us the SDK root
+        project_root = str(Path(__file__).resolve().parents[3])
 
     proc = execute_command(["bash", str(script_path)], env=env, cwd=project_root)
 
