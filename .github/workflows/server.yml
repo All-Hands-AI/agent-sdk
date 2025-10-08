@@ -178,7 +178,7 @@ jobs:
         env:
             IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
             BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
-            CUSTOM_TAGS: ${{ matrix.name }}
+            CUSTOM_TAGS: SHA-${{ matrix.name }},${{ matrix.name }}
             TARGET: binary
             PLATFORMS: ${{ matrix.platforms }}
             GITHUB_SHA: ${{ github.sha }}
