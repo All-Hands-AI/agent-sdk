@@ -10,10 +10,6 @@ import tenacity
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.workspace.build_config import AgentServerBuildConfig
-from openhands.sdk.workspace.build_utils import (
-    create_agent_server_build_context_tarball,
-)
 from openhands.sdk.workspace.remote.base import RemoteWorkspace
 
 
