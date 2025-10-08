@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from openhands.tools.glob.definition import GlobAction
-from openhands.tools.glob.impl import GlobExecutor
+from openhands.tools.file_glob.definition import GlobAction
+from openhands.tools.file_glob.impl import GlobExecutor
 from openhands.tools.utils import _check_ripgrep_available
 
 
