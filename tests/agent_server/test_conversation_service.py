@@ -14,6 +14,7 @@ from openhands.agent_server.models import (
     ConversationSortOrder,
     StartConversationRequest,
     StoredConversation,
+    UpdateConversationRequest,
 )
 from openhands.sdk import LLM, Agent
 from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
@@ -630,8 +631,9 @@ class TestConversationServiceUpdateConversation:
 
         # Update the title
         new_title = "My Updated Conversation Title"
+        request = UpdateConversationRequest(title=new_title)
         result = await conversation_service.update_conversation(
-            conversation_id, new_title
+            conversation_id, request
         )
 
         # Verify update was successful
@@ -660,8 +662,9 @@ class TestConversationServiceUpdateConversation:
 
         # Update with title that has whitespace
         new_title = "   Whitespace Test   "
+        request = UpdateConversationRequest(title=new_title)
         result = await conversation_service.update_conversation(
-            conversation_id, new_title
+            conversation_id, request
         )
 
         # Verify whitespace was stripped
@@ -673,8 +676,9 @@ class TestConversationServiceUpdateConversation:
     async def test_update_conversation_not_found(self, conversation_service):
         """Test updating a non-existent conversation returns False."""
         non_existent_id = uuid4()
+        request = UpdateConversationRequest(title="New Title")
         result = await conversation_service.update_conversation(
-            non_existent_id, "New Title"
+            non_existent_id, request
         )
 
         assert result is False
@@ -684,8 +688,9 @@ class TestConversationServiceUpdateConversation:
         """Test that update_conversation raises ValueError when service is inactive."""
         conversation_service._event_services = None
 
+        request = UpdateConversationRequest(title="New Title")
         with pytest.raises(ValueError, match="inactive_service"):
-            await conversation_service.update_conversation(uuid4(), "New Title")
+            await conversation_service.update_conversation(uuid4(), request)
 
     @pytest.mark.asyncio
     async def test_update_conversation_notifies_webhooks(
@@ -712,8 +717,9 @@ class TestConversationServiceUpdateConversation:
             conversation_service, "_notify_conversation_webhooks", new=AsyncMock()
         ) as mock_notify:
             new_title = "Updated Title for Webhook Test"
+            request = UpdateConversationRequest(title=new_title)
             result = await conversation_service.update_conversation(
-                conversation_id, new_title
+                conversation_id, request
             )
 
             # Verify webhook was called
@@ -748,7 +754,8 @@ class TestConversationServiceUpdateConversation:
 
         # Update the title
         new_title = "Persisted Title"
-        await conversation_service.update_conversation(conversation_id, new_title)
+        request = UpdateConversationRequest(title=new_title)
+        await conversation_service.update_conversation(conversation_id, request)
 
         # Verify save_meta was called to persist changes
         mock_service.save_meta.assert_called_once()
@@ -775,22 +782,25 @@ class TestConversationServiceUpdateConversation:
         conversation_service._event_services[conversation_id] = mock_service
 
         # First update
+        request1 = UpdateConversationRequest(title="First Title")
         result1 = await conversation_service.update_conversation(
-            conversation_id, "First Title"
+            conversation_id, request1
         )
         assert result1 is True
         assert mock_service.stored.title == "First Title"
 
         # Second update
+        request2 = UpdateConversationRequest(title="Second Title")
         result2 = await conversation_service.update_conversation(
-            conversation_id, "Second Title"
+            conversation_id, request2
         )
         assert result2 is True
         assert mock_service.stored.title == "Second Title"
 
         # Third update
+        request3 = UpdateConversationRequest(title="Third Title")
         result3 = await conversation_service.update_conversation(
-            conversation_id, "Third Title"
+            conversation_id, request3
         )
         assert result3 is True
         assert mock_service.stored.title == "Third Title"

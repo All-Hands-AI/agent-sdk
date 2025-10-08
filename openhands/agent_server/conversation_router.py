@@ -228,9 +228,7 @@ async def update_conversation(
 
     This endpoint allows updating conversation details like title.
     """
-    updated = await conversation_service.update_conversation(
-        conversation_id, request.title
-    )
+    updated = await conversation_service.update_conversation(conversation_id, request)
     if not updated:
         return Success(success=False)
     return Success()

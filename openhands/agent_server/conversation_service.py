@@ -15,6 +15,7 @@ from openhands.agent_server.models import (
     ConversationSortOrder,
     StartConversationRequest,
     StoredConversation,
+    UpdateConversationRequest,
 )
 from openhands.agent_server.pub_sub import Subscriber
 from openhands.agent_server.server_details_router import update_last_execution_time
@@ -251,12 +252,14 @@ class ConversationService:
             return True
         return False
 
-    async def update_conversation(self, conversation_id: UUID, title: str) -> bool:
+    async def update_conversation(
+        self, conversation_id: UUID, request: UpdateConversationRequest
+    ) -> bool:
         """Update conversation metadata.
 
         Args:
             conversation_id: The ID of the conversation to update
-            title: The new title for the conversation
+            request: Request object containing fields to update (e.g., title)
 
         Returns:
             bool: True if the conversation was updated successfully, False if not found
@@ -268,7 +271,7 @@ class ConversationService:
             return False
 
         # Update the title in stored conversation
-        event_service.stored.title = title.strip()
+        event_service.stored.title = request.title.strip()
         # Save the updated metadata to disk
         await event_service.save_meta()
 
@@ -278,7 +281,8 @@ class ConversationService:
         await self._notify_conversation_webhooks(conversation_info)
 
         logger.info(
-            f"Successfully updated conversation {conversation_id} with title: {title}"
+            f"Successfully updated conversation {conversation_id} "
+            f"with title: {request.title}"
         )
         return True
 
