@@ -83,7 +83,7 @@ jobs:
                       'examples/28_maintenance_task_runner/run.py' }}
                   PROMPT_LOCATION: >-
                       ${{ inputs.prompt_location ||
-                      'https://example.com/prompt.txt' }}
+                      'https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28_maintenance_task_runner/maintenance_example.txt' }}
                   PYTHONPATH: ""
               run: |
                   echo "Running agent script: $AGENT_SCRIPT"
