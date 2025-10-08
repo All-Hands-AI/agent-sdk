@@ -24,6 +24,12 @@ from openhands.sdk.event.conversation_state import (
 )
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.logger import get_logger
+from openhands.sdk.observability.laminar import (
+    end_active_span,
+    observe,
+    should_enable_observability,
+    start_active_span,
+)
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
@@ -436,6 +442,11 @@ class RemoteConversation(BaseConversation):
             secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
             self.update_secrets(secret_values)
 
+        if should_enable_observability():
+            self._span = start_active_span(f"conversation.{self._id}")
+        else:
+            self._span = None
+
     @property
     def id(self) -> ConversationID:
         return self._id
@@ -461,6 +472,7 @@ class RemoteConversation(BaseConversation):
             " since it would be handled server-side."
         )
 
+    @observe(name="conversation.send_message")
     def send_message(self, message: str | Message) -> None:
         if isinstance(message, str):
             message = Message(role="user", content=[TextContent(text=message)])
@@ -475,6 +487,7 @@ class RemoteConversation(BaseConversation):
         resp = self._client.post(f"/api/conversations/{self._id}/events", json=payload)
         resp.raise_for_status()
 
+    @observe(name="conversation.run")
     def run(self) -> None:
         # Trigger a run on the server using the dedicated run endpoint.
         # Let the server tell us if it's already running (409), avoiding an extra GET.
@@ -523,6 +536,7 @@ class RemoteConversation(BaseConversation):
         resp = self._client.post(f"/api/conversations/{self._id}/secrets", json=payload)
         resp.raise_for_status()
 
+    @observe(name="conversation.generate_title", ignore_inputs=["llm"])
     def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
         """Generate a title for the conversation based on the first user message.
 
@@ -555,6 +569,12 @@ class RemoteConversation(BaseConversation):
             if self._ws_client:
                 self._ws_client.stop()
                 self._ws_client = None
+        except Exception:
+            pass
+
+        try:
+            if self._span:
+                end_active_span(self._span)
         except Exception:
             pass
 
