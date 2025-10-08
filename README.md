@@ -277,7 +277,8 @@ Check the repository for any outdated dependencies and create a summary report.
 ```bash
 export LLM_API_KEY="your-api-key"
 export LLM_MODEL="anthropic/claude-sonnet-4-5-20250929"
-python examples/28_maintenance_task_runner.py examples/prompts/maintenance_example.txt
+python examples/28_maintenance_task_runner/run.py \
+    examples/28_maintenance_task_runner/prompts/maintenance_example.txt
 ```
 
 3. **Configure GitHub Actions** (`.github/workflows/maintenance-task.yml`):
@@ -296,13 +297,13 @@ python examples/28_maintenance_task_runner.py examples/prompts/maintenance_examp
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `AGENT_SCRIPT` | Python script to run the agent | `examples/28_maintenance_task_runner.py` |
+| `AGENT_SCRIPT` | Python script to run the agent | `examples/28_maintenance_task_runner/run.py` |
 | `PROMPT_LOCATION` | URL or path to prompt file | Required |
 | `LLM_MODEL` | Language model to use | `anthropic/claude-sonnet-4-5-20250929` |
 | `LLM_API_KEY` | API key for the LLM | Required (from secrets) |
 | `LLM_BASE_URL` | Optional base URL for LLM API | None |
 
-See [`examples/prompts/README.md`](examples/prompts/README.md) for more examples and best practices.
+See [`examples/28_maintenance_task_runner/prompts/README.md`](examples/28_maintenance_task_runner/prompts/README.md) for more examples and best practices.
 
 ## Development Workflow
 

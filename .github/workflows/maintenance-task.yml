@@ -9,7 +9,7 @@ on:
                 description: "The Python script to run for the maintenance task"
                 required: false
                 type: string
-                default: "examples/28_maintenance_task_runner.py"
+                default: "examples/28_maintenance_task_runner/run.py"
             prompt_location:
                 description: "URL or file path to the prompt (Jinja2 template)"
                 required: true
