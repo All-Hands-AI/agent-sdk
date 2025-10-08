@@ -25,6 +25,7 @@ from openhands.sdk.llm import (
     ThinkingBlock,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.observability.laminar import maybe_init_laminar, observe
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
@@ -36,6 +37,7 @@ from openhands.sdk.tool.builtins import FinishAction, ThinkAction
 
 
 logger = get_logger(__name__)
+maybe_init_laminar()
 
 
 class Agent(AgentBase):
@@ -129,6 +131,7 @@ class Agent(AgentBase):
         for action_event in action_events:
             self._execute_action_event(state, action_event, on_event=on_event)
 
+    @observe(ignore_inputs=["state", "on_event"])
     def step(
         self,
         state: ConversationState,
@@ -405,6 +408,7 @@ class Agent(AgentBase):
         on_event(action_event)
         return action_event
 
+    @observe(ignore_inputs=["state", "on_event"])
     def _execute_action_event(
         self,
         state: ConversationState,
