@@ -40,7 +40,7 @@ def mock_event_service():
                     agent=Agent(
                         llm=LLM(
                             service_id="test-llm",
-                            model="gpt-4o",
+                            model="test-model",
                             api_key=SecretStr("test-key"),
                         ),
                         tools=[],
