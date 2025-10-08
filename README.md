@@ -278,7 +278,7 @@ Check the repository for any outdated dependencies and create a summary report.
 export LLM_API_KEY="your-api-key"
 export LLM_MODEL="openhands/claude-sonnet-4-5-20250929"
 python examples/28_maintenance_task_runner/run.py \
-    examples/28_maintenance_task_runner/maintenance_example.txt
+    https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28_maintenance_task_runner/maintenance_example.txt
 ```
 
 3. **Configure GitHub Actions** (`.github/workflows/maintenance-task.yml`):
@@ -302,6 +302,8 @@ python examples/28_maintenance_task_runner/run.py \
 | `LLM_MODEL` | Language model to use | `openhands/claude-sonnet-4-5-20250929` |
 | `LLM_API_KEY` | API key for the LLM | Required (from secrets) |
 | `LLM_BASE_URL` | Optional base URL for LLM API | None |
+
+For a complete example, see the [maintenance task runner](https://github.com/All-Hands-AI/agent-sdk/tree/main/examples/28_maintenance_task_runner).
 
 ## Development Workflow
 
