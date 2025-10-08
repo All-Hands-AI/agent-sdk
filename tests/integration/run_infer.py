@@ -113,15 +113,10 @@ def process_instance(instance: TestInstance, llm_config: dict[str, Any]) -> Eval
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        # Get the required parameters from the module
-        instruction = getattr(module, "INSTRUCTION", "Default test instruction")
-
-        # Instantiate the test class with required parameters
-        # Note: tools are now provided via the abstract tools property
         test_instance = test_class_type(
-            instruction=instruction,
+            instruction=module.INSTRUCTION,
             llm_config=llm_config,  # Use the provided config
-            cwd=temp_dir,  # Pass the CWD (either from module or temp dir)
+            workspace=temp_dir,  # Pass the workspace directory
             instance_id=instance.instance_id,  # Pass the instance ID for logging
         )
 

@@ -20,11 +20,13 @@ class BashHelloTest(BaseIntegrationTest):
 
     INSTRUCTION = INSTRUCTION
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.script_path = os.path.join(self.workspace, "shell", "hello.sh")
+
     @property
     def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
@@ -33,34 +35,21 @@ class BashHelloTest(BaseIntegrationTest):
         ]
 
     def setup(self) -> None:
-        """Create workspace directory for the test."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before setup")
-
-        # Create workspace directory
-        workspace_dir = os.path.join(self.cwd, "workspace")
-        os.makedirs(workspace_dir, exist_ok=True)
-
-        logger.info(f"Created workspace directory at: {workspace_dir}")
+        """Setup is not needed - agent will create directories as needed."""
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully created the shell script."""
-        if self.cwd is None:
-            return TestResult(success=False, reason="CWD not set")
-
-        script_path = os.path.join(self.cwd, "shell", "hello.sh")
-
-        if not os.path.exists(script_path):
+        if not os.path.exists(self.script_path):
             return TestResult(
                 success=False, reason="Shell script 'shell/hello.sh' not found"
             )
 
         # Check if the script is executable
-        if not os.access(script_path, os.X_OK):
+        if not os.access(self.script_path, os.X_OK):
             return TestResult(success=False, reason="Shell script is not executable")
 
         # Read the script content
-        with open(script_path) as f:
+        with open(self.script_path) as f:
             script_content = f.read()
 
         # Check if the script contains the expected output
@@ -75,10 +64,10 @@ class BashHelloTest(BaseIntegrationTest):
             import subprocess
 
             result = subprocess.run(
-                ["bash", script_path],
+                ["bash", self.script_path],
                 capture_output=True,
                 text=True,
-                cwd=self.cwd,
+                cwd=self.workspace,
             )
             if result.returncode != 0:
                 return TestResult(
@@ -102,9 +91,3 @@ class BashHelloTest(BaseIntegrationTest):
             return TestResult(
                 success=False, reason=f"Failed to execute script: {str(e)}"
             )
-
-    def teardown(self):
-        """Clean up test resources."""
-        # Note: In this implementation, cwd is managed externally
-        # so we don't need to clean it up here
-        pass

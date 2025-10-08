@@ -36,11 +36,13 @@ class InteractiveCommandsTest(BaseIntegrationTest):
 
     INSTRUCTION = INSTRUCTION
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.script_path = os.path.join(self.workspace, "python_script.py")
+
     @property
     def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
@@ -50,22 +52,13 @@ class InteractiveCommandsTest(BaseIntegrationTest):
 
     def setup(self) -> None:
         """Set up the interactive Python script."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before setup")
 
         try:
-            # Create the workspace directory
-            assert self.cwd is not None
-            workspace_dir = os.path.join(self.cwd, "workspace")
-            os.makedirs(workspace_dir, exist_ok=True)
-
-            # Write the Python script
-            script_path = os.path.join(workspace_dir, "python_script.py")
-            with open(script_path, "w") as f:
+            with open(self.script_path, "w") as f:
                 f.write(PYTHON_SCRIPT_CONTENT)
 
             logger.info(
-                f"Created interactive Python script at {script_path} "
+                f"Created interactive Python script at {self.script_path} "
                 f"with expected secret number: {SECRET_NUMBER}"
             )
 
@@ -74,22 +67,14 @@ class InteractiveCommandsTest(BaseIntegrationTest):
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully executed the script with input."""
-        # The verification will be based on the agent's conversation
-        # Since we can't directly check what the agent "said", we'll check if
-        # the script file exists and contains the expected content
-
-        assert self.cwd is not None
-        workspace_dir = os.path.join(self.cwd, "workspace")
-        script_path = os.path.join(workspace_dir, "python_script.py")
-
-        if not os.path.exists(script_path):
+        if not os.path.exists(self.script_path):
             return TestResult(
                 success=False,
                 reason="Python script file was not created",
             )
 
         try:
-            with open(script_path) as f:
+            with open(self.script_path) as f:
                 content = f.read()
 
             if PYTHON_SCRIPT_CONTENT not in content:
@@ -112,21 +97,3 @@ class InteractiveCommandsTest(BaseIntegrationTest):
                 success=False,
                 reason=f"Error verifying script content: {e}",
             )
-
-    def teardown(self):
-        """Clean up the created files."""
-        try:
-            assert self.cwd is not None
-            workspace_dir = os.path.join(self.cwd, "workspace")
-            script_path = os.path.join(workspace_dir, "python_script.py")
-
-            if os.path.exists(script_path):
-                os.remove(script_path)
-
-            if os.path.exists(workspace_dir) and not os.listdir(workspace_dir):
-                os.rmdir(workspace_dir)
-
-            logger.info("Cleaned up interactive commands test files")
-
-        except Exception as e:
-            logger.warning(f"Error cleaning up test files: {e}")
