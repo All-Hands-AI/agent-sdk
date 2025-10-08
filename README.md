@@ -266,28 +266,26 @@ The SDK includes a GitHub Actions workflow for running scheduled maintenance tas
 
 ### Quick Start
 
-1. **Create a prompt file** with your task instructions:
+1. **Get an API key**: You can easily obtain an API key from the [OpenHands LLM Provider](https://docs.all-hands.dev/openhands/usage/llms/openhands-llms), or use any other compatible LLM API key.
 
-```text
-Check the repository for any outdated dependencies and create a summary report.
-```
+2. **Create a prompt file** with your task instructions (see [maintenance_example.txt](https://github.com/All-Hands-AI/agent-sdk/blob/main/examples/28_maintenance_task_runner/maintenance_example.txt) for an example).
 
-2. **Run locally** to test:
+3. **Run locally** to test:
 
 ```bash
 export LLM_API_KEY="your-api-key"
 export LLM_MODEL="openhands/claude-sonnet-4-5-20250929"
-python examples/28_maintenance_task_runner/run.py \
+python https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28_maintenance_task_runner/run.py \
     https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28_maintenance_task_runner/maintenance_example.txt
 ```
 
-3. **Configure GitHub Actions** (`.github/workflows/maintenance-task.yml`):
+4. **Configure GitHub Actions** (`.github/workflows/maintenance-task.yml`):
    - Set `LLM_API_KEY` secret in your repository settings
    - Optionally set `LLM_MODEL` and `LLM_BASE_URL` secrets
    - Uncomment and customize the cron schedule
    - Run manually or wait for scheduled execution
 
-4. **Manual workflow dispatch**:
+5. **Manual workflow dispatch**:
    - Go to Actions → "Scheduled Maintenance Task"
    - Click "Run workflow"
    - Provide prompt location (file path or URL)
@@ -297,10 +295,10 @@ python examples/28_maintenance_task_runner/run.py \
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `AGENT_SCRIPT` | Python script to run the agent | `examples/28_maintenance_task_runner/run.py` |
+| `AGENT_SCRIPT` | Python script to run the agent | [`examples/28_maintenance_task_runner/run.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/examples/28_maintenance_task_runner/run.py) |
 | `PROMPT_LOCATION` | URL or path to prompt file | Required |
 | `LLM_MODEL` | Language model to use | `openhands/claude-sonnet-4-5-20250929` |
-| `LLM_API_KEY` | API key for the LLM | Required (from secrets) |
+| `LLM_API_KEY` | API key for the LLM (get one from [OpenHands LLM Provider](https://docs.all-hands.dev/openhands/usage/llms/openhands-llms)) | Required (from secrets) |
 | `LLM_BASE_URL` | Optional base URL for LLM API | None |
 
 For a complete example, see the [maintenance task runner](https://github.com/All-Hands-AI/agent-sdk/tree/main/examples/28_maintenance_task_runner).

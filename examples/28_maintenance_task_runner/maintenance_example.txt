@@ -1,6 +1,11 @@
-Check the repository for any outdated dependencies and create a summary report.
+Check if the documentation needs to be updated based on recent changes.
 
 Please:
-1. List all Python dependencies defined in pyproject.toml files
-2. Check if there are any known security vulnerabilities
-3. Provide a summary of findings in a markdown file called DEPENDENCY_REPORT.md
+1. Check when the documentation was last extensively updated (look for commits that modified multiple documentation files or added significant new documentation sections)
+2. Review all commits made since that last major documentation update
+3. Identify any new user-facing features, API changes, or important updates that should be documented but aren't yet
+4. If there are undocumented features, create a draft pull request with proposed documentation for those features, including:
+   - Clear explanations of the new features
+   - Usage examples where appropriate
+   - Updates to relevant existing documentation sections
+5. If no documentation updates are needed, create a brief summary report explaining that documentation is up to date
