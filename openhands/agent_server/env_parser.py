@@ -201,6 +201,9 @@ def merge(a, b):
             else:
                 result[index] = merge(result[index], value)
         return result
+    # Favor present values over missing ones
+    if b is None:
+        return a
     # Later values overwrite earier ones
     return b
 
