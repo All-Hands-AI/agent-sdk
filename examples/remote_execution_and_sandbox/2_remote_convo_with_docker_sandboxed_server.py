@@ -31,10 +31,13 @@ def main() -> None:
     # 2) Create a Docker-based remote workspace that will set up and manage
     #    the Docker container automatically
     with DockerWorkspace(
-        base_image="nikolaik/python-nodejs:python3.12-nodejs22",
+        # dynamically build agent-server image
+        # base_image="nikolaik/python-nodejs:python3.12-nodejs22",
+        # use pre-built image for faster startup
+        base_image="ghcr.io/all-hands-ai/agent-server:latest-python",
         host_port=8010,
         # TODO: Change this to your platform if not linux/arm64
-        platform="linux/arm64",
+        platform="linux/amd64",
         forward_env=["LLM_API_KEY"],  # Forward API key to container
     ) as workspace:
         # 3) Create agent
