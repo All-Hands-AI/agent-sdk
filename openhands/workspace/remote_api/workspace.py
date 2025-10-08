@@ -195,6 +195,16 @@ class APIRemoteWorkspace(RemoteWorkspace):
         data = resp.json()
         pod_status = data.get("pod_status", "").lower()
         logger.info(f"Pod status: {pod_status}")
+        
+        # Log additional details for debugging
+        if pod_status == "pending":
+            container_statuses = data.get("container_statuses", [])
+            events = data.get("events", [])
+            if container_statuses:
+                logger.warning(f"Container statuses: {container_statuses}")
+            if events:
+                logger.warning(f"Pod events: {events}")
+            logger.debug(f"Full response: {data}")
 
         restart_count = data.get("restart_count", 0)
         if restart_count > 0:
@@ -240,11 +250,14 @@ class APIRemoteWorkspace(RemoteWorkspace):
 
     def _send_api_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """Send an API request with error handling."""
+        logger.debug(f"Sending {method} request to {url}")
+        logger.debug(f"Client headers: {self._client.headers}")
         response = self._client.request(method, url, **kwargs)
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError:
             # Log the error response body for debugging
+            logger.error(f"Request headers: {response.request.headers}")
             try:
                 error_detail = response.json()
                 logger.error(f"API request failed: {error_detail}")
