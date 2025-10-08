@@ -22,7 +22,7 @@ from openhands.sdk import (
     RemoteConversation,
     get_logger,
 )
-from openhands.sdk.workspace import APIRemoteWorkspace
+from openhands.workspace import APIRemoteWorkspace
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -53,13 +53,9 @@ logger.info(f"Base image: {base_image}")
 logger.info("=" * 80)
 
 with APIRemoteWorkspace(
-    api_url="https://runtime.eval.all-hands.dev",
+    runtime_api_url="https://runtime.eval.all-hands.dev",
     runtime_api_key=runtime_api_key,
-    base_image=base_image,
-    working_dir="/workspace",
-    build_agent_server=True,
-    build_target="source",  # Use "source" target for more reliable startup
-    registry_prefix=registry_prefix,
+    server_image="ghcr.io/all-hands-ai/agent-server:latest-main"
 ) as workspace:
     agent = get_default_agent(llm=llm, cli_mode=True)
     received_events: list = []

@@ -34,6 +34,10 @@ class APIRemoteWorkspace(RemoteWorkspace):
     """  # noqa: E501
 
     # Parent fields
+    working_dir: str = Field(
+        default="/workspace",
+        description="Working directory inside the remote workspace",
+    )
     host: str = Field(
         default="undefined",
         description=
