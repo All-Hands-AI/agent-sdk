@@ -102,9 +102,6 @@ class BaseConversation(ABC):
         1. The agent has a security analyzer set (not None)
         2. The confirmation policy is active
 
-        Returns:
-            bool: True if both the agent has a security analyzer and
-                  confirmation policy is active, False otherwise.
         """
         return (
             self.state.agent.security_analyzer is not None
