@@ -401,6 +401,20 @@ class FileEditor:
             # Use open with encoding instead of path.write_text
             with open(path, "w", encoding=encoding) as f:
                 f.write(file_text)
+        except UnicodeEncodeError:
+            # If encoding fails, upgrade to UTF-8
+            try:
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(file_text)
+                # Update the encoding manager to remember this file is now UTF-8
+                self._encoding_manager._encoding_cache[str(path)] = (
+                    "utf-8",
+                    os.path.getmtime(path),
+                )
+            except Exception as e:
+                raise ToolError(
+                    f"Ran into {e} while trying to write to {path}"
+                ) from None
         except Exception as e:
             raise ToolError(f"Ran into {e} while trying to write to {path}") from None
 
@@ -436,33 +450,68 @@ class FileEditor:
 
         new_str_lines = new_str.split("\n")
 
-        # Create temporary file for the new content
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding=encoding, delete=False
-        ) as temp_file:
-            # Copy lines before insert point and save them for history
-            history_lines = []
-            with open(path, encoding=encoding) as f:
-                for i, line in enumerate(f, 1):
-                    if i > insert_line:
-                        break
-                    temp_file.write(line)
-                    history_lines.append(line)
+        # Try to write with the detected encoding, fall back to UTF-8 if needed
+        try:
+            # Create temporary file for the new content
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding=encoding, delete=False
+            ) as temp_file:
+                # Copy lines before insert point and save them for history
+                history_lines = []
+                with open(path, encoding=encoding) as f:
+                    for i, line in enumerate(f, 1):
+                        if i > insert_line:
+                            break
+                        temp_file.write(line)
+                        history_lines.append(line)
 
-            # Insert new content
-            for line in new_str_lines:
-                temp_file.write(line + "\n")
+                # Insert new content
+                for line in new_str_lines:
+                    temp_file.write(line + "\n")
 
-            # Copy remaining lines and save them for history
-            with open(path, encoding=encoding) as f:
-                for i, line in enumerate(f, 1):
-                    if i <= insert_line:
-                        continue
-                    temp_file.write(line)
-                    history_lines.append(line)
+                # Copy remaining lines and save them for history
+                with open(path, encoding=encoding) as f:
+                    for i, line in enumerate(f, 1):
+                        if i <= insert_line:
+                            continue
+                        temp_file.write(line)
+                        history_lines.append(line)
 
-        # Move temporary file to original location
-        shutil.move(temp_file.name, path)
+            # Move temporary file to original location
+            shutil.move(temp_file.name, path)
+        except UnicodeEncodeError:
+            # If encoding fails, upgrade to UTF-8
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", delete=False
+            ) as temp_file:
+                # Copy lines before insert point
+                history_lines = []
+                with open(path, encoding=encoding) as f:
+                    for i, line in enumerate(f, 1):
+                        if i > insert_line:
+                            break
+                        temp_file.write(line)
+                        history_lines.append(line)
+
+                # Insert new content
+                for line in new_str_lines:
+                    temp_file.write(line + "\n")
+
+                # Copy remaining lines
+                with open(path, encoding=encoding) as f:
+                    for i, line in enumerate(f, 1):
+                        if i <= insert_line:
+                            continue
+                        temp_file.write(line)
+                        history_lines.append(line)
+
+            # Move temporary file to original location
+            shutil.move(temp_file.name, path)
+            # Update the encoding manager to remember this file is now UTF-8
+            self._encoding_manager._encoding_cache[str(path)] = (
+                "utf-8",
+                os.path.getmtime(path),
+            )
 
         # Read just the snippet range
         start_line = max(0, insert_line - SNIPPET_CONTEXT_WINDOW)

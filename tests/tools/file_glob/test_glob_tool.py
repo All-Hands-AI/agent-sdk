@@ -11,7 +11,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm import LLM
 from openhands.sdk.workspace import LocalWorkspace
-from openhands.tools.glob import GlobAction, GlobObservation, GlobTool
+from openhands.tools.file_glob import GlobAction, GlobObservation, GlobTool
 
 
 def _create_test_conv_state(temp_dir: str) -> ConversationState:

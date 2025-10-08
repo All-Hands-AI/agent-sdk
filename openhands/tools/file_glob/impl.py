@@ -6,7 +6,7 @@ from glob import glob
 from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
-from openhands.tools.glob.definition import GlobAction, GlobObservation
+from openhands.tools.file_glob.definition import GlobAction, GlobObservation
 from openhands.tools.utils import (
     _check_ripgrep_available,
     _log_ripgrep_fallback_warning,
