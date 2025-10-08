@@ -10,8 +10,8 @@ from tests.integration.base import BaseIntegrationTest, TestResult
 
 
 INSTRUCTION = (
-    "Use Jupyter IPython to write a text file containing 'hello world' "
-    "to '/workspace/test.txt'."
+    "Use Jupyter IPython to write a text file in your workspace 'test.txt'"
+    " containing 'hello world'."
 )
 
 
@@ -51,7 +51,7 @@ class JupyterWriteFileTest(BaseIntegrationTest):
         if self.cwd is None:
             return TestResult(success=False, reason="CWD not set")
 
-        file_path = os.path.join(self.cwd, "workspace", "test.txt")
+        file_path = os.path.join(self.cwd, "test.txt")
 
         if not os.path.exists(file_path):
             return TestResult(

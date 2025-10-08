@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from openhands.sdk.tool import ToolExecutor
 from openhands.tools.file_editor.definition import (
     CommandLiteral,
@@ -13,10 +15,33 @@ _GLOBAL_EDITOR: FileEditor | None = None
 
 
 class FileEditorExecutor(ToolExecutor):
-    def __init__(self, workspace_root: str | None = None):
+    """File editor executor with configurable file restrictions."""
+
+    def __init__(
+        self,
+        workspace_root: str | None = None,
+        allowed_edits_files: list[str] | None = None,
+    ):
         self.editor = FileEditor(workspace_root=workspace_root)
+        self.allowed_edits_files = (
+            {Path(f).resolve() for f in allowed_edits_files}
+            if allowed_edits_files
+            else None
+        )
 
     def __call__(self, action: FileEditorAction) -> FileEditorObservation:
+        # Enforce allowed_edits_files restrictions
+        if self.allowed_edits_files is not None and action.command != "view":
+            action_path = Path(action.path).resolve()
+            if action_path not in self.allowed_edits_files:
+                return FileEditorObservation(
+                    command=action.command,
+                    error=f"Operation '{action.command}' is not allowed "
+                    f"on file '{action_path}'. "
+                    f"Only the following files can be edited: "
+                    f"{sorted(str(p) for p in self.allowed_edits_files)}",
+                )
+
         result: FileEditorObservation | None = None
         try:
             result = self.editor(

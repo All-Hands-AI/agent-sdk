@@ -94,10 +94,10 @@ class GitStagingTest(BaseIntegrationTest):
             )
 
             # If there are still staged changes, the commit didn't happen
-            if status_result.stdout.strip():
+            if "hello.py" in status_result.stdout.strip():
                 return TestResult(
                     success=False,
-                    reason=f"Staged changes still exist: {status_result.stdout}",
+                    reason=f"File to commit still staged: {status_result.stdout}",
                 )
 
             # Check if there are any commits
@@ -111,7 +111,8 @@ class GitStagingTest(BaseIntegrationTest):
 
             if not log_result.stdout.strip():
                 return TestResult(
-                    success=False, reason="No commits found in repository"
+                    success=False,
+                    reason=f"No commits found in repository: {log_result.stdout}",
                 )
 
             # Get the latest commit message

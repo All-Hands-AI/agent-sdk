@@ -141,7 +141,7 @@ class BrowserToolExecutor(ToolExecutor):
             self._server = CustomBrowserUseServer(
                 session_timeout_minutes=session_timeout_minutes,
             )
-            if os.getenv("ENABLE_VNC", "false").lower() in {"true", "1", "yes"}:
+            if os.getenv("OH_ENABLE_VNC", "false").lower() in {"true", "1", "yes"}:
                 headless = False  # Force headless off if VNC is enabled
                 logger.info("VNC is enabled - running browser in non-headless mode")
 
