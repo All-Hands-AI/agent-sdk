@@ -49,7 +49,6 @@ def test_base_url_for_openhands_provider(mock_get):
         service_id="test-openhands-llm",
     )
     assert llm.base_url == "https://llm-proxy.app.all-hands.dev/"
-    # Verify the mocked HTTP call was attempted
     mock_get.assert_called_once()
 
 
