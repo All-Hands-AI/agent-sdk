@@ -80,7 +80,7 @@ jobs:
                   LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || inputs.llm_base_url }}
                   AGENT_SCRIPT: >-
                       ${{ inputs.agent_script ||
-                      'examples/28_maintenance_task_runner.py' }}
+                      'examples/28_maintenance_task_runner/run.py' }}
                   PROMPT_LOCATION: >-
                       ${{ inputs.prompt_location ||
                       'https://example.com/prompt.txt' }}
