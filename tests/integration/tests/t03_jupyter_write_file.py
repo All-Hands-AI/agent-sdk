@@ -23,11 +23,13 @@ class JupyterWriteFileTest(BaseIntegrationTest):
 
     INSTRUCTION = INSTRUCTION
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.file_path = os.path.join(self.workspace, "test.txt")
+
     @property
     def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
@@ -36,30 +38,17 @@ class JupyterWriteFileTest(BaseIntegrationTest):
         ]
 
     def setup(self) -> None:
-        """Create workspace directory for the test."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before setup")
-
-        # Create workspace directory
-        workspace_dir = os.path.join(self.cwd, "workspace")
-        os.makedirs(workspace_dir, exist_ok=True)
-
-        logger.info(f"Created workspace directory at: {workspace_dir}")
+        """Setup is not needed - agent will create directories as needed."""
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully created the text file using IPython."""
-        if self.cwd is None:
-            return TestResult(success=False, reason="CWD not set")
-
-        file_path = os.path.join(self.cwd, "test.txt")
-
-        if not os.path.exists(file_path):
+        if not os.path.exists(self.file_path):
             return TestResult(
-                success=False, reason="Text file '/workspace/test.txt' not found"
+                success=False, reason=f"Text file '{self.file_path}' not found"
             )
 
         # Read the file content
-        with open(file_path) as f:
+        with open(self.file_path) as f:
             file_content = f.read().strip()
 
         # Check if the file contains the expected content
@@ -73,9 +62,3 @@ class JupyterWriteFileTest(BaseIntegrationTest):
             success=True,
             reason=f"Successfully created file with content: {file_content}",
         )
-
-    def teardown(self):
-        """Clean up test resources."""
-        # Note: In this implementation, cwd is managed externally
-        # so we don't need to clean it up here
-        pass
