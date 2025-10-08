@@ -58,7 +58,7 @@ jobs:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   LLM_MODEL: >-
                       ${{ secrets.LLM_MODEL || inputs.llm_model ||
-                      'anthropic/claude-sonnet-4-5-20250929' }}
+                      'openhands/claude-sonnet-4-5-20250929' }}
                   LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || inputs.llm_base_url }}
               run: |
                   if [ -z "$LLM_API_KEY" ]; then
