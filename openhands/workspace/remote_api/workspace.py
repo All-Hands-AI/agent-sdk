@@ -259,9 +259,9 @@ class APIRemoteWorkspace(RemoteWorkspace):
             logger.debug(f"Request headers: {response.request.headers}")
             try:
                 error_detail = response.json()
-                logger.error(f"API request failed: {error_detail}")
+                logger.info(f"API request failed: {error_detail}")
             except Exception:
-                logger.error(f"API request failed: {response.text}")
+                logger.info(f"API request failed: {response.text}")
             raise
         return response
 
