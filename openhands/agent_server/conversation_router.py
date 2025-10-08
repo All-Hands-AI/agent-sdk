@@ -35,10 +35,9 @@ START_CONVERSATION_EXAMPLES = [
     StartConversationRequest(
         agent=Agent(
             llm=LLM(
-                service_id="test-llm",
-                model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-                base_url="https://llm-proxy.app.all-hands.dev",
-                api_key=SecretStr("secret"),
+                service_id="your-llm-service",
+                model="your-model-provider/your-model-name",
+                api_key=SecretStr("your-api-key-here"),
             ),
             tools=[
                 Tool(name="BashTool"),

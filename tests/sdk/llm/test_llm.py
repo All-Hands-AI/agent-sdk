@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from litellm.exceptions import (
@@ -37,13 +37,19 @@ def test_llm_init_with_default_config(default_llm):
     assert default_llm.metrics.model_name == "gpt-4o"
 
 
-def test_base_url_for_openhands_provider():
+@patch("openhands.sdk.llm.llm.httpx.get")
+def test_base_url_for_openhands_provider(mock_get):
+    """Test that openhands/ prefix automatically sets base_url to production proxy."""
+    # Mock the model info fetch to avoid actual HTTP calls to production
+    mock_get.return_value = Mock(json=lambda: {"data": []})
+
     llm = LLM(
         model="openhands/claude-sonnet-4-20250514",
         api_key=SecretStr("test-key"),
         service_id="test-openhands-llm",
     )
     assert llm.base_url == "https://llm-proxy.app.all-hands.dev/"
+    mock_get.assert_called_once()
 
 
 def test_token_usage_add():

@@ -24,8 +24,6 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
     @property
     def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
@@ -35,8 +33,6 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
 
     def setup(self) -> None:
         """No special setup needed for GitHub PR browsing."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before setup")
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully browsed the GitHub PR."""
@@ -73,7 +69,3 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
                     f"Final answer preview: {agent_final_answer[:200]}..."
                 ),
             )
-
-    def teardown(self):
-        """No cleanup needed for GitHub PR browsing."""
-        logger.info("GitHub PR browsing test teardown complete")

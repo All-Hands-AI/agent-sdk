@@ -52,11 +52,11 @@ class BaseIntegrationTest(ABC):
         instruction: str,
         llm_config: dict[str, Any],
         instance_id: str,
-        cwd: str | None = None,
+        workspace: str,
     ):
         self.instruction = instruction
         self.llm_config = llm_config
-        self.cwd = cwd
+        self.workspace = workspace
         self.instance_id = instance_id
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
@@ -83,12 +83,12 @@ class BaseIntegrationTest(ABC):
 
         # Create log file path for this test instance
         self.log_file_path = os.path.join(
-            self.cwd or "/tmp", f"{self.instance_id}_agent_logs.txt"
+            self.workspace, f"{self.instance_id}_agent_logs.txt"
         )
 
         self.conversation: LocalConversation = LocalConversation(
             agent=self.agent,
-            workspace=self.cwd or "/tmp",
+            workspace=self.workspace,
             callbacks=[self.conversation_callback],
             visualize=True,  # Use default visualizer and capture its output
         )
@@ -226,7 +226,9 @@ class BaseIntegrationTest(ABC):
                 return "".join(text_parts)
         return ""
 
-    @abstractmethod
     def teardown(self):
-        """Clean up test resources."""
-        pass
+        """
+        Clean up test resources.
+        The workspace directory is torn down externally.
+        Add any additional cleanup (git, server, ...) here if needed.
+        """
