@@ -115,8 +115,10 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
                 "## 📁 Detailed Logs & Artifacts",
                 "",
                 (
-                    "Click the links below to download detailed agent/LLM logs showing "
-                    "the complete reasoning process for each model:"
+                    "Click the links below to access detailed agent/LLM logs showing "
+                    "the complete reasoning process for each model. "
+                    "On the GitHub Actions page, scroll down to the 'Artifacts' "
+                    "section to download the logs."
                 ),
                 "",
             ]
@@ -126,8 +128,10 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
             if result.artifact_url:
                 report_lines.append(
                     f"- **{result.model_name}**: "
-                    f"[📥 Download Logs & Results]({result.artifact_url})"
+                    f"[📥 View & Download Logs]({result.artifact_url})"
                 )
+
+        report_lines.append("")  # Add empty line after artifacts section
 
     # Summary table
     report_lines.extend(

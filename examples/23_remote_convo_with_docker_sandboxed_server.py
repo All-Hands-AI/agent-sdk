@@ -9,8 +9,8 @@ from openhands.sdk import (
     RemoteConversation,
     get_logger,
 )
-from openhands.sdk.workspace import DockerWorkspace
 from openhands.tools.preset.default import get_default_agent
+from openhands.workspace import DockerWorkspace
 
 
 logger = get_logger(__name__)
@@ -18,8 +18,8 @@ logger = get_logger(__name__)
 
 def main() -> None:
     # 1) Ensure we have LLM API key
-    api_key = os.getenv("LITELLM_API_KEY")
-    assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+    api_key = os.getenv("LLM_API_KEY")
+    assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
     llm = LLM(
         service_id="agent",
@@ -35,7 +35,7 @@ def main() -> None:
         host_port=8010,
         # TODO: Change this to your platform if not linux/arm64
         platform="linux/arm64",
-        forward_env=["LITELLM_API_KEY"],  # Forward API key to container
+        forward_env=["LLM_API_KEY"],  # Forward API key to container
     ) as workspace:
         # 3) Create agent
         agent = get_default_agent(

@@ -3,7 +3,6 @@
 import os
 import re
 import subprocess
-import tempfile
 import time
 
 from openhands.sdk import get_logger
@@ -98,14 +97,11 @@ class SimpleBrowsingTest(BaseIntegrationTest):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.temp_dir = None
         self.server_process = None
 
     @property
     def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
@@ -115,22 +111,17 @@ class SimpleBrowsingTest(BaseIntegrationTest):
 
     def setup(self) -> None:
         """Set up a local web server with the HTML file."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before setup")
 
         try:
-            # Create a temporary directory for the HTML file
-            self.temp_dir = tempfile.mkdtemp()
-
-            # Write the HTML file
-            html_path = os.path.join(self.temp_dir, "index.html")
+            # Write the HTML file to the workspace
+            html_path = os.path.join(self.workspace, "index.html")
             with open(html_path, "w") as f:
                 f.write(HTML_FILE)
 
             # Start the HTTP server in the background
             self.server_process = subprocess.Popen(
                 ["python3", "-m", "http.server", "8000"],
-                cwd=self.temp_dir,
+                cwd=self.workspace,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -187,7 +178,7 @@ class SimpleBrowsingTest(BaseIntegrationTest):
             )
 
     def teardown(self):
-        """Clean up the web server and temporary files."""
+        """Turn down the web server"""
         if self.server_process:
             try:
                 self.server_process.terminate()
@@ -196,13 +187,3 @@ class SimpleBrowsingTest(BaseIntegrationTest):
                 self.server_process.kill()
             except Exception as e:
                 logger.warning(f"Error terminating server process: {e}")
-
-        if self.temp_dir and os.path.exists(self.temp_dir):
-            try:
-                import shutil
-
-                shutil.rmtree(self.temp_dir)
-            except Exception as e:
-                logger.warning(f"Error cleaning up temp directory: {e}")
-
-        logger.info("Cleaned up web server and temporary files")

@@ -20,8 +20,8 @@ from openhands.tools.preset.default import get_default_tools
 logger = get_logger(__name__)
 
 # Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 primary_llm = LLM(
     service_id="agent-primary",

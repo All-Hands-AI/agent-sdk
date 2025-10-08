@@ -11,7 +11,7 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import Agent, Event, Message, get_logger
+from openhands.sdk import LLM, Agent, Event, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import ConversationState
@@ -261,6 +261,32 @@ class EventService:
         if self._conversation:
             loop = asyncio.get_running_loop()
             loop.run_in_executor(None, self._conversation.close)
+
+    async def generate_title(
+        self, llm: "LLM | None" = None, max_length: int = 50
+    ) -> str:
+        """Generate a title for the conversation.
+
+        Resolves the provided LLM via the conversation's registry if a service_id is
+        present, registering it if needed. Then delegates to LocalConversation in an
+        executor to avoid blocking the event loop.
+        """
+        if not self._conversation:
+            raise ValueError("inactive_service")
+
+        resolved_llm = llm
+        if llm is not None:
+            service_id = llm.service_id
+            try:
+                resolved_llm = self._conversation.llm_registry.get(service_id)
+            except KeyError:
+                self._conversation.llm_registry.add(llm)
+                resolved_llm = llm
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, self._conversation.generate_title, resolved_llm, max_length
+        )
 
     async def get_state(self) -> ConversationState:
         if not self._conversation:

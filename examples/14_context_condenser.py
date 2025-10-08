@@ -27,8 +27,8 @@ from openhands.tools.task_tracker import TaskTrackerTool
 logger = get_logger(__name__)
 
 # Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
