@@ -137,10 +137,13 @@ class APIRemoteWorkspace(RemoteWorkspace):
         # For binary target, use the standalone binary
         payload: dict[str, Any] = {
             "image": self.server_image,
-            "command": "/usr/local/bin/openhands-agent-server",
+            "command": "/usr/local/bin/openhands-agent-server --port 60000",
             "working_dir": "/",  # Match Dockerfile WORKDIR
             "environment": {},
             "session_id": self.session_id,
+            "run_as_user": 10001,
+            "fs_group": 10001,
+            # "environment": {"DEBUG": "true"},
         }
 
         if self.runtime_class:
