@@ -245,12 +245,9 @@ cache
 .conversations*
 workspace/
 
-# Large directories that should not be included in Docker build context
-OpenHands-v0/
+# Build optimization: exclude files not needed for building agent-server
 tests/
 *.log
-
-# Build optimization: exclude files not needed for building agent-server
 .github/
 scripts/
 examples/
