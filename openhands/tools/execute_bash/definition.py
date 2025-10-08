@@ -47,6 +47,25 @@ class ExecuteBashAction(Action):
     )
 
     @property
+    def summary(self) -> str:
+        """Return a brief summary showing the command being executed."""
+        if not self.command:
+            return "execute bash (empty command)"
+
+        # Truncate long commands for title display
+        max_length = 60
+        cmd = self.command.strip()
+
+        # For multi-line commands, just show the first line
+        if "\n" in cmd:
+            cmd = cmd.split("\n")[0].strip() + "..."
+
+        if len(cmd) > max_length:
+            cmd = cmd[:max_length] + "..."
+
+        return f"execute `{cmd}`"
+
+    @property
     def visualize(self) -> Text:
         """Return Rich Text representation with PS1-style bash prompt."""
         content = Text()
