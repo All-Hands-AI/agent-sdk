@@ -18,7 +18,7 @@ on:
                 description: "LLM model to use"
                 required: false
                 type: string
-                default: "anthropic/claude-sonnet-4-5-20250929"
+                default: "openhands/claude-sonnet-4-5-20250929"
             llm_base_url:
                 description: "Optional base URL for the LLM API"
                 required: false
