@@ -196,7 +196,7 @@ class BuildOptions(BaseModel):
 
     @property
     def versioned_tag(self) -> str:
-        return f"v{SDK_VERSION}_{self.base_image_slug}"
+        return f"v{SDK_VERSION}_{self.base_image_slug}_{self.target}"
 
     @property
     def cache_tags(self) -> tuple[str, str]:
