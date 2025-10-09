@@ -288,10 +288,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ):
             d["reasoning_effort"] = "high"
 
-        # Enable encrypted reasoning for GPT-5 models (required by OpenAI)
-        if d.get("enable_encrypted_reasoning") is None and "gpt-5" in model_val:
-            d["enable_encrypted_reasoning"] = True
-
         # Azure default version
         if model_val.startswith("azure") and not d.get("api_version"):
             d["api_version"] = "2024-12-01-preview"
@@ -765,12 +761,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         out["temperature"] = 1.0
         out["tool_choice"] = "auto"
 
+        # Auto-enable encrypted reasoning for GPT-5 models (required by OpenAI)
+        enable_encrypted = self.enable_encrypted_reasoning
+        if not enable_encrypted and "gpt-5" in self.model:
+            enable_encrypted = True
+
         # Include encrypted reasoning if enabled
         include_list = list(include) if include is not None else []
-        if (
-            self.enable_encrypted_reasoning
-            and "reasoning.encrypted_content" not in include_list
-        ):
+        if enable_encrypted and "reasoning.encrypted_content" not in include_list:
             include_list.append("reasoning.encrypted_content")
         if include_list:
             out["include"] = include_list
