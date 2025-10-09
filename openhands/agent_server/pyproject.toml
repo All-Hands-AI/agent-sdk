@@ -26,10 +26,6 @@ include = ["openhands*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.j2", "py.typed"]
-"openhands.agent_server" = [
-  "docker/Dockerfile",
-  "docker/wallpaper.svg",
-]
 
 [project.scripts]
 agent-server = "openhands.agent_server.__main__:main"
