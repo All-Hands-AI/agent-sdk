@@ -1,19 +1,24 @@
 # rolling_view.py
 import logging
 import sys
-from typing import Callable
 from collections import deque
+from collections.abc import Callable
 from contextlib import contextmanager
-from .logger import IN_CI, ENV_JSON
+
+from rich.live import Live
+
+from .logger import ENV_JSON, IN_CI
+
 
 RenderFnType = Callable[[], str]
+
 
 class _RollingViewHandler(logging.Handler):
     def __init__(self, max_lines: int, use_live: bool):
         super().__init__()
         self._buf = deque(maxlen=max_lines)
         self._use_live = use_live
-        self._live = None  # set by rolling_log_view when Live is active
+        self._live: Live | None = None  # set by rolling_log_view when Live is active
         self.render_fn: RenderFnType | None = None
 
     def emit(self, record: logging.LogRecord):
@@ -22,7 +27,9 @@ class _RollingViewHandler(logging.Handler):
 
         if self._use_live and self._live:
             # Live mode: repaint using either a custom render_fn or the buffer
-            self._live.update(self.render_fn() if self.render_fn else "\n".join(self._buf))
+            self._live.update(
+                self.render_fn() if self.render_fn else "\n".join(self._buf)
+            )
             return
 
         # Non-live paths
@@ -48,7 +55,8 @@ def rolling_log_view(
     header: str | None = None,
     footer: str | None = None,
     *,
-    json_flush_level: int | None = None,   # optional: separate level for the final JSON flush
+    json_flush_level: int
+    | None = None,  # optional: separate level for the final JSON flush
 ):
     """
     Temporarily attach a rolling view handler that renders the last N log lines.
@@ -74,20 +82,17 @@ def rolling_log_view(
         parts: list[str] = []
         if header:
             parts.append(
-                "=" * len(header) + "\n" +
-                header.rstrip() + "\n" + "-" * len(header)
+                "=" * len(header) + "\n" + header.rstrip() + "\n" + "-" * len(header)
             )
         parts.append("\n".join(handler._buf))
         if footer:
             parts.append(
-                "-" * len(footer) + "\n" + footer.rstrip()
-                + "\n" + "=" * len(footer)
+                "-" * len(footer) + "\n" + footer.rstrip() + "\n" + "=" * len(footer)
             )
         return "\n".join(parts)
 
     try:
         if use_live:
-            from rich.live import Live
             with Live(_render(), refresh_per_second=8) as live:
                 handler._live = live
                 handler.render_fn = _render
@@ -107,4 +112,6 @@ def rolling_log_view(
 
         # JSON mode: emit one big record at exit
         if ENV_JSON:
-            logger.log(json_flush_level if json_flush_level is not None else level, final_text)
+            logger.log(
+                json_flush_level if json_flush_level is not None else level, final_text
+            )

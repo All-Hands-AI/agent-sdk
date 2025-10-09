@@ -13,15 +13,15 @@ Single-entry build helper for agent-server images.
 - No local artifacts left behind (uses tempfile dirs only)
 """
 
+import argparse
 import os
 import re
 import shutil
-import argparse
 import subprocess
-import threading
 import sys
 import tarfile
 import tempfile
+import threading
 from contextlib import chdir
 from pathlib import Path
 from typing import Literal
@@ -40,6 +40,7 @@ PlatformType = Literal["linux/amd64", "linux/arm64"]
 
 # --- helpers ---
 
+
 def _run(
     cmd: list[str],
     cwd: str | None = None,
@@ -57,8 +58,8 @@ def _run(
         cwd=cwd,
         text=True,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,   # keep separate
-        bufsize=1,                # line-buffered
+        stderr=subprocess.PIPE,  # keep separate
+        bufsize=1,  # line-buffered
     )
     assert proc.stdout is not None and proc.stderr is not None
 
@@ -75,10 +76,16 @@ def _run(
         logger,
         header="$ " + " ".join(cmd) + (f" (cwd={cwd})" if cwd else ""),
     ):
-        t_out = threading.Thread(target=pump, args=(proc.stdout, out_lines, logger.info,  "[stdout] "))
-        t_err = threading.Thread(target=pump, args=(proc.stderr, err_lines, logger.warning, "[stderr] "))
-        t_out.start(); t_err.start()
-        t_out.join(); t_err.join()
+        t_out = threading.Thread(
+            target=pump, args=(proc.stdout, out_lines, logger.info, "[stdout] ")
+        )
+        t_err = threading.Thread(
+            target=pump, args=(proc.stderr, err_lines, logger.warning, "[stderr] ")
+        )
+        t_out.start()
+        t_err.start()
+        t_out.join()
+        t_err.join()
 
     rc = proc.wait()
     stdout = ("\n".join(out_lines) + "\n") if out_lines else ""
@@ -243,15 +250,20 @@ def _make_build_context(sdk_project_root: Path) -> Path:
         )
         sdists = sorted(sdist_dir.glob("*.tar.gz"), key=lambda p: p.stat().st_mtime)
         logger.info(
-            f"[build] Built {len(sdists)} sdists for clean context: {', '.join(str(s) for s in sdists)}"
+            f"[build] Built {len(sdists)} sdists for "
+            f"clean context: {', '.join(str(s) for s in sdists)}"
         )
         assert len(sdists) == 1, "Expected exactly one sdist"
-        logger.debug(f"[build] Extracting sdist {sdists[0]} to clean context {tmp_root}")
+        logger.debug(
+            f"[build] Extracting sdist {sdists[0]} to clean context {tmp_root}"
+        )
         _extract_tarball(sdists[0], tmp_root)
-        
+
         # assert only one folder created
         entries = list(tmp_root.iterdir())
-        assert len(entries) == 1 and entries[0].is_dir(), "Expected single folder in sdist"
+        assert len(entries) == 1 and entries[0].is_dir(), (
+            "Expected single folder in sdist"
+        )
         tmp_root = entries[0].resolve()
         logger.debug(f"[build] Clean context ready at {tmp_root}")
         return tmp_root
@@ -313,15 +325,15 @@ def build(opts: BuildOptions) -> list[str]:
     ]
 
     logger.info(
-        f"[build] Building target='{opts.target}' image='{opts.image}' custom_tags='{opts.custom_tags}' "
-        f"from base='{opts.base_image}' for platforms='{opts.platforms if push else 'local-arch'}'"
+        f"[build] Building target='{opts.target}' image='{opts.image}' "
+        f"custom_tags='{opts.custom_tags}' from base='{opts.base_image}' "
+        f"for platforms='{opts.platforms if push else 'local-arch'}'"
     )
     logger.info(f"[build] Git ref='{GIT_REF}' sha='{GIT_SHA}' version='{SDK_VERSION}'")
     logger.info(f"[build] Cache tag: {cache_tag}")
     logger.info("[build] Tags:")
     for t in tags:
         logger.info(f" - {t}")
-
 
     try:
         res = _run(args, cwd=str(ctx))
@@ -343,6 +355,7 @@ def build(opts: BuildOptions) -> list[str]:
 
 
 # --- CLI shim ---
+
 
 def _env(name: str, default: str) -> str:
     v = os.environ.get(name)
@@ -412,7 +425,8 @@ def main(argv: list[str]) -> int:
             sdk_project_root = Path(os.environ["AGENT_SDK_PATH"]).expanduser().resolve()
             if not sdk_project_root.exists():
                 print(
-                    f"[build] ERROR: AGENT_SDK_PATH '{sdk_project_root}' does not exist",
+                    f"[build] ERROR: AGENT_SDK_PATH '{sdk_project_root}' "
+                    "does not exist",
                     file=sys.stderr,
                 )
                 return 1
@@ -430,7 +444,6 @@ def main(argv: list[str]) -> int:
         # Print path to stdout so other tooling can capture it
         print(str(ctx))
         return 0
-
 
     # ---- push/load resolution (CLI wins over env, else auto) ----
     push: bool | None
@@ -460,6 +473,7 @@ def main(argv: list[str]) -> int:
     tags = build(opts)
     logger.info(",".join(tags))
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
