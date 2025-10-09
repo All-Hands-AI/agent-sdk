@@ -43,7 +43,7 @@ VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}"
 # ------------------------------------------------------------
 # Cache configuration
 # ------------------------------------------------------------
-CACHE_TAG_BASE="buildcache-${VARIANT_NAME}"
+CACHE_TAG_BASE="buildcache-${TARGET}-${BASE_SLUG}"
 CACHE_TAG="${CACHE_TAG_BASE}"
 
 # Add branch-specific cache tag for better cache hits
