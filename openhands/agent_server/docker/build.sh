@@ -6,7 +6,7 @@ set -euo pipefail
 # ------------------------------------------------------------
 IMAGE="${IMAGE:-ghcr.io/all-hands-ai/agent-server}"
 BASE_IMAGE="${BASE_IMAGE:-nikolaik/python-nodejs:python3.12-nodejs22}"
-VARIANT_NAME="${VARIANT_NAME:-python}"  # "python", "java", or "golang"
+CUSTOM_TAGS="${CUSTOM_TAGS:-python}"  # Comma-separated custom tags (e.g., "python" or "java,extra-tag")
 TARGET="${TARGET:-binary}"          # "binary" (prod) or "source" (dev)
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 
@@ -35,12 +35,15 @@ echo "[build] Using SDK version ${SDK_VERSION}"
 
 # Base slug (keep legacy format so downstream tags don’t change)
 BASE_SLUG="$(echo -n "${BASE_IMAGE}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
-VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}_${VARIANT_NAME}"
+# Parse custom tags (use first tag as primary for cache and versioning)
+IFS=',' read -ra CUSTOM_TAG_ARRAY <<< "$CUSTOM_TAGS"
+
+VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}"
 
 # ------------------------------------------------------------
 # Cache configuration
 # ------------------------------------------------------------
-CACHE_TAG_BASE="buildcache-${VARIANT_NAME}"
+CACHE_TAG_BASE="buildcache-${TARGET}-${BASE_SLUG}"
 CACHE_TAG="${CACHE_TAG_BASE}"
 
 # Add branch-specific cache tag for better cache hits
@@ -55,18 +58,33 @@ fi
 # ------------------------------------------------------------
 # Tagging: prod vs dev
 # ------------------------------------------------------------
+TAGS=()
+
+# Add SHA-based tags first (for each custom tag)
+for custom_tag in "${CUSTOM_TAG_ARRAY[@]}"; do
+  if [[ "${TARGET}" == "source" ]]; then
+    TAGS+=( "${IMAGE}:${SHORT_SHA}-${custom_tag}-dev" )
+  else
+    TAGS+=( "${IMAGE}:${SHORT_SHA}-${custom_tag}" )
+  fi
+done
+
+# Add latest tags (if on main branch)
+if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
+  for custom_tag in "${CUSTOM_TAG_ARRAY[@]}"; do
+    if [[ "${TARGET}" == "source" ]]; then
+      TAGS+=( "${IMAGE}:main-${custom_tag}-dev" )
+    else
+      TAGS+=( "${IMAGE}:main-${custom_tag}" )
+    fi
+  done
+fi
+
+# Add versioned tag last (always includes primary tag)
 if [[ "${TARGET}" == "source" ]]; then
-  # Dev tags: add -dev suffix
-  TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}-dev" "${IMAGE}:${VERSIONED_TAG}-dev" )
-  if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-    TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}-dev" )
-  fi
+  TAGS+=( "${IMAGE}:${VERSIONED_TAG}-dev" )
 else
-  # Prod tags
-  TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}" "${IMAGE}:${VERSIONED_TAG}" )
-  if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-    TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}" )
-  fi
+  TAGS+=( "${IMAGE}:${VERSIONED_TAG}" )
 fi
 
 # ------------------------------------------------------------
@@ -80,7 +98,7 @@ COMMON_ARGS=(
   $AGENT_SDK_PATH
 )
 
-echo "[build] Building target='${TARGET}' image='${IMAGE}' variant='${VARIANT_NAME}' from base='${BASE_IMAGE}' for platforms='${PLATFORMS}'"
+echo "[build] Building target='${TARGET}' image='${IMAGE}' custom_tags='${CUSTOM_TAGS}' from base='${BASE_IMAGE}' for platforms='${PLATFORMS}'"
 echo "[build] Git ref='${GIT_REF}' sha='${GIT_SHA}' version='${SDK_VERSION}'"
 echo "[build] Cache tag: ${CACHE_TAG}"
 echo "[build] Tags:"
