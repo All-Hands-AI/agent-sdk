@@ -42,7 +42,7 @@ class _RollingViewHandler(logging.Handler):
 @contextmanager
 def rolling_log_view(
     logger: logging.Logger,
-    max_lines: int = 40,
+    max_lines: int = 60,
     level: int = logging.INFO,
     propagate: bool = False,
     header: str | None = None,
