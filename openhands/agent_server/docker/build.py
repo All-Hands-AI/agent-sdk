@@ -28,7 +28,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from openhands.sdk.logger import get_logger, rolling_log_view
+from openhands.sdk.logger import IN_CI, get_logger, rolling_log_view
 
 
 logger = get_logger(__name__)
@@ -287,7 +287,7 @@ def build(opts: BuildOptions) -> list[str]:
 
     push = opts.push
     if push is None:
-        push = bool(os.environ.get("GITHUB_ACTIONS") or os.environ.get("CI"))
+        push = IN_CI
 
     tags = opts.all_tags
     cache_tag, cache_tag_base = opts.cache_tags
