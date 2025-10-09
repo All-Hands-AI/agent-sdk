@@ -44,13 +44,6 @@ if not runtime_api_key:
     logger.error("RUNTIME_API_KEY required")
     exit(1)
 
-base_image = "nikolaik/python-nodejs:python3.12-nodejs22"
-registry_prefix = "us-central1-docker.pkg.dev/evaluation-092424/runtime-api-docker-repo"
-
-logger.info("=" * 80)
-logger.info("Building agent-server image via Runtime API...")
-logger.info(f"Base image: {base_image}")
-logger.info("=" * 80)
 
 with APIRemoteWorkspace(
     runtime_api_url="https://runtime.eval.all-hands.dev",
