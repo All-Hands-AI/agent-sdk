@@ -2,6 +2,7 @@
 We couldn't use pydantic-settings for this as we need complex nested types
 and polymorphism."""
 
+import inspect
 import json
 import os
 from abc import ABC, abstractmethod
@@ -13,6 +14,8 @@ from typing import Annotated, Literal, Union, get_args, get_origin
 from uuid import UUID
 
 from pydantic import BaseModel, SecretStr, TypeAdapter
+
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 # Define Missing type
@@ -201,6 +204,9 @@ def merge(a, b):
             else:
                 result[index] = merge(result[index], value)
         return result
+    # Favor present values over missing ones
+    if b is None:
+        return a
     # Later values overwrite earier ones
     return b
 
@@ -234,6 +240,12 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
 
     if origin and issubclass(origin, BaseModel):
         target_type = origin
+    if issubclass(target_type, DiscriminatedUnionMixin) and (
+        inspect.isabstract(target_type) or ABC in target_type.__bases__
+    ):
+        serializable_type = target_type.get_serializable_type()
+        if serializable_type != target_type:
+            return get_env_parser(target_type.get_serializable_type(), parsers)
     if issubclass(target_type, BaseModel):  # type: ignore
         delayed = DelayedParser()
         parsers[target_type] = delayed  # Prevent circular dependency
