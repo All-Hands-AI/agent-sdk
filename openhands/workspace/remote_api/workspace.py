@@ -48,13 +48,13 @@ class APIRemoteWorkspace(RemoteWorkspace):
     )
     session_id: str | None = Field(
         default_factory=lambda: f"agent-server-{uuid.uuid4()}",
-        description="Session ID (auto-generated if None)"
+        description="Session ID (auto-generated if None)",
     )
     resource_factor: int = Field(
         default=1, description="Resource scaling (1, 2, 4, or 8)"
     )
     runtime_class: str | None = Field(
-        default='sysbox', description="Runtime class (e.g., 'sysbox')"
+        default="sysbox", description="Runtime class (e.g., 'sysbox')"
     )
     init_timeout: float = Field(
         default=300.0, description="Runtime init timeout (seconds)"

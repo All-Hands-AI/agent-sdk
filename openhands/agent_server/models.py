@@ -89,6 +89,9 @@ class StoredConversation(StartConversationRequest):
     """Stored details about a conversation"""
 
     id: UUID
+    title: str | None = Field(
+        default=None, description="User-defined title for the conversation"
+    )
     metrics: MetricsSnapshot | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -100,6 +103,9 @@ class ConversationInfo(ConversationState):
     # ConversationState already includes id and agent
     # Add additional metadata fields
 
+    title: str | None = Field(
+        default=None, description="User-defined title for the conversation"
+    )
     metrics: MetricsSnapshot | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -143,6 +149,14 @@ class SetConfirmationPolicyRequest(BaseModel):
     """Payload to set confirmation policy for a conversation."""
 
     policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
+
+
+class UpdateConversationRequest(BaseModel):
+    """Payload to update conversation metadata."""
+
+    title: str = Field(
+        ..., min_length=1, max_length=200, description="New conversation title"
+    )
 
 
 class GenerateTitleRequest(BaseModel):

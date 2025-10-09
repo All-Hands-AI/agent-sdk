@@ -19,6 +19,7 @@ from openhands.agent_server.models import (
     SetConfirmationPolicyRequest,
     StartConversationRequest,
     Success,
+    UpdateConversationRequest,
     UpdateSecretsRequest,
 )
 from openhands.sdk import LLM, Agent, TextContent, Tool
@@ -213,6 +214,22 @@ async def set_conversation_confirmation_policy(
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     await event_service.set_confirmation_policy(request.policy)
+    return Success()
+
+
+@conversation_router.patch(
+    "/{conversation_id}", responses={404: {"description": "Item not found"}}
+)
+async def update_conversation(
+    conversation_id: UUID, request: UpdateConversationRequest
+) -> Success:
+    """Update conversation metadata.
+
+    This endpoint allows updating conversation details like title.
+    """
+    updated = await conversation_service.update_conversation(conversation_id, request)
+    if not updated:
+        return Success(success=False)
     return Success()
 
 
