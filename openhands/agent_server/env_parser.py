@@ -243,7 +243,9 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
     if issubclass(target_type, DiscriminatedUnionMixin) and (
         inspect.isabstract(target_type) or ABC in target_type.__bases__
     ):
-        return get_env_parser(target_type.get_serializable_type(), parsers)
+        serializable_type = target_type.get_serializable_type()
+        if serializable_type != target_type:
+            return get_env_parser(target_type.get_serializable_type(), parsers)
     if issubclass(target_type, BaseModel):  # type: ignore
         delayed = DelayedParser()
         parsers[target_type] = delayed  # Prevent circular dependency
