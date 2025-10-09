@@ -7,70 +7,71 @@ from contextlib import contextmanager
 from .logger import IN_CI, ENV_JSON
 
 RenderFnType = Callable[[], str]
+
 class _RollingViewHandler(logging.Handler):
     def __init__(self, max_lines: int, use_live: bool):
         super().__init__()
         self._buf = deque(maxlen=max_lines)
         self._use_live = use_live
-        self._live = None  # lazy to avoid Rich import when unused
+        self._live = None  # set by rolling_log_view when Live is active
         self.render_fn: RenderFnType | None = None
-
-    def __enter__(self):
-        if self._use_live:
-            from rich.live import Live  # import only when needed
-            self._live = Live("", refresh_per_second=8)
-            self._live.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        # Freeze final frame
-        if self._use_live and self._live is not None:
-            self._live.update("\n".join(self._buf))
-            self._live.__exit__(exc_type, exc, tb)
 
     def emit(self, record: logging.LogRecord):
         msg = self.format(record)
         self._buf.append(msg)
+
         if self._use_live and self._live:
+            # Live mode: repaint using either a custom render_fn or the buffer
             self._live.update(self.render_fn() if self.render_fn else "\n".join(self._buf))
-        else:
-            # CI / non-TTY -> pass-through one-line print (no repaint)
-            # Avoid double newlines; the formatter shouldn’t add a trailing \n
-            sys.stdout.write(msg + "\n")
-            sys.stdout.flush()
+            return
+
+        # Non-live paths
+        if ENV_JSON:
+            # JSON mode: do nothing here; rely on other handlers via propagation
+            return
+
+        # CI / non-TTY plain pass-through (avoid double newlines)
+        sys.stdout.write(msg + "\n")
+        sys.stdout.flush()
 
     @property
     def snapshot(self) -> str:
         return "\n".join(self._buf)
+
 
 @contextmanager
 def rolling_log_view(
     logger: logging.Logger,
     max_lines: int = 40,
     level: int = logging.INFO,
-    also_propagate: bool = False,
+    propagate: bool = False,
     header: str | None = None,
     footer: str | None = None,
+    *,
+    json_flush_level: int | None = None,   # optional: separate level for the final JSON flush
 ):
     """
     Temporarily attach a rolling view handler that renders the last N log lines.
-    - Local TTY & not CI: pretty, live-updating view (Rich.Live)
+
+    - Local TTY & not CI & not JSON: pretty, live-updating view (Rich.Live)
     - CI / non-TTY: plain line-by-line (no terminal control)
-    By default, propagation is disabled to avoid double-printing.
+    - JSON mode: buffer only; on exit emit ONE large log record with the full snapshot.
     """
     is_tty = sys.stdout.isatty()
-    use_live = (not IN_CI) and is_tty
+    use_live = (not IN_CI) and is_tty and (not ENV_JSON)
 
     handler = _RollingViewHandler(max_lines=max_lines, use_live=use_live)
     handler.setLevel(level)
     handler.setFormatter(logging.Formatter("%(message)s"))
 
     prev_propagate = logger.propagate
-    logger.propagate = bool(also_propagate)
+    # Let other handlers (e.g., your JSON handler) run if needed
+    logger.propagate = bool(propagate or ENV_JSON)
+
     logger.addHandler(handler)
 
     def _render() -> str:
-        parts = []
+        parts: list[str] = []
         if header:
             parts.append(
                 "=" * len(header) + "\n" +
@@ -89,12 +90,21 @@ def rolling_log_view(
             from rich.live import Live
             with Live(_render(), refresh_per_second=8) as live:
                 handler._live = live
-                handler.render_fn = _render  # attach for updates
+                handler.render_fn = _render
                 yield handler
         else:
             yield handler
     finally:
+        final_text = _render()
+
+        # Freeze final frame if Live was active
         if handler._live:
-            handler._live.update(_render())
+            handler._live.update(final_text)
+
+        # Detach our handler BEFORE flushing to avoid recursion
         logger.removeHandler(handler)
         logger.propagate = prev_propagate
+
+        # JSON mode: emit one big record at exit
+        if ENV_JSON:
+            logger.log(json_flush_level if json_flush_level is not None else level, final_text)
