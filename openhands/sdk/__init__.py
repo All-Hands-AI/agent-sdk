@@ -1,3 +1,4 @@
+import warnings
 from importlib.metadata import PackageNotFoundError, version
 
 from openhands.sdk.agent import Agent, AgentBase
@@ -48,6 +49,40 @@ from openhands.sdk.workspace import (
     RemoteWorkspace,
     Workspace,
 )
+
+
+def _suppress_litellm_pydantic_warnings(
+    message, category, filename, lineno, file=None, line=None
+):
+    """
+    Global warning filter to suppress LiteLLM Pydantic serialization warnings
+    LiteLLM's Message and StreamingChoices objects cause Pydantic serialization warnings
+    when they are serialized because they have fewer fields than expected by the
+    Pydantic model definitions. These warnings are harmless but noisy, appearing as:
+      "PydanticSerializationUnexpectedValue(Expected 10 fields but got 7: Expected..."
+      "PydanticSerializationUnexpectedValue(Expected `StreamingChoices`..."
+
+    This filter suppresses only these specific warnings while preserving all other
+    Pydantic warnings that might indicate legitimate issues in the codebase.
+    """
+    if (
+        category is UserWarning
+        and filename.endswith("pydantic/main.py")
+        and isinstance(message, Warning)
+    ):
+        msg_str = str(message)
+        # Check if this is a LiteLLM-related serialization warning
+        if "PydanticSerializationUnexpectedValue" in msg_str and (
+            "Expected `Message`" in msg_str or "Expected `StreamingChoices`" in msg_str
+        ):
+            return  # Suppress this warning
+    # Show all other warnings
+    _original_showwarning(message, category, filename, lineno, file, line)
+
+
+# Install the global warning filter
+_original_showwarning = warnings.showwarning
+warnings.showwarning = _suppress_litellm_pydantic_warnings
 
 
 try:
