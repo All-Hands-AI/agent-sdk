@@ -298,6 +298,18 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             d["model"] = f"litellm_proxy/{model_name}"
             d["base_url"] = "https://llm-proxy.app.all-hands.dev/"
 
+        # Extract custom_llm_provider from litellm_proxy/* models
+        # Format: litellm_proxy/provider/model-name
+        # This ensures LiteLLM uses the native provider implementation
+        # instead of generic conversion (critical for Responses API)
+        if model_val.startswith("litellm_proxy/") and not d.get("custom_llm_provider"):
+            parts = model_val.split("/")
+            if len(parts) >= 3:
+                # Extract provider (e.g., "openai" from
+                # "litellm_proxy/openai/gpt-5-mini")
+                provider = parts[1]
+                d["custom_llm_provider"] = provider
+
         # HF doesn't support the OpenAI default value for top_p (1)
         if model_val.startswith("huggingface"):
             if d.get("top_p", 1.0) == 1.0:
@@ -568,8 +580,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     typed_input: ResponseInputParam | str = (
                         cast(ResponseInputParam, input_items) if input_items else ""
                     )
+                    # For Responses API through litellm proxy, strip the litellm_proxy/ prefix
+                    # The proxy's /responses endpoint expects model names like "openai/gpt-5-mini"
+                    # not "litellm_proxy/openai/gpt-5-mini"
+                    responses_model = self.model
+                    if responses_model.startswith("litellm_proxy/"):
+                        responses_model = responses_model[len("litellm_proxy/") :]
                     ret = litellm_responses(
-                        model=self.model,
+                        model=responses_model,
                         input=typed_input,
                         instructions=instructions,
                         tools=resp_tools,
@@ -581,6 +599,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         timeout=self.timeout,
                         drop_params=self.drop_params,
                         seed=self.seed,
+                        custom_llm_provider=self.custom_llm_provider,
                         **final_kwargs,
                     )
                     assert isinstance(ret, ResponsesAPIResponse), (
@@ -771,11 +790,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if include_list:
             out["include"] = include_list
 
-        # Store defaults to False (stateless) unless explicitly provided
+        # Store defaults to True (stateful) for multi-turn conversations
+        # This is required when assistant messages reference previous
+        # response items by ID
         if store is not None:
             out["store"] = bool(store)
         else:
-            out.setdefault("store", False)
+            out.setdefault("store", True)
 
         # Respect max_output_tokens if configured at LLM level
         if self.max_output_tokens is not None:
