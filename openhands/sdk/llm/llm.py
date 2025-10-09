@@ -288,6 +288,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ):
             d["reasoning_effort"] = "high"
 
+        # Enable encrypted reasoning for GPT-5 models (required by OpenAI)
+        if d.get("enable_encrypted_reasoning") is None and "gpt-5" in model_val:
+            d["enable_encrypted_reasoning"] = True
+
         # Azure default version
         if model_val.startswith("azure") and not d.get("api_version"):
             d["api_version"] = "2024-12-01-preview"
