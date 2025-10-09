@@ -9,3 +9,4 @@ include uv.lock
 
 include openhands/agent_server/docker/Dockerfile
 include openhands/agent_server/docker/wallpaper.svg
+include openhands/agent_server/agent-server.spec
