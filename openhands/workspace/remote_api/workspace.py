@@ -1,6 +1,6 @@
 """API-based remote workspace implementation using runtime API."""
 
-import time
+import uuid
 from typing import Any
 from urllib.request import urlopen
 
@@ -47,13 +47,14 @@ class APIRemoteWorkspace(RemoteWorkspace):
         "It must be a public image or in a registry accessible by runtime API."
     )
     session_id: str | None = Field(
-        default=None, description="Session ID (auto-generated if None)"
+        default_factory=lambda: f"agent-server-{uuid.uuid4()}",
+        description="Session ID (auto-generated if None)"
     )
     resource_factor: int = Field(
         default=1, description="Resource scaling (1, 2, 4, or 8)"
     )
     runtime_class: str | None = Field(
-        default=None, description="Runtime class (e.g., 'sysbox')"
+        default='sysbox', description="Runtime class (e.g., 'sysbox')"
     )
     init_timeout: float = Field(
         default=300.0, description="Runtime init timeout (seconds)"
@@ -73,9 +74,6 @@ class APIRemoteWorkspace(RemoteWorkspace):
 
     def model_post_init(self, context: Any) -> None:
         """Set up the remote runtime and initialize the workspace."""
-        if self.session_id is None:
-            object.__setattr__(self, "session_id", f"agent-server-{int(time.time())}")
-
         if self.resource_factor not in [1, 2, 4, 8]:
             raise ValueError(
                 f"resource_factor must be 1, 2, 4, or 8, got {self.resource_factor}"
