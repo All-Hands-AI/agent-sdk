@@ -74,12 +74,12 @@ def rolling_log_view(
         if header:
             parts.append(
                 "=" * len(header) + "\n" +
-                header.rstrip() + "\n" + "=" * len(header)
+                header.rstrip() + "\n" + "-" * len(header)
             )
         parts.append("\n".join(handler._buf))
         if footer:
             parts.append(
-                "=" * len(footer) + "\n" + footer.rstrip()
+                "-" * len(footer) + "\n" + footer.rstrip()
                 + "\n" + "=" * len(footer)
             )
         return "\n".join(parts)
