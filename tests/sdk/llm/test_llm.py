@@ -525,4 +525,42 @@ def test_telemetry_cost_calculation_header_exception():
             )
 
 
+def test_gpt5_enable_encrypted_reasoning_default():
+    """
+    Test that enable_encrypted_reasoning is automatically set to True for GPT-5 models.
+    """
+    # Test with gpt-5 model
+    llm = LLM(
+        model="openai/gpt-5-mini",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt5-llm",
+    )
+    assert llm.enable_encrypted_reasoning is True
+
+    # Test with litellm_proxy/openai/gpt-5 model
+    llm_proxy = LLM(
+        model="litellm_proxy/openai/gpt-5-codex",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt5-proxy-llm",
+    )
+    assert llm_proxy.enable_encrypted_reasoning is True
+
+    # Test that explicit False is respected
+    llm_explicit = LLM(
+        model="openai/gpt-5-mini",
+        api_key=SecretStr("test_key"),
+        enable_encrypted_reasoning=False,
+        service_id="test-gpt5-explicit-llm",
+    )
+    assert llm_explicit.enable_encrypted_reasoning is False
+
+    # Test that non-GPT-5 models don't get it automatically set
+    llm_gpt4 = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt4-llm",
+    )
+    assert llm_gpt4.enable_encrypted_reasoning is False
+
+
 # LLM Registry Tests
