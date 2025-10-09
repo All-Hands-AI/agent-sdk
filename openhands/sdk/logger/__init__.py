@@ -7,7 +7,7 @@ from .logger import (
     ENV_LOG_DIR,
     IN_CI,
 )
-
+from .rolling import rolling_log_view
 
 __all__ = [
     "get_logger",
@@ -17,4 +17,5 @@ __all__ = [
     "ENV_LOG_LEVEL",
     "ENV_LOG_DIR",
     "IN_CI",
+    "rolling_log_view"
 ]

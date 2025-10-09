@@ -17,14 +17,18 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import sys
 import tarfile
 import tempfile
+from contextlib import chdir
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
-from openhands.sdk import get_logger
+
+from openhands.sdk.logger import get_logger, rolling_log_view
+
 
 logger = get_logger(__name__)
 
@@ -35,9 +39,57 @@ PlatformType = Literal["linux/amd64", "linux/arm64"]
 
 # --- helpers ---
 
-def _run(cmd: list[str], cwd: str | None = None) -> subprocess.CompletedProcess:
-    logger.debug(f"$ {' '.join(cmd)} (cwd={cwd})")
-    return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, check=True)
+def _run(
+    cmd: list[str],
+    cwd: str | None = None,
+) -> subprocess.CompletedProcess:
+    """
+    Stream stdout and stderr concurrently into the rolling logger,
+    while capturing FULL stdout/stderr.
+    Returns CompletedProcess(stdout=<full>, stderr=<full>).
+    Raises CalledProcessError with both output and stderr on failure.
+    """
+    logger.info(f"$ {' '.join(cmd)} (cwd={cwd})")
+
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,   # keep separate
+        bufsize=1,                # line-buffered
+    )
+    assert proc.stdout is not None and proc.stderr is not None
+
+    out_lines: list[str] = []
+    err_lines: list[str] = []
+
+    def pump(stream, sink: list[str], log_fn, prefix: str) -> None:
+        for line in stream:
+            line = line.rstrip("\n")
+            sink.append(line)
+            log_fn(f"{prefix}{line}")
+
+    with rolling_log_view(
+        logger,
+        header="$ " + " ".join(cmd) + (f" (cwd={cwd})" if cwd else ""),
+    ):
+        t_out = threading.Thread(target=pump, args=(proc.stdout, out_lines, logger.info,  "[stdout] "))
+        t_err = threading.Thread(target=pump, args=(proc.stderr, err_lines, logger.warning, "[stderr] "))
+        t_out.start(); t_err.start()
+        t_out.join(); t_err.join()
+
+    rc = proc.wait()
+    stdout = ("\n".join(out_lines) + "\n") if out_lines else ""
+    stderr = ("\n".join(err_lines) + "\n") if err_lines else ""
+
+    result = subprocess.CompletedProcess(cmd, rc, stdout=stdout, stderr=stderr)
+
+    if rc != 0:
+        # Include full outputs on failure
+        raise subprocess.CalledProcessError(rc, cmd, output=stdout, stderr=stderr)
+
+    return result
 
 
 def _base_slug(image: str) -> str:
@@ -51,6 +103,7 @@ def _sanitize_branch(ref: str) -> str:
 
 def _sdk_version() -> str:
     from importlib.metadata import version
+
     return version("openhands-sdk")
 
 
@@ -66,7 +119,9 @@ def _git_info() -> tuple[str, str, str]:
     git_ref = os.environ.get("GITHUB_REF")
     if not git_ref:
         try:
-            git_ref = _run(["git", "symbolic-ref", "-q", "--short", "HEAD"]).stdout.strip()
+            git_ref = _run(
+                ["git", "symbolic-ref", "-q", "--short", "HEAD"]
+            ).stdout.strip()
         except subprocess.CalledProcessError:
             git_ref = "unknown"
     return git_ref, git_sha, short_sha
@@ -78,31 +133,39 @@ SDK_VERSION = _sdk_version()
 
 # --- options ---
 
+
 def _default_sdk_project_root() -> Path:
     """Resolve the root of the OpenHands SDK project."""
     try:
         import importlib.util
+
         spec = importlib.util.find_spec("openhands.agent_server")
         if spec and spec.origin:
             return Path(spec.origin).parent.parent.parent.resolve()
     except Exception:
         pass
 
-    raise RuntimeError("Could not resolve OpenHands SDK project root. "
-                           "Please set AGENT_SDK_PATH environment variable.")
+    raise RuntimeError(
+        "Could not resolve OpenHands SDK project root. "
+        "Please set AGENT_SDK_PATH environment variable."
+    )
 
 
 class BuildOptions(BaseModel):
     base_image: str = Field(default="nikolaik/python-nodejs:python3.12-nodejs22")
     sdk_project_root: Path = Field(
         default_factory=_default_sdk_project_root,
-        description="Path to OpenHands SDK root. Auto if None."
+        description="Path to OpenHands SDK root. Auto if None.",
     )
-    custom_tags: str = Field(default="", description="Comma-separated list of custom tags.")
+    custom_tags: str = Field(
+        default="", description="Comma-separated list of custom tags."
+    )
     image: str = Field(default="ghcr.io/all-hands-ai/agent-server")
     target: TargetType = Field(default="binary")
     platforms: list[PlatformType] = Field(default=["linux/amd64"])
-    push: bool | None = Field(default=None, description="None=auto (CI push, local load)")
+    push: bool | None = Field(
+        default=None, description="None=auto (CI push, local load)"
+    )
 
     @field_validator("target")
     @classmethod
@@ -153,44 +216,43 @@ class BuildOptions(BaseModel):
 
 # --- build helpers ---
 
+
 def _extract_tarball(tarball: Path, dest: Path) -> None:
-    with tarfile.open(tarball, "r:gz") as tar:
+    dest = dest.resolve()
+    dest.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(tarball, "r:gz") as tar, chdir(dest):
+        # Pre-validate entries
         for m in tar.getmembers():
-            p = Path(m.name)
-            if ".." in p.parts or p.is_absolute():
+            name = m.name.lstrip("./")
+            p = Path(name)
+            if p.is_absolute() or ".." in p.parts:
                 raise RuntimeError(f"Unsafe path in sdist: {m.name}")
-        tar.extractall(dest)
+        # Safe(-r) extraction: no symlinks/devices
+        tar.extractall(path=".", filter="data")
 
 
-def _build_sdists(workspace_root: Path, output_dir: Path) -> list[Path]:
-    import tomllib
-    config = tomllib.loads((workspace_root / "pyproject.toml").read_text("utf-8"))
-    members = config.get("tool", {}).get("uv", {}).get("workspace", {}).get("members", [])
-    if not members:
-        raise ValueError("No workspace members found in pyproject.toml")
-
-    sdists: list[Path] = []
-    for member in members:
-        member_path = workspace_root / member
-        if not member_path.exists():
-            logger.info(f"[build] WARNING: Workspace member {member} not found")
-            continue
-        _run(["uv", "build", "--sdist", "--out-dir", str(output_dir.resolve())],
-             cwd=str(member_path.resolve()))
-        latest = sorted(output_dir.glob("*.tar.gz"), key=lambda p: p.stat().st_mtime)
-        if latest:
-            sdists.append(latest[-1])
-    return sdists
-
-
-def _make_clean_context(sdk_project_root: Path) -> Path:
+def _make_build_context(sdk_project_root: Path) -> Path:
     tmp_root = Path(tempfile.mkdtemp(prefix="agent-build-", dir=None)).resolve()
     sdist_dir = Path(tempfile.mkdtemp(prefix="agent-sdist-", dir=None)).resolve()
     try:
-        sdists = _build_sdists(sdk_project_root, sdist_dir)
-        for s in sdists:
-            logger.debug(f"[build] Extracting sdist {s} to clean context {tmp_root}")
-            _extract_tarball(s, tmp_root)
+        # sdists = _build_sdists(sdk_project_root, sdist_dir)
+        _run(
+            ["uv", "build", "--sdist", "--out-dir", str(sdist_dir.resolve())],
+            cwd=str(sdk_project_root.resolve()),
+        )
+        sdists = sorted(sdist_dir.glob("*.tar.gz"), key=lambda p: p.stat().st_mtime)
+        logger.info(
+            f"[build] Built {len(sdists)} sdists for clean context: {', '.join(str(s) for s in sdists)}"
+        )
+        assert len(sdists) == 1, "Expected exactly one sdist"
+        logger.debug(f"[build] Extracting sdist {sdists[0]} to clean context {tmp_root}")
+        _extract_tarball(sdists[0], tmp_root)
+        
+        # assert only one folder created
+        entries = list(tmp_root.iterdir())
+        assert len(entries) == 1 and entries[0].is_dir(), "Expected single folder in sdist"
+        tmp_root = entries[0].resolve()
+        logger.debug(f"[build] Clean context ready at {tmp_root}")
         return tmp_root
     except Exception:
         shutil.rmtree(tmp_root, ignore_errors=True)
@@ -200,6 +262,7 @@ def _make_clean_context(sdk_project_root: Path) -> Path:
 
 
 # --- single entry point ---
+
 
 def build(opts: BuildOptions) -> list[str]:
     """Single entry point for building the agent-server image."""
@@ -216,14 +279,19 @@ def build(opts: BuildOptions) -> list[str]:
     tags = opts.all_tags
     cache_tag, cache_tag_base = opts.cache_tags
 
-    ctx = _make_clean_context(opts.sdk_project_root)
+    ctx = _make_build_context(opts.sdk_project_root)
     logger.info(f"[build] Clean build context: {ctx}")
 
     args = [
-        "docker", "buildx", "build",
-        "--file", str(dockerfile_path),
-        "--target", opts.target,
-        "--build-arg", f"BASE_IMAGE={opts.base_image}",
+        "docker",
+        "buildx",
+        "build",
+        "--file",
+        str(dockerfile_path),
+        "--target",
+        opts.target,
+        "--build-arg",
+        f"BASE_IMAGE={opts.base_image}",
     ]
     if push:
         args += ["--platform", ",".join(opts.platforms), "--push"]
@@ -234,26 +302,34 @@ def build(opts: BuildOptions) -> list[str]:
         args += ["--tag", t]
 
     args += [
-        "--cache-from", f"type=registry,ref={opts.image}:{cache_tag}",
-        "--cache-from", f"type=registry,ref={opts.image}:{cache_tag_base}-main",
-        "--cache-to",   f"type=registry,ref={opts.image}:{cache_tag},mode=max",
+        "--cache-from",
+        f"type=registry,ref={opts.image}:{cache_tag}",
+        "--cache-from",
+        f"type=registry,ref={opts.image}:{cache_tag_base}-main",
+        "--cache-to",
+        f"type=registry,ref={opts.image}:{cache_tag},mode=max",
         str(ctx),
     ]
 
-    logger.info(f"[build] Building target='{opts.target}' image='{opts.image}' custom_tags='{opts.custom_tags}' "
-          f"from base='{opts.base_image}' for platforms='{opts.platforms if push else 'local-arch'}'")
+    logger.info(
+        f"[build] Building target='{opts.target}' image='{opts.image}' custom_tags='{opts.custom_tags}' "
+        f"from base='{opts.base_image}' for platforms='{opts.platforms if push else 'local-arch'}'"
+    )
     logger.info(f"[build] Git ref='{GIT_REF}' sha='{GIT_SHA}' version='{SDK_VERSION}'")
     logger.info(f"[build] Cache tag: {cache_tag}")
     logger.info("[build] Tags:")
     for t in tags:
         logger.info(f" - {t}")
 
+
     try:
         res = _run(args, cwd=str(ctx))
         sys.stdout.write(res.stdout or "")
     except subprocess.CalledProcessError as e:
-        sys.stdout.write(e.stdout or "")
-        sys.stderr.write(e.stderr or "")
+        logger.error(f"[build] ERROR: Build failed with exit code {e.returncode}")
+        logger.error(f"[build] Command: {' '.join(e.cmd)}")
+        logger.error(f"[build] Full stdout:\n{e.output}")
+        logger.error(f"[build] Full stderr:\n{e.stderr}")
         raise
     finally:
         logger.info(f"[build] Cleaning {ctx}")
@@ -267,6 +343,7 @@ def build(opts: BuildOptions) -> list[str]:
 
 # --- CLI shim ---
 
+
 def _env(name: str, default: str) -> str:
     v = os.environ.get(name)
     return v if v else default
@@ -277,7 +354,10 @@ def main(argv: list[str]) -> int:
     if sdk_project_root := os.environ.get("AGENT_SDK_PATH"):
         sdk_project_root = Path(sdk_project_root).expanduser().resolve()
         if not sdk_project_root.exists():
-            logger.info(f"[build] Provided ERROR: AGENT_SDK_PATH '{sdk_project_root}' does not exist", file=sys.stderr)
+            logger.info(
+                f"[build] Provided ERROR: AGENT_SDK_PATH '{sdk_project_root}' does not exist",
+                file=sys.stderr,
+            )
             return 1
         extra_kwargs["sdk_project_root"] = sdk_project_root
 
@@ -286,8 +366,16 @@ def main(argv: list[str]) -> int:
         custom_tags=_env("CUSTOM_TAGS", ""),
         image=_env("IMAGE", "ghcr.io/all-hands-ai/agent-server"),
         target=_env("TARGET", "binary"),  # type: ignore
-        platforms=[p.strip() for p in _env("PLATFORMS", "linux/amd64,linux/arm64").split(",")],  # type: ignore
-        push=(True if os.environ.get("PUSH") == "1" else False if os.environ.get("LOAD") == "1" else None),
+        platforms=[
+            p.strip() for p in _env("PLATFORMS", "linux/amd64,linux/arm64").split(",")
+        ],  # type: ignore
+        push=(
+            True
+            if os.environ.get("PUSH") == "1"
+            else False
+            if os.environ.get("LOAD") == "1"
+            else None
+        ),
         **extra_kwargs,
     )
     tags = build(opts)
