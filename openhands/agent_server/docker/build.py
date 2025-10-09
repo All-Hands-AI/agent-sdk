@@ -274,6 +274,27 @@ def _make_build_context(sdk_project_root: Path) -> Path:
         shutil.rmtree(sdist_dir, ignore_errors=True)
 
 
+def _active_buildx_driver() -> str | None:
+    try:
+        out = _run(["docker", "buildx", "inspect", "--bootstrap"]).stdout
+        for line in out.splitlines():
+            s = line.strip()
+            if s.startswith("Driver:"):
+                return s.split(":", 1)[1].strip()
+    except Exception:
+        pass
+    return None
+
+
+def _default_local_cache_dir() -> Path:
+    # keep cache outside repo; override with BUILD_CACHE_DIR if wanted
+    root = os.environ.get("BUILD_CACHE_DIR")
+    if root:
+        return Path(root).expanduser().resolve()
+    xdg = os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))
+    return Path(xdg) / "openhands" / "buildx-cache"
+
+
 # --- single entry point ---
 
 
@@ -314,15 +335,51 @@ def build(opts: BuildOptions) -> list[str]:
     for t in tags:
         args += ["--tag", t]
 
-    args += [
-        "--cache-from",
-        f"type=registry,ref={opts.image}:{cache_tag}",
-        "--cache-from",
-        f"type=registry,ref={opts.image}:{cache_tag_base}-main",
-        "--cache-to",
-        f"type=registry,ref={opts.image}:{cache_tag},mode=max",
-        str(ctx),
-    ]
+    # -------- cache strategy --------
+    driver = _active_buildx_driver() or "unknown"
+    local_cache_dir = _default_local_cache_dir()
+    cache_args: list[str] = []
+
+    if push:
+        # Remote/CI builds: use registry cache + inline for maximum reuse.
+        cache_args += [
+            "--cache-from",
+            f"type=registry,ref={opts.image}:{cache_tag}",
+            "--cache-from",
+            f"type=registry,ref={opts.image}:{cache_tag_base}-main",
+            "--cache-to",
+            f"type=registry,ref={opts.image}:{cache_tag},mode=max",
+        ]
+        logger.info("[build] Cache: registry (remote/CI) + inline")
+    else:
+        # Local/dev builds: prefer local dir cache if
+        # driver supports it; otherwise inline-only.
+        if driver == "docker-container":
+            local_cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_args += [
+                "--cache-from",
+                f"type=local,src={str(local_cache_dir)}",
+                "--cache-to",
+                f"type=local,dest={str(local_cache_dir)},mode=max",
+            ]
+            logger.info(
+                f"[build] Cache: local dir at {local_cache_dir} (driver={driver})"
+            )
+        else:
+            logger.warning(
+                f"[build] WARNING: Active buildx driver is '{driver}', "
+                "which does not support local dir caching. Fallback to INLINE CACHE\n"
+                " Consider running the following commands to set up a "
+                "compatible buildx environment:\n"
+                "  1. docker buildx create --name openhands-builder "
+                "--driver docker-container --use\n"
+                "  2. docker buildx inspect --bootstrap\n"
+            )
+            # docker driver can't export caches; fall back to inline metadata only.
+            cache_args += ["--build-arg", "BUILDKIT_INLINE_CACHE=1"]
+            logger.info(f"[build] Cache: inline only (driver={driver})")
+
+    args += cache_args + [str(ctx)]
 
     logger.info(
         f"[build] Building target='{opts.target}' image='{opts.image}' "
