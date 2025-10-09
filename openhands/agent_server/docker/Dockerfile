@@ -6,10 +6,10 @@ ARG UID=10001
 ARG GID=10001
 ARG PORT=8000
 
-############################
+####################################################################################
 # Builder (source mode)
 # We copy source + build a venv here for local dev and debugging.
-############################
+####################################################################################
 FROM python:3.12-bookworm AS builder
 ARG USERNAME UID GID
 ENV UV_PROJECT_ENVIRONMENT=/agent-server/.venv
@@ -26,11 +26,11 @@ COPY --chown=${USERNAME}:${USERNAME} openhands ./openhands
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
     uv sync --frozen --no-editable
 
-############################
-# Build a standalone binary
+####################################################################################
+# Binary Builder (binary mode)
 # We run pyinstaller here to produce openhands-agent-server
-############################
-FROM builder AS build-binary
+####################################################################################
+FROM builder AS binary-builder
 ARG USERNAME UID GID
 
 # We need --dev for pyinstaller
@@ -42,21 +42,14 @@ RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
 # Fail fast if the expected binary is missing
 RUN test -x /agent-server/dist/openhands-agent-server
 
-############################
-# Base runtime
-############################
-FROM ${BASE_IMAGE} AS base-image
+####################################################################################
+# Base image (minimal)
+# It includes only basic packages and the UV runtime.
+# No Docker, no VNC, no Desktop, no VSCode Web.
+# Suitable for running in headless/evaluation mode.
+####################################################################################
+FROM ${BASE_IMAGE} AS base-image-minimal
 ARG USERNAME UID GID PORT
-
-# VSCode environment variables
-ENV EDITOR=code \
-    VISUAL=code \
-    GIT_EDITOR="code --wait" \
-    OPENVSCODE_SERVER_ROOT=/openhands/.openvscode-server
-
-# NOTE: we should NOT include UV_PROJECT_ENVIRONMENT here, 
-# since the agent might use it to perform other work (e.g. tools that use Python)
-COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
 # Install base packages and create user
 RUN set -eux; \
@@ -74,13 +67,35 @@ RUN set -eux; \
     # Add user to sudo group
     usermod -aG sudo ${USERNAME}; \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers; \
-    \
+    # Create workspace directory
+    mkdir -p /workspace/project; \
+    chown -R ${USERNAME}:${USERNAME} /workspace; \
     rm -rf /var/lib/apt/lists/*
 
-# Setup VSCode Server
+# NOTE: we should NOT include UV_PROJECT_ENVIRONMENT here, 
+# since the agent might use it to perform other work (e.g. tools that use Python)
+COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
+
+USER ${USERNAME}
+WORKDIR /
+ENV OH_ENABLE_VNC=false
+ENV LOG_JSON=true
+EXPOSE ${PORT}
+
+####################################################################################
+# Base image (full)
+# It includes additional Docker, VNC, Desktop, and VSCode Web.
+####################################################################################
+FROM base-image-minimal AS base-image
+
+USER root
+# --- VSCode Web ---
+ENV EDITOR=code \
+    VISUAL=code \
+    GIT_EDITOR="code --wait" \
+    OPENVSCODE_SERVER_ROOT=/openhands/.openvscode-server
 ARG RELEASE_TAG="openvscode-server-v1.98.2"
 ARG RELEASE_ORG="gitpod-io"
-
 RUN set -eux; \
     # Create necessary directories
     mkdir -p $(dirname ${OPENVSCODE_SERVER_ROOT}); \
@@ -106,7 +121,7 @@ RUN set -eux; \
     # Set proper ownership
     chown -R ${USERNAME}:${USERNAME} ${OPENVSCODE_SERVER_ROOT}
 
-# Install Docker
+# --- Docker ---
 RUN set -eux; \
     # Determine OS type and install Docker accordingly
     if grep -q "ubuntu" /etc/os-release; then \
@@ -132,9 +147,6 @@ RUN set -eux; \
 RUN mkdir -p /etc/docker && \
     echo '{"mtu": 1450}' > /etc/docker/daemon.json
 
-# Prepare workspace
-RUN mkdir -p /workspace/project && \
-    chown -R ${USERNAME}:${USERNAME} /workspace
 
 # --- VNC + Desktop + noVNC ---
 RUN set -eux; \
@@ -155,21 +167,21 @@ ENV NOVNC_WEB=/usr/share/novnc \
     CHROMIUM_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu"
 
 RUN chown -R ${USERNAME}:${USERNAME} ${NOVNC_WEB}
-
-# We will re-use the chromium here for browser-use/playwright too
-# RUN set -eux; \
-#     uvx playwright install chromium --with-deps; \
-#     apt-get clean; \
-#     rm -rf /var/lib/apt/lists/*
-
 # Override default XFCE wallpaper
 COPY --chown=${USERNAME}:${USERNAME} openhands/agent_server/docker/wallpaper.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
-ENV OH_ENABLE_VNC=true
 
 USER ${USERNAME}
 WORKDIR /
+ENV OH_ENABLE_VNC=true
 ENV LOG_JSON=true
 EXPOSE ${PORT} ${NOVNC_PORT}
+
+
+####################################################################################
+####################################################################################
+# Build Targets
+####################################################################################
+####################################################################################
 
 ############################
 # Target A: source
@@ -180,6 +192,10 @@ ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
+FROM base-image-minimal AS source-minimal
+ARG USERNAME
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
+ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 ############################
 # Target B: binary-runtime
@@ -189,6 +205,12 @@ ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 FROM base-image AS binary
 ARG USERNAME
 
-COPY --chown=${USERNAME}:${USERNAME} --from=build-binary /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
+COPY --chown=${USERNAME}:${USERNAME} --from=binary-builder /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
+RUN chmod +x /usr/local/bin/openhands-agent-server
+ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
+
+FROM base-image-minimal AS binary-minimal
+ARG USERNAME
+COPY --chown=${USERNAME}:${USERNAME} --from=binary-builder /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
 RUN chmod +x /usr/local/bin/openhands-agent-server
 ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
