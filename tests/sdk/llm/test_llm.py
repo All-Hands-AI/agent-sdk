@@ -525,4 +525,59 @@ def test_telemetry_cost_calculation_header_exception():
             )
 
 
+def test_gpt5_enable_encrypted_reasoning_default():
+    """
+    Test that enable_encrypted_reasoning is enabled for GPT-5 models in Responses API.
+    """
+    # Test with gpt-5 model - should auto-enable in _normalize_responses_kwargs
+    llm = LLM(
+        model="openai/gpt-5-mini",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt5-llm",
+    )
+    # Field default is False, but _normalize_responses_kwargs will enable it
+    assert llm.enable_encrypted_reasoning is False
+
+    # Test that the normalization actually enables it
+    normalized = llm._normalize_responses_kwargs({}, include=None, store=None)
+    assert "include" in normalized
+    assert "reasoning.encrypted_content" in normalized["include"]
+
+    # Test with litellm_proxy/openai/gpt-5 model
+    llm_proxy = LLM(
+        model="litellm_proxy/openai/gpt-5-codex",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt5-proxy-llm",
+    )
+    normalized_proxy = llm_proxy._normalize_responses_kwargs(
+        {}, include=None, store=None
+    )
+    assert "include" in normalized_proxy
+    assert "reasoning.encrypted_content" in normalized_proxy["include"]
+
+    # Test that explicit True is respected
+    llm_explicit = LLM(
+        model="openai/gpt-5-mini",
+        api_key=SecretStr("test_key"),
+        enable_encrypted_reasoning=True,
+        service_id="test-gpt5-explicit-llm",
+    )
+    assert llm_explicit.enable_encrypted_reasoning is True
+    normalized_explicit = llm_explicit._normalize_responses_kwargs(
+        {}, include=None, store=None
+    )
+    assert "reasoning.encrypted_content" in normalized_explicit["include"]
+
+    # Test that non-GPT-5 models don't get it automatically
+    llm_gpt4 = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt4-llm",
+    )
+    assert llm_gpt4.enable_encrypted_reasoning is False
+    normalized_gpt4 = llm_gpt4._normalize_responses_kwargs({}, include=None, store=None)
+    # Should not have encrypted reasoning for gpt-4o
+    assert "reasoning.encrypted_content" not in normalized_gpt4.get("include", [])
+
+
 # LLM Registry Tests

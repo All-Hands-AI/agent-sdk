@@ -137,7 +137,7 @@ def build_agent_server_image(
 
     env = os.environ.copy()
     env["BASE_IMAGE"] = base_image
-    env["VARIANT_NAME"] = variant_name
+    env["CUSTOM_TAGS"] = variant_name
     env["TARGET"] = target
     env["PLATFORMS"] = platforms
     logger.info(
