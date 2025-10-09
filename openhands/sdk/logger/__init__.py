@@ -4,6 +4,7 @@ from .logger import (
     DEBUG,
     ENV_JSON,
     ENV_LOG_LEVEL,
+    ENV_LOG_DIR,
     IN_CI,
 )
 
@@ -14,5 +15,6 @@ __all__ = [
     "DEBUG",
     "ENV_JSON",
     "ENV_LOG_LEVEL",
+    "ENV_LOG_DIR",
     "IN_CI",
 ]
