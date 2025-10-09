@@ -16,6 +16,7 @@ Single-entry build helper for agent-server images.
 import os
 import re
 import shutil
+import argparse
 import subprocess
 import threading
 import sys
@@ -343,45 +344,122 @@ def build(opts: BuildOptions) -> list[str]:
 
 # --- CLI shim ---
 
-
 def _env(name: str, default: str) -> str:
     v = os.environ.get(name)
     return v if v else default
 
 
 def main(argv: list[str]) -> int:
-    extra_kwargs = {}
-    if sdk_project_root := os.environ.get("AGENT_SDK_PATH"):
-        sdk_project_root = Path(sdk_project_root).expanduser().resolve()
-        if not sdk_project_root.exists():
-            logger.info(
-                f"[build] Provided ERROR: AGENT_SDK_PATH '{sdk_project_root}' does not exist",
-                file=sys.stderr,
-            )
-            return 1
-        extra_kwargs["sdk_project_root"] = sdk_project_root
+    # ---- argparse ----
+    parser = argparse.ArgumentParser(
+        description="Single-entry build helper for agent-server images."
+    )
+    parser.add_argument(
+        "--base-image",
+        default=_env("BASE_IMAGE", "nikolaik/python-nodejs:python3.12-nodejs22"),
+        help="Base image to use (default from $BASE_IMAGE).",
+    )
+    parser.add_argument(
+        "--custom-tags",
+        default=_env("CUSTOM_TAGS", ""),
+        help="Comma-separated custom tags (default from $CUSTOM_TAGS).",
+    )
+    parser.add_argument(
+        "--image",
+        default=_env("IMAGE", "ghcr.io/all-hands-ai/agent-server"),
+        help="Image repo/name (default from $IMAGE).",
+    )
+    parser.add_argument(
+        "--target",
+        default=_env("TARGET", "binary"),
+        choices=sorted(VALID_TARGETS),
+        help="Build target (default from $TARGET).",
+    )
+    parser.add_argument(
+        "--platforms",
+        default=_env("PLATFORMS", "linux/amd64,linux/arm64"),
+        help="Comma-separated platforms (default from $PLATFORMS).",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--push",
+        action="store_true",
+        help="Force push via buildx (overrides env).",
+    )
+    group.add_argument(
+        "--load",
+        action="store_true",
+        help="Force local load (overrides env).",
+    )
+    parser.add_argument(
+        "--sdk-project-root",
+        type=Path,
+        default=None,
+        help="Path to OpenHands SDK root (default: auto-detect or $AGENT_SDK_PATH).",
+    )
+    parser.add_argument(
+        "--build-ctx-only",
+        action="store_true",
+        help="Only create the clean build context directory and print its path.",
+    )
 
-    opts = BuildOptions(
-        base_image=_env("BASE_IMAGE", "nikolaik/python-nodejs:python3.12-nodejs22"),
-        custom_tags=_env("CUSTOM_TAGS", ""),
-        image=_env("IMAGE", "ghcr.io/all-hands-ai/agent-server"),
-        target=_env("TARGET", "binary"),  # type: ignore
-        platforms=[
-            p.strip() for p in _env("PLATFORMS", "linux/amd64,linux/arm64").split(",")
-        ],  # type: ignore
-        push=(
+    args = parser.parse_args(argv)
+
+    # ---- resolve sdk project root ----
+    sdk_project_root = args.sdk_project_root
+    if sdk_project_root is None:
+        if os.environ.get("AGENT_SDK_PATH"):
+            sdk_project_root = Path(os.environ["AGENT_SDK_PATH"]).expanduser().resolve()
+            if not sdk_project_root.exists():
+                print(
+                    f"[build] ERROR: AGENT_SDK_PATH '{sdk_project_root}' does not exist",
+                    file=sys.stderr,
+                )
+                return 1
+        else:
+            try:
+                sdk_project_root = _default_sdk_project_root()
+            except Exception as e:
+                logger.error(str(e))
+                return 1
+
+    # ---- build-ctx-only path ----
+    if args.build_ctx_only:
+        ctx = _make_build_context(sdk_project_root)
+        logger.info(f"[build] Clean build context (kept for debugging): {ctx}")
+        # Print path to stdout so other tooling can capture it
+        print(str(ctx))
+        return 0
+
+
+    # ---- push/load resolution (CLI wins over env, else auto) ----
+    push: bool | None
+    if args.push:
+        push = True
+    elif args.load:
+        push = False
+    else:
+        push = (
             True
             if os.environ.get("PUSH") == "1"
             else False
             if os.environ.get("LOAD") == "1"
             else None
-        ),
-        **extra_kwargs,
+        )
+
+    # ---- normal build path ----
+    opts = BuildOptions(
+        base_image=args.base_image,
+        custom_tags=args.custom_tags,
+        image=args.image,
+        target=args.target,  # type: ignore
+        platforms=[p.strip() for p in args.platforms.split(",") if p.strip()],  # type: ignore
+        push=push,
+        sdk_project_root=sdk_project_root,
     )
     tags = build(opts)
     logger.info(",".join(tags))
     return 0
 
-
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv[1:]))
