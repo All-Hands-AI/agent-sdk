@@ -37,14 +37,13 @@ echo "[build] Using SDK version ${SDK_VERSION}"
 BASE_SLUG="$(echo -n "${BASE_IMAGE}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
 # Parse custom tags (use first tag as primary for cache and versioning)
 IFS=',' read -ra CUSTOM_TAG_ARRAY <<< "$CUSTOM_TAGS"
-PRIMARY_TAG="${CUSTOM_TAG_ARRAY[0]}"
 
-VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}_${PRIMARY_TAG}"
+VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}"
 
 # ------------------------------------------------------------
 # Cache configuration
 # ------------------------------------------------------------
-CACHE_TAG_BASE="buildcache-${PRIMARY_TAG}"
+CACHE_TAG_BASE="buildcache-${VARIANT_NAME}"
 CACHE_TAG="${CACHE_TAG_BASE}"
 
 # Add branch-specific cache tag for better cache hits
@@ -74,9 +73,9 @@ done
 if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
   for custom_tag in "${CUSTOM_TAG_ARRAY[@]}"; do
     if [[ "${TARGET}" == "source" ]]; then
-      TAGS+=( "${IMAGE}:latest-${custom_tag}-dev" )
+      TAGS+=( "${IMAGE}:main-${custom_tag}-dev" )
     else
-      TAGS+=( "${IMAGE}:latest-${custom_tag}" )
+      TAGS+=( "${IMAGE}:main-${custom_tag}" )
     fi
   done
 fi
