@@ -33,6 +33,7 @@ from openhands.agent_server.env_parser import (
     get_env_parser,
     merge,
 )
+from tests.sdk.utils.test_discriminated_union import Animal, Dog
 
 
 class NodeModel(BaseModel):
@@ -716,6 +717,14 @@ def test_optional_parameter_parsing(clean_env):
     os.environ["OP_SUB_VALUE"] = "10"
     model = from_env(OptionalModel, "OP")
     assert model == OptionalModel(sub=OptionalSubModel(title="Present", value=10))
+
+
+def test_discriminated_union_parsing(clean_env):
+    os.environ["A_KIND"] = "Dog"
+    os.environ["A_NAME"] = "Bowser"
+    os.environ["A_BARKING"] = "1"
+    model = from_env(Animal, "A")
+    assert model == Dog(name="Bowser", barking=True)
 
 
 def test_config_vnc_environment_variable_parsing(clean_env):
