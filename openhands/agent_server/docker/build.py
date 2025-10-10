@@ -478,9 +478,6 @@ def build(opts: BuildOptions) -> list[str]:
     )
     logger.info(f"[build] Git ref='{GIT_REF}' sha='{GIT_SHA}' version='{SDK_VERSION}'")
     logger.info(f"[build] Cache tag: {cache_tag}")
-    logger.info("[build] Tags:")
-    for t in tags:
-        logger.info(f" - {t}")
 
     try:
         res = _run(args, cwd=str(ctx))
