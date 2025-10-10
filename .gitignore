@@ -203,3 +203,6 @@ cache
 /workspace/
 openapi.json
 .client/
+
+# runtime build context output
+runtime-build/
