@@ -11,7 +11,7 @@ import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser import CondenserBase, LLMSummarizingCondenser
 from openhands.sdk.context.prompts.prompt import render_template
-from openhands.sdk.llm import LLM
+from openhands.sdk.llm import LLM, LLMBase
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -37,7 +37,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         arbitrary_types_allowed=True,
     )
 
-    llm: LLM = Field(
+    llm: LLMBase = Field(
         ...,
         description="LLM configuration for the agent.",
         examples=[

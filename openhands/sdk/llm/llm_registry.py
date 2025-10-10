@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
-from openhands.sdk.llm.llm import LLM
+from openhands.sdk.llm.llm import LLMBase
 from openhands.sdk.logger import get_logger
 
 
@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 
 class RegistryEvent(BaseModel):
-    llm: LLM
+    llm: LLMBase
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -36,7 +36,7 @@ class LLMRegistry:
         """
         self.registry_id = str(uuid4())
         self.retry_listener = retry_listener
-        self.service_to_llm: dict[str, LLM] = {}
+        self.service_to_llm: dict[str, LLMBase] = {}
         self.subscriber: Callable[[RegistryEvent], None] | None = None
 
     def subscribe(self, callback: Callable[[RegistryEvent], None]) -> None:
@@ -59,7 +59,7 @@ class LLMRegistry:
             except Exception as e:
                 logger.warning(f"Failed to emit event: {e}")
 
-    def add(self, llm: LLM) -> None:
+    def add(self, llm: LLMBase) -> None:
         """Add an LLM instance to the registry.
 
         Args:
@@ -82,7 +82,7 @@ class LLMRegistry:
             f"[LLM registry {self.registry_id}]: Added LLM for service {service_id}"
         )
 
-    def get(self, service_id: str) -> LLM:
+    def get(self, service_id: str) -> LLMBase:
         """Get an LLM instance from the registry.
 
         Args:

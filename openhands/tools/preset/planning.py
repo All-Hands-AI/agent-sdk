@@ -2,7 +2,7 @@
 
 from openhands.sdk import Agent
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
-from openhands.sdk.llm.llm import LLM
+from openhands.sdk.llm.llm import LLMBase
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import Tool, register_tool
 
@@ -41,7 +41,7 @@ def get_planning_tools() -> list[Tool]:
     ]
 
 
-def get_planning_condenser(llm: LLM) -> LLMSummarizingCondenser:
+def get_planning_condenser(llm: LLMBase) -> LLMSummarizingCondenser:
     """Get a condenser optimized for planning workflows.
 
     Args:
@@ -60,7 +60,7 @@ def get_planning_condenser(llm: LLM) -> LLMSummarizingCondenser:
 
 
 def get_planning_agent(
-    llm: LLM,
+    llm: LLMBase,
 ) -> Agent:
     """Get a configured planning agent.
 

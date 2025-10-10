@@ -11,7 +11,7 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import LLM, Agent, Event, Message, get_logger
+from openhands.sdk import Agent, Event, LLMBase, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import ConversationState
@@ -263,7 +263,7 @@ class EventService:
             loop.run_in_executor(None, self._conversation.close)
 
     async def generate_title(
-        self, llm: "LLM | None" = None, max_length: int = 50
+        self, llm: "LLMBase | None" = None, max_length: int = 50
     ) -> str:
         """Generate a title for the conversation.
 
