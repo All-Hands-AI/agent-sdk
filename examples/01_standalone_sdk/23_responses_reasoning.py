@@ -35,7 +35,6 @@ llm = LLM(
     api_key=SecretStr(api_key),
     base_url=base_url,
     # Responses-path options
-    enable_encrypted_reasoning=True,  # request encrypted reasoning passthrough
     reasoning_effort="high",
     # Logging / behavior tweaks
     log_completions=False,
