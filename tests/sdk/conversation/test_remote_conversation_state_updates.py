@@ -1,7 +1,6 @@
 """Tests for RemoteConversation state update handling."""
 
-import uuid
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from pydantic import SecretStr
 
@@ -11,6 +10,8 @@ from openhands.sdk.conversation.impl.remote_conversation import RemoteConversati
 from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands.sdk.llm import LLM
 
+from .conftest import create_mock_http_client
+
 
 def create_test_agent() -> Agent:
     """Create a test agent for testing."""
@@ -18,36 +19,19 @@ def create_test_agent() -> Agent:
     return Agent(llm=llm, tools=[])
 
 
-def create_mock_http_responses():
-    """Create mock HTTP responses for RemoteConversation."""
-    # Mock the POST response for conversation creation
-    mock_post_response = Mock()
-    mock_post_response.raise_for_status.return_value = None
-    mock_post_response.json.return_value = {"id": str(uuid.uuid4())}
-
-    # Mock the GET response for events sync
-    mock_get_response = Mock()
-    mock_get_response.raise_for_status.return_value = None
-    mock_get_response.json.return_value = {"items": []}
-
-    return mock_post_response, mock_get_response
-
-
-@patch("httpx.Client")
-def test_update_state_from_event_with_full_state(mock_httpx_client):
+def test_update_state_from_event_with_full_state():
     """Test updating cached state from a full state snapshot."""
     agent = create_test_agent()
 
-    # Mock httpx client and its responses
-    mock_client_instance = Mock()
-    mock_httpx_client.return_value = mock_client_instance
+    # Mock httpx client
+    mock_client_instance = create_mock_http_client()
 
-    mock_post_response, mock_get_response = create_mock_http_responses()
-    mock_client_instance.post.return_value = mock_post_response
-    mock_client_instance.get.return_value = mock_get_response
-
-    with patch(
-        "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
+    with (
+        patch("httpx.Client", return_value=mock_client_instance),
+        patch(
+            "openhands.sdk.conversation.impl.remote_conversation"
+            ".WebSocketCallbackClient"
+        ),
     ):
         # Create real RemoteConversation
         conv = RemoteConversation(
@@ -73,21 +57,19 @@ def test_update_state_from_event_with_full_state(mock_httpx_client):
         assert conv.state._cached_state["max_iterations"] == 100
 
 
-@patch("httpx.Client")
-def test_update_state_from_event_with_individual_field(mock_httpx_client):
+def test_update_state_from_event_with_individual_field():
     """Test updating cached state from an individual field update."""
     agent = create_test_agent()
 
     # Mock httpx client and its responses
-    mock_client_instance = Mock()
-    mock_httpx_client.return_value = mock_client_instance
+    mock_client_instance = create_mock_http_client()
 
-    mock_post_response, mock_get_response = create_mock_http_responses()
-    mock_client_instance.post.return_value = mock_post_response
-    mock_client_instance.get.return_value = mock_get_response
-
-    with patch(
-        "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
+    with (
+        patch("httpx.Client", return_value=mock_client_instance),
+        patch(
+            "openhands.sdk.conversation.impl.remote_conversation"
+            ".WebSocketCallbackClient"
+        ),
     ):
         # Create real RemoteConversation
         conv = RemoteConversation(
@@ -113,21 +95,19 @@ def test_update_state_from_event_with_individual_field(mock_httpx_client):
         assert conv.state._cached_state["max_iterations"] == 50  # Unchanged
 
 
-@patch("httpx.Client")
-def test_update_state_initializes_cache_if_none(mock_httpx_client):
+def test_update_state_initializes_cache_if_none():
     """Test that update initializes cache if it doesn't exist."""
     agent = create_test_agent()
 
     # Mock httpx client and its responses
-    mock_client_instance = Mock()
-    mock_httpx_client.return_value = mock_client_instance
+    mock_client_instance = create_mock_http_client()
 
-    mock_post_response, mock_get_response = create_mock_http_responses()
-    mock_client_instance.post.return_value = mock_post_response
-    mock_client_instance.get.return_value = mock_get_response
-
-    with patch(
-        "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
+    with (
+        patch("httpx.Client", return_value=mock_client_instance),
+        patch(
+            "openhands.sdk.conversation.impl.remote_conversation"
+            ".WebSocketCallbackClient"
+        ),
     ):
         # Create real RemoteConversation
         conv = RemoteConversation(
@@ -147,21 +127,19 @@ def test_update_state_initializes_cache_if_none(mock_httpx_client):
         assert conv.state._cached_state["agent_status"] == "running"
 
 
-@patch("httpx.Client")
-def test_update_state_from_multiple_events(mock_httpx_client):
+def test_update_state_from_multiple_events():
     """Test updating state from multiple events."""
     agent = create_test_agent()
 
     # Mock httpx client and its responses
-    mock_client_instance = Mock()
-    mock_httpx_client.return_value = mock_client_instance
+    mock_client_instance = create_mock_http_client()
 
-    mock_post_response, mock_get_response = create_mock_http_responses()
-    mock_client_instance.post.return_value = mock_post_response
-    mock_client_instance.get.return_value = mock_get_response
-
-    with patch(
-        "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
+    with (
+        patch("httpx.Client", return_value=mock_client_instance),
+        patch(
+            "openhands.sdk.conversation.impl.remote_conversation"
+            ".WebSocketCallbackClient"
+        ),
     ):
         # Create real RemoteConversation
         conv = RemoteConversation(
@@ -192,21 +170,19 @@ def test_update_state_from_multiple_events(mock_httpx_client):
         assert conv.state._cached_state["stuck_detection"] is True
 
 
-@patch("httpx.Client")
-def test_update_state_full_state_overwrites_fields(mock_httpx_client):
+def test_update_state_full_state_overwrites_fields():
     """Test that full_state update properly overwrites existing fields."""
     agent = create_test_agent()
 
     # Mock httpx client and its responses
-    mock_client_instance = Mock()
-    mock_httpx_client.return_value = mock_client_instance
+    mock_client_instance = create_mock_http_client()
 
-    mock_post_response, mock_get_response = create_mock_http_responses()
-    mock_client_instance.post.return_value = mock_post_response
-    mock_client_instance.get.return_value = mock_get_response
-
-    with patch(
-        "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
+    with (
+        patch("httpx.Client", return_value=mock_client_instance),
+        patch(
+            "openhands.sdk.conversation.impl.remote_conversation"
+            ".WebSocketCallbackClient"
+        ),
     ):
         # Create real RemoteConversation
         conv = RemoteConversation(
@@ -236,8 +212,7 @@ def test_update_state_full_state_overwrites_fields(mock_httpx_client):
         assert "old_field" in conv.state._cached_state  # Still there from .update()
 
 
-@patch("httpx.Client")
-def test_update_state_thread_safe(mock_httpx_client):
+def test_update_state_thread_safe():
     """Test that state updates are thread-safe."""
     import threading
     import time
@@ -245,15 +220,14 @@ def test_update_state_thread_safe(mock_httpx_client):
     agent = create_test_agent()
 
     # Mock httpx client and its responses
-    mock_client_instance = Mock()
-    mock_httpx_client.return_value = mock_client_instance
+    mock_client_instance = create_mock_http_client()
 
-    mock_post_response, mock_get_response = create_mock_http_responses()
-    mock_client_instance.post.return_value = mock_post_response
-    mock_client_instance.get.return_value = mock_get_response
-
-    with patch(
-        "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
+    with (
+        patch("httpx.Client", return_value=mock_client_instance),
+        patch(
+            "openhands.sdk.conversation.impl.remote_conversation"
+            ".WebSocketCallbackClient"
+        ),
     ):
         # Create real RemoteConversation
         conv = RemoteConversation(
@@ -283,21 +257,19 @@ def test_update_state_thread_safe(mock_httpx_client):
         assert 0 <= conv.state._cached_state["counter"] < 10
 
 
-@patch("httpx.Client")
-def test_update_state_preserves_data_types(mock_httpx_client):
+def test_update_state_preserves_data_types():
     """Test that state updates preserve data types correctly."""
     agent = create_test_agent()
 
     # Mock httpx client and its responses
-    mock_client_instance = Mock()
-    mock_httpx_client.return_value = mock_client_instance
+    mock_client_instance = create_mock_http_client()
 
-    mock_post_response, mock_get_response = create_mock_http_responses()
-    mock_client_instance.post.return_value = mock_post_response
-    mock_client_instance.get.return_value = mock_get_response
-
-    with patch(
-        "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
+    with (
+        patch("httpx.Client", return_value=mock_client_instance),
+        patch(
+            "openhands.sdk.conversation.impl.remote_conversation"
+            ".WebSocketCallbackClient"
+        ),
     ):
         # Create real RemoteConversation
         conv = RemoteConversation(
@@ -325,21 +297,19 @@ def test_update_state_preserves_data_types(mock_httpx_client):
         assert isinstance(conv.state._cached_state["dict_field"], dict)
 
 
-@patch("httpx.Client")
-def test_state_update_callback_integration(mock_httpx_client):
+def test_state_update_callback_integration():
     """Test that the state update callback is properly integrated."""
     agent = create_test_agent()
 
     # Mock httpx client and its responses
-    mock_client_instance = Mock()
-    mock_httpx_client.return_value = mock_client_instance
+    mock_client_instance = create_mock_http_client()
 
-    mock_post_response, mock_get_response = create_mock_http_responses()
-    mock_client_instance.post.return_value = mock_post_response
-    mock_client_instance.get.return_value = mock_get_response
-
-    with patch(
-        "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
+    with (
+        patch("httpx.Client", return_value=mock_client_instance),
+        patch(
+            "openhands.sdk.conversation.impl.remote_conversation"
+            ".WebSocketCallbackClient"
+        ),
     ):
         # Create real RemoteConversation
         conv = RemoteConversation(
