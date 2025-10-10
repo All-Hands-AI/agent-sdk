@@ -2,7 +2,7 @@ import os
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Conversation, Event
+from openhands.sdk import LLM, Conversation
 from openhands.tools.preset.default import get_default_agent
 
 
