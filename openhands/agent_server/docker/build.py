@@ -22,6 +22,7 @@ import sys
 import tarfile
 import tempfile
 import threading
+import tomllib
 from contextlib import chdir
 from pathlib import Path
 from typing import Literal
@@ -142,20 +143,109 @@ SDK_VERSION = _sdk_version()
 # --- options ---
 
 
-def _default_sdk_project_root() -> Path:
-    """Resolve the root of the OpenHands SDK project."""
-    try:
-        import importlib.util
+def _is_workspace_root(d: Path) -> bool:
+    """Detect if d is the root of the Agent-SDK repo UV workspace."""
+    _EXPECTED = (
+        "openhands/sdk/pyproject.toml",
+        "openhands/tools/pyproject.toml",
+        "openhands/workspace/pyproject.toml",
+        "openhands/agent_server/pyproject.toml",
+    )
 
-        spec = importlib.util.find_spec("openhands.agent_server")
-        if spec and spec.origin:
-            return Path(spec.origin).parent.parent.parent.resolve()
+    py = d / "pyproject.toml"
+    if not py.exists():
+        return False
+    try:
+        cfg = tomllib.loads(py.read_text(encoding="utf-8"))
     except Exception:
+        cfg = {}
+    members = (
+        cfg.get("tool", {}).get("uv", {}).get("workspace", {}).get("members", []) or []
+    )
+    # Accept either explicit UV members or structural presence of all subprojects
+    if members:
+        norm = {str(Path(m)) for m in members}
+        return {
+            "openhands/sdk",
+            "openhands/tools",
+            "openhands/workspace",
+            "openhands/agent_server",
+        }.issubset(norm)
+    return all((d / p).exists() for p in _EXPECTED)
+
+
+def _climb(start: Path) -> Path | None:
+    cur = start.resolve()
+    if not cur.is_dir():
+        cur = cur.parent
+    while True:
+        if _is_workspace_root(cur):
+            return cur
+        if cur.parent == cur:
+            return None
+        cur = cur.parent
+
+
+def _default_sdk_project_root() -> Path:
+    """
+    Resolve top-level OpenHands UV workspace root:
+
+    Order:
+      1) AGENT_SDK_PATH (can point anywhere inside the repo)
+      2) Walk up from CWD
+      3) Walk up from this file location
+
+    Reject anything in site/dist-packages (installed wheels).
+    """
+    site_markers = ("site-packages", "dist-packages")
+
+    def validate(p: Path, src: str) -> Path:
+        if any(s in str(p) for s in site_markers):
+            raise RuntimeError(
+                f"{src}: points inside site-packages; need the source checkout."
+            )
+        root = _climb(p) or p
+        if not _is_workspace_root(root):
+            raise RuntimeError(
+                f"{src}: couldn't find the OpenHands UV workspace root "
+                f"starting at '{p}'.\n\n"
+                "Expected setup (repo root):\n"
+                "  pyproject.toml  # has [tool.uv.workspace] with members\n"
+                "  openhands/sdk/pyproject.toml\n"
+                "  openhands/tools/pyproject.toml\n"
+                "  openhands/workspace/pyproject.toml\n"
+                "  openhands/agent_server/pyproject.toml\n\n"
+                "Fix:\n"
+                "  - Run from anywhere inside the repo; OR\n"
+                "  - Set AGENT_SDK_PATH=/path/to/repo/root "
+                "(the one with the UV workspace pyproject.toml)."
+            )
+        return root
+
+    if env := os.environ.get("AGENT_SDK_PATH"):
+        return validate(Path(env).expanduser(), "AGENT_SDK_PATH")
+
+    if root := _climb(Path.cwd()):
+        return validate(root, "CWD discovery")
+
+    try:
+        here = Path(__file__).resolve()
+        if root := _climb(here):
+            return validate(root, "__file__ discovery")
+    except NameError:
         pass
 
+    # Final, user-facing guidance
     raise RuntimeError(
-        "Could not resolve OpenHands SDK project root. "
-        "Please set AGENT_SDK_PATH environment variable."
+        "Could not resolve the OpenHands UV workspace root.\n\n"
+        "Expected repo layout:\n"
+        "  pyproject.toml  (with [tool.uv.workspace].members "
+        "including openhands/* subprojects)\n"
+        "  openhands/sdk/pyproject.toml\n"
+        "  openhands/tools/pyproject.toml\n"
+        "  openhands/workspace/pyproject.toml\n"
+        "  openhands/agent_server/pyproject.toml\n\n"
+        "Set AGENT_SDK_PATH to that repo root, or run this from inside the repo."
     )
 
 
