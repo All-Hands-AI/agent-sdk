@@ -81,14 +81,10 @@ def rolling_log_view(
     def _render() -> str:
         parts: list[str] = []
         if header:
-            parts.append(
-                "=" * len(header) + "\n" + header.rstrip() + "\n" + "-" * len(header)
-            )
+            parts.append(header.rstrip())
         parts.append("\n".join(handler._buf))
         if footer:
-            parts.append(
-                "-" * len(footer) + "\n" + footer.rstrip() + "\n" + "=" * len(footer)
-            )
+            parts.append(footer.rstrip())
         return "\n".join(parts)
 
     try:
