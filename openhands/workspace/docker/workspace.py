@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
@@ -201,8 +201,17 @@ class DockerWorkspace(RemoteWorkspace):
     )
 
     # Docker-specific configuration
-    base_image: str = Field(
-        description="Base Docker image to use for the agent server container."
+    base_image: str | None = Field(
+        description=
+        "Base Docker image to use for the agent server container. "
+        "Mutually exclusive with server_image.",
+    )
+    server_image: str | None = Field(
+        default=None,
+        description=(
+            "Pre-built agent server image to use. If None, builds from base_image."
+            "Mutually exclusive with base_image."
+        ),
     )
     host_port: int | None = Field(
         default=None,
@@ -235,6 +244,14 @@ class DockerWorkspace(RemoteWorkspace):
     _stop_logs: threading.Event = PrivateAttr(default_factory=threading.Event)
     _image: str = PrivateAttr()
 
+
+    @model_validator(mode="after")
+    def _validate_images(self):
+        """Ensure exactly one of base_image or server_image is provided; cache it."""
+        if (self.base_image is None) == (self.server_image is None):
+            raise ValueError("Exactly one of 'base_image' or 'server_image' must be set.")
+        return self
+
     def model_post_init(self, context: Any) -> None:
         """Set up the Docker container and initialize the remote workspace."""
         # Determine port
@@ -265,14 +282,24 @@ class DockerWorkspace(RemoteWorkspace):
             )
 
         # Build image if needed
-        if "ghcr.io/all-hands-ai/agent-server" not in self.base_image:
+
+        if self.base_image:
+            if "ghcr.io/all-hands-ai/agent-server" in self.base_image:
+                raise RuntimeError(
+                    "base_image cannot be a pre-built agent-server image. "
+                    "Use server_image=... instead."
+                )
             self._image = build_agent_server_image(
                 base_image=self.base_image,
                 target=self.target,
                 platforms=self.platform,
             )
+        elif self.server_image:
+            self._image = self.server_image
         else:
-            self._image = self.base_image
+            raise RuntimeError(
+                "Unreachable: one of base_image or server_image is set"
+            )
 
         # Prepare Docker run flags
         flags: list[str] = []
