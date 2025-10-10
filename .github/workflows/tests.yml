@@ -301,3 +301,8 @@ jobs:
                   pytest-xml-coverage-path: coverage.xml
                   title: Coverage Report
                   create-new-comment: false
+                  hide-report: false
+                  xml-skip-covered: true
+                  report-only-changed-files: true
+                  remove-links-to-files: true
+                  remove-links-to-lines: true
