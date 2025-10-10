@@ -202,8 +202,8 @@ class DockerWorkspace(RemoteWorkspace):
 
     # Docker-specific configuration
     base_image: str | None = Field(
-        description=
-        "Base Docker image to use for the agent server container. "
+        default=None,
+        description="Base Docker image to use for the agent server container. "
         "Mutually exclusive with server_image.",
     )
     server_image: str | None = Field(
@@ -244,12 +244,13 @@ class DockerWorkspace(RemoteWorkspace):
     _stop_logs: threading.Event = PrivateAttr(default_factory=threading.Event)
     _image: str = PrivateAttr()
 
-
     @model_validator(mode="after")
     def _validate_images(self):
         """Ensure exactly one of base_image or server_image is provided; cache it."""
         if (self.base_image is None) == (self.server_image is None):
-            raise ValueError("Exactly one of 'base_image' or 'server_image' must be set.")
+            raise ValueError(
+                "Exactly one of 'base_image' or 'server_image' must be set."
+            )
         return self
 
     def model_post_init(self, context: Any) -> None:
@@ -297,9 +298,7 @@ class DockerWorkspace(RemoteWorkspace):
         elif self.server_image:
             self._image = self.server_image
         else:
-            raise RuntimeError(
-                "Unreachable: one of base_image or server_image is set"
-            )
+            raise RuntimeError("Unreachable: one of base_image or server_image is set")
 
         # Prepare Docker run flags
         flags: list[str] = []
