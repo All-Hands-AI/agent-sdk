@@ -1,4 +1,5 @@
 import os
+import platform
 import time
 
 from pydantic import SecretStr
@@ -22,12 +23,21 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
+
+def detect_platform():
+    """Detects the correct Docker platform string."""
+    machine = platform.machine().lower()
+    if "arm" in machine or "aarch64" in machine:
+        return "linux/arm64"
+    return "linux/amd64"
+
+
 # Create a Docker-based remote workspace with extra ports for browser access
 with DockerWorkspace(
     base_image="nikolaik/python-nodejs:python3.12-nodejs22",
     host_port=8010,
     # TODO: Change this to your platform if not linux/arm64
-    platform="linux/arm64",
+    platform=detect_platform(),
     extra_ports=True,  # Expose extra ports for VSCode and VNC
     forward_env=["LLM_API_KEY"],  # Forward API key to container
 ) as workspace:
