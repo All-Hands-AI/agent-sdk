@@ -1,4 +1,10 @@
-"""Default preset configuration for OpenHands agents."""
+"""Worker agent preset configuration for OpenHands agents.
+
+This preset creates worker agents that can be used as sub-agents
+in delegation scenarios. Worker agents have the same capabilities
+as default agents but without delegation tools to prevent infinite
+recursion.
+"""
 
 from openhands.sdk import Agent
 from openhands.sdk.context.condenser import (
@@ -14,47 +20,35 @@ from openhands.sdk.tool import Tool, register_tool
 logger = get_logger(__name__)
 
 
-def register_default_tools(
-    enable_browser: bool = True, enable_delegation: bool = True
-) -> None:
-    """Register the default set of tools."""
+def register_worker_tools(enable_browser: bool = True) -> None:
+    """Register the worker agent tools (same as default but without delegation)."""
     from openhands.tools.execute_bash import BashTool
     from openhands.tools.file_editor import FileEditorTool
     from openhands.tools.task_tracker import TaskTrackerTool
 
     register_tool("BashTool", BashTool)
-    logger.debug("Tool: BashTool registered.")
+    logger.debug("Tool: BashTool registered for worker.")
     register_tool("FileEditorTool", FileEditorTool)
-    logger.debug("Tool: FileEditorTool registered.")
+    logger.debug("Tool: FileEditorTool registered for worker.")
     register_tool("TaskTrackerTool", TaskTrackerTool)
-    logger.debug("Tool: TaskTrackerTool registered.")
+    logger.debug("Tool: TaskTrackerTool registered for worker.")
 
     if enable_browser:
         from openhands.tools.browser_use import BrowserToolSet
 
         register_tool("BrowserToolSet", BrowserToolSet)
-        logger.debug("Tool: BrowserToolSet registered.")
-
-    if enable_delegation:
-        from openhands.tools.delegation import DelegationTool
-
-        register_tool("DelegationTool", DelegationTool)
-        logger.debug("Tool: DelegationTool registered.")
+        logger.debug("Tool: BrowserToolSet registered for worker.")
 
 
-def get_default_tools(
+def get_worker_tools(
     enable_browser: bool = True,
-    enable_delegation: bool = True,
 ) -> list[Tool]:
-    """Get the default set of tool specifications for the standard experience.
+    """Get the worker agent tools (same as default but without delegation).
 
     Args:
         enable_browser: Whether to include browser tools.
-        enable_delegation: Whether to include delegation tools.
     """
-    register_default_tools(
-        enable_browser=enable_browser, enable_delegation=enable_delegation
-    )
+    register_worker_tools(enable_browser=enable_browser)
 
     tools = [
         Tool(name="BashTool"),
@@ -63,12 +57,11 @@ def get_default_tools(
     ]
     if enable_browser:
         tools.append(Tool(name="BrowserToolSet"))
-    if enable_delegation:
-        tools.append(Tool(name="DelegationTool"))
     return tools
 
 
-def get_default_condenser(llm: LLM) -> CondenserBase:
+def get_worker_condenser(llm: LLM) -> CondenserBase:
+    """Get the condenser for worker agents."""
     # Create a condenser to manage the context. The condenser will automatically
     # truncate conversation history when it exceeds max_size, and replaces the dropped
     # events with an LLM-generated summary.
@@ -77,24 +70,22 @@ def get_default_condenser(llm: LLM) -> CondenserBase:
     return condenser
 
 
-def get_default_agent(
+def get_worker_agent(
     llm: LLM,
     cli_mode: bool = False,
-    enable_delegation: bool = True,
 ) -> Agent:
-    """Get the default agent with delegation capabilities.
+    """Get a worker agent that can be used as a sub-agent for delegation.
 
-    This agent includes delegation tools and can spawn worker agents.
+    This agent is identical to the default agent but without delegation tools.
+    It's designed to be used as a sub-agent by the main agent with delegation.
 
     Args:
         llm: The LLM to use for the agent
         cli_mode: Whether to run in CLI mode (disables browser tools)
-        enable_delegation: Whether to include delegation tools
     """
-    tools = get_default_tools(
+    tools = get_worker_tools(
         # Disable browser tools in CLI mode
         enable_browser=not cli_mode,
-        enable_delegation=enable_delegation,
     )
     agent = Agent(
         llm=llm,
@@ -107,25 +98,9 @@ def get_default_agent(
         },
         filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
         system_prompt_kwargs={"cli_mode": cli_mode},
-        condenser=get_default_condenser(
-            llm=llm.model_copy(update={"service_id": "condenser"})
+        condenser=get_worker_condenser(
+            llm=llm.model_copy(update={"service_id": "worker_condenser"})
         ),
         security_analyzer=LLMSecurityAnalyzer(),
     )
     return agent
-
-
-def get_worker_agent(llm: LLM, cli_mode: bool = False) -> Agent:
-    """Get a worker agent that can be used as a sub-agent for delegation.
-
-    This agent is identical to the default agent but without delegation tools.
-    It's designed to be used as a sub-agent by the new default agent with delegation.
-
-    Args:
-        llm: The LLM to use for the agent
-        cli_mode: Whether to run in CLI mode (disables browser tools)
-    """
-    # Import here to avoid circular imports
-    from openhands.tools.preset.worker import get_worker_agent as _get_worker_agent
-
-    return _get_worker_agent(llm=llm, cli_mode=cli_mode)

@@ -79,6 +79,12 @@ class Agent(AgentBase):
         if not execute_bash_exists:
             logger.warning("Skipped wiring SecretsManager: missing bash tool")
 
+    def _configure_delegation_tools(self, state: ConversationState) -> None:
+        """Configure delegation tools with conversation context."""
+        # For now, delegation tools are configured during initialization
+        # TODO: Wire parent conversation reference when needed
+        pass
+
     def init_state(
         self,
         state: ConversationState,
@@ -102,6 +108,9 @@ class Agent(AgentBase):
 
         # Configure bash tools with env provider
         self._configure_bash_tools_env_provider(state)
+
+        # Configure delegation tools with conversation context
+        self._configure_delegation_tools(state)
 
         llm_convertible_messages = [
             event for event in state.events if isinstance(event, LLMConvertibleEvent)

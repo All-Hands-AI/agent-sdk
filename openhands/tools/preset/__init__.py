@@ -18,8 +18,14 @@ Notes:
   setups.
 """
 
-from .default import get_default_agent
+from .default import get_default_agent, get_worker_agent as get_default_worker_agent
 from .planning import get_planning_agent
+from .worker import get_worker_agent
 
 
-__all__ = ["get_default_agent", "get_planning_agent"]
+__all__ = [
+    "get_default_agent",
+    "get_default_worker_agent",
+    "get_planning_agent",
+    "get_worker_agent",
+]
