@@ -3,6 +3,7 @@ Local Event router for OpenHands SDK.
 """
 
 import logging
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -57,6 +58,14 @@ async def search_conversation_events(
         EventSortOrder,
         Query(title="Sort order for events"),
     ] = EventSortOrder.TIMESTAMP,
+    timestamp__gte: Annotated[
+        datetime | None,
+        Query(title="Filter: event timestamp >= this datetime"),
+    ] = None,
+    timestamp__lt: Annotated[
+        datetime | None,
+        Query(title="Filter: event timestamp < this datetime"),
+    ] = None,
 ) -> EventPage:
     """Search / List local events"""
     assert limit > 0
@@ -64,7 +73,9 @@ async def search_conversation_events(
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    return await event_service.search_events(page_id, limit, kind, sort_order)
+    return await event_service.search_events(
+        page_id, limit, kind, sort_order, timestamp__gte, timestamp__lt
+    )
 
 
 @event_router.get("/count", responses={404: {"description": "Conversation not found"}})
@@ -76,12 +87,20 @@ async def count_conversation_events(
             title="Optional filter by event kind/type (e.g., ActionEvent, MessageEvent)"
         ),
     ] = None,
+    timestamp__gte: Annotated[
+        datetime | None,
+        Query(title="Filter: event timestamp >= this datetime"),
+    ] = None,
+    timestamp__lt: Annotated[
+        datetime | None,
+        Query(title="Filter: event timestamp < this datetime"),
+    ] = None,
 ) -> int:
     """Count local events matching the given filters"""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    count = await event_service.count_events(kind)
+    count = await event_service.count_events(kind, timestamp__gte, timestamp__lt)
     return count
 
 
