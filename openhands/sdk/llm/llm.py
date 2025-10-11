@@ -208,6 +208,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
+    litellm_extra_body: str | None = Field(
+        default=None,
+        description=(
+            "Additional parameters to pass in the request body as JSON string. "
+            "Useful for custom metadata, provider-specific parameters, or routing info."
+        ),
+    )
     service_id: str = Field(
         default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
@@ -730,6 +737,43 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if not has_tools:
             out.pop("tools", None)
             out.pop("tool_choice", None)
+
+        # Handle custom extra_body configuration
+        if self.litellm_extra_body:
+            try:
+                custom_extra_body = json.loads(self.litellm_extra_body)
+
+                # Merge with existing extra_body if present
+                if "extra_body" in out:
+                    # Deep merge the dictionaries
+                    existing_extra_body = out["extra_body"]
+                    if isinstance(existing_extra_body, dict) and isinstance(
+                        custom_extra_body, dict
+                    ):
+                        # Merge metadata if both have it
+                        if (
+                            "metadata" in existing_extra_body
+                            and "metadata" in custom_extra_body
+                        ):
+                            merged_metadata = {
+                                **existing_extra_body["metadata"],
+                                **custom_extra_body["metadata"],
+                            }
+                            custom_extra_body["metadata"] = merged_metadata
+                        # Merge the entire extra_body
+                        out["extra_body"] = {
+                            **existing_extra_body,
+                            **custom_extra_body,
+                        }
+                    else:
+                        out["extra_body"] = custom_extra_body
+                else:
+                    out["extra_body"] = custom_extra_body
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning(
+                    f"Failed to parse litellm_extra_body as JSON: {e}. "
+                    "Ignoring custom extra_body."
+                )
 
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
         if "litellm_proxy" not in self.model:
