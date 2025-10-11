@@ -244,6 +244,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     _model_info: Any = PrivateAttr(default=None)
     _tokenizer: Any = PrivateAttr(default=None)
     _function_calling_active: bool = PrivateAttr(default=False)
+    # Important: do not include in serialization; Telemetry is a plain dataclass
+    # and must remain a runtime-only attribute to avoid dataclass–Pydantic mixing.
     _telemetry: Telemetry | None = PrivateAttr(default=None)
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)

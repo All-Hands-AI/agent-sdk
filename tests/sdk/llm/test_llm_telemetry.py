@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from litellm.types.utils import ModelResponse, Usage
-from pydantic import ValidationError
 
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.telemetry import Telemetry, _safe_json
@@ -70,9 +69,9 @@ class TestTelemetryInitialization:
         assert telemetry.output_cost_per_token == 0.002
         assert telemetry.metrics == mock_metrics
 
-    def test_telemetry_validation_error(self):
-        """Test that Telemetry raises ValidationError when metrics is missing."""
-        with pytest.raises(ValidationError):
+    def test_telemetry_requires_metrics(self):
+        """Telemetry should raise ValueError when metrics is missing."""
+        with pytest.raises(ValueError):
             Telemetry()  # type: ignore
 
     def test_telemetry_private_attributes(self, basic_telemetry):
@@ -593,12 +592,12 @@ class TestTelemetryEdgeCases:
         basic_telemetry.on_response(response_no_id)
 
         # Test with non-ModelResponse object
-        with pytest.raises(ValidationError):
-            mock_response = MagicMock()
-            basic_telemetry.on_request({})
-            basic_telemetry.on_response(mock_response)
+        # For plain class, no ValidationError; just ensure it doesn't crash
+        mock_response = MagicMock()
+        basic_telemetry.on_request({})
+        basic_telemetry.on_response(mock_response)
 
-        # Should have recorded latencies for all cases
+        # Should have recorded latencies for ModelResponse cases (2 calls)
         assert len(basic_telemetry.metrics.response_latencies) == 2
 
     def test_usage_extraction_edge_cases(self, basic_telemetry):

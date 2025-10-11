@@ -3,12 +3,12 @@ import os
 import time
 import uuid
 import warnings
+from dataclasses import dataclass, field
 from typing import Any
 
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.logger import get_logger
@@ -17,35 +17,67 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-class Telemetry(BaseModel):
+@dataclass(eq=True, init=False)
+class Telemetry:
     """
-    Handles latency, token/cost accounting, and optional logging.
-    All runtime state (like start times) lives in private attrs.
+    Boring, simple telemetry service.
+    - Dataclass for stable value-equality on config fields
+    - Records latency, token usage, cost into provided Metrics
+    - Optional JSON log writing
     """
 
-    # --- Config fields ---
-    model_name: str = Field(default="unknown", description="Name of the LLM model")
-    log_enabled: bool = Field(default=False, description="Whether to log completions")
-    log_dir: str | None = Field(
-        default=None, description="Directory to write logs if enabled"
-    )
-    input_cost_per_token: float | None = Field(
-        default=None, ge=0, description="Custom Input cost per token (USD)"
-    )
-    output_cost_per_token: float | None = Field(
-        default=None, ge=0, description="Custom Output cost per token (USD)"
-    )
+    # External dependency, excluded from equality (identity, runtime-managed)
+    _metrics: Metrics = field(init=False, compare=False, repr=False)
 
-    metrics: Metrics = Field(..., description="Metrics collector instance")
+    # Config fields (participate in equality)
+    model_name: str = "unknown"
+    log_enabled: bool = False
+    log_dir: str | None = None
+    input_cost_per_token: float | None = None
+    output_cost_per_token: float | None = None
 
-    # --- Runtime fields (not serialized) ---
-    _req_start: float = PrivateAttr(default=0.0)
-    _req_ctx: dict[str, Any] = PrivateAttr(default_factory=dict)
-    _last_latency: float = PrivateAttr(default=0.0)
+    # Runtime state: excluded from equality and initialization
+    _req_start: float = field(default=0.0, init=False, compare=False, repr=False)
+    _req_ctx: dict[str, Any] = field(
+        default_factory=dict, init=False, compare=False, repr=False
+    )
+    _last_latency: float = field(default=0.0, init=False, compare=False, repr=False)
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    def __init__(
+        self,
+        *,
+        model_name: str = "unknown",
+        log_enabled: bool = False,
+        log_dir: str | None = None,
+        input_cost_per_token: float | None = None,
+        output_cost_per_token: float | None = None,
+        metrics: Metrics | None = None,
+    ) -> None:
+        self.model_name = model_name
+        self.log_enabled = log_enabled
+        self.log_dir = log_dir
+        self.input_cost_per_token = input_cost_per_token
+        self.output_cost_per_token = output_cost_per_token
+        self._req_start = 0.0
+        self._req_ctx = {}
+        self._last_latency = 0.0
+        if not isinstance(metrics, Metrics):
+            raise ValueError("Telemetry requires a Metrics instance")
+        self._metrics = metrics
+        # post-init validations
+        if self.input_cost_per_token is not None and self.input_cost_per_token < 0:
+            raise ValueError("input_cost_per_token must be >= 0")
+        if self.output_cost_per_token is not None and self.output_cost_per_token < 0:
+            raise ValueError("output_cost_per_token must be >= 0")
+
+    @property
+    def metrics(self) -> Metrics:
+        return self._metrics
 
     # ---------- Lifecycle ----------
+    def set_metrics(self, metrics: Metrics) -> None:
+        self._metrics = metrics
+
     def on_request(self, log_ctx: dict | None) -> None:
         self._req_start = time.time()
         self._req_ctx = log_ctx or {}
@@ -60,20 +92,24 @@ class Telemetry(BaseModel):
           - records latency, tokens, cost into Metrics
           - optionally writes a JSON log file
         """
-        # 1) latency
+        # Only handle known response types
+        if not isinstance(resp, (ModelResponse, ResponsesAPIResponse)):
+            return self._metrics.deep_copy()
+
+        # 1) latency (applies to both ModelResponse and ResponsesAPIResponse)
         self._last_latency = time.time() - (self._req_start or time.time())
-        response_id = resp.id
-        self.metrics.add_response_latency(self._last_latency, response_id)
+        response_id = str(resp.id)
+        self._metrics.add_response_latency(self._last_latency, response_id)
 
         # 2) cost
         cost = self._compute_cost(resp)
         # Intentionally skip logging zero-cost (0.0) responses; only record
         # positive cost
         if cost:
-            self.metrics.add_cost(cost)
+            self._metrics.add_cost(cost)
 
         # 3) tokens - use typed usage field when available
-        usage = getattr(resp, "usage", None)
+        usage = resp.usage
 
         if usage and self._has_meaningful_usage(usage):
             self._record_usage(
@@ -84,7 +120,7 @@ class Telemetry(BaseModel):
         if self.log_enabled:
             self.log_llm_call(resp, cost, raw_resp=raw_resp)
 
-        return self.metrics.deep_copy()
+        return self._metrics.deep_copy()
 
     def on_error(self, err: Exception) -> None:
         # Stub for error tracking / counters
@@ -157,7 +193,7 @@ class Telemetry(BaseModel):
         # Chat-specific: litellm may set a hidden cache write field
         cache_write = int(getattr(usage, "_cache_creation_input_tokens", 0) or 0)
 
-        self.metrics.add_token_usage(
+        self._metrics.add_token_usage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read,
@@ -169,7 +205,7 @@ class Telemetry(BaseModel):
 
     def _compute_cost(self, resp: ModelResponse | ResponsesAPIResponse) -> float | None:
         """Try provider header → litellm direct. Return None on failure."""
-        extra_kwargs = {}
+        extra_kwargs: dict[str, Any] = {}
         if (
             self.input_cost_per_token is not None
             and self.output_cost_per_token is not None
@@ -241,7 +277,7 @@ class Telemetry(BaseModel):
 
             # Usage summary (prompt, completion, reasoning tokens) for quick inspection
             try:
-                usage = getattr(resp, "usage", None)
+                usage = resp.usage
                 if usage:
                     prompt_tokens = int(
                         getattr(usage, "prompt_tokens", None)
