@@ -65,6 +65,8 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
         logger.info("Desktop service is disabled")
 
     async with service:
+        # Store the initialized service in app state for dependency injection
+        api.state.conversation_service = service
         try:
             yield
         finally:
