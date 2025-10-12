@@ -217,7 +217,7 @@ class TestAppLifespan:
 
     @pytest.mark.asyncio
     async def test_conversation_service_initialized_in_app_state(self):
-        """Test that ConversationService is properly initialized and stored in app state during lifespan."""
+        """Test that ConversationService is properly initialized and stored in app state during lifespan."""  # noqa: E501
         with tempfile.TemporaryDirectory() as temp_dir:
             config = Config(
                 event_services_path=Path(temp_dir) / "event_services",
@@ -234,9 +234,11 @@ class TestAppLifespan:
                 with TestClient(app) as client:
                     # Verify that the conversation service is stored in app state
                     assert hasattr(app.state, "conversation_service")
-                    assert isinstance(app.state.conversation_service, ConversationService)
+                    assert isinstance(
+                        app.state.conversation_service, ConversationService
+                    )
                     
-                    # Verify that the service is properly initialized (context manager entered)
+                    # Verify that the service is properly initialized (context manager entered)  # noqa: E501
                     service = app.state.conversation_service
                     assert service._event_services is not None
                     assert isinstance(service._event_services, dict)
@@ -257,18 +259,20 @@ class TestAppLifespan:
                 app = create_app(config)
                 
                 with TestClient(app) as client:
-                    # Test that we can call an endpoint that uses the conversation service
+                    # Test that we can call an endpoint that uses the conversation service  # noqa: E501
                     # This should not raise "inactive_service" error
                     response = client.get("/api/conversations/search")
                     
                     # The endpoint should work (not return 500 with inactive_service)
                     # It might return other errors due to missing auth or other issues,
                     # but it should not be the inactive_service error
-                    assert response.status_code != 500 or "inactive_service" not in response.text
+                    assert (
+                        response.status_code != 500 or "inactive_service" not in response.text
+                    )
 
     @pytest.mark.asyncio
     async def test_conversation_service_unavailable_without_lifespan(self):
-        """Test that conversation service dependency returns 503 when service not in app state."""
+        """Test that conversation service dependency returns 503 when service not in app state."""  # noqa: E501
         from openhands.agent_server.dependencies import get_conversation_service
         from fastapi import Request, HTTPException
         
@@ -292,7 +296,7 @@ class TestAppLifespan:
 
     @pytest.mark.asyncio
     async def test_conversation_service_context_manager_lifecycle(self):
-        """Test that the ConversationService context manager is properly managed during app lifecycle."""
+        """Test that the ConversationService context manager is properly managed during app lifecycle."""  # noqa: E501
         with tempfile.TemporaryDirectory() as temp_dir:
             config = Config(
                 event_services_path=Path(temp_dir) / "event_services",
@@ -304,11 +308,16 @@ class TestAppLifespan:
             
             def capture_service_instance():
                 nonlocal service_instance
-                from openhands.agent_server.conversation_service import get_default_conversation_service
+                from openhands.agent_server.conversation_service import (
+                    get_default_conversation_service,
+                )
                 service_instance = get_default_conversation_service()
                 return service_instance
             
-            with patch("openhands.agent_server.api.get_default_conversation_service", side_effect=capture_service_instance), \
+            with patch(
+                "openhands.agent_server.api.get_default_conversation_service",
+                side_effect=capture_service_instance,
+            ), \
                  patch("openhands.agent_server.api.get_vscode_service", return_value=None), \
                  patch("openhands.agent_server.api.get_desktop_service", return_value=None):
                 
@@ -320,10 +329,11 @@ class TestAppLifespan:
                 
                 # Start the app (which triggers lifespan)
                 with TestClient(app) as client:
-                    # During lifespan, service should be initialized and stored in app state
+                    # During lifespan, service should be initialized and stored in app state  # noqa: E501
                     stored_service = app.state.conversation_service
                     assert stored_service is service_instance
                     assert stored_service._event_services is not None
                 
-                # After lifespan ends, service should be cleaned up
-                # Note: The context manager __aexit__ should have been called
+                # After lifespan ends, the context manager should have cleaned up
+                # We can't easily test the cleanup since it happens in __aexit__
+                # but we've verified the service was properly initialized during lifespan  # noqa: E501
