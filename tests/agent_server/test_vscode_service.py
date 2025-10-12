@@ -166,12 +166,14 @@ def test_get_vscode_url_no_token(vscode_service):
 def test_get_vscode_url_with_token(vscode_service):
     """Test getting VSCode URL with token."""
     vscode_service.connection_token = "test-token-123"
-    
+
     # Test with default base_url (should use configured port)
     url = vscode_service.get_vscode_url()
-    expected_url = f"http://localhost:{vscode_service.port}/?tkn=test-token-123&folder=workspace"
+    expected_url = (
+        f"http://localhost:{vscode_service.port}/?tkn=test-token-123&folder=workspace"
+    )
     assert url == expected_url
-    
+
     # Test with custom base_url
     custom_url = vscode_service.get_vscode_url(base_url="http://example.com:9000")
     assert custom_url == "http://example.com:9000/?tkn=test-token-123&folder=workspace"
@@ -181,7 +183,7 @@ def test_get_vscode_url_with_custom_port():
     """Test getting VSCode URL with custom port."""
     service = VSCodeService(port=9001)
     service.connection_token = "test-token-456"
-    
+
     url = service.get_vscode_url()
     assert url == "http://localhost:9001/?tkn=test-token-456&folder=workspace"
 
@@ -342,6 +344,7 @@ def test_vscode_service_with_different_ports():
 def test_vscode_port_configuration():
     """Test that vscode_port configuration is properly used."""
     import os
+
     from openhands.agent_server.config import Config, from_env
 
     # Test default value

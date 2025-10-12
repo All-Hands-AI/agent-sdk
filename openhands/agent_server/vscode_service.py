@@ -99,7 +99,8 @@ class VSCodeService:
         """Get the VSCode URL with authentication token.
 
         Args:
-            base_url: Base URL for the VSCode server. If None, uses localhost with configured port
+            base_url: Base URL for the VSCode server. If None, uses localhost with
+                configured port
 
         Returns:
             VSCode URL with token, or None if not available
