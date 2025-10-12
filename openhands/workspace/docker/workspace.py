@@ -1,18 +1,22 @@
 """Docker-based remote workspace implementation."""
 
 import os
-import re
 import subprocess
 import sys
 import threading
 import time
 import uuid
-from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
 
+from openhands.agent_server.docker.build import (
+    BuildOptions,
+    PlatformType,
+    TargetType,
+    build,
+)
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
 from openhands.sdk.workspace import RemoteWorkspace
@@ -52,132 +56,6 @@ def find_available_tcp_port(
     return -1
 
 
-def _parse_build_tags(build_stdout: str) -> list[str]:
-    """Parse Docker image tags from build.sh output.
-
-    build.sh prints at the end:
-    [build] Done. Tags:
-     - <tag1>
-     - <tag2>
-    """
-    tags: list[str] = []
-    collecting = False
-    for ln in build_stdout.splitlines():
-        if "[build] Done. Tags:" in ln:
-            collecting = True
-            continue
-        if collecting:
-            m = re.match(r"\s*-\s*(\S+)$", ln)
-            if m:
-                tags.append(m.group(1))
-            elif ln.strip():
-                break
-    return tags
-
-
-def _resolve_build_script() -> Path | None:
-    """Locate the agent server build.sh script."""
-    agent_sdk_path = os.environ.get("AGENT_SDK_PATH")
-    if agent_sdk_path:
-        p = Path(agent_sdk_path) / "openhands" / "agent_server" / "docker" / "build.sh"
-        if p.exists():
-            return p
-
-    # Prefer locating via importlib without importing the module
-    try:
-        import importlib.util
-
-        spec = importlib.util.find_spec("openhands.agent_server")
-        if spec and spec.origin:
-            p = Path(spec.origin).parent / "docker" / "build.sh"
-            if p.exists():
-                return p
-    except Exception:
-        pass
-
-    # Try common project layouts relative to CWD and this file
-    candidates: list[Path] = [
-        Path.cwd() / "openhands" / "agent_server" / "docker" / "build.sh",
-        Path(__file__).resolve().parents[3]
-        / "openhands"
-        / "agent_server"
-        / "docker"
-        / "build.sh",
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return None
-
-
-def build_agent_server_image(
-    base_image: str,
-    target: str = "source",
-    variant_name: str = "custom",
-    platforms: str = "linux/amd64",
-    extra_env: dict[str, str] | None = None,
-    project_root: str | None = None,
-) -> str:
-    """Build the agent-server Docker image via the repo's build.sh.
-
-    This is a dev convenience that shells out to the build script provided in
-    openhands/agent_server/docker/build.sh. Returns the first image tag printed
-    by the script.
-
-    If the script cannot be located, raise a helpful error. In that case,
-    users can manually provide an image to DockerSandboxedAgentServer(image="...").
-    """
-    script_path = _resolve_build_script()
-    if not script_path:
-        raise FileNotFoundError(
-            "Could not locate openhands/agent_server/docker/build.sh. "
-            "Ensure you're running in the OpenHands repo or pass an explicit "
-            "image to DockerWorkspace(image=...)."
-        )
-
-    env = os.environ.copy()
-    env["BASE_IMAGE"] = base_image
-    env["CUSTOM_TAGS"] = variant_name
-    env["TARGET"] = target
-    env["PLATFORMS"] = platforms
-    logger.info(
-        "Building agent-server image with base '%s', target '%s', "
-        "variant '%s' for platforms '%s'",
-        base_image,
-        target,
-        variant_name,
-        platforms,
-    )
-
-    if extra_env:
-        env.update(extra_env)
-
-    if not project_root:
-        # Path is: openhands/workspace/docker/workspace.py
-        # parents[3] gives us the SDK root
-        project_root = str(Path(__file__).resolve().parents[3])
-
-    proc = execute_command(["bash", str(script_path)], env=env, cwd=project_root)
-
-    if proc.returncode != 0:
-        msg = (
-            f"build.sh failed with exit code {proc.returncode}.\n"
-            f"STDOUT:\n{proc.stdout}\n"
-            f"STDERR:\n{proc.stderr}"
-        )
-        raise RuntimeError(msg)
-
-    tags = _parse_build_tags(proc.stdout)
-    if not tags:
-        raise RuntimeError(
-            f"Failed to parse image tags from build output.\nSTDOUT:\n{proc.stdout}"
-        )
-
-    image = tags[0]
-    logger.info("Using image: %s", image)
-    return image
-
-
 class DockerWorkspace(RemoteWorkspace):
     """Remote workspace that sets up and manages a Docker container.
 
@@ -201,8 +79,17 @@ class DockerWorkspace(RemoteWorkspace):
     )
 
     # Docker-specific configuration
-    base_image: str = Field(
-        description="Base Docker image to use for the agent server container."
+    base_image: str | None = Field(
+        default=None,
+        description="Base Docker image to use for the agent server container. "
+        "Mutually exclusive with server_image.",
+    )
+    server_image: str | None = Field(
+        default=None,
+        description=(
+            "Pre-built agent server image to use. If None, builds from base_image."
+            "Mutually exclusive with base_image."
+        ),
     )
     host_port: int | None = Field(
         default=None,
@@ -219,10 +106,10 @@ class DockerWorkspace(RemoteWorkspace):
     detach_logs: bool = Field(
         default=True, description="Whether to stream Docker logs in background."
     )
-    target: str = Field(
+    target: TargetType = Field(
         default="source", description="Build target for the Docker image."
     )
-    platform: str = Field(
+    platform: PlatformType = Field(
         default="linux/amd64", description="Platform for the Docker image."
     )
     extra_ports: bool = Field(
@@ -234,6 +121,15 @@ class DockerWorkspace(RemoteWorkspace):
     _logs_thread: threading.Thread | None = PrivateAttr(default=None)
     _stop_logs: threading.Event = PrivateAttr(default_factory=threading.Event)
     _image: str = PrivateAttr()
+
+    @model_validator(mode="after")
+    def _validate_images(self):
+        """Ensure exactly one of base_image or server_image is provided; cache it."""
+        if (self.base_image is None) == (self.server_image is None):
+            raise ValueError(
+                "Exactly one of 'base_image' or 'server_image' must be set."
+            )
+        return self
 
     def model_post_init(self, context: Any) -> None:
         """Set up the Docker container and initialize the remote workspace."""
@@ -265,14 +161,26 @@ class DockerWorkspace(RemoteWorkspace):
             )
 
         # Build image if needed
-        if "ghcr.io/all-hands-ai/agent-server" not in self.base_image:
-            self._image = build_agent_server_image(
+
+        if self.base_image:
+            if "ghcr.io/all-hands-ai/agent-server" in self.base_image:
+                raise RuntimeError(
+                    "base_image cannot be a pre-built agent-server image. "
+                    "Use server_image=... instead."
+                )
+            build_opts = BuildOptions(
                 base_image=self.base_image,
                 target=self.target,
-                platforms=self.platform,
+                platforms=[self.platform],
             )
+            tags = build(opts=build_opts)
+            assert tags and len(tags) > 0, "Build failed, no image tags returned"
+            self._image = tags[0]
+
+        elif self.server_image:
+            self._image = self.server_image
         else:
-            self._image = self.base_image
+            raise RuntimeError("Unreachable: one of base_image or server_image is set")
 
         # Prepare Docker run flags
         flags: list[str] = []
