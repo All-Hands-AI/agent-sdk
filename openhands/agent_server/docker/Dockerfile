@@ -207,11 +207,15 @@ FROM base-image AS binary
 ARG USERNAME
 
 COPY --chown=${USERNAME}:${USERNAME} --from=binary-builder /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
+# Include VSCode extensions in binary image as well
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions /openhands/.openvscode-server/extensions
 RUN chmod +x /usr/local/bin/openhands-agent-server
 ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
 
 FROM base-image-minimal AS binary-minimal
 ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=binary-builder /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
+# Include VSCode extensions in binary-minimal image as well
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions /openhands/.openvscode-server/extensions
 RUN chmod +x /usr/local/bin/openhands-agent-server
 ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
