@@ -190,6 +190,7 @@ EXPOSE ${PORT} ${NOVNC_PORT}
 FROM base-image AS source
 ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions /openhands/.openvscode-server/extensions
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 FROM base-image-minimal AS source-minimal
@@ -206,6 +207,7 @@ FROM base-image AS binary
 ARG USERNAME
 
 COPY --chown=${USERNAME}:${USERNAME} --from=binary-builder /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
+COPY --chown=${USERNAME}:${USERNAME} --from=binary-builder /agent-server/openhands/agent_server/vscode_extensions /openhands/.openvscode-server/extensions
 RUN chmod +x /usr/local/bin/openhands-agent-server
 ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
 

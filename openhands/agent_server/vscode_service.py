@@ -29,6 +29,7 @@ class VSCodeService:
         self.connection_token: str | None = None
         self.process: asyncio.subprocess.Process | None = None
         self.openvscode_server_root = Path("/openhands/.openvscode-server")
+        self.extensions_dir = self.openvscode_server_root / "extensions"
 
     async def start(self) -> bool:
         """Start the VSCode server.
@@ -54,18 +55,10 @@ class VSCodeService:
                 )
                 return False
 
-            # Start VSCode server
-            # TODO: we need to reset settings.json
-            # for global settings
-            # settings_content = {
-            #     "workbench.colorTheme": "Default Dark+",
-            #     "editor.fontSize": 14,
-            #     "editor.tabSize": 4,
-            #     "files.autoSave": "afterDelay",
-            #     "files.autoSaveDelay": 1000,
-            # }
-            # This is not super easy to do:
-            # https://github.com/gitpod-io/openvscode-server/discussions/199#discussioncomment-1568487
+            # Build extensions if available
+            await self._build_extensions()
+
+            # Start VSCode server with extensions
             await self._start_vscode_process()
 
             logger.info(f"VSCode server started successfully on port {self.port}")
@@ -145,12 +138,17 @@ class VSCodeService:
 
     async def _start_vscode_process(self) -> None:
         """Start the VSCode server process."""
-        # Build the command to start VSCode server
+        extensions_arg = (
+            f"--extensions-dir {self.extensions_dir} "
+            if self.extensions_dir.exists()
+            else ""
+        )
         cmd = (
             f"exec {self.openvscode_server_root}/bin/openvscode-server "
             f"--host 0.0.0.0 "
             f"--connection-token {self.connection_token} "
             f"--port {self.port} "
+            f"{extensions_arg}"
             f"--disable-workspace-trust\n"
         )
 
@@ -198,6 +196,30 @@ class VSCodeService:
 
         except Exception as e:
             logger.warning(f"Error waiting for VSCode startup: {e}")
+
+    async def _build_extensions(self) -> None:
+        """Build all VSCode extensions."""
+        if not self.extensions_dir.exists():
+            logger.debug("Extensions directory not found, skipping build")
+            return
+
+        for ext_dir in self.extensions_dir.iterdir():
+            if not ext_dir.is_dir() or not (ext_dir / "package.json").exists():
+                continue
+
+            try:
+                process = await asyncio.create_subprocess_shell(
+                    f"cd {ext_dir} && npm install && npm run compile",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                await asyncio.wait_for(process.wait(), timeout=60.0)
+                if process.returncode == 0:
+                    logger.info(f"Extension {ext_dir.name} built successfully")
+                else:
+                    logger.warning(f"Extension {ext_dir.name} build failed")
+            except Exception as e:
+                logger.warning(f"Failed to build extension {ext_dir.name}: {e}")
 
 
 # Global VSCode service instance
