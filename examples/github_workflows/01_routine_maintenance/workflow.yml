@@ -44,8 +44,10 @@ jobs:
               with:
                   enable-cache: true
 
-            - name: Install dependencies
-              run: uv sync --frozen --group dev
+            - name: Install OpenHands dependencies
+              run: |
+                  # Install OpenHands SDK and tools (not from target repo)
+                  uv pip install --system openhands-sdk openhands-tools
 
             - name: Check required configuration
               env:
