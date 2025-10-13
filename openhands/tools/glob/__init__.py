@@ -1,4 +1,4 @@
-# Core tool interface (use absolute imports per project convention)
+# Core tool interface
 from openhands.tools.glob.definition import (
     GlobAction,
     GlobObservation,
