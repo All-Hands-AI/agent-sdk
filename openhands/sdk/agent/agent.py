@@ -346,16 +346,11 @@ class Agent(AgentBase):
         try:
             arguments = json.loads(tool_call.arguments)
 
-            # if the tool has a security_risk field (when security analyzer = LLM),
+            # if the tool has a security_risk field (when security analyzer),
             # pop it out as it's not part of the tool's action schema
             if (
                 _predicted_risk := arguments.pop("security_risk", None)
             ) is not None and self.security_analyzer is not None:
-                if not isinstance(self.security_analyzer, LLMSecurityAnalyzer):
-                    raise RuntimeError(
-                        "LLM provided a security_risk but no security analyzer is "
-                        "configured - THIS SHOULD NOT HAPPEN!"
-                    )
                 try:
                     security_risk = risk.SecurityRisk(_predicted_risk)
                 except ValueError:
