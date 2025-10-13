@@ -6,25 +6,31 @@ on:
     workflow_dispatch:
         inputs:
             agent_script:
-                description: Override default agent script (optional)
+                description: Agent script URL or path
                 required: false
                 type: string
+                default: >-
+                    https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
             prompt_location:
-                description: Override default prompt location - URL or file path (optional)
+                description: Prompt location - URL or file path (leave empty if using prompt_string)
                 required: false
                 type: string
+                default: ''
             prompt_string:
-                description: Override default prompt string - direct text (optional)
+                description: Prompt string - direct text (leave empty if using prompt_location)
                 required: false
                 type: string
+                default: ''
             llm_model:
-                description: Override default LLM model (optional)
+                description: LLM model to use
                 required: false
                 type: string
+                default: openhands/claude-sonnet-4-5-20250929
             llm_base_url:
-                description: Override default LLM base URL (optional)
+                description: LLM base URL (optional)
                 required: false
                 type: string
+                default: ''
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
     # schedule:
     #   # Run at 2 AM UTC every day
@@ -44,10 +50,11 @@ jobs:
             AGENT_SCRIPT_URL: >-
                 https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
             # Provide either PROMPT_LOCATION (URL/file) OR PROMPT_STRING (direct text), not both
+            # Option 1: Use a URL or file path for the prompt
             PROMPT_LOCATION: ''
-            PROMPT_STRING: ''
-            # Examples:
             # PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
+            # Option 2: Use direct text for the prompt
+            PROMPT_STRING: ''
             # PROMPT_STRING: 'Check for outdated dependencies and create a PR'
             LLM_MODEL: openhands/claude-sonnet-4-5-20250929
             LLM_BASE_URL: ''
