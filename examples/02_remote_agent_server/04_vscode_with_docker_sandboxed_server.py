@@ -79,9 +79,13 @@ def main() -> None:
                 "localhost:8001", f"localhost:{vscode_port}"
             )
         except Exception:
-            vscode_url = (
-                f"http://localhost:{vscode_port}/?folder={workspace.working_dir}"
+            # Fallback if server route not available
+            folder = (
+                f"/{workspace.working_dir}"
+                if not str(workspace.working_dir).startswith("/")
+                else str(workspace.working_dir)
             )
+            vscode_url = f"http://localhost:{vscode_port}/?folder={folder}"
 
         # Wait for user to explore VSCode
         y = None
