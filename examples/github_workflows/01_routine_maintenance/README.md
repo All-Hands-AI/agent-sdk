@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Provide prompt as direct text
-      PROMPT_STRING: 'Check for outdated dependencies and create a PR to update them'
+      PROMPT_STRING: 'Check for any changes that were made over the past week. If they have not been properly documented, create a PR to concisely update the documentation.'
       
       # Optional: Customize other settings
       LLM_MODEL: openhands/claude-sonnet-4-5-20250929
@@ -105,30 +105,11 @@ The scheduled runs will use the configuration from the `env` section you set in 
 
 ## Example Use Cases
 
-### Dependency Updates
-```
-Check for outdated dependencies in requirements.txt and create a PR to update them if any are found.
-```
-
-### Security Audits
-```
-Run security checks on the codebase and create an issue if any vulnerabilities are found.
-```
-
-### Documentation Updates
-```
-Review the README.md and update it to reflect any changes in the codebase since the last update.
-```
-
-### Code Quality Checks
-```
-Run linting and formatting checks on all Python files and create a PR with any fixes.
-```
-
-### Link Validation
-```
-Check all links in Markdown files and create an issue listing any broken links.
-```
+- **Dependency Update:** Check for outdated dependencies in requirements.txt and create a PR to update them if any are found.
+- **Test Coverage:** Run the test coverage script and find one place that seems to particularly be lacking tests. If you find any, send a PR improving the test coverage there.
+- **Dependency Updates:** Review the README.md and update it to reflect any changes in the codebase since the last update.
+- **Linting:** Run linting and formatting checks on all Python files and create a PR with any fixes.
+- **Link Validation:** Check all links in Markdown files and create an issue listing any broken links.
 
 ## Customization
 
@@ -157,36 +138,6 @@ https://gist.githubusercontent.com/username/abc123/raw/prompt.txt
 ```
 
 This allows you to update prompts without modifying the workflow file.
-
-## Security Considerations
-
-- Never commit API keys to the repository
-- Use GitHub secrets for sensitive information
-- Test prompts manually before scheduling automated runs
-- Review agent actions in workflow logs
-- Set appropriate repository permissions in the workflow file
-
-## Workflow Permissions
-
-The workflow requires the following permissions (already configured in `workflow.yml`):
-
-```yaml
-permissions:
-  contents: write      # To push changes and create branches
-  pull-requests: write # To create and update PRs
-  issues: write        # To create issues
-```
-
-## Troubleshooting
-
-### Workflow fails with "LLM_API_KEY not set"
-Make sure you've added the `LLM_API_KEY` secret in your repository settings (Settings → Secrets and variables → Actions).
-
-### Agent times out
-For long-running tasks, consider breaking them into smaller prompts or increasing the workflow timeout in the YAML file.
-
-### Permission denied errors
-Check that the workflow has the necessary permissions in the `permissions` section and that your repository settings allow GitHub Actions to create PRs and push commits.
 
 ## References
 
