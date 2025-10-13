@@ -10,7 +10,7 @@ ARG PORT=8000
 # Builder (source mode)
 # We copy source + build a venv here for local dev and debugging.
 ####################################################################################
-FROM python:3.12-bookworm AS builder
+FROM python:3.12-bullseye AS builder
 ARG USERNAME UID GID
 ENV UV_PROJECT_ENVIRONMENT=/agent-server/.venv
 
