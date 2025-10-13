@@ -91,8 +91,6 @@ class VSCodeService:
         Args:
             base_url: Base URL for the VSCode server
             workspace_dir: Path to workspace directory
-            base_url: Base URL for the VSCode server. If None, uses localhost with
-                configured port
 
         Returns:
             VSCode URL with token, or None if not available
