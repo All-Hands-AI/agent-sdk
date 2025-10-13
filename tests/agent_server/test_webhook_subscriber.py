@@ -85,7 +85,7 @@ def sample_event():
 def sample_events():
     """Create multiple sample Events for testing."""
     events = []
-    for i in range(5):
+    for _i in range(5):
         text_content = TextContent(text="Hello, world!")
         message = Message(role="user", content=[text_content])
         message_event = MessageEvent(source="user", llm_message=message)
