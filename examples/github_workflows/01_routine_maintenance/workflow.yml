@@ -2,35 +2,29 @@
 name: Scheduled Maintenance Task
 
 on:
-    # Allow manual trigger to optionally override defaults
+    # Allow manual trigger to override defaults (defaults are set in env section below)
     workflow_dispatch:
         inputs:
             agent_script:
-                description: Agent script URL or path
+                description: Override agent script URL or path
                 required: false
                 type: string
-                default: >-
-                    https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
             prompt_location:
-                description: Prompt location - URL or file path (leave empty if using prompt_string)
+                description: Override prompt location (URL or file path)
                 required: false
                 type: string
-                default: ''
             prompt_string:
-                description: Prompt string - direct text (leave empty if using prompt_location)
+                description: Override prompt string (direct text)
                 required: false
                 type: string
-                default: ''
             llm_model:
-                description: LLM model to use
+                description: Override LLM model
                 required: false
                 type: string
-                default: openhands/claude-sonnet-4-5-20250929
             llm_base_url:
-                description: LLM base URL (optional)
+                description: Override LLM base URL
                 required: false
                 type: string
-                default: ''
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
     # schedule:
     #   # Run at 2 AM UTC every day
@@ -45,19 +39,19 @@ jobs:
     run-maintenance-task:
         runs-on: ubuntu-latest
         env:
-            # Configuration (used for both scheduled and manual runs)
-            # Manual runs can override these via workflow_dispatch inputs
-            AGENT_SCRIPT_URL: >-
-                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
+            # Configuration defaults (modify these for scheduled runs)
+            # Manual workflow_dispatch runs can override these via inputs
+            AGENT_SCRIPT_URL: ${{ inputs.agent_script || 
+                'https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py' }}
             # Provide either PROMPT_LOCATION (URL/file) OR PROMPT_STRING (direct text), not both
             # Option 1: Use a URL or file path for the prompt
-            PROMPT_LOCATION: ''
-            # PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
+            PROMPT_LOCATION: ${{ inputs.prompt_location || '' }}
+            # PROMPT_LOCATION: ${{ inputs.prompt_location || 'https://example.com/prompts/maintenance.txt' }}
             # Option 2: Use direct text for the prompt
-            PROMPT_STRING: ''
-            # PROMPT_STRING: 'Check for outdated dependencies and create a PR'
-            LLM_MODEL: openhands/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: ''
+            PROMPT_STRING: ${{ inputs.prompt_string || '' }}
+            # PROMPT_STRING: ${{ inputs.prompt_string || 'Check for outdated dependencies and create a PR' }}
+            LLM_MODEL: ${{ inputs.llm_model || 'openhands/claude-sonnet-4-5-20250929' }}
+            LLM_BASE_URL: ${{ inputs.llm_base_url || '' }}
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
