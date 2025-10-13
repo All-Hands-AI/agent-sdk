@@ -2,32 +2,26 @@
 name: Scheduled Maintenance Task
 
 on:
-    # Allow manual trigger with custom parameters
+    # Allow manual trigger to optionally override defaults
     workflow_dispatch:
         inputs:
             agent_script:
-                description: >-
-                    URL or path to the Python script for the maintenance task
+                description: Override default agent script (optional)
                 required: false
                 type: string
-                default: >-
-                    https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
             prompt_location:
-                description: URL or file path to the prompt
+                description: Override default prompt location (optional)
                 required: false
                 type: string
-                default: ''
             llm_model:
-                description: LLM model to use
+                description: Override default LLM model (optional)
                 required: false
                 type: string
-                default: openhands/claude-sonnet-4-5-20250929
             llm_base_url:
-                description: Optional base URL for the LLM API
+                description: Override default LLM base URL (optional)
                 required: false
                 type: string
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
-    # When using schedule, set PROMPT_LOCATION in the env section below
     # schedule:
     #   # Run at 2 AM UTC every day
     #   - cron: "0 2 * * *"
@@ -41,12 +35,15 @@ jobs:
     run-maintenance-task:
         runs-on: ubuntu-latest
         env:
-            # For scheduled runs, set the prompt location here (URL or file path)
-            # This will be used when the workflow is triggered by schedule
-            # For manual runs, the input.prompt_location will be used instead
-            SCHEDULED_PROMPT_LOCATION: ''
-            # Example:
-            # SCHEDULED_PROMPT_LOCATION: 'https://example.com/prompts/daily-maintenance.txt'
+            # Configuration (used for both scheduled and manual runs)
+            # Manual runs can override these via workflow_dispatch inputs
+            AGENT_SCRIPT_URL: >-
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
+            PROMPT_LOCATION: ''
+            # Set your prompt location here (URL or file path):
+            # PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
+            LLM_MODEL: openhands/claude-sonnet-4-5-20250929
+            LLM_BASE_URL: ''
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -64,48 +61,41 @@ jobs:
             - name: Install dependencies
               run: uv sync --frozen --group dev
 
-            - name: Check required environment variables
+            - name: Check required configuration
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-                  LLM_MODEL: >-
-                      ${{ secrets.LLM_MODEL || inputs.llm_model ||
-                      'openhands/claude-sonnet-4-5-20250929' }}
-                  LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || inputs.llm_base_url }}
+                  CONFIG_PROMPT: ${{ inputs.prompt_location || env.PROMPT_LOCATION }}
+                  CONFIG_MODEL: ${{ inputs.llm_model || env.LLM_MODEL }}
+                  CONFIG_BASE_URL: ${{ inputs.llm_base_url || env.LLM_BASE_URL }}
               run: |
                   if [ -z "$LLM_API_KEY" ]; then
                     echo "Error: LLM_API_KEY secret is not set."
                     exit 1
                   fi
 
-                  echo "Using LLM model: $LLM_MODEL"
-                  if [ -n "$LLM_BASE_URL" ]; then
-                    echo "Using LLM base URL: $LLM_BASE_URL"
+                  if [ -z "$CONFIG_PROMPT" ]; then
+                    echo "Error: PROMPT_LOCATION is not set."
+                    echo "Set it in the env section of the workflow file."
+                    exit 1
+                  fi
+
+                  echo "Prompt location: $CONFIG_PROMPT"
+                  echo "LLM model: $CONFIG_MODEL"
+                  if [ -n "$CONFIG_BASE_URL" ]; then
+                    echo "LLM base URL: $CONFIG_BASE_URL"
                   fi
 
             - name: Run maintenance task
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-                  LLM_MODEL: >-
-                      ${{ secrets.LLM_MODEL || inputs.llm_model ||
-                      'openhands/claude-sonnet-4-5-20250929' }}
-                  LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || inputs.llm_base_url }}
-                  AGENT_SCRIPT: >-
-                      ${{ inputs.agent_script ||
-                      'https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py' }}
-                  PROMPT_LOCATION: >-
-                      ${{ inputs.prompt_location || env.SCHEDULED_PROMPT_LOCATION }}
+                  LLM_MODEL: ${{ inputs.llm_model || env.LLM_MODEL }}
+                  LLM_BASE_URL: ${{ inputs.llm_base_url || env.LLM_BASE_URL }}
+                  AGENT_SCRIPT: ${{ inputs.agent_script || env.AGENT_SCRIPT_URL }}
+                  PROMPT_LOCATION: ${{ inputs.prompt_location || env.PROMPT_LOCATION }}
                   PYTHONPATH: ''
               run: |
                   echo "Running agent script: $AGENT_SCRIPT"
                   echo "With prompt from: $PROMPT_LOCATION"
-
-                  # Validate prompt location is set
-                  if [ -z "$PROMPT_LOCATION" ]; then
-                    echo "Error: PROMPT_LOCATION is not set."
-                    echo "For manual runs: Provide 'prompt_location' input"
-                    echo "For scheduled runs: Set SCHEDULED_PROMPT_LOCATION in the workflow file"
-                    exit 1
-                  fi
 
                   # Download script if it's a URL
                   if [[ "$AGENT_SCRIPT" =~ ^https?:// ]]; then

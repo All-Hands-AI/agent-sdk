@@ -17,16 +17,31 @@ Copy `workflow.yml` to `.github/workflows/maintenance-task.yml` in your reposito
 cp examples/github_workflows/01_routine_maintenance/workflow.yml .github/workflows/maintenance-task.yml
 ```
 
-### 2. Configure secrets
+### 2. Configure the workflow
 
-Set the following secrets in your GitHub repository settings:
+Edit `.github/workflows/maintenance-task.yml` and set your configuration in the `env` section:
+
+```yaml
+jobs:
+  run-maintenance-task:
+    runs-on: ubuntu-latest
+    env:
+      # Required: Set your prompt location (URL or file path)
+      PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
+      
+      # Optional: Customize other settings
+      LLM_MODEL: openhands/claude-sonnet-4-5-20250929
+      # LLM_BASE_URL: 'https://custom-api.example.com'
+```
+
+### 3. Configure secrets
+
+Set the following secret in your GitHub repository settings:
 
 - **`LLM_API_KEY`** (required): Your LLM API key
   - Get one from the [OpenHands LLM Provider](https://docs.all-hands.dev/openhands/usage/llms/openhands-llms)
-- **`LLM_MODEL`** (optional): Model to use (default: `openhands/claude-sonnet-4-5-20250929`)
-- **`LLM_BASE_URL`** (optional): Custom base URL for LLM API
 
-### 3. Test locally
+### 4. Test locally (optional)
 
 Before setting up automated runs, test the script locally:
 
@@ -41,40 +56,33 @@ echo "Check for outdated dependencies in requirements.txt and create a PR to upd
 python examples/github_workflows/01_routine_maintenance/agent_script.py prompt.txt
 ```
 
-### 4. Run via GitHub Actions
+## Usage
 
-#### Manual trigger:
+The workflow configuration in the `env` section is used for both manual and scheduled runs.
+
+### Manual runs
+
+You can trigger the workflow manually and optionally override the default configuration:
+
 1. Go to Actions → "Scheduled Maintenance Task"
 2. Click "Run workflow"
-3. Enter your prompt location (URL or file path)
-4. Optionally configure LLM settings
-5. Click "Run workflow"
+3. (Optional) Override prompt location or other settings
+4. Click "Run workflow"
 
-#### Scheduled runs:
+### Scheduled runs
 
-To enable scheduled runs, edit `.github/workflows/maintenance-task.yml`:
+To enable automated scheduled runs, edit `.github/workflows/maintenance-task.yml` and uncomment the schedule section:
 
-1. **Set the prompt location** in the `env` section at the job level:
-   ```yaml
-   jobs:
-     run-maintenance-task:
-       runs-on: ubuntu-latest
-       env:
-         # Set this to your prompt URL or file path
-         SCHEDULED_PROMPT_LOCATION: 'https://example.com/prompts/daily-maintenance.txt'
-   ```
-
-2. **Uncomment the schedule section**:
-   ```yaml
-   on:
-     schedule:
-       # Run at 2 AM UTC every day
-       - cron: "0 2 * * *"
-   ```
+```yaml
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: "0 2 * * *"
+```
 
 Customize the cron schedule as needed. See [Cron syntax reference](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule).
 
-**Note**: For scheduled runs, you must set `SCHEDULED_PROMPT_LOCATION` in the workflow file since manual inputs don't apply to scheduled triggers.
+The scheduled runs will use the configuration from the `env` section you set in step 2.
 
 ## Example Use Cases
 
