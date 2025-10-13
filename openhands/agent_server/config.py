@@ -105,6 +105,12 @@ class Config(BaseModel):
         default=True,
         description="Whether to enable VSCode server functionality",
     )
+    vscode_port: int = Field(
+        default=8001,
+        ge=1,
+        le=65535,
+        description="Port on which VSCode server should run",
+    )
     enable_vnc: bool = Field(
         default=False,
         description="Whether to enable VNC desktop functionality",

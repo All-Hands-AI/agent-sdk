@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import APIKeyHeader
 
 from openhands.agent_server.config import Config
@@ -37,3 +37,19 @@ def create_websocket_session_api_key_dependency(config: Config):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED)
 
     return check_websocket_session_api_key
+
+
+def get_conversation_service(request: Request):
+    """Get the conversation service from app state.
+
+    This dependency ensures that the conversation service is properly initialized
+    through the application lifespan context manager.
+    """
+
+    service = getattr(request.app.state, "conversation_service", None)
+    if service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Conversation service is not available",
+        )
+    return service
