@@ -51,16 +51,30 @@ python examples/github_workflows/01_routine_maintenance/agent_script.py prompt.t
 5. Click "Run workflow"
 
 #### Scheduled runs:
-Edit the workflow file and uncomment the `schedule` section:
 
-```yaml
-on:
-  schedule:
-    # Run at 2 AM UTC every day
-    - cron: "0 2 * * *"
-```
+To enable scheduled runs, edit `.github/workflows/maintenance-task.yml`:
+
+1. **Set the prompt location** in the `env` section at the job level:
+   ```yaml
+   jobs:
+     run-maintenance-task:
+       runs-on: ubuntu-latest
+       env:
+         # Set this to your prompt URL or file path
+         SCHEDULED_PROMPT_LOCATION: 'https://example.com/prompts/daily-maintenance.txt'
+   ```
+
+2. **Uncomment the schedule section**:
+   ```yaml
+   on:
+     schedule:
+       # Run at 2 AM UTC every day
+       - cron: "0 2 * * *"
+   ```
 
 Customize the cron schedule as needed. See [Cron syntax reference](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule).
+
+**Note**: For scheduled runs, you must set `SCHEDULED_PROMPT_LOCATION` in the workflow file since manual inputs don't apply to scheduled triggers.
 
 ## Example Use Cases
 

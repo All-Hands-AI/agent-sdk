@@ -13,9 +13,10 @@ on:
                 default: >-
                     https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
             prompt_location:
-                description: URL or file path to the prompt (Jinja2 template)
-                required: true
+                description: URL or file path to the prompt
+                required: false
                 type: string
+                default: ''
             llm_model:
                 description: LLM model to use
                 required: false
@@ -26,6 +27,7 @@ on:
                 required: false
                 type: string
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
+    # When using schedule, set PROMPT_LOCATION in the env section below
     # schedule:
     #   # Run at 2 AM UTC every day
     #   - cron: "0 2 * * *"
@@ -38,6 +40,13 @@ permissions:
 jobs:
     run-maintenance-task:
         runs-on: ubuntu-latest
+        env:
+            # For scheduled runs, set the prompt location here (URL or file path)
+            # This will be used when the workflow is triggered by schedule
+            # For manual runs, the input.prompt_location will be used instead
+            SCHEDULED_PROMPT_LOCATION: ''
+            # Example:
+            # SCHEDULED_PROMPT_LOCATION: 'https://example.com/prompts/daily-maintenance.txt'
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -83,11 +92,20 @@ jobs:
                   AGENT_SCRIPT: >-
                       ${{ inputs.agent_script ||
                       'https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py' }}
-                  PROMPT_LOCATION: ${{ inputs.prompt_location }}
+                  PROMPT_LOCATION: >-
+                      ${{ inputs.prompt_location || env.SCHEDULED_PROMPT_LOCATION }}
                   PYTHONPATH: ''
               run: |
                   echo "Running agent script: $AGENT_SCRIPT"
                   echo "With prompt from: $PROMPT_LOCATION"
+
+                  # Validate prompt location is set
+                  if [ -z "$PROMPT_LOCATION" ]; then
+                    echo "Error: PROMPT_LOCATION is not set."
+                    echo "For manual runs: Provide 'prompt_location' input"
+                    echo "For scheduled runs: Set SCHEDULED_PROMPT_LOCATION in the workflow file"
+                    exit 1
+                  fi
 
                   # Download script if it's a URL
                   if [[ "$AGENT_SCRIPT" =~ ^https?:// ]]; then
