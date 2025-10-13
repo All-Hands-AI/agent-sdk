@@ -121,6 +121,11 @@ RUN set -eux; \
     # Set proper ownership
     chown -R ${USERNAME}:${USERNAME} ${OPENVSCODE_SERVER_ROOT}
 
+
+# Include VSCode extensions alongside the server so targets inheriting base-image
+# implicitly get the extensions; minimal images (without VSCode) won't.
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions ${OPENVSCODE_SERVER_ROOT}/extensions
+
 # --- Docker ---
 RUN set -eux; \
     # Determine OS type and install Docker accordingly
@@ -190,7 +195,6 @@ EXPOSE ${PORT} ${NOVNC_PORT}
 FROM base-image AS source
 ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
-COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions /openhands/.openvscode-server/extensions
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 FROM base-image-minimal AS source-minimal
@@ -207,15 +211,11 @@ FROM base-image AS binary
 ARG USERNAME
 
 COPY --chown=${USERNAME}:${USERNAME} --from=binary-builder /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
-# Include VSCode extensions in binary image as well
-COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions /openhands/.openvscode-server/extensions
 RUN chmod +x /usr/local/bin/openhands-agent-server
 ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
 
 FROM base-image-minimal AS binary-minimal
 ARG USERNAME
 COPY --chown=${USERNAME}:${USERNAME} --from=binary-builder /agent-server/dist/openhands-agent-server /usr/local/bin/openhands-agent-server
-# Include VSCode extensions in binary-minimal image as well
-COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions /openhands/.openvscode-server/extensions
 RUN chmod +x /usr/local/bin/openhands-agent-server
 ENTRYPOINT ["/usr/local/bin/openhands-agent-server"]
