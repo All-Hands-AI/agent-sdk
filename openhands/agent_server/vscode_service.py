@@ -93,19 +93,23 @@ class VSCodeService:
 
     def get_vscode_url(
         self,
-        base_url: str = "http://localhost:8001",
+        base_url: str | None = None,
         workspace_dir: str = "workspace",
     ) -> str | None:
         """Get the VSCode URL with authentication token.
 
         Args:
-            base_url: Base URL for the VSCode server
+            base_url: Base URL for the VSCode server. If None, uses localhost with
+                configured port
 
         Returns:
             VSCode URL with token, or None if not available
         """
         if not self.connection_token:
             return None
+
+        if base_url is None:
+            base_url = f"http://localhost:{self.port}"
 
         return f"{base_url}/?tkn={self.connection_token}&folder={workspace_dir}"
 
@@ -222,5 +226,5 @@ def get_vscode_service() -> VSCodeService | None:
             logger.info("VSCode is disabled in configuration")
             return None
         else:
-            _vscode_service = VSCodeService()
+            _vscode_service = VSCodeService(port=config.vscode_port)
     return _vscode_service

@@ -1,0 +1,15 @@
+# This MANIFEST.in file tells setuptools which files to include 
+# in the sdist package distribution used for building docker image
+include pyproject.toml
+include openhands/sdk/pyproject.toml
+include openhands/tools/pyproject.toml
+include openhands/workspace/pyproject.toml
+include openhands/agent_server/pyproject.toml
+include uv.lock
+
+include openhands/agent_server/docker/Dockerfile
+include openhands/agent_server/docker/wallpaper.svg
+include openhands/agent_server/agent-server.spec
+
+# include all prompts
+recursive-include openhands/sdk *.j2

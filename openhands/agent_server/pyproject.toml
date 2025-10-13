@@ -26,6 +26,12 @@ include = ["openhands*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.j2", "py.typed"]
+# Include Docker-related files in the package data
+# so we can build images from installed package.
+"openhands.agent_server" = [
+  "docker/Dockerfile",
+  "docker/wallpaper.svg",
+]
 
 [project.scripts]
 agent-server = "openhands.agent_server.__main__:main"
