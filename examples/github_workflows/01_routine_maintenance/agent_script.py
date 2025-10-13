@@ -8,7 +8,7 @@ execute the maintenance task. It's designed to be used with GitHub Actions for
 scheduled maintenance tasks.
 
 Usage:
-    python 25_maintenance_task_runner.py <prompt_location>
+    python agent_script.py <prompt_location>
 
 Arguments:
     prompt_location: Path to a local file or URL containing the prompt
@@ -30,11 +30,12 @@ Local Testing:
     export LLM_API_KEY="your-api-key"
     export LLM_MODEL="openhands/claude-sonnet-4-5-20250929"
     echo "Check for outdated dependencies in requirements.txt" > prompt.txt
-    python 25_maintenance_task_runner.py prompt.txt
+    python examples/github_workflows/01_routine_maintenance/agent_script.py prompt.txt
 
 GitHub Actions:
-    This script can be used with the workflow defined in
-    .github/workflows/maintenance-task.yml to run scheduled maintenance tasks.
+    This script can be used with the workflow defined in workflow.yml to run
+    scheduled maintenance tasks. Copy workflow.yml to .github/workflows/ in your
+    repository and configure the required secrets.
 
     1. Set LLM_API_KEY secret in your repository settings
     2. Go to Actions → "Scheduled Maintenance Task"

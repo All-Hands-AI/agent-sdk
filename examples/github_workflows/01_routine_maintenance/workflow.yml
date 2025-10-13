@@ -6,11 +6,12 @@ on:
     workflow_dispatch:
         inputs:
             agent_script:
-                description: The Python script to run for the maintenance task
+                description: >-
+                    URL or path to the Python script for the maintenance task
                 required: false
                 type: string
                 default: >-
-                    examples/01_standalone_sdk/25_maintenance_task_runner.py
+                    https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
             prompt_location:
                 description: URL or file path to the prompt (Jinja2 template)
                 required: true
@@ -81,13 +82,23 @@ jobs:
                   LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || inputs.llm_base_url }}
                   AGENT_SCRIPT: >-
                       ${{ inputs.agent_script ||
-                      'examples/01_standalone_sdk/25_maintenance_task_runner.py' }}
+                      'https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py' }}
                   PROMPT_LOCATION: ${{ inputs.prompt_location }}
                   PYTHONPATH: ''
               run: |
                   echo "Running agent script: $AGENT_SCRIPT"
                   echo "With prompt from: $PROMPT_LOCATION"
-                  uv run python "$AGENT_SCRIPT" "$PROMPT_LOCATION"
+
+                  # Download script if it's a URL
+                  if [[ "$AGENT_SCRIPT" =~ ^https?:// ]]; then
+                    echo "Downloading agent script from URL..."
+                    curl -sSL "$AGENT_SCRIPT" -o /tmp/agent_script.py
+                    AGENT_SCRIPT_PATH="/tmp/agent_script.py"
+                  else
+                    AGENT_SCRIPT_PATH="$AGENT_SCRIPT"
+                  fi
+
+                  uv run python "$AGENT_SCRIPT_PATH" "$PROMPT_LOCATION"
 
             - name: Upload logs as artifact
               uses: actions/upload-artifact@v4
