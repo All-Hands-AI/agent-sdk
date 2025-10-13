@@ -346,7 +346,7 @@ class Agent(AgentBase):
         try:
             arguments = json.loads(tool_call.arguments)
 
-            # if the tool has a security_risk field (when security analyzer),
+            # if the tool has a security_risk field (when security analyzer is set),
             # pop it out as it's not part of the tool's action schema
             if (
                 _predicted_risk := arguments.pop("security_risk", None)
