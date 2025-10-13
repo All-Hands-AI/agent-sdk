@@ -1,6 +1,9 @@
-import * as vscode from 'vscode';
+// Minimal JS-compatible file so no build step is needed. TS types are not required
+// since we ship plain JS to the openvscode server extensions directory.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const vscode = require('vscode');
 
-export function activate(context: vscode.ExtensionContext) {
+function activate(context) {
     const config = vscode.workspace.getConfiguration();
     const target = vscode.ConfigurationTarget.Global;
 
@@ -15,4 +18,6 @@ export function activate(context: vscode.ExtensionContext) {
     config.update('extensions.autoUpdate', false, target);
 }
 
-export function deactivate() {}
+function deactivate() {}
+
+module.exports = { activate, deactivate };
