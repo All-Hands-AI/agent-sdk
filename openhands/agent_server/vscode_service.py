@@ -55,9 +55,6 @@ class VSCodeService:
                 )
                 return False
 
-            # Build extensions if available
-            await self._build_extensions()
-
             # Start VSCode server with extensions
             await self._start_vscode_process()
 
@@ -202,16 +199,6 @@ class VSCodeService:
 
         except Exception as e:
             logger.warning(f"Error waiting for VSCode startup: {e}")
-
-    async def _build_extensions(self) -> None:
-        """No-op: extensions are zero-build JS; nothing to build."""
-        if not self.extensions_dir.exists():
-            logger.debug("Extensions directory not found, skipping")
-            return
-        # Optionally, we could validate presence of package.json/main
-        for ext_dir in self.extensions_dir.iterdir():
-            if ext_dir.is_dir() and (ext_dir / "package.json").exists():
-                logger.info(f"Extension {ext_dir.name} ready (zero-build)")
 
 
 # Global VSCode service instance
