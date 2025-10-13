@@ -1,16 +1,48 @@
 #!/usr/bin/env python3
 """
-Example script for running maintenance tasks with OpenHands agent.
+Example: Maintenance Task Runner
 
-This script accepts a prompt from a file or URL and runs the agent to execute
-the maintenance task. It's designed to be used with GitHub Actions for
+This example demonstrates how to run scheduled maintenance tasks with OpenHands
+agent. The script accepts a prompt from a file or URL and runs the agent to
+execute the maintenance task. It's designed to be used with GitHub Actions for
 scheduled maintenance tasks.
 
 Usage:
-    python 28_maintenance_task_runner.py <prompt_location>
+    python 25_maintenance_task_runner.py <prompt_location>
 
 Arguments:
     prompt_location: Path to a local file or URL containing the prompt
+
+Example prompts:
+    - Check for outdated dependencies and create a PR to update them
+    - Scan the repository for security vulnerabilities
+    - Update documentation to match the latest code changes
+    - Check for broken links in documentation
+    - Run code quality checks and fix issues
+
+Environment Variables:
+    LLM_API_KEY: API key for the LLM (required)
+                 Get one from https://docs.all-hands.dev/openhands/usage/llms/openhands-llms
+    LLM_MODEL: Language model to use (default: openhands/claude-sonnet-4-5-20250929)
+    LLM_BASE_URL: Optional base URL for LLM API
+
+Local Testing:
+    export LLM_API_KEY="your-api-key"
+    export LLM_MODEL="openhands/claude-sonnet-4-5-20250929"
+    echo "Check for outdated dependencies in requirements.txt" > prompt.txt
+    python 25_maintenance_task_runner.py prompt.txt
+
+GitHub Actions:
+    This script can be used with the workflow defined in
+    .github/workflows/maintenance-task.yml to run scheduled maintenance tasks.
+
+    1. Set LLM_API_KEY secret in your repository settings
+    2. Go to Actions → "Scheduled Maintenance Task"
+    3. Click "Run workflow"
+    4. Enter prompt location (URL or file path)
+    5. Click "Run workflow"
+
+    To enable scheduled runs, uncomment the schedule section in the workflow file.
 """
 
 import argparse

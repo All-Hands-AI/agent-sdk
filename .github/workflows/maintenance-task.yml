@@ -9,7 +9,8 @@ on:
                 description: The Python script to run for the maintenance task
                 required: false
                 type: string
-                default: examples/28_maintenance_task_runner/run.py
+                default: >-
+                    examples/01_standalone_sdk/25_maintenance_task_runner.py
             prompt_location:
                 description: URL or file path to the prompt (Jinja2 template)
                 required: true
@@ -80,10 +81,8 @@ jobs:
                   LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || inputs.llm_base_url }}
                   AGENT_SCRIPT: >-
                       ${{ inputs.agent_script ||
-                      'examples/28_maintenance_task_runner/run.py' }}
-                  PROMPT_LOCATION: >-
-                      ${{ inputs.prompt_location ||
-                      'https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28_maintenance_task_runner/maintenance_example.txt' }}
+                      'examples/01_standalone_sdk/25_maintenance_task_runner.py' }}
+                  PROMPT_LOCATION: ${{ inputs.prompt_location }}
                   PYTHONPATH: ''
               run: |
                   echo "Running agent script: $AGENT_SCRIPT"

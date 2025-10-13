@@ -268,15 +268,18 @@ The SDK includes a GitHub Actions workflow for running scheduled maintenance tas
 
 1. **Get an API key**: You can easily obtain an API key from the [OpenHands LLM Provider](https://docs.all-hands.dev/openhands/usage/llms/openhands-llms), or use any other compatible LLM API key.
 
-2. **Create a prompt file** with your task instructions (see [maintenance_example.txt](https://github.com/All-Hands-AI/agent-sdk/blob/main/examples/28_maintenance_task_runner/maintenance_example.txt) for an example).
+2. **Create a prompt file** with your task instructions. Example:
+   ```
+   Check for outdated dependencies in requirements.txt and create a PR to update them
+   ```
 
 3. **Run locally** to test:
 
 ```bash
 export LLM_API_KEY="your-api-key"
 export LLM_MODEL="openhands/claude-sonnet-4-5-20250929"
-python https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28_maintenance_task_runner/run.py \
-    https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28_maintenance_task_runner/maintenance_example.txt
+echo "Check for outdated dependencies" > prompt.txt
+python examples/01_standalone_sdk/25_maintenance_task_runner.py prompt.txt
 ```
 
 4. **Configure GitHub Actions** (`.github/workflows/maintenance-task.yml`):
@@ -295,13 +298,13 @@ python https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/28
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `AGENT_SCRIPT` | Python script to run the agent | [`examples/28_maintenance_task_runner/run.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/examples/28_maintenance_task_runner/run.py) |
+| `AGENT_SCRIPT` | Python script to run the agent | [`examples/01_standalone_sdk/25_maintenance_task_runner.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/examples/01_standalone_sdk/25_maintenance_task_runner.py) |
 | `PROMPT_LOCATION` | URL or path to prompt file | Required |
 | `LLM_MODEL` | Language model to use | `openhands/claude-sonnet-4-5-20250929` |
 | `LLM_API_KEY` | API key for the LLM (get one from [OpenHands LLM Provider](https://docs.all-hands.dev/openhands/usage/llms/openhands-llms)) | Required (from secrets) |
 | `LLM_BASE_URL` | Optional base URL for LLM API | None |
 
-For a complete example, see the [maintenance task runner](https://github.com/All-Hands-AI/agent-sdk/tree/main/examples/28_maintenance_task_runner).
+For a complete example, see [`25_maintenance_task_runner.py`](https://github.com/All-Hands-AI/agent-sdk/blob/main/examples/01_standalone_sdk/25_maintenance_task_runner.py).
 
 ## Development Workflow
 
