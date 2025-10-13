@@ -215,7 +215,7 @@ class VSCodeService:
 
             try:
                 process = await asyncio.create_subprocess_shell(
-                    f"cd {ext_dir} && npm ci --no-audit --no-fund && npm run compile",
+                    f"cd {ext_dir} && npm install --no-audit --no-fund --silent && npm run compile",
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
