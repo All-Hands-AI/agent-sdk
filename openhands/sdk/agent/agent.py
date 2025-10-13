@@ -358,8 +358,9 @@ class Agent(AgentBase):
                         f"Invalid security_risk value from LLM: {_predicted_risk}"
                     )
 
-            # Arguments we passed in should not contains `security_risk`
-            # as a field
+            assert "security_risk" not in arguments, (
+                "Unexpected 'security_risk' key found in tool arguments"
+            )
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
