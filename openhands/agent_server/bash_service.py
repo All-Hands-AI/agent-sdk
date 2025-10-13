@@ -111,15 +111,24 @@ class BashEventService:
         """Search for events. If an command_id is given, only the observations for the
         action are returned."""
 
-        # Build the search pattern - we start with a wildcard as we don't
-        # exact match timestamps and filter later
-        search_pattern = ["*"]
-        if kind__eq:
-            search_pattern.append(f"_{kind__eq}_*")
-        if command_id__eq:
-            search_pattern.append(f"_{command_id__eq.hex}_*")
+        # Build the search pattern based on filename format:
+        # - BashCommand: <timestamp>_<kind>_<event_id>
+        # - BashOutput: <timestamp>_<kind>_<command_id>_<event_id>
+        search_parts = ["*"]  # Start with wildcard for timestamp
 
-        files = self._get_event_files_by_pattern("".join(search_pattern))
+        if kind__eq:
+            search_parts.append(kind__eq)
+        else:
+            search_parts.append("*")  # Wildcard for kind if not specified
+
+        if command_id__eq:
+            search_parts.append(command_id__eq.hex)
+
+        # Always end with wildcard for event_id
+        search_parts.append("*")
+
+        search_pattern = "_".join(search_parts)
+        files = self._get_event_files_by_pattern(search_pattern)
         files.sort(
             key=lambda f: f.name,
             reverse=(sort_order == BashEventSortOrder.TIMESTAMP_DESC),
@@ -147,16 +156,16 @@ class BashEventService:
         # Collect items for this page
         next_page_id = None
         for i in range(start_index, len(files)):
-            if len(files) >= limit:
-                # We have more items, set next_page_id
-                if i < len(files):
-                    next_page_id = str(files[i].name)
+            if len(page_files) >= limit:
+                # We have collected enough items for this page
+                # Set next_page_id to the current file for next page
+                next_page_id = str(files[i].name)
                 break
             page_files.append(files[i])
 
-        # Load all events from files
+        # Load only the page files (not all files)
         page_events = []
-        for file_path in files:
+        for file_path in page_files:
             event = self._load_event_from_file(file_path)
             if event is not None:
                 page_events.append(event)

@@ -253,7 +253,8 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     def resolve_diff_from_deserialized(self, persisted: "AgentBase") -> "AgentBase":
         """
         Return a new AgentBase instance equivalent to `persisted` but with
-        explicitly whitelisted fields (e.g. api_key) taken from `self`.
+        explicitly whitelisted fields (e.g. api_key, security_analyzer) taken from
+        `self`.
         """
         if persisted.__class__ is not self.__class__:
             raise ValueError(
@@ -281,6 +282,11 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                     update={"llm": new_condenser_llm}
                 )
                 updates["condenser"] = new_condenser
+
+        # Allow security_analyzer to differ - use the runtime (self) version
+        # This allows users to add/remove security analyzers mid-conversation
+        # (e.g., when switching to weaker LLMs that can't handle security_risk field)
+        updates["security_analyzer"] = self.security_analyzer
 
         # Create maps by tool name for easy lookup
         runtime_tools_map = {tool.name: tool for tool in self.tools}

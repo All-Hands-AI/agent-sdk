@@ -15,6 +15,7 @@ from openhands.agent_server.models import (
     ConversationSortOrder,
     StartConversationRequest,
     StoredConversation,
+    UpdateConversationRequest,
 )
 from openhands.agent_server.pub_sub import Subscriber
 from openhands.agent_server.server_details_router import update_last_execution_time
@@ -31,6 +32,7 @@ def _compose_conversation_info(
 ) -> ConversationInfo:
     return ConversationInfo(
         **state.model_dump(),
+        title=stored.title,
         metrics=stored.metrics,
         created_at=stored.created_at,
         updated_at=stored.updated_at,
@@ -250,6 +252,40 @@ class ConversationService:
             return True
         return False
 
+    async def update_conversation(
+        self, conversation_id: UUID, request: UpdateConversationRequest
+    ) -> bool:
+        """Update conversation metadata.
+
+        Args:
+            conversation_id: The ID of the conversation to update
+            request: Request object containing fields to update (e.g., title)
+
+        Returns:
+            bool: True if the conversation was updated successfully, False if not found
+        """
+        if self._event_services is None:
+            raise ValueError("inactive_service")
+        event_service = self._event_services.get(conversation_id)
+        if event_service is None:
+            return False
+
+        # Update the title in stored conversation
+        event_service.stored.title = request.title.strip()
+        # Save the updated metadata to disk
+        await event_service.save_meta()
+
+        # Notify conversation webhooks about the updated conversation
+        state = await event_service.get_state()
+        conversation_info = _compose_conversation_info(event_service.stored, state)
+        await self._notify_conversation_webhooks(conversation_info)
+
+        logger.info(
+            f"Successfully updated conversation {conversation_id} "
+            f"with title: {request.title}"
+        )
+        return True
+
     async def get_event_service(self, conversation_id: UUID) -> EventService | None:
         if self._event_services is None:
             raise ValueError("inactive_service")
@@ -319,9 +355,9 @@ class ConversationService:
         return ConversationService(
             event_services_path=config.conversations_path,
             webhook_specs=config.webhooks,
-            session_api_key=config.session_api_keys[0]
-            if config.session_api_keys
-            else None,
+            session_api_key=(
+                config.session_api_keys[0] if config.session_api_keys else None
+            ),
         )
 
 

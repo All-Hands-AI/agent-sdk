@@ -33,6 +33,7 @@ from openhands.agent_server.env_parser import (
     get_env_parser,
     merge,
 )
+from tests.sdk.utils.test_discriminated_union import Animal, Dog
 
 
 class NodeModel(BaseModel):
@@ -41,6 +42,15 @@ class NodeModel(BaseModel):
     name: str
     value: int = 0
     children: list["NodeModel"] = Field(default_factory=list)
+
+
+class OptionalSubModel(BaseModel):
+    title: str | None = None
+    value: int | None = None
+
+
+class OptionalModel(BaseModel):
+    sub: OptionalSubModel | None = None
 
 
 @pytest.fixture
@@ -700,3 +710,59 @@ def test_complex_nested_structure(clean_env):
     assert result.addresses[1].street == "456 Oak Ave"
     assert result.addresses[1].city == "Other City"
     assert result.addresses[1].zip_code == "99999"  # Overridden
+
+
+def test_optional_parameter_parsing(clean_env):
+    os.environ["OP_SUB_TITLE"] = "Present"
+    os.environ["OP_SUB_VALUE"] = "10"
+    model = from_env(OptionalModel, "OP")
+    assert model == OptionalModel(sub=OptionalSubModel(title="Present", value=10))
+
+
+def test_discriminated_union_parsing(clean_env):
+    os.environ["A_KIND"] = "Dog"
+    os.environ["A_NAME"] = "Bowser"
+    os.environ["A_BARKING"] = "1"
+    model = from_env(Animal, "A")
+    assert model == Dog(name="Bowser", barking=True)
+
+
+def test_config_vnc_environment_variable_parsing(clean_env):
+    """Test parsing OH_ENABLE_VNC environment variable in Config class."""
+    # Test OH_ENABLE_VNC set to true
+    os.environ["OH_ENABLE_VNC"] = "true"
+    config = from_env(Config, "OH")
+    assert config.enable_vnc is True
+
+    # Test OH_ENABLE_VNC set to false
+    os.environ["OH_ENABLE_VNC"] = "false"
+    config = from_env(Config, "OH")
+    assert config.enable_vnc is False
+
+    # Test default value when OH_ENABLE_VNC is not set
+    del os.environ["OH_ENABLE_VNC"]
+    config = from_env(Config, "OH")
+    assert config.enable_vnc is False  # Default value from Config class
+
+
+@pytest.mark.parametrize(
+    "env_value,expected",
+    [
+        ("true", True),
+        ("True", True),
+        ("TRUE", True),
+        ("1", True),
+        ("false", False),
+        ("False", False),
+        ("FALSE", False),
+        ("0", False),
+        ("", False),
+    ],
+)
+def test_config_vnc_various_boolean_values(clean_env, env_value, expected):
+    """Test that OH_ENABLE_VNC accepts various boolean representations."""
+    os.environ["OH_ENABLE_VNC"] = env_value
+    config = from_env(Config, "OH")
+    assert config.enable_vnc is expected, (
+        f"Failed for OH_ENABLE_VNC='{env_value}', expected {expected}"
+    )

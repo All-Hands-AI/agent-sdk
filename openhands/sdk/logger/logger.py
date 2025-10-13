@@ -39,7 +39,9 @@ ENV_BACKUP_COUNT = int(os.getenv("LOG_BACKUP_COUNT", "7"))
 
 # Rich vs JSON
 ENV_JSON = os.getenv("LOG_JSON", "false").lower() in {"1", "true", "yes"}
-IN_CI = os.getenv("CI", "false").lower() in {"1", "true", "yes"}
+IN_CI = os.getenv("CI", "false").lower() in {"1", "true", "yes"} or bool(
+    os.environ.get("GITHUB_ACTIONS")
+)
 ENV_RICH_TRACEBACKS = os.getenv("LOG_RICH_TRACEBACKS", "true").lower() in {
     "1",
     "true",

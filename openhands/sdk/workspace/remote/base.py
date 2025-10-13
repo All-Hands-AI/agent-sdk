@@ -89,31 +89,29 @@ class RemoteWorkspace(BaseWorkspace):
             exit_code = None
 
             while time.time() - start_time < timeout:
-                # Search for all events and filter client-side
-                # (workaround for bash service filtering bug)
+                # Search for BashOutput events for this specific command
+                # Note: limit=10 handles outputs up to ~10MB (1MB per chunk)
                 search_response = self._client.get(
                     "/api/bash/bash_events/search",
                     params={
+                        "kind__eq": "BashOutput",
+                        "command_id__eq": command_id,
                         "sort_order": "TIMESTAMP",
-                        "limit": 100,
+                        "limit": 10,
                     },
                     timeout=10.0,
                 )
                 search_response.raise_for_status()
                 search_result = search_response.json()
 
-                # Filter for BashOutput events for this command
+                # Process BashOutput events for this command
                 for event in search_result.get("items", []):
-                    if (
-                        event.get("kind") == "BashOutput"
-                        and event.get("command_id") == command_id
-                    ):
-                        if event.get("stdout"):
-                            stdout_parts.append(event["stdout"])
-                        if event.get("stderr"):
-                            stderr_parts.append(event["stderr"])
-                        if event.get("exit_code") is not None:
-                            exit_code = event["exit_code"]
+                    if event.get("stdout"):
+                        stdout_parts.append(event["stdout"])
+                    if event.get("stderr"):
+                        stderr_parts.append(event["stderr"])
+                    if event.get("exit_code") is not None:
+                        exit_code = event["exit_code"]
 
                 # If we have an exit code, the command is complete
                 if exit_code is not None:
