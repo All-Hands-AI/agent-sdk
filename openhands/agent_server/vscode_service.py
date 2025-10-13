@@ -214,18 +214,11 @@ class VSCodeService:
                 continue
 
             try:
-                process = await asyncio.create_subprocess_shell(
-                    f"cd {ext_dir} && npm install --no-audit --no-fund --silent && npm run compile",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                await asyncio.wait_for(process.wait(), timeout=60.0)
-                if process.returncode == 0:
-                    logger.info(f"Extension {ext_dir.name} built successfully")
-                else:
-                    logger.warning(f"Extension {ext_dir.name} build failed")
+                # For zero-build extensions like openhands-settings, nothing to do
+                await asyncio.sleep(0)
+                logger.info(f"Extension {ext_dir.name} is ready (no build required)")
             except Exception as e:
-                logger.warning(f"Failed to build extension {ext_dir.name}: {e}")
+                logger.warning(f"Failed to prepare extension {ext_dir.name}: {e}")
 
 
 # Global VSCode service instance
