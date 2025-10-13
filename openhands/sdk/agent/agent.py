@@ -348,7 +348,9 @@ class Agent(AgentBase):
 
             # if the tool has a security_risk field (when security analyzer = LLM),
             # pop it out as it's not part of the tool's action schema
-            if (_predicted_risk := arguments.pop("security_risk", None)) is not None:
+            if (
+                _predicted_risk := arguments.pop("security_risk", None)
+            ) is not None and self.security_analyzer is not None:
                 if not isinstance(self.security_analyzer, LLMSecurityAnalyzer):
                     raise RuntimeError(
                         "LLM provided a security_risk but no security analyzer is "
