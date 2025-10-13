@@ -107,7 +107,11 @@ class VSCodeService:
             base_url = f"http://localhost:{self.port}"
 
         # openvscode-server expects absolute folder path in query param
-        folder = f"/{workspace_dir}" if not str(workspace_dir).startswith("/") else str(workspace_dir)
+        folder = (
+            f"/{workspace_dir}"
+            if not str(workspace_dir).startswith("/")
+            else str(workspace_dir)
+        )
         return f"{base_url}/?tkn={self.connection_token}&folder={folder}"
 
     def is_running(self) -> bool:
