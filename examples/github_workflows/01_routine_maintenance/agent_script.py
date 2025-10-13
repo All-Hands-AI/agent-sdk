@@ -2,10 +2,9 @@
 """
 Example: Maintenance Task Runner
 
-This example demonstrates how to run scheduled maintenance tasks with OpenHands
-agent. The script accepts a prompt from a file or URL and runs the agent to
-execute the maintenance task. It's designed to be used with GitHub Actions for
-scheduled maintenance tasks.
+This script runs OpenHands agent for scheduled maintenance tasks. It accepts a
+prompt from a file or URL and executes the maintenance task using the agent.
+Designed for use with GitHub Actions workflows.
 
 Usage:
     python agent_script.py <prompt_location>
@@ -13,37 +12,13 @@ Usage:
 Arguments:
     prompt_location: Path to a local file or URL containing the prompt
 
-Example prompts:
-    - Check for outdated dependencies and create a PR to update them
-    - Scan the repository for security vulnerabilities
-    - Update documentation to match the latest code changes
-    - Check for broken links in documentation
-    - Run code quality checks and fix issues
-
 Environment Variables:
     LLM_API_KEY: API key for the LLM (required)
-                 Get one from https://docs.all-hands.dev/openhands/usage/llms/openhands-llms
     LLM_MODEL: Language model to use (default: openhands/claude-sonnet-4-5-20250929)
     LLM_BASE_URL: Optional base URL for LLM API
 
-Local Testing:
-    export LLM_API_KEY="your-api-key"
-    export LLM_MODEL="openhands/claude-sonnet-4-5-20250929"
-    echo "Check for outdated dependencies in requirements.txt" > prompt.txt
-    python examples/github_workflows/01_routine_maintenance/agent_script.py prompt.txt
-
-GitHub Actions:
-    This script can be used with the workflow defined in workflow.yml to run
-    scheduled maintenance tasks. Copy workflow.yml to .github/workflows/ in your
-    repository and configure the required secrets.
-
-    1. Set LLM_API_KEY secret in your repository settings
-    2. Go to Actions → "Scheduled Maintenance Task"
-    3. Click "Run workflow"
-    4. Enter prompt location (URL or file path)
-    5. Click "Run workflow"
-
-    To enable scheduled runs, uncomment the schedule section in the workflow file.
+For setup instructions, usage examples, and GitHub Actions integration,
+see README.md in this directory.
 """
 
 import argparse
