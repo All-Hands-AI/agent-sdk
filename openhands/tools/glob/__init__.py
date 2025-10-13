@@ -1,14 +1,13 @@
-# Core tool interface
-from .definition import (
+# Core tool interface (use absolute imports per project convention)
+from openhands.tools.glob.definition import (
     GlobAction,
     GlobObservation,
     GlobTool,
 )
-from .impl import GlobExecutor
+from openhands.tools.glob.impl import GlobExecutor
 
 
 __all__ = [
-    # === Core Tool Interface ===
     "GlobTool",
     "GlobAction",
     "GlobObservation",

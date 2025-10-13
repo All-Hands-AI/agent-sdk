@@ -204,21 +204,14 @@ class VSCodeService:
             logger.warning(f"Error waiting for VSCode startup: {e}")
 
     async def _build_extensions(self) -> None:
-        """Build all VSCode extensions."""
+        """No-op: extensions are zero-build JS; nothing to build."""
         if not self.extensions_dir.exists():
-            logger.debug("Extensions directory not found, skipping build")
+            logger.debug("Extensions directory not found, skipping")
             return
-
+        # Optionally, we could validate presence of package.json/main
         for ext_dir in self.extensions_dir.iterdir():
-            if not ext_dir.is_dir() or not (ext_dir / "package.json").exists():
-                continue
-
-            try:
-                # For zero-build extensions like openhands-settings, nothing to do
-                await asyncio.sleep(0)
-                logger.info(f"Extension {ext_dir.name} is ready (no build required)")
-            except Exception as e:
-                logger.warning(f"Failed to prepare extension {ext_dir.name}: {e}")
+            if ext_dir.is_dir() and (ext_dir / "package.json").exists():
+                logger.info(f"Extension {ext_dir.name} ready (zero-build)")
 
 
 # Global VSCode service instance

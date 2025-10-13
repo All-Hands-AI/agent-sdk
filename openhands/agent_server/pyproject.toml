@@ -26,12 +26,11 @@ include = ["openhands*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.j2", "py.typed"]
-# Include Docker-related files and VSCode extensions in the package data
-# so we can build images from installed package or use wheels.
+# Include Docker-related files in package data; VSCode extensions are sourced
+# via MANIFEST.in into the sdist only and copied by Dockerfile in base-image.
 "openhands.agent_server" = [
   "docker/Dockerfile",
   "docker/wallpaper.svg",
-  "vscode_extensions/**/*",
 ]
 
 [project.scripts]
