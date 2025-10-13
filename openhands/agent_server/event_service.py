@@ -14,7 +14,7 @@ from openhands.agent_server.utils import utc_now
 from openhands.sdk import LLM, Agent, Event, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
@@ -154,11 +154,16 @@ class EventService:
             results.append(result)
         return results
 
-    async def send_message(self, message: Message):
+    async def send_message(self, message: Message, run: bool = True):
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._conversation.send_message, message)
+        if run:
+            with self._conversation.state as state:
+                run = state.agent_status != AgentExecutionStatus.RUNNING
+        if run:
+            loop.run_in_executor(None, self._conversation.run)
 
     async def subscribe_to_events(self, subscriber: Subscriber[Event]) -> UUID:
         subscriber_id = self._pub_sub.subscribe(subscriber)
