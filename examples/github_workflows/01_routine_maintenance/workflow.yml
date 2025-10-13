@@ -2,29 +2,8 @@
 name: Scheduled Maintenance Task
 
 on:
-    # Allow manual trigger to override defaults (defaults are set in env section below)
+    # Allow manual trigger (modify env section below to change settings)
     workflow_dispatch:
-        inputs:
-            agent_script:
-                description: Override agent script URL or path
-                required: false
-                type: string
-            prompt_location:
-                description: Override prompt location (URL or file path)
-                required: false
-                type: string
-            prompt_string:
-                description: Override prompt string (direct text)
-                required: false
-                type: string
-            llm_model:
-                description: Override LLM model
-                required: false
-                type: string
-            llm_base_url:
-                description: Override LLM base URL
-                required: false
-                type: string
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
     # schedule:
     #   # Run at 2 AM UTC every day
@@ -39,19 +18,18 @@ jobs:
     run-maintenance-task:
         runs-on: ubuntu-latest
         env:
-            # Configuration defaults (modify these for scheduled runs)
-            # Manual workflow_dispatch runs can override these via inputs
-            AGENT_SCRIPT_URL: ${{ inputs.agent_script || 
-                'https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py' }}
+            # Configuration (modify these values as needed)
+            AGENT_SCRIPT_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
             # Provide either PROMPT_LOCATION (URL/file) OR PROMPT_STRING (direct text), not both
             # Option 1: Use a URL or file path for the prompt
-            PROMPT_LOCATION: ${{ inputs.prompt_location || '' }}
-            # PROMPT_LOCATION: ${{ inputs.prompt_location || 'https://example.com/prompts/maintenance.txt' }}
+            PROMPT_LOCATION: ''
+            # PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
             # Option 2: Use direct text for the prompt
-            PROMPT_STRING: ${{ inputs.prompt_string || '' }}
-            # PROMPT_STRING: ${{ inputs.prompt_string || 'Check for outdated dependencies and create a PR' }}
-            LLM_MODEL: ${{ inputs.llm_model || 'openhands/claude-sonnet-4-5-20250929' }}
-            LLM_BASE_URL: ${{ inputs.llm_base_url || '' }}
+            PROMPT_STRING: ''
+            # PROMPT_STRING: 'Check for outdated dependencies and create a PR'
+            LLM_MODEL: openhands/claude-sonnet-4-5-20250929
+            LLM_BASE_URL: ''
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -72,10 +50,6 @@ jobs:
             - name: Check required configuration
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-                  CONFIG_PROMPT_LOCATION: ${{ inputs.prompt_location || env.PROMPT_LOCATION }}
-                  CONFIG_PROMPT_STRING: ${{ inputs.prompt_string || env.PROMPT_STRING }}
-                  CONFIG_MODEL: ${{ inputs.llm_model || env.LLM_MODEL }}
-                  CONFIG_BASE_URL: ${{ inputs.llm_base_url || env.LLM_BASE_URL }}
               run: |
                   if [ -z "$LLM_API_KEY" ]; then
                     echo "Error: LLM_API_KEY secret is not set."
@@ -83,47 +57,42 @@ jobs:
                   fi
 
                   # Check that exactly one of PROMPT_LOCATION or PROMPT_STRING is set
-                  if [ -n "$CONFIG_PROMPT_LOCATION" ] && [ -n "$CONFIG_PROMPT_STRING" ]; then
+                  if [ -n "$PROMPT_LOCATION" ] && [ -n "$PROMPT_STRING" ]; then
                     echo "Error: Both PROMPT_LOCATION and PROMPT_STRING are set."
                     echo "Please provide only one in the env section of the workflow file."
                     exit 1
                   fi
 
-                  if [ -z "$CONFIG_PROMPT_LOCATION" ] && [ -z "$CONFIG_PROMPT_STRING" ]; then
+                  if [ -z "$PROMPT_LOCATION" ] && [ -z "$PROMPT_STRING" ]; then
                     echo "Error: Neither PROMPT_LOCATION nor PROMPT_STRING is set."
                     echo "Please set one in the env section of the workflow file."
                     exit 1
                   fi
 
-                  if [ -n "$CONFIG_PROMPT_LOCATION" ]; then
-                    echo "Prompt location: $CONFIG_PROMPT_LOCATION"
+                  if [ -n "$PROMPT_LOCATION" ]; then
+                    echo "Prompt location: $PROMPT_LOCATION"
                   else
-                    echo "Using inline PROMPT_STRING (${#CONFIG_PROMPT_STRING} characters)"
+                    echo "Using inline PROMPT_STRING (${#PROMPT_STRING} characters)"
                   fi
-                  echo "LLM model: $CONFIG_MODEL"
-                  if [ -n "$CONFIG_BASE_URL" ]; then
-                    echo "LLM base URL: $CONFIG_BASE_URL"
+                  echo "LLM model: $LLM_MODEL"
+                  if [ -n "$LLM_BASE_URL" ]; then
+                    echo "LLM base URL: $LLM_BASE_URL"
                   fi
 
             - name: Run maintenance task
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-                  LLM_MODEL: ${{ inputs.llm_model || env.LLM_MODEL }}
-                  LLM_BASE_URL: ${{ inputs.llm_base_url || env.LLM_BASE_URL }}
-                  AGENT_SCRIPT: ${{ inputs.agent_script || env.AGENT_SCRIPT_URL }}
-                  PROMPT_LOCATION: ${{ inputs.prompt_location || env.PROMPT_LOCATION }}
-                  PROMPT_STRING: ${{ inputs.prompt_string || env.PROMPT_STRING }}
                   PYTHONPATH: ''
               run: |
-                  echo "Running agent script: $AGENT_SCRIPT"
+                  echo "Running agent script: $AGENT_SCRIPT_URL"
 
                   # Download script if it's a URL
-                  if [[ "$AGENT_SCRIPT" =~ ^https?:// ]]; then
+                  if [[ "$AGENT_SCRIPT_URL" =~ ^https?:// ]]; then
                     echo "Downloading agent script from URL..."
-                    curl -sSL "$AGENT_SCRIPT" -o /tmp/agent_script.py
+                    curl -sSL "$AGENT_SCRIPT_URL" -o /tmp/agent_script.py
                     AGENT_SCRIPT_PATH="/tmp/agent_script.py"
                   else
-                    AGENT_SCRIPT_PATH="$AGENT_SCRIPT"
+                    AGENT_SCRIPT_PATH="$AGENT_SCRIPT_URL"
                   fi
 
                   # Run with appropriate prompt argument
