@@ -26,6 +26,7 @@ async def get_vscode_url(
 
     Args:
         base_url: Base URL for the VSCode server (default: http://localhost:8001)
+        workspace_dir: Path to workspace directory
 
     Returns:
         VSCode URL with token if available, None otherwise

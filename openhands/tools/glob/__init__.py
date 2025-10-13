@@ -8,7 +8,6 @@ from openhands.tools.glob.impl import GlobExecutor
 
 
 __all__ = [
-    # === Core Tool Interface ===
     "GlobTool",
     "GlobAction",
     "GlobObservation",
