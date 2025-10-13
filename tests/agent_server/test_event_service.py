@@ -363,7 +363,7 @@ class TestEventServiceSendMessage:
             await event_service.send_message(message)
 
     @pytest.mark.asyncio
-    async def test_send_message_with_run_true_default(self, event_service):
+    async def test_send_message_with_run_false_default(self, event_service):
         """Test send_message with default run=True."""
         # Mock conversation and its methods
         conversation = MagicMock()
@@ -392,7 +392,10 @@ class TestEventServiceSendMessage:
                 None, conversation.send_message, message
             )
             # Verify run was called via executor since run=True and agent is not running
-            mock_loop.run_in_executor.assert_any_call(None, conversation.run)
+            assert (
+                None,
+                conversation.run,
+            ) not in mock_loop.run_in_executor.call_args_list
 
     @pytest.mark.asyncio
     async def test_send_message_with_run_false(self, event_service):

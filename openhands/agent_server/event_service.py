@@ -154,7 +154,7 @@ class EventService:
             results.append(result)
         return results
 
-    async def send_message(self, message: Message, run: bool = True):
+    async def send_message(self, message: Message, run: bool = False):
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
