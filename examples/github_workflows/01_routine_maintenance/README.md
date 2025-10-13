@@ -19,20 +19,39 @@ cp examples/github_workflows/01_routine_maintenance/workflow.yml .github/workflo
 
 ### 2. Configure the workflow
 
-Edit `.github/workflows/maintenance-task.yml` and set your configuration in the `env` section:
+Edit `.github/workflows/maintenance-task.yml` and set your configuration in the `env` section.
 
+You can provide the prompt in two ways (choose one):
+
+**Option A: Direct prompt text (PROMPT_STRING)**
 ```yaml
 jobs:
   run-maintenance-task:
     runs-on: ubuntu-latest
     env:
-      # Required: Set your prompt location (URL or file path)
+      # Provide prompt as direct text
+      PROMPT_STRING: 'Check for outdated dependencies and create a PR to update them'
+      
+      # Optional: Customize other settings
+      LLM_MODEL: openhands/claude-sonnet-4-5-20250929
+      # LLM_BASE_URL: 'https://custom-api.example.com'
+```
+
+**Option B: Prompt from URL or file (PROMPT_LOCATION)**
+```yaml
+jobs:
+  run-maintenance-task:
+    runs-on: ubuntu-latest
+    env:
+      # Provide prompt from URL or file path
       PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
       
       # Optional: Customize other settings
       LLM_MODEL: openhands/claude-sonnet-4-5-20250929
       # LLM_BASE_URL: 'https://custom-api.example.com'
 ```
+
+**Note**: Provide either `PROMPT_STRING` or `PROMPT_LOCATION`, not both.
 
 ### 3. Configure secrets
 

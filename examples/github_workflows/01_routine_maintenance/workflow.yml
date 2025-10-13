@@ -10,7 +10,11 @@ on:
                 required: false
                 type: string
             prompt_location:
-                description: Override default prompt location (optional)
+                description: Override default prompt location - URL or file path (optional)
+                required: false
+                type: string
+            prompt_string:
+                description: Override default prompt string - direct text (optional)
                 required: false
                 type: string
             llm_model:
@@ -39,9 +43,12 @@ jobs:
             # Manual runs can override these via workflow_dispatch inputs
             AGENT_SCRIPT_URL: >-
                 https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_routine_maintenance/agent_script.py
+            # Provide either PROMPT_LOCATION (URL/file) OR PROMPT_STRING (direct text), not both
             PROMPT_LOCATION: ''
-            # Set your prompt location here (URL or file path):
+            PROMPT_STRING: ''
+            # Examples:
             # PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
+            # PROMPT_STRING: 'Check for outdated dependencies and create a PR'
             LLM_MODEL: openhands/claude-sonnet-4-5-20250929
             LLM_BASE_URL: ''
         steps:
@@ -64,7 +71,8 @@ jobs:
             - name: Check required configuration
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-                  CONFIG_PROMPT: ${{ inputs.prompt_location || env.PROMPT_LOCATION }}
+                  CONFIG_PROMPT_LOCATION: ${{ inputs.prompt_location || env.PROMPT_LOCATION }}
+                  CONFIG_PROMPT_STRING: ${{ inputs.prompt_string || env.PROMPT_STRING }}
                   CONFIG_MODEL: ${{ inputs.llm_model || env.LLM_MODEL }}
                   CONFIG_BASE_URL: ${{ inputs.llm_base_url || env.LLM_BASE_URL }}
               run: |
@@ -73,13 +81,24 @@ jobs:
                     exit 1
                   fi
 
-                  if [ -z "$CONFIG_PROMPT" ]; then
-                    echo "Error: PROMPT_LOCATION is not set."
-                    echo "Set it in the env section of the workflow file."
+                  # Check that exactly one of PROMPT_LOCATION or PROMPT_STRING is set
+                  if [ -n "$CONFIG_PROMPT_LOCATION" ] && [ -n "$CONFIG_PROMPT_STRING" ]; then
+                    echo "Error: Both PROMPT_LOCATION and PROMPT_STRING are set."
+                    echo "Please provide only one in the env section of the workflow file."
                     exit 1
                   fi
 
-                  echo "Prompt location: $CONFIG_PROMPT"
+                  if [ -z "$CONFIG_PROMPT_LOCATION" ] && [ -z "$CONFIG_PROMPT_STRING" ]; then
+                    echo "Error: Neither PROMPT_LOCATION nor PROMPT_STRING is set."
+                    echo "Please set one in the env section of the workflow file."
+                    exit 1
+                  fi
+
+                  if [ -n "$CONFIG_PROMPT_LOCATION" ]; then
+                    echo "Prompt location: $CONFIG_PROMPT_LOCATION"
+                  else
+                    echo "Using inline PROMPT_STRING (${#CONFIG_PROMPT_STRING} characters)"
+                  fi
                   echo "LLM model: $CONFIG_MODEL"
                   if [ -n "$CONFIG_BASE_URL" ]; then
                     echo "LLM base URL: $CONFIG_BASE_URL"
@@ -92,10 +111,10 @@ jobs:
                   LLM_BASE_URL: ${{ inputs.llm_base_url || env.LLM_BASE_URL }}
                   AGENT_SCRIPT: ${{ inputs.agent_script || env.AGENT_SCRIPT_URL }}
                   PROMPT_LOCATION: ${{ inputs.prompt_location || env.PROMPT_LOCATION }}
+                  PROMPT_STRING: ${{ inputs.prompt_string || env.PROMPT_STRING }}
                   PYTHONPATH: ''
               run: |
                   echo "Running agent script: $AGENT_SCRIPT"
-                  echo "With prompt from: $PROMPT_LOCATION"
 
                   # Download script if it's a URL
                   if [[ "$AGENT_SCRIPT" =~ ^https?:// ]]; then
@@ -106,7 +125,14 @@ jobs:
                     AGENT_SCRIPT_PATH="$AGENT_SCRIPT"
                   fi
 
-                  uv run python "$AGENT_SCRIPT_PATH" "$PROMPT_LOCATION"
+                  # Run with appropriate prompt argument
+                  if [ -n "$PROMPT_LOCATION" ]; then
+                    echo "Using prompt from: $PROMPT_LOCATION"
+                    uv run python "$AGENT_SCRIPT_PATH" "$PROMPT_LOCATION"
+                  else
+                    echo "Using PROMPT_STRING (${#PROMPT_STRING} characters)"
+                    uv run python "$AGENT_SCRIPT_PATH"
+                  fi
 
             - name: Upload logs as artifact
               uses: actions/upload-artifact@v4
