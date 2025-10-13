@@ -1,5 +1,7 @@
 import os
 
+from pydantic import SecretStr
+
 from openhands.sdk import LLM, Conversation
 from openhands.tools.preset.default import get_default_agent
 
@@ -10,7 +12,7 @@ api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm = LLM(
     model="openhands/claude-sonnet-4-5-20250929",
-    api_key=api_key,
+    api_key=SecretStr(api_key),
     service_id="agent",
     drop_params=True,
 )
