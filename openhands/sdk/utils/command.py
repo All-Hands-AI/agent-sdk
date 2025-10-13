@@ -1,6 +1,7 @@
 import shlex
 import subprocess
 import sys
+import threading
 
 from openhands.sdk.logger import get_logger
 
@@ -44,25 +45,42 @@ def execute_command(
     if proc.stdout is None or proc.stderr is None:
         raise RuntimeError("Failed to capture stdout/stderr")
 
-    for line in proc.stdout:
-        if print_output:
-            sys.stdout.write(line)
-        stdout_lines.append(line)
-    for line in proc.stderr:
-        if print_output:
-            sys.stderr.write(line)
-        stderr_lines.append(line)
+    def read_stream(stream, lines, output_stream):
+        try:
+            for line in stream:
+                if print_output:
+                    output_stream.write(line)
+                    output_stream.flush()
+                lines.append(line)
+        except Exception as e:
+            logger.error(f"Failed to read stream: {e}")
+
+    # Read stdout and stderr concurrently to avoid deadlock
+    stdout_thread = threading.Thread(
+        target=read_stream, args=(proc.stdout, stdout_lines, sys.stdout)
+    )
+    stderr_thread = threading.Thread(
+        target=read_stream, args=(proc.stderr, stderr_lines, sys.stderr)
+    )
+
+    stdout_thread.start()
+    stderr_thread.start()
 
     try:
         proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         proc.kill()
+        stdout_thread.join()
+        stderr_thread.join()
         return subprocess.CompletedProcess(
             cmd_to_run,
             -1,  # Indicate timeout with -1 exit code
             "".join(stdout_lines),
             "".join(stderr_lines),
         )
+
+    stdout_thread.join(timeout=timeout)
+    stderr_thread.join(timeout=timeout)
 
     return subprocess.CompletedProcess(
         cmd_to_run,

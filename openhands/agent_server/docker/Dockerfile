@@ -121,6 +121,11 @@ RUN set -eux; \
     # Set proper ownership
     chown -R ${USERNAME}:${USERNAME} ${OPENVSCODE_SERVER_ROOT}
 
+
+# Include VSCode extensions alongside the server so targets inheriting base-image
+# implicitly get the extensions; minimal images (without VSCode) won't.
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions ${OPENVSCODE_SERVER_ROOT}/extensions
+
 # --- Docker ---
 RUN set -eux; \
     # Determine OS type and install Docker accordingly
