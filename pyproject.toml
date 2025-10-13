@@ -1,16 +1,3 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "openhands"
-version = "0.0.0"
-requires-python = ">=3.12"
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["openhands*"]
-
 # UV workspace configuration
 [tool.uv.workspace]
 members = ["openhands/sdk", "openhands/tools", "openhands/workspace", "openhands/agent_server"]
