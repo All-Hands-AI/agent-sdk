@@ -38,7 +38,7 @@ def event_service(sample_stored_conversation):
     """Create an EventService instance for testing."""
     service = EventService(
         stored=sample_stored_conversation,
-        conversation_dir=Path("test_conversation_dir"),
+        conversations_dir=Path("test_conversation_dir"),
         working_dir=Path("test_working_dir"),
     )
     return service
