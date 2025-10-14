@@ -11,6 +11,7 @@ RESET := \033[0m
 
 # Required uv version
 REQUIRED_UV_VERSION := 0.8.13
+PKGS ?= openhands-sdk openhands-tools openhands-workspace openhands-agent-server
 
 .PHONY: build format lint clean help check-uv-version
 
@@ -80,3 +81,17 @@ test-server-schema: check-uv-version
 	# Clean up temp schema
 	rm -f openapi.json
 	rm -rf .client
+
+
+.PHONY: set-package-version
+set-package-version: check-uv-version
+	@if [ -z "$(version)" ]; then \
+		$(ECHO) "$(RED)Error: missing version. Use: make set-package-version version=1.2.3$(RESET)"; \
+		exit 1; \
+	fi
+	@$(ECHO) "$(CYAN)Setting version to $(version) for: $(PKGS)$(RESET)"
+	@for PKG in $(PKGS); do \
+		$(ECHO) "$(YELLOW)bumping $$PKG -> $(version)$(RESET)"; \
+		uv version --package $$PKG $(version); \
+	done
+	@$(ECHO) "$(GREEN)Version updated in all selected packages.$(RESET)"

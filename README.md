@@ -16,7 +16,7 @@ This is what it looks like to write a program with an OpenHands agent:
 import os
 from pydantic import SecretStr
 from openhands.sdk import LLM, Conversation
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset import get_default_agent
 
 # Configure LLM
 api_key = os.getenv("LLM_API_KEY")
@@ -29,12 +29,11 @@ llm = LLM(
 # Create agent with default tools and configuration
 agent = get_default_agent(
     llm=llm,
-    working_dir=os.getcwd(),
     cli_mode=True,  # Disable browser tools for CLI environments
 )
 
 # Create conversation, send a message, and run
-conversation = Conversation(agent=agent)
+conversation = Conversation(agent=agent, workspace=os.getcwd())
 conversation.send_message("Create a Python file that prints 'Hello, World!'")
 conversation.run()
 ```
@@ -71,7 +70,7 @@ cd agent-sdk
 make build
 
 # Verify installation
-uv run python examples/01_hello_world.py
+uv run python examples/01_standalone_sdk/01_hello_world.py
 ```
 
 For more detailed documentation and examples, refer to the `examples/` directory which contains comprehensive usage examples covering all major features of the SDK.
@@ -87,12 +86,11 @@ Agents are the central orchestrators that coordinate between LLMs and tools. The
 We recommend that you try out the default presets at first, which gives you a powerful agent with our default set of tools.
 
 ```python
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset import get_default_agent
 
 # Get a fully configured agent with default tools and settings
 agent = get_default_agent(
     llm=llm,
-    working_dir=os.getcwd(),
     cli_mode=True,  # Disable browser tools for CLI environments
 )
 ```
@@ -103,7 +101,7 @@ agent = get_default_agent(
 from openhands.sdk import Agent
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
 
 # Register tools
@@ -157,7 +155,7 @@ The default contains all of these tools, but for more control, you can configure
 ```python
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
 
 # Register tools
@@ -229,7 +227,7 @@ context = AgentContext(
 The SDK includes a REST API and WebSocket server for remote agent interactions:
 
 ```python
-from openhands.agent_server import create_app
+from openhands.agent_server.api import create_app
 import uvicorn
 
 # Create FastAPI application
