@@ -135,7 +135,7 @@ class TestSendMessageEndpoint:
             assert response.status_code == 200
             assert response.json() == {"success": True}
 
-            # Verify send_message was called with default run value (True)
+            # Verify send_message was called with default run value (False)
             mock_event_service.send_message.assert_called_once()
             call_args = mock_event_service.send_message.call_args
             message, run_flag = call_args[0]

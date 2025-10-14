@@ -176,7 +176,6 @@ class ConversationService:
         conversation_id = uuid4()
         stored = StoredConversation(id=conversation_id, **request.model_dump())
         event_service = await self._start_event_service(stored)
-
         initial_message = request.initial_message
         if initial_message:
             message = Message(
