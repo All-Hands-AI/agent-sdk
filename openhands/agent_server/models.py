@@ -43,6 +43,10 @@ class SendMessageRequest(BaseModel):
 
     role: Literal["user", "system", "assistant", "tool"] = "user"
     content: list[TextContent | ImageContent] = Field(default_factory=list)
+    run: bool = Field(
+        default=False,
+        description=("Whether the agent loop should automatically run if not running"),
+    )
 
     def create_message(self) -> Message:
         message = Message(role=self.role, content=self.content)

@@ -144,7 +144,7 @@ class BaseConversation(ABC):
         persistence_base_dir: str, conversation_id: ConversationID
     ) -> str:
         """Get the persistence directory for the conversation."""
-        return str(Path(persistence_base_dir) / str(conversation_id))
+        return str(Path(persistence_base_dir) / conversation_id.hex)
 
     @staticmethod
     def compose_callbacks(
