@@ -27,8 +27,8 @@ logger = get_logger(__name__)
 api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
 assert api_key, "Set LLM_API_KEY or OPENAI_API_KEY in your environment."
 
-model = os.getenv("OPENAI_RESPONSES_MODEL", "openai/gpt-5-codex")
-base_url = os.getenv("LITELLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
+model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+base_url = os.getenv("LLM_BASE_URL")
 
 llm = LLM(
     model=model,
