@@ -458,7 +458,7 @@ def test_conversation_state_flags_persistence():
         )
         state = ConversationState.create(
             workspace=LocalWorkspace(working_dir="/tmp"),
-            persistence_dir=temp_dir,
+            persistence_dir=persist_path_for_state,
             agent=agent,
             id=conv_id,
         )
