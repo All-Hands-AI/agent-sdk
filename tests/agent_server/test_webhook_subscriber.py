@@ -47,7 +47,7 @@ def mock_event_service():
                     ),
                     workspace=LocalWorkspace(working_dir="workspace/project"),
                 ),
-                conversation_dir=temp_path / "conversation_dir",
+                conversations_dir=temp_path / "conversations_dir",
                 working_dir=temp_path / "working_dir",
             )
             yield service
