@@ -283,7 +283,7 @@ class ConversationService:
 
     async def __aenter__(self):
         self.persistence_dir.mkdir(parents=True, exist_ok=True)
-        self.event_services = {}
+        self._event_services = {}
         for conversation_dir in self.persistence_dir.iterdir():
             try:
                 meta_file = conversation_dir / "meta.json"
@@ -332,7 +332,7 @@ class ConversationService:
         )
 
     async def _start_event_service(self, stored: StoredConversation) -> EventService:
-        event_services = self.event_services
+        event_services = self._event_services
         if event_services is None:
             raise ValueError("inactive_service")
 
