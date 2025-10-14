@@ -59,7 +59,14 @@ RUN set -eux; \
         ca-certificates curl wget sudo apt-utils git jq tmux build-essential \
         coreutils util-linux procps findutils grep sed \
         # Docker dependencies
-        apt-transport-https gnupg lsb-release; \
+        apt-transport-https gnupg lsb-release \
+        # Python 3.12 dependencies
+        software-properties-common; \
+    \
+    # Install Python 3.12 from deadsnakes PPA
+    add-apt-repository ppa:deadsnakes/ppa; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends python3.12 python3.12-venv; \
     \
     # Create user and group
     (getent group ${GID} || groupadd -g ${GID} ${USERNAME}); \
@@ -190,16 +197,49 @@ EXPOSE ${PORT} ${NOVNC_PORT}
 
 ############################
 # Target A: source
-# Local dev and debugging mode: copy source + venv from builder
+# Local dev and debugging mode: copy source and create fresh venv with Python 3.12
 ############################
 FROM base-image AS source
-ARG USERNAME
-COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
+ARG USERNAME UID GID
+ENV UV_PROJECT_ENVIRONMENT=/agent-server/.venv
+
+WORKDIR /agent-server
+# Copy source files and requirements from builder
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/pyproject.toml /agent-server/uv.lock /agent-server/README.md /agent-server/LICENSE ./
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands ./openhands
+
+# Create virtual environment with Python 3.12 and install dependencies
+RUN python3.12 -m venv .venv && \
+    .venv/bin/pip install --upgrade pip && \
+    .venv/bin/pip install -e ./openhands/sdk && \
+    .venv/bin/pip install -e ./openhands/tools && \
+    .venv/bin/pip install -e ./openhands/workspace && \
+    .venv/bin/pip install -e ./openhands/agent_server
+
+# Verify the virtual environment was created properly
+RUN test -f /agent-server/.venv/bin/python && /agent-server/.venv/bin/python --version
+
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 FROM base-image-minimal AS source-minimal
-ARG USERNAME
-COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
+ARG USERNAME UID GID
+ENV UV_PROJECT_ENVIRONMENT=/agent-server/.venv
+
+WORKDIR /agent-server
+# Copy source files and requirements from builder
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/pyproject.toml /agent-server/uv.lock /agent-server/README.md /agent-server/LICENSE ./
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands ./openhands
+
+# Create virtual environment with Python 3.12 and install dependencies
+RUN python3.12 -m venv .venv && \
+    .venv/bin/pip install --upgrade pip && \
+    .venv/bin/pip install -e ./openhands/sdk && \
+    .venv/bin/pip install -e ./openhands/tools && \
+    .venv/bin/pip install -e ./openhands/workspace && \
+    .venv/bin/pip install -e ./openhands/agent_server
+
+# Verify the virtual environment was created properly
+RUN test -f /agent-server/.venv/bin/python && /agent-server/.venv/bin/python --version
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 ############################
