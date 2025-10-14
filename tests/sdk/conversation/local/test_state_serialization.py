@@ -77,9 +77,7 @@ def test_conversation_state_persistence_save_load():
         agent = Agent(llm=llm, tools=[])
 
         conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789002")
-        persist_path_for_state = LocalConversation.get_persistence_dir(
-            temp_dir, conv_id
-        )
+        persist_path_for_state = f"{temp_dir}/{conv_id}"
         state = ConversationState.create(
             workspace=LocalWorkspace(working_dir="/tmp"),
             persistence_dir=persist_path_for_state,
@@ -141,9 +139,7 @@ def test_conversation_state_incremental_save():
         agent = Agent(llm=llm, tools=[])
 
         conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789003")
-        persist_path_for_state = LocalConversation.get_persistence_dir(
-            temp_dir, conv_id
-        )
+        persist_path_for_state = f"{temp_dir}/{conv_id}"
         state = ConversationState.create(
             workspace=LocalWorkspace(working_dir="/tmp"),
             persistence_dir=persist_path_for_state,
@@ -197,9 +193,7 @@ def test_conversation_state_event_file_scanning():
         agent = Agent(llm=llm, tools=[])
 
         conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789004")
-        persist_path_for_state = LocalConversation.get_persistence_dir(
-            temp_dir, conv_id
-        )
+        persist_path_for_state = f"{temp_dir}/{conv_id}"
 
         # Create event files with valid format (new pattern)
         events_dir = Path(persist_path_for_state, "events")
@@ -261,9 +255,7 @@ def test_conversation_state_corrupted_event_handling():
 
         # Create event files with some corrupted
         conv_id = uuid.uuid4()
-        persist_path_for_state = LocalConversation.get_persistence_dir(
-            temp_dir, conv_id
-        )
+        persist_path_for_state = f"{temp_dir}/{conv_id}"
         events_dir = Path(persist_path_for_state, "events")
         events_dir.mkdir(parents=True, exist_ok=True)
 
@@ -453,9 +445,7 @@ def test_conversation_state_flags_persistence():
         )
         agent = Agent(llm=llm, tools=[])
         conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789006")
-        persist_path_for_state = LocalConversation.get_persistence_dir(
-            temp_dir, conv_id
-        )
+        persist_path_for_state = f"{temp_dir}/{conv_id}"
         state = ConversationState.create(
             workspace=LocalWorkspace(working_dir="/tmp"),
             persistence_dir=persist_path_for_state,
