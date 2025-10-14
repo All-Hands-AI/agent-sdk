@@ -1786,7 +1786,7 @@ wheels = [
 
 [[package]]
 name = "openhands-agent-server"
-version = "1.0.0a0"
+version = "1.0.0a1"
 source = { editable = "openhands/agent_server" }
 dependencies = [
     { name = "aiosqlite" },
@@ -1813,7 +1813,7 @@ requires-dist = [
 
 [[package]]
 name = "openhands-sdk"
-version = "1.0.0a0"
+version = "1.0.0a1"
 source = { editable = "openhands/sdk" }
 dependencies = [
     { name = "fastmcp" },
@@ -1847,7 +1847,7 @@ provides-extras = ["boto3"]
 
 [[package]]
 name = "openhands-tools"
-version = "1.0.0a0"
+version = "1.0.0a1"
 source = { editable = "openhands/tools" }
 dependencies = [
     { name = "bashlex" },
@@ -1874,7 +1874,7 @@ requires-dist = [
 
 [[package]]
 name = "openhands-workspace"
-version = "1.0.0a0"
+version = "1.0.0a1"
 source = { editable = "openhands/workspace" }
 dependencies = [
     { name = "openhands-sdk" },
