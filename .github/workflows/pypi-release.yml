@@ -5,10 +5,6 @@ on:
   # Run manually
     workflow_dispatch:
 
-  # Run automatically when a release is created
-    release:
-        types: [published]
-
 jobs:
     publish:
         runs-on: ubuntu-latest
