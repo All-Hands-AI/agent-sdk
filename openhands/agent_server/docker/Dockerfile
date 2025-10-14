@@ -13,6 +13,7 @@ ARG PORT=8000
 FROM python:3.12-bullseye AS builder
 ARG USERNAME UID GID
 ENV UV_PROJECT_ENVIRONMENT=/agent-server/.venv
+ENV UV_PYTHON_INSTALL_DIR=/agent-server/uv-managed-python
 
 COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
@@ -24,7 +25,7 @@ WORKDIR /agent-server
 COPY --chown=${USERNAME}:${USERNAME} pyproject.toml uv.lock README.md LICENSE ./
 COPY --chown=${USERNAME}:${USERNAME} openhands ./openhands
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
-    uv sync --frozen --no-editable
+    uv python install 3.12 && uv venv --python 3.12 .venv && uv sync --frozen --no-editable --managed-python
 
 ####################################################################################
 # Binary Builder (binary mode)
@@ -194,11 +195,13 @@ EXPOSE ${PORT} ${NOVNC_PORT}
 ############################
 FROM base-image AS source
 ARG USERNAME
+ENV UV_PYTHON_INSTALL_DIR=/agent-server/uv-managed-python
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 FROM base-image-minimal AS source-minimal
 ARG USERNAME
+ENV UV_PYTHON_INSTALL_DIR=/agent-server/uv-managed-python
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
