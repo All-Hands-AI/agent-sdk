@@ -50,7 +50,7 @@ def conversation_service():
     """Create a ConversationService instance for testing."""
     with tempfile.TemporaryDirectory() as temp_dir:
         service = ConversationService(
-            persistence_dir=Path(temp_dir) / "conversations",
+            conversations_dir=Path(temp_dir) / "conversations",
         )
         # Initialize the _event_services dict to simulate an active service
         service._event_services = {}
