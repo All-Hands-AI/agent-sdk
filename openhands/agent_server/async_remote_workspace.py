@@ -1,46 +1,36 @@
+import logging
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import httpx
-from pydantic import Field, PrivateAttr
 
-from openhands.sdk.logger import get_logger
-from openhands.sdk.workspace.base import BaseWorkspace
 from openhands.sdk.workspace.models import CommandResult, FileOperationResult
 
 
-logger = get_logger(__name__)
+_logger = logging.getLogger(__name__)
 
 
-class RemoteWorkspace(BaseWorkspace):
-    """Mixin providing remote workspace operations."""
+@dataclass
+class AsyncRemoteWorkspace:
+    """Async remote workspace implementation."""
 
-    host: str = Field(description="The remote host URL for the workspace.")
-    api_key: str | None = Field(
-        default=None, description="API key for authenticating with the remote host."
-    )
+    working_dir: str
+    server_url: str
+    session_api_key: str | None = None
+    client: httpx.AsyncClient = field(default_factory=httpx.AsyncClient)
 
-    _client: httpx.Client = PrivateAttr()
-
-    def model_post_init(self, context: Any) -> None:
+    def __post_init__(self) -> None:
         # Set up remote host and API key
-        self.host = self.host.rstrip("/")
-        self.api_key = self.api_key
-        # Configure httpx client with API key header if provided
+        self.server_url = self.server_url.rstrip("/")
+
+    def _headers(self):
         headers = {}
-        if self.api_key:
-            headers["X-Session-API-Key"] = self.api_key
-        self._client = httpx.Client(base_url=self.host, timeout=30.0, headers=headers)
+        if self.session_api_key:
+            headers["X-Session-API-Key"] = self.session_api_key
+        return headers
 
-        return super().model_post_init(context)
-
-    @property
-    def client(self) -> httpx.Client:
-        """The HTTP client for communicating with the remote host."""
-        return self._client
-
-    def execute_command(
+    async def execute_command(
         self,
         command: str,
         cwd: str | Path | None = None,
@@ -59,7 +49,7 @@ class RemoteWorkspace(BaseWorkspace):
         Returns:
             CommandResult: Result with stdout, stderr, exit_code, and other metadata
         """
-        logger.debug(f"Executing remote command: {command}")
+        _logger.debug(f"Executing remote command: {command}")
 
         # Step 1: Start the bash command
         payload = {
@@ -71,16 +61,17 @@ class RemoteWorkspace(BaseWorkspace):
 
         try:
             # Start the command
-            response = self._client.post(
-                "/api/bash/execute_bash_command",
+            response = await self.client.post(
+                f"{self.server_url}/api/bash/execute_bash_command",
                 json=payload,
                 timeout=timeout + 5.0,  # Add buffer to HTTP timeout
+                headers=self._headers(),
             )
             response.raise_for_status()
             bash_command = response.json()
             command_id = bash_command["id"]
 
-            logger.debug(f"Started command with ID: {command_id}")
+            _logger.debug(f"Started command with ID: {command_id}")
 
             # Step 2: Poll for output until command completes
             start_time = time.time()
@@ -89,29 +80,32 @@ class RemoteWorkspace(BaseWorkspace):
             exit_code = None
 
             while time.time() - start_time < timeout:
-                # Search for BashOutput events for this specific command
-                # Note: limit=10 handles outputs up to ~10MB (1MB per chunk)
-                search_response = self._client.get(
-                    "/api/bash/bash_events/search",
+                # Search for all events and filter client-side
+                # (workaround for bash service filtering bug)
+                search_response = await self.client.get(
+                    f"{self.server_url}/api/bash/bash_events/search",
                     params={
-                        "kind__eq": "BashOutput",
-                        "command_id__eq": command_id,
                         "sort_order": "TIMESTAMP",
-                        "limit": 10,
+                        "limit": 100,
                     },
                     timeout=10.0,
+                    headers=self._headers(),
                 )
                 search_response.raise_for_status()
                 search_result = search_response.json()
 
-                # Process BashOutput events for this command
+                # Filter for BashOutput events for this command
                 for event in search_result.get("items", []):
-                    if event.get("stdout"):
-                        stdout_parts.append(event["stdout"])
-                    if event.get("stderr"):
-                        stderr_parts.append(event["stderr"])
-                    if event.get("exit_code") is not None:
-                        exit_code = event["exit_code"]
+                    if (
+                        event.get("kind") == "BashOutput"
+                        and event.get("command_id") == command_id
+                    ):
+                        if event.get("stdout"):
+                            stdout_parts.append(event["stdout"])
+                        if event.get("stderr"):
+                            stderr_parts.append(event["stderr"])
+                        if event.get("exit_code") is not None:
+                            exit_code = event["exit_code"]
 
                 # If we have an exit code, the command is complete
                 if exit_code is not None:
@@ -122,7 +116,7 @@ class RemoteWorkspace(BaseWorkspace):
 
             # If we timed out waiting for completion
             if exit_code is None:
-                logger.warning(f"Command timed out after {timeout} seconds: {command}")
+                _logger.warning(f"Command timed out after {timeout} seconds: {command}")
                 exit_code = -1
                 stderr_parts.append(f"Command timed out after {timeout} seconds")
 
@@ -139,7 +133,7 @@ class RemoteWorkspace(BaseWorkspace):
             )
 
         except Exception as e:
-            logger.error(f"Remote command execution failed: {e}")
+            _logger.error(f"Remote command execution failed: {e}")
             return CommandResult(
                 command=command,
                 exit_code=-1,
@@ -148,7 +142,7 @@ class RemoteWorkspace(BaseWorkspace):
                 timeout_occurred=False,
             )
 
-    def file_upload(
+    async def file_upload(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -167,7 +161,7 @@ class RemoteWorkspace(BaseWorkspace):
         source = Path(source_path)
         destination = Path(destination_path)
 
-        logger.debug(f"Remote file upload: {source} -> {destination}")
+        _logger.debug(f"Remote file upload: {source} -> {destination}")
 
         try:
             # Read the file content
@@ -179,8 +173,8 @@ class RemoteWorkspace(BaseWorkspace):
             data = {"destination_path": str(destination)}
 
             # Make synchronous HTTP call
-            response = self._client.post(
-                "/api/file/upload",
+            response = await self.client.post(
+                f"{self.server_url}/api/file/upload",
                 files=files,
                 data=data,
                 timeout=60.0,
@@ -198,7 +192,7 @@ class RemoteWorkspace(BaseWorkspace):
             )
 
         except Exception as e:
-            logger.error(f"Remote file upload failed: {e}")
+            _logger.error(f"Remote file upload failed: {e}")
             return FileOperationResult(
                 success=False,
                 source_path=str(source),
@@ -206,7 +200,7 @@ class RemoteWorkspace(BaseWorkspace):
                 error=str(e),
             )
 
-    def file_download(
+    async def file_download(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -225,15 +219,15 @@ class RemoteWorkspace(BaseWorkspace):
         source = Path(source_path)
         destination = Path(destination_path)
 
-        logger.debug(f"Remote file download: {source} -> {destination}")
+        _logger.debug(f"Remote file download: {source} -> {destination}")
 
         try:
             # Request the file from remote system
             params = {"file_path": str(source)}
 
             # Make synchronous HTTP call
-            response = self._client.get(
-                "/api/file/download",
+            response = await self.client.get(
+                f"{self.server_url}/api/file/download",
                 params=params,
                 timeout=60.0,
             )
@@ -254,7 +248,7 @@ class RemoteWorkspace(BaseWorkspace):
             )
 
         except Exception as e:
-            logger.error(f"Remote file download failed: {e}")
+            _logger.error(f"Remote file download failed: {e}")
             return FileOperationResult(
                 success=False,
                 source_path=str(source),
