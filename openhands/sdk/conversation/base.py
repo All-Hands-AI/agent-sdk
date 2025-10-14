@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
@@ -137,6 +138,13 @@ class BaseConversation(ABC):
             ValueError: If no user messages are found in the conversation.
         """
         ...
+
+    @staticmethod
+    def get_persistence_dir(
+        persistence_base_dir: str, conversation_id: ConversationID
+    ) -> str:
+        """Get the persistence directory for the conversation."""
+        return str(Path(persistence_base_dir) / conversation_id.hex)
 
     @staticmethod
     def compose_callbacks(

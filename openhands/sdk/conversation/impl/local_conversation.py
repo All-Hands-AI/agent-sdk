@@ -73,7 +73,9 @@ class LocalConversation(BaseConversation):
             id=desired_id,
             agent=agent,
             workspace=self.workspace,
-            persistence_dir=persistence_dir,
+            persistence_dir=self.get_persistence_dir(persistence_dir, desired_id)
+            if persistence_dir
+            else None,
             max_iterations=max_iteration_per_run,
             stuck_detection=stuck_detection,
         )
