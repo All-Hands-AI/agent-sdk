@@ -108,7 +108,7 @@ def test_conversation_state_persistence_save_load():
         # Load state using Conversation (which handles loading)
         conversation = Conversation(
             agent=agent,
-            persistence_dir=temp_dir,
+            persistence_dir=persist_path_for_state,
             workspace=LocalWorkspace(working_dir="/tmp"),
             conversation_id=conv_id,
         )
@@ -172,7 +172,7 @@ def test_conversation_state_incremental_save():
         # Load using Conversation and verify events are present
         conversation = Conversation(
             agent=agent,
-            persistence_dir=temp_dir,
+            persistence_dir=persist_path_for_state,
             workspace=LocalWorkspace(working_dir="/tmp"),
             conversation_id=conv_id,
         )
@@ -226,7 +226,7 @@ def test_conversation_state_event_file_scanning():
         # Load state - EventLog should handle scanning
         conversation = Conversation(
             agent=agent,
-            persistence_dir=temp_dir,
+            persistence_dir=persist_path_for_state,
             workspace=LocalWorkspace(working_dir="/tmp"),
             conversation_id=conv_id,
         )
@@ -291,7 +291,7 @@ def test_conversation_state_corrupted_event_handling():
             Conversation(
                 agent=agent,
                 workspace=LocalWorkspace(working_dir="/tmp"),
-                persistence_dir=temp_dir,
+                persistence_dir=persist_path_for_state,
                 conversation_id=conv_id,
             )
 
