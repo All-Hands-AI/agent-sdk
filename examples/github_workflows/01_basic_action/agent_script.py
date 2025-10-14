@@ -33,7 +33,7 @@ from urllib.request import urlopen
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Conversation, Event, LLMConvertibleEvent, get_logger
+from openhands.sdk import LLM, Conversation, get_logger
 from openhands.tools.preset.default import get_default_agent
 
 
