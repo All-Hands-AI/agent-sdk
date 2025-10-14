@@ -46,7 +46,7 @@ class ConversationService:
     all event_services are loaded into memory, and stored when it stops.
     """
 
-    persistence_dir: Path = field()
+    conversations_dir: Path = field()
     webhook_specs: list[WebhookSpec] = field(default_factory=list)
     session_api_key: str | None = field(default=None)
     _event_services: dict[UUID, EventService] | None = field(default=None, init=False)
@@ -281,9 +281,9 @@ class ConversationService:
         return title
 
     async def __aenter__(self):
-        self.persistence_dir.mkdir(parents=True, exist_ok=True)
+        self.conversations_dir.mkdir(parents=True, exist_ok=True)
         self._event_services = {}
-        for conversation_dir in self.persistence_dir.iterdir():
+        for conversation_dir in self.conversations_dir.iterdir():
             try:
                 meta_file = conversation_dir / "meta.json"
                 if not meta_file.exists():
@@ -323,7 +323,7 @@ class ConversationService:
     @classmethod
     def get_instance(cls, config: Config) -> "ConversationService":
         return ConversationService(
-            persistence_dir=config.conversations_path,
+            conversations_dir=config.conversations_path,
             webhook_specs=config.webhooks,
             session_api_key=(
                 config.session_api_keys[0] if config.session_api_keys else None
@@ -337,7 +337,7 @@ class ConversationService:
 
         event_service = EventService(
             stored=stored,
-            conversation_dir=self.persistence_dir / stored.id.hex,
+            conversations_dir=self.conversations_dir,
             working_dir=Path(stored.workspace.working_dir),
         )
         # Create subscribers...
