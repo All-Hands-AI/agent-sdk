@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Example: Maintenance Task Runner
+Example: Task Runner
 
-This script runs OpenHands agent for scheduled maintenance tasks. It accepts a
-prompt either as a string or from a file/URL and executes the maintenance task.
+This script runs OpenHands agent for an arbitrary task. It accepts a
+prompt either as a string or from a file/URL and executes the task.
 Designed for use with GitHub Actions workflows.
 
 Usage:
@@ -76,9 +76,9 @@ def load_prompt(prompt_location: str) -> str:
 
 
 def main():
-    """Run the maintenance task with the provided prompt."""
+    """Run the task with the provided prompt."""
     parser = argparse.ArgumentParser(
-        description="Run OpenHands agent for maintenance tasks"
+        description="Run OpenHands agent for arbitrary tasks"
     )
     parser.add_argument(
         "prompt_location",
@@ -133,7 +133,7 @@ def main():
     llm_config = {
         "model": model,
         "api_key": SecretStr(api_key),
-        "service_id": "maintenance_task",
+        "service_id": "agent_script",
         "drop_params": True,
     }
 
@@ -151,29 +151,20 @@ def main():
         cli_mode=True,
     )
 
-    # Collect LLM messages for logging
-    llm_messages = []
-
-    def conversation_callback(event: Event):
-        if isinstance(event, LLMConvertibleEvent):
-            llm_messages.append(event.to_llm_message())
-
     # Create conversation
     conversation = Conversation(
         agent=agent,
-        callbacks=[conversation_callback],
         workspace=cwd,
     )
 
-    logger.info("Starting maintenance task execution...")
+    logger.info("Starting task execution...")
     logger.info(f"Prompt: {prompt[:200]}...")
 
     # Send the prompt and run the agent
     conversation.send_message(prompt)
     conversation.run()
 
-    logger.info("Maintenance task completed successfully")
-    logger.info(f"Total LLM messages: {len(llm_messages)}")
+    logger.info("Task completed successfully")
 
 
 if __name__ == "__main__":
