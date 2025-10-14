@@ -32,11 +32,15 @@ class EventService:
     """
 
     stored: StoredConversation
-    conversation_dir: Path
+    conversations_dir: Path
     working_dir: Path
     _conversation: LocalConversation | None = field(default=None, init=False)
     _pub_sub: PubSub[Event] = field(default_factory=lambda: PubSub[Event](), init=False)
     _run_task: asyncio.Task | None = field(default=None, init=False)
+
+    @property
+    def conversation_dir(self):
+        return self.conversations_dir / self.stored.id.hex
 
     async def load_meta(self):
         meta_file = self.conversation_dir / "meta.json"
@@ -189,7 +193,7 @@ class EventService:
         conversation = LocalConversation(
             agent=agent,
             workspace=workspace,
-            persistence_dir=str(self.conversation_dir),
+            persistence_dir=str(self.conversations_dir),
             conversation_id=self.stored.id,
             callbacks=[
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
