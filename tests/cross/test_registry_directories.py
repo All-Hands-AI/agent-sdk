@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 from pydantic import SecretStr
@@ -94,4 +95,7 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         assert len(tracker_tools) == 1
         # Type ignore needed for test-specific executor access
         save_dir = str(tracker_tools[0].executor.save_dir)  # type: ignore[attr-defined]
-        assert save_dir == persistence_dir
+        # TaskTrackerTool uses conversation's persistence_dir which includes
+        # conversation ID
+        expected_save_dir = str(Path(persistence_dir) / conversation._state.id.hex)
+        assert save_dir == expected_save_dir
