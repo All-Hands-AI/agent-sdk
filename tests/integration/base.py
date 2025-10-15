@@ -22,7 +22,6 @@ from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
-from openhands.sdk.llm import content_to_str
 from openhands.sdk.tool import Tool
 
 
@@ -187,44 +186,6 @@ class BaseIntegrationTest(ABC):
             TestResult: The result of the verification
         """
         pass
-
-    def get_agent_final_response(self) -> str:
-        """Extract the final response from the agent.
-
-        An agent can end a conversation in two ways:
-        1. By calling the finish tool
-        2. By returning a text message with no tool calls
-        """
-
-        # Find the last finish action or message event from the agent
-        for event in reversed(self.conversation.state.events):
-            # Case 1: finish tool call
-            if (
-                type(event).__name__ == "ActionEvent"
-                and hasattr(event, "source")
-                and getattr(event, "source") == "agent"
-                and hasattr(event, "tool_name")
-                and getattr(event, "tool_name") == "finish"
-            ):
-                # Extract message from finish tool call
-                if hasattr(event, "action") and hasattr(
-                    getattr(event, "action"), "message"
-                ):
-                    message = getattr(getattr(event, "action"), "message")
-                    return message
-                else:
-                    break
-            # Case 2: text message with no tool calls (MessageEvent)
-            elif (
-                type(event).__name__ == "MessageEvent"
-                and hasattr(event, "source")
-                and getattr(event, "source") == "agent"
-                and hasattr(event, "llm_message")
-            ):
-                llm_message = getattr(event, "llm_message")
-                text_parts = content_to_str(llm_message.content)
-                return "".join(text_parts)
-        return ""
 
     def teardown(self):
         """
