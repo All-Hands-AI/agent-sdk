@@ -1,0 +1,109 @@
+---
+name: PR Review by OpenHands
+
+on:
+    # Trigger when a label is added to a pull request
+    pull_request:
+        types: [labeled]
+
+permissions:
+    contents: read
+    pull-requests: write
+    issues: write
+
+jobs:
+    pr-review:
+        # Only run if the "review-this" label was added
+        if: contains(github.event.label.name, 'review-this')
+        runs-on: ubuntu-latest
+        env:
+            # Configuration (modify these values as needed)
+            AGENT_SCRIPT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_PR_review/agent_script.py
+            LLM_MODEL: openhands/claude-sonnet-4-5-20250929
+            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
+            # PR context will be automatically provided by the agent script
+            PR_NUMBER: ${{ github.event.pull_request.number }}
+            PR_TITLE: ${{ github.event.pull_request.title }}
+            PR_BODY: ${{ github.event.pull_request.body }}
+            PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+            PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+            PR_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+            PR_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+            REPO_NAME: ${{ github.repository }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  # Fetch the full history to get the diff
+                  fetch-depth: 0
+                  # Check out the feature branch so agent can inspect the PR changes
+                  ref: ${{ github.event.pull_request.head.ref }}
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.12'
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
+
+            - name: Install GitHub CLI
+              run: |
+                  # Install GitHub CLI for posting review comments
+                  sudo apt-get update
+                  sudo apt-get install -y gh
+
+            - name: Install OpenHands dependencies
+              run: |
+                  # Install OpenHands SDK and tools from git repository
+                  uv pip install --system "openhands-sdk @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands/sdk"
+                  uv pip install --system "openhands-tools @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands/tools"
+
+            - name: Check required configuration
+              env:
+                  LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+              run: |
+                  if [ -z "$LLM_API_KEY" ]; then
+                    echo "Error: LLM_API_KEY secret is not set."
+                    exit 1
+                  fi
+
+                  echo "PR Number: $PR_NUMBER"
+                  echo "PR Title: $PR_TITLE"
+                  echo "Repository: $REPO_NAME"
+                  echo "LLM model: $LLM_MODEL"
+                  if [ -n "$LLM_BASE_URL" ]; then
+                    echo "LLM base URL: $LLM_BASE_URL"
+                  fi
+
+            - name: Run PR review
+              env:
+                  LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  PYTHONPATH: ''
+              run: |
+                  echo "Running PR review agent script: $AGENT_SCRIPT_URL"
+
+                  # Download script if it's a URL
+                  if [[ "$AGENT_SCRIPT_URL" =~ ^https?:// ]]; then
+                    echo "Downloading agent script from URL..."
+                    curl -sSL "$AGENT_SCRIPT_URL" -o /tmp/agent_script.py
+                    AGENT_SCRIPT_PATH="/tmp/agent_script.py"
+                  else
+                    AGENT_SCRIPT_PATH="$AGENT_SCRIPT_URL"
+                  fi
+
+                  # Run the PR review script
+                  uv run python "$AGENT_SCRIPT_PATH"
+
+            - name: Upload logs as artifact
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: openhands-pr-review-logs
+                  path: |
+                      *.log
+                      output/
+                  retention-days: 7
