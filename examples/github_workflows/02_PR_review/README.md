@@ -6,6 +6,7 @@ This example demonstrates how to set up a GitHub Actions workflow for automated 
 
 - **`workflow.yml`**: GitHub Actions workflow file that triggers on PR labels
 - **`agent_script.py`**: Python script that runs the OpenHands agent for PR review
+- **`prompt.py`**: The prompt asking the agent to write the PR review
 - **`README.md`**: This documentation file
 
 ## Features
@@ -41,7 +42,7 @@ Set the following secrets in your GitHub repository settings:
 
 ### 3. Customize the workflow (optional)
 
-Edit `.github/workflows/pr-review.yml` to customize the configuration in the `env` section:
+Edit `.github/workflows/pr-review-by-openhands.yml` to customize the configuration in the `env` section:
 
 ```yaml
 env:

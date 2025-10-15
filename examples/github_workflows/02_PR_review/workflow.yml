@@ -18,8 +18,7 @@ permissions:
 
 jobs:
     pr-review:
-        # Only run if the "review-this" label was added
-        if: contains(github.event.label.name, 'review-this')
+        if: github.event.label.name == 'review-this'
         runs-on: ubuntu-latest
         env:
             # Configuration (modify these values as needed)
@@ -29,8 +28,6 @@ jobs:
             PR_NUMBER: ${{ github.event.pull_request.number }}
             PR_TITLE: ${{ github.event.pull_request.title }}
             PR_BODY: ${{ github.event.pull_request.body }}
-            PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-            PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
             PR_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
             PR_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
             REPO_NAME: ${{ github.repository }}
