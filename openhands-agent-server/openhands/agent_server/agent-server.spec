@@ -22,7 +22,7 @@ PATHEX = [
 ]
 
 # Entry script for the agent server package (namespace: openhands/agent_server/__main__.py)
-ENTRY = str(project_root / "openhands_agent_server / "openhands" / "agent_server" / "__main__.py")
+ENTRY = str(project_root / "openhands_agent_server" / "openhands" / "agent_server" / "__main__.py")
 
 a = Analysis(
     [ENTRY],
