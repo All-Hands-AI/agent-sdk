@@ -5,34 +5,33 @@ from typing import Any
 import httpx
 from pydantic import PrivateAttr
 
-from openhands.sdk.workspace.base import BaseWorkspace
 from openhands.sdk.workspace.models import CommandResult, FileOperationResult
 from openhands.sdk.workspace.remote.remote_workspace_mixin import RemoteWorkspaceMixin
 
 
-class RemoteWorkspace(RemoteWorkspaceMixin, BaseWorkspace):
-    """Remote Workspace Implementation."""
+class AsyncRemoteWorkspace(RemoteWorkspaceMixin):
+    """Async Remote Workspace Implementation."""
 
-    _client: httpx.Client | None = PrivateAttr(default=None)
+    _client: httpx.AsyncClient | None = PrivateAttr(default=None)
 
     @property
-    def client(self) -> httpx.Client:
+    def client(self) -> httpx.AsyncClient:
         client = self._client
         if client is None:
-            client = httpx.Client()
+            client = httpx.AsyncClient()
             self._client = client
         return client
 
-    def _execute(self, generator: Generator[dict[str, Any], httpx.Response, Any]):
+    async def _execute(self, generator: Generator[dict[str, Any], httpx.Response, Any]):
         try:
             kwargs = next(generator)
             while True:
-                response = self.client.request(**kwargs)
+                response = await self.client.request(**kwargs)
                 kwargs = generator.send(response)
         except StopIteration as e:
             return e.value
 
-    def execute_command(
+    async def execute_command(
         self,
         command: str,
         cwd: str | Path | None = None,
@@ -52,10 +51,10 @@ class RemoteWorkspace(RemoteWorkspaceMixin, BaseWorkspace):
             CommandResult: Result with stdout, stderr, exit_code, and other metadata
         """
         generator = self._execute_command_generator(command, cwd, timeout)
-        result = self._execute(generator)
+        result = await self._execute(generator)
         return result
 
-    def file_upload(
+    async def file_upload(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -72,10 +71,10 @@ class RemoteWorkspace(RemoteWorkspaceMixin, BaseWorkspace):
             FileOperationResult: Result with success status and metadata
         """
         generator = self._file_upload_generator(source_path, destination_path)
-        result = self._execute(generator)
+        result = await self._execute(generator)
         return result
 
-    def file_download(
+    async def file_download(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -92,5 +91,5 @@ class RemoteWorkspace(RemoteWorkspaceMixin, BaseWorkspace):
             FileOperationResult: Result with success status and metadata
         """
         generator = self._file_download_generator(source_path, destination_path)
-        result = self._execute(generator)
+        result = await self._execute(generator)
         return result
