@@ -77,16 +77,22 @@ To trigger an automated review of a pull request:
 
 The OpenHands agent will:
 
-1. **Fetch the PR diff**: Get all changes made in the pull request
-2. **Analyze in context**: Understand changes within the broader codebase context
-3. **Generate review**: Create comprehensive feedback covering:
+1. **Repository Access**: Check out the feature branch with full repository access
+2. **Interactive Analysis**: Use bash commands to thoroughly inspect the changes:
+   - `git diff origin/main...HEAD` to see the full diff
+   - `find` and `ls` to understand project structure
+   - `cat` and `head` to examine specific files
+   - `git log` to review commit history
+3. **Contextual Understanding**: Analyze changes within the broader codebase context
+4. **Generate review**: Create comprehensive feedback covering:
    - Overall impact and assessment
    - Code quality observations
    - Potential bugs or security issues
    - Performance considerations
+   - Testing coverage and documentation
    - Best practice recommendations
    - Positive feedback on good implementations
-4. **Post review**: Add the review as a comment on the PR
+5. **Post review**: Add the review as a comment on the PR
 
 ### Example Review Output
 

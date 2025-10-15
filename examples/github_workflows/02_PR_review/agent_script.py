@@ -40,47 +40,6 @@ from prompt import PROMPT
 logger = get_logger(__name__)
 
 
-def get_pr_diff() -> str:
-    """
-    Get the diff for the current PR using git.
-    
-    Returns:
-        The PR diff as a string
-        
-    Raises:
-        RuntimeError: If unable to get the diff
-    """
-    try:
-        # Get the diff between base and head
-        base_sha = os.getenv("PR_BASE_SHA")
-        head_sha = os.getenv("PR_HEAD_SHA")
-        
-        if not base_sha or not head_sha:
-            raise RuntimeError("PR_BASE_SHA and PR_HEAD_SHA must be set")
-            
-        logger.info(f"Getting diff between {base_sha} and {head_sha}")
-        
-        # Use git diff to get the changes
-        result = subprocess.run(
-            ["git", "diff", f"{base_sha}...{head_sha}"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        diff_content = result.stdout
-        if not diff_content.strip():
-            logger.warning("No diff content found")
-            return "No changes detected in this PR."
-            
-        logger.info(f"Retrieved diff with {len(diff_content)} characters")
-        return diff_content
-        
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to get PR diff: {e}")
-    except Exception as e:
-        raise RuntimeError(f"Error getting PR diff: {e}")
-
 
 def post_review_comment(review_content: str) -> None:
     """
@@ -130,7 +89,7 @@ def main():
     # Validate required environment variables
     required_vars = [
         "LLM_API_KEY", "GITHUB_TOKEN", "PR_NUMBER", 
-        "PR_TITLE", "PR_BASE_SHA", "PR_HEAD_SHA", "REPO_NAME"
+        "PR_TITLE", "PR_BASE_BRANCH", "PR_HEAD_BRANCH", "REPO_NAME"
     ]
     
     missing_vars = [var for var in required_vars if not os.getenv(var)]
@@ -144,22 +103,21 @@ def main():
         "title": os.getenv("PR_TITLE"),
         "body": os.getenv("PR_BODY", ""),
         "repo_name": os.getenv("REPO_NAME"),
-        "base_sha": os.getenv("PR_BASE_SHA"),
-        "head_sha": os.getenv("PR_HEAD_SHA"),
+        "base_branch": os.getenv("PR_BASE_BRANCH"),
+        "head_branch": os.getenv("PR_HEAD_BRANCH"),
     }
     
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     
     try:
-        # Get the PR diff
-        diff_content = get_pr_diff()
-        
         # Create the review prompt using the template
         prompt = PROMPT.format(
             title=pr_info.get('title', 'N/A'),
             body=pr_info.get('body', 'No description provided'),
             repo_name=pr_info.get('repo_name', 'N/A'),
-            diff_content=diff_content
+            pr_number=pr_info.get('number', 'N/A'),
+            base_branch=pr_info.get('base_branch', 'main'),
+            head_branch=pr_info.get('head_branch', 'N/A')
         )
         
         # Configure LLM

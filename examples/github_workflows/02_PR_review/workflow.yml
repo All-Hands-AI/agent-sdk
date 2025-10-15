@@ -32,6 +32,8 @@ jobs:
             PR_BODY: ${{ github.event.pull_request.body }}
             PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
             PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+            PR_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+            PR_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
             REPO_NAME: ${{ github.repository }}
         steps:
             - name: Checkout repository
@@ -39,6 +41,8 @@ jobs:
               with:
                   # Fetch the full history to get the diff
                   fetch-depth: 0
+                  # Check out the feature branch so agent can inspect the PR changes
+                  ref: ${{ github.event.pull_request.head.ref }}
 
             - name: Set up Python
               uses: actions/setup-python@v5
