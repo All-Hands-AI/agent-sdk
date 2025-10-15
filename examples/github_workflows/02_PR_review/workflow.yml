@@ -23,8 +23,8 @@ jobs:
         runs-on: ubuntu-latest
         env:
             # Configuration (modify these values as needed)
-            LLM_MODEL: litellm_proxy/anthropic/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
+            LLM_MODEL: <YOUR_LLM_MODEL>
+            LLM_BASE_URL: <YOUR_LLM_BASE_URL>
             # PR context will be automatically provided by the agent script
             PR_NUMBER: ${{ github.event.pull_request.number }}
             PR_TITLE: ${{ github.event.pull_request.title }}
