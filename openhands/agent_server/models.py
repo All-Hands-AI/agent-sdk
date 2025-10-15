@@ -66,7 +66,10 @@ class StartConversationRequest(BaseModel):
     )
     conversation_id: UUID | None = Field(
         default=None,
-        description="Optional conversation ID. If not provided, a random UUID will be generated.",
+        description=(
+            "Optional conversation ID. If not provided, a random UUID will be "
+            "generated."
+        ),
     )
     confirmation_policy: ConfirmationPolicyBase = Field(
         default=NeverConfirm(),
