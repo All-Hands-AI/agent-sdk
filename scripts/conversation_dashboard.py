@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib
 import io
 import json
+import os
 import pkgutil
 import time
 import zipfile
@@ -39,15 +40,14 @@ from openhands.sdk.event import (
 from openhands.sdk.llm import Message, content_to_str
 
 
-DEFAULT_CONVERSATIONS_ROOT = Path("~/.openhands/conversations").expanduser()
+DEFAULT_CONVERSATIONS_ROOT = Path(
+    os.getenv("OPENHANDS_CONVERSATIONS_ROOT", "~/.openhands/conversations")
+).expanduser()
 
 st.set_page_config(
     page_title="OpenHands SDK Conversation Dashboard",
     layout="wide",
 )
-
-_TOOL_MODULES_LOADED = False
-TOOL_IMPORT_ERRORS: list[str] = []
 
 ROLE_STYLES: dict[str, dict[str, str]] = {
     "assistant": {"label": "LLM", "color": "#1f6feb"},
@@ -59,17 +59,14 @@ MESSAGE_PREVIEW_LIMIT = 200
 
 
 def ensure_tool_modules_loaded() -> None:
-    global _TOOL_MODULES_LOADED
-    if _TOOL_MODULES_LOADED:
-        return
+    """Eagerly import openhands.tools modules so visualize() works nicely in debug UI.
 
-    try:
-        import openhands.tools as tools_pkg
-    except Exception as exc:  # pragma: no cover - defensive import guard
-        TOOL_IMPORT_ERRORS.append(f"openhands.tools: {exc}")
-        _TOOL_MODULES_LOADED = True
-        return
+    Keep it simple: fail fast if openhands.tools isn't importable; silently skip tests.
+    """
+    import openhands.tools as tools_pkg  # noqa: F401
 
+    # Optionally pre-import submodules to register tool schemas that may affect
+    # visualization. This is best-effort and safe to no-op if packages are missing.
     for module_info in pkgutil.walk_packages(
         tools_pkg.__path__, f"{tools_pkg.__name__}."
     ):
@@ -78,36 +75,35 @@ def ensure_tool_modules_loaded() -> None:
             continue
         try:
             importlib.import_module(name)
-        except Exception as exc:  # pragma: no cover - best effort to load
-            TOOL_IMPORT_ERRORS.append(f"{name}: {exc}")
-
-    _TOOL_MODULES_LOADED = True
+        except Exception:
+            # Best-effort: ignore individual tool import errors in a debug viewer
+            pass
 
 
 ensure_tool_modules_loaded()
 
 
 def trigger_rerun() -> None:
+    """Rerun Streamlit app; support older experimental API as a fallback."""
     rerun = getattr(st, "rerun", None)
-    if not callable(rerun):  # pragma: no cover - compatibility guard
-        raise RuntimeError(
-            "streamlit.rerun is not available in this Streamlit version. "
-            "Please upgrade Streamlit to a release that includes st.rerun()."
-        )
-    rerun()
+    if callable(rerun):
+        rerun()
+        return
+    legacy = getattr(st, "experimental_rerun", None)
+    if callable(legacy):  # streamlit < 1.30
+        legacy()
+        return
+    raise RuntimeError("Streamlit rerun API not available.")
 
 
 def _prepare_filter_state(
     key: str, options: Sequence[str], defaults: Sequence[str] | None = None
 ) -> dict[str, bool]:
-    sorted_options = list(options)
-    default_set = set(defaults or sorted_options)
-    current_state = {
-        opt: st.session_state.get(key, {}).get(opt, opt in default_set)
-        for opt in sorted_options
-    }
-    st.session_state[key] = current_state
-    return current_state
+    opts = list(options)
+    default_set = set(defaults or opts)
+    state = {opt: st.session_state.get(key, {}).get(opt, opt in default_set) for opt in opts}
+    st.session_state[key] = state
+    return state
 
 
 def render_checkbox_filter_group(
@@ -119,18 +115,14 @@ def render_checkbox_filter_group(
     if not options:
         return []
 
-    options = list(options)
-    state = _prepare_filter_state(key, options, defaults)
-    num_columns = min(columns, len(options))
-    cols = st.columns(num_columns)
+    opts = list(options)
+    state = _prepare_filter_state(key, opts, defaults)
+    cols = st.columns(min(columns, len(opts)))
 
-    for idx, option in enumerate(options):
-        column = cols[idx % num_columns]
-        with column:
-            widget_key = f"{key}__{option}"
-            initial = st.session_state.get(widget_key, state[option])
-            value = st.checkbox(option, value=initial, key=widget_key)
-            state[option] = value
+    for idx, opt in enumerate(opts):
+        with cols[idx % len(cols)]:
+            widget_key = f"{key}__{opt}"
+            state[opt] = st.checkbox(opt, value=st.session_state.get(widget_key, state[opt]), key=widget_key)
 
     st.session_state[key] = state
     return [opt for opt, selected in state.items() if selected]
@@ -154,18 +146,8 @@ def describe_block(block: LLMMessageBlock) -> str | None:
 def render_message_header(text: str, color: str) -> None:
     st.markdown(
         f"""
-        <div style="
-            border-left:4px solid {color};
-            padding:0.9rem 1.2rem;
-            background-color:rgba(15,23,42,0.03);
-            border-radius:10px;
-            margin:0.8rem 0;
-        ">
-            <span style="
-                color:{color};
-                font-weight:600;
-                font-size:1.05rem;
-            ">{escape(text)}</span>
+        <div style="border-left:4px solid {color};padding:0.6rem 0.8rem;background:rgba(15,23,42,0.03);border-radius:8px;margin:0.6rem 0;">
+            <span style="color:{color};font-weight:600;">{escape(text)}</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -175,13 +157,7 @@ def render_message_header(text: str, color: str) -> None:
 def render_section_label(text: str, color: str) -> None:
     st.markdown(
         f"""
-        <div style="
-            color:{color};
-            font-weight:600;
-            margin-top:0.75rem;
-            margin-bottom:0.35rem;
-            font-size:0.95rem;
-        ">
+        <div style="color:{color};font-weight:600;margin:0.5rem 0 0.3rem;">
             {escape(text)}
         </div>
         """,
@@ -396,13 +372,8 @@ def truncate_system_prompt(
 
 
 def rich_text_to_str(value: Any) -> str:
-    try:
-        plain = value.plain
-        if isinstance(plain, str):
-            return plain
-    except AttributeError:
-        pass
-    return str(value)
+    plain = getattr(value, "plain", None)
+    return plain if isinstance(plain, str) else str(value)
 
 
 def single_line(text: str, limit: int = 160) -> str:
@@ -768,20 +739,22 @@ def main() -> None:
                 continue
         filtered_blocks.append(block)
 
-    st.sidebar.download_button(
-        label="Download conversation as ZIP",
-        data=create_conversation_zip(conversation),
-        file_name=f"{conversation.identifier}.zip",
-        mime="application/zip",
-    )
+    with st.sidebar:
+        st.download_button(
+            label="Download conversation as ZIP",
+            data=create_conversation_zip(conversation),
+            file_name=f"{conversation.identifier}.zip",
+            mime="application/zip",
+        )
 
     st.caption(f"Loaded from {conversation.path}")
     render_base_state(conversation.base_state)
     render_llm_blocks(filtered_blocks)
-
     if auto_refresh:
         time.sleep(refresh_interval)
         trigger_rerun()
+
+
 
 
 if __name__ == "__main__":
