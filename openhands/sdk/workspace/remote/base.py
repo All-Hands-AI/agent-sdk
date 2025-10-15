@@ -25,10 +25,10 @@ class RemoteWorkspace(RemoteWorkspaceMixin, BaseWorkspace):
 
     def _execute(self, generator: Generator[dict[str, Any], httpx.Response, Any]):
         try:
+            kwargs = next(generator)
             while True:
-                kwargs = next(generator)
                 response = self.client.request(**kwargs)
-                generator.send(response)
+                kwargs = generator.send(response)
         except StopIteration as e:
             return e.value
 
