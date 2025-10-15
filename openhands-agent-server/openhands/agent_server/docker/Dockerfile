@@ -23,7 +23,10 @@ USER ${USERNAME}
 WORKDIR /agent-server
 # Cache-friendly: lockfiles first
 COPY --chown=${USERNAME}:${USERNAME} pyproject.toml uv.lock README.md LICENSE ./
-COPY --chown=${USERNAME}:${USERNAME} openhands ./openhands
+COPY --chown=${USERNAME}:${USERNAME} openhands-sdk ./openhands-sdk
+COPY --chown=${USERNAME}:${USERNAME} openhands-tools ./openhands-tools
+COPY --chown=${USERNAME}:${USERNAME} openhands-workspace ./openhands-workspace
+COPY --chown=${USERNAME}:${USERNAME} openhands-agent-server ./openhands-agent-server
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
     uv python install 3.12 && uv venv --python 3.12 .venv && uv sync --frozen --no-editable --managed-python
 
