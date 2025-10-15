@@ -526,7 +526,7 @@ class TestConversationServiceStartConversation:
                 )
 
                 # Start the conversation
-                result = await conversation_service.start_conversation(request)
+                result, _ = await conversation_service.start_conversation(request)
 
                 # Verify EventService was created with the correct parameters
                 mock_event_service_class.assert_called_once()
@@ -588,7 +588,7 @@ class TestConversationServiceStartConversation:
                 )
 
                 # Start the conversation
-                result = await conversation_service.start_conversation(request)
+                result, _ = await conversation_service.start_conversation(request)
 
                 # Verify EventService was created with the correct parameters
                 mock_event_service_class.assert_called_once()
@@ -604,6 +604,55 @@ class TestConversationServiceStartConversation:
                 # Verify the result
                 assert result.id == mock_state.id
                 assert result.agent_status == AgentExecutionStatus.IDLE
+
+    @pytest.mark.asyncio
+    async def test_start_conversation_with_custom_id(self, conversation_service):
+        """Test that conversations can be started with a custom conversation_id."""
+        custom_id = uuid4()
+
+        # Create a start conversation request with custom conversation_id
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = StartConversationRequest(
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir=temp_dir),
+                confirmation_policy=NeverConfirm(),
+                conversation_id=custom_id,
+            )
+
+            result, is_new = await conversation_service.start_conversation(request)
+            assert result.id == custom_id
+            assert is_new
+
+    @pytest.mark.asyncio
+    async def test_start_conversation_with_duplicate_id(self, conversation_service):
+        """Test duplicate conversation ids are detected."""
+        custom_id = uuid4()
+
+        # Create a start conversation request with custom conversation_id
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = StartConversationRequest(
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir=temp_dir),
+                confirmation_policy=NeverConfirm(),
+                conversation_id=custom_id,
+            )
+
+            result, is_new = await conversation_service.start_conversation(request)
+            assert result.id == custom_id
+            assert is_new
+
+            duplicate_request = StartConversationRequest(
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir=temp_dir),
+                confirmation_policy=NeverConfirm(),
+                conversation_id=custom_id,
+            )
+
+            result, is_new = await conversation_service.start_conversation(
+                duplicate_request
+            )
+            assert result.id == custom_id
+            assert not is_new
 
 
 class TestConversationServiceUpdateConversation:

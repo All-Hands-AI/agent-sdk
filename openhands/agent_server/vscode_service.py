@@ -129,7 +129,7 @@ class VSCodeService:
         try:
             # Try to bind to the port
             server = await asyncio.start_server(
-                lambda r, w: None, "localhost", self.port
+                lambda _r, _w: None, "localhost", self.port
             )
             server.close()
             await server.wait_closed()

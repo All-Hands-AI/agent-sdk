@@ -32,7 +32,7 @@ from openhands.sdk.tool import (
     FinishTool,
     Observation,
 )
-from openhands.sdk.tool.builtins import FinishAction
+from openhands.sdk.tool.builtins import FinishAction, ThinkAction
 
 
 logger = get_logger(__name__)
@@ -268,10 +268,11 @@ class Agent(AgentBase):
             1. Confirmation mode is enabled
             2. Every action requires confirmation
             3. A single `FinishAction` never requires confirmation
+            4. A single `ThinkAction` never requires confirmation
         """
-        # A single `FinishAction` never requires confirmation
+        # A single `FinishAction` or `ThinkAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
-            action_events[0].action, FinishAction
+            action_events[0].action, (FinishAction, ThinkAction)
         ):
             return False
 
