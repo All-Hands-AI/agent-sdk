@@ -211,6 +211,35 @@ class TestConfirmationMode:
             )
         )
 
+    def _mock_think_action(self, thought: str = "Let me think about this") -> MagicMock:
+        """Configure LLM to return a ThinkAction tool call."""
+        tool_call = ChatCompletionMessageToolCall(
+            id="think_call_1",
+            type="function",
+            function=Function(
+                name="think",
+                arguments=f'{{"thought": "{thought}"}}',
+            ),
+        )
+
+        return MagicMock(
+            return_value=ModelResponse(
+                id="response_think",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content=f"I'll think: {thought}",
+                            tool_calls=[tool_call],
+                        )
+                    )
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )
+        )
+
     def _mock_multiple_actions_with_finish(self) -> MagicMock:
         """Configure LLM to return both a regular action and a FinishAction."""
         regular_tool_call = ChatCompletionMessageToolCall(
@@ -495,6 +524,49 @@ class TestConfirmationMode:
         ]
         assert len(obs_events) == 1
         assert obs_events[0].observation.message == "Task completed successfully!"  # type: ignore[attr-defined]
+
+    def test_single_think_action_skips_confirmation_entirely(self):
+        """Test that a single ThinkAction skips confirmation entirely."""
+        # Enable confirmation mode
+        self.conversation.set_confirmation_policy(AlwaysConfirm())
+
+        # Mock LLM to return a single ThinkAction
+        mock_completion = self._mock_think_action("Let me analyze this problem")
+
+        # Send a message that should trigger the think action
+        with patch(
+            "openhands.sdk.llm.llm.litellm_completion",
+            return_value=mock_completion.return_value,
+        ):
+            self.conversation.send_message(
+                Message(
+                    role="user", content=[TextContent(text="Please think about this")]
+                )
+            )
+
+            # Run the conversation
+            self.conversation.run()
+
+        # Single ThinkAction should skip confirmation entirely
+        assert (
+            self.conversation.state.confirmation_policy == AlwaysConfirm()
+        )  # Still in confirmation mode
+        assert (
+            self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
+        )  # Agent should be finished
+
+        # Should have no pending actions (ThinkAction was executed immediately)
+        pending_actions = ConversationState.get_unmatched_actions(
+            self.conversation.state.events
+        )
+        assert len(pending_actions) == 0
+
+        # Should have an observation event (action was executed)
+        obs_events = [
+            e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
+        ]
+        assert len(obs_events) == 1
+        assert obs_events[0].observation.content == "Your thought has been logged."  # type: ignore[attr-defined]
 
     def test_multiple_actions_with_finish_still_require_confirmation(self):
         """Test that multiple actions (including FinishAction) still require confirmation."""  # noqa: E501
