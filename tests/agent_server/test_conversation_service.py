@@ -605,6 +605,108 @@ class TestConversationServiceStartConversation:
                 assert result.id == mock_state.id
                 assert result.agent_status == AgentExecutionStatus.IDLE
 
+    @pytest.mark.asyncio
+    async def test_start_conversation_with_custom_id(self, conversation_service):
+        """Test that conversations can be started with a custom conversation_id."""
+        custom_id = uuid4()
+        
+        # Create a start conversation request with custom conversation_id
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = StartConversationRequest(
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir=temp_dir),
+                confirmation_policy=NeverConfirm(),
+                conversation_id=custom_id,
+            )
+
+            # Mock the EventService constructor and start method
+            with patch(
+                "openhands.agent_server.conversation_service.EventService"
+            ) as mock_event_service_class:
+                mock_event_service = AsyncMock(spec=EventService)
+                mock_event_service_class.return_value = mock_event_service
+
+                # Mock the state that would be returned
+                mock_state = ConversationState(
+                    id=custom_id,
+                    agent=request.agent,
+                    workspace=request.workspace,
+                    agent_status=AgentExecutionStatus.IDLE,
+                    confirmation_policy=request.confirmation_policy,
+                )
+                mock_event_service.get_state.return_value = mock_state
+                mock_event_service.stored = StoredConversation(
+                    id=custom_id,
+                    **request.model_dump(),
+                    created_at=datetime.now(UTC),
+                    updated_at=datetime.now(UTC),
+                )
+
+                # Start the conversation
+                result = await conversation_service.start_conversation(request)
+
+                # Verify EventService was created with the custom ID
+                mock_event_service_class.assert_called_once()
+                call_args = mock_event_service_class.call_args
+                stored_conversation = call_args.kwargs["stored"]
+
+                # Verify that the custom conversation_id was used
+                assert stored_conversation.id == custom_id
+                assert result.id == custom_id
+
+    @pytest.mark.asyncio
+    async def test_start_conversation_without_custom_id(self, conversation_service):
+        """Test that conversations generate a UUID when no conversation_id is provided."""
+        # Create a start conversation request without conversation_id
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = StartConversationRequest(
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+                workspace=LocalWorkspace(working_dir=temp_dir),
+                confirmation_policy=NeverConfirm(),
+                # conversation_id is None by default
+            )
+
+            # Mock the EventService constructor and start method
+            with patch(
+                "openhands.agent_server.conversation_service.EventService"
+            ) as mock_event_service_class:
+                mock_event_service = AsyncMock(spec=EventService)
+                mock_event_service_class.return_value = mock_event_service
+
+                # Mock uuid4 to return a known value
+                with patch("openhands.agent_server.conversation_service.uuid4") as mock_uuid4:
+                    generated_id = uuid4()
+                    mock_uuid4.return_value = generated_id
+
+                    # Mock the state that would be returned
+                    mock_state = ConversationState(
+                        id=generated_id,
+                        agent=request.agent,
+                        workspace=request.workspace,
+                        agent_status=AgentExecutionStatus.IDLE,
+                        confirmation_policy=request.confirmation_policy,
+                    )
+                    mock_event_service.get_state.return_value = mock_state
+                    mock_event_service.stored = StoredConversation(
+                        id=generated_id,
+                        **request.model_dump(),
+                        created_at=datetime.now(UTC),
+                        updated_at=datetime.now(UTC),
+                    )
+
+                    # Start the conversation
+                    result = await conversation_service.start_conversation(request)
+
+                    # Verify EventService was created with the generated ID
+                    mock_event_service_class.assert_called_once()
+                    call_args = mock_event_service_class.call_args
+                    stored_conversation = call_args.kwargs["stored"]
+
+                    # Verify that a UUID was generated and used
+                    assert stored_conversation.id == generated_id
+                    assert result.id == generated_id
+                    mock_uuid4.assert_called_once()
+
 
 class TestConversationServiceUpdateConversation:
     """Test cases for ConversationService.update_conversation method."""

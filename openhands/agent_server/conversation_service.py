@@ -173,7 +173,7 @@ class ConversationService:
         """Start a local event_service and return its id."""
         if self._event_services is None:
             raise ValueError("inactive_service")
-        conversation_id = uuid4()
+        conversation_id = request.conversation_id or uuid4()
         stored = StoredConversation(id=conversation_id, **request.model_dump())
         event_service = await self._start_event_service(stored)
         initial_message = request.initial_message
