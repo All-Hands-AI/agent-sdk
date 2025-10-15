@@ -525,7 +525,7 @@ class TestConfirmationMode:
         assert len(obs_events) == 1
         assert obs_events[0].observation.message == "Task completed successfully!"  # type: ignore[attr-defined]
 
-    def test_think_action_skips_confirmation_entirely(self):
+    def test_think_and_finish_action_skips_confirmation_entirely(self):
         """First step: ThinkAction (skips confirmation). Second step: FinishAction."""
         # Enable confirmation mode
         self.conversation.set_confirmation_policy(AlwaysConfirm())
