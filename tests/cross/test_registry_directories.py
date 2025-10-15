@@ -97,5 +97,5 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         save_dir = str(tracker_tools[0].executor.save_dir)  # type: ignore[attr-defined]
         # TaskTrackerTool uses conversation's persistence_dir which includes
         # conversation ID
-        expected_save_dir = str(Path(persistence_dir) / str(conversation._state.id))
+        expected_save_dir = str(Path(persistence_dir) / conversation._state.id.hex)
         assert save_dir == expected_save_dir

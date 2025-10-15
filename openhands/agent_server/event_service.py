@@ -32,36 +32,23 @@ class EventService:
     """
 
     stored: StoredConversation
-    file_store_path: Path  # Base path for conversation persistence
-    # conversation will be persisted to "file_store_path / conversation_id"
-    # and can be accessible via .persistence_dir property
+    conversations_dir: Path
     working_dir: Path
     _conversation: LocalConversation | None = field(default=None, init=False)
     _pub_sub: PubSub[Event] = field(default_factory=lambda: PubSub[Event](), init=False)
     _run_task: asyncio.Task | None = field(default=None, init=False)
 
     @property
-    def persistence_dir(self) -> Path:
-        """Path to the persistence directory for this conversation.
-
-        It would typically be:
-            self.file_store_path / str(conversation_id)
-        """
-        if not self._conversation:
-            raise ValueError("inactive_service")
-        persistence_dir = self._conversation.state.persistence_dir
-        assert persistence_dir is not None, (
-            "persistence_dir should be set in LocalConversation"
-        )
-        return Path(persistence_dir)
+    def conversation_dir(self):
+        return self.conversations_dir / self.stored.id.hex
 
     async def load_meta(self):
-        meta_file = self.persistence_dir / "meta.json"
+        meta_file = self.conversation_dir / "meta.json"
         self.stored = StoredConversation.model_validate_json(meta_file.read_text())
 
     async def save_meta(self):
         self.stored.updated_at = utc_now()
-        meta_file = self.persistence_dir / "meta.json"
+        meta_file = self.conversation_dir / "meta.json"
         meta_file.write_text(self.stored.model_dump_json())
 
     async def get_event(self, event_id: str) -> Event | None:
@@ -196,7 +183,7 @@ class EventService:
         self._main_loop = asyncio.get_running_loop()
 
         # self.stored contains an Agent configuration we can instantiate
-        self.file_store_path.mkdir(parents=True, exist_ok=True)
+        self.conversation_dir.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
         # Convert workspace to LocalWorkspace if needed
@@ -206,7 +193,7 @@ class EventService:
         conversation = LocalConversation(
             agent=agent,
             workspace=workspace,
-            persistence_dir=str(self.file_store_path),
+            persistence_dir=str(self.conversations_dir),
             conversation_id=self.stored.id,
             callbacks=[
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
