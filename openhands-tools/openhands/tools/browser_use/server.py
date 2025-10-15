@@ -1,5 +1,10 @@
 from browser_use.mcp.server import BrowserUseServer
 
+from openhands.sdk import get_logger
+
+
+logger = get_logger(__name__)
+
 
 class CustomBrowserUseServer(BrowserUseServer):
     """
@@ -22,6 +27,9 @@ class CustomBrowserUseServer(BrowserUseServer):
                 self.browser_session, extract_links
             )
         except Exception as e:
+            logger.exception(
+                "Error extracting clean markdown", exc_info=e, stack_info=True
+            )
             return f"Could not extract clean markdown: {type(e).__name__}"
 
         # Original content length for processing
