@@ -365,7 +365,7 @@ class ConversationService:
 class _EventSubscriber(Subscriber):
     service: EventService
 
-    async def __call__(self, event: Event):
+    async def __call__(self, _event: Event):
         self.service.stored.updated_at = utc_now()
         update_last_execution_time()
 

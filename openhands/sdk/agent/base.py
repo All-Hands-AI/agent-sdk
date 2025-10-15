@@ -174,7 +174,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     def init_state(
         self,
         state: "ConversationState",
-        on_event: "ConversationCallbackType",
+        on_event: "ConversationCallbackType",  # noqa: ARG002
     ) -> None:
         """Initialize the empty conversation state to prepare the agent for user
         messages.
