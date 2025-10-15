@@ -114,7 +114,7 @@ class RemoteWorkspaceMixin(BaseModel):
                     break
 
                 # Wait a bit before polling again
-                time.sleep(0.5)
+                time.sleep(0.1)
 
             # If we timed out waiting for completion
             if exit_code is None:
