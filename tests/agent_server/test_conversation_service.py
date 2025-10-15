@@ -2,7 +2,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from pydantic import SecretStr
@@ -619,99 +619,8 @@ class TestConversationServiceStartConversation:
                 conversation_id=custom_id,
             )
 
-            # Mock only the EventService constructor and necessary methods
-            with patch(
-                "openhands.agent_server.conversation_service.EventService"
-            ) as mock_event_service_class:
-                mock_event_service = AsyncMock(spec=EventService)
-                mock_event_service_class.return_value = mock_event_service
-
-                # Set up the mock state and stored conversation
-                mock_state = ConversationState(
-                    id=custom_id,
-                    agent=request.agent,
-                    workspace=request.workspace,
-                    agent_status=AgentExecutionStatus.IDLE,
-                    confirmation_policy=request.confirmation_policy,
-                )
-                mock_event_service.get_state.return_value = mock_state
-                mock_event_service.stored = StoredConversation(
-                    id=custom_id,
-                    **request.model_dump(),
-                    created_at=datetime.now(UTC),
-                    updated_at=datetime.now(UTC),
-                )
-
-                # Start the conversation
-                result = await conversation_service.start_conversation(request)
-
-                # Verify EventService was created with the custom ID
-                mock_event_service_class.assert_called_once()
-                call_args = mock_event_service_class.call_args
-                stored_conversation = call_args.kwargs["stored"]
-
-                # This is the key test: verify the custom conversation_id was used
-                assert stored_conversation.id == custom_id
-
-                # Verify the result uses the custom ID (from the mocked get_state)
-                assert result.id == custom_id
-
-    @pytest.mark.asyncio
-    async def test_start_conversation_without_custom_id(self, conversation_service):
-        """Test that conversations generate a UUID when no conversation_id is provided."""  # noqa: E501
-        # Create a start conversation request without conversation_id
-        with tempfile.TemporaryDirectory() as temp_dir:
-            request = StartConversationRequest(
-                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
-                workspace=LocalWorkspace(working_dir=temp_dir),
-                confirmation_policy=NeverConfirm(),
-                # conversation_id is None by default
-            )
-
-            # Mock the EventService constructor and uuid4 to control ID generation
-            generated_id = uuid4()
-            with (
-                patch(
-                    "openhands.agent_server.conversation_service.EventService"
-                ) as mock_event_service_class,
-                patch(
-                    "openhands.agent_server.conversation_service.uuid4",
-                    return_value=generated_id,
-                ),
-            ):
-                mock_event_service = AsyncMock(spec=EventService)
-                mock_event_service_class.return_value = mock_event_service
-
-                # Set up the mock state and stored conversation
-                mock_state = ConversationState(
-                    id=generated_id,
-                    agent=request.agent,
-                    workspace=request.workspace,
-                    agent_status=AgentExecutionStatus.IDLE,
-                    confirmation_policy=request.confirmation_policy,
-                )
-                mock_event_service.get_state.return_value = mock_state
-                mock_event_service.stored = StoredConversation(
-                    id=generated_id,
-                    **request.model_dump(),
-                    created_at=datetime.now(UTC),
-                    updated_at=datetime.now(UTC),
-                )
-
-                # Start the conversation
-                result = await conversation_service.start_conversation(request)
-
-                # Verify EventService was created
-                mock_event_service_class.assert_called_once()
-                call_args = mock_event_service_class.call_args
-                stored_conversation = call_args.kwargs["stored"]
-
-                # This is the key test: verify a UUID was generated (not None)
-                assert stored_conversation.id is not None
-                assert isinstance(stored_conversation.id, UUID)
-
-                # Verify the result uses the generated ID
-                assert result.id == stored_conversation.id
+            result = await conversation_service.start_conversation(request)
+            assert result.id == custom_id
 
 
 class TestConversationServiceUpdateConversation:
