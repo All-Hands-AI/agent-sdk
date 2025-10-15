@@ -23,7 +23,6 @@ jobs:
         runs-on: ubuntu-latest
         env:
             # Configuration (modify these values as needed)
-            AGENT_SCRIPT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_PR_review/agent_script.py
             LLM_MODEL: openhands/claude-sonnet-4-5-20250929
             LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
             # PR context will be automatically provided by the agent script
@@ -36,11 +35,18 @@ jobs:
             PR_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
             REPO_NAME: ${{ github.repository }}
         steps:
-            - name: Checkout repository
+            - name: Checkout agent-sdk repository
+              uses: actions/checkout@v4
+              with:
+                  repository: All-Hands-AI/agent-sdk
+                  path: agent-sdk
+
+            - name: Checkout PR repository
               uses: actions/checkout@v4
               with:
                   # Fetch the full history to get the diff
                   fetch-depth: 0
+                  path: pr-repo
                   # Check out the feature branch so agent can inspect the PR changes
                   ref: ${{ github.event.pull_request.head.ref }}
 
@@ -87,21 +93,12 @@ jobs:
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  PYTHONPATH: ''
               run: |
-                  echo "Running PR review agent script: $AGENT_SCRIPT_URL"
+                  # Change to the PR repository directory so agent can analyze the code
+                  cd pr-repo
 
-                  # Download script if it's a URL
-                  if [[ "$AGENT_SCRIPT_URL" =~ ^https?:// ]]; then
-                    echo "Downloading agent script from URL..."
-                    curl -sSL "$AGENT_SCRIPT_URL" -o /tmp/agent_script.py
-                    AGENT_SCRIPT_PATH="/tmp/agent_script.py"
-                  else
-                    AGENT_SCRIPT_PATH="$AGENT_SCRIPT_URL"
-                  fi
-
-                  # Run the PR review script
-                  uv run python "$AGENT_SCRIPT_PATH"
+                  # Run the PR review script from the agent-sdk checkout
+                  uv run python ../agent-sdk/examples/github_workflows/02_PR_review/agent_script.py
 
             - name: Upload logs as artifact
               uses: actions/upload-artifact@v4

@@ -27,11 +27,17 @@ see README.md in this directory.
 import os
 import subprocess
 import sys
+from pathlib import Path
 
-from prompt import PROMPT
 
-from openhands.sdk import LLM, Conversation, get_logger
-from openhands.tools.preset.default import get_default_agent
+# Add the script directory to Python path so we can import prompt.py
+script_dir = Path(__file__).parent
+sys.path.insert(0, str(script_dir))
+
+from prompt import PROMPT  # noqa: E402
+
+from openhands.sdk import LLM, Conversation, get_logger  # noqa: E402
+from openhands.tools.preset.default import get_default_agent  # noqa: E402
 
 
 logger = get_logger(__name__)
