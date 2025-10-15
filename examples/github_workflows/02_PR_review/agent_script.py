@@ -34,6 +34,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.tools.preset.default import get_default_agent
+from prompt import PROMPT
 
 
 logger = get_logger(__name__)
@@ -119,49 +120,7 @@ def post_review_comment(review_content: str) -> None:
         raise RuntimeError(f"Error posting review comment: {e}")
 
 
-def create_review_prompt(pr_info: Dict[str, str], diff_content: str) -> str:
-    """
-    Create a comprehensive prompt for PR review.
-    
-    Args:
-        pr_info: Dictionary containing PR information
-        diff_content: The PR diff content
-        
-    Returns:
-        A formatted prompt for the review agent
-    """
-    prompt = f"""You are an expert code reviewer. Please provide a thorough and constructive review of this pull request.
 
-## Pull Request Information
-- **Title**: {pr_info.get('title', 'N/A')}
-- **Description**: {pr_info.get('body', 'No description provided')}
-- **Repository**: {pr_info.get('repo_name', 'N/A')}
-
-## Your Review Task
-Please analyze the following code changes and provide:
-
-1. **Overall Assessment**: A high-level summary of the changes and their impact
-2. **Code Quality**: Comments on code structure, readability, and best practices
-3. **Potential Issues**: Any bugs, security concerns, or performance issues you identify
-4. **Suggestions**: Specific recommendations for improvement
-5. **Positive Feedback**: Highlight good practices and well-implemented features
-
-## Guidelines for Your Review
-- Be constructive and helpful in your feedback
-- Focus on significant issues rather than minor style preferences
-- Consider the broader context and impact of changes
-- Suggest specific improvements where possible
-- Acknowledge good practices when you see them
-
-## Code Changes to Review
-
-```diff
-{diff_content}
-```
-
-Please provide your review in a clear, well-structured format that will be helpful to the PR author and other reviewers.
-"""
-    return prompt
 
 
 def main():
@@ -195,8 +154,13 @@ def main():
         # Get the PR diff
         diff_content = get_pr_diff()
         
-        # Create the review prompt
-        prompt = create_review_prompt(pr_info, diff_content)
+        # Create the review prompt using the template
+        prompt = PROMPT.format(
+            title=pr_info.get('title', 'N/A'),
+            body=pr_info.get('body', 'No description provided'),
+            repo_name=pr_info.get('repo_name', 'N/A'),
+            diff_content=diff_content
+        )
         
         # Configure LLM
         api_key = os.getenv("LLM_API_KEY")
