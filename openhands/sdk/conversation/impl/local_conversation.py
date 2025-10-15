@@ -123,7 +123,8 @@ class LocalConversation(BaseConversation):
             self.update_secrets(secret_values)
 
         if should_enable_observability():
-            self._span = start_active_span("conversation")
+            self._span = start_active_span("conversation", session_id=str(desired_id))
+
         else:
             self._span = None
 
@@ -236,6 +237,8 @@ class LocalConversation(BaseConversation):
                     AgentExecutionStatus.PAUSED,
                     AgentExecutionStatus.STUCK,
                 ]:
+                    if self._span:
+                        end_active_span(self._span)
                     break
 
                 # Check for stuck patterns if enabled
