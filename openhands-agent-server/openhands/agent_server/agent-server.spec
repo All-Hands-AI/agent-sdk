@@ -20,7 +20,7 @@ project_root = Path.cwd()
 
 a = Analysis(
     ['__main__.py'],
-    pathex=[str(project_root / 'openhands' / 'agent_server')],
+    pathex=[str(project_root / 'openhands_agent_server' / 'openhands' / 'agent_server')],
     binaries=[],
     datas=[
         # Include any data files that might be needed
