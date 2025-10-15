@@ -3,8 +3,8 @@
 Example: PR Review Agent
 
 This script runs OpenHands agent to review a pull request and provide
-fine-grained review comments. It analyzes the PR diff, understands the
-changes in context, and posts detailed review feedback.
+fine-grained review comments. The agent has full repository access and uses
+bash commands to analyze changes in context and post detailed review feedback.
 
 Designed for use with GitHub Actions workflows triggered by PR labels.
 
@@ -16,8 +16,8 @@ Environment Variables:
     PR_NUMBER: Pull request number (required)
     PR_TITLE: Pull request title (required)
     PR_BODY: Pull request body (optional)
-    PR_BASE_SHA: Base commit SHA (required)
-    PR_HEAD_SHA: Head commit SHA (required)
+    PR_BASE_BRANCH: Base branch name (required)
+    PR_HEAD_BRANCH: Head branch name (required)
     REPO_NAME: Repository name in format owner/repo (required)
 
 For setup instructions, usage examples, and GitHub Actions integration,
@@ -153,7 +153,7 @@ def main():
         )
         
         logger.info("Starting PR review analysis...")
-        logger.info(f"Analyzing {len(diff_content)} characters of diff content")
+        logger.info("Agent will analyze the PR using bash commands for full repository access")
         
         # Send the prompt and run the agent
         conversation.send_message(prompt)
