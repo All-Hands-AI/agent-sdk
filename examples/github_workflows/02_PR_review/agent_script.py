@@ -45,20 +45,27 @@ def post_review_comment(review_content: str) -> None:
         review_content: The review content to post
     """
     logger.info("Posting review comment to GitHub...")
+    pr_number = os.getenv("PR_NUMBER")
+    repo_name = os.getenv("REPO_NAME")
+    github_token = os.getenv("GITHUB_TOKEN")
+
+    if not pr_number or not repo_name or not github_token:
+        raise RuntimeError("Missing required environment variables for posting review")
+
     subprocess.run(
         [
             "gh",
             "pr",
             "review",
-            os.getenv("PR_NUMBER"),
+            pr_number,
             "--repo",
-            os.getenv("REPO_NAME"),
+            repo_name,
             "--comment",
             "--body",
             review_content,
         ],
         check=True,
-        env={**os.environ, "GH_TOKEN": os.getenv("GITHUB_TOKEN", "")},
+        env={**os.environ, "GH_TOKEN": github_token},
     )
     logger.info("Successfully posted review comment")
 

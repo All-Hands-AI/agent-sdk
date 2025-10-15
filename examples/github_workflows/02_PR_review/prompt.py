@@ -20,8 +20,6 @@ You are currently on the feature branch and have access to bash tools. Please co
 ### 1. Repository Analysis
 - Use `git log --oneline -10` to see recent commits
 - Use `git diff origin/{base_branch}...HEAD` to see the full diff
-- Use `find` and `ls` commands to understand the project structure
-- Use `cat` or `head` to examine specific files mentioned in the PR
 
 ### 2. Code Quality Assessment
 - Examine the actual files that were changed
