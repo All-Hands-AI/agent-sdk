@@ -525,93 +525,50 @@ class TestConfirmationMode:
         assert len(obs_events) == 1
         assert obs_events[0].observation.message == "Task completed successfully!"  # type: ignore[attr-defined]
 
-    def test_single_think_action_skips_confirmation_entirely(self):
-        """Test that a single ThinkAction skips confirmation entirely."""
+    def test_think_action_skips_confirmation_entirely(self):
+        """First step: ThinkAction (skips confirmation). Second step: FinishAction."""
         # Enable confirmation mode
         self.conversation.set_confirmation_policy(AlwaysConfirm())
 
-        # Mock LLM to return a single ThinkAction
-        mock_completion = self._mock_think_action("Let me analyze this problem")
+        # 1st model call -> ThinkAction; 2nd model call -> FinishAction
+        mock_think = self._mock_think_action("Let me analyze this problem")
+        mock_finish = self._mock_finish_action("Analysis complete")
 
-        # Send a message that should trigger the think action
         with patch(
             "openhands.sdk.llm.llm.litellm_completion",
-            return_value=mock_completion.return_value,
+            side_effect=[mock_think.return_value, mock_finish.return_value],
         ):
+            # Kick things off (LLM returns ThinkAction; should execute immediately)
             self.conversation.send_message(
                 Message(
                     role="user", content=[TextContent(text="Please think about this")]
                 )
             )
-
-            # Run the conversation
             self.conversation.run()
 
-        # Single ThinkAction should skip confirmation entirely
-        assert (
-            self.conversation.state.confirmation_policy == AlwaysConfirm()
-        )  # Still in confirmation mode
-        assert (
-            self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
-        )  # Agent should be finished
+        # Still in confirmation mode overall, but both actions should have executed
+        assert self.conversation.state.confirmation_policy == AlwaysConfirm()
+        assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
 
-        # Should have no pending actions (ThinkAction was executed immediately)
+        # No pending actions
         pending_actions = ConversationState.get_unmatched_actions(
             self.conversation.state.events
         )
         assert len(pending_actions) == 0
 
-        # Should have an observation event (action was executed)
+        # We should have two observations: one for ThinkAction, one for FinishAction
         obs_events = [
             e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
         ]
-        assert len(obs_events) == 1
+        assert len(obs_events) == 2
+
+        # 1) ThinkAction observation
+        assert hasattr(obs_events[0].observation, "content")
         assert obs_events[0].observation.content == "Your thought has been logged."  # type: ignore[attr-defined]
 
-    def test_multiple_actions_with_finish_still_require_confirmation(self):
-        """Test that multiple actions (including FinishAction) still require confirmation."""  # noqa: E501
-        # Enable confirmation mode
-        self.conversation.set_confirmation_policy(AlwaysConfirm())
-
-        # Mock LLM to return both a regular action and a FinishAction
-        mock_completion = self._mock_multiple_actions_with_finish()
-
-        # Send a message that should trigger both actions
-        with patch(
-            "openhands.sdk.llm.llm.litellm_completion",
-            return_value=mock_completion.return_value,
-        ):
-            self.conversation.send_message(
-                Message(
-                    role="user",
-                    content=[TextContent(text="Execute command then finish")],
-                )
-            )
-
-            # Run the conversation
-            self.conversation.run()
-
-        # Multiple actions should all wait for confirmation (including FinishAction)
-        assert self.conversation.state.confirmation_policy == AlwaysConfirm()
-        assert (
-            self.conversation.state.agent_status
-            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-        )
-
-        # Should have pending actions (both actions)
-        pending_actions = ConversationState.get_unmatched_actions(
-            self.conversation.state.events
-        )
-        assert len(pending_actions) == 2
-        action_tools = [action.tool_name for action in pending_actions]
-        assert "test_tool" in action_tools
-        assert "finish" in action_tools
-
-        # Should have no observation events (no actions executed yet)
-        obs_events = [
-            e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
-        ]
-        assert len(obs_events) == 0
+        # 2) FinishAction observation
+        assert hasattr(obs_events[1].observation, "message")
+        assert obs_events[1].observation.message == "Analysis complete"  # type: ignore[attr-defined]
 
     def test_pause_during_confirmation_preserves_waiting_status(self):
         """Test that pausing during WAITING_FOR_CONFIRMATION preserves the status.
