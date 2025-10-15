@@ -245,7 +245,7 @@ def test_cache_size_limit(encoding_manager, temp_file):
                 encoding_manager, "detect_encoding", return_value="utf-8"
             ):
                 # Access paths in order 0, 1, 2, 3
-                for _i, path in enumerate(paths):
+                for i, path in enumerate(paths):
                     encoding_manager.get_encoding(path)
 
                 # After adding 4th item, the cache should still have 3 items

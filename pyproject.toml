@@ -41,7 +41,6 @@ select = [
     "F",    # pyflakes (includes F841: unused-variable)
     "I",    # isort
     "UP",   # pyupgrade
-    "B007", # unused-loop-control-variable
     "ARG",  # flake8-unused-arguments
 ]
 

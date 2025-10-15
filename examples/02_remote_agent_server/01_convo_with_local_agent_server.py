@@ -76,7 +76,7 @@ class ManagedAPIServer:
 
         # Wait for server to be ready
         max_retries = 30
-        for _i in range(max_retries):
+        for i in range(max_retries):
             try:
                 import httpx
 
