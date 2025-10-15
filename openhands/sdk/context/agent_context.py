@@ -53,7 +53,7 @@ class AgentContext(BaseModel):
 
     @field_validator("microagents")
     @classmethod
-    def _validate_microagents(cls, v: list[BaseMicroagent], info):
+    def _validate_microagents(cls, v: list[BaseMicroagent], _info):
         if not v:
             return v
         # Check for duplicate microagent names
