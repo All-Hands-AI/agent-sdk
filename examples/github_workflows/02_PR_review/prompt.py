@@ -61,4 +61,4 @@ After your analysis, provide a comprehensive review with:
 - Acknowledge good practices when you see them
 
 Start by exploring the repository structure and understanding the changes, then provide your detailed review.
-"""
+"""  # type: ignore[E501]
