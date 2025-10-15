@@ -186,13 +186,17 @@ def test_execute_command_generator_polling_loop(mock_time, mock_sleep):
     mock_sleep.assert_called_with(0.1)
 
 
-@patch("time.time")
+@patch("openhands.sdk.workspace.remote.remote_workspace_mixin.time")
 def test_execute_command_generator_timeout(mock_time):
     """Test _execute_command_generator handles timeout correctly."""
     mixin = TestRemoteWorkspaceMixin(host="http://localhost:8000")
 
     # Mock time to simulate timeout
-    mock_time.side_effect = [0, 35]  # Start at 0, then jump to 35 (past 30s timeout)
+    mock_time.time.side_effect = [
+        0,
+        0,
+        35,
+    ]  # Start at 0, then jump to 35 (past 30s timeout)
 
     # Mock responses
     start_response = Mock()
