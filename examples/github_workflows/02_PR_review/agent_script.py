@@ -102,7 +102,6 @@ def main():
             title=pr_info.get("title", "N/A"),
             body=pr_info.get("body", "No description provided"),
             repo_name=pr_info.get("repo_name", "N/A"),
-            pr_number=pr_info.get("number", "N/A"),
             base_branch=pr_info.get("base_branch", "main"),
             head_branch=pr_info.get("head_branch", "N/A"),
         )

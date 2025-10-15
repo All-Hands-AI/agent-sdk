@@ -11,7 +11,6 @@ PROMPT = """You are an expert code reviewer conducting a comprehensive pull requ
 - **Title**: {title}
 - **Description**: {body}
 - **Repository**: {repo_name}
-- **PR Number**: {pr_number}
 - **Base Branch**: {base_branch}
 - **Head Branch**: {head_branch}
 
