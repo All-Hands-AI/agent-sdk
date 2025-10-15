@@ -37,7 +37,7 @@ def _resolver_from_instance(name: str, tool: ToolDefinition) -> Resolver:
         )
 
     def _resolve(
-        params: dict[str, Any], conv_state: "ConversationState"
+        params: dict[str, Any], _conv_state: "ConversationState"
     ) -> Sequence[ToolDefinition]:
         if params:
             raise ValueError(
@@ -85,7 +85,7 @@ def _is_abstract_method(cls: type, name: str) -> bool:
     return getattr(attr, "__isabstractmethod__", False)
 
 
-def _resolver_from_subclass(name: str, cls: type[ToolBase]) -> Resolver:
+def _resolver_from_subclass(_name: str, cls: type[ToolBase]) -> Resolver:
     create = getattr(cls, "create", None)
 
     if create is None or not callable(create) or _is_abstract_method(cls, "create"):
