@@ -25,7 +25,7 @@ jobs:
             # Configuration (modify these values as needed)
             AGENT_SCRIPT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_PR_review/agent_script.py
             LLM_MODEL: openhands/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: ''
+            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
             # PR context will be automatically provided by the agent script
             PR_NUMBER: ${{ github.event.pull_request.number }}
             PR_TITLE: ${{ github.event.pull_request.title }}

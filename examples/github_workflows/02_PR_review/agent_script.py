@@ -24,79 +24,66 @@ For setup instructions, usage examples, and GitHub Actions integration,
 see README.md in this directory.
 """
 
-import json
 import os
 import subprocess
 import sys
-from typing import Dict, List, Optional
 
+from prompt import PROMPT
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.tools.preset.default import get_default_agent
-from prompt import PROMPT
 
 
 logger = get_logger(__name__)
 
 
-
 def post_review_comment(review_content: str) -> None:
     """
     Post a review comment to the PR using GitHub CLI.
-    
+
     Args:
         review_content: The review content to post
     """
-    try:
-        pr_number = os.getenv("PR_NUMBER")
-        repo_name = os.getenv("REPO_NAME")
-        
-        if not pr_number or not repo_name:
-            raise RuntimeError("PR_NUMBER and REPO_NAME must be set")
-            
-        logger.info(f"Posting review comment to PR #{pr_number} in {repo_name}")
-        
-        # Use GitHub CLI to post the review
-        subprocess.run(
-            [
-                "gh", "pr", "review", pr_number,
-                "--repo", repo_name,
-                "--comment",
-                "--body", review_content
-            ],
-            check=True,
-            env={**os.environ, "GH_TOKEN": os.getenv("GITHUB_TOKEN", "")}
-        )
-        
-        logger.info("Successfully posted review comment")
-        
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to post review comment: {e}")
-        raise RuntimeError(f"Failed to post review comment: {e}")
-    except Exception as e:
-        logger.error(f"Error posting review comment: {e}")
-        raise RuntimeError(f"Error posting review comment: {e}")
-
-
-
+    logger.info("Posting review comment to GitHub...")
+    subprocess.run(
+        [
+            "gh",
+            "pr",
+            "review",
+            os.getenv("PR_NUMBER"),
+            "--repo",
+            os.getenv("REPO_NAME"),
+            "--comment",
+            "--body",
+            review_content,
+        ],
+        check=True,
+        env={**os.environ, "GH_TOKEN": os.getenv("GITHUB_TOKEN", "")},
+    )
+    logger.info("Successfully posted review comment")
 
 
 def main():
     """Run the PR review agent."""
     logger.info("Starting PR review process...")
-    
+
     # Validate required environment variables
     required_vars = [
-        "LLM_API_KEY", "GITHUB_TOKEN", "PR_NUMBER", 
-        "PR_TITLE", "PR_BASE_BRANCH", "PR_HEAD_BRANCH", "REPO_NAME"
+        "LLM_API_KEY",
+        "GITHUB_TOKEN",
+        "PR_NUMBER",
+        "PR_TITLE",
+        "PR_BASE_BRANCH",
+        "PR_HEAD_BRANCH",
+        "REPO_NAME",
     ]
-    
+
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
-    
+
     # Get PR information
     pr_info = {
         "number": os.getenv("PR_NUMBER"),
@@ -106,81 +93,83 @@ def main():
         "base_branch": os.getenv("PR_BASE_BRANCH"),
         "head_branch": os.getenv("PR_HEAD_BRANCH"),
     }
-    
+
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
-    
+
     try:
         # Create the review prompt using the template
         prompt = PROMPT.format(
-            title=pr_info.get('title', 'N/A'),
-            body=pr_info.get('body', 'No description provided'),
-            repo_name=pr_info.get('repo_name', 'N/A'),
-            pr_number=pr_info.get('number', 'N/A'),
-            base_branch=pr_info.get('base_branch', 'main'),
-            head_branch=pr_info.get('head_branch', 'N/A')
+            title=pr_info.get("title", "N/A"),
+            body=pr_info.get("body", "No description provided"),
+            repo_name=pr_info.get("repo_name", "N/A"),
+            pr_number=pr_info.get("number", "N/A"),
+            base_branch=pr_info.get("base_branch", "main"),
+            head_branch=pr_info.get("head_branch", "N/A"),
         )
-        
+
         # Configure LLM
         api_key = os.getenv("LLM_API_KEY")
         model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
         base_url = os.getenv("LLM_BASE_URL")
-        
+
         llm_config = {
             "model": model,
             "api_key": SecretStr(api_key),
             "service_id": "pr_review_agent",
             "drop_params": True,
         }
-        
+
         if base_url:
             llm_config["base_url"] = base_url
-            
+
         llm = LLM(**llm_config)
-        
+
         # Get the current working directory as workspace
         cwd = os.getcwd()
-        
+
         # Create agent with default tools
         agent = get_default_agent(
             llm=llm,
             cli_mode=True,
         )
-        
+
         # Create conversation
         conversation = Conversation(
             agent=agent,
             workspace=cwd,
         )
-        
+
         logger.info("Starting PR review analysis...")
-        logger.info("Agent will analyze the PR using bash commands for full repository access")
-        
+        logger.info(
+            "Agent will analyze the PR using bash commands for full repository access"
+        )
+
         # Send the prompt and run the agent
         conversation.send_message(prompt)
         conversation.run()
-        
+
         # Get the agent's response
         messages = conversation.get_messages()
         if not messages:
             raise RuntimeError("No response from the review agent")
-            
+
         # Find the last assistant message
         review_content = None
         for message in reversed(messages):
             if message.role == "assistant" and message.content:
                 review_content = message.content
                 break
-                
+
         if not review_content:
             raise RuntimeError("No review content generated by the agent")
-            
+
         logger.info(f"Generated review with {len(review_content)} characters")
-        
+
         # Post the review comment
         post_review_comment(review_content)
-        
+
         logger.info("PR review completed successfully")
-        
+
     except Exception as e:
         logger.error(f"PR review failed: {e}")
         sys.exit(1)

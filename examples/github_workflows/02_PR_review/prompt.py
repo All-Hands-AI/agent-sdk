@@ -35,30 +35,11 @@ You are currently on the feature branch and have access to bash tools. Please co
 - Check if documentation has been updated appropriately
 - Verify that new features have corresponding tests
 
-### 4. Security and Performance
-- Review for potential security vulnerabilities
-- Check for performance implications
-- Look for proper error handling
-
-## Your Review Output
-After your analysis, provide a comprehensive review with:
-
-1. **Overall Assessment**: High-level summary of the changes and their impact
-2. **Detailed Analysis**: Specific observations about the code changes
-3. **Code Quality**: Comments on structure, readability, and best practices
-4. **Potential Issues**: Any bugs, security concerns, or performance issues
-5. **Testing Coverage**: Assessment of test coverage for the changes
-6. **Documentation**: Whether documentation is adequate and up-to-date
-7. **Suggestions**: Specific recommendations for improvement
-8. **Positive Feedback**: Highlight good practices and well-implemented features
-
 ## Guidelines
 - Use bash commands to gather comprehensive context about the changes
 - Be thorough but constructive in your feedback
 - Focus on significant issues rather than minor style preferences
-- Consider the broader impact on the codebase
 - Provide specific, actionable suggestions
-- Acknowledge good practices when you see them
 
 Start by exploring the repository structure and understanding the changes, then provide your detailed review.
-"""  # type: ignore[E501]
+"""  # noqa
