@@ -15,16 +15,12 @@ PROMPT = """You are an expert code reviewer. Use bash commands to analyze the PR
 - **Head Branch**: {head_branch}
 
 ## Analysis Process
-Use these bash commands to understand the changes:
-- `git diff origin/{base_branch}...HEAD` - see the full diff
-- `find` and `ls` - understand project structure
-- `cat` - examine specific files
-- `git log --oneline -10` - see recent commits
+Use bash commands to understand the changes, check out diffs and examine the code related to the PR.
 
 ## Review Output Format
 Provide a concise review focused on issues that need attention:
-
-### Issues Found (sorted by priority)
+<FORMAT>
+### Issues Found
 
 **🔴 Critical Issues**
 - [List blocking issues that prevent merge]
@@ -34,18 +30,13 @@ Provide a concise review focused on issues that need attention:
 
 **🟢 Minor Issues**
 - [List optional improvements]
-
-### Summary
-- Brief overall assessment
-- Key recommendation (approve/needs changes/reject)
+</FORMAT>
 
 ## Guidelines
 - Focus ONLY on issues that need to be fixed
-- Sort issues by importance (critical → important → minor)
 - Be specific and actionable
-- Keep the review concise and well-organized
+- Follow the format above strictly
 - Do NOT include lengthy positive feedback
-- Do NOT repeat information that's obvious from the diff
 
 Start by analyzing the changes with bash commands, then provide your structured review.
-"""  # type: ignore[E501]
+"""  # noqa
