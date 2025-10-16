@@ -33,8 +33,8 @@ primary_llm = LLM(
 )
 secondary_llm = LLM(
     service_id="agent-secondary",
-    model=model,
-    base_url=base_url,
+    model="litellm_proxy/mistral/devstral-small-2507",
+    base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 multimodal_router = MultimodalRouter(
