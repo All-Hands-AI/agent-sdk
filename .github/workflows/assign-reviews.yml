@@ -36,6 +36,28 @@ jobs:
                 Read the sections below in order, and perform each in order. Do NOT take action
                 on the same issue twice.
 
+                # Need Reviewer Action
+
+                Find all open PRs where:
+                1. The PR is waiting for review (there are no open review comments or change requests)
+                2. The PR is in a "clean" state (CI passing, no merge conflicts)
+                3. The PR has had no activity (comments, commits, reviews) for more than 3 days.
+                
+                In this case, send a message to the reviewers:
+                [Automatic Post]: This PR seems to be currently waiting for review.
+                {reviewer_names}, could you please take a look when you have a chance?
+
+                # Need Author Action
+
+                Find all open PRs where the most recent change or comment was made on the pull
+                request more than 5 days ago. Then do the following in order:
+                
+                And send a message to the author:
+
+                [Automatic Post]: It has been a while since there was any activity on this PR.
+                {author}, are you still working on it? If so, please go ahead, if not then
+                please request review, close it, or request that someone else follow up.
+
                 # Need Reviewers
 
                 Find all open pull requests that:
@@ -52,17 +74,8 @@ jobs:
                 [Automatic Post]: I have assigned {reviewer} as a reviewer based on git blame information.
                 Thanks in advance for the help!
 
-                # Need Author Action
-
-                Find all open PRs where the most recent change or comment was made on the pull
-                request more than 5 days ago. Then do the following in order:
                 
-                And send a message to the author:
 
-                [Automatic Post]: It has been a while since there was any activity on this PR.
-                Are you still working on it? If so, please go ahead, if not then please close it
-                or request that someone else follow up.
-                
 
             LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
             LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
