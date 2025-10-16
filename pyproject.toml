@@ -24,6 +24,7 @@ dev = [
     "pyinstaller>=6.16.0",
     "streamlit>=1.49.1",
     "pytest-timeout>=2.4.0",
+    "kubernetes>=30.1.0",
 ]
 
 # Ruff configuration
