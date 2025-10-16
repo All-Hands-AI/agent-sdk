@@ -31,10 +31,12 @@ logger = get_logger(__name__)
 # Configure LLM (vision-capable model)
 api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
+model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+base_url = os.getenv("LLM_BASE_URL")
 llm = LLM(
     service_id="vision-llm",
-    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    model=model,
+    base_url=base_url,
     api_key=SecretStr(api_key),
 )
 

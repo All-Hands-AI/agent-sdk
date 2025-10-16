@@ -354,7 +354,7 @@ class RemoteState(ConversationStateProtocol):
             )
         return persistence_dir
 
-    def model_dump(self, **kwargs):
+    def model_dump(self, **_kwargs):
         """Get a dictionary representation of the remote state."""
         info = self._get_conversation_info()
         return info

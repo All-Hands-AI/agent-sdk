@@ -38,7 +38,7 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
         """Verify that the agent successfully browsed the GitHub PR."""
 
         # Get the agent's final answer/response to the instruction
-        agent_final_answer = self.get_agent_final_response()
+        agent_final_answer = self.conversation.agent_final_response()
 
         if not agent_final_answer:
             return TestResult(

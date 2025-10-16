@@ -214,7 +214,7 @@ class StuckDetector:
 
         return False
 
-    def _is_stuck_context_window_error(self, events: list[Event]) -> bool:
+    def _is_stuck_context_window_error(self, _events: list[Event]) -> bool:
         """Detects if we're stuck in a loop of context window errors.
 
         This happens when we repeatedly get context window errors and try to trim,

@@ -43,6 +43,10 @@ class SendMessageRequest(BaseModel):
 
     role: Literal["user", "system", "assistant", "tool"] = "user"
     content: list[TextContent | ImageContent] = Field(default_factory=list)
+    run: bool = Field(
+        default=False,
+        description=("Whether the agent loop should automatically run if not running"),
+    )
 
     def create_message(self) -> Message:
         message = Message(role=self.role, content=self.content)
@@ -59,6 +63,13 @@ class StartConversationRequest(BaseModel):
     workspace: LocalWorkspace = Field(
         ...,
         description="Working directory for agent operations and tool execution",
+    )
+    conversation_id: UUID | None = Field(
+        default=None,
+        description=(
+            "Optional conversation ID. If not provided, a random UUID will be "
+            "generated."
+        ),
     )
     confirmation_policy: ConfirmationPolicyBase = Field(
         default=NeverConfirm(),

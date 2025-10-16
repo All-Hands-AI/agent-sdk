@@ -76,7 +76,7 @@ async def events_socket(
             try:
                 data = await websocket.receive_json()
                 message = Message.model_validate(data)
-                await event_service.send_message(message)
+                await event_service.send_message(message, True)
             except WebSocketDisconnect:
                 # Exit the loop when websocket disconnects
                 return

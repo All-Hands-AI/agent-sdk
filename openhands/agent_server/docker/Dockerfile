@@ -10,9 +10,10 @@ ARG PORT=8000
 # Builder (source mode)
 # We copy source + build a venv here for local dev and debugging.
 ####################################################################################
-FROM python:3.12-bookworm AS builder
+FROM python:3.12-bullseye AS builder
 ARG USERNAME UID GID
 ENV UV_PROJECT_ENVIRONMENT=/agent-server/.venv
+ENV UV_PYTHON_INSTALL_DIR=/agent-server/uv-managed-python
 
 COPY --from=ghcr.io/astral-sh/uv /uv /uvx /bin/
 
@@ -24,7 +25,7 @@ WORKDIR /agent-server
 COPY --chown=${USERNAME}:${USERNAME} pyproject.toml uv.lock README.md LICENSE ./
 COPY --chown=${USERNAME}:${USERNAME} openhands ./openhands
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
-    uv sync --frozen --no-editable
+    uv python install 3.12 && uv venv --python 3.12 .venv && uv sync --frozen --no-editable --managed-python
 
 ####################################################################################
 # Binary Builder (binary mode)
@@ -121,6 +122,11 @@ RUN set -eux; \
     # Set proper ownership
     chown -R ${USERNAME}:${USERNAME} ${OPENVSCODE_SERVER_ROOT}
 
+
+# Include VSCode extensions alongside the server so targets inheriting base-image
+# implicitly get the extensions; minimal images (without VSCode) won't.
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions ${OPENVSCODE_SERVER_ROOT}/extensions
+
 # --- Docker ---
 RUN set -eux; \
     # Determine OS type and install Docker accordingly
@@ -189,11 +195,13 @@ EXPOSE ${PORT} ${NOVNC_PORT}
 ############################
 FROM base-image AS source
 ARG USERNAME
+ENV UV_PYTHON_INSTALL_DIR=/agent-server/uv-managed-python
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 
 FROM base-image-minimal AS source-minimal
 ARG USERNAME
+ENV UV_PYTHON_INSTALL_DIR=/agent-server/uv-managed-python
 COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server /agent-server
 ENTRYPOINT ["/agent-server/.venv/bin/python", "-m", "openhands.agent_server"]
 

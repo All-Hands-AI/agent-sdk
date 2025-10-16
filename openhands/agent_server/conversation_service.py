@@ -46,7 +46,7 @@ class ConversationService:
     all event_services are loaded into memory, and stored when it stops.
     """
 
-    event_services_path: Path = field()
+    conversations_dir: Path = field()
     webhook_specs: list[WebhookSpec] = field(default_factory=list)
     session_api_key: str | None = field(default=None)
     _event_services: dict[UUID, EventService] | None = field(default=None, init=False)
@@ -169,44 +169,28 @@ class ConversationService:
 
     async def start_conversation(
         self, request: StartConversationRequest
-    ) -> ConversationInfo:
+    ) -> tuple[ConversationInfo, bool]:
         """Start a local event_service and return its id."""
         if self._event_services is None:
             raise ValueError("inactive_service")
-        conversation_id = uuid4()
+        conversation_id = request.conversation_id or uuid4()
+
+        if conversation_id in self._event_services:
+            existing_event_service = self._event_services[conversation_id]
+            state = await existing_event_service.get_state()
+            conversation_info = _compose_conversation_info(
+                existing_event_service.stored, state
+            )
+            return conversation_info, False
+
         stored = StoredConversation(id=conversation_id, **request.model_dump())
-        file_store_path = self.event_services_path / "event_service"
-        file_store_path.mkdir(parents=True)
-        event_service = EventService(
-            stored=stored,
-            file_store_path=file_store_path,
-            working_dir=Path(request.workspace.working_dir),
-        )
-
-        # Create subscribers...
-        await event_service.subscribe_to_events(_EventSubscriber(service=event_service))
-        asyncio.gather(
-            *[
-                event_service.subscribe_to_events(
-                    WebhookSubscriber(
-                        conversation_id=conversation_id,
-                        service=event_service,
-                        spec=webhook_spec,
-                        session_api_key=self.session_api_key,
-                    )
-                )
-                for webhook_spec in self.webhook_specs
-            ]
-        )
-
-        self._event_services[conversation_id] = event_service
-        await event_service.start()
+        event_service = await self._start_event_service(stored)
         initial_message = request.initial_message
         if initial_message:
             message = Message(
                 role=initial_message.role, content=initial_message.content
             )
-            await event_service.send_message(message)
+            await event_service.send_message(message, True)
 
         state = await event_service.get_state()
         conversation_info = _compose_conversation_info(event_service.stored, state)
@@ -214,7 +198,7 @@ class ConversationService:
         # Notify conversation webhooks about the started conversation
         await self._notify_conversation_webhooks(conversation_info)
 
-        return conversation_info
+        return conversation_info, True
 
     async def pause_conversation(self, conversation_id: UUID) -> bool:
         if self._event_services is None:
@@ -247,7 +231,7 @@ class ConversationService:
             await self._notify_conversation_webhooks(conversation_info)
 
             await event_service.close()
-            shutil.rmtree(event_service.persistence_dir)
+            shutil.rmtree(event_service.conversation_dir)
             shutil.rmtree(event_service.stored.workspace.working_dir)
             return True
         return False
@@ -306,25 +290,20 @@ class ConversationService:
         return title
 
     async def __aenter__(self):
-        self.event_services_path.mkdir(parents=True, exist_ok=True)
-        event_services = {}
-        for event_service_dir in self.event_services_path.iterdir():
+        self.conversations_dir.mkdir(parents=True, exist_ok=True)
+        self._event_services = {}
+        for conversation_dir in self.conversations_dir.iterdir():
             try:
-                meta_file = event_service_dir / "meta.json"
+                meta_file = conversation_dir / "meta.json"
+                if not meta_file.exists():
+                    continue
                 json_str = meta_file.read_text()
-                id = UUID(event_service_dir.name)
                 stored = StoredConversation.model_validate_json(json_str)
-                event_services[id] = EventService(
-                    stored=stored,
-                    file_store_path=self.event_services_path / id.hex,
-                    working_dir=Path(stored.workspace.working_dir),
-                )
+                await self._start_event_service(stored)
             except Exception:
                 logger.exception(
-                    f"error_loading_event_service:{event_service_dir}", stack_info=True
+                    f"error_loading_event_service:{conversation_dir}", stack_info=True
                 )
-                shutil.rmtree(event_service_dir)
-        self._event_services = event_services
 
         # Initialize conversation webhook subscribers
         self._conversation_webhook_subscribers = [
@@ -353,19 +332,49 @@ class ConversationService:
     @classmethod
     def get_instance(cls, config: Config) -> "ConversationService":
         return ConversationService(
-            event_services_path=config.conversations_path,
+            conversations_dir=config.conversations_path,
             webhook_specs=config.webhooks,
             session_api_key=(
                 config.session_api_keys[0] if config.session_api_keys else None
             ),
         )
 
+    async def _start_event_service(self, stored: StoredConversation) -> EventService:
+        event_services = self._event_services
+        if event_services is None:
+            raise ValueError("inactive_service")
+
+        event_service = EventService(
+            stored=stored,
+            conversations_dir=self.conversations_dir,
+            working_dir=Path(stored.workspace.working_dir),
+        )
+        # Create subscribers...
+        await event_service.subscribe_to_events(_EventSubscriber(service=event_service))
+        asyncio.gather(
+            *[
+                event_service.subscribe_to_events(
+                    WebhookSubscriber(
+                        conversation_id=stored.id,
+                        service=event_service,
+                        spec=webhook_spec,
+                        session_api_key=self.session_api_key,
+                    )
+                )
+                for webhook_spec in self.webhook_specs
+            ]
+        )
+
+        event_services[stored.id] = event_service
+        await event_service.start()
+        return event_service
+
 
 @dataclass
 class _EventSubscriber(Subscriber):
     service: EventService
 
-    async def __call__(self, event: Event):
+    async def __call__(self, _event: Event):
         self.service.stored.updated_at = utc_now()
         update_last_execution_time()
 

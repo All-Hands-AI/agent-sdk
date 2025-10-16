@@ -25,12 +25,18 @@ class ConfirmationPolicyBase(DiscriminatedUnionMixin, ABC):
 
 
 class AlwaysConfirm(ConfirmationPolicyBase):
-    def should_confirm(self, risk: SecurityRisk = SecurityRisk.UNKNOWN) -> bool:
+    def should_confirm(
+        self,
+        risk: SecurityRisk = SecurityRisk.UNKNOWN,  # noqa: ARG002
+    ) -> bool:
         return True
 
 
 class NeverConfirm(ConfirmationPolicyBase):
-    def should_confirm(self, risk: SecurityRisk = SecurityRisk.UNKNOWN) -> bool:
+    def should_confirm(
+        self,
+        risk: SecurityRisk = SecurityRisk.UNKNOWN,  # noqa: ARG002
+    ) -> bool:
         return False
 
 

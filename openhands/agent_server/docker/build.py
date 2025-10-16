@@ -191,9 +191,8 @@ def _default_sdk_project_root() -> Path:
     Resolve top-level OpenHands UV workspace root:
 
     Order:
-      1) AGENT_SDK_PATH (can point anywhere inside the repo)
-      2) Walk up from CWD
-      3) Walk up from this file location
+      1) Walk up from CWD
+      2) Walk up from this file location
 
     Reject anything in site/dist-packages (installed wheels).
     """
@@ -216,14 +215,9 @@ def _default_sdk_project_root() -> Path:
                 "  openhands/workspace/pyproject.toml\n"
                 "  openhands/agent_server/pyproject.toml\n\n"
                 "Fix:\n"
-                "  - Run from anywhere inside the repo; OR\n"
-                "  - Set AGENT_SDK_PATH=/path/to/repo/root "
-                "(the one with the UV workspace pyproject.toml)."
+                "  - Run from anywhere inside the repo."
             )
         return root
-
-    if env := os.environ.get("AGENT_SDK_PATH"):
-        return validate(Path(env).expanduser(), "AGENT_SDK_PATH")
 
     if root := _climb(Path.cwd()):
         return validate(root, "CWD discovery")
@@ -245,7 +239,7 @@ def _default_sdk_project_root() -> Path:
         "  openhands/tools/pyproject.toml\n"
         "  openhands/workspace/pyproject.toml\n"
         "  openhands/agent_server/pyproject.toml\n\n"
-        "Set AGENT_SDK_PATH to that repo root, or run this from inside the repo."
+        "Run this from inside the repo."
     )
 
 
@@ -552,7 +546,7 @@ def main(argv: list[str]) -> int:
         "--sdk-project-root",
         type=Path,
         default=None,
-        help="Path to OpenHands SDK root (default: auto-detect or $AGENT_SDK_PATH).",
+        help="Path to OpenHands SDK root (default: auto-detect).",
     )
     parser.add_argument(
         "--build-ctx-only",
@@ -565,21 +559,11 @@ def main(argv: list[str]) -> int:
     # ---- resolve sdk project root ----
     sdk_project_root = args.sdk_project_root
     if sdk_project_root is None:
-        if os.environ.get("AGENT_SDK_PATH"):
-            sdk_project_root = Path(os.environ["AGENT_SDK_PATH"]).expanduser().resolve()
-            if not sdk_project_root.exists():
-                print(
-                    f"[build] ERROR: AGENT_SDK_PATH '{sdk_project_root}' "
-                    "does not exist",
-                    file=sys.stderr,
-                )
-                return 1
-        else:
-            try:
-                sdk_project_root = _default_sdk_project_root()
-            except Exception as e:
-                logger.error(str(e))
-                return 1
+        try:
+            sdk_project_root = _default_sdk_project_root()
+        except Exception as e:
+            logger.error(str(e))
+            return 1
 
     # ---- build-ctx-only path ----
     if args.build_ctx_only:
