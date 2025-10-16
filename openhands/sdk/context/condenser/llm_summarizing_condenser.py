@@ -66,7 +66,6 @@ class LLMSummarizingCondenser(RollingCondenser):
 
         llm_response = self.llm.completion(
             messages=messages,
-            extra_body={"metadata": self.llm.metadata},
         )
         # Extract summary from the LLMResponse message
         summary = None

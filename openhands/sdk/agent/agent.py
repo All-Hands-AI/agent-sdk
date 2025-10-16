@@ -181,13 +181,11 @@ class Agent(AgentBase):
                     include=None,
                     store=False,
                     add_security_risk_prediction=self._add_security_risk_prediction,
-                    metadata=self.llm.metadata,
                 )
             else:
                 llm_response = self.llm.completion(
                     messages=_messages,
                     tools=list(self.tools_map.values()),
-                    extra_body={"metadata": self.llm.metadata},
                     add_security_risk_prediction=self._add_security_risk_prediction,
                 )
         except Exception as e:
