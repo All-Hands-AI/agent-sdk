@@ -36,7 +36,17 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes (includes F841: unused-variable)
+    "I",    # isort
+    "UP",   # pyupgrade
+    "ARG",  # flake8-unused-arguments
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files often have unused arguments (fixtures, mocks, interface implementations)
+"tests/**/*.py" = ["ARG"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["openhands"]

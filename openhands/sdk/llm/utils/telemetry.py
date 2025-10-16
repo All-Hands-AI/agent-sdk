@@ -86,7 +86,7 @@ class Telemetry(BaseModel):
 
         return self.metrics.deep_copy()
 
-    def on_error(self, err: Exception) -> None:
+    def on_error(self, _err: Exception) -> None:
         # Stub for error tracking / counters
         return
 

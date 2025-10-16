@@ -70,7 +70,6 @@ class APIRemoteWorkspace(RemoteWorkspace):
     _runtime_id: str | None = PrivateAttr(default=None)
     _runtime_url: str | None = PrivateAttr(default=None)
     _session_api_key: str | None = PrivateAttr(default=None)
-    _client: httpx.Client = PrivateAttr()
 
     def model_post_init(self, context: Any) -> None:
         """Set up the remote runtime and initialize the workspace."""
@@ -79,9 +78,6 @@ class APIRemoteWorkspace(RemoteWorkspace):
                 f"resource_factor must be 1, 2, 4, or 8, got {self.resource_factor}"
             )
 
-        self._client = httpx.Client(
-            headers={"X-API-Key": self.runtime_api_key}, timeout=self.api_timeout
-        )
         self.runtime_api_url = self.runtime_api_url.rstrip("/")
 
         try:
@@ -248,8 +244,8 @@ class APIRemoteWorkspace(RemoteWorkspace):
     def _send_api_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """Send an API request with error handling."""
         logger.debug(f"Sending {method} request to {url}")
-        logger.debug(f"Client headers: {self._client.headers}")
-        response = self._client.request(method, url, **kwargs)
+        logger.debug(f"Client headers: {self._headers}")
+        response = self.client.request(method, url, **kwargs)
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError:
@@ -286,7 +282,7 @@ class APIRemoteWorkspace(RemoteWorkspace):
             self._runtime_url = None
             self._session_api_key = None
             try:
-                self._client.close()
+                self.client.close()
             except Exception:
                 pass
 

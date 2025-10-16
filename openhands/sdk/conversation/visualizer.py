@@ -12,6 +12,7 @@ from openhands.sdk.event import (
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
+    UserRejectObservation,
 )
 from openhands.sdk.event.base import Event
 from openhands.sdk.event.condenser import Condensation
@@ -40,6 +41,7 @@ DEFAULT_HIGHLIGHT_REGEX = {
     r"^Arguments:": f"bold {_ACTION_COLOR}",
     r"^Tool:": f"bold {_OBSERVATION_COLOR}",
     r"^Result:": f"bold {_OBSERVATION_COLOR}",
+    r"^Rejection Reason:": f"bold {_ERROR_COLOR}",
     # Markdown-style
     r"\*\*(.*?)\*\*": "bold",
     r"\*(.*?)\*": "italic",
@@ -149,6 +151,15 @@ class ConversationVisualizer:
                 title=f"[bold {_OBSERVATION_COLOR}]Observation"
                 f"[/bold {_OBSERVATION_COLOR}]",
                 border_style=_OBSERVATION_COLOR,
+                padding=_PANEL_PADDING,
+                expand=True,
+            )
+        elif isinstance(event, UserRejectObservation):
+            return Panel(
+                content,
+                title=f"[bold {_ERROR_COLOR}]User Rejected Action"
+                f"[/bold {_ERROR_COLOR}]",
+                border_style=_ERROR_COLOR,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
