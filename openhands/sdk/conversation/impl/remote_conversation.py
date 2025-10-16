@@ -477,9 +477,7 @@ class RemoteConversation(BaseConversation):
             self.update_secrets(secret_values)
 
         if should_enable_observability():
-            self._span = start_active_span("conversation", session_id=str(self._id))
-        else:
-            self._span = None
+            start_active_span("conversation", session_id=str(self._id))
 
     @property
     def id(self) -> ConversationID:
@@ -615,8 +613,7 @@ class RemoteConversation(BaseConversation):
             pass
 
         try:
-            if self._span:
-                end_active_span(self._span)
+            end_active_span()
         except Exception:
             pass
 

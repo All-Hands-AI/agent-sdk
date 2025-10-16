@@ -123,10 +123,7 @@ class LocalConversation(BaseConversation):
             self.update_secrets(secret_values)
 
         if should_enable_observability():
-            self._span = start_active_span("conversation", session_id=str(desired_id))
-
-        else:
-            self._span = None
+            start_active_span("conversation", session_id=str(desired_id))
 
     @property
     def id(self) -> ConversationID:
@@ -237,8 +234,7 @@ class LocalConversation(BaseConversation):
                     AgentExecutionStatus.PAUSED,
                     AgentExecutionStatus.STUCK,
                 ]:
-                    if self._span:
-                        end_active_span(self._span)
+                    end_active_span()
                     break
 
                 # Check for stuck patterns if enabled
@@ -274,8 +270,7 @@ class LocalConversation(BaseConversation):
                     == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
                     or iteration >= self.max_iteration_per_run
                 ):
-                    if self._span:
-                        end_active_span(self._span)
+                    end_active_span()
                     break
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
@@ -356,8 +351,7 @@ class LocalConversation(BaseConversation):
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
-        if self._span:
-            end_active_span(self._span)
+        end_active_span()
         for tool in self.agent.tools_map.values():
             try:
                 executable_tool = tool.as_executable()
