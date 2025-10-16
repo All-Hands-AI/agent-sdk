@@ -165,6 +165,19 @@ class Action(Schema, ABC):
     """Base schema for input action."""
 
     @property
+    def summary(self) -> str:
+        """Return a brief summary for this action.
+
+        This is typically used in UIs to give a quick overview of the action.
+        This method can be overridden by subclasses to provide a more
+        informative summary. The base implementation returns the action class name.
+
+        Returns:
+            A brief string suitable for displaying as a title in UI.
+        """
+        return self.__class__.__name__
+
+    @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this action.
 
