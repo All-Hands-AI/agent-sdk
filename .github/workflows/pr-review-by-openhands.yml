@@ -18,7 +18,7 @@ jobs:
         env:
             # Configuration (modify these values as needed)
             LLM_MODEL: openhands/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: ''
+            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
             # PR context will be automatically provided by the agent script
             PR_NUMBER: ${{ github.event.pull_request.number }}
             PR_TITLE: ${{ github.event.pull_request.title }}
