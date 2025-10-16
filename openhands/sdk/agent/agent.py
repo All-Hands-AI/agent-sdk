@@ -85,8 +85,6 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
     ) -> None:
         super().init_state(state, on_event=on_event)
-        # TODO(openhands): we should add test to test this init_state will actually
-        # modify state in-place
 
         # Validate security analyzer configuration once during initialization
         if self._add_security_risk_prediction and isinstance(
