@@ -5,7 +5,7 @@ from openhands.sdk.context.condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.context.condenser.base import CondenserBase
-from openhands.sdk.llm.llm import LLM
+from openhands.sdk.llm.llm import LLMBase
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import Tool, register_tool
@@ -54,7 +54,7 @@ def get_default_tools(
     return tools
 
 
-def get_default_condenser(llm: LLM) -> CondenserBase:
+def get_default_condenser(llm: LLMBase) -> CondenserBase:
     # Create a condenser to manage the context. The condenser will automatically
     # truncate conversation history when it exceeds max_size, and replaces the dropped
     # events with an LLM-generated summary.
@@ -64,7 +64,7 @@ def get_default_condenser(llm: LLM) -> CondenserBase:
 
 
 def get_default_agent(
-    llm: LLM,
+    llm: LLMBase,
     cli_mode: bool = False,
 ) -> Agent:
     tools = get_default_tools(

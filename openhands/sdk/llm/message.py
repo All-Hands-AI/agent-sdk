@@ -223,6 +223,7 @@ class Message(BaseModel):
         description="Intermediate reasoning/thinking content from reasoning models",
     )
     # Anthropic-specific thinking blocks (not normalized by LiteLLM)
+    extended_thinking_enabled: bool = False
     thinking_blocks: Sequence[ThinkingBlock | RedactedThinkingBlock] = Field(
         default_factory=list,
         description="Raw Anthropic thinking blocks for extended thinking feature",
@@ -294,7 +295,7 @@ class Message(BaseModel):
 
         # Add thinking blocks first (for Anthropic extended thinking)
         # Only add thinking blocks for assistant messages
-        if self.role == "assistant":
+        if self.role == "assistant" and self.extended_thinking_enabled:
             thinking_blocks = list(
                 self.thinking_blocks
             )  # Copy to avoid modifying original
