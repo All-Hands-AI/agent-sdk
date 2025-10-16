@@ -51,9 +51,8 @@ jobs:
                 And send a message to the author:
                 [Automatic Post]: It has been a while since there was any activity on this PR, are you still working on it?
 
-            # PROMPT_STRING: 'Check for outdated dependencies and create a PR'
-            LLM_MODEL: openhands/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: ''
+            LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
+            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
