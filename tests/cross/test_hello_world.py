@@ -17,15 +17,15 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     MessageEvent,
     ObservationEvent,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 
 
 class TestHelloWorld:
@@ -35,7 +35,7 @@ class TestHelloWorld:
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
         self.logger = get_logger(__name__)
-        self.collected_events: list[EventBase] = []
+        self.collected_events: list[Event] = []
         self.llm_messages: list[dict[str, Any]] = []
 
         # Clean up any existing hello.py files
@@ -52,7 +52,7 @@ class TestHelloWorld:
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def conversation_callback(self, event: EventBase):
+    def conversation_callback(self, event: Event):
         """Callback to collect conversation events."""
         self.collected_events.append(event)
         if isinstance(event, ActionEvent):
@@ -163,19 +163,23 @@ class TestHelloWorld:
             api_key=SecretStr("mock-api-key"),
         )
 
-        # Tools setup with temporary directory - use registry + ToolSpec as in runtime
+        # Tools setup with temporary directory - use registry + Tool as in runtime
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
-        tool_specs = [
-            ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
-            ToolSpec(name="FileEditorTool"),
+        tools = [
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
 
         # Agent setup
-        agent = Agent(llm=llm, tools=tool_specs)
+        agent = Agent(llm=llm, tools=tools)
 
         # Conversation setup
-        conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
+        conversation = Conversation(
+            agent=agent,
+            workspace=self.temp_dir,
+            callbacks=[self.conversation_callback],
+        )
 
         # Send the same message as in hello_world.py
         conversation.send_message(
@@ -279,17 +283,21 @@ class TestHelloWorld:
             api_key=SecretStr("mock-api-key"),
         )
 
-        # Tools setup with temporary directory - use registry + ToolSpec as in runtime
+        # Tools setup with temporary directory - use registry + Tool as in runtime
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
-        tool_specs = [
-            ToolSpec(name="BashTool", params={"working_dir": self.temp_dir}),
-            ToolSpec(name="FileEditorTool"),
+        tools = [
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
 
         # Create agent and conversation
-        agent = Agent(llm=llm, tools=tool_specs)
-        conversation = Conversation(agent=agent, callbacks=[self.conversation_callback])
+        agent = Agent(llm=llm, tools=tools)
+        conversation = Conversation(
+            agent=agent,
+            workspace=self.temp_dir,
+            callbacks=[self.conversation_callback],
+        )
 
         # Capture logged completion data by monitoring the LLM calls
         logged_completions = []

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import ConfigDict, Field, create_model
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -95,7 +95,7 @@ def _process_schema_node(node, defs):
     return result
 
 
-class Schema(BaseModel):
+class Schema(DiscriminatedUnionMixin):
     """Base schema for input action / output observation."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -106,7 +106,18 @@ class Schema(BaseModel):
         full_schema = cls.model_json_schema()
         # This will get rid of all "anyOf" in the schema,
         # so it is fully compatible with MCP tool schema
-        return _process_schema_node(full_schema, full_schema.get("$defs", {}))
+        result = _process_schema_node(full_schema, full_schema.get("$defs", {}))
+
+        # Remove 'kind' from properties if present (discriminator field, not for LLM)
+        EXCLUDE_FIELDS = DiscriminatedUnionMixin.model_fields.keys()
+        for f in EXCLUDE_FIELDS:
+            if "properties" in result and f in result["properties"]:
+                result["properties"].pop(f)
+                # Also remove from required if present
+                if "required" in result and f in result["required"]:
+                    result["required"].remove(f)
+
+        return result
 
     @classmethod
     def from_mcp_schema(
@@ -150,7 +161,7 @@ class Schema(BaseModel):
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
+class Action(Schema, ABC):
     """Base schema for input action."""
 
     @property
@@ -176,12 +187,12 @@ class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
         return content
 
 
-class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
+class Observation(Schema, ABC):
     """Base schema for output observation."""
 
     @property
     @abstractmethod
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
 
     @property
@@ -192,7 +203,7 @@ class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
         The base implementation displays all action fields systematically.
         """
         content = Text()
-        text_parts = content_to_str(self.agent_observation)
+        text_parts = content_to_str(self.to_llm_content)
         if text_parts:
             full_content = "".join(text_parts)
             content.append(full_content)

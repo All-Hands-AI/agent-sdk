@@ -9,17 +9,34 @@ from openhands.sdk.utils.models import DiscriminatedUnionMixin
 class ConfirmationPolicyBase(DiscriminatedUnionMixin, ABC):
     @abstractmethod
     def should_confirm(self, risk: SecurityRisk = SecurityRisk.UNKNOWN) -> bool:
-        """Determine if an action with the given risk level requires confirmation."""
-        pass
+        """Determine if an action with the given risk level requires confirmation.
+
+        This method defines the core logic for determining whether user confirmation
+        is required before executing an action based on its security risk level.
+
+        Args:
+            risk: The security risk level of the action to be evaluated.
+                 Defaults to SecurityRisk.UNKNOWN if not specified.
+
+        Returns:
+            True if the action requires user confirmation before execution,
+            False if the action can proceed without confirmation.
+        """
 
 
 class AlwaysConfirm(ConfirmationPolicyBase):
-    def should_confirm(self, risk: SecurityRisk = SecurityRisk.UNKNOWN) -> bool:
+    def should_confirm(
+        self,
+        risk: SecurityRisk = SecurityRisk.UNKNOWN,  # noqa: ARG002
+    ) -> bool:
         return True
 
 
 class NeverConfirm(ConfirmationPolicyBase):
-    def should_confirm(self, risk: SecurityRisk = SecurityRisk.UNKNOWN) -> bool:
+    def should_confirm(
+        self,
+        risk: SecurityRisk = SecurityRisk.UNKNOWN,  # noqa: ARG002
+    ) -> bool:
         return False
 
 

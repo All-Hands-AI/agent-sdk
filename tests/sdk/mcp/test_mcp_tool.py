@@ -7,7 +7,7 @@ import mcp.types
 from openhands.sdk.llm import TextContent
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolObservation
-from openhands.sdk.mcp.tool import MCPTool, MCPToolExecutor
+from openhands.sdk.mcp.tool import MCPToolDefinition, MCPToolExecutor
 from openhands.sdk.tool import ToolAnnotations
 
 
@@ -82,7 +82,7 @@ class TestMCPToolObservation:
         assert hasattr(observation.content[1], "image_urls")
         assert observation.is_error is False
 
-    def test_agent_observation_success(self):
+    def test_to_llm_content_success(self):
         """Test agent observation formatting for success."""
         observation = MCPToolObservation(
             tool_name="test_tool",
@@ -90,7 +90,7 @@ class TestMCPToolObservation:
             is_error=False,
         )
 
-        agent_obs = observation.agent_observation
+        agent_obs = observation.to_llm_content
         assert len(agent_obs) == 2
         assert isinstance(agent_obs[0], TextContent)
         assert "[Tool 'test_tool' executed.]" in agent_obs[0].text
@@ -98,7 +98,7 @@ class TestMCPToolObservation:
         assert isinstance(agent_obs[1], TextContent)
         assert agent_obs[1].text == "Success result"
 
-    def test_agent_observation_error(self):
+    def test_to_llm_content_error(self):
         """Test agent observation formatting for error."""
         observation = MCPToolObservation(
             tool_name="test_tool",
@@ -106,7 +106,7 @@ class TestMCPToolObservation:
             is_error=True,
         )
 
-        agent_obs = observation.agent_observation
+        agent_obs = observation.to_llm_content
         assert len(agent_obs) == 2
         assert isinstance(agent_obs[0], TextContent)
         assert isinstance(agent_obs[1], TextContent)
@@ -224,7 +224,9 @@ class TestMCPTool:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = None
 
-        tools = MCPTool.create(mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client)
+        tools = MCPToolDefinition.create(
+            mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
+        )
         self.tool = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_creation(self):
@@ -239,7 +241,7 @@ class TestMCPTool:
         assert "parameters" in function_def
         input_schema = function_def["parameters"]
 
-        # Since security_risk was removed from ActionBase, it should not be in schema
+        # Since security_risk was removed from Action, it should not be in schema
         assert len(input_schema["properties"]) == 1
         assert "security_risk" not in input_schema["properties"]
 
@@ -258,7 +260,7 @@ class TestMCPTool:
         mock_tool_with_annotations.annotations = ToolAnnotations(title="Annotated Tool")
         mock_tool_with_annotations.meta = {"version": "1.0"}
 
-        tools = MCPTool.create(
+        tools = MCPToolDefinition.create(
             mcp_tool=mock_tool_with_annotations, mcp_client=self.mock_client
         )
         tool = tools[0]  # Extract single tool from sequence
@@ -277,7 +279,9 @@ class TestMCPTool:
         mock_tool_no_desc.annotations = None
         mock_tool_no_desc.meta = None
 
-        tools = MCPTool.create(mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client)
+        tools = MCPToolDefinition.create(
+            mcp_tool=mock_tool_no_desc, mcp_client=self.mock_client
+        )
         tool = tools[0]  # Extract single tool from sequence
 
         assert tool.name == "no_desc_tool"

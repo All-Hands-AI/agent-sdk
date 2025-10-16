@@ -7,7 +7,8 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
+from openhands.sdk import LLM, AgentBase, Event, ImageContent, Message, TextContent
+from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
@@ -15,6 +16,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import DiscriminatedUnionMixin, OpenHandsModel
+from openhands.sdk.workspace import LocalWorkspace
 
 
 class ConversationSortOrder(str, Enum):
@@ -41,6 +43,10 @@ class SendMessageRequest(BaseModel):
 
     role: Literal["user", "system", "assistant", "tool"] = "user"
     content: list[TextContent | ImageContent] = Field(default_factory=list)
+    run: bool = Field(
+        default=False,
+        description=("Whether the agent loop should automatically run if not running"),
+    )
 
     def create_message(self) -> Message:
         message = Message(role=self.role, content=self.content)
@@ -54,6 +60,17 @@ class StartConversationRequest(BaseModel):
     """
 
     agent: AgentBase
+    workspace: LocalWorkspace = Field(
+        ...,
+        description="Working directory for agent operations and tool execution",
+    )
+    conversation_id: UUID | None = Field(
+        default=None,
+        description=(
+            "Optional conversation ID. If not provided, a random UUID will be "
+            "generated."
+        ),
+    )
     confirmation_policy: ConfirmationPolicyBase = Field(
         default=NeverConfirm(),
         description="Controls when the conversation will prompt the user before "
@@ -73,12 +90,19 @@ class StartConversationRequest(BaseModel):
         description="If true, the conversation will use stuck detection to "
         "prevent infinite loops.",
     )
+    secrets: dict[str, SecretSource] = Field(
+        default_factory=dict,
+        description="Secrets available in the conversation",
+    )
 
 
 class StoredConversation(StartConversationRequest):
     """Stored details about a conversation"""
 
     id: UUID
+    title: str | None = Field(
+        default=None, description="User-defined title for the conversation"
+    )
     metrics: MetricsSnapshot | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -90,6 +114,9 @@ class ConversationInfo(ConversationState):
     # ConversationState already includes id and agent
     # Add additional metadata fields
 
+    title: str | None = Field(
+        default=None, description="User-defined title for the conversation"
+    )
     metrics: MetricsSnapshot | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -117,14 +144,14 @@ class Success(BaseModel):
 
 
 class EventPage(OpenHandsModel):
-    items: list[EventBase]
+    items: list[Event]
     next_page_id: str | None = None
 
 
 class UpdateSecretsRequest(BaseModel):
     """Payload to update secrets in a conversation."""
 
-    secrets: dict[str, str] = Field(
+    secrets: dict[str, SecretSource] = Field(
         description="Dictionary mapping secret keys to values"
     )
 
@@ -133,6 +160,31 @@ class SetConfirmationPolicyRequest(BaseModel):
     """Payload to set confirmation policy for a conversation."""
 
     policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
+
+
+class UpdateConversationRequest(BaseModel):
+    """Payload to update conversation metadata."""
+
+    title: str = Field(
+        ..., min_length=1, max_length=200, description="New conversation title"
+    )
+
+
+class GenerateTitleRequest(BaseModel):
+    """Payload to generate a title for a conversation."""
+
+    max_length: int = Field(
+        default=50, ge=1, le=200, description="Maximum length of the generated title"
+    )
+    llm: LLM | None = Field(
+        default=None, description="Optional LLM to use for title generation"
+    )
+
+
+class GenerateTitleResponse(BaseModel):
+    """Response containing the generated conversation title."""
+
+    title: str = Field(description="The generated title for the conversation")
 
 
 class BashEventBase(DiscriminatedUnionMixin, ABC):

@@ -5,15 +5,15 @@ from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
-    ActionBase,
-    ObservationBase,
-    Tool,
+    Action,
+    Observation,
     ToolAnnotations,
+    ToolDefinition,
     ToolExecutor,
 )
 
 
-class FinishAction(ActionBase):
+class FinishAction(Action):
     message: str = Field(description="Final message to send to the user.")
 
     @property
@@ -25,11 +25,11 @@ class FinishAction(ActionBase):
         return content
 
 
-class FinishObservation(ObservationBase):
+class FinishObservation(Observation):
     message: str = Field(description="Final message sent to the user.")
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.message)]
 
     @property
@@ -58,7 +58,7 @@ class FinishExecutor(ToolExecutor):
         return FinishObservation(message=action.message)
 
 
-FinishTool = Tool(
+FinishTool = ToolDefinition(
     name="finish",
     action_type=FinishAction,
     observation_type=FinishObservation,

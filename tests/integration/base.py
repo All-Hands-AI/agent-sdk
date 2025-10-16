@@ -3,7 +3,10 @@ Base classes for agent-sdk integration tests.
 """
 
 import os
+import sys
 from abc import ABC, abstractmethod
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from typing import Any
 
 from pydantic import BaseModel, SecretStr
@@ -15,11 +18,11 @@ from openhands.sdk import (
     TextContent,
 )
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
-from openhands.sdk.tool import ToolSpec
+from openhands.sdk.tool import Tool
 
 
 class TestResult(BaseModel):
@@ -47,11 +50,13 @@ class BaseIntegrationTest(ABC):
         self,
         instruction: str,
         llm_config: dict[str, Any],
-        cwd: str | None = None,
+        instance_id: str,
+        workspace: str,
     ):
         self.instruction = instruction
         self.llm_config = llm_config
-        self.cwd = cwd
+        self.workspace = workspace
+        self.instance_id = instance_id
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             raise ValueError(
@@ -72,13 +77,22 @@ class BaseIntegrationTest(ABC):
 
         self.llm = LLM(**llm_kwargs, service_id="test-llm")
         self.agent = Agent(llm=self.llm, tools=self.tools)
-        self.collected_events: list[EventBase] = []
+        self.collected_events: list[Event] = []
         self.llm_messages: list[dict[str, Any]] = []
-        self.conversation: LocalConversation = LocalConversation(
-            agent=self.agent, callbacks=[self.conversation_callback]
+
+        # Create log file path for this test instance
+        self.log_file_path = os.path.join(
+            self.workspace, f"{self.instance_id}_agent_logs.txt"
         )
 
-    def conversation_callback(self, event: EventBase):
+        self.conversation: LocalConversation = LocalConversation(
+            agent=self.agent,
+            workspace=self.workspace,
+            callbacks=[self.conversation_callback],
+            visualize=True,  # Use default visualizer and capture its output
+        )
+
+    def conversation_callback(self, event: Event):
         """Callback to collect conversation events."""
         self.collected_events.append(event)
         if isinstance(event, MessageEvent):
@@ -95,12 +109,42 @@ class BaseIntegrationTest(ABC):
             # Setup
             self.setup()
 
-            self.conversation.send_message(
-                message=Message(
-                    role="user", content=[TextContent(text=self.instruction)]
+            # Initialize log file with header
+            with open(self.log_file_path, "w") as f:
+                f.write(f"Agent Logs for Test: {self.instance_id}\n")
+                f.write("=" * 50 + "\n\n")
+
+            # Capture stdout and stderr during conversation
+            stdout_buffer = StringIO()
+            stderr_buffer = StringIO()
+
+            with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+                self.conversation.send_message(
+                    message=Message(
+                        role="user", content=[TextContent(text=self.instruction)]
+                    )
                 )
-            )
-            self.conversation.run()
+                self.conversation.run()
+
+            # Save captured output to log file
+            captured_output = stdout_buffer.getvalue()
+            captured_errors = stderr_buffer.getvalue()
+
+            with open(self.log_file_path, "a") as f:
+                if captured_output:
+                    f.write("STDOUT:\n")
+                    f.write(captured_output)
+                    f.write("\n")
+                if captured_errors:
+                    f.write("STDERR:\n")
+                    f.write(captured_errors)
+                    f.write("\n")
+
+            # Also print to console for debugging
+            if captured_output:
+                print(captured_output, end="")
+            if captured_errors:
+                print(captured_errors, file=sys.stderr, end="")
 
             # Verify results
             result = self.verify_result()
@@ -115,7 +159,7 @@ class BaseIntegrationTest(ABC):
 
     @property
     @abstractmethod
-    def tools(self) -> list[ToolSpec]:
+    def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
         pass
 
@@ -143,29 +187,9 @@ class BaseIntegrationTest(ABC):
         """
         pass
 
-    def get_agent_final_response(self) -> str:
-        """Extract the final response from the agent's finish tool call."""
-
-        # Find the last finish action from the agent
-        for event in reversed(self.conversation.state.events):
-            if (
-                type(event).__name__ == "ActionEvent"
-                and hasattr(event, "source")
-                and getattr(event, "source") == "agent"
-                and hasattr(event, "tool_name")
-                and getattr(event, "tool_name") == "finish"
-            ):
-                # Extract message from finish tool call
-                if hasattr(event, "action") and hasattr(
-                    getattr(event, "action"), "message"
-                ):
-                    message = getattr(getattr(event, "action"), "message")
-                    return message
-                else:
-                    break
-        return ""
-
-    @abstractmethod
     def teardown(self):
-        """Clean up test resources."""
-        pass
+        """
+        Clean up test resources.
+        The workspace directory is torn down externally.
+        Add any additional cleanup (git, server, ...) here if needed.
+        """

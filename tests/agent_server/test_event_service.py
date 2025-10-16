@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -12,9 +12,10 @@ from openhands.agent_server.models import (
     StoredConversation,
 )
 from openhands.sdk import LLM, Agent, Conversation, Message
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.security.confirmation_policy import NeverConfirm
+from openhands.sdk.workspace import LocalWorkspace
 
 
 @pytest.fixture
@@ -23,6 +24,7 @@ def sample_stored_conversation():
     return StoredConversation(
         id=uuid4(),
         agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+        workspace=LocalWorkspace(working_dir="workspace/project"),
         confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
@@ -36,7 +38,7 @@ def event_service(sample_stored_conversation):
     """Create an EventService instance for testing."""
     service = EventService(
         stored=sample_stored_conversation,
-        file_store_path=Path("test_file_store"),
+        conversations_dir=Path("test_conversation_dir"),
         working_dir=Path("test_working_dir"),
     )
     return service
@@ -342,3 +344,186 @@ class TestEventServiceCountEvents:
         # Count non-existent event type (should be 0)
         result = await event_service.count_events(kind="NonExistentEvent")
         assert result == 0
+
+
+class TestEventServiceSendMessage:
+    """Test cases for EventService.send_message method."""
+
+    async def _mock_executor(self, *args):
+        """Helper to create a mock coroutine for run_in_executor."""
+        return None
+
+    @pytest.mark.asyncio
+    async def test_send_message_inactive_service(self, event_service):
+        """Test that send_message raises ValueError when service is inactive."""
+        event_service._conversation = None
+        message = Message(role="user", content=[])
+
+        with pytest.raises(ValueError, match="inactive_service"):
+            await event_service.send_message(message)
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_run_false_default(self, event_service):
+        """Test send_message with default run=True."""
+        # Mock conversation and its methods
+        conversation = MagicMock()
+        state = MagicMock()
+        state.agent_status = AgentExecutionStatus.IDLE
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation.state = state
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+        message = Message(role="user", content=[])
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            mock_loop.run_in_executor.return_value = self._mock_executor()
+
+            # Call send_message with default run=True
+            await event_service.send_message(message)
+
+            # Verify send_message was called via executor
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, message
+            )
+            # Verify run was called via executor since run=True and agent is not running
+            assert (
+                None,
+                conversation.run,
+            ) not in mock_loop.run_in_executor.call_args_list
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_run_false(self, event_service):
+        """Test send_message with run=False."""
+        # Mock conversation and its methods
+        conversation = MagicMock()
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+        message = Message(role="user", content=[])
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            mock_loop.run_in_executor.return_value = self._mock_executor()
+
+            # Call send_message with run=False
+            await event_service.send_message(message, run=False)
+
+            # Verify send_message was called via executor
+            mock_loop.run_in_executor.assert_called_once_with(
+                None, conversation.send_message, message
+            )
+            # Verify run was NOT called since run=False
+            assert mock_loop.run_in_executor.call_count == 1  # Only send_message call
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_run_true_agent_already_running(
+        self, event_service
+    ):
+        """Test send_message with run=True but agent already running."""
+        # Mock conversation and its methods
+        conversation = MagicMock()
+        state = MagicMock()
+        state.agent_status = AgentExecutionStatus.RUNNING
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation.state = state
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+        message = Message(role="user", content=[])
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            mock_loop.run_in_executor.return_value = self._mock_executor()
+
+            # Call send_message with run=True
+            await event_service.send_message(message, run=True)
+
+            # Verify send_message was called via executor
+            mock_loop.run_in_executor.assert_called_once_with(
+                None, conversation.send_message, message
+            )
+            # Verify run was NOT called since agent is already running
+            assert mock_loop.run_in_executor.call_count == 1  # Only send_message call
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_run_true_agent_idle(self, event_service):
+        """Test send_message with run=True and agent idle."""
+        # Mock conversation and its methods
+        conversation = MagicMock()
+        state = MagicMock()
+        state.agent_status = AgentExecutionStatus.IDLE
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation.state = state
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+        message = Message(role="user", content=[])
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            mock_loop.run_in_executor.return_value = self._mock_executor()
+
+            # Call send_message with run=True
+            await event_service.send_message(message, run=True)
+
+            # Verify send_message was called via executor
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, message
+            )
+            # Verify run was called via executor since agent is idle
+            mock_loop.run_in_executor.assert_any_call(None, conversation.run)
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_different_message_types(self, event_service):
+        """Test send_message with different message types."""
+        # Mock conversation
+        conversation = MagicMock()
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            # Create a side effect that returns a new coroutine each time
+            mock_loop.run_in_executor.side_effect = lambda *args: self._mock_executor()
+
+            # Test with user message (run=False to avoid state checking)
+            user_message = Message(role="user", content=[])
+            await event_service.send_message(user_message, run=False)
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, user_message
+            )
+
+            # Test with assistant message
+            assistant_message = Message(role="assistant", content=[])
+            await event_service.send_message(assistant_message, run=False)
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, assistant_message
+            )
+
+            # Test with system message
+            system_message = Message(role="system", content=[])
+            await event_service.send_message(system_message, run=False)
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, system_message
+            )

@@ -599,14 +599,14 @@ class OpenHandsWebChat {
         return JSON.stringify({
             agent: {
                 llm: {
-                    model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                    model: "litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
                     base_url: "https://llm-proxy.app.all-hands.dev",
                     api_key: "secret"
                 },
                 tools: [
-                    { name: "BashTool", params: { working_dir: "/workspace" } },
-                    { name: "FileEditorTool", params: { workspace_root: "/workspace" } },
-                    { name: "TaskTrackerTool", params: { save_dir: "/conversations" } }
+                    { name: "BashTool", params: { } },
+                    { name: "FileEditorTool", params: { } },
+                    { name: "TaskTrackerTool", params: { } }
                 ]
             }
         }, null, 2);

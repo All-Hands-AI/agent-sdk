@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from logging import getLogger
 from typing import overload
 
@@ -9,10 +10,12 @@ from openhands.sdk.event import (
     CondensationSummaryEvent,
     LLMConvertibleEvent,
 )
-from openhands.sdk.event.base import EventBase, EventID
-from openhands.sdk.event.llm_convertible import ActionEvent, ObservationBaseEvent
+from openhands.sdk.event.base import Event, EventID
+from openhands.sdk.event.llm_convertible import (
+    ActionEvent,
+    ObservationBaseEvent,
+)
 from openhands.sdk.event.types import ToolCallID
-from openhands.sdk.utils.protocol import ListLike
 
 
 logger = getLogger(__name__)
@@ -143,7 +146,7 @@ class View(BaseModel):
             return True
 
     @staticmethod
-    def from_events(events: ListLike[EventBase]) -> "View":
+    def from_events(events: Sequence[Event]) -> "View":
         """Create a view from a list of events, respecting the semantics of any
         condensation events.
         """
