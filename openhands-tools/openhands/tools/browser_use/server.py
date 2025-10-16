@@ -1,3 +1,4 @@
+from browser_use.dom.markdown_extractor import extract_clean_markdown
 from browser_use.mcp.server import BrowserUseServer
 
 from openhands.sdk import get_logger
@@ -18,13 +19,10 @@ class CustomBrowserUseServer(BrowserUseServer):
         if not self.browser_session:
             return "Error: No browser session active"
 
-        if not self.tools:
-            return "Error: Tools not initialized"
-
         # Extract clean markdown using the new method
         try:
-            content, content_stats = await self.tools.extract_clean_markdown(  # type: ignore[attr-defined]
-                self.browser_session, extract_links
+            content, content_stats = await extract_clean_markdown(
+                browser_session=self.browser_session, extract_links=extract_links
             )
         except Exception as e:
             logger.exception(
