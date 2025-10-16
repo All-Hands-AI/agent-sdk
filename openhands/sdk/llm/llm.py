@@ -1159,7 +1159,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "contextwindowexceedederror",
             "prompt is too long",
             "input length and `max_tokens` exceed context limit",
-            "please reduce the length of either one",
+            # vLLM and some providers use a slightly different phrasing here
+            # (e.g. "please reduce the length of your prompt" or similar),
+            # so we match the common prefix rather than the full sentence.
+            "please reduce the length of",
             "the request exceeds the available context size",
             "context length exceeded",
         ]
