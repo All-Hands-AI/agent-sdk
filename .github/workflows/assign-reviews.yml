@@ -13,7 +13,7 @@ on:
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
     schedule:
       # Run at 12 PM UTC every day
-      - cron: "0 12 * * *"
+        - cron: 0 12 * * *
 
 permissions:
     contents: write
@@ -32,24 +32,24 @@ jobs:
             # PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
             # Option 2: Use direct text for the prompt
             PROMPT_STRING: >
-              Use GITHUB_TOKEN and the github API to organize open pull requests in the repo:
+                Use GITHUB_TOKEN and the github API to organize open pull requests in the repo:
 
-              # Need Reviewers
+                # Need Reviewers
 
-              Find all open pull requests that:
-              1. Have no reviewers assigned to them.
-              2. Are not marked as draft.
-              3. Were created more than 1 day ago.
+                Find all open pull requests that:
+                1. Have no reviewers assigned to them.
+                2. Are not marked as draft.
+                3. Were created more than 1 day ago.
 
-              For each of these pull requests, read the git blame information for the files,
-              and assign one of the repo maintainers as a reviewer. Then add a comment:
-              [Automatic Post]: I have assigned {reviewer} as a reviewer based on git blame information.
+                For each of these pull requests, read the git blame information for the files,
+                and assign one of the repo maintainers as a reviewer. Then add a comment:
+                [Automatic Post]: I have assigned {reviewer} as a reviewer based on git blame information.
 
-              # Need Author Action
+                # Need Author Action
 
-              Find all open PRs where the most recent change or comment was made on the pull request more than 5 days ago.
-              And send a message to the author:
-              [Automatic Post]: It has been a while since there was any activity on this PR, are you still working on it?
+                Find all open PRs where the most recent change or comment was made on the pull request more than 5 days ago.
+                And send a message to the author:
+                [Automatic Post]: It has been a while since there was any activity on this PR, are you still working on it?
 
             # PROMPT_STRING: 'Check for outdated dependencies and create a PR'
             LLM_MODEL: openhands/claude-sonnet-4-5-20250929
