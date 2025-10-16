@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from abc import ABC
-from typing import Annotated, Any, Literal, Self, Union
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, Union
 
 from pydantic import (
     BaseModel,
@@ -13,8 +13,13 @@ from pydantic import (
 )
 
 
+if TYPE_CHECKING:
+    from pydantic_core import core_schema
+
+
 logger = logging.getLogger(__name__)
 _rebuild_required = True
+_in_rebuild = False
 
 
 def _is_abstract(type_: type) -> bool:
@@ -37,13 +42,26 @@ def _get_all_subclasses(cls) -> set[type]:
 
 
 def rebuild_all():
-    """Rebuild all polymorphic classes."""
-    global _rebuild_required
+    """Rebuild all polymorphic classes.
+
+    Rebuilds discriminated unions first so that other models
+    can reference them correctly.
+    """
+    global _rebuild_required, _in_rebuild
     _rebuild_required = False
-    for cls in _get_all_subclasses(OpenHandsModel):
-        cls.model_rebuild(force=True)
-    for cls in _get_all_subclasses(DiscriminatedUnionMixin):
-        cls.model_rebuild(force=True)
+    _in_rebuild = True
+    try:
+        # Rebuild discriminated unions first
+        discriminated_classes = set(_get_all_subclasses(DiscriminatedUnionMixin))
+        for cls in discriminated_classes:
+            cls.model_rebuild(force=True)
+
+        # Then rebuild other OpenHandsModel classes
+        all_classes = set(_get_all_subclasses(OpenHandsModel))
+        for cls in all_classes - discriminated_classes:
+            cls.model_rebuild(force=True)
+    finally:
+        _in_rebuild = False
 
 
 def kind_of(obj) -> str:
@@ -127,6 +145,66 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     """
 
     kind: str = Field(default="")  # We dynamically update on a per class basis
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source: type[Any], handler
+    ) -> "core_schema.CoreSchema":
+        """Hook for Pydantic schema generation (TypeAdapter & other tools).
+
+        For abstract classes, creates a definition reference to avoid
+        inline oneOf in FastAPI.
+        For concrete classes, uses the default schema.
+        """
+        # For abstract classes with subclasses, create a definition reference
+        if _is_abstract(source):
+            serializable_type = source.get_serializable_type()
+            # Only use the serializable type if it's different from the source
+            # (i.e., if there are subclasses to create a union from)
+            if serializable_type is not source:
+                # Import here to avoid circular imports
+                from pydantic_core import core_schema
+
+                # Generate the union schema
+                union_schema = handler.generate_schema(serializable_type)
+
+                # Wrap in definitions schema so FastAPI creates $ref
+                # Use the source class name as the ref
+                ref_name = f"{source.__module__}.{source.__name__}"
+
+                # Add the ref to the union schema
+                if isinstance(union_schema, dict):
+                    union_schema["ref"] = ref_name
+
+                # Create definitions schema with union as definition
+                # and a reference to it
+                return core_schema.definitions_schema(
+                    schema=core_schema.definition_reference_schema(ref_name),
+                    definitions=[union_schema],  # type: ignore[list-item]
+                )
+
+        # For concrete/abstract classes without subclasses, use default
+        return handler(source)
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: "core_schema.CoreSchema", handler: Any
+    ) -> dict[str, Any]:
+        """Hook for JSON schema generation (used by FastAPI for OpenAPI).
+
+        Ensures discriminated union schema is properly handled and returns
+        oneOf with $refs to the subclass definitions, not inline schemas.
+        """
+        # Generate the JSON schema using the default handler
+        json_schema = handler(_core_schema)
+
+        # If oneOf schema (discriminated union), ensure options are $refs
+        if isinstance(json_schema, dict) and "oneOf" in json_schema:
+            # Schema already correct from Pydantic's union handling
+            # Just return it as-is
+            return json_schema
+
+        return json_schema
 
     @classmethod
     def resolve_kind(cls, kind: str) -> type:
