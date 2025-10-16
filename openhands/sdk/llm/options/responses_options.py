@@ -25,12 +25,10 @@ def select_responses_options(
     out["temperature"] = 1.0
     out["tool_choice"] = "auto"
 
-    # Include encrypted reasoning if enabled
+    # Include encrypted reasoning if enabled or required by model (GPT-5)
     include_list = list(include) if include is not None else []
-    if (
-        llm.enable_encrypted_reasoning
-        and "reasoning.encrypted_content" not in include_list
-    ):
+    enable_encrypted = bool(llm.enable_encrypted_reasoning) or ("gpt-5" in llm.model)
+    if enable_encrypted and "reasoning.encrypted_content" not in include_list:
         include_list.append("reasoning.encrypted_content")
     if include_list:
         out["include"] = include_list
