@@ -33,7 +33,6 @@ llm = LLM(
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
-    drop_params=True,
 )
 
 llm_condenser = LLM(
@@ -41,7 +40,6 @@ llm_condenser = LLM(
     base_url=base_url,
     api_key=SecretStr(api_key),
     service_id="condenser",
-    drop_params=True,
 )
 
 # Tools

@@ -30,14 +30,12 @@ primary_llm = LLM(
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
-    drop_params=True,
 )
 secondary_llm = LLM(
     service_id="agent-secondary",
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
-    drop_params=True,
 )
 multimodal_router = MultimodalRouter(
     service_id="multimodal-router",

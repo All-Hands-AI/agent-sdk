@@ -25,7 +25,6 @@ llm = LLM(
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
-    drop_params=True,
 )
 
 # Tools

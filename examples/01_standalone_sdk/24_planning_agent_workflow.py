@@ -45,7 +45,6 @@ llm = LLM(
     base_url=base_url,
     api_key=SecretStr(api_key),
     service_id="agent",
-    drop_params=True,
 )
 
 # Task description

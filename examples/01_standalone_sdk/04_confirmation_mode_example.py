@@ -86,7 +86,6 @@ llm = LLM(
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
-    drop_params=True,
 )
 
 agent = get_default_agent(llm=llm)

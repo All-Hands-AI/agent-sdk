@@ -17,7 +17,6 @@ llm = LLM(
     api_key=SecretStr(api_key),
     base_url=base_url,
     service_id="agent",
-    drop_params=True,
 )
 agent = get_default_agent(llm=llm, cli_mode=True)
 

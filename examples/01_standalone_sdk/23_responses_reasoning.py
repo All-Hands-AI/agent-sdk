@@ -38,7 +38,6 @@ llm = LLM(
     reasoning_effort="high",
     # Logging / behavior tweaks
     log_completions=False,
-    drop_params=True,
     service_id="agent",
 )
 
