@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _rebuild_required = True
-_in_rebuild = False
 
 
 def _is_abstract(type_: type) -> bool:
@@ -47,21 +46,17 @@ def rebuild_all():
     Rebuilds discriminated unions first so that other models
     can reference them correctly.
     """
-    global _rebuild_required, _in_rebuild
+    global _rebuild_required
     _rebuild_required = False
-    _in_rebuild = True
-    try:
-        # Rebuild discriminated unions first
-        discriminated_classes = set(_get_all_subclasses(DiscriminatedUnionMixin))
-        for cls in discriminated_classes:
-            cls.model_rebuild(force=True)
+    # Rebuild discriminated unions first
+    discriminated_classes = set(_get_all_subclasses(DiscriminatedUnionMixin))
+    for cls in discriminated_classes:
+        cls.model_rebuild(force=True)
 
-        # Then rebuild other OpenHandsModel classes
-        all_classes = set(_get_all_subclasses(OpenHandsModel))
-        for cls in all_classes - discriminated_classes:
-            cls.model_rebuild(force=True)
-    finally:
-        _in_rebuild = False
+    # Then rebuild other OpenHandsModel classes
+    all_classes = set(_get_all_subclasses(OpenHandsModel))
+    for cls in all_classes - discriminated_classes:
+        cls.model_rebuild(force=True)
 
 
 def kind_of(obj) -> str:
