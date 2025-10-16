@@ -299,7 +299,6 @@ def test_llm_config_boolean_fields():
     """Test boolean field handling."""
     config = LLM(
         model="gpt-4",
-        drop_params=True,
         modify_params=False,
         disable_vision=True,
         disable_stop_word=False,

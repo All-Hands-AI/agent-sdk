@@ -137,7 +137,7 @@ class SimpleBrowsingTest(BaseIntegrationTest):
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully browsed the page and found the answer."""
         # Use the base method to get the agent's final response
-        agent_final_response = self.get_agent_final_response()
+        agent_final_response = self.conversation.agent_final_response()
 
         logger.info(f"Agent final response to analyze: {agent_final_response[:500]}...")
 

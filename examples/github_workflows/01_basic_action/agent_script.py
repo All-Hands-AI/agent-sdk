@@ -31,8 +31,6 @@ import sys
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
-from pydantic import SecretStr
-
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.tools.preset.default import get_default_agent
 
@@ -132,7 +130,7 @@ def main():
 
     llm_config = {
         "model": model,
-        "api_key": SecretStr(api_key),
+        "api_key": api_key,
         "service_id": "agent_script",
         "drop_params": True,
     }

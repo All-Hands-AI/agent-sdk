@@ -22,12 +22,14 @@ logger = get_logger(__name__)
 # Configure LLM using LLMRegistry
 api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
+model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+base_url = os.getenv("LLM_BASE_URL")
 
 # Create LLM instance
 main_llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    model=model,
+    base_url=base_url,
     api_key=SecretStr(api_key),
 )
 
