@@ -10,8 +10,6 @@ from tests.integration.base import BaseIntegrationTest, TestResult
 INSTRUCTION = (
     "Look at https://github.com/All-Hands-AI/OpenHands/pull/8, and tell me "
     "what is happening there and what did @asadm suggest. "
-    "Note: If you encounter rate limiting issues, use the GITHUB_TOKEN "
-    "environment variable if available."
 )
 
 
@@ -26,8 +24,6 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
     @property
     def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
@@ -37,14 +33,12 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
 
     def setup(self) -> None:
         """No special setup needed for GitHub PR browsing."""
-        if self.cwd is None:
-            raise ValueError("CWD must be set before setup")
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully browsed the GitHub PR."""
 
         # Get the agent's final answer/response to the instruction
-        agent_final_answer = self.get_agent_final_response()
+        agent_final_answer = self.conversation.agent_final_response()
 
         if not agent_final_answer:
             return TestResult(
@@ -75,7 +69,3 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
                     f"Final answer preview: {agent_final_answer[:200]}..."
                 ),
             )
-
-    def teardown(self):
-        """No cleanup needed for GitHub PR browsing."""
-        logger.info("GitHub PR browsing test teardown complete")

@@ -330,6 +330,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             model_name=self.model,
             log_enabled=self.log_completions,
             log_dir=self.log_completions_folder if self.log_completions else None,
+            input_cost_per_token=self.input_cost_per_token,
+            output_cost_per_token=self.output_cost_per_token,
             metrics=self._metrics,
         )
 
@@ -382,7 +384,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         messages: list[Message],
         tools: Sequence[ToolBase] | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
@@ -505,7 +507,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         tools: Sequence[ToolBase] | None = None,
         include: list[str] | None = None,
         store: bool | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
@@ -636,6 +638,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     "ignore",
                     message=r"There is no current event loop",
                     category=DeprecationWarning,
+                )
+                warnings.filterwarnings(
+                    "ignore",
+                    category=UserWarning,
                 )
                 # Some providers need renames handled in _normalize_call_kwargs.
                 ret = litellm_completion(
@@ -845,7 +851,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        formatted_messages = [message.to_llm_dict() for message in messages]
+        formatted_messages = [message.to_chat_dict() for message in messages]
 
         return formatted_messages
 

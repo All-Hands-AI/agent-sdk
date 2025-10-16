@@ -51,11 +51,11 @@ class BaseIntegrationTest(ABC):
         instruction: str,
         llm_config: dict[str, Any],
         instance_id: str,
-        cwd: str | None = None,
+        workspace: str,
     ):
         self.instruction = instruction
         self.llm_config = llm_config
-        self.cwd = cwd
+        self.workspace = workspace
         self.instance_id = instance_id
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
@@ -82,12 +82,12 @@ class BaseIntegrationTest(ABC):
 
         # Create log file path for this test instance
         self.log_file_path = os.path.join(
-            self.cwd or "/tmp", f"{self.instance_id}_agent_logs.txt"
+            self.workspace, f"{self.instance_id}_agent_logs.txt"
         )
 
         self.conversation: LocalConversation = LocalConversation(
             agent=self.agent,
-            workspace=self.cwd or "/tmp",
+            workspace=self.workspace,
             callbacks=[self.conversation_callback],
             visualize=True,  # Use default visualizer and capture its output
         )
@@ -187,29 +187,9 @@ class BaseIntegrationTest(ABC):
         """
         pass
 
-    def get_agent_final_response(self) -> str:
-        """Extract the final response from the agent's finish tool call."""
-
-        # Find the last finish action from the agent
-        for event in reversed(self.conversation.state.events):
-            if (
-                type(event).__name__ == "ActionEvent"
-                and hasattr(event, "source")
-                and getattr(event, "source") == "agent"
-                and hasattr(event, "tool_name")
-                and getattr(event, "tool_name") == "finish"
-            ):
-                # Extract message from finish tool call
-                if hasattr(event, "action") and hasattr(
-                    getattr(event, "action"), "message"
-                ):
-                    message = getattr(getattr(event, "action"), "message")
-                    return message
-                else:
-                    break
-        return ""
-
-    @abstractmethod
     def teardown(self):
-        """Clean up test resources."""
-        pass
+        """
+        Clean up test resources.
+        The workspace directory is torn down externally.
+        Add any additional cleanup (git, server, ...) here if needed.
+        """

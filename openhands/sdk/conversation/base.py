@@ -7,7 +7,8 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
-from openhands.sdk.llm.message import Message
+from openhands.sdk.llm.llm import LLM
+from openhands.sdk.llm.message import Message, content_to_str
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
@@ -93,6 +94,20 @@ class BaseConversation(ABC):
     def confirmation_policy_active(self) -> bool:
         return not isinstance(self.state.confirmation_policy, NeverConfirm)
 
+    @property
+    def is_confirmation_mode_active(self) -> bool:
+        """Check if confirmation mode is active.
+
+        Returns True if BOTH conditions are met:
+        1. The agent has a security analyzer set (not None)
+        2. The confirmation policy is active
+
+        """
+        return (
+            self.state.agent.security_analyzer is not None
+            and self.confirmation_policy_active
+        )
+
     @abstractmethod
     def reject_pending_actions(
         self, reason: str = "User rejected the action"
@@ -107,12 +122,69 @@ class BaseConversation(ABC):
     @abstractmethod
     def close(self) -> None: ...
 
+    @abstractmethod
+    def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
+        """Generate a title for the conversation based on the first user message.
+
+        Args:
+            llm: Optional LLM to use for title generation. If not provided,
+                 uses the agent's LLM.
+            max_length: Maximum length of the generated title.
+
+        Returns:
+            A generated title for the conversation.
+
+        Raises:
+            ValueError: If no user messages are found in the conversation.
+        """
+        ...
+
     @staticmethod
     def get_persistence_dir(
         persistence_base_dir: str, conversation_id: ConversationID
     ) -> str:
         """Get the persistence directory for the conversation."""
-        return str(Path(persistence_base_dir) / str(conversation_id))
+        return str(Path(persistence_base_dir) / conversation_id.hex)
+
+    def agent_final_response(self) -> str:
+        """Extract the final response from the agent.
+
+        An agent can end a conversation in two ways:
+        1. By calling the finish tool
+        2. By returning a text message with no tool calls
+
+        Returns:
+            The final response message from the agent, or empty string if not found.
+        """
+        # Find the last finish action or message event from the agent
+        for event in reversed(self.state.events):
+            # Case 1: finish tool call
+            if (
+                type(event).__name__ == "ActionEvent"
+                and hasattr(event, "source")
+                and getattr(event, "source") == "agent"
+                and hasattr(event, "tool_name")
+                and getattr(event, "tool_name") == "finish"
+            ):
+                # Extract message from finish tool call
+                if hasattr(event, "action") and hasattr(
+                    getattr(event, "action"), "message"
+                ):
+                    message = getattr(getattr(event, "action"), "message")
+                    return message
+                else:
+                    break
+            # Case 2: text message with no tool calls (MessageEvent)
+            elif (
+                type(event).__name__ == "MessageEvent"
+                and hasattr(event, "source")
+                and getattr(event, "source") == "agent"
+                and hasattr(event, "llm_message")
+            ):
+                llm_message = getattr(event, "llm_message")
+                text_parts = content_to_str(llm_message.content)
+                return "".join(text_parts)
+        return ""
 
     @staticmethod
     def compose_callbacks(

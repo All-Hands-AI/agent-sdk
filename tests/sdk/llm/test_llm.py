@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from litellm.exceptions import (
@@ -37,13 +37,19 @@ def test_llm_init_with_default_config(default_llm):
     assert default_llm.metrics.model_name == "gpt-4o"
 
 
-def test_base_url_for_openhands_provider():
+@patch("openhands.sdk.llm.llm.httpx.get")
+def test_base_url_for_openhands_provider(mock_get):
+    """Test that openhands/ prefix automatically sets base_url to production proxy."""
+    # Mock the model info fetch to avoid actual HTTP calls to production
+    mock_get.return_value = Mock(json=lambda: {"data": []})
+
     llm = LLM(
         model="openhands/claude-sonnet-4-20250514",
         api_key=SecretStr("test-key"),
         service_id="test-openhands-llm",
     )
     assert llm.base_url == "https://llm-proxy.app.all-hands.dev/"
+    mock_get.assert_called_once()
 
 
 def test_token_usage_add():
@@ -517,6 +523,61 @@ def test_telemetry_cost_calculation_header_exception():
             assert "Failed to get cost from LiteLLM headers:" in str(
                 mock_logger.debug.call_args
             )
+
+
+def test_gpt5_enable_encrypted_reasoning_default():
+    """
+    Test that enable_encrypted_reasoning is enabled for GPT-5 models in Responses API.
+    """
+    # Test with gpt-5 model - should auto-enable in _normalize_responses_kwargs
+    llm = LLM(
+        model="openai/gpt-5-mini",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt5-llm",
+    )
+    # Field default is False, but _normalize_responses_kwargs will enable it
+    assert llm.enable_encrypted_reasoning is False
+
+    # Test that the normalization actually enables it
+    normalized = llm._normalize_responses_kwargs({}, include=None, store=None)
+    assert "include" in normalized
+    assert "reasoning.encrypted_content" in normalized["include"]
+
+    # Test with litellm_proxy/openai/gpt-5 model
+    llm_proxy = LLM(
+        model="litellm_proxy/openai/gpt-5-codex",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt5-proxy-llm",
+    )
+    normalized_proxy = llm_proxy._normalize_responses_kwargs(
+        {}, include=None, store=None
+    )
+    assert "include" in normalized_proxy
+    assert "reasoning.encrypted_content" in normalized_proxy["include"]
+
+    # Test that explicit True is respected
+    llm_explicit = LLM(
+        model="openai/gpt-5-mini",
+        api_key=SecretStr("test_key"),
+        enable_encrypted_reasoning=True,
+        service_id="test-gpt5-explicit-llm",
+    )
+    assert llm_explicit.enable_encrypted_reasoning is True
+    normalized_explicit = llm_explicit._normalize_responses_kwargs(
+        {}, include=None, store=None
+    )
+    assert "reasoning.encrypted_content" in normalized_explicit["include"]
+
+    # Test that non-GPT-5 models don't get it automatically
+    llm_gpt4 = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        service_id="test-gpt4-llm",
+    )
+    assert llm_gpt4.enable_encrypted_reasoning is False
+    normalized_gpt4 = llm_gpt4._normalize_responses_kwargs({}, include=None, store=None)
+    # Should not have encrypted reasoning for gpt-4o
+    assert "reasoning.encrypted_content" not in normalized_gpt4.get("include", [])
 
 
 # LLM Registry Tests

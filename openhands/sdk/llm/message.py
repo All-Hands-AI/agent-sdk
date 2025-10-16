@@ -278,10 +278,6 @@ class Message(BaseModel):
 
         return message_dict
 
-    # Backward-compatible alias
-    def to_llm_dict(self) -> dict[str, Any]:
-        return self.to_chat_dict()
-
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
         content = "\n".join(
@@ -289,7 +285,7 @@ class Message(BaseModel):
         )
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 
-        # tool call keys are added in to_llm_dict to centralize behavior
+        # tool call keys are added in to_chat_dict to centralize behavior
         return message_dict
 
     def _list_serializer(self) -> dict[str, Any]:
@@ -330,7 +326,7 @@ class Message(BaseModel):
         if role_tool_with_prompt_caching:
             message_dict["cache_control"] = {"type": "ephemeral"}
 
-        # tool call keys are added in to_llm_dict to centralize behavior
+        # tool call keys are added in to_chat_dict to centralize behavior
         return message_dict
 
     def to_responses_value(self, *, vision_enabled: bool) -> str | list[dict[str, Any]]:
@@ -571,11 +567,6 @@ class Message(BaseModel):
             tool_calls=tool_calls or None,
             responses_reasoning_item=responses_reasoning_item,
         )
-
-    @classmethod
-    def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
-        """Backward-compatible alias for Chat Completions path."""
-        return cls.from_llm_chat_message(message)
 
 
 def content_to_str(contents: Sequence[TextContent | ImageContent]) -> list[str]:

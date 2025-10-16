@@ -32,7 +32,7 @@ from openhands.sdk.tool import (
     FinishTool,
     Observation,
 )
-from openhands.sdk.tool.builtins import FinishAction
+from openhands.sdk.tool.builtins import FinishAction, ThinkAction
 
 
 logger = get_logger(__name__)
@@ -268,10 +268,11 @@ class Agent(AgentBase):
             1. Confirmation mode is enabled
             2. Every action requires confirmation
             3. A single `FinishAction` never requires confirmation
+            4. A single `ThinkAction` never requires confirmation
         """
-        # A single `FinishAction` never requires confirmation
+        # A single `FinishAction` or `ThinkAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
-            action_events[0].action, FinishAction
+            action_events[0].action, (FinishAction, ThinkAction)
         ):
             return False
 
@@ -346,14 +347,11 @@ class Agent(AgentBase):
         try:
             arguments = json.loads(tool_call.arguments)
 
-            # if the tool has a security_risk field (when security analyzer = LLM),
+            # if the tool has a security_risk field (when security analyzer is set),
             # pop it out as it's not part of the tool's action schema
-            if (_predicted_risk := arguments.pop("security_risk", None)) is not None:
-                if not isinstance(self.security_analyzer, LLMSecurityAnalyzer):
-                    raise RuntimeError(
-                        "LLM provided a security_risk but no security analyzer is "
-                        "configured - THIS SHOULD NOT HAPPEN!"
-                    )
+            if (
+                _predicted_risk := arguments.pop("security_risk", None)
+            ) is not None and self.security_analyzer is not None:
                 try:
                     security_risk = risk.SecurityRisk(_predicted_risk)
                 except ValueError:
@@ -361,8 +359,9 @@ class Agent(AgentBase):
                         f"Invalid security_risk value from LLM: {_predicted_risk}"
                     )
 
-            # Arguments we passed in should not contains `security_risk`
-            # as a field
+            assert "security_risk" not in arguments, (
+                "Unexpected 'security_risk' key found in tool arguments"
+            )
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (

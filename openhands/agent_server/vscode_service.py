@@ -29,6 +29,7 @@ class VSCodeService:
         self.connection_token: str | None = None
         self.process: asyncio.subprocess.Process | None = None
         self.openvscode_server_root = Path("/openhands/.openvscode-server")
+        self.extensions_dir = self.openvscode_server_root / "extensions"
 
     async def start(self) -> bool:
         """Start the VSCode server.
@@ -54,18 +55,7 @@ class VSCodeService:
                 )
                 return False
 
-            # Start VSCode server
-            # TODO: we need to reset settings.json
-            # for global settings
-            # settings_content = {
-            #     "workbench.colorTheme": "Default Dark+",
-            #     "editor.fontSize": 14,
-            #     "editor.tabSize": 4,
-            #     "files.autoSave": "afterDelay",
-            #     "files.autoSaveDelay": 1000,
-            # }
-            # This is not super easy to do:
-            # https://github.com/gitpod-io/openvscode-server/discussions/199#discussioncomment-1568487
+            # Start VSCode server with extensions
             await self._start_vscode_process()
 
             logger.info(f"VSCode server started successfully on port {self.port}")
@@ -93,19 +83,23 @@ class VSCodeService:
 
     def get_vscode_url(
         self,
-        base_url: str = "http://localhost:8001",
+        base_url: str | None = None,
         workspace_dir: str = "workspace",
     ) -> str | None:
         """Get the VSCode URL with authentication token.
 
         Args:
             base_url: Base URL for the VSCode server
+            workspace_dir: Path to workspace directory
 
         Returns:
             VSCode URL with token, or None if not available
         """
         if not self.connection_token:
             return None
+
+        if base_url is None:
+            base_url = f"http://localhost:{self.port}"
 
         return f"{base_url}/?tkn={self.connection_token}&folder={workspace_dir}"
 
@@ -135,7 +129,7 @@ class VSCodeService:
         try:
             # Try to bind to the port
             server = await asyncio.start_server(
-                lambda r, w: None, "localhost", self.port
+                lambda _r, _w: None, "localhost", self.port
             )
             server.close()
             await server.wait_closed()
@@ -145,12 +139,17 @@ class VSCodeService:
 
     async def _start_vscode_process(self) -> None:
         """Start the VSCode server process."""
-        # Build the command to start VSCode server
+        extensions_arg = (
+            f"--extensions-dir {self.extensions_dir} "
+            if self.extensions_dir.exists()
+            else ""
+        )
         cmd = (
             f"exec {self.openvscode_server_root}/bin/openvscode-server "
             f"--host 0.0.0.0 "
             f"--connection-token {self.connection_token} "
             f"--port {self.port} "
+            f"{extensions_arg}"
             f"--disable-workspace-trust\n"
         )
 
@@ -222,5 +221,5 @@ def get_vscode_service() -> VSCodeService | None:
             logger.info("VSCode is disabled in configuration")
             return None
         else:
-            _vscode_service = VSCodeService()
+            _vscode_service = VSCodeService(port=config.vscode_port)
     return _vscode_service

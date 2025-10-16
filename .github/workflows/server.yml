@@ -37,7 +37,7 @@ jobs:
             - uses: actions/checkout@v5
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v6
+              uses: astral-sh/setup-uv@v7
               with:
                   version: latest
             - name: Install dependencies
@@ -125,7 +125,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v6
+              uses: astral-sh/setup-uv@v7
               with:
                   version: latest
 
@@ -178,7 +178,7 @@ jobs:
         env:
             IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
             BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
-            VARIANT_NAME: ${{ matrix.name }}
+            CUSTOM_TAGS: ${{ matrix.name }}
             TARGET: binary
             PLATFORMS: ${{ matrix.platforms }}
             GITHUB_SHA: ${{ github.sha }}
@@ -190,14 +190,12 @@ jobs:
               uses: actions/checkout@v5
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v6
+              uses: astral-sh/setup-uv@v7
               with:
                   version: latest
 
             - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
-              with:
-                  driver-opts: network=host
+              uses: useblacksmith/setup-docker-builder@v1
 
             - name: Log in to GHCR
               uses: docker/login-action@v3
@@ -206,16 +204,11 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Make build script executable
-              run: chmod +x ./openhands/agent_server/docker/build.sh
-              shell: bash
-
             - name: Build & Push (${{ matrix.name }})
               id: build
               run: |
                   uv sync --frozen
-                  ./openhands/agent_server/docker/build.sh
-              shell: bash
+                  uv run ./openhands/agent_server/docker/build.py
 
             - name: Summary (${{ matrix.name }}) - outputs
               run: |
@@ -230,7 +223,7 @@ jobs:
                   mkdir -p build-info
                   cat > "build-info/${{ matrix.name }}.json" << EOF
                   {
-                    "variant": "${{ matrix.name }}",
+                    "custom_tags": "${{ matrix.name }}",
                     "base_image": "${{ matrix.base_image }}",
                     "image": "${{ steps.build.outputs.image }}",
                     "short_sha": "${{ steps.build.outputs.short_sha }}",
@@ -251,7 +244,7 @@ jobs:
         # Run if it's a PR and the matrix job completed (even if some variants failed)
         if: github.event_name == 'pull_request' && always() && (needs.build-and-push-image.result == 'success' || needs.build-and-push-image.result ==
             'failure')
-        runs-on: blacksmith-2vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         outputs:
             build_summary: ${{ steps.consolidate.outputs.build_summary }}
         steps:
@@ -275,7 +268,7 @@ jobs:
                   ALL_TAGS=""
                   VARIANTS_JSON="[]"
 
-                  # Process each variant's build info
+                  # Process each build info
                   for info_file in build-info/*.json; do
                       if [[ ! -f "$info_file" ]]; then
                           echo "Skipping $info_file - not a file"
@@ -287,25 +280,25 @@ jobs:
                       echo "=== End of $info_file ==="
                       
                       # Extract information from JSON
-                      VARIANT=$(jq -r '.variant' "$info_file")
+                      CUSTOM_TAGS=$(jq -r '.custom_tags' "$info_file")
                       BASE_IMAGE=$(jq -r '.base_image' "$info_file")
                       VARIANT_IMAGE=$(jq -r '.image' "$info_file")
                       VARIANT_SHA=$(jq -r '.short_sha' "$info_file")
                       VARIANT_TAGS=$(jq -r '.tags' "$info_file")
                       
-                      # Set common values (same across all variants)
+                      # Set common values (same across all builds)
                       if [[ -z "$IMAGE" ]]; then
                           IMAGE="$VARIANT_IMAGE"
                           SHORT_SHA="$VARIANT_SHA"
                       fi
                       
-                      # Add variant to JSON array
+                      # Add to JSON array
                       VARIANTS_JSON=$(echo "$VARIANTS_JSON" | jq \
-                          --arg variant "$VARIANT" \
+                          --arg custom_tags "$CUSTOM_TAGS" \
                           --arg base_image "$BASE_IMAGE" \
-                          '. += [{variant: $variant, base_image: $base_image}]')
+                          '. += [{custom_tags: $custom_tags, base_image: $base_image}]')
                       
-                      echo "Added variant $VARIANT, current variants JSON:"
+                      echo "Added custom_tags $CUSTOM_TAGS, current variants JSON:"
                       echo "$VARIANTS_JSON" | jq .
                       
                       # Collect tags (comma-separated to newline-separated)
@@ -379,22 +372,22 @@ jobs:
                   # Build the variants table dynamically
                   VARIANTS_TABLE=""
 
-                  # Process each variant
+                  # Process each build
                   VARIANTS=$(echo "$BUILD_SUMMARY" | jq -r '.variants[] | @base64')
-                  echo "DEBUG: Found variants (base64 encoded):"
+                  echo "DEBUG: Found builds (base64 encoded):"
                   echo "$VARIANTS"
-                  echo "DEBUG: Number of variants: $(echo "$VARIANTS" | wc -l)"
+                  echo "DEBUG: Number of builds: $(echo "$VARIANTS" | wc -l)"
 
                   for variant_data in $VARIANTS; do
-                      # Decode base64 and extract variant info
+                      # Decode base64 and extract build info
                       VARIANT_JSON=$(echo "$variant_data" | base64 --decode)
-                      echo "DEBUG: Processing variant JSON: $VARIANT_JSON"
-                      VARIANT=$(echo "$VARIANT_JSON" | jq -r '.variant')
+                      echo "DEBUG: Processing build JSON: $VARIANT_JSON"
+                      CUSTOM_TAGS=$(echo "$VARIANT_JSON" | jq -r '.custom_tags')
                       BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
                       
-                      echo "DEBUG: Adding variant $VARIANT with base image $BASE_IMAGE"
+                      echo "DEBUG: Adding custom_tags $CUSTOM_TAGS with base image $BASE_IMAGE"
                       # Add to variants table
-                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${VARIANT} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |"$'\n'
+                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${CUSTOM_TAGS} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |"$'\n'
                   done
 
                   echo "DEBUG: Final variants table:"

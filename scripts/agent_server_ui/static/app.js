@@ -3,8 +3,8 @@ class OpenHandsWebChat {
         // In Docker setup, API calls go through nginx proxy
         this.apiBaseUrl = window.location.origin + '/api';
         this.wsBaseUrl = window.location.protocol === 'https:' 
-            ? `wss://${window.location.host}/api`
-            : `ws://${window.location.host}/api`;
+            ? `wss://${window.location.host}/sockets/events`
+            : `ws://${window.location.host}/sockets/events`;
         
         this.currentConversationId = null;
         this.websocket = null;
@@ -275,7 +275,7 @@ class OpenHandsWebChat {
     }
 
     connectWebSocket(conversationId) {
-        const wsUrl = `${this.wsBaseUrl}/conversations/${conversationId}/events/socket`;
+        const wsUrl = `${this.wsBaseUrl}/${conversationId}`;
         
         this.updateConnectionStatus('connecting');
         this.websocket = new WebSocket(wsUrl);
