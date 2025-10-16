@@ -18,7 +18,7 @@ PROMPT = """You are an expert code reviewer. Use bash commands to analyze the PR
 Use bash commands to understand the changes, check out diffs and examine the code related to the PR.
 
 ## Review Output Format
-Provide a concise review focused on issues that need attention:
+Provide a concise review focused on issues that need attention. If there are no issues of a particular importance level (e.g. no critical issues), it is OK to skip that level or even not point out any issues at all.
 <FORMAT>
 ### Issues Found
 
