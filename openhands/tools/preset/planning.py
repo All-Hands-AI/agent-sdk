@@ -22,15 +22,15 @@ PLAN_STRUCTURE: list[tuple[str, str]] = [
     (
         "CONTEXT SUMMARY",
         (
-            "* Briefly describe the relevant system components, files, or data involved.\n"
-            "* Mention any dependencies or constraints (technical, organizational, or external)."
+            "* Briefly describe the relevant system components, files, or data involved.\n"  # noqa: E501
+            "* Mention any dependencies or constraints (technical, organizational, or external)."  # noqa: E501
         ),
     ),
     (
         "APPROACH OVERVIEW",
         (
             "* Outline the chosen approach at a high level.\n"
-            "* Mention why it was selected (short rationale) if alternatives were considered."
+            "* Mention why it was selected (short rationale) if alternatives were considered."  # noqa: E501
         ),
     ),
     (
@@ -47,7 +47,7 @@ PLAN_STRUCTURE: list[tuple[str, str]] = [
         "TESTING AND VALIDATION",
         (
             "* Describe how the implementation can be verified or validated.\n"
-            "* This section should describe what success looks like — expected outputs, behaviors, or conditions."
+            "* This section should describe what success looks like — expected outputs, behaviors, or conditions."  # noqa: E501
         ),
     ),
 ]
@@ -55,27 +55,27 @@ PLAN_STRUCTURE: list[tuple[str, str]] = [
 
 def format_plan_structure() -> str:
     """Format the PLAN_STRUCTURE into a string for system prompt injection.
-    
+
     Returns:
         Formatted plan structure string ready for system prompt.
     """
     formatted_sections = []
     for i, (title, description) in enumerate(PLAN_STRUCTURE, 1):
         formatted_sections.append(f"{i}. {title}\n   {description}")
-    
+
     return "\n\n".join(formatted_sections)
 
 
 def get_plan_headers() -> str:
     """Get plan section headers for initializing PLAN.md.
-    
+
     Returns:
         Plan headers as markdown string.
     """
     headers = []
     for i, (title, _) in enumerate(PLAN_STRUCTURE, 1):
         headers.append(f"# {i}. {title}\n")
-    
+
     return "\n".join(headers)
 
 
