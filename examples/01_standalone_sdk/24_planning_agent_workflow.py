@@ -54,6 +54,8 @@ Create a Python web scraper with the following requirements:
 - Handle HTTP errors gracefully with retry logic
 - Save results to a JSON file with timestamp
 - Use requests and BeautifulSoup for scraping
+
+Do NOT ask for any clarifying questions. Directly create your implementation plan.
 """
 
 print("=" * 80)
