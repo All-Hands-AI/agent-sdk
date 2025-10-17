@@ -244,6 +244,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     _model_info: Any = PrivateAttr(default=None)
     _tokenizer: Any = PrivateAttr(default=None)
     _function_calling_active: bool = PrivateAttr(default=False)
+    # Important: do not include in serialization; Telemetry is a plain dataclass
+    # and must remain a runtime-only attribute to avoid dataclass–Pydantic mixing.
     _telemetry: Telemetry | None = PrivateAttr(default=None)
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
@@ -462,7 +464,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     resp, nonfncall_msgs=formatted_messages, tools=cc_tools
                 )
             # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
+            self._telemetry.on_completion_response(resp, raw_resp=raw_resp)
 
             # Ensure at least one choice
             if not resp.get("choices") or len(resp["choices"]) < 1:
@@ -588,7 +590,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     )
                     # telemetry (latency, cost). Token usage mapping we handle after.
                     assert self._telemetry is not None
-                    self._telemetry.on_response(ret)
+                    self._telemetry.on_responses_response(ret)
                     return ret
 
         try:
