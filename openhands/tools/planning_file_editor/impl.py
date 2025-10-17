@@ -19,7 +19,7 @@ class PlanningFileEditorExecutor(ToolExecutor):
             workspace_root: Root directory for file operations
             plan_path: Absolute path to PLAN.md file
         """
-        self.file_editor_executor = FileEditorExecutor(
+        self.file_editor_executor: FileEditorExecutor = FileEditorExecutor(
             workspace_root=workspace_root,
             allowed_edits_files=[plan_path],
         )
