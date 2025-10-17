@@ -10,6 +10,10 @@ from openhands.tools.file_editor.utils.file_cache import FileCache
 class FileHistoryManager:
     """Manages file edit history with disk-based storage and memory constraints."""
 
+    max_history_per_file: int
+    cache: FileCache
+    logger: logging.Logger
+
     def __init__(self, max_history_per_file: int = 5, history_dir: Path | None = None):
         """Initialize the history manager.
 

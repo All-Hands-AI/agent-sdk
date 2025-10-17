@@ -6,10 +6,12 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from openhands.sdk.logger import DEBUG, get_logger
 from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.utils.async_executor import AsyncExecutor
+from openhands.tools.browser_use.definition import BrowserAction, BrowserObservation
 from openhands.tools.browser_use.server import CustomBrowserUseServer
 from openhands.tools.utils.timeout import TimeoutError, run_with_timeout
 
@@ -108,11 +110,13 @@ def _ensure_chromium_available() -> str:
     raise Exception(error_msg)
 
 
-class BrowserToolExecutor(ToolExecutor):
+class BrowserToolExecutor(ToolExecutor[BrowserAction, BrowserObservation]):
     """Executor that wraps browser-use MCP server for OpenHands integration."""
 
     _server: CustomBrowserUseServer
-    _config: dict
+    _config: dict[str, Any]
+    _initialized: bool
+    _async_executor: AsyncExecutor
 
     def __init__(
         self,

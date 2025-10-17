@@ -5,7 +5,7 @@ Tests the core behavior: pause action execution for user confirmation.
 """
 
 from collections.abc import Sequence
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from litellm import ChatCompletionMessageToolCall
@@ -65,12 +65,12 @@ class TestConfirmationMode:
         """Set up test fixtures."""
 
         # Create a real LLM instance for Agent validation
-        self.llm = LLM(
+        self.llm: LLM = LLM(
             model="gpt-4", api_key=SecretStr("test-key"), service_id="test-llm"
         )
 
         # Create a MagicMock to override the completion method
-        self.mock_llm = MagicMock()
+        self.mock_llm: Mock = MagicMock()
 
         # Create a proper MetricsSnapshot mock for the LLM
         mock_token_usage = TokenUsage(
@@ -114,11 +114,11 @@ class TestConfirmationMode:
 
         register_tool("test_tool", _make_tool)
 
-        self.agent = Agent(
+        self.agent: Agent = Agent(
             llm=self.llm,
             tools=[Tool(name="test_tool")],
         )
-        self.conversation = Conversation(agent=self.agent)
+        self.conversation: Conversation = Conversation(agent=self.agent)
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> MagicMock:
         """Configure LLM to return a plain assistant message (no tool calls)."""

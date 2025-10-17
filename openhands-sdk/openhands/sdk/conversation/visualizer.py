@@ -56,6 +56,10 @@ class ConversationVisualizer:
     Provides Rich-formatted output with panels and complete content display.
     """
 
+    _console: Console
+    _skip_user_messages: bool
+    _conversation_stats: "ConversationStats | None"
+
     def __init__(
         self,
         highlight_regex: dict[str, str] | None = None,

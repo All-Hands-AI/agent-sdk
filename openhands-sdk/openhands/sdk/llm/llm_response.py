@@ -5,6 +5,8 @@ with OpenHands-native types, eliminating the need for consumers to work directly
 with LiteLLM types.
 """
 
+from typing import ClassVar
+
 from litellm import ResponsesAPIResponse
 from litellm.types.utils import ModelResponse
 from pydantic import BaseModel, ConfigDict
@@ -34,7 +36,7 @@ class LLMResponse(BaseModel):
     metrics: MetricsSnapshot
     raw_response: ModelResponse | ResponsesAPIResponse
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     @property
     def id(self) -> str:

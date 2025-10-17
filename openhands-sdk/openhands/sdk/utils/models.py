@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from abc import ABC
-from typing import Annotated, Any, Literal, Self, Union
+from typing import Annotated, Any, ClassVar, Literal, Self, Union
 
 from pydantic import (
     BaseModel,
@@ -125,6 +125,10 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     Child classes will automatically have a type field defined, which is used as a
     discriminator for union types.
     """
+
+    __pydantic_core_schema__: ClassVar[Any]
+    __pydantic_validator__: ClassVar[Any]
+    __pydantic_serializer__: ClassVar[Any]
 
     kind: str = Field(default="")  # We dynamically update on a per class basis
 

@@ -1,7 +1,7 @@
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import ConfigDict, Field
 from rich.text import Text
@@ -20,7 +20,7 @@ N_CHAR_PREVIEW = 500
 class Event(DiscriminatedUnionMixin, ABC):
     """Base class for all events."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
     id: EventID = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique event id (ULID/UUID)",

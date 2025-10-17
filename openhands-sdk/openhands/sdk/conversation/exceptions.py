@@ -8,6 +8,9 @@ class ConversationRunError(RuntimeError):
     preserving the original exception via exception chaining.
     """
 
+    conversation_id: ConversationID
+    original_exception: BaseException
+
     def __init__(
         self,
         conversation_id: ConversationID,
