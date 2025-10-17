@@ -7,7 +7,6 @@ import sys
 from abc import ABC, abstractmethod
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, SecretStr
@@ -23,7 +22,6 @@ from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
-from openhands.sdk.llm.config import LLMConfig
 from openhands.sdk.tool import Tool
 
 
