@@ -105,7 +105,24 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             }
         ],
     )
-    system_prompt_filename: str = Field(default="system_prompt.j2")
+    system_prompt_filename: str = Field(
+        default="system_prompt.j2",
+        description=(
+            "Filename or absolute path of the system prompt template. "
+            "If a filename is provided, it will be looked up in the prompt directory. "
+            "If an absolute path is provided, it will be used directly."
+        ),
+        examples=["system_prompt.j2", "/path/to/custom_system_prompt.j2"],
+    )
+    security_policy_filename: str = Field(
+        default="security_policy.j2",
+        description=(
+            "Filename or absolute path of the security policy template to include in the system prompt. "  # noqa: E501
+            "If a filename is provided, it will be looked up in the prompt directory. "
+            "If an absolute path is provided, it will be used directly."
+        ),
+        examples=["security_policy.j2", "/path/to/custom_security_policy.j2"],
+    )
     system_prompt_kwargs: dict = Field(
         default_factory=dict,
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
@@ -159,6 +176,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             template_kwargs["llm_security_analyzer"] = bool(
                 isinstance(self.security_analyzer, LLMSecurityAnalyzer)
             )
+
+        # Add security_policy_filename to template kwargs
+        template_kwargs["security_policy_filename"] = self.security_policy_filename
 
         system_message = render_template(
             prompt_dir=self.prompt_dir,
