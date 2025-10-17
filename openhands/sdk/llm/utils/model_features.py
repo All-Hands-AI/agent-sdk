@@ -37,9 +37,11 @@ def normalize_model_name(model: str) -> str:
         "amazon",
     }
     if "." in name:
-        vendor, rest = name.split(".", 1)
-        if vendor in vendor_prefixes and rest:
-            name = rest
+        tokens = name.split(".")
+        for idx, token in enumerate(tokens):
+            if token in vendor_prefixes and idx + 1 < len(tokens):
+                name = ".".join(tokens[idx + 1 :])
+                break
 
     if name.endswith("-gguf"):
         name = name[: -len("-gguf")]
@@ -125,6 +127,7 @@ EXTENDED_THINKING_PATTERNS: list[str] = [
     # We did not include sonnet 3.7 and 4 here as they don't brings
     # significant performance improvements for agents
     "claude-sonnet-4-5*",
+    "claude-sonnet-4.5*",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
