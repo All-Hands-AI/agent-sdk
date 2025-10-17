@@ -15,7 +15,7 @@ Your task is to:
 2. Create a feature branch for this implementation
 3. Implement what is asked by the TODO
 4. Create a pull request with your changes
-5. Add reviewers
+5. Add 2 reviewers
     * Tag the person who wrote the TODO as a reviewer
     * read the git blame information for the files, and find the most recent and
     active contributors to the file/location of the changes.
