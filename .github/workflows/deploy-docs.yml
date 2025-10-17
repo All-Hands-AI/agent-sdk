@@ -3,11 +3,11 @@ name: Dispatch to docs repo
 
 on:
     push:
-        branches: [main]
+        branches:
+            - main
         paths:
             - openhands-agent-server/**
     workflow_dispatch:
-
 jobs:
     dispatch:
         runs-on: blacksmith-2vcpu-ubuntu-2404
