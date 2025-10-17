@@ -68,7 +68,7 @@ asyncio_mode = "auto"
 # basedpyright configuration
 [tool.basedpyright]
 include = ["openhands"]
-exclude = ["**/__pycache__", "**/.venv", "**/node_modules", "tests/**", "examples/**"]
+exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
 
 # Start with basic type checking and gradually increase strictness
 typeCheckingMode = "basic"

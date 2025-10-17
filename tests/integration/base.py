@@ -81,7 +81,7 @@ class BaseIntegrationTest(ABC):
         self.llm_messages: list[dict[str, Any]] = []
 
         # Create log file path for this test instance
-        self.log_file_path = os.path.join(
+        self.log_file_path: str = os.path.join(
             self.workspace, f"{self.instance_id}_agent_logs.txt"
         )
 

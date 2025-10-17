@@ -39,7 +39,7 @@ class TestMCPToolImmutability:
         tools = MCPToolDefinition.create(
             mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
         )
-        self.tool = tools[0]  # Extract single tool from sequence
+        self.tool: MCPToolDefinition = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_is_frozen(self):
         """Test that MCPTool instances are frozen and cannot be modified."""

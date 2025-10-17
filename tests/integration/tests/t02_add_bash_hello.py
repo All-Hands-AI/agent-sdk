@@ -22,7 +22,7 @@ class BashHelloTest(BaseIntegrationTest):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.script_path = os.path.join(self.workspace, "shell", "hello.sh")
+        self.script_path: str = os.path.join(self.workspace, "shell", "hello.sh")
 
     @property
     def tools(self) -> list[Tool]:

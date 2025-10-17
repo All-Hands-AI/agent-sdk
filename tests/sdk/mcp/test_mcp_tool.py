@@ -230,7 +230,7 @@ class TestMCPTool:
         tools = MCPToolDefinition.create(
             mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
         )
-        self.tool = tools[0]  # Extract single tool from sequence
+        self.tool: MCPToolDefinition = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_creation(self):
         """Test creating an MCP tool."""

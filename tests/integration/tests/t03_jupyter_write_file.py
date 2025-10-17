@@ -25,7 +25,7 @@ class JupyterWriteFileTest(BaseIntegrationTest):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.file_path = os.path.join(self.workspace, "test.txt")
+        self.file_path: str = os.path.join(self.workspace, "test.txt")
 
     @property
     def tools(self) -> list[Tool]:
