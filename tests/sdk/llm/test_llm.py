@@ -568,7 +568,7 @@ def test_gpt5_enable_encrypted_reasoning_default():
     )
     assert "reasoning.encrypted_content" in normalized_explicit["include"]
 
-    # For non-GPT-5 models, encrypted reasoning is included when stateless (store=False)
+    # Encrypted reasoning is included when stateless (store=False)
     llm_gpt4 = LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
