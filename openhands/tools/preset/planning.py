@@ -67,7 +67,7 @@ def format_plan_structure() -> str:
     for i, (title, description) in enumerate(PLAN_STRUCTURE, 1):
         formatted_sections.append(f"{i}. {title}\n   {description}")
 
-    return "The plan must follow this structure exactly:\n\n".join(formatted_sections)
+    return "The plan must follow this structure exactly:\n\n" + "\n\n".join(formatted_sections)
 
 
 def get_plan_headers() -> str:
