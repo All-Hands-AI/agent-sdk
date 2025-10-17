@@ -55,8 +55,6 @@ jobs:
         outputs:
             todos: ${{ steps.scan.outputs.todos }}
             todo-count: ${{ steps.scan.outputs.todo-count }}
-        env:
-            SCANNER_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/03_github_workflows/03_todo_management/scanner.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -68,9 +66,9 @@ jobs:
               with:
                   python-version: '3.12'
 
-            - name: Download TODO scanner
+            - name: Copy TODO scanner
               run: |
-                  curl -sSL "$SCANNER_URL" -o /tmp/scanner.py
+                  cp examples/03_github_workflows/03_todo_management/scanner.py /tmp/scanner.py
                   chmod +x /tmp/scanner.py
 
             - name: Scan for TODOs
@@ -129,9 +127,6 @@ jobs:
             matrix:
                 todo: ${{ fromJson(needs.scan-todos.outputs.todos) }}
             max-parallel: 1 # Process one TODO at a time to avoid conflicts
-        env:
-            AGENT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/03_github_workflows/03_todo_management/agent_script.py
-            PROMPT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/03_github_workflows/03_todo_management/prompt.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -139,10 +134,10 @@ jobs:
                   fetch-depth: 0
                   token: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Switch to main branch
+            - name: Switch to feature branch with TODO management files
               run: |
-                  git checkout main
-                  git pull origin main
+                  git checkout openhands/todo-management-example
+                  git pull origin openhands/todo-management-example
 
             - name: Set up Python
               uses: actions/setup-python@v5
@@ -160,11 +155,11 @@ jobs:
                   uv pip install --system "openhands-sdk @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands-sdk"
                   uv pip install --system "openhands-tools @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands-tools"
 
-            - name: Download agent files
+            - name: Copy agent files
               run: |
-                  curl -sSL "$AGENT_URL" -o agent_script.py
-                  curl -sSL "$PROMPT_URL" -o prompt.py
-                  chmod +x agent_script.py
+                  cp examples/03_github_workflows/03_todo_management/agent_script.py agent.py
+                  cp examples/03_github_workflows/03_todo_management/prompt.py prompt.py
+                  chmod +x agent.py
 
             - name: Configure Git
               run: |
@@ -174,8 +169,8 @@ jobs:
 
             - name: Process TODO
               env:
-                  LLM_MODEL: <YOUR_LLM_MODEL>
-                  LLM_BASE_URL: <YOUR_LLM_BASE_URL>
+                  LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
+                  LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   GITHUB_REPOSITORY: ${{ github.repository }}
@@ -229,7 +224,7 @@ jobs:
                   # Run the agent with comprehensive logging
                   echo "Starting agent execution..."
                   set +e  # Don't exit on error, we want to capture it
-                  uv run python agent_script.py "$TODO_JSON" 2>&1 | tee agent_output.log
+                  uv run python agent.py "$TODO_JSON" 2>&1 | tee agent_output.log
                   AGENT_EXIT_CODE=$?
                   set -e
 
@@ -237,9 +232,9 @@ jobs:
                   echo "Agent output log:"
                   cat agent_output.log
 
-                  # Check if agent created any result files
-                  echo "Files created by agent:"
-                  ls -la *.json || echo "No JSON result files found"
+                  # Show files in working directory
+                  echo "Files in working directory:"
+                  ls -la
 
                   # If agent failed, show more details
                   if [ $AGENT_EXIT_CODE -ne 0 ]; then
