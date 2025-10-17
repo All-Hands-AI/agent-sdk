@@ -125,6 +125,7 @@ EXTENDED_THINKING_PATTERNS: list[str] = [
     # We did not include sonnet 3.7 and 4 here as they don't brings
     # significant performance improvements for agents
     "claude-sonnet-4-5*",
+    "claude-haiku-4-5*",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
