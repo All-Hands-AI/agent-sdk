@@ -24,7 +24,7 @@ jobs:
               uses: tj-actions/changed-files@v47
               with:
                   files: |
-                      openhands/sdk/**
+                      openhands-sdk/**
                       tests/sdk/**
                       pyproject.toml
                       uv.lock
@@ -59,7 +59,7 @@ jobs:
                   rm -f .coverage
                   CI=true uv run python -m pytest -vvs \
                     --forked \
-                    --cov=openhands/sdk \
+                    --cov=openhands-sdk \
                     --cov-report=term-missing \
                     --cov-fail-under=0 \
                     --cov-config=pyproject.toml \
@@ -90,7 +90,7 @@ jobs:
               uses: tj-actions/changed-files@v47
               with:
                   files: |
-                      openhands/tools/**
+                      openhands-tools/**
                       tests/tools/**
                       pyproject.toml
                       uv.lock
@@ -113,7 +113,7 @@ jobs:
                   rm -f .coverage
                   CI=true uv run python -m pytest -vvs \
                     --forked \
-                    --cov=openhands/tools \
+                    --cov=openhands-tools \
                     --cov-report=term-missing \
                     --cov-fail-under=0 \
                     --cov-config=pyproject.toml \
@@ -144,7 +144,7 @@ jobs:
               uses: tj-actions/changed-files@v47
               with:
                   files: |
-                      openhands/agent_server/**
+                      openhands-agent-server/**
                       tests/agent_server/**
                       pyproject.toml
                       uv.lock
@@ -167,7 +167,7 @@ jobs:
                   rm -f .coverage
                   CI=true uv run python -m pytest -vvs \
                     --forked \
-                    --cov=openhands/agent_server \
+                    --cov=openhands-agent-server \
                     --cov-report=term-missing \
                     --cov-fail-under=0 \
                     --cov-config=pyproject.toml \
