@@ -10,6 +10,75 @@ from openhands.sdk.tool import Tool, register_tool
 logger = get_logger(__name__)
 
 
+# Plan structure definition as list of (section_title, section_description) tuples
+PLAN_STRUCTURE: list[tuple[str, str]] = [
+    (
+        "OBJECTIVE",
+        (
+            "* Summarize the goal of the plan in one or two sentences.\n"
+            "* Restate the problem in clear operational terms."
+        ),
+    ),
+    (
+        "CONTEXT SUMMARY",
+        (
+            "* Briefly describe the relevant system components, files, or data involved.\n"
+            "* Mention any dependencies or constraints (technical, organizational, or external)."
+        ),
+    ),
+    (
+        "APPROACH OVERVIEW",
+        (
+            "* Outline the chosen approach at a high level.\n"
+            "* Mention why it was selected (short rationale) if alternatives were considered."
+        ),
+    ),
+    (
+        "IMPLEMENTATION STEPS",
+        (
+            "* Provide a step-by-step plan for execution.\n"
+            "* Each step should include:\n"
+            "  - a **goal** (what this step accomplishes),\n"
+            "  - a **method** (how to do it, briefly),\n"
+            "  - and optionally a **reference** (file, module, or function impacted)."
+        ),
+    ),
+    (
+        "TESTING AND VALIDATION",
+        (
+            "* Describe how the implementation can be verified or validated.\n"
+            "* This section should describe what success looks like — expected outputs, behaviors, or conditions."
+        ),
+    ),
+]
+
+
+def format_plan_structure() -> str:
+    """Format the PLAN_STRUCTURE into a string for system prompt injection.
+    
+    Returns:
+        Formatted plan structure string ready for system prompt.
+    """
+    formatted_sections = []
+    for i, (title, description) in enumerate(PLAN_STRUCTURE, 1):
+        formatted_sections.append(f"{i}. {title}\n   {description}")
+    
+    return "\n\n".join(formatted_sections)
+
+
+def get_plan_headers() -> str:
+    """Get plan section headers for initializing PLAN.md.
+    
+    Returns:
+        Plan headers as markdown string.
+    """
+    headers = []
+    for i, (title, _) in enumerate(PLAN_STRUCTURE, 1):
+        headers.append(f"# {i}. {title}\n")
+    
+    return "\n".join(headers)
+
+
 def register_planning_tools() -> None:
     """Register the planning agent tools."""
     from openhands.tools.glob import GlobTool
@@ -91,6 +160,7 @@ def get_planning_agent(
         mcp_config=mcp_config,
         filter_tools_regex=filter_tools_regex,
         system_prompt_filename="system_prompt_planning.j2",
+        system_prompt_kwargs={"plan_structure": format_plan_structure()},
         condenser=get_planning_condenser(
             llm=llm.model_copy(update={"service_id": "planning_condenser"})
         ),
