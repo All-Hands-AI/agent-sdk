@@ -28,7 +28,7 @@ This example demonstrates how to set up a GitHub Actions workflow for automated 
 Copy `workflow.yml` to `.github/workflows/pr-review-by-openhands.yml` in your repository:
 
 ```bash
-cp examples/github_workflows/02_pr_review/workflow.yml .github/workflows/pr-review-by-openhands.yml
+cp examples/03_github_workflows/02_pr_review/workflow.yml .github/workflows/pr-review-by-openhands.yml
 ```
 
 ### 2. Configure secrets

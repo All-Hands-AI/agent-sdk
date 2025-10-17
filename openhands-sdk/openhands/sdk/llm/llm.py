@@ -1159,7 +1159,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "contextwindowexceedederror",
             "prompt is too long",
             "input length and `max_tokens` exceed context limit",
-            "please reduce the length of either one",
+            "please reduce the length of",
             "the request exceeds the available context size",
             "context length exceeded",
         ]
