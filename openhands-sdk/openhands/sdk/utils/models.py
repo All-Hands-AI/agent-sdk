@@ -136,6 +136,43 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
         raise ValueError(f"Unknown kind '{kind}' for {cls}")
 
     @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        """Generate discriminated union schema for TypeAdapter compatibility."""
+        if cls.__name__ == "DiscriminatedUnionMixin":
+            return handler(source_type)
+
+        if _is_abstract(source_type):
+            _rebuild_if_required()
+            serializable_type = source_type.get_serializable_type()
+            # If there are subclasses, generate schema for the discriminated union
+            if serializable_type is not source_type:
+                return handler.generate_schema(serializable_type)
+
+        return handler(source_type)
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        """Add discriminator to OpenAPI schema."""
+        json_schema = handler(core_schema)
+
+        # Add discriminator if this is a oneOf schema
+        if isinstance(json_schema, dict) and "oneOf" in json_schema:
+            if "discriminator" not in json_schema:
+                mapping = {}
+                for option in json_schema["oneOf"]:
+                    if "$ref" in option:
+                        kind = option["$ref"].split("/")[-1]
+                        mapping[kind] = option["$ref"]
+
+                if mapping:
+                    json_schema["discriminator"] = {
+                        "propertyName": "kind",
+                        "mapping": mapping,
+                    }
+
+        return json_schema
+
+    @classmethod
     def model_rebuild(
         cls,
         *,
