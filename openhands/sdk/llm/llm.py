@@ -140,6 +140,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ge=1,
         description="The maximum number of output tokens. This is sent to the LLM.",
     )
+    extra_headers: dict[str, str] | None = Field(
+        default=None,
+        description="Optional HTTP headers to forward to LiteLLM requests.",
+    )
     input_cost_per_token: float | None = Field(
         default=None,
         ge=0,
@@ -394,6 +398,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
+        # Inject extra_headers if configured
+        if self.extra_headers and "extra_headers" not in kwargs:
+            kwargs["extra_headers"] = self.extra_headers
+
         # 1) serialize messages
         formatted_messages = self.format_messages_for_llm(messages)
 
@@ -534,6 +542,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
 
         # Normalize/override Responses kwargs consistently
+        if self.extra_headers and "extra_headers" not in kwargs:
+            kwargs["extra_headers"] = self.extra_headers
         call_kwargs = self._normalize_responses_kwargs(
             kwargs, include=include, store=store
         )

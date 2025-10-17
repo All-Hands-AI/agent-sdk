@@ -4,6 +4,9 @@ import pytest
 from litellm.exceptions import (
     RateLimitError,
 )
+from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+from openai.types.responses.response_output_message import ResponseOutputMessage
+from openai.types.responses.response_output_text import ResponseOutputText
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
@@ -245,6 +248,76 @@ def test_llm_token_counting(default_llm):
     token_count = llm.get_token_count(messages)
     assert isinstance(token_count, int)
     assert token_count >= 0
+
+
+@patch("openhands.sdk.llm.llm.litellm_completion")
+def test_llm_forwards_extra_headers_to_litellm(mock_completion):
+    mock_response = create_mock_litellm_response("ok")
+    mock_completion.return_value = mock_response
+
+    headers = {"anthropic-beta": "context-1m-2025-08-07"}  # Enable 1M context
+    llm = LLM(
+        service_id="test-llm",
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        extra_headers=headers,
+        num_retries=0,
+    )
+
+    messages = [Message(role="user", content=[TextContent(text="Hi")])]
+    _ = llm.completion(messages=messages)
+
+    assert mock_completion.call_count == 1
+    _, kwargs = mock_completion.call_args
+    # extra_headers forwarded either directly or inside **kwargs
+    assert kwargs.get("extra_headers") == headers
+
+
+@patch("openhands.sdk.llm.llm.litellm_responses")
+def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
+    # Build a minimal, but valid, ResponsesAPIResponse instance per litellm types
+    # Build typed message output using OpenAI types to satisfy litellm schema
+    msg = ResponseOutputMessage.model_construct(
+        id="m1",
+        type="message",
+        role="assistant",
+        status="completed",
+        content=[ResponseOutputText(type="output_text", text="ok", annotations=[])],
+    )
+    usage = ResponseAPIUsage(input_tokens=0, output_tokens=0, total_tokens=0)
+    resp = ResponsesAPIResponse(
+        id="resp123",
+        created_at=0,
+        output=[msg],
+        usage=usage,
+        parallel_tool_calls=False,
+        tool_choice="auto",
+        top_p=None,
+        tools=[],
+        instructions="",
+        status="completed",
+    )
+
+    mock_responses.return_value = resp
+
+    headers = {"anthropic-beta": "context-1m-2025-08-07"}
+    llm = LLM(
+        service_id="test-llm",
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        extra_headers=headers,
+        num_retries=0,
+    )
+
+    messages = [
+        Message(role="system", content=[TextContent(text="sys")]),
+        Message(role="user", content=[TextContent(text="Hi")]),
+    ]
+    _ = llm.responses(messages=messages)
+
+    assert mock_responses.call_count == 1
+    _, kwargs = mock_responses.call_args
+    assert kwargs.get("extra_headers") == headers
 
 
 def test_llm_vision_support(default_llm):
