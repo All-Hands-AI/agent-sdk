@@ -5,7 +5,7 @@ on:
     push:
         branches: [main]
         paths:
-            - docs/**
+            - openhands/agent_server/**
     workflow_dispatch:
 
 jobs:
