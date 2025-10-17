@@ -568,7 +568,7 @@ def test_gpt5_enable_encrypted_reasoning_default():
     )
     assert "reasoning.encrypted_content" in normalized_explicit["include"]
 
-    # Test that non-GPT-5 models don't get it automatically
+    # For non-GPT-5 models, encrypted reasoning is included when stateless (store=False)
     llm_gpt4 = LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
@@ -576,8 +576,12 @@ def test_gpt5_enable_encrypted_reasoning_default():
     )
     assert llm_gpt4.enable_encrypted_reasoning is False
     normalized_gpt4 = select_responses_options(llm_gpt4, {}, include=None, store=None)
-    # Should not have encrypted reasoning for gpt-4o
-    assert "reasoning.encrypted_content" not in normalized_gpt4.get("include", [])
+    assert "reasoning.encrypted_content" in normalized_gpt4.get("include", [])
+    # But if store=True, it should not be included
+    normalized_gpt4_store = select_responses_options(
+        llm_gpt4, {}, include=None, store=True
+    )
+    assert "reasoning.encrypted_content" not in normalized_gpt4_store.get("include", [])
 
 
 # LLM Registry Tests

@@ -25,18 +25,19 @@ def select_responses_options(
     out["temperature"] = 1.0
     out["tool_choice"] = "auto"
 
-    # Include encrypted reasoning if stateless
-    include_list = list(include) if include is not None else []
-    if not out.get('store', False):
-        include_list.append("reasoning.encrypted_content")
-    if include_list:
-        out["include"] = include_list
-
     # Store defaults to False (stateless) unless explicitly provided
     if store is not None:
         out["store"] = bool(store)
     else:
         out.setdefault("store", False)
+
+    # Include encrypted reasoning if stateless
+    include_list = list(include) if include is not None else []
+    if not out.get("store", False):
+        if "reasoning.encrypted_content" not in include_list:
+            include_list.append("reasoning.encrypted_content")
+    if include_list:
+        out["include"] = include_list
 
     # Request plaintext reasoning summary
     effort = llm.reasoning_effort or "high"
