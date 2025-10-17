@@ -13,6 +13,7 @@ dependencies = [
   "sqlalchemy>=2",
   "uvicorn>=0.31.1",
   "websockets>=12",
+  "wsproto>=1.2.0",
 ]
 
 [build-system]
