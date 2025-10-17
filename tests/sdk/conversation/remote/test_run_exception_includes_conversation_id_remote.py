@@ -38,13 +38,16 @@ def test_remote_run_raises_conversation_run_error_with_id():
         # Instantiate RemoteConversation attached to an existing id to avoid create POST
         from openhands.sdk.conversation.impl.remote_conversation import (
             RemoteConversation,
-            _send_request,
         )
 
-        rc = RemoteConversation(agent=agent, workspace=workspace, conversation_id=conv_id)
+        rc = RemoteConversation(
+            agent=agent, workspace=workspace, conversation_id=conv_id
+        )
 
         # Patch _send_request to raise on POST /run for this conversation id
-        def fake_send_request(client, method, url, acceptable_status_codes=None, **kwargs):  # noqa: D401, ARG001
+        def fake_send_request(
+            client, method, url, acceptable_status_codes=None, **kwargs
+        ):  # noqa: D401, ARG001
             if method == "POST" and str(conv_id) in url and url.endswith("/run"):
                 raise httpx.RequestError("boom", request=httpx.Request(method, url))
             # Return a minimal successful response for other calls

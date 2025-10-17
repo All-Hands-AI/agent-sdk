@@ -512,7 +512,6 @@ class RemoteConversation(BaseConversation):
         )
 
     def run(self) -> None:
-
         # Trigger a run on the server using the dedicated run endpoint.
         # Let the server tell us if it's already running (409), avoiding an extra GET.
         try:
