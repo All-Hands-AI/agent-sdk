@@ -81,7 +81,7 @@ class PlanningFileEditorTool(
         if not plan_file.exists():
             # Import here to avoid circular imports
             from openhands.tools.preset.planning import get_plan_headers
-            
+
             plan_file.write_text(get_plan_headers())
 
         # Create executor with restricted edit access to PLAN.md only

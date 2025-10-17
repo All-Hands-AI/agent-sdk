@@ -66,11 +66,13 @@ def format_plan_structure() -> str:
     formatted_sections = []
     for i, (title, description) in enumerate(PLAN_STRUCTURE, 1):
         # Split description into lines and indent each line properly
-        description_lines = description.split('\n')
-        indented_description = '\n   '.join(description_lines)
+        description_lines = description.split("\n")
+        indented_description = "\n   ".join(description_lines)
         formatted_sections.append(f"{i}. {title}\n   {indented_description}")
 
-    return "The plan must follow this structure exactly:\n\n" + "\n\n".join(formatted_sections)
+    return "The plan must follow this structure exactly:\n\n" + "\n\n".join(
+        formatted_sections
+    )
 
 
 def get_plan_headers() -> str:
