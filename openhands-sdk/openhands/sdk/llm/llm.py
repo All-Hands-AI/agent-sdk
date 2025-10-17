@@ -283,8 +283,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # default reasoning_effort unless Gemini 2.5
         # (we keep consistent with old behavior)
-        if d.get("reasoning_effort") is None and (
-            "gemini-2.5-pro" not in model_val and "claude-sonnet-4-5" not in model_val
+        excluded_models = ["gemini-2.5-pro", "claude-sonnet-4-5", "claude-haiku-4-5"]
+        if d.get("reasoning_effort") is None and not any(
+            model in model_val for model in excluded_models
         ):
             d["reasoning_effort"] = "high"
 

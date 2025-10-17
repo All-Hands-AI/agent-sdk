@@ -15,6 +15,7 @@ VERIFIED_OPENAI_MODELS = [
 
 VERIFIED_ANTHROPIC_MODELS = [
     "claude-sonnet-4-5-20250929",
+    "claude-haiku-4-5-20251001",
     "claude-sonnet-4-20250514",
     "claude-opus-4-20250514",
     "claude-opus-4-1-20250805",
@@ -35,6 +36,7 @@ VERIFIED_MISTRAL_MODELS = [
 
 VERIFIED_OPENHANDS_MODELS = [
     "claude-sonnet-4-5-20250929",
+    "claude-haiku-4-5-20251001",
     "gpt-5-codex",
     "gpt-5-2025-08-07",
     "gpt-5-mini-2025-08-07",
