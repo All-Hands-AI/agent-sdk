@@ -90,7 +90,7 @@ jobs:
                   cd pr-repo
 
                   # Run the PR review script from the agent-sdk checkout
-                  uv run python ../agent-sdk/examples/github_workflows/02_pr_review/agent_script.py
+                  uv run python ../agent-sdk/examples/03_github_workflows/02_pr_review/agent_script.py
 
             - name: Upload logs as artifact
               uses: actions/upload-artifact@v4

@@ -25,14 +25,39 @@ jobs:
         runs-on: ubuntu-latest
         env:
             # Configuration (modify these values as needed)
-            AGENT_SCRIPT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/01_basic_action/agent_script.py
+            AGENT_SCRIPT_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/03_github_workflows/01_basic_action/agent_script.py
             # Provide either PROMPT_LOCATION (URL/file) OR PROMPT_STRING (direct text), not both
             # Option 1: Use a URL or file path for the prompt
             PROMPT_LOCATION: ''
             # PROMPT_LOCATION: 'https://example.com/prompts/maintenance.txt'
             # Option 2: Use direct text for the prompt
             PROMPT_STRING: >
-                Use GITHUB_TOKEN and the github API to organize open pull requests in the repo:
+                Use GITHUB_TOKEN and the github API to organize open pull requests in the repo.
+                Read the sections below in order, and perform each in order. Do NOT take action
+                on the same issue twice.
+
+                # Need Reviewer Action
+
+                Find all open PRs where:
+                1. The PR is waiting for review (there are no open review comments or change requests)
+                2. The PR is in a "clean" state (CI passing, no merge conflicts)
+                3. The PR has had no activity (comments, commits, reviews) for more than 3 days.
+
+                In this case, send a message to the reviewers:
+                [Automatic Post]: This PR seems to be currently waiting for review.
+                {reviewer_names}, could you please take a look when you have a chance?
+
+                # Need Author Action
+
+                Find all open PRs where the most recent change or comment was made on the pull
+                request more than 5 days ago. Then do the following in order:
+
+                And send a message to the author:
+
+                [Automatic Post]: It has been a while since there was any activity on this PR.
+                {author}, are you still working on it? If so, please go ahead, if not then
+                please request review, close it, or request that someone else follow up.
 
                 # Need Reviewers
 
@@ -40,16 +65,15 @@ jobs:
                 1. Have no reviewers assigned to them.
                 2. Are not marked as draft.
                 3. Were created more than 1 day ago.
+                4. CI is passing and there are no merge conflicts.
 
                 For each of these pull requests, read the git blame information for the files,
-                and assign one of the repo maintainers as a reviewer. Then add a comment:
+                and find the most recent and active contributors to the file/location of the changes.
+                Assign one of these people as a reviewer, but try not to assign too many reviews to
+                any single person. Add this message:
+
                 [Automatic Post]: I have assigned {reviewer} as a reviewer based on git blame information.
-
-                # Need Author Action
-
-                Find all open PRs where the most recent change or comment was made on the pull request more than 5 days ago.
-                And send a message to the author:
-                [Automatic Post]: It has been a while since there was any activity on this PR, are you still working on it?
+                Thanks in advance for the help!
 
             LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
             LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev

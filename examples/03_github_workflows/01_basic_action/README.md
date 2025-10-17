@@ -14,7 +14,7 @@ This example demonstrates how to set up a GitHub Actions workflow for automated 
 Copy `workflow.yml` to `.github/workflows/maintenance-task.yml` in your repository:
 
 ```bash
-cp examples/github_workflows/01_routine_maintenance/workflow.yml .github/workflows/maintenance-task.yml
+cp examples/03_github_workflows/01_routine_maintenance/workflow.yml .github/workflows/maintenance-task.yml
 ```
 
 ### 2. Configure the workflow
@@ -72,7 +72,7 @@ export LLM_MODEL="openhands/claude-sonnet-4-5-20250929"
 echo "Check for outdated dependencies in requirements.txt and create a PR to update them" > prompt.txt
 
 # Run the agent
-python examples/github_workflows/01_routine_maintenance/agent_script.py prompt.txt
+python examples/03_github_workflows/01_routine_maintenance/agent_script.py prompt.txt
 ```
 
 ## Usage
