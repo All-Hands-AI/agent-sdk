@@ -2,6 +2,7 @@ import asyncio
 import json
 import threading
 import uuid
+from collections.abc import Mapping
 from typing import SupportsIndex, overload
 from urllib.parse import urlparse
 
@@ -24,15 +25,47 @@ from openhands.sdk.event.conversation_state import (
     FULL_STATE_KEY,
     ConversationStateUpdateEvent,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
-from openhands.sdk.workspace import RemoteWorkspace
+from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 
 
 logger = get_logger(__name__)
+
+
+def _send_request(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    acceptable_status_codes: set[int] | None = None,
+    **kwargs,
+) -> httpx.Response:
+    try:
+        response = client.request(method, url, **kwargs)
+        if acceptable_status_codes and response.status_code in acceptable_status_codes:
+            return response
+        response.raise_for_status()
+        return response
+    except httpx.HTTPStatusError as e:
+        content = None
+        try:
+            content = e.response.json()
+        except Exception:
+            content = e.response.text
+        logger.error(
+            "HTTP request failed (%d %s): %s",
+            e.response.status_code,
+            e.response.reason_phrase,
+            content,
+            exc_info=True,
+        )
+        raise e
+    except httpx.RequestError as e:
+        logger.error(f"Request failed: {e}", exc_info=True)
+        raise e
 
 
 class WebSocketCallbackClient:
@@ -150,11 +183,12 @@ class RemoteEventsList(EventsListBase):
             if page_id:
                 params["page_id"] = page_id
 
-            resp = self._client.get(
+            resp = _send_request(
+                self._client,
+                "GET",
                 f"/api/conversations/{self._conversation_id}/events/search",
                 params=params,
             )
-            resp.raise_for_status()
             data = resp.json()
 
             events.extend([Event.model_validate(item) for item in data["items"]])
@@ -232,8 +266,9 @@ class RemoteState(ConversationStateProtocol):
                 return self._cached_state
 
             # Fallback to REST API if no cached state
-            resp = self._client.get(f"/api/conversations/{self._conversation_id}")
-            resp.raise_for_status()
+            resp = _send_request(
+                self._client, "GET", f"/api/conversations/{self._conversation_id}"
+            )
             state = resp.json()
             self._cached_state = state
             return state
@@ -341,7 +376,7 @@ class RemoteState(ConversationStateProtocol):
             )
         return persistence_dir
 
-    def model_dump(self, **kwargs):
+    def model_dump(self, **_kwargs):
         """Get a dictionary representation of the remote state."""
         info = self._get_conversation_info()
         return info
@@ -378,7 +413,7 @@ class RemoteConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = False,
-        secrets: dict[str, str] | None = None,
+        secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
     ) -> None:
         """Remote conversation proxy that talks to an agent server.
@@ -409,10 +444,14 @@ class RemoteConversation(BaseConversation):
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
                 "stuck_detection": stuck_detection,
-                "workspace": self.workspace.model_dump(),
+                # We need to convert RemoteWorkspace to LocalWorkspace for the server
+                "workspace": LocalWorkspace(
+                    working_dir=self.workspace.working_dir
+                ).model_dump(),
             }
-            resp = self._client.post("/api/conversations", json=payload)
-            resp.raise_for_status()
+            resp = _send_request(
+                self._client, "POST", "/api/conversations", json=payload
+            )
             data = resp.json()
             # Expect a ConversationInfo
             cid = data.get("id") or data.get("conversation_id")
@@ -425,8 +464,7 @@ class RemoteConversation(BaseConversation):
             # Attach to existing
             self._id = conversation_id
             # Validate it exists
-            r = self._client.get(f"/api/conversations/{self._id}")
-            r.raise_for_status()
+            _send_request(self._client, "GET", f"/api/conversations/{self._id}")
 
         # Initialize the remote state
         self._state = RemoteState(self._client, str(self._id))
@@ -501,42 +539,47 @@ class RemoteConversation(BaseConversation):
             "content": [c.model_dump() for c in message.content],
             "run": False,  # Mirror local semantics; explicit run() must be called
         }
-        resp = self._client.post(f"/api/conversations/{self._id}/events", json=payload)
-        resp.raise_for_status()
+        _send_request(
+            self._client, "POST", f"/api/conversations/{self._id}/events", json=payload
+        )
 
     def run(self) -> None:
         # Trigger a run on the server using the dedicated run endpoint.
         # Let the server tell us if it's already running (409), avoiding an extra GET.
-        resp = self._client.post(
+        resp = _send_request(
+            self._client,
+            "POST",
             f"/api/conversations/{self._id}/run",
+            acceptable_status_codes={200, 201, 204, 409},
             timeout=1800,
         )
         if resp.status_code == 409:
             logger.info("Conversation is already running; skipping run trigger")
             return
-        resp.raise_for_status()
         logger.info(f"run() triggered successfully: {resp}")
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         payload = {"policy": policy.model_dump()}
-        resp = self._client.post(
-            f"/api/conversations/{self._id}/confirmation_policy", json=payload
+        _send_request(
+            self._client,
+            "POST",
+            f"/api/conversations/{self._id}/confirmation_policy",
+            json=payload,
         )
-        resp.raise_for_status()
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         # Equivalent to rejecting confirmation: pause
-        resp = self._client.post(
+        _send_request(
+            self._client,
+            "POST",
             f"/api/conversations/{self._id}/events/respond_to_confirmation",
             json={"accept": False, "reason": reason},
         )
-        resp.raise_for_status()
 
     def pause(self) -> None:
-        resp = self._client.post(f"/api/conversations/{self._id}/pause")
-        resp.raise_for_status()
+        _send_request(self._client, "POST", f"/api/conversations/{self._id}/pause")
 
-    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
+    def update_secrets(self, secrets: Mapping[str, SecretValue]) -> None:
         # Convert SecretValue to strings for JSON serialization
         # SecretValue can be str or callable, we need to handle both
         serializable_secrets = {}
@@ -549,8 +592,37 @@ class RemoteConversation(BaseConversation):
                 serializable_secrets[key] = value
 
         payload = {"secrets": serializable_secrets}
-        resp = self._client.post(f"/api/conversations/{self._id}/secrets", json=payload)
-        resp.raise_for_status()
+        _send_request(
+            self._client, "POST", f"/api/conversations/{self._id}/secrets", json=payload
+        )
+
+    def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
+        """Generate a title for the conversation based on the first user message.
+
+        Args:
+            llm: Optional LLM to use for title generation. If provided, its service_id
+                 will be sent to the server. If not provided, uses the agent's LLM.
+            max_length: Maximum length of the generated title.
+
+        Returns:
+            A generated title for the conversation.
+        """
+        # For remote conversations, delegate to the server endpoint
+        payload = {
+            "max_length": max_length,
+            "llm": llm.model_dump(mode="json", context={"expose_secrets": True})
+            if llm
+            else None,
+        }
+
+        resp = _send_request(
+            self._client,
+            "POST",
+            f"/api/conversations/{self._id}/generate_title",
+            json=payload,
+        )
+        data = resp.json()
+        return data["title"]
 
     def close(self) -> None:
         try:

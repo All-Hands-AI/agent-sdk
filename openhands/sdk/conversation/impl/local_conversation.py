@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
 
 from openhands.sdk.agent.base import AgentBase
@@ -6,6 +7,7 @@ from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
+from openhands.sdk.conversation.title_utils import generate_conversation_title
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import (
     ConversationVisualizer,
@@ -16,7 +18,7 @@ from openhands.sdk.event import (
     PauseEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
@@ -48,7 +50,7 @@ class LocalConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
-        secrets: dict[str, str] | None = None,
+        secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
     ):
         """Initialize the conversation.
@@ -332,7 +334,7 @@ class LocalConversation(BaseConversation):
                 self._on_event(pause_event)
                 logger.info("Agent execution pause requested")
 
-    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
+    def update_secrets(self, secrets: Mapping[str, SecretValue]) -> None:
         """Add secrets to the conversation.
 
         Args:
@@ -357,6 +359,27 @@ class LocalConversation(BaseConversation):
                 continue
             except Exception as e:
                 logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
+
+    def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
+        """Generate a title for the conversation based on the first user message.
+
+        Args:
+            llm: Optional LLM to use for title generation. If not provided,
+                 uses self.agent.llm.
+            max_length: Maximum length of the generated title.
+
+        Returns:
+            A generated title for the conversation.
+
+        Raises:
+            ValueError: If no user messages are found in the conversation.
+        """
+        # Use provided LLM or fall back to agent's LLM
+        llm_to_use = llm or self.agent.llm
+
+        return generate_conversation_title(
+            events=self._state.events, llm=llm_to_use, max_length=max_length
+        )
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""

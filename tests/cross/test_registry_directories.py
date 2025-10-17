@@ -16,7 +16,7 @@ from openhands.sdk.llm import LLM, TextContent
 from openhands.sdk.tool.registry import resolve_tool
 from openhands.sdk.tool.spec import Tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
 
 
@@ -97,5 +97,5 @@ def test_resolve_tool_with_conversation_directories(test_agent):
         save_dir = str(tracker_tools[0].executor.save_dir)  # type: ignore[attr-defined]
         # TaskTrackerTool uses conversation's persistence_dir which includes
         # conversation ID
-        expected_save_dir = str(Path(persistence_dir) / str(conversation._state.id))
+        expected_save_dir = str(Path(persistence_dir) / conversation._state.id.hex)
         assert save_dir == expected_save_dir

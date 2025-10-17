@@ -3,8 +3,6 @@
 import json
 from collections.abc import Sequence
 
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 from rich.text import Text
 
 from openhands.sdk.conversation.visualizer import (
@@ -18,8 +16,14 @@ from openhands.sdk.event import (
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
+    UserRejectObservation,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
 from openhands.sdk.tool import Action
 
 
@@ -48,12 +52,13 @@ class VisualizerCustomAction(Action):
 
 def create_tool_call(
     call_id: str, function_name: str, arguments: dict
-) -> ChatCompletionMessageToolCall:
-    """Helper to create a ChatCompletionMessageToolCall."""
-    return ChatCompletionMessageToolCall(
+) -> MessageToolCall:
+    """Helper to create a MessageToolCall."""
+    return MessageToolCall(
         id=call_id,
-        function=Function(name=function_name, arguments=json.dumps(arguments)),
-        type="function",
+        name=function_name,
+        arguments=json.dumps(arguments),
+        origin="completion",
     )
 
 
@@ -239,12 +244,12 @@ def test_create_default_visualizer():
 
 def test_visualizer_event_panel_creation():
     """Test that visualizer creates panels for different event types."""
-    visualizer = ConversationVisualizer()
+    conv_viz = ConversationVisualizer()
 
     # Test with a simple action event
     action = VisualizerMockAction(command="test")
     tool_call = create_tool_call("call_1", "test", {})
-    event = ActionEvent(
+    action_event = ActionEvent(
         thought=[TextContent(text="Testing")],
         action=action,
         tool_name="test",
@@ -252,10 +257,50 @@ def test_visualizer_event_panel_creation():
         tool_call=tool_call,
         llm_response_id="response_1",
     )
+    panel = conv_viz._create_event_panel(action_event)
+    assert panel is not None
+    assert hasattr(panel, "renderable")
+
+
+def test_visualizer_action_event_with_none_action_panel():
+    """ActionEvent with action=None should render as 'Agent Action (Not Executed)'."""
+    visualizer = ConversationVisualizer()
+    tc = create_tool_call("call_ne_1", "missing_fn", {})
+    action_event = ActionEvent(
+        thought=[TextContent(text="...")],
+        tool_call=tc,
+        tool_name=tc.name,
+        tool_call_id=tc.id,
+        llm_response_id="resp_viz_1",
+        action=None,
+    )
+    panel = visualizer._create_event_panel(action_event)
+    assert panel is not None
+    # Ensure it doesn't fall back to UNKNOWN
+    assert "UNKNOWN Event" not in str(panel.title)
+    # And uses the 'Agent Action (Not Executed)' title
+    assert "Agent Action (Not Executed)" in str(panel.title)
+
+
+def test_visualizer_user_reject_observation_panel():
+    """UserRejectObservation should render a dedicated panel."""
+    visualizer = ConversationVisualizer()
+    event = UserRejectObservation(
+        tool_name="demo_tool",
+        tool_call_id="fc_call_1",
+        action_id="action_1",
+        rejection_reason="User rejected the proposed action.",
+    )
 
     panel = visualizer._create_event_panel(event)
     assert panel is not None
-    assert hasattr(panel, "renderable")
+    title = str(panel.title)
+    assert "UNKNOWN Event" not in title
+    assert "User Rejected Action" in title
+    # ensure the reason is part of the renderable text
+    renderable = panel.renderable
+    assert isinstance(renderable, Text)
+    assert "User rejected the proposed action." in renderable.plain
 
 
 def test_metrics_formatting():

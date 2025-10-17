@@ -1,9 +1,20 @@
 """Test that the security policy is properly integrated into the agent system prompt."""
 
+from unittest.mock import patch
+
+from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import (
+    Choices,
+    Function,
+    Message as LiteLLMMessage,
+    ModelResponse,
+)
 from pydantic import SecretStr
 
-from openhands.sdk.agent.agent import Agent
-from openhands.sdk.llm import LLM
+from openhands.sdk.agent import Agent
+from openhands.sdk.conversation import Conversation
+from openhands.sdk.event import ActionEvent, AgentErrorEvent
+from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
 
@@ -159,7 +170,6 @@ def test_no_security_analyzer_excludes_risk_assessment():
 
 def test_non_llm_security_analyzer_excludes_risk_assessment():
     """Test that security risk assessment section is excluded when security analyzer is not LLMSecurityAnalyzer."""  # noqa: E501
-    from openhands.sdk.event import ActionEvent
     from openhands.sdk.security.analyzer import SecurityAnalyzerBase
     from openhands.sdk.security.risk import SecurityRisk
 
@@ -188,3 +198,59 @@ def test_non_llm_security_analyzer_excludes_risk_assessment():
         "When using tools that support the security_risk parameter"
         not in system_message
     )
+
+
+def _tool_response(name: str, args_json: str) -> ModelResponse:
+    return ModelResponse(
+        id="mock-response",
+        choices=[
+            Choices(
+                index=0,
+                message=LiteLLMMessage(
+                    role="assistant",
+                    content="tool call with security_risk",
+                    tool_calls=[
+                        ChatCompletionMessageToolCall(
+                            id="call_1",
+                            type="function",
+                            function=Function(name=name, arguments=args_json),
+                        )
+                    ],
+                ),
+                finish_reason="tool_calls",
+            )
+        ],
+        created=0,
+        model="test-model",
+        object="chat.completion",
+    )
+
+
+def test_security_risk_param_ignored_when_no_analyzer():
+    """Security risk param is ignored when no analyzer is configured."""
+
+    llm = LLM(
+        service_id="test-llm",
+        model="test-model",
+        api_key=SecretStr("test-key"),
+        base_url="http://test",
+    )
+    agent = Agent(llm=llm, tools=[])
+
+    events = []
+    convo = Conversation(agent=agent, callbacks=[events.append])
+
+    with patch(
+        "openhands.sdk.llm.llm.litellm_completion",
+        return_value=_tool_response(
+            "think",
+            '{"thought": "This is a test thought", "security_risk": "LOW"}',
+        ),
+    ):
+        convo.send_message(
+            Message(role="user", content=[TextContent(text="Please think")])
+        )
+        agent.step(convo.state, on_event=events.append)
+
+    # No agent errors
+    assert not any(isinstance(e, AgentErrorEvent) for e in events)

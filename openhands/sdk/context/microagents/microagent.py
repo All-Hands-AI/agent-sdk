@@ -212,7 +212,7 @@ class RepoMicroagent(BaseMicroagent):
     # Field-level validation for mcp_tools
     @field_validator("mcp_tools")
     @classmethod
-    def _validate_mcp_tools(cls, v: dict | None, info):
+    def _validate_mcp_tools(cls, v: dict | None, _info):
         if v is None:
             return v
         if isinstance(v, dict):

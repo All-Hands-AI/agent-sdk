@@ -5,8 +5,6 @@ from collections.abc import Sequence
 from typing import cast
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 
 from openhands.sdk.event.base import LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import (
@@ -16,7 +14,12 @@ from openhands.sdk.event.llm_convertible import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
 from openhands.sdk.tool import Action, Observation
 
 
@@ -38,12 +41,13 @@ class EventsToMessagesMockObservation(Observation):
 
 def create_tool_call(
     call_id: str, function_name: str, arguments: dict
-) -> ChatCompletionMessageToolCall:
-    """Helper to create a ChatCompletionMessageToolCall."""
-    return ChatCompletionMessageToolCall(
+) -> MessageToolCall:
+    """Helper to create a MessageToolCall."""
+    return MessageToolCall(
         id=call_id,
-        function=Function(name=function_name, arguments=json.dumps(arguments)),
-        type="function",
+        name=function_name,
+        arguments=json.dumps(arguments),
+        origin="completion",
     )
 
 
@@ -117,7 +121,7 @@ class TestEventsToMessages:
         assert messages[0].tool_calls is not None
         assert len(messages[0].tool_calls) == 1
         assert messages[0].tool_calls[0].id == "call_123"
-        assert messages[0].tool_calls[0].function.name == "execute_bash"
+        assert messages[0].tool_calls[0].name == "execute_bash"
 
     def test_parallel_function_calling_same_response_id(self):
         """Test parallel function calling with multiple ActionEvents having same ID.
@@ -190,7 +194,7 @@ class TestEventsToMessages:
 
         # All should be weather function calls
         for tool_call in tool_calls:
-            assert tool_call.function.name == "get_current_weather"
+            assert tool_call.name == "get_current_weather"
 
     def test_multiple_separate_action_events(self):
         """Test multiple ActionEvents with different response_ids (separate calls)."""
@@ -413,3 +417,39 @@ class TestEventsToMessages:
             match="Expected empty thought for multi-action events after the first one",
         ):
             LLMConvertibleEvent.events_to_messages(events)  # type: ignore
+
+    def test_action_event_with_none_action_round_trip_and_observation_match(self):
+        """Test ActionEvent with action=None round trip and observation match."""
+        thought = [TextContent(text="thinking...")]
+        tc = create_tool_call("call_ne", "missing_tool", {"x": 1})
+        action_event = ActionEvent(
+            source="agent",
+            thought=thought,
+            tool_call=tc,
+            tool_name=tc.name,
+            tool_call_id=tc.id,
+            llm_response_id="resp_events_1",
+            action=None,
+        )
+
+        # Convert to messages and ensure assistant message has single tool_call
+        messages = LLMConvertibleEvent.events_to_messages([action_event])
+        assert len(messages) == 1
+        assert messages[0].role == "assistant"
+        assert messages[0].tool_calls is not None and len(messages[0].tool_calls) == 1
+        assert messages[0].tool_calls[0].id == "call_ne"
+        assert messages[0].tool_calls[0].name == "missing_tool"
+
+        # Simulate an AgentErrorEvent that carries the same tool_call_id
+        err = AgentErrorEvent(
+            error="not found",
+            tool_call_id="call_ne",
+            tool_name="missing_tool",
+        )
+
+        msgs = LLMConvertibleEvent.events_to_messages([action_event, err])
+        # Should produce two messages: assistant tool call + tool error
+        assert len(msgs) == 2
+        assert msgs[0].role == "assistant"
+        assert msgs[1].role == "tool"
+        assert msgs[1].tool_call_id == "call_ne"

@@ -11,10 +11,10 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import Agent, Event, Message, get_logger
+from openhands.sdk import LLM, Agent, Event, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
@@ -32,47 +32,31 @@ class EventService:
     """
 
     stored: StoredConversation
-    file_store_path: Path  # Base path for conversation persistence
-    # conversation will be persisted to "file_store_path / conversation_id"
-    # and can be accessible via .persistence_dir property
+    conversations_dir: Path
     working_dir: Path
     _conversation: LocalConversation | None = field(default=None, init=False)
     _pub_sub: PubSub[Event] = field(default_factory=lambda: PubSub[Event](), init=False)
     _run_task: asyncio.Task | None = field(default=None, init=False)
 
     @property
-    def persistence_dir(self) -> Path:
-        """Path to the persistence directory for this conversation.
-
-        It would typically be:
-            self.file_store_path / str(conversation_id)
-        """
-        if not self._conversation:
-            raise ValueError("inactive_service")
-        persistence_dir = self._conversation.state.persistence_dir
-        assert persistence_dir is not None, (
-            "persistence_dir should be set in LocalConversation"
-        )
-        return Path(persistence_dir)
+    def conversation_dir(self):
+        return self.conversations_dir / self.stored.id.hex
 
     async def load_meta(self):
-        meta_file = self.persistence_dir / "meta.json"
+        meta_file = self.conversation_dir / "meta.json"
         self.stored = StoredConversation.model_validate_json(meta_file.read_text())
 
     async def save_meta(self):
         self.stored.updated_at = utc_now()
-        meta_file = self.persistence_dir / "meta.json"
+        meta_file = self.conversation_dir / "meta.json"
         meta_file.write_text(self.stored.model_dump_json())
 
     async def get_event(self, event_id: str) -> Event | None:
         if not self._conversation:
             raise ValueError("inactive_service")
         with self._conversation._state as state:
-            # TODO: It would be nice if the agent sdk had a method for
-            #       getting events by id
-            event = next(
-                (event for event in state.events if event.id == event_id), None
-            )
+            index = state.events.get_index(event_id)
+            event = state.events[index]
             return event
 
     async def search_events(
@@ -157,11 +141,16 @@ class EventService:
             results.append(result)
         return results
 
-    async def send_message(self, message: Message):
+    async def send_message(self, message: Message, run: bool = False):
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._conversation.send_message, message)
+        if run:
+            with self._conversation.state as state:
+                run = state.agent_status != AgentExecutionStatus.RUNNING
+        if run:
+            loop.run_in_executor(None, self._conversation.run)
 
     async def subscribe_to_events(self, subscriber: Subscriber[Event]) -> UUID:
         subscriber_id = self._pub_sub.subscribe(subscriber)
@@ -194,7 +183,7 @@ class EventService:
         self._main_loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
 
         # self.stored contains an Agent configuration we can instantiate
-        self.file_store_path.mkdir(parents=True, exist_ok=True)
+        self.conversation_dir.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
         # Convert workspace to LocalWorkspace if needed
@@ -204,7 +193,7 @@ class EventService:
         conversation = LocalConversation(
             agent=agent,
             workspace=workspace,
-            persistence_dir=str(self.file_store_path),
+            persistence_dir=str(self.conversations_dir),
             conversation_id=self.stored.id,
             callbacks=[
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
@@ -212,6 +201,7 @@ class EventService:
             max_iteration_per_run=self.stored.max_iterations,
             stuck_detection=self.stored.stuck_detection,
             visualize=False,
+            secrets=self.stored.secrets,
         )
 
         # Set confirmation mode if enabled
@@ -263,6 +253,32 @@ class EventService:
         if self._conversation:
             loop = asyncio.get_running_loop()
             loop.run_in_executor(None, self._conversation.close)
+
+    async def generate_title(
+        self, llm: "LLM | None" = None, max_length: int = 50
+    ) -> str:
+        """Generate a title for the conversation.
+
+        Resolves the provided LLM via the conversation's registry if a service_id is
+        present, registering it if needed. Then delegates to LocalConversation in an
+        executor to avoid blocking the event loop.
+        """
+        if not self._conversation:
+            raise ValueError("inactive_service")
+
+        resolved_llm = llm
+        if llm is not None:
+            service_id = llm.service_id
+            try:
+                resolved_llm = self._conversation.llm_registry.get(service_id)
+            except KeyError:
+                self._conversation.llm_registry.add(llm)
+                resolved_llm = llm
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, self._conversation.generate_title, resolved_llm, max_length
+        )
 
     async def get_state(self) -> ConversationState:
         if not self._conversation:

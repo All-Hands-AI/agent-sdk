@@ -11,7 +11,10 @@ from openhands.sdk.event import (
     LLMConvertibleEvent,
 )
 from openhands.sdk.event.base import Event, EventID
-from openhands.sdk.event.llm_convertible import ActionEvent, ObservationBaseEvent
+from openhands.sdk.event.llm_convertible import (
+    ActionEvent,
+    ObservationBaseEvent,
+)
 from openhands.sdk.event.types import ToolCallID
 
 

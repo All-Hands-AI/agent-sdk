@@ -3,11 +3,21 @@
 from unittest.mock import patch
 
 import pytest
-from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
-from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
+from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import (
+    Choices,
+    Function,
+    Message as LiteLLMMessage,
+    ModelResponse,
+    Usage,
+)
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import (
+    LLM,
+    Message,
+    TextContent,
+)
 from openhands.sdk.tool.schema import Action
 from openhands.sdk.tool.tool import ToolBase, ToolDefinition
 
@@ -20,21 +30,14 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             Choices(
                 finish_reason="stop",
                 index=0,
-                message=LiteLLMMessage(
-                    content=content,
-                    role="assistant",
-                ),
+                message=LiteLLMMessage(content=content, role="assistant"),
             )
         ],
         created=1234567890,
         model="gpt-4o",
         object="chat.completion",
         system_fingerprint="test",
-        usage=Usage(
-            prompt_tokens=10,
-            completion_tokens=5,
-            total_tokens=15,
-        ),
+        usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
 
@@ -80,7 +83,7 @@ def test_llm_completion_basic(mock_completion):
 
     # Additionally, verify the pre-check helper recognizes provider-style tools
     # (use an empty list of tools here just to exercise the path)
-    cc_tools: list[ChatCompletionToolParam] = []
+    cc_tools = []
     assert not llm.should_mock_tool_calls(cc_tools)
 
 
@@ -103,7 +106,10 @@ def test_llm_completion_with_tools(mock_completion):
         ChatCompletionMessageToolCall(
             id="call_123",
             type="function",
-            function={"name": "test_tool", "arguments": '{"param": "value"}'},
+            function=Function(
+                name="test_tool",
+                arguments='{"param": "value"}',
+            ),
         )
     ]
     mock_completion.return_value = mock_response
@@ -139,7 +145,7 @@ def test_llm_completion_with_tools(mock_completion):
     assert response.message.tool_calls is not None
     assert len(response.message.tool_calls) == 1
     assert response.message.tool_calls[0].id == "call_123"
-    assert response.message.tool_calls[0].function.name == "test_tool"
+    assert response.message.tool_calls[0].name == "test_tool"
     mock_completion.assert_called_once()
 
 
@@ -338,9 +344,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     ]
 
     # Verify that tools should be mocked (non-function call path)
-    cc_tools: list[ChatCompletionToolParam] = [
-        t.to_openai_tool(add_security_risk_prediction=False) for t in tools
-    ]
+    cc_tools = [t.to_openai_tool(add_security_risk_prediction=False) for t in tools]
     assert llm.should_mock_tool_calls(cc_tools)
 
     # Call completion - this should go through the prompt-based tool calling path
@@ -359,8 +363,8 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # At this point, tool_calls should be non-None; assert explicitly
     assert msg.tool_calls is not None
     tc = msg.tool_calls[0]
-    assert tc.type == "function"
-    assert tc.function.name == "test_tool"
+
+    assert tc.name == "test_tool"
     # Ensure function-call markup was stripped from assistant content
     if msg.content:
         for content_item in msg.content:

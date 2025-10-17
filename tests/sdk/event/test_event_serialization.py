@@ -3,8 +3,6 @@
 from collections.abc import Sequence
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 from pydantic import ValidationError
 
 from openhands.sdk.event import (
@@ -17,7 +15,12 @@ from openhands.sdk.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    ImageContent,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
 from openhands.sdk.tool import Action, Observation
 
 
@@ -65,10 +68,11 @@ def test_system_prompt_event_serialization() -> None:
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
     action = EventsSerializationMockAction()
-    tool_call = ChatCompletionMessageToolCall(
+    tool_call = MessageToolCall(
         id="call_123",
-        function=Function(name="mock_tool", arguments="{}"),
-        type="function",
+        name="mock_tool",
+        arguments="{}",
+        origin="completion",
     )
     event = ActionEvent(
         thought=[TextContent(text="I need to do something")],
