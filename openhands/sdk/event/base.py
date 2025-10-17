@@ -138,6 +138,14 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
         assert len(e.thought) == 0, (
             "Expected empty thought for multi-action events after the first one"
         )
+        # Verify all events have the same thinking blocks (they should be duplicated
+        # across all events in the batch to survive condensation)
+        assert e.thinking_blocks == events[0].thinking_blocks, (
+            "Expected same thinking_blocks for all events in the batch"
+        )
+        assert e.reasoning_content == events[0].reasoning_content, (
+            "Expected same reasoning_content for all events in the batch"
+        )
 
     return Message(
         role="assistant",

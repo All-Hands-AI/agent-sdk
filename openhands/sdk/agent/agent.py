@@ -230,13 +230,15 @@ class Agent(AgentBase):
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
-                    # Only first gets reasoning content
-                    reasoning_content=message.reasoning_content if i == 0 else None,
-                    # Only first gets thinking blocks
-                    thinking_blocks=list(message.thinking_blocks) if i == 0 else [],
-                    responses_reasoning_item=message.responses_reasoning_item
-                    if i == 0
-                    else None,
+                    # All actions get reasoning content to preserve it if condenser
+                    # removes earlier events
+                    reasoning_content=message.reasoning_content,
+                    # All actions get thinking blocks to preserve them if condenser
+                    # removes earlier events
+                    thinking_blocks=list(message.thinking_blocks),
+                    # All actions get responses reasoning item to preserve it if
+                    # condenser removes earlier events
+                    responses_reasoning_item=message.responses_reasoning_item,
                 )
                 if action_event is None:
                     continue
