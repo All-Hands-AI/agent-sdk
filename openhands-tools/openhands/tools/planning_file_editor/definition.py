@@ -45,8 +45,9 @@ TOOL_DESCRIPTION = (
 IMPORTANT RESTRICTION FOR PLANNING AGENT:
 * You can VIEW any file in the workspace using the 'view' command
 * You can ONLY EDIT the PLAN.md file (all other edit operations will be rejected)
-* PLAN.md is automatically initialized as an empty file at the workspace root
+* PLAN.md is automatically initialized with section headers at the workspace root
 * All editing commands (create, str_replace, insert, undo_edit) are restricted to PLAN.md only
+* The PLAN.md file already contains the required section structure - you just need to fill in the content
 """  # noqa
 )
 
@@ -75,10 +76,13 @@ class PlanningFileEditorTool(
         workspace_root = Path(working_dir).resolve()
         plan_path = str(workspace_root / PLAN_FILENAME)
 
-        # Initialize PLAN.md if it doesn't exist
+        # Initialize PLAN.md with headers if it doesn't exist
         plan_file = Path(plan_path)
         if not plan_file.exists():
-            plan_file.write_text("")
+            # Import here to avoid circular imports
+            from openhands.tools.preset.planning import get_plan_headers
+
+            plan_file.write_text(get_plan_headers())
 
         # Create executor with restricted edit access to PLAN.md only
         executor = PlanningFileEditorExecutor(
