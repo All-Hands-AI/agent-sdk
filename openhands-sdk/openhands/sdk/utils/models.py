@@ -152,11 +152,15 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
 
     @classmethod
     def __get_pydantic_json_schema__(cls, core_schema, handler):
-        """Add discriminator to OpenAPI schema."""
+        """Add discriminator to OpenAPI schema and ensure component generation."""
         json_schema = handler(core_schema)
 
         # Add discriminator if this is a oneOf schema
         if isinstance(json_schema, dict) and "oneOf" in json_schema:
+            # Add title for abstract classes to encourage separate component creation
+            if _is_abstract(cls) and "title" not in json_schema:
+                json_schema["title"] = cls.__name__
+
             if "discriminator" not in json_schema:
                 mapping = {}
                 for option in json_schema["oneOf"]:
