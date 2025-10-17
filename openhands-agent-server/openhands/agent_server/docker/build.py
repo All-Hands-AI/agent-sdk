@@ -146,10 +146,10 @@ SDK_VERSION = _sdk_version()
 def _is_workspace_root(d: Path) -> bool:
     """Detect if d is the root of the Agent-SDK repo UV workspace."""
     _EXPECTED = (
-        "openhands/sdk/pyproject.toml",
-        "openhands/tools/pyproject.toml",
-        "openhands/workspace/pyproject.toml",
-        "openhands/agent_server/pyproject.toml",
+        "openhands-sdk/pyproject.toml",
+        "openhands-tools/pyproject.toml",
+        "openhands-workspace/pyproject.toml",
+        "openhands-agent-server/pyproject.toml",
     )
 
     py = d / "pyproject.toml"
@@ -166,10 +166,10 @@ def _is_workspace_root(d: Path) -> bool:
     if members:
         norm = {str(Path(m)) for m in members}
         return {
-            "openhands/sdk",
-            "openhands/tools",
-            "openhands/workspace",
-            "openhands/agent_server",
+            "openhands-sdk",
+            "openhands-tools",
+            "openhands-workspace",
+            "openhands-agent-server",
         }.issubset(norm)
     return all((d / p).exists() for p in _EXPECTED)
 
@@ -210,10 +210,10 @@ def _default_sdk_project_root() -> Path:
                 f"starting at '{p}'.\n\n"
                 "Expected setup (repo root):\n"
                 "  pyproject.toml  # has [tool.uv.workspace] with members\n"
-                "  openhands/sdk/pyproject.toml\n"
-                "  openhands/tools/pyproject.toml\n"
-                "  openhands/workspace/pyproject.toml\n"
-                "  openhands/agent_server/pyproject.toml\n\n"
+                "  openhands-sdk/pyproject.toml\n"
+                "  openhands-tools/pyproject.toml\n"
+                "  openhands-workspace/pyproject.toml\n"
+                "  openhands-agent-server/pyproject.toml\n\n"
                 "Fix:\n"
                 "  - Run from anywhere inside the repo."
             )
@@ -235,10 +235,10 @@ def _default_sdk_project_root() -> Path:
         "Expected repo layout:\n"
         "  pyproject.toml  (with [tool.uv.workspace].members "
         "including openhands/* subprojects)\n"
-        "  openhands/sdk/pyproject.toml\n"
-        "  openhands/tools/pyproject.toml\n"
-        "  openhands/workspace/pyproject.toml\n"
-        "  openhands/agent_server/pyproject.toml\n\n"
+        "  openhands-sdk/pyproject.toml\n"
+        "  openhands-tools/pyproject.toml\n"
+        "  openhands-workspace/pyproject.toml\n"
+        "  openhands-agent-server/pyproject.toml\n\n"
         "Run this from inside the repo."
     )
 
@@ -385,7 +385,12 @@ def _default_local_cache_dir() -> Path:
 def build(opts: BuildOptions) -> list[str]:
     """Single entry point for building the agent-server image."""
     dockerfile_path = (
-        opts.sdk_project_root / "openhands" / "agent_server" / "docker" / "Dockerfile"
+        opts.sdk_project_root
+        / "openhands-agent-server"
+        / "openhands"
+        / "agent_server"
+        / "docker"
+        / "Dockerfile"
     )
     if not dockerfile_path.exists():
         raise FileNotFoundError(f"Dockerfile not found at {dockerfile_path}")

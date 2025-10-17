@@ -13,6 +13,7 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
+from openhands.sdk.conversation.exceptions import ConversationRunError
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -513,13 +514,17 @@ class RemoteConversation(BaseConversation):
     def run(self) -> None:
         # Trigger a run on the server using the dedicated run endpoint.
         # Let the server tell us if it's already running (409), avoiding an extra GET.
-        resp = _send_request(
-            self._client,
-            "POST",
-            f"/api/conversations/{self._id}/run",
-            acceptable_status_codes={200, 201, 204, 409},
-            timeout=1800,
-        )
+        try:
+            resp = _send_request(
+                self._client,
+                "POST",
+                f"/api/conversations/{self._id}/run",
+                acceptable_status_codes={200, 201, 204, 409},
+                timeout=1800,
+            )
+        except Exception as e:  # httpx errors already logged by _send_request
+            # Surface conversation id to help resuming
+            raise ConversationRunError(self._id, e) from e
         if resp.status_code == 409:
             logger.info("Conversation is already running; skipping run trigger")
             return

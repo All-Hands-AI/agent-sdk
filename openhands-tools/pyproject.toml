@@ -1,6 +1,6 @@
 [project]
 name = "openhands-tools"
-version = "1.0.0a1"
+version = "1.0.0a2"
 description = "OpenHands Tools - Runtime tools for AI agents"
 
 requires-python = ">=3.12"
@@ -19,9 +19,12 @@ dependencies = [
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.package-dir]
+"" = "."
+
 [tool.setuptools.packages.find]
-where = ["../.."]
-include = ["openhands*"]
+include = ["openhands.tools*"]
+namespaces = true
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]

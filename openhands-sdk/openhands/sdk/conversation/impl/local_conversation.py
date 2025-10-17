@@ -4,6 +4,7 @@ from pathlib import Path
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
+from openhands.sdk.conversation.exceptions import ConversationRunError
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -212,53 +213,57 @@ class LocalConversation(BaseConversation):
                 self._state.agent_status = AgentExecutionStatus.RUNNING
 
         iteration = 0
-        while True:
-            logger.debug(f"Conversation run iteration {iteration}")
-            with self._state:
-                # Pause attempts to acquire the state lock
-                # Before value can be modified step can be taken
-                # Ensure step conditions are checked when lock is already acquired
-                if self._state.agent_status in [
-                    AgentExecutionStatus.FINISHED,
-                    AgentExecutionStatus.PAUSED,
-                    AgentExecutionStatus.STUCK,
-                ]:
-                    break
+        try:
+            while True:
+                logger.debug(f"Conversation run iteration {iteration}")
+                with self._state:
+                    # Pause attempts to acquire the state lock
+                    # Before value can be modified step can be taken
+                    # Ensure step conditions are checked when lock is already acquired
+                    if self._state.agent_status in [
+                        AgentExecutionStatus.FINISHED,
+                        AgentExecutionStatus.PAUSED,
+                        AgentExecutionStatus.STUCK,
+                    ]:
+                        break
 
-                # Check for stuck patterns if enabled
-                if self._stuck_detector:
-                    is_stuck = self._stuck_detector.is_stuck()
+                    # Check for stuck patterns if enabled
+                    if self._stuck_detector:
+                        is_stuck = self._stuck_detector.is_stuck()
 
-                    if is_stuck:
-                        logger.warning("Stuck pattern detected.")
-                        self._state.agent_status = AgentExecutionStatus.STUCK
-                        continue
+                        if is_stuck:
+                            logger.warning("Stuck pattern detected.")
+                            self._state.agent_status = AgentExecutionStatus.STUCK
+                            continue
 
-                # clear the flag before calling agent.step() (user approved)
-                if (
-                    self._state.agent_status
-                    == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-                ):
-                    self._state.agent_status = AgentExecutionStatus.RUNNING
+                    # clear the flag before calling agent.step() (user approved)
+                    if (
+                        self._state.agent_status
+                        == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                    ):
+                        self._state.agent_status = AgentExecutionStatus.RUNNING
 
-                # step must mutate the SAME state object
-                self.agent.step(self._state, on_event=self._on_event)
-                iteration += 1
+                    # step must mutate the SAME state object
+                    self.agent.step(self._state, on_event=self._on_event)
+                    iteration += 1
 
-                # Check for non-finished terminal conditions
-                # Note: We intentionally do NOT check for FINISHED status here.
-                # This allows concurrent user messages to be processed:
-                # 1. Agent finishes and sets status to FINISHED
-                # 2. User sends message concurrently via send_message()
-                # 3. send_message() waits for FIFO lock, then sets status to IDLE
-                # 4. Run loop continues to next iteration and processes the message
-                # 5. Without this design, concurrent messages would be lost
-                if (
-                    self.state.agent_status
-                    == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-                    or iteration >= self.max_iteration_per_run
-                ):
-                    break
+                    # Check for non-finished terminal conditions
+                    # Note: We intentionally do NOT check for FINISHED status here.
+                    # This allows concurrent user messages to be processed:
+                    # 1. Agent finishes and sets status to FINISHED
+                    # 2. User sends message concurrently via send_message()
+                    # 3. send_message() waits for FIFO lock, then sets status to IDLE
+                    # 4. Run loop continues to next iteration and processes the message
+                    # 5. Without this design, concurrent messages would be lost
+                    if (
+                        self.state.agent_status
+                        == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                        or iteration >= self.max_iteration_per_run
+                    ):
+                        break
+        except Exception as e:
+            # Re-raise with conversation id for better UX; include original traceback
+            raise ConversationRunError(self._state.id, e) from e
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
