@@ -23,6 +23,9 @@ class AsyncCallbackWrapper:
     conversation contexts.
     """
 
+    async_callback: AsyncConversationCallback
+    loop: asyncio.AbstractEventLoop
+
     def __init__(
         self,
         async_callback: AsyncConversationCallback,

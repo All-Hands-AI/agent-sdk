@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from pydantic import ConfigDict, Field, create_model
 from rich.text import Text
@@ -98,7 +98,7 @@ def _process_schema_node(node, defs):
 class Schema(DiscriminatedUnionMixin):
     """Base schema for input action / output observation."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
 
     @classmethod
     def to_mcp_schema(cls) -> dict[str, Any]:

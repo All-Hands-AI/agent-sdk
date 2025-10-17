@@ -12,6 +12,10 @@ logger = get_logger(__name__)
 
 
 class FileCache:
+    directory: Path
+    size_limit: int | None
+    current_size: int
+
     def __init__(self, directory: str, size_limit: int | None = None):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)

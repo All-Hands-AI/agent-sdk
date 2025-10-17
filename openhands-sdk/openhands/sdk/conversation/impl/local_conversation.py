@@ -10,7 +10,10 @@ from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationS
 from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.title_utils import generate_conversation_title
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
-from openhands.sdk.conversation.visualizer import create_default_visualizer
+from openhands.sdk.conversation.visualizer import (
+    ConversationVisualizer,
+    create_default_visualizer,
+)
 from openhands.sdk.event import (
     MessageEvent,
     PauseEvent,
@@ -29,6 +32,15 @@ logger = get_logger(__name__)
 
 
 class LocalConversation(BaseConversation):
+    agent: AgentBase
+    workspace: LocalWorkspace
+    _state: ConversationState
+    _visualizer: ConversationVisualizer | None
+    _on_event: ConversationCallbackType
+    max_iteration_per_run: int
+    _stuck_detector: StuckDetector | None
+    llm_registry: LLMRegistry
+
     def __init__(
         self,
         agent: AgentBase,

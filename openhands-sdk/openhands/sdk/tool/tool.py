@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any, Protocol, Self, TypeVar
+from typing import Any, ClassVar, Protocol, Self, TypeVar
 
 from litellm import (
     ChatCompletionToolParam,
@@ -38,7 +38,7 @@ class ToolAnnotations(BaseModel):
     https://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838
     """
 
-    model_config = ConfigDict(
+    model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True,
         # We need to define the title here to avoid conflict with MCP's ToolAnnotations
         # when both are included in the same JSON schema for openapi.json
@@ -115,7 +115,9 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     - Export MCP tool description.
     """
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        frozen=True, arbitrary_types_allowed=True
+    )
 
     name: str
     description: str

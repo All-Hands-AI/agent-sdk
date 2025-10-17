@@ -25,6 +25,8 @@ class StuckDetector:
     5. Context window errors indicating memory issues
     """
 
+    state: ConversationState
+
     def __init__(self, state: ConversationState):
         self.state = state
 

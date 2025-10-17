@@ -49,7 +49,11 @@ class FileEditor:
     Original implementation: https://github.com/anthropics/anthropic-quickstarts/blob/main/computer-use-demo/computer_use_demo/tools/edit.py
     """
 
-    MAX_FILE_SIZE_MB = 10  # Maximum file size in MB
+    MAX_FILE_SIZE_MB: int = 10  # Maximum file size in MB
+    _history_manager: FileHistoryManager
+    _max_file_size: int
+    _encoding_manager: EncodingManager
+    _cwd: str
 
     def __init__(
         self,
@@ -79,7 +83,7 @@ class FileEditor:
             # Ensure workspace_root is an absolute path
             if not workspace_path.is_absolute():
                 workspace_path = workspace_path.resolve()
-            self._cwd = workspace_path
+            self._cwd = str(workspace_path)
         else:
             self._cwd = os.path.abspath(os.getcwd())
         logger.info(f"FileEditor initialized with cwd: {self._cwd}")
@@ -114,6 +118,8 @@ class FileEditor:
         elif command == "str_replace":
             if old_str is None:
                 raise EditorToolParameterMissingError(command, "old_str")
+            if new_str is None:
+                raise EditorToolParameterMissingError(command, "new_str")
             if new_str == old_str:
                 raise EditorToolParameterInvalidError(
                     "new_str",
@@ -266,7 +272,7 @@ class FileEditor:
             if view_range:
                 raise EditorToolParameterInvalidError(
                     "view_range",
-                    view_range,
+                    str(view_range),
                     "The `view_range` parameter is not allowed when `path` points to "
                     "a directory.",
                 )
@@ -334,7 +340,7 @@ class FileEditor:
         if len(view_range) != 2 or not all(isinstance(i, int) for i in view_range):
             raise EditorToolParameterInvalidError(
                 "view_range",
-                view_range,
+                str(view_range),
                 "It should be a list of two integers.",
             )
 
@@ -342,7 +348,7 @@ class FileEditor:
         if start_line < 1 or start_line > num_lines:
             raise EditorToolParameterInvalidError(
                 "view_range",
-                view_range,
+                str(view_range),
                 f"Its first element `{start_line}` should be within the range of "
                 f"lines of the file: {[1, num_lines]}.",
             )
@@ -361,7 +367,7 @@ class FileEditor:
         if end_line < start_line:
             raise EditorToolParameterInvalidError(
                 "view_range",
-                view_range,
+                str(view_range),
                 f"Its second element `{end_line}` should be greater than or equal "
                 f"to the first element `{start_line}`.",
             )
@@ -430,7 +436,7 @@ class FileEditor:
         if insert_line < 0 or insert_line > num_lines:
             raise EditorToolParameterInvalidError(
                 "insert_line",
-                insert_line,
+                str(insert_line),
                 f"It should be within the range of allowed values: {[0, num_lines]}",
             )
 
@@ -521,7 +527,7 @@ class FileEditor:
 
             raise EditorToolParameterInvalidError(
                 "path",
-                path,
+                str(path),
                 suggestion_message,
             )
 
@@ -529,21 +535,21 @@ class FileEditor:
         if command == "create" and path.exists():
             raise EditorToolParameterInvalidError(
                 "path",
-                path,
+                str(path),
                 f"File already exists at: {path}. Cannot overwrite files using "
                 "command `create`.",
             )
         if command != "create" and not path.exists():
             raise EditorToolParameterInvalidError(
                 "path",
-                path,
+                str(path),
                 f"The path {path} does not exist. Please provide a valid path.",
             )
         if command != "view":
             if path.is_dir():
                 raise EditorToolParameterInvalidError(
                     "path",
-                    path,
+                    str(path),
                     f"The path {path} is a directory and only the `view` command can "
                     "be used on directories.",
                 )

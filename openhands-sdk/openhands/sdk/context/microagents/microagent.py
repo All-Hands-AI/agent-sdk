@@ -241,6 +241,7 @@ class TaskMicroagent(KnowledgeMicroagent):
     """
 
     type: MicroagentType = "task"
+    content: str  # Re-declare to allow modification in validator
     inputs: list[InputMetadata] = Field(
         default_factory=list,
         description=(
