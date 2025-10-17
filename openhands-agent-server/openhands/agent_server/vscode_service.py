@@ -25,11 +25,11 @@ class VSCodeService:
             create_workspace: Whether to create the workspace directory if it doesn't
                 exist
         """
-        self.port = port
+        self.port: int = port
         self.connection_token: str | None = None
         self.process: asyncio.subprocess.Process | None = None
-        self.openvscode_server_root = Path("/openhands/.openvscode-server")
-        self.extensions_dir = self.openvscode_server_root / "extensions"
+        self.openvscode_server_root: Path = Path("/openhands/.openvscode-server")
+        self.extensions_dir: Path = self.openvscode_server_root / "extensions"
 
     async def start(self) -> bool:
         """Start the VSCode server.

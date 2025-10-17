@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
+from typing import ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from openhands.agent_server.env_parser import from_env
 
@@ -115,7 +116,7 @@ class Config(BaseModel):
         default=False,
         description="Whether to enable VNC desktop functionality",
     )
-    model_config = {"frozen": True}
+    model_config: ClassVar[ConfigDict] = {"frozen": True}
 
 
 _default_config: Config | None = None

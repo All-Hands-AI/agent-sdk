@@ -50,6 +50,10 @@ class TerminalSession(TerminalSessionBase):
     output processing) while delegating terminal operations to the TerminalInterface.
     """
 
+    terminal: TerminalInterface
+    prev_status: TerminalCommandStatus | None
+    prev_output: str
+
     def __init__(
         self,
         terminal: TerminalInterface,
@@ -67,17 +71,17 @@ class TerminalSession(TerminalSessionBase):
             no_change_timeout_seconds,
         )
         self.terminal = terminal
-        self.no_change_timeout_seconds = (
+        self.no_change_timeout_seconds: int = (
             no_change_timeout_seconds or NO_CHANGE_TIMEOUT_SECONDS
         )
         # Store the last command for interactive input handling
-        self.prev_status: TerminalCommandStatus | None = None
-        self.prev_output: str = ""
+        self.prev_status = None
+        self.prev_output = ""
 
     def initialize(self) -> None:
         """Initialize the terminal backend."""
         self.terminal.initialize()
-        self._initialized = True
+        self._initialized: bool = True
         logger.debug(f"Unified session initialized with {type(self.terminal).__name__}")
 
     def close(self) -> None:
@@ -85,7 +89,7 @@ class TerminalSession(TerminalSessionBase):
         if self._closed:
             return
         self.terminal.close()
-        self._closed = True
+        self._closed: bool = True
 
     def interrupt(self) -> bool:
         """Interrupt the currently running command (equivalent to Ctrl+C)."""
@@ -145,7 +149,7 @@ class TerminalSession(TerminalSessionBase):
 
         # Update the current working directory if it has changed
         if metadata.working_dir != self._cwd and metadata.working_dir:
-            self._cwd = metadata.working_dir
+            self._cwd: str | None = metadata.working_dir
 
         logger.debug(
             f"[Prev PS1 not matched: {get_content_before_last_match}] "

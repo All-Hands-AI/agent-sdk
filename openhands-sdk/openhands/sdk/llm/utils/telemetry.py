@@ -3,7 +3,7 @@ import os
 import time
 import uuid
 import warnings
-from typing import Any
+from typing import Any, ClassVar
 
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
@@ -43,7 +43,9 @@ class Telemetry(BaseModel):
     _req_ctx: dict[str, Any] = PrivateAttr(default_factory=dict)
     _last_latency: float = PrivateAttr(default=0.0)
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="forbid", arbitrary_types_allowed=True
+    )
 
     # ---------- Lifecycle ----------
     def on_request(self, log_ctx: dict | None) -> None:

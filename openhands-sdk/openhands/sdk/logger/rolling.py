@@ -16,8 +16,8 @@ RenderFnType = Callable[[], str]
 class _RollingViewHandler(logging.Handler):
     def __init__(self, max_lines: int, use_live: bool):
         super().__init__()
-        self._buf = deque(maxlen=max_lines)
-        self._use_live = use_live
+        self._buf: deque[str] = deque(maxlen=max_lines)
+        self._use_live: bool = use_live
         self._live: Live | None = None  # set by rolling_log_view when Live is active
         self.render_fn: RenderFnType | None = None
 

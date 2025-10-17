@@ -1,6 +1,7 @@
 """Tests for MCP tool functionality with new simplified implementation."""
 
-from unittest.mock import MagicMock
+from typing import Any
+from unittest.mock import MagicMock, Mock
 
 import mcp.types
 
@@ -120,8 +121,10 @@ class TestMCPToolExecutor:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.mock_client = MagicMock()
-        self.executor = MCPToolExecutor(tool_name="test_tool", client=self.mock_client)
+        self.mock_client: Mock = MagicMock()
+        self.executor: Any = MCPToolExecutor(
+            tool_name="test_tool", client=self.mock_client
+        )
 
     def test_call_tool_success(self):
         """Test successful tool execution."""
@@ -211,10 +214,10 @@ class TestMCPTool:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.mock_client = MockMCPClient()
+        self.mock_client: Mock = MockMCPClient()
 
         # Create mock MCP tool
-        self.mock_mcp_tool = MagicMock(spec=mcp.types.Tool)
+        self.mock_mcp_tool: Mock = MagicMock(spec=mcp.types.Tool)
         self.mock_mcp_tool.name = "test_tool"
         self.mock_mcp_tool.description = "A test tool"
         self.mock_mcp_tool.inputSchema = {
@@ -227,7 +230,7 @@ class TestMCPTool:
         tools = MCPToolDefinition.create(
             mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
         )
-        self.tool = tools[0]  # Extract single tool from sequence
+        self.tool: MCPToolDefinition = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_creation(self):
         """Test creating an MCP tool."""

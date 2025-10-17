@@ -53,10 +53,10 @@ class BaseIntegrationTest(ABC):
         instance_id: str,
         workspace: str,
     ):
-        self.instruction = instruction
-        self.llm_config = llm_config
-        self.workspace = workspace
-        self.instance_id = instance_id
+        self.instruction: str = instruction
+        self.llm_config: dict[str, Any] = llm_config
+        self.workspace: str = workspace
+        self.instance_id: str = instance_id
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             raise ValueError(
@@ -75,13 +75,13 @@ class BaseIntegrationTest(ABC):
             "api_key": SecretStr(api_key),
         }
 
-        self.llm = LLM(**llm_kwargs, service_id="test-llm")
-        self.agent = Agent(llm=self.llm, tools=self.tools)
+        self.llm: LLM = LLM(**llm_kwargs, service_id="test-llm")
+        self.agent: Agent = Agent(llm=self.llm, tools=self.tools)
         self.collected_events: list[Event] = []
         self.llm_messages: list[dict[str, Any]] = []
 
         # Create log file path for this test instance
-        self.log_file_path = os.path.join(
+        self.log_file_path: str = os.path.join(
             self.workspace, f"{self.instance_id}_agent_logs.txt"
         )
 

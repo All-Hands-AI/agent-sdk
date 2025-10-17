@@ -1,8 +1,9 @@
 """Glob tool executor implementation."""
 
+# Use absolute import to avoid conflict with our local glob module
+import glob as glob_module
 import os
 import subprocess
-from glob import glob
 from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
@@ -28,8 +29,8 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
         Args:
             working_dir: The working directory to use as the base for searches
         """
-        self.working_dir = Path(working_dir).resolve()
-        self._ripgrep_available = _check_ripgrep_available()
+        self.working_dir: Path = Path(working_dir).resolve()
+        self._ripgrep_available: bool = _check_ripgrep_available()
         if not self._ripgrep_available:
             _log_ripgrep_fallback_warning("glob", "Python glob module")
 
@@ -134,7 +135,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
                 pattern = f"**/{pattern}"
 
             # Use glob to find matching files
-            matches = glob(pattern, recursive=True)
+            matches = glob_module.glob(pattern, recursive=True)
 
             # Convert to absolute paths (without resolving symlinks) a
             # nd sort by modification time

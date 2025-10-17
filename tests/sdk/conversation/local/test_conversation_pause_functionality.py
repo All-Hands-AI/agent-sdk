@@ -64,7 +64,7 @@ class BlockingExecutor(
     ToolExecutor[PauseFunctionalityMockAction, PauseFunctionalityMockObservation]
 ):
     def __init__(self, step_entered: threading.Event):
-        self.step_entered = step_entered
+        self.step_entered: bool = step_entered
 
     def __call__(
         self, action: PauseFunctionalityMockAction
@@ -80,7 +80,7 @@ class TestPauseFunctionality:
     def setup_method(self):
         """Set up test fixtures."""
 
-        self.llm = LLM(
+        self.llm: LLM = LLM(
             model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
         )
 
@@ -109,11 +109,11 @@ class TestPauseFunctionality:
 
         register_tool("test_tool", _make_tool)
 
-        self.agent = Agent(
+        self.agent: Agent = Agent(
             llm=self.llm,
             tools=[Tool(name="test_tool")],
         )
-        self.conversation = Conversation(agent=self.agent)
+        self.conversation: Conversation = Conversation(agent=self.agent)
 
     def test_pause_basic_functionality(self):
         """Test basic pause operations."""
@@ -313,8 +313,8 @@ class TestPauseFunctionality:
         conversation = Conversation(agent=agent, stuck_detection=False)
 
         # Swap them in for this test only
-        self.agent = agent
-        self.conversation = conversation
+        self.agent: Agent = agent
+        self.conversation: Conversation = conversation
 
         # LLM continuously emits actions (no finish)
         tool_call = ChatCompletionMessageToolCall(
