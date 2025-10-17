@@ -867,6 +867,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         - Uses Message.to_responses_value to get either instructions (system)
          or input items (others)
         - Concatenates system instructions into a single instructions string
+        - Filters out dangling function_calls (without corresponding outputs)
         """
         msgs = copy.deepcopy(messages)
 
@@ -890,6 +891,41 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             else:
                 if val:
                     input_items.extend(val)
+
+        # Filter out dangling function_calls (function_calls without outputs)
+        # The Responses API requires every function_call to be followed by
+        # a function_call_output, otherwise we get a 400 error
+        function_call_ids: set[str] = set()
+        function_call_output_ids: set[str] = set()
+
+        for item in input_items:
+            if item.get("type") == "function_call":
+                call_id = item.get("call_id") or item.get("id")
+                if call_id:
+                    function_call_ids.add(str(call_id))
+            elif item.get("type") == "function_call_output":
+                call_id = item.get("call_id")
+                if call_id:
+                    function_call_output_ids.add(str(call_id))
+
+        dangling_call_ids = function_call_ids - function_call_output_ids
+
+        if dangling_call_ids:
+            # Remove function_call items that don't have corresponding outputs
+            filtered_items = [
+                item
+                for item in input_items
+                if not (
+                    item.get("type") == "function_call"
+                    and (item.get("call_id") or item.get("id")) in dangling_call_ids
+                )
+            ]
+            logger.debug(
+                f"Filtered out {len(dangling_call_ids)} dangling function_call(s) "
+                f"from responses input: {dangling_call_ids}"
+            )
+            input_items = filtered_items
+
         return instructions, input_items
 
     def get_token_count(self, messages: list[Message]) -> int:
