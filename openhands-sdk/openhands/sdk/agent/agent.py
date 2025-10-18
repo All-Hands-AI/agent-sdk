@@ -31,6 +31,7 @@ from openhands.sdk.tool import (
     Action,
     FinishTool,
     Observation,
+    StatefulToolExecutor,
 )
 from openhands.sdk.tool.builtins import FinishAction, ThinkAction
 
@@ -424,7 +425,14 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        observation: Observation = tool(action_event.action)
+        # Check if the tool executor needs conversation state
+        if tool.executor is not None and isinstance(
+            tool.executor, StatefulToolExecutor
+        ):
+            observation: Observation = tool.executor(action_event.action, state=state)
+        else:
+            observation: Observation = tool(action_event.action)
+
         assert isinstance(observation, Observation), (
             f"Tool '{tool.name}' executor must return an Observation"
         )

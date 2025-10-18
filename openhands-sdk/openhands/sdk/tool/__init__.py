@@ -13,6 +13,7 @@ from openhands.sdk.tool.schema import (
 from openhands.sdk.tool.spec import Tool
 from openhands.sdk.tool.tool import (
     ExecutableTool,
+    StatefulToolExecutor,
     ToolAnnotations,
     ToolBase,
     ToolDefinition,
@@ -26,6 +27,7 @@ __all__ = [
     "ToolBase",
     "ToolAnnotations",
     "ToolExecutor",
+    "StatefulToolExecutor",
     "ExecutableTool",
     "Action",
     "Observation",
