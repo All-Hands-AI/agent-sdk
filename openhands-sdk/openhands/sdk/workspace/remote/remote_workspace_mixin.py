@@ -232,7 +232,7 @@ class RemoteWorkspaceMixin(BaseModel):
             # Make HTTP call
             response = yield {
                 "method": "GET",
-                "url": "/api/file/download",
+                "url": f"{self.host}/api/file/download",
                 "params": params,
                 "headers": self._headers,
                 "timeout": 60.0,
