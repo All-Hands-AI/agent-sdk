@@ -171,7 +171,7 @@ def get_planning_agent(
         system_prompt_filename="system_prompt_planning.j2",
         system_prompt_kwargs={"plan_structure": format_plan_structure()},
         condenser=get_planning_condenser(
-            llm=llm.model_copy(update={"service_id": "planning_condenser"})
+            llm=llm.model_copy(update={"usage_id": "planning_condenser"})
         ),
         security_analyzer=None,
     )

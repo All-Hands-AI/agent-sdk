@@ -16,7 +16,7 @@ class DummyLLM(LLM):
     _force_responses: bool = PrivateAttr(default=False)
 
     def __init__(self, *, model: str, force_responses: bool):
-        super().__init__(model=model, service_id="test-llm")
+        super().__init__(model=model, usage_id="test-llm")
         self._force_responses = force_responses
 
     def uses_responses_api(self) -> bool:  # override gating
@@ -80,7 +80,7 @@ class ModelGateLLM(LLM):
     _calls: list[str] = PrivateAttr(default_factory=list)
 
     def __init__(self, *, model: str):
-        super().__init__(model=model, service_id="test-llm")
+        super().__init__(model=model, usage_id="test-llm")
 
     def completion(self, *, messages, tools=None, **kwargs) -> LLMResponse:  # type: ignore[override]
         self._calls.append("completion")

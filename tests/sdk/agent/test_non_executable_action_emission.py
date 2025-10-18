@@ -25,7 +25,7 @@ from openhands.sdk.llm import LLM, Message, TextContent
 def test_emits_action_event_with_none_action_then_error_on_missing_tool() -> None:
     """Test that agent emits ActionEvent(action=None) when tool is missing."""
     llm = LLM(
-        service_id="test-llm",
+        usage_id="test-llm",
         model="test-model",
         api_key=SecretStr("test-key"),
         base_url="http://test",

@@ -39,7 +39,7 @@ def mock_event_service():
                     id=uuid4(),
                     agent=Agent(
                         llm=LLM(
-                            service_id="test-llm",
+                            usage_id="test-llm",
                             model="test-model",
                             api_key=SecretStr("test-key"),
                         ),

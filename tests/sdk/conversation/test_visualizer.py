@@ -325,7 +325,7 @@ def test_metrics_formatting():
     )
 
     # Add metrics to conversation stats
-    conversation_stats.service_to_metrics["test_service"] = metrics
+    conversation_stats.usage_to_metrics["test_usage"] = metrics
 
     # Create visualizer with conversation stats
     visualizer = ConversationVisualizer(conversation_stats=conversation_stats)

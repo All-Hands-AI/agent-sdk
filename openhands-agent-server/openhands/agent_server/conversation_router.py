@@ -34,7 +34,7 @@ START_CONVERSATION_EXAMPLES = [
     StartConversationRequest(
         agent=Agent(
             llm=LLM(
-                service_id="your-llm-service",
+                usage_id="your-llm-service",
                 model="your-model-provider/your-model-name",
                 api_key=SecretStr("your-api-key-here"),
             ),

@@ -33,7 +33,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key, "LITELLM_API_KEY required"
 
 llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),

@@ -44,7 +44,7 @@ llm = LLM(
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
-    service_id="agent",
+    usage_id="agent",
 )
 
 # Task description
