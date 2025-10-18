@@ -141,6 +141,18 @@ registry.add("default", llm)
 llm = registry.get("default")
 ```
 
+#### Steps to setup VertexAI 
+1. Set environment variables
+- VERTEXAI_PROJECT = <project id>
+- VERTEXAI_LOCATION = <project location>
+- GOOGLE_APPLICATION_CREDENTIALS = <path to google cloud json credential file>
+- LLM_MODEL="vertex_ai/gemini-2.5-flash" #replace "gemini-2.5-flash with model of choice 
+- LLM_API_KEY="abc" # Set this variable to any value, to avoid assert errors
+
+NOTES:
+- These environment variables should be set in the host system from where `uv run ...` is called
+- If code is running on a container, make sure these environment variables are set properly in the container
+
 ### Tools
 
 Tools provide agents with capabilities to interact with the environment. The SDK includes several built-in tools:
@@ -311,3 +323,4 @@ uv run pre-commit run --files path/to/file.py
 # Run on all files
 uv run pre-commit run --all-files
 ```
+
