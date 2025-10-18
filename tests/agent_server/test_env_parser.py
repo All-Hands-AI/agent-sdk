@@ -11,7 +11,9 @@ Tests cover:
 
 import json
 import os
+from enum import Enum
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from pydantic import BaseModel, Field
@@ -22,6 +24,7 @@ from openhands.agent_server.env_parser import (
     BoolEnvParser,
     DelayedParser,
     DictEnvParser,
+    EnumEnvParser,
     FloatEnvParser,
     IntEnvParser,
     ListEnvParser,
@@ -51,6 +54,40 @@ class OptionalSubModel(BaseModel):
 
 class OptionalModel(BaseModel):
     sub: OptionalSubModel | None = None
+
+
+# Test enum classes for enum parsing tests
+class Color(Enum):
+    """Test enum with string values."""
+
+    RED = "red"
+    GREEN = "green"
+    BLUE = "blue"
+
+
+class Status(Enum):
+    """Test enum with mixed case string values."""
+
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
+    PENDING = "Pending"
+
+
+class Priority(Enum):
+    """Test enum with integer values."""
+
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+
+
+class LogLevel(Enum):
+    """Test enum with uppercase string values."""
+
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
 
 
 @pytest.fixture
@@ -766,3 +803,245 @@ def test_config_vnc_various_boolean_values(clean_env, env_value, expected):
     assert config.enable_vnc is expected, (
         f"Failed for OH_ENABLE_VNC='{env_value}', expected {expected}"
     )
+
+
+# Enum parsing tests
+def test_enum_env_parser_with_string_enum(clean_env):
+    """Test EnumEnvParser with string-valued enum."""
+    parser = EnumEnvParser(Color)
+
+    # Test missing key
+    assert parser.from_env("MISSING_KEY") is MISSING
+
+    # Test exact value match
+    os.environ["TEST_COLOR"] = "red"
+    assert parser.from_env("TEST_COLOR") == "red"
+
+    # Test case-insensitive value match
+    os.environ["TEST_COLOR"] = "RED"
+    assert parser.from_env("TEST_COLOR") == "red"
+
+    os.environ["TEST_COLOR"] = "Red"
+    assert parser.from_env("TEST_COLOR") == "red"
+
+    # Test case-insensitive name match
+    os.environ["TEST_COLOR"] = "red"
+    assert parser.from_env("TEST_COLOR") == "red"
+
+    os.environ["TEST_COLOR"] = "RED"
+    assert parser.from_env("TEST_COLOR") == "red"
+
+
+def test_enum_env_parser_with_mixed_case_enum(clean_env):
+    """Test EnumEnvParser with mixed case string values."""
+    parser = EnumEnvParser(Status)
+
+    # Test exact value match
+    os.environ["TEST_STATUS"] = "Active"
+    assert parser.from_env("TEST_STATUS") == "Active"
+
+    # Test case-insensitive value match
+    os.environ["TEST_STATUS"] = "active"
+    assert parser.from_env("TEST_STATUS") == "Active"
+
+    os.environ["TEST_STATUS"] = "ACTIVE"
+    assert parser.from_env("TEST_STATUS") == "Active"
+
+    # Test case-insensitive name match
+    os.environ["TEST_STATUS"] = "active"
+    assert parser.from_env("TEST_STATUS") == "Active"
+
+
+def test_enum_env_parser_with_integer_enum(clean_env):
+    """Test EnumEnvParser with integer-valued enum."""
+    parser = EnumEnvParser(Priority)
+
+    # Test exact value match (as string)
+    os.environ["TEST_PRIORITY"] = "1"
+    assert parser.from_env("TEST_PRIORITY") == 1
+
+    os.environ["TEST_PRIORITY"] = "2"
+    assert parser.from_env("TEST_PRIORITY") == 2
+
+    # Test case-insensitive name match
+    os.environ["TEST_PRIORITY"] = "low"
+    assert parser.from_env("TEST_PRIORITY") == 1
+
+    os.environ["TEST_PRIORITY"] = "LOW"
+    assert parser.from_env("TEST_PRIORITY") == 1
+
+    os.environ["TEST_PRIORITY"] = "Medium"
+    assert parser.from_env("TEST_PRIORITY") == 2
+
+
+def test_enum_env_parser_with_uppercase_enum(clean_env):
+    """Test EnumEnvParser with uppercase string values."""
+    parser = EnumEnvParser(LogLevel)
+
+    # Test exact value match
+    os.environ["TEST_LOG_LEVEL"] = "DEBUG"
+    assert parser.from_env("TEST_LOG_LEVEL") == "DEBUG"
+
+    # Test case-insensitive value match
+    os.environ["TEST_LOG_LEVEL"] = "debug"
+    assert parser.from_env("TEST_LOG_LEVEL") == "DEBUG"
+
+    os.environ["TEST_LOG_LEVEL"] = "Debug"
+    assert parser.from_env("TEST_LOG_LEVEL") == "DEBUG"
+
+    # Test case-insensitive name match
+    os.environ["TEST_LOG_LEVEL"] = "info"
+    assert parser.from_env("TEST_LOG_LEVEL") == "INFO"
+
+
+def test_enum_env_parser_with_literal_type(clean_env):
+    """Test EnumEnvParser with Literal types."""
+    TaskStatus = Literal["todo", "in_progress", "done"]
+    parser = EnumEnvParser(TaskStatus)
+
+    # Test exact match
+    os.environ["TEST_TASK_STATUS"] = "todo"
+    assert parser.from_env("TEST_TASK_STATUS") == "todo"
+
+    os.environ["TEST_TASK_STATUS"] = "in_progress"
+    assert parser.from_env("TEST_TASK_STATUS") == "in_progress"
+
+    # Test case-insensitive match
+    os.environ["TEST_TASK_STATUS"] = "TODO"
+    assert parser.from_env("TEST_TASK_STATUS") == "todo"
+
+    os.environ["TEST_TASK_STATUS"] = "In_Progress"
+    assert parser.from_env("TEST_TASK_STATUS") == "in_progress"
+
+    os.environ["TEST_TASK_STATUS"] = "DONE"
+    assert parser.from_env("TEST_TASK_STATUS") == "done"
+
+
+def test_enum_env_parser_error_handling(clean_env):
+    """Test EnumEnvParser error handling for invalid values."""
+    parser = EnumEnvParser(Color)
+
+    # Test invalid value for enum
+    os.environ["TEST_COLOR"] = "purple"
+    with pytest.raises(ValueError) as exc_info:
+        parser.from_env("TEST_COLOR")
+
+    error_msg = str(exc_info.value)
+    assert "Invalid value 'purple' for Color" in error_msg
+    assert "Valid values: ['red', 'green', 'blue']" in error_msg
+    assert "Valid names: ['RED', 'GREEN', 'BLUE']" in error_msg
+
+
+def test_enum_env_parser_literal_fallback_behavior(clean_env):
+    """Test EnumEnvParser fallback behavior for invalid Literal values."""
+    TaskStatus = Literal["todo", "in_progress", "done"]
+    parser = EnumEnvParser(TaskStatus)
+
+    # Test invalid value for Literal - should return the value as-is
+    # to allow Pydantic validation to handle the error
+    os.environ["TEST_TASK_STATUS"] = "invalid_status"
+    result = parser.from_env("TEST_TASK_STATUS")
+    assert result == "invalid_status"
+
+
+def test_get_env_parser_with_enum_types():
+    """Test get_env_parser function with enum types."""
+    parsers = {
+        str: StrEnvParser(),
+        int: IntEnvParser(),
+        float: FloatEnvParser(),
+        bool: BoolEnvParser(),
+        type(None): NoneEnvParser(),
+    }
+
+    # Test with enum.Enum subclass
+    color_parser = get_env_parser(Color, parsers)
+    assert isinstance(color_parser, EnumEnvParser)
+    assert color_parser.enum_type == Color
+
+    # Test with Literal type
+    TaskStatus = Literal["todo", "in_progress", "done"]
+    status_parser = get_env_parser(TaskStatus, parsers)
+    assert isinstance(status_parser, EnumEnvParser)
+    assert status_parser.enum_type == TaskStatus
+
+
+def test_from_env_with_enum_model(clean_env):
+    """Test from_env function with a model containing enum fields."""
+
+    class TaskModel(BaseModel):
+        name: str
+        status: Literal["todo", "in_progress", "done"] = "todo"
+        priority: Priority = Priority.LOW
+        color: Color = Color.RED
+
+    # Test with environment variables
+    os.environ["TASK_NAME"] = "Test Task"
+    os.environ["TASK_STATUS"] = "IN_PROGRESS"
+    os.environ["TASK_PRIORITY"] = "high"
+    os.environ["TASK_COLOR"] = "BLUE"
+
+    task = from_env(TaskModel, "TASK")
+
+    assert task.name == "Test Task"
+    assert task.status == "in_progress"
+    assert task.priority == Priority.HIGH
+    assert task.color == Color.BLUE
+
+
+def test_from_env_with_enum_defaults(clean_env):
+    """Test from_env function with enum defaults when no env vars are set."""
+
+    class TaskModel(BaseModel):
+        name: str = "Default Task"
+        status: Literal["todo", "in_progress", "done"] = "todo"
+        priority: Priority = Priority.LOW
+        color: Color = Color.RED
+
+    # No environment variables set
+    task = from_env(TaskModel, "TASK")
+
+    assert task.name == "Default Task"
+    assert task.status == "todo"
+    assert task.priority == Priority.LOW
+    assert task.color == Color.RED
+
+
+def test_enum_in_complex_nested_structure(clean_env):
+    """Test enum parsing in complex nested structures."""
+
+    class TaskItem(BaseModel):
+        title: str
+        status: Literal["todo", "in_progress", "done"]
+        priority: Priority
+
+    class Project(BaseModel):
+        name: str
+        tasks: list[TaskItem]
+
+    # Set up complex nested data with enums
+    project_data = {
+        "name": "Test Project",
+        "tasks": [
+            {"title": "Task 1", "status": "todo", "priority": 1},
+            {"title": "Task 2", "status": "in_progress", "priority": 2},
+        ],
+    }
+    os.environ["TEST_PROJECT"] = json.dumps(project_data)
+
+    # Override some enum values
+    os.environ["TEST_PROJECT_TASKS_0_STATUS"] = "IN_PROGRESS"
+    os.environ["TEST_PROJECT_TASKS_1_PRIORITY"] = "HIGH"
+
+    result = from_env(Project, "TEST_PROJECT")
+
+    assert result.name == "Test Project"
+    assert len(result.tasks) == 2
+
+    assert result.tasks[0].title == "Task 1"
+    assert result.tasks[0].status == "in_progress"  # Overridden
+    assert result.tasks[0].priority == Priority.LOW
+
+    assert result.tasks[1].title == "Task 2"
+    assert result.tasks[1].status == "in_progress"
+    assert result.tasks[1].priority == Priority.HIGH  # Overridden
