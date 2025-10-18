@@ -8,15 +8,13 @@ from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 
 from openhands.agent_server.bash_router import bash_router
-from openhands.agent_server.config import (
-    Config,
-    get_default_config,
-)
+from openhands.agent_server.bash_service import BashEventService
+from openhands.agent_server.config import Config, get_default_config
 from openhands.agent_server.conversation_router import conversation_router
-from openhands.agent_server.conversation_service import (
-    get_default_conversation_service,
+from openhands.agent_server.conversation_service import ConversationService
+from openhands.agent_server.dependencies import (
+    create_session_api_key_dependency,
 )
-from openhands.agent_server.dependencies import create_session_api_key_dependency
 from openhands.agent_server.desktop_router import desktop_router
 from openhands.agent_server.desktop_service import get_desktop_service
 from openhands.agent_server.event_router import event_router
@@ -30,7 +28,7 @@ from openhands.agent_server.sockets import sockets_router
 from openhands.agent_server.tool_router import tool_router
 from openhands.agent_server.utils import patch_fastapi_discriminated_union_support
 from openhands.agent_server.vscode_router import vscode_router
-from openhands.agent_server.vscode_service import get_vscode_service
+from openhands.agent_server.vscode_service import VSCodeService
 from openhands.sdk.logger import DEBUG, get_logger
 
 
@@ -42,8 +40,24 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
-    service = get_default_conversation_service()
-    vscode_service = get_vscode_service()
+    # Services are initialized from the injected Config and stored on app.state.
+    config: Config = api.state.config
+
+    service = ConversationService.get_instance(config)
+    bash_event_service = BashEventService(bash_events_dir=config.bash_events_dir)
+
+    # Attach to app.state for DI
+    api.state.conversation_service = service
+    api.state.bash_event_service = bash_event_service
+
+    # Optional services
+    vscode_service: VSCodeService | None = None
+    if config.enable_vscode:
+        vscode_service = VSCodeService(port=config.vscode_port)
+
+    # Attach optional services as well for DI fallbacks
+    api.state.vscode_service = vscode_service
+
     desktop_service = get_desktop_service()
 
     # Start VSCode service if enabled
@@ -69,8 +83,6 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
         logger.info("Desktop service is disabled")
 
     async with service:
-        # Store the initialized service in app state for dependency injection
-        api.state.conversation_service = service
         try:
             yield
         finally:
@@ -282,12 +294,21 @@ def create_app(config: Config | None = None) -> FastAPI:
     if config is None:
         config = get_default_config()
     app = _create_fastapi_instance()
+
+    # Store config on app.state for DI
+    app.state.config = config
+
     _add_api_routes(app, config)
     _setup_static_files(app, config)
     app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
     _add_exception_handlers(app)
 
     return app
+
+
+def build_app() -> FastAPI:
+    """Convenience factory for uvicorn --factory usage."""
+    return create_app()
 
 
 # Create the default app instance
