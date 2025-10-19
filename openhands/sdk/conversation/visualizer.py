@@ -234,14 +234,13 @@ class ConversationVisualizer:
             return None
 
         combined_metrics = self._conversation_stats.get_combined_metrics()
-        if not combined_metrics or not combined_metrics.accumulated_token_usage:
+        if not combined_metrics or not combined_metrics.token_usages:
             return None
 
-        usage = combined_metrics.accumulated_token_usage
+        latest_usage = combined_metrics.token_usages[-1]
         cost = combined_metrics.accumulated_cost or 0.0
 
-        # helper: 1234 -> "1.2K", 1200000 -> "1.2M"
-        def abbr(n: int | float) -> str:
+        def abbr(n: int | float) -> str:  # helper: 1234 -> "1.2K", 1200000 -> "1.2M"
             n = int(n or 0)
             if n >= 1_000_000_000:
                 s = f"{n / 1_000_000_000:.2f}B"
@@ -253,26 +252,23 @@ class ConversationVisualizer:
                 return str(n)
             return s.replace(".0", "")
 
-        input_tokens = abbr(usage.prompt_tokens or 0)
-        output_tokens = abbr(usage.completion_tokens or 0)
+        input_tokens = latest_usage.prompt_tokens or 0
+        output_tokens = latest_usage.completion_tokens or 0
+        cache_read = latest_usage.cache_read_tokens or 0
+        cache_rate = (
+            f"{(cache_read / input_tokens * 100):.2f}%" if input_tokens > 0 else "N/A"
+        )
+        reasoning_tokens = latest_usage.reasoning_tokens or 0
 
-        # Cache hit rate (prompt + cache)
-        prompt = usage.prompt_tokens or 0
-        cache_read = usage.cache_read_tokens or 0
-        cache_rate = f"{(cache_read / prompt * 100):.2f}%" if prompt > 0 else "N/A"
-        reasoning_tokens = usage.reasoning_tokens or 0
+        cost_str = f"{cost:.4f}"
 
-        # Cost
-        cost_str = f"{cost:.4f}" if cost > 0 else "$0.00"
-
-        # Build with fixed color scheme
         parts: list[str] = []
-        parts.append(f"[cyan]↑ input {input_tokens}[/cyan]")
+        parts.append(f"[cyan]↑ input {abbr(input_tokens)}[/cyan]")
         parts.append(f"[magenta]cache hit {cache_rate}[/magenta]")
         if reasoning_tokens > 0:
             parts.append(f"[yellow] reasoning {abbr(reasoning_tokens)}[/yellow]")
-        parts.append(f"[blue]↓ output {output_tokens}[/blue]")
-        parts.append(f"[green]$ {cost_str}[/green]")
+        parts.append(f"[blue]↓ output {abbr(output_tokens)}[/blue]")
+        parts.append(f"[green]$ {cost_str} (total)[/green]")
 
         return "Tokens: " + " • ".join(parts)
 
