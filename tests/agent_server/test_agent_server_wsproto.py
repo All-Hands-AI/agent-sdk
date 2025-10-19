@@ -41,7 +41,7 @@ def agent_server(tmp_path):
             response = requests.get(f"http://127.0.0.1:{port}/docs", timeout=1)
             if response.status_code == 200:
                 break
-        except (requests.exceptions.RequestException, Exception):
+        except requests.exceptions.ConnectionError:
             pass
         time.sleep(0.2)
     else:
