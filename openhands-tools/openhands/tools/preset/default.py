@@ -83,7 +83,7 @@ def get_default_agent(
         filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
         system_prompt_kwargs={"cli_mode": cli_mode},
         condenser=get_default_condenser(
-            llm=llm.model_copy(update={"service_id": "condenser"})
+            llm=llm.model_copy(update={"usage_id": "condenser"})
         ),
         security_analyzer=LLMSecurityAnalyzer(),
     )

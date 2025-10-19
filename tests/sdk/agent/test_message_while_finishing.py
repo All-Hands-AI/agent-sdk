@@ -153,7 +153,7 @@ class TestMessageWhileFinishing:
         """Set up test fixtures."""
         # Use gpt-4o which supports native function calling and multiple tool calls
         self.llm: LLM = LLM(
-            model="gpt-4o", native_tool_calling=True, service_id="test-llm"
+            model="gpt-4o", native_tool_calling=True, usage_id="test-llm"
         )
         self.llm_completion_calls: list[Any] = []
         self.agent: Agent = Agent(llm=self.llm, tools=[Tool(name="SleepTool")])

@@ -81,7 +81,7 @@ class TestPauseFunctionality:
         """Set up test fixtures."""
 
         self.llm: LLM = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
 
         class TestExecutor(
