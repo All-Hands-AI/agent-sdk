@@ -141,6 +141,31 @@ registry.add("default", llm)
 llm = registry.get("default")
 ```
 
+### Streaming Responses
+
+You can receive incremental deltas from the Responses API by supplying a token
+callback when constructing a conversation. Each callback receives an
+``LLMStreamEvent`` describing the delta.
+
+```python
+from pathlib import Path
+from openhands.sdk import Conversation, LLMStreamEvent
+
+log_dir = Path("logs/stream")
+log_dir.mkdir(parents=True, exist_ok=True)
+
+def on_token(event: LLMStreamEvent) -> None:
+    print(event.text or event.arguments or "", end="", flush=True)
+
+conversation = Conversation(agent=agent, token_callbacks=[on_token])
+conversation.send_message("Summarize the benefits of token streaming.")
+conversation.run()
+```
+
+See `examples/01_standalone_sdk/24_responses_streaming.py` for a complete
+example that also persists each delta as JSON in `./logs/stream/`.
+
+
 ### Tools
 
 Tools provide agents with capabilities to interact with the environment. The SDK includes several built-in tools:

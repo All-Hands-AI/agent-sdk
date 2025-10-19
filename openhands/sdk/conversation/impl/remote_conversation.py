@@ -15,7 +15,11 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.conversation.types import (
+    ConversationCallbackType,
+    ConversationID,
+    ConversationTokenCallbackType,
+)
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event.base import Event
 from openhands.sdk.event.conversation_state import (
@@ -378,6 +382,7 @@ class RemoteConversation(BaseConversation):
         workspace: RemoteWorkspace,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
+        token_callbacks: list[ConversationTokenCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = False,
@@ -398,6 +403,12 @@ class RemoteConversation(BaseConversation):
             stuck_detection: Whether to enable stuck detection on server
             visualize: Whether to enable the default visualizer callback
         """
+        if token_callbacks:
+            logger.warning(
+                "Token streaming callbacks are not yet supported for remote "
+                "conversations; they will be ignored."
+            )
+
         self.agent = agent
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run

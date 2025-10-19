@@ -1,7 +1,8 @@
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
@@ -11,11 +12,13 @@ from openhands.sdk.event import (
     MessageEvent,
     ObservationEvent,
     PauseEvent,
+    StreamingDeltaEvent,
     SystemPromptEvent,
     UserRejectObservation,
 )
 from openhands.sdk.event.base import Event
 from openhands.sdk.event.condenser import Condensation
+from openhands.sdk.llm.streaming import StreamChannel
 
 
 if TYPE_CHECKING:
@@ -47,6 +50,15 @@ DEFAULT_HIGHLIGHT_REGEX = {
     r"\*(.*?)\*": "italic",
 }
 
+STREAM_CHANNEL_HEADERS: dict[StreamChannel, tuple[str, str]] = {
+    "assistant_message": ("Assistant", _ACTION_COLOR),
+    "reasoning_summary": ("Reasoning", _THOUGHT_COLOR),
+    "function_call_arguments": ("Function Arguments", _ACTION_COLOR),
+    "refusal": ("Refusal", _ERROR_COLOR),
+    "tool_call_output": ("Tool Output", _ACTION_COLOR),
+}
+
+
 _PANEL_PADDING = (1, 1)
 
 
@@ -75,11 +87,21 @@ class ConversationVisualizer:
         """
         self._console = Console()
         self._skip_user_messages = skip_user_messages
-        self._highlight_patterns: dict[str, str] = highlight_regex or {}
+        base_patterns = dict(DEFAULT_HIGHLIGHT_REGEX)
+        if highlight_regex:
+            base_patterns.update(highlight_regex)
+        self._highlight_patterns = base_patterns
         self._conversation_stats = conversation_stats
+        self._stream_state: dict[
+            tuple[StreamChannel, int | None, str | None], dict[str, Any]
+        ] = {}
 
     def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
+        if isinstance(event, StreamingDeltaEvent):
+            self._render_streaming_event(event)
+            return
+
         panel = self._create_event_panel(event)
         if panel:
             self._console.print(panel)
@@ -106,6 +128,54 @@ class ConversationVisualizer:
             highlighted.highlight_regex(pattern_compiled, style)
 
         return highlighted
+
+    def _render_streaming_event(self, event: StreamingDeltaEvent) -> None:
+        stream = event.stream_event
+        channel = stream.channel
+
+        if channel == "status":
+            return
+
+        header, color = STREAM_CHANNEL_HEADERS.get(channel, ("Streaming", "cyan"))
+        key = (channel, stream.output_index, stream.item_id)
+        state = self._stream_state.setdefault(
+            key,
+            {
+                "header_printed": False,
+                "buffer": "",
+                "header": header,
+                "color": color,
+                "live": None,
+            },
+        )
+
+        if not state["header_printed"]:
+            self._console.print(Text(f"{header}:", style=f"bold {color}"))
+            state["header_printed"] = True
+
+        delta_text = stream.text or stream.arguments
+        if delta_text:
+            state["buffer"] += delta_text
+
+        live: Live | None = state.get("live")
+        if live is None:
+            live = Live(
+                Text(state["buffer"], style=str(color)),
+                console=self._console,
+                refresh_per_second=24,
+                transient=False,
+            )
+            live.start()
+            state["live"] = live
+        else:
+            live.update(Text(state["buffer"], style=str(color)))
+
+        if stream.is_final:
+            live = state.get("live")
+            if live is not None:
+                live.stop()
+            self._console.print()
+            self._stream_state.pop(key, None)
 
     def _create_event_panel(self, event: Event) -> Panel | None:
         """Create a Rich Panel for the event with appropriate styling."""
@@ -160,6 +230,14 @@ class ConversationVisualizer:
                 title=f"[bold {_ERROR_COLOR}]User Rejected Action"
                 f"[/bold {_ERROR_COLOR}]",
                 border_style=_ERROR_COLOR,
+                padding=_PANEL_PADDING,
+                expand=True,
+            )
+        elif isinstance(event, StreamingDeltaEvent):
+            return Panel(
+                event.visualize,
+                title="[bold cyan]Streaming Delta[/bold cyan]",
+                border_style="cyan",
                 padding=_PANEL_PADDING,
                 expand=True,
             )

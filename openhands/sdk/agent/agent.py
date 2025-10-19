@@ -5,7 +5,11 @@ from pydantic import ValidationError
 import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
-from openhands.sdk.conversation import ConversationCallbackType, ConversationState
+from openhands.sdk.conversation import (
+    ConversationCallbackType,
+    ConversationState,
+    ConversationTokenCallbackType,
+)
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import (
     ActionEvent,
@@ -133,6 +137,7 @@ class Agent(AgentBase):
         self,
         state: ConversationState,
         on_event: ConversationCallbackType,
+        on_token: ConversationTokenCallbackType | None = None,
     ) -> None:
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
@@ -182,6 +187,7 @@ class Agent(AgentBase):
                     store=False,
                     add_security_risk_prediction=self._add_security_risk_prediction,
                     metadata=self.llm.metadata,
+                    on_token=on_token,
                 )
             else:
                 llm_response = self.llm.completion(
@@ -189,6 +195,7 @@ class Agent(AgentBase):
                     tools=list(self.tools_map.values()),
                     extra_body={"metadata": self.llm.metadata},
                     add_security_risk_prediction=self._add_security_risk_prediction,
+                    on_token=on_token,
                 )
         except Exception as e:
             # If there is a condenser registered and the exception is a context window

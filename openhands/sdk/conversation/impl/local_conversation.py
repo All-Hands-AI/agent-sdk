@@ -8,14 +8,19 @@ from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.title_utils import generate_conversation_title
-from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.conversation.types import (
+    ConversationCallbackType,
+    ConversationID,
+    ConversationTokenCallbackType,
+)
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event import (
     MessageEvent,
     PauseEvent,
+    StreamingDeltaEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLM, LLMStreamEvent, Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
@@ -35,6 +40,7 @@ class LocalConversation(BaseConversation):
         persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
+        token_callbacks: list[ConversationTokenCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
@@ -109,6 +115,31 @@ class LocalConversation(BaseConversation):
         self.llm_registry.subscribe(self._state.stats.register_llm)
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
+
+        def _compose_token_callbacks(
+            callbacks: list[ConversationTokenCallbackType],
+        ) -> ConversationTokenCallbackType:
+            def _composed(event):
+                for cb in callbacks:
+                    cb(event)
+
+            return _composed
+
+        user_token_callback = (
+            _compose_token_callbacks(token_callbacks) if token_callbacks else None
+        )
+
+        def _handle_stream_event(stream_event: LLMStreamEvent) -> None:
+            try:
+                self._on_event(
+                    StreamingDeltaEvent(source="agent", stream_event=stream_event)
+                )
+            except Exception:
+                logger.exception("stream_event_processing_error", exc_info=True)
+            if user_token_callback:
+                user_token_callback(stream_event)
+
+        self._on_token = _handle_stream_event
 
         # Initialize secrets if provided
         if secrets:
@@ -242,7 +273,11 @@ class LocalConversation(BaseConversation):
                     self._state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
-                self.agent.step(self._state, on_event=self._on_event)
+                self.agent.step(
+                    self._state,
+                    on_event=self._on_event,
+                    on_token=self._on_token,
+                )
                 iteration += 1
 
                 # Check for non-finished terminal conditions

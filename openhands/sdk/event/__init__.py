@@ -14,6 +14,7 @@ from openhands.sdk.event.llm_convertible import (
     SystemPromptEvent,
     UserRejectObservation,
 )
+from openhands.sdk.event.streaming import StreamingDeltaEvent
 from openhands.sdk.event.types import EventID, ToolCallID
 from openhands.sdk.event.user_action import PauseEvent
 
@@ -28,6 +29,7 @@ __all__ = [
     "MessageEvent",
     "AgentErrorEvent",
     "UserRejectObservation",
+    "StreamingDeltaEvent",
     "PauseEvent",
     "Condensation",
     "CondensationRequest",
