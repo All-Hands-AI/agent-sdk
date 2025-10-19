@@ -164,13 +164,11 @@ async def test_agent_server_websocket_with_wsproto(agent_server):
                 # No initial events - that's ok, conversation might be empty
                 pass
 
-            # Now test sending data
-            from openhands.sdk import Message, TextContent
+            # Now test sending data - use the same format as other websocket tests
+            import json
 
-            test_message = Message(
-                role="user", content=[TextContent(text="Hello from wsproto test")]
-            )
-            await ws.send(test_message.model_dump_json())
+            test_message = {"role": "user", "content": "Hello from wsproto test"}
+            await ws.send(json.dumps(test_message))
             # Successfully sent - wsproto handles outgoing messages
 
             # If we got here, wsproto handled the complete websocket lifecycle:
