@@ -1,5 +1,6 @@
 """Test based on hello_world.py example with mocked LLM responses."""
 
+import logging
 import os
 import tempfile
 from typing import Any
@@ -33,8 +34,8 @@ class TestHelloWorld:
 
     def setup_method(self):
         """Set up test environment."""
-        self.temp_dir = tempfile.mkdtemp()
-        self.logger = get_logger(__name__)
+        self.temp_dir: str = tempfile.mkdtemp()
+        self.logger: logging.Logger = get_logger(__name__)
         self.collected_events: list[Event] = []
         self.llm_messages: list[dict[str, Any]] = []
 
@@ -158,7 +159,7 @@ class TestHelloWorld:
 
         # Configure LLM (no real API key needed)
         llm = LLM(
-            service_id="test-llm",
+            usage_id="test-llm",
             model="claude-sonnet-4",
             api_key=SecretStr("mock-api-key"),
         )
@@ -278,7 +279,7 @@ class TestHelloWorld:
 
         # Configure LLM with logging enabled
         llm = LLM(
-            service_id="test-llm",
+            usage_id="test-llm",
             model="claude-sonnet-4",
             api_key=SecretStr("mock-api-key"),
         )
@@ -392,9 +393,6 @@ class TestHelloWorld:
             ModelResponse,
         )
 
-        from openhands.sdk.llm import LLM
-        from openhands.sdk.llm.message import Message, TextContent
-
         # Create a mock response without function calls (pure text response)
         mock_response = ModelResponse(
             id="test-non-func-call",
@@ -431,7 +429,7 @@ class TestHelloWorld:
             return mock_response
 
         # Create agent with mocked LLM
-        llm = LLM(model="claude-sonnet-4", service_id="test-llm")
+        llm = LLM(model="claude-sonnet-4", usage_id="test-llm")
         agent = Agent(llm=llm, tools=[])
 
         # Mock the completion method
@@ -525,7 +523,7 @@ class TestHelloWorld:
             return mock_response
 
         # Create agent with mocked LLM
-        agent = Agent(llm=LLM(model="claude-sonnet-4", service_id="test-llm"), tools=[])
+        agent = Agent(llm=LLM(model="claude-sonnet-4", usage_id="test-llm"), tools=[])
 
         # Mock the completion method
         with patch(

@@ -93,11 +93,11 @@ logger = get_logger(__name__)
 class SimpleBrowsingTest(BaseIntegrationTest):
     """Test that an agent can browse a local web page and extract information."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.server_process = None
+        self.server_process: subprocess.Popen[bytes] | None = None
 
     @property
     def tools(self) -> list[Tool]:
@@ -119,7 +119,7 @@ class SimpleBrowsingTest(BaseIntegrationTest):
                 f.write(HTML_FILE)
 
             # Start the HTTP server in the background
-            self.server_process = subprocess.Popen(
+            self.server_process: subprocess.Popen[bytes] | None = subprocess.Popen(
                 ["python3", "-m", "http.server", "8000"],
                 cwd=self.workspace,
                 stdout=subprocess.DEVNULL,
@@ -187,3 +187,5 @@ class SimpleBrowsingTest(BaseIntegrationTest):
                 self.server_process.kill()
             except Exception as e:
                 logger.warning(f"Error terminating server process: {e}")
+
+        logger.info("Cleaned up web server")

@@ -208,7 +208,7 @@ jobs:
               id: build
               run: |
                   uv sync --frozen
-                  uv run ./openhands/agent_server/docker/build.py
+                  uv run ./openhands-agent-server/openhands/agent_server/docker/build.py
 
             - name: Summary (${{ matrix.name }}) - outputs
               run: |

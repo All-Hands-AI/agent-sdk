@@ -1,7 +1,7 @@
 """Tests for MCP tool functionality with new simplified implementation."""
 
 from typing import cast
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import mcp.types
 import pytest
@@ -23,10 +23,10 @@ class TestMCPToolImmutability:
 
     def setup_method(self):
         """Set up test environment."""
-        self.mock_client = MockMCPClient()
+        self.mock_client: Mock = MockMCPClient()
 
         # Create a mock MCP tool
-        self.mock_mcp_tool = MagicMock(spec=mcp.types.Tool)
+        self.mock_mcp_tool: Mock = MagicMock(spec=mcp.types.Tool)
         self.mock_mcp_tool.name = "test_tool"
         self.mock_mcp_tool.description = "Test tool description"
         self.mock_mcp_tool.inputSchema = {
@@ -39,12 +39,10 @@ class TestMCPToolImmutability:
         tools = MCPToolDefinition.create(
             mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
         )
-        self.tool = tools[0]  # Extract single tool from sequence
+        self.tool: MCPToolDefinition = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_is_frozen(self):
         """Test that MCPTool instances are frozen and cannot be modified."""
-        import pytest
-
         # Test that direct field assignment raises ValidationError
         with pytest.raises(
             Exception
