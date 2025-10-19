@@ -29,7 +29,7 @@ base_url = os.getenv("LLM_BASE_URL")
 
 # Create LLM instance
 llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
@@ -39,7 +39,7 @@ llm_condenser = LLM(
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
-    service_id="condenser",
+    usage_id="condenser",
 )
 
 # Tools
@@ -70,7 +70,7 @@ conversation.run()
 
 # Demonstrate extraneous costs part of the conversation
 second_llm = LLM(
-    service_id="demo-secondary",
+    usage_id="demo-secondary",
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
@@ -92,13 +92,13 @@ if spend.accumulated_token_usage:
     print(f"Cache Write Tokens: {spend.accumulated_token_usage.cache_write_tokens}")
 
 
-spend_per_service = conversation.conversation_stats.service_to_metrics
-print("\n=== Spend Breakdown by Service ===\n")
+spend_per_usage = conversation.conversation_stats.usage_to_metrics
+print("\n=== Spend Breakdown by Usage ID ===\n")
 rows = []
-for service, metrics in spend_per_service.items():
+for usage_id, metrics in spend_per_usage.items():
     rows.append(
         [
-            service,
+            usage_id,
             f"${metrics.accumulated_cost:.6f}",
             metrics.accumulated_token_usage.prompt_tokens
             if metrics.accumulated_token_usage
@@ -112,7 +112,7 @@ for service, metrics in spend_per_service.items():
 print(
     tabulate(
         rows,
-        headers=["Service", "Cost", "Prompt Tokens", "Completion Tokens"],
+        headers=["Usage ID", "Cost", "Prompt Tokens", "Completion Tokens"],
         tablefmt="github",
     )
 )

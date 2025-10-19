@@ -259,7 +259,7 @@ class EventService:
     ) -> str:
         """Generate a title for the conversation.
 
-        Resolves the provided LLM via the conversation's registry if a service_id is
+        Resolves the provided LLM via the conversation's registry if a usage_id is
         present, registering it if needed. Then delegates to LocalConversation in an
         executor to avoid blocking the event loop.
         """
@@ -268,9 +268,9 @@ class EventService:
 
         resolved_llm = llm
         if llm is not None:
-            service_id = llm.service_id
+            usage_id = llm.usage_id
             try:
-                resolved_llm = self._conversation.llm_registry.get(service_id)
+                resolved_llm = self._conversation.llm_registry.get(usage_id)
             except KeyError:
                 self._conversation.llm_registry.add(llm)
                 resolved_llm = llm

@@ -38,7 +38,7 @@ llm = LLM(
     reasoning_effort="high",
     # Logging / behavior tweaks
     log_completions=False,
-    service_id="agent",
+    usage_id="agent",
 )
 
 print("\n=== Agent Conversation using /responses path ===")
