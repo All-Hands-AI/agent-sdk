@@ -146,40 +146,54 @@ async def test_agent_server_websocket_with_wsproto(agent_server):
         f"?session_api_key={api_key}"
     )
 
+    # Test full websocket lifecycle with resend_all to verify bidirectional data
+    ws_url_with_resend = f"{ws_url}&resend_all=true"
+
     try:
-        async with websockets.connect(ws_url, open_timeout=5) as ws:
+        async with websockets.connect(ws_url_with_resend, open_timeout=5) as ws:
             # Connection succeeded! This proves wsproto is working.
             # The handshake completed successfully with authentication.
 
-            # Send a test message to verify bidirectional communication
-            import json
-
-            test_message = {"content": "Hello from wsproto test", "role": "user"}
-            await ws.send(json.dumps(test_message))
-
-            # Try to receive any response or initial message
-            # (Server might send events or close the connection)
+            # With resend_all=true, server should send initial conversation state
+            # Try to receive events (there should be at least initial state)
             try:
                 response = await asyncio.wait_for(ws.recv(), timeout=2)
-                # If we get here, we received data over the websocket
-                # This confirms full bidirectional communication works with wsproto
                 assert response is not None
+                # Successfully received data - wsproto handles incoming messages
             except TimeoutError:
-                # No response within timeout - that's fine, the connection worked
+                # No initial events - that's ok, conversation might be empty
                 pass
-            except websockets.exceptions.ConnectionClosed:
-                # Connection closed by server - that's fine, handshake succeeded
-                pass
+
+            # Now test sending data
+            from openhands.sdk import Message, TextContent
+
+            test_message = Message(
+                role="user", content=[TextContent(text="Hello from wsproto test")]
+            )
+            await ws.send(test_message.model_dump_json())
+            # Successfully sent - wsproto handles outgoing messages
+
+            # If we got here, wsproto handled the complete websocket lifecycle:
+            # - Handshake with authentication
+            # - Receiving data (tested with resend_all)
+            # - Sending data (tested with message)
+            # - Connection maintenance
 
     except websockets.exceptions.InvalidStatus as e:
         status = e.response.status_code
         pytest.fail(
             f"Websocket handshake failed with HTTP {status}. "
-            f"This may indicate wsproto is not handling the connection correctly."
+            f"This indicates wsproto is not handling the connection correctly."
+        )
+
+    except websockets.exceptions.ConnectionClosed as e:
+        pytest.fail(
+            f"Websocket connection closed unexpectedly: {e}. "
+            f"This indicates wsproto may not be handling the connection correctly."
         )
 
     except Exception as e:
         pytest.fail(
-            f"Websocket connection failed: {type(e).__name__}: {e}. "
-            f"This may indicate wsproto is not working correctly."
+            f"Websocket communication failed: {type(e).__name__}: {e}. "
+            f"This indicates wsproto is not working correctly."
         )
