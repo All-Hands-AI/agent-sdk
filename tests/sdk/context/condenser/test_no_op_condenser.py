@@ -1,6 +1,6 @@
 from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
 from openhands.sdk.context.view import View
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import Message, TextContent
 
@@ -14,7 +14,7 @@ def message_event(content: str) -> MessageEvent:
 
 def test_noop_condenser() -> None:
     """Test that NoOpCondensers preserve their input events."""
-    events: list[EventBase] = [
+    events: list[Event] = [
         message_event("Event 1"),
         message_event("Event 2"),
         message_event("Event 3"),

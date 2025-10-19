@@ -1,6 +1,7 @@
 """Test agent JSON serialization with DiscriminatedUnionMixin."""
 
 import json
+from typing import cast
 from unittest.mock import Mock
 
 import mcp.types
@@ -11,12 +12,12 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.llm import LLM
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPTool
+from openhands.sdk.mcp.tool import MCPToolDefinition
 from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils.models import OpenHandsModel
 
 
-def create_mock_mcp_tool(name: str) -> MCPTool:
+def create_mock_mcp_tool(name: str) -> MCPToolDefinition:
     # Create mock MCP tool and client
     mock_mcp_tool = mcp.types.Tool(
         name=name,
@@ -30,7 +31,7 @@ def create_mock_mcp_tool(name: str) -> MCPTool:
         },
     )
     mock_client = Mock(spec=MCPClient)
-    tools = MCPTool.create(mock_mcp_tool, mock_client)
+    tools = MCPToolDefinition.create(mock_mcp_tool, mock_client)
     return tools[0]  # Extract single tool from sequence
 
 
@@ -66,7 +67,7 @@ def test_agent_serialization_should_include_mcp_tool() -> None:
             "dummy": {"command": "echo", "args": ["dummy-mcp"]},
         }
     }
-    agent = Agent(llm=llm, tools=[], mcp_config=mcp_config)
+    agent = Agent(llm=llm, tools=[], mcp_config=cast(dict[str, object], mcp_config))
 
     # Serialize to JSON (excluding non-serializable fields)
     agent_dump = agent.model_dump()

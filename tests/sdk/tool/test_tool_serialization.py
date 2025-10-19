@@ -5,7 +5,7 @@ import json
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolDefinition
 from openhands.sdk.tool.builtins import FinishTool, ThinkTool
 from openhands.sdk.tool.tool import ToolBase
 
@@ -19,10 +19,10 @@ def test_tool_serialization_deserialization() -> None:
     tool_json = tool.model_dump_json()
 
     # Deserialize from JSON using the base class
-    deserialized_tool = Tool.model_validate_json(tool_json)
+    deserialized_tool = ToolDefinition.model_validate_json(tool_json)
 
     # Should deserialize to the correct type with same serializable data
-    assert isinstance(deserialized_tool, Tool)
+    assert isinstance(deserialized_tool, ToolDefinition)
     assert tool.model_dump() == deserialized_tool.model_dump()
 
 
@@ -30,7 +30,7 @@ def test_tool_supports_polymorphic_field_json_serialization() -> None:
     """Test that Tool supports polymorphic JSON serialization when used as a field."""
 
     class Container(BaseModel):
-        tool: Tool
+        tool: ToolDefinition
 
     # Create container with tool
     tool = FinishTool
@@ -43,7 +43,7 @@ def test_tool_supports_polymorphic_field_json_serialization() -> None:
     deserialized_container = Container.model_validate_json(container_json)
 
     # Should preserve the tool type with same serializable data
-    assert isinstance(deserialized_container.tool, Tool)
+    assert isinstance(deserialized_container.tool, ToolDefinition)
     assert tool.model_dump() == deserialized_container.tool.model_dump()
 
 
@@ -51,7 +51,7 @@ def test_tool_supports_nested_polymorphic_json_serialization() -> None:
     """Test that Tool supports nested polymorphic JSON serialization."""
 
     class NestedContainer(BaseModel):
-        tools: list[Tool]
+        tools: list[ToolDefinition]
 
     # Create container with multiple tools
     tool1 = FinishTool
@@ -66,8 +66,8 @@ def test_tool_supports_nested_polymorphic_json_serialization() -> None:
 
     # Should preserve all tool types with same serializable data
     assert len(deserialized_container.tools) == 2
-    assert isinstance(deserialized_container.tools[0], Tool)
-    assert isinstance(deserialized_container.tools[1], Tool)
+    assert isinstance(deserialized_container.tools[0], ToolDefinition)
+    assert isinstance(deserialized_container.tools[1], ToolDefinition)
     assert tool1.model_dump() == deserialized_container.tools[0].model_dump()
     assert tool2.model_dump() == deserialized_container.tools[1].model_dump()
 
@@ -82,10 +82,10 @@ def test_tool_model_validate_json_dict() -> None:
     tool_dict = json.loads(tool_json)
 
     # Deserialize from dict
-    deserialized_tool = Tool.model_validate(tool_dict)
+    deserialized_tool = ToolDefinition.model_validate(tool_dict)
 
     # Should have same serializable data
-    assert isinstance(deserialized_tool, Tool)
+    assert isinstance(deserialized_tool, ToolDefinition)
     assert tool.model_dump() == deserialized_tool.model_dump()
 
 
@@ -112,7 +112,7 @@ def test_tool_type_annotation_works_json() -> None:
 
     # Use ToolType annotation
     class TestModel(BaseModel):
-        tool: Tool
+        tool: ToolDefinition
 
     model = TestModel(tool=tool)
 
@@ -123,7 +123,7 @@ def test_tool_type_annotation_works_json() -> None:
     deserialized_model = TestModel.model_validate_json(model_json)
 
     # Should work correctly with same serializable data
-    assert isinstance(deserialized_model.tool, Tool)
+    assert isinstance(deserialized_model.tool, ToolDefinition)
     assert tool.model_dump() == deserialized_model.tool.model_dump()
 
 
@@ -141,7 +141,7 @@ def test_tool_kind_field_json() -> None:
     tool_json = tool.model_dump_json()
 
     # Deserialize from JSON
-    deserialized_tool = Tool.model_validate_json(tool_json)
+    deserialized_tool = ToolDefinition.model_validate_json(tool_json)
 
     # Should preserve kind field
     assert hasattr(deserialized_tool, "kind")

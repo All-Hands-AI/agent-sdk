@@ -23,7 +23,7 @@ def test_execute_bash_observation_truncation_under_limit():
         error=False,
     )
 
-    result = observation.agent_observation
+    result = observation.to_llm_content
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
@@ -57,7 +57,7 @@ def test_execute_bash_observation_truncation_over_limit():
         error=False,
     )
 
-    result = observation.agent_observation
+    result = observation.to_llm_content
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
@@ -94,7 +94,7 @@ def test_execute_bash_observation_truncation_with_error():
         error=True,
     )
 
-    result = observation.agent_observation
+    result = observation.to_llm_content
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
@@ -137,7 +137,7 @@ def test_execute_bash_observation_truncation_exact_limit():
         error=False,
     )
 
-    result = observation.agent_observation
+    result = observation.to_llm_content
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
@@ -167,7 +167,7 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
         error=False,
     )
 
-    result = observation.agent_observation
+    result = observation.to_llm_content
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
