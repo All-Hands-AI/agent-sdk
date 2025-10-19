@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 class GitStagingTest(BaseIntegrationTest):
     """Test that an agent can write a git commit message and commit changes."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     @property
     def tools(self) -> list[Tool]:

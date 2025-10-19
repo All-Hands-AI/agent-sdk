@@ -31,12 +31,12 @@ class ManagedAPIServer:
     """Context manager for subprocess-managed OpenHands API server."""
 
     def __init__(self, port: int = 8000, host: str = "127.0.0.1"):
-        self.port = port
-        self.host = host
-        self.process = None
-        self.base_url = f"http://{host}:{port}"
-        self.stdout_thread = None
-        self.stderr_thread = None
+        self.port: int = port
+        self.host: str = host
+        self.process: subprocess.Popen[bytes] | None = None
+        self.base_url: str = f"http://{host}:{port}"
+        self.stdout_thread: threading.Thread | None = None
+        self.stderr_thread: threading.Thread | None = None
 
     def __enter__(self):
         """Start the API server subprocess."""
@@ -121,13 +121,13 @@ api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 title_gen_llm = LLM(
-    service_id="title-gen-llm",
+    usage_id="title-gen-llm",
     model="litellm_proxy/openai/gpt-5-mini",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
