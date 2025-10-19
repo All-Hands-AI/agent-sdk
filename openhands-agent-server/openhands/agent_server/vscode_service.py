@@ -223,7 +223,10 @@ def get_vscode_service() -> VSCodeService | None:
             logger.info("VSCode is disabled in configuration")
             return None
         else:
+            connection_token = None
+            if config.session_api_keys:
+                connection_token = config.session_api_keys[0]
             _vscode_service = VSCodeService(
-                port=config.vscode_port, connection_token=config.session_api_keys[0]
+                port=config.vscode_port, connection_token=connection_token
             )
     return _vscode_service
