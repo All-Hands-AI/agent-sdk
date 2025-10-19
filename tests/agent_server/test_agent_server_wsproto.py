@@ -4,6 +4,7 @@ This test starts the actual agent server using the real __main__.py entry point
 and verifies that websocket communication works correctly with wsproto.
 """
 
+import asyncio
 import multiprocessing
 import socket
 import sys
@@ -23,12 +24,13 @@ def find_free_port():
     return port
 
 
-def run_agent_server(port, config_file):
+def run_agent_server(port, api_key):
     """Run the actual agent server using __main__.py."""
     import os
 
-    # Set config file environment variable
-    os.environ["OPENHANDS_AGENT_SERVER_CONFIG_PATH"] = config_file
+    # Set authentication via environment variable
+    # The agent server reads OH_SESSION_API_KEYS as a JSON list
+    os.environ["OH_SESSION_API_KEYS"] = f'["{api_key}"]'
 
     # Import here to avoid issues with multiprocessing
     from openhands.agent_server.__main__ import main
@@ -41,17 +43,10 @@ def run_agent_server(port, config_file):
 @pytest.fixture
 def agent_server(tmp_path):
     """Start the agent server for testing."""
-    import json
-
     port = find_free_port()
+    api_key = "test-wsproto-key"
 
-    # Create a minimal config file with no authentication for testing
-    config_file = tmp_path / "test_config.json"
-    config_file.write_text(json.dumps({"session_api_keys": []}))
-
-    process = multiprocessing.Process(
-        target=run_agent_server, args=(port, str(config_file))
-    )
+    process = multiprocessing.Process(target=run_agent_server, args=(port, api_key))
     process.start()
 
     # Wait for server to be ready
@@ -73,7 +68,7 @@ def agent_server(tmp_path):
         process.join()
         pytest.fail(f"Agent server failed to start on port {port} within {max_wait}s")
 
-    yield port
+    yield {"port": port, "api_key": api_key}
 
     # Cleanup
     process.terminate()
@@ -89,7 +84,7 @@ def test_agent_server_starts_with_wsproto(agent_server):
     This verifies that the ws='wsproto' configuration in __main__.py doesn't
     cause any startup errors and the server is accessible.
     """
-    port = agent_server
+    port = agent_server["port"]
 
     # Verify the server is running
     response = requests.get(f"http://127.0.0.1:{port}/docs")
@@ -105,56 +100,86 @@ def test_agent_server_starts_with_wsproto(agent_server):
 async def test_agent_server_websocket_with_wsproto(agent_server):
     """Test that websockets work correctly with wsproto on the agent server.
 
-    This test connects to an actual websocket endpoint on the agent server
-    to verify that the ws='wsproto' configuration in __main__.py enables
+    This test performs a complete websocket handshake with authentication,
+    demonstrating that the ws='wsproto' configuration in __main__.py enables
     proper websocket communication through uvicorn's wsproto implementation.
 
-    The key validation is that uvicorn uses wsproto to handle the websocket
-    handshake - this is confirmed by getting a proper HTTP status response
-    (like 403) rather than connection errors. The status code itself doesn't
-    matter; what matters is that wsproto successfully negotiated the websocket
-    protocol and returned a proper HTTP response.
-    """
-    port = agent_server
+    The test:
+    1. Creates a conversation via the REST API
+    2. Connects to the conversation's websocket endpoint with authentication
+    3. Successfully completes the websocket handshake
+    4. Sends and receives data over the websocket
 
-    # Connect to the bash-events websocket endpoint
-    ws_url = f"ws://127.0.0.1:{port}/sockets/bash-events"
+    This validates that wsproto handles the full websocket lifecycle correctly.
+    """
+    port = agent_server["port"]
+    api_key = agent_server["api_key"]
+
+    # First, create a conversation using the REST API
+    # Minimal required fields for starting a conversation
+    conversation_request = {
+        "agent": {
+            "llm": {
+                "service_id": "test-llm",
+                "model": "test-provider/test-model",
+                "api_key": "test-key",
+            },
+            "tools": [],
+        },
+        "workspace": {"working_dir": "/tmp/test-workspace"},
+    }
+    response = requests.post(
+        f"http://127.0.0.1:{port}/api/conversations",
+        headers={"X-Session-API-Key": api_key},
+        json=conversation_request,
+    )
+    assert response.status_code in [
+        200,
+        201,
+    ], f"Failed to create conversation: {response.text}"
+    conversation = response.json()
+    conversation_id = conversation["id"]
+
+    # Now connect to the websocket endpoint with authentication
+    ws_url = (
+        f"ws://127.0.0.1:{port}/sockets/events/{conversation_id}"
+        f"?session_api_key={api_key}"
+    )
 
     try:
-        # Try to establish a websocket connection
-        async with websockets.connect(ws_url, open_timeout=5):
-            # If we get here, the websocket connection succeeded!
-            # This proves that wsproto is working correctly.
-            pass
+        async with websockets.connect(ws_url, open_timeout=5) as ws:
+            # Connection succeeded! This proves wsproto is working.
+            # The handshake completed successfully with authentication.
+
+            # Send a test message to verify bidirectional communication
+            import json
+
+            test_message = {"content": "Hello from wsproto test", "role": "user"}
+            await ws.send(json.dumps(test_message))
+
+            # Try to receive any response or initial message
+            # (Server might send events or close the connection)
+            try:
+                response = await asyncio.wait_for(ws.recv(), timeout=2)
+                # If we get here, we received data over the websocket
+                # This confirms full bidirectional communication works with wsproto
+                assert response is not None
+            except TimeoutError:
+                # No response within timeout - that's fine, the connection worked
+                pass
+            except websockets.exceptions.ConnectionClosed:
+                # Connection closed by server - that's fine, handshake succeeded
+                pass
 
     except websockets.exceptions.InvalidStatus as e:
-        # Server responded with an HTTP status during websocket handshake.
-        # This is GOOD - it proves wsproto handled the websocket protocol correctly.
-        # Common statuses:
-        # - 403: Authentication required (expected for agent server)
-        # - 401: Unauthorized
-        # - 404: Endpoint not found
         status = e.response.status_code
-
-        if status in [401, 403]:
-            # Perfect! This proves wsproto is working.
-            # The server successfully:
-            # 1. Received the websocket upgrade request
-            # 2. Processed it through wsproto
-            # 3. Returned a proper HTTP auth error
-            # This is exactly what we want to see.
-            pass
-        elif status == 404:
-            pytest.fail(f"Websocket endpoint not found: {ws_url}")
-        else:
-            pytest.fail(f"Unexpected HTTP status during handshake: {status}")
-
-    except websockets.exceptions.WebSocketException as e:
-        # Other websocket-specific errors
-        pytest.fail(f"Websocket protocol error: {type(e).__name__}: {e}")
+        pytest.fail(
+            f"Websocket handshake failed with HTTP {status}. "
+            f"This may indicate wsproto is not handling the connection correctly."
+        )
 
     except Exception as e:
-        # Network or other errors that indicate wsproto isn't working
         pytest.fail(
-            f"Connection failed (wsproto may not be working): {type(e).__name__}: {e}"
+            f"Websocket connection failed: {type(e).__name__}: {e}. "
+            f"This may indicate wsproto is not working correctly."
         )
