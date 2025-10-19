@@ -367,7 +367,7 @@ def test_file_download_generator_basic_flow(temp_dir):
     # Get download request
     download_kwargs = next(generator)
     assert download_kwargs["method"] == "GET"
-    assert download_kwargs["url"] == "http://localhost:8000/api/file/download"
+    assert download_kwargs["url"] == "/api/file/download"
     assert download_kwargs["params"]["file_path"] == "/remote/file.txt"
     assert download_kwargs["headers"] == {"X-Session-API-Key": "test-key"}
 
