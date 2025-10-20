@@ -64,22 +64,26 @@ jobs:
                 Find all open pull requests that TRULY have NO reviewers assigned. To do this correctly:
 
                 1. Use the GitHub API to fetch PR details: GET /repos/{owner}/{repo}/pulls/{pull_number}
-                2. Check BOTH of these conditions - BOTH must be empty for a PR to need reviewers:
-                   - The "requested_reviewers" array must be empty (no pending review requests)
-                   - The "requested_teams" array must be empty (no pending team review requests)
-                3. IMPORTANT: If either array has any entries, SKIP this PR - it already has reviewers assigned!
+                2. Check the "requested_reviewers" and "requested_teams" arrays
+                3. ALSO check for submitted reviews: GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews
+                4. A PR needs reviewers ONLY if ALL of these are true:
+                   - The "requested_reviewers" array is empty (no pending review requests)
+                   - The "requested_teams" array is empty (no pending team review requests)
+                   - The reviews array is empty (no reviews have been submitted yet)
+                5. IMPORTANT: If ANY of these has entries, SKIP this PR - it already has or had reviewers!
 
-                Example API response showing a PR that DOES NOT need reviewers (skip this):
-                {
-                  "requested_reviewers": [{"login": "someuser"}],
-                  "requested_teams": []
-                }
+                Example API responses showing a PR that DOES NOT need reviewers (skip this):
+
+                Case 1 - Has requested reviewers:
+                GET /pulls/{number}: {"requested_reviewers": [{"login": "someuser"}], "requested_teams": []}
+
+                Case 2 - Has submitted reviews (even if requested_reviewers is empty):
+                GET /pulls/{number}: {"requested_reviewers": [], "requested_teams": []}
+                GET /pulls/{number}/reviews: [{"user": {"login": "someuser"}, "state": "COMMENTED"}]
 
                 Example API response showing a PR that DOES need reviewers (process this):
-                {
-                  "requested_reviewers": [],
-                  "requested_teams": []
-                }
+                GET /pulls/{number}: {"requested_reviewers": [], "requested_teams": []}
+                GET /pulls/{number}/reviews: []
 
                 Additional criteria for PRs that need reviewers:
                 1. Are not marked as draft (draft: false)
