@@ -112,12 +112,12 @@ def test_batch_atomicity_partial_batch_forgotten() -> None:
     events: list[Event] = [
         message_event("User message"),
         action1,
-        obs1,
         action2,
-        obs2,
         action3,
-        obs3,
         action4,
+        obs1,
+        obs2,
+        obs3,
         obs4,
         Condensation(forgotten_event_ids=[action1.id, action2.id, action3.id]),
     ]
@@ -163,8 +163,8 @@ def test_batch_atomicity_complete_batch_forgotten() -> None:
     events: list[Event] = [
         message_event("User message"),
         action1,
-        obs1,
         action2,
+        obs1,
         obs2,
         Condensation(forgotten_event_ids=[action1.id, action2.id]),
     ]
@@ -206,10 +206,10 @@ def test_batch_atomicity_no_forgetting_preserves_batch() -> None:
     events: list[Event] = [
         message_event("User message"),
         action1,
-        obs1,
         action2,
-        obs2,
         action3,
+        obs1,
+        obs2,
         obs3,
         Condensation(forgotten_event_ids=[]),  # Don't forget anything
     ]
@@ -258,13 +258,13 @@ def test_batch_atomicity_multiple_batches() -> None:
     events: list[Event] = [
         message_event("User message"),
         action1_1,
-        obs1_1,
         action1_2,
+        obs1_1,
         obs1_2,
         message_event("Another message"),
         action2_1,
-        obs2_1,
         action2_2,
+        obs2_1,
         obs2_2,
         Condensation(forgotten_event_ids=[action1_1.id]),
     ]
