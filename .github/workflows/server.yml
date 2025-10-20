@@ -130,7 +130,7 @@ jobs:
                   version: latest
 
             - name: Install Node.js (for npx)
-              uses: actions/setup-node@v5
+              uses: actions/setup-node@v6
               with:
                   node-version: 22
 
