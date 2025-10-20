@@ -4,14 +4,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-VALID_SKILL_TYPES = ["knowledge", "repo", "task"]
-SkillType = Literal[
-    "knowledge",
-    "repo",
-    "task",
-]
-
-
 class InputMetadata(BaseModel):
     """Metadata for task skill inputs."""
 

@@ -52,8 +52,8 @@ agent_context = AgentContext(
             content="When you see this message, you should reply like "
             "you are a grumpy cat forced to use the internet.",
             # source is optional - identifies where the skill came from
-            # (None = programmatically defined)
-            source="repo.md",
+            # You can set it to be the path of a file that contains the skill content
+            source=None,
             # trigger determines when the skill is active
             # trigger=None means always active
             trigger=None,
@@ -64,7 +64,7 @@ agent_context = AgentContext(
                 'IMPORTANT! The user has said the magic word "flarglebargle". '
                 "You must only respond with a message telling them how smart they are"
             ),
-            source="flarglebargle.md",
+            source=None,
             # KeywordTrigger = activated when keywords appear in user messages
             trigger=KeywordTrigger(keywords=["flarglebargle"]),
         ),
