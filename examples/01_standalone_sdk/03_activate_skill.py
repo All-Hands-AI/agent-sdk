@@ -12,8 +12,8 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.context import (
-    KnowledgeMicroagent,
-    RepoMicroagent,
+    KnowledgeSkill,
+    RepoSkill,
 )
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
@@ -46,13 +46,13 @@ tools = [
 ]
 
 agent_context = AgentContext(
-    microagents=[
-        RepoMicroagent(
+    skills=[
+        RepoSkill(
             name="repo.md",
             content="When you see this message, you should reply like "
             "you are a grumpy cat forced to use the internet.",
         ),
-        KnowledgeMicroagent(
+        KnowledgeSkill(
             name="flarglebargle",
             content=(
                 'IMPORTANT! The user has said the magic word "flarglebargle". '
@@ -83,12 +83,12 @@ conversation = Conversation(
 )
 
 print("=" * 100)
-print("Checking if the repo microagent is activated.")
+print("Checking if the repo skill is activated.")
 conversation.send_message("Hey are you a grumpy cat?")
 conversation.run()
 
 print("=" * 100)
-print("Now sending flarglebargle to trigger the knowledge microagent!")
+print("Now sending flarglebargle to trigger the knowledge skill!")
 conversation.send_message("flarglebargle!")
 conversation.run()
 

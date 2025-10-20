@@ -9,11 +9,11 @@ import frontmatter
 from fastmcp.mcp_config import MCPConfig
 from pydantic import Field, field_validator, model_validator
 
-from openhands.sdk.context.microagents.exceptions import MicroagentValidationError
-from openhands.sdk.context.microagents.types import (
-    VALID_MICROAGENT_TYPES,
+from openhands.sdk.context.skills.exceptions import SkillValidationError
+from openhands.sdk.context.skills.types import (
+    VALID_SKILL_TYPES,
     InputMetadata,
-    MicroagentType,
+    SkillType,
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
@@ -22,21 +22,21 @@ from openhands.sdk.utils.models import DiscriminatedUnionMixin
 logger = get_logger(__name__)
 
 
-class BaseMicroagent(DiscriminatedUnionMixin, ABC):
-    """Base class for all microagents."""
+class BaseSkill(DiscriminatedUnionMixin, ABC):
+    """Base class for all skills."""
 
     name: str
     content: str
     source: str | None = Field(
         default=None,
         description=(
-            "The source path or identifier of the microagent. "
-            "When it is None, it is treated as a programmatically defined microagent."
+            "The source path or identifier of the skill. "
+            "When it is None, it is treated as a programmatically defined skill."
         ),
     )
-    type: MicroagentType = "repo"
+    type: SkillType = "repo"
 
-    PATH_TO_THIRD_PARTY_MICROAGENT_NAME: ClassVar[dict[str, str]] = {
+    PATH_TO_THIRD_PARTY_SKILL_NAME: ClassVar[dict[str, str]] = {
         ".cursorrules": "cursorrules",
         "agents.md": "agents",
         "agent.md": "agents",
@@ -45,14 +45,14 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
     @classmethod
     def _handle_third_party(
         cls, path: Path, file_content: str
-    ) -> Union["RepoMicroagent", None]:
+    ) -> Union["RepoSkill", None]:
         # Determine the agent name based on file type
-        microagent_name = cls.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.get(path.name.lower())
+        skill_name = cls.PATH_TO_THIRD_PARTY_SKILL_NAME.get(path.name.lower())
 
-        # Create RepoMicroagent if we recognized the file type
-        if microagent_name is not None:
-            return RepoMicroagent(
-                name=microagent_name,
+        # Create RepoSkill if we recognized the file type
+        if skill_name is not None:
+            return RepoSkill(
+                name=skill_name,
                 content=file_content,
                 source=str(path),
                 type="repo",
@@ -64,24 +64,24 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
     def load(
         cls,
         path: str | Path,
-        microagent_dir: Path | None = None,
+        skill_dir: Path | None = None,
         file_content: str | None = None,
-    ) -> "BaseMicroagent":
-        """Load a microagent from a markdown file with frontmatter.
+    ) -> "BaseSkill":
+        """Load a skill from a markdown file with frontmatter.
 
-        The agent's name is derived from its path relative to the microagent_dir.
+        The agent's name is derived from its path relative to the skill_dir.
         """
         path = Path(path) if isinstance(path, str) else path
 
-        # Calculate derived name from relative path if microagent_dir is provided
-        microagent_name = None
-        if microagent_dir is not None:
-            # Special handling for files which are not in microagent_dir
-            microagent_name = cls.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.get(
+        # Calculate derived name from relative path if skill_dir is provided
+        skill_name = None
+        if skill_dir is not None:
+            # Special handling for files which are not in skill_dir
+            skill_name = cls.PATH_TO_THIRD_PARTY_SKILL_NAME.get(
                 path.name.lower()
-            ) or str(path.relative_to(microagent_dir).with_suffix(""))
+            ) or str(path.relative_to(skill_dir).with_suffix(""))
         else:
-            microagent_name = path.stem
+            skill_name = path.stem
 
         # Only load directly from path if file_content is not provided
         if file_content is None:
@@ -90,7 +90,7 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
 
         # Legacy repo instructions are stored in .openhands_instructions
         if path.name == ".openhands_instructions":
-            return RepoMicroagent(
+            return RepoSkill(
                 name="repo_legacy",
                 content=file_content,
                 source=str(path),
@@ -110,15 +110,15 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
         metadata_dict = loaded.metadata or {}
 
         # Use name from frontmatter if provided, otherwise use derived name
-        agent_name = str(metadata_dict.get("name", microagent_name))
+        agent_name = str(metadata_dict.get("name", skill_name))
 
         # Validate type field if provided in frontmatter
         if "type" in metadata_dict:
             type_value = metadata_dict["type"]
-            valid_types = VALID_MICROAGENT_TYPES
+            valid_types = VALID_SKILL_TYPES
             if type_value not in valid_types:
                 valid_types_str = ", ".join(f'"{t}"' for t in valid_types)
-                raise MicroagentValidationError(
+                raise SkillValidationError(
                     f'Invalid "type" value: "{type_value}". '
                     f"Valid types are: {valid_types_str}"
                 )
@@ -129,13 +129,13 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
         # 3. Else (no triggers) -> REPO (always active)
         triggers = metadata_dict.get("triggers", [])
         if not isinstance(triggers, list):
-            raise MicroagentValidationError("Triggers must be a list of strings")
+            raise SkillValidationError("Triggers must be a list of strings")
         if "inputs" in metadata_dict:
             # Add a trigger for the agent name if not already present
             trigger = f"/{agent_name}"
             if trigger not in triggers:
                 triggers.append(trigger)
-            return TaskMicroagent(
+            return TaskSkill(
                 name=agent_name,
                 content=content,
                 source=str(path),
@@ -143,7 +143,7 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
             )
 
         elif metadata_dict.get("triggers", None):
-            return KnowledgeMicroagent(
+            return KnowledgeSkill(
                 name=agent_name,
                 content=content,
                 source=str(path),
@@ -152,14 +152,14 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
         else:
             # No triggers, default to REPO
             mcp_tools_raw = metadata_dict.get("mcp_tools")
-            # Type cast to satisfy type checker - validation happens in RepoMicroagent
+            # Type cast to satisfy type checker - validation happens in RepoSkill
             mcp_tools = cast(dict[str, Any] | None, mcp_tools_raw)
-            return RepoMicroagent(
+            return RepoSkill(
                 name=agent_name, content=content, source=str(path), mcp_tools=mcp_tools
             )
 
 
-class KnowledgeMicroagent(BaseMicroagent):
+class KnowledgeSkill(BaseSkill):
     """Knowledge micro-agents provide specialized expertise that's triggered by keywords
     in conversations.
 
@@ -170,9 +170,9 @@ class KnowledgeMicroagent(BaseMicroagent):
     - Tool usage
     """
 
-    type: MicroagentType = "knowledge"
+    type: SkillType = "knowledge"
     triggers: list[str] = Field(
-        default_factory=list, description="List of triggers for the microagent"
+        default_factory=list, description="List of triggers for the skill"
     )
 
     def match_trigger(self, message: str) -> str | None:
@@ -188,10 +188,10 @@ class KnowledgeMicroagent(BaseMicroagent):
         return None
 
 
-class RepoMicroagent(BaseMicroagent):
-    """Microagent specialized for repository-specific knowledge and guidelines.
+class RepoSkill(BaseSkill):
+    """Skill specialized for repository-specific knowledge and guidelines.
 
-    RepoMicroagents are loaded from `.openhands/microagents/repo.md` files within
+    RepoSkills are loaded from `.openhands/skills/repo.md` files within
     repositories and contain private, repository-specific instructions that are
     automatically loaded when
     working with that repository. They are ideal for:
@@ -201,10 +201,10 @@ class RepoMicroagent(BaseMicroagent):
         - Custom documentation references
     """
 
-    type: MicroagentType = "repo"
+    type: SkillType = "repo"
     mcp_tools: dict | None = Field(
         default=None,
-        description="MCP tools configuration for the microagent. "
+        description="MCP tools configuration for the skill. "
         "It should conform to the MCPConfig schema: "
         "https://gofastmcp.com/clients/client#configuration-format",
     )
@@ -219,34 +219,30 @@ class RepoMicroagent(BaseMicroagent):
             try:
                 MCPConfig.model_validate(v)
             except Exception as e:
-                raise MicroagentValidationError(
-                    f"Invalid MCPConfig dictionary: {e}"
-                ) from e
+                raise SkillValidationError(f"Invalid MCPConfig dictionary: {e}") from e
         return v
 
     @model_validator(mode="after")
     def _enforce_repo_type(self):
         if self.type != "repo":
-            raise MicroagentValidationError(
-                f"RepoMicroagent initialized with incorrect type: {self.type}"
+            raise SkillValidationError(
+                f"RepoSkill initialized with incorrect type: {self.type}"
             )
         return self
 
 
-class TaskMicroagent(KnowledgeMicroagent):
-    """TaskMicroagent is a special type of KnowledgeMicroagent that requires user input.
+class TaskSkill(KnowledgeSkill):
+    """TaskSkill is a special type of KnowledgeSkill that requires user input.
 
-    These microagents are triggered by a special format: "/{agent_name}"
+    These skills are triggered by a special format: "/{agent_name}"
     and will prompt the user for any required inputs before proceeding.
     """
 
-    type: MicroagentType = "task"
+    type: SkillType = "task"
     content: str  # Re-declare to allow modification in validator
     inputs: list[InputMetadata] = Field(
         default_factory=list,
-        description=(
-            "Input metadata for the microagent. Only exists for task microagents"
-        ),
+        description=("Input metadata for the skill. Only exists for task skills"),
     )
 
     @model_validator(mode="after")
@@ -277,80 +273,80 @@ class TaskMicroagent(KnowledgeMicroagent):
         return matches
 
     def requires_user_input(self) -> bool:
-        """Check if this microagent requires user input.
+        """Check if this skill requires user input.
 
         Returns True if the content contains variables in the format ${variable_name}.
         """
         # Check if the content contains any variables
         variables = self.extract_variables(self.content)
-        logger.debug(f"This microagent requires user input: {variables}")
+        logger.debug(f"This skill requires user input: {variables}")
         return len(variables) > 0
 
 
-def load_microagents_from_dir(
-    microagent_dir: str | Path,
-) -> tuple[dict[str, RepoMicroagent], dict[str, KnowledgeMicroagent]]:
-    """Load all microagents from the given directory.
+def load_skills_from_dir(
+    skill_dir: str | Path,
+) -> tuple[dict[str, RepoSkill], dict[str, KnowledgeSkill]]:
+    """Load all skills from the given directory.
 
     Note, legacy repo instructions will not be loaded here.
 
     Args:
-        microagent_dir: Path to the microagents directory (e.g. .openhands/microagents)
+        skill_dir: Path to the skills directory (e.g. .openhands/skills)
 
     Returns:
         Tuple of (repo_agents, knowledge_agents) dictionaries
     """
-    if isinstance(microagent_dir, str):
-        microagent_dir = Path(microagent_dir)
+    if isinstance(skill_dir, str):
+        skill_dir = Path(skill_dir)
 
     repo_agents = {}
     knowledge_agents = {}
 
-    # Load all agents from microagents directory
-    logger.debug(f"Loading agents from {microagent_dir}")
+    # Load all agents from skills directory
+    logger.debug(f"Loading agents from {skill_dir}")
 
-    # Always check for .cursorrules and AGENTS.md files in repo root, regardless of whether microagents_dir exists  # noqa: E501
+    # Always check for .cursorrules and AGENTS.md files in repo root, regardless of whether skills_dir exists  # noqa: E501
     special_files = []
-    repo_root = microagent_dir.parent.parent
+    repo_root = skill_dir.parent.parent
 
     # Check for third party rules: .cursorrules, AGENTS.md, etc
-    for filename in BaseMicroagent.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.keys():
+    for filename in BaseSkill.PATH_TO_THIRD_PARTY_SKILL_NAME.keys():
         for variant in [filename, filename.lower(), filename.upper()]:
             if (repo_root / variant).exists():
                 special_files.append(repo_root / variant)
                 break  # Only add the first one found to avoid duplicates
 
-    # Collect .md files from microagents directory if it exists
+    # Collect .md files from skills directory if it exists
     md_files = []
-    if microagent_dir.exists():
-        md_files = [f for f in microagent_dir.rglob("*.md") if f.name != "README.md"]
+    if skill_dir.exists():
+        md_files = [f for f in skill_dir.rglob("*.md") if f.name != "README.md"]
 
     # Process all files in one loop
     for file in chain(special_files, md_files):
         try:
-            agent = BaseMicroagent.load(file, microagent_dir)
-            if isinstance(agent, RepoMicroagent):
+            agent = BaseSkill.load(file, skill_dir)
+            if isinstance(agent, RepoSkill):
                 repo_agents[agent.name] = agent
-            elif isinstance(agent, KnowledgeMicroagent):
-                # Both KnowledgeMicroagent and TaskMicroagent go into knowledge_agents
+            elif isinstance(agent, KnowledgeSkill):
+                # Both KnowledgeSkill and TaskSkill go into knowledge_agents
                 knowledge_agents[agent.name] = agent
-        except MicroagentValidationError as e:
+        except SkillValidationError as e:
             # For validation errors, include the original exception
-            error_msg = f"Error loading microagent from {file}: {str(e)}"
-            raise MicroagentValidationError(error_msg) from e
+            error_msg = f"Error loading skill from {file}: {str(e)}"
+            raise SkillValidationError(error_msg) from e
         except Exception as e:
             # For other errors, wrap in a ValueError with detailed message
-            error_msg = f"Error loading microagent from {file}: {str(e)}"
+            error_msg = f"Error loading skill from {file}: {str(e)}"
             raise ValueError(error_msg) from e
 
     logger.debug(
-        f"Loaded {len(repo_agents) + len(knowledge_agents)} microagents: "
+        f"Loaded {len(repo_agents) + len(knowledge_agents)} skills: "
         f"{[*repo_agents.keys(), *knowledge_agents.keys()]}"
     )
     return repo_agents, knowledge_agents
 
 
-MicroagentType = Annotated[
-    RepoMicroagent | KnowledgeMicroagent | TaskMicroagent,
+SkillType = Annotated[
+    RepoSkill | KnowledgeSkill | TaskSkill,
     Field(discriminator="type"),
 ]

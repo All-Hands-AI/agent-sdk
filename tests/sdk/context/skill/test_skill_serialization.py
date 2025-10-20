@@ -1,23 +1,23 @@
-"""Tests for microagent serialization using discriminated union."""
+"""Tests for skill serialization using discriminated union."""
 
 import json
 
 from pydantic import BaseModel, Field
 
-from openhands.sdk.context.microagents import (
-    BaseMicroagent,
-    KnowledgeMicroagent,
-    RepoMicroagent,
-    TaskMicroagent,
+from openhands.sdk.context.skills import (
+    BaseSkill,
+    KnowledgeSkill,
+    RepoSkill,
+    TaskSkill,
 )
-from openhands.sdk.context.microagents.types import InputMetadata
+from openhands.sdk.context.skills.types import InputMetadata
 from openhands.sdk.utils.models import OpenHandsModel
 
 
-def test_repo_microagent_serialization():
-    """Test RepoMicroagent serialization and deserialization."""
-    # Create a RepoMicroagent
-    repo_agent = RepoMicroagent(
+def test_repo_skill_serialization():
+    """Test RepoSkill serialization and deserialization."""
+    # Create a RepoSkill
+    repo_agent = RepoSkill(
         name="test-repo",
         content="Repository-specific instructions",
         source="test-repo.md",
@@ -38,15 +38,15 @@ def test_repo_microagent_serialization():
     assert parsed["type"] == "repo"
 
     # Test deserialization
-    deserialized = BaseMicroagent.model_validate(serialized)
-    assert isinstance(deserialized, RepoMicroagent)
+    deserialized = BaseSkill.model_validate(serialized)
+    assert isinstance(deserialized, RepoSkill)
     assert deserialized == repo_agent
 
 
-def test_knowledge_microagent_serialization():
-    """Test KnowledgeMicroagent serialization and deserialization."""
-    # Create a KnowledgeMicroagent
-    knowledge_agent = KnowledgeMicroagent(
+def test_knowledge_skill_serialization():
+    """Test KnowledgeSkill serialization and deserialization."""
+    # Create a KnowledgeSkill
+    knowledge_agent = KnowledgeSkill(
         name="test-knowledge",
         content="Knowledge-based instructions",
         source="test-knowledge.md",
@@ -67,17 +67,17 @@ def test_knowledge_microagent_serialization():
     assert parsed["type"] == "knowledge"
 
     # Test deserialization
-    deserialized = BaseMicroagent.model_validate(serialized)
-    assert isinstance(deserialized, KnowledgeMicroagent)
+    deserialized = BaseSkill.model_validate(serialized)
+    assert isinstance(deserialized, KnowledgeSkill)
     assert deserialized.type == "knowledge"
     assert deserialized.name == "test-knowledge"
     assert deserialized.triggers == ["python", "testing"]
 
 
-def test_task_microagent_serialization():
-    """Test TaskMicroagent serialization and deserialization."""
-    # Create a TaskMicroagent
-    task_agent = TaskMicroagent(
+def test_task_skill_serialization():
+    """Test TaskSkill serialization and deserialization."""
+    # Create a TaskSkill
+    task_agent = TaskSkill(
         name="test-task",
         content="Task-based instructions with ${variable}",
         source="test-task.md",
@@ -103,30 +103,30 @@ def test_task_microagent_serialization():
     assert parsed["type"] == "task"
 
     # Test deserialization
-    deserialized = BaseMicroagent.model_validate(serialized)
-    assert isinstance(deserialized, TaskMicroagent)
+    deserialized = BaseSkill.model_validate(serialized)
+    assert isinstance(deserialized, TaskSkill)
     assert deserialized.type == "task"
     assert deserialized.name == "test-task"
     assert deserialized.triggers == ["task", "automation"]
     assert len(deserialized.inputs) == 1
 
 
-def test_microagent_union_serialization_roundtrip():
-    """Test complete serialization roundtrip for all microagent types."""
-    # Test data for each microagent type
+def test_skill_union_serialization_roundtrip():
+    """Test complete serialization roundtrip for all skill types."""
+    # Test data for each skill type
     test_cases = [
-        RepoMicroagent(
+        RepoSkill(
             name="repo-test",
             content="Repo content",
             source="repo.md",
         ),
-        KnowledgeMicroagent(
+        KnowledgeSkill(
             name="knowledge-test",
             content="Knowledge content",
             source="knowledge.md",
             triggers=["test"],
         ),
-        TaskMicroagent(
+        TaskSkill(
             name="task-test",
             content="Task content with ${var}",
             source="task.md",
@@ -143,10 +143,10 @@ def test_microagent_union_serialization_roundtrip():
         json_str = original_agent.model_dump_json()
 
         # Deserialize from dict
-        deserialized_from_dict = BaseMicroagent.model_validate(serialized)
+        deserialized_from_dict = BaseSkill.model_validate(serialized)
 
         # Deserialize from JSON string
-        deserialized_from_json = BaseMicroagent.model_validate_json(json_str)
+        deserialized_from_json = BaseSkill.model_validate_json(json_str)
 
         # Verify all versions are equivalent
         assert deserialized_from_dict.type == original_agent.type
@@ -160,22 +160,22 @@ def test_microagent_union_serialization_roundtrip():
         assert deserialized_from_json.source == original_agent.source
 
 
-def test_microagent_union_polymorphic_list():
-    """Test that a list of MicroagentUnion can contain different microagent types."""
-    # Create a list with different microagent types
-    microagents = [
-        RepoMicroagent(
+def test_skill_union_polymorphic_list():
+    """Test that a list of SkillUnion can contain different skill types."""
+    # Create a list with different skill types
+    skills = [
+        RepoSkill(
             name="repo1",
             content="Repo content",
             source="repo1.md",
         ),
-        KnowledgeMicroagent(
+        KnowledgeSkill(
             name="knowledge1",
             content="Knowledge content",
             source="knowledge1.md",
             triggers=["test"],
         ),
-        TaskMicroagent(
+        TaskSkill(
             name="task1",
             content="Task content",
             source="task1.md",
@@ -184,7 +184,7 @@ def test_microagent_union_polymorphic_list():
     ]
 
     # Serialize the list
-    serialized_list = [agent.model_dump() for agent in microagents]
+    serialized_list = [agent.model_dump() for agent in skills]
 
     # Verify each item has correct type
     assert serialized_list[0]["type"] == "repo"
@@ -201,30 +201,28 @@ def test_microagent_union_polymorphic_list():
     assert parsed_list[2]["type"] == "task"
 
     # reconstruct the list from serialized data
-    deserialized_list = [
-        BaseMicroagent.model_validate(item) for item in serialized_list
-    ]
+    deserialized_list = [BaseSkill.model_validate(item) for item in serialized_list]
 
     assert len(deserialized_list) == 3
-    assert isinstance(deserialized_list[0], RepoMicroagent)
-    assert isinstance(deserialized_list[1], KnowledgeMicroagent)
-    assert isinstance(deserialized_list[2], TaskMicroagent)
-    assert deserialized_list[0] == microagents[0]
-    assert deserialized_list[1] == microagents[1]
-    assert deserialized_list[2] == microagents[2]
+    assert isinstance(deserialized_list[0], RepoSkill)
+    assert isinstance(deserialized_list[1], KnowledgeSkill)
+    assert isinstance(deserialized_list[2], TaskSkill)
+    assert deserialized_list[0] == skills[0]
+    assert deserialized_list[1] == skills[1]
+    assert deserialized_list[2] == skills[2]
 
 
 def test_discriminated_union_with_openhands_model():
     """Test discriminated union functionality with a Pydantic model."""
 
     class TestModel(OpenHandsModel):
-        microagents: list[BaseMicroagent] = Field(default_factory=list)
+        skills: list[BaseSkill] = Field(default_factory=list)
 
-    # Create test data with different microagent types
+    # Create test data with different skill types
     test_data = {
-        "microagents": [
+        "skills": [
             {
-                "kind": "RepoMicroagent",
+                "kind": "RepoSkill",
                 "type": "repo",
                 "name": "test-repo",
                 "content": "Repo content",
@@ -232,7 +230,7 @@ def test_discriminated_union_with_openhands_model():
                 "mcp_tools": None,
             },
             {
-                "kind": "KnowledgeMicroagent",
+                "kind": "KnowledgeSkill",
                 "type": "knowledge",
                 "name": "test-knowledge",
                 "content": "Knowledge content",
@@ -240,7 +238,7 @@ def test_discriminated_union_with_openhands_model():
                 "triggers": ["test"],
             },
             {
-                "kind": "TaskMicroagent",
+                "kind": "TaskSkill",
                 "type": "task",
                 "name": "test-task",
                 "content": "Task content",
@@ -254,29 +252,29 @@ def test_discriminated_union_with_openhands_model():
     # Validate the model - this tests the discriminated union
     model = TestModel.model_validate(test_data)
 
-    # Verify each microagent was correctly discriminated
-    assert len(model.microagents) == 3
-    assert isinstance(model.microagents[0], RepoMicroagent)
-    assert isinstance(model.microagents[1], KnowledgeMicroagent)
-    assert isinstance(model.microagents[2], TaskMicroagent)
+    # Verify each skill was correctly discriminated
+    assert len(model.skills) == 3
+    assert isinstance(model.skills[0], RepoSkill)
+    assert isinstance(model.skills[1], KnowledgeSkill)
+    assert isinstance(model.skills[2], TaskSkill)
 
     # Verify types are correct
-    assert model.microagents[0].type == "repo"
-    assert model.microagents[1].type == "knowledge"
-    assert model.microagents[2].type == "task"
+    assert model.skills[0].type == "repo"
+    assert model.skills[1].type == "knowledge"
+    assert model.skills[2].type == "task"
 
 
 def test_discriminated_union_with_pydantic_model():
     """Test discriminated union functionality with a Pydantic model."""
 
     class TestModel(BaseModel):
-        microagents: list[BaseMicroagent] = Field(default_factory=list)
+        skills: list[BaseSkill] = Field(default_factory=list)
 
-    # Create test data with different microagent types
+    # Create test data with different skill types
     test_data = {
-        "microagents": [
+        "skills": [
             {
-                "kind": "RepoMicroagent",
+                "kind": "RepoSkill",
                 "type": "repo",
                 "name": "test-repo",
                 "content": "Repo content",
@@ -284,7 +282,7 @@ def test_discriminated_union_with_pydantic_model():
                 "mcp_tools": None,
             },
             {
-                "kind": "KnowledgeMicroagent",
+                "kind": "KnowledgeSkill",
                 "type": "knowledge",
                 "name": "test-knowledge",
                 "content": "Knowledge content",
@@ -292,7 +290,7 @@ def test_discriminated_union_with_pydantic_model():
                 "triggers": ["test"],
             },
             {
-                "kind": "TaskMicroagent",
+                "kind": "TaskSkill",
                 "type": "task",
                 "name": "test-task",
                 "content": "Task content",
@@ -306,13 +304,13 @@ def test_discriminated_union_with_pydantic_model():
     # Validate the model - this tests the discriminated union
     model = TestModel.model_validate(test_data)
 
-    # Verify each microagent was correctly discriminated
-    assert len(model.microagents) == 3
-    assert isinstance(model.microagents[0], RepoMicroagent)
-    assert isinstance(model.microagents[1], KnowledgeMicroagent)
-    assert isinstance(model.microagents[2], TaskMicroagent)
+    # Verify each skill was correctly discriminated
+    assert len(model.skills) == 3
+    assert isinstance(model.skills[0], RepoSkill)
+    assert isinstance(model.skills[1], KnowledgeSkill)
+    assert isinstance(model.skills[2], TaskSkill)
 
     # Verify types are correct
-    assert model.microagents[0].type == "repo"
-    assert model.microagents[1].type == "knowledge"
-    assert model.microagents[2].type == "task"
+    assert model.skills[0].type == "repo"
+    assert model.skills[1].type == "knowledge"
+    assert model.skills[2].type == "task"

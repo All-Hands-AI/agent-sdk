@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from openhands.sdk.context import BaseMicroagent, RepoMicroagent
+from openhands.sdk.context import BaseSkill, RepoSkill
 
 
 def test_load_markdown_without_frontmatter():
@@ -9,10 +9,10 @@ def test_load_markdown_without_frontmatter():
     path = Path("test.md")
 
     # Load the agent from content using keyword argument
-    agent = BaseMicroagent.load(path=path, file_content=content)
+    agent = BaseSkill.load(path=path, file_content=content)
 
     # Verify it's loaded as a repo agent with default values
-    assert isinstance(agent, RepoMicroagent)
+    assert isinstance(agent, RepoSkill)
     assert agent.name == "test"  # Name comes from path.stem
     assert agent.content == content
     assert agent.type == "repo"
@@ -26,10 +26,10 @@ def test_load_markdown_with_empty_frontmatter():
     path = Path("test.md")
 
     # Load the agent from content using keyword argument
-    agent = BaseMicroagent.load(path=path, file_content=content)
+    agent = BaseSkill.load(path=path, file_content=content)
 
     # Verify it's loaded as a repo agent with default values
-    assert isinstance(agent, RepoMicroagent)
+    assert isinstance(agent, RepoSkill)
     assert agent.name == "test"  # Name comes from path.stem
     assert (
         agent.content
@@ -48,10 +48,10 @@ This is a test markdown file with partial frontmatter."""
     path = Path("test.md")
 
     # Load the agent from content using keyword argument
-    agent = BaseMicroagent.load(path=path, file_content=content)
+    agent = BaseSkill.load(path=path, file_content=content)
 
     # Verify it uses provided name but default values for other fields
-    assert isinstance(agent, RepoMicroagent)
+    assert isinstance(agent, RepoSkill)
     assert agent.name == "custom_name"
     assert (
         agent.content
@@ -73,10 +73,10 @@ This is a test markdown file with full frontmatter."""
     path = Path("test.md")
 
     # Load the agent from content using keyword argument
-    agent = BaseMicroagent.load(path=path, file_content=content)
+    agent = BaseSkill.load(path=path, file_content=content)
 
     # Verify all provided values are used
-    assert isinstance(agent, RepoMicroagent)
+    assert isinstance(agent, RepoSkill)
     assert agent.name == "test_agent"
     assert (
         agent.content

@@ -1,11 +1,11 @@
-from openhands.sdk.context.microagents import TaskMicroagent
-from openhands.sdk.context.microagents.types import InputMetadata
+from openhands.sdk.context.skills import TaskSkill
+from openhands.sdk.context.skills.types import InputMetadata
 
 
-def test_task_microagent_prompt_appending():
-    """Test that TaskMicroagent correctly appends missing variables prompt."""
-    # Create TaskMicroagent with variables in content
-    task_agent = TaskMicroagent(
+def test_task_skill_prompt_appending():
+    """Test that TaskSkill correctly appends missing variables prompt."""
+    # Create TaskSkill with variables in content
+    task_agent = TaskSkill(
         name="test-task",
         content="Task with ${variable1} and ${variable2}",
         source="test.md",
@@ -19,8 +19,8 @@ def test_task_microagent_prompt_appending():
     )
     assert expected_prompt in task_agent.content
 
-    # Create TaskMicroagent without variables but with inputs
-    task_agent_with_inputs = TaskMicroagent(
+    # Create TaskSkill without variables but with inputs
+    task_agent_with_inputs = TaskSkill(
         name="test-task-inputs",
         content="Task without variables",
         source="test.md",
@@ -31,8 +31,8 @@ def test_task_microagent_prompt_appending():
     # Check that the prompt was appended
     assert expected_prompt in task_agent_with_inputs.content
 
-    # Create TaskMicroagent without variables or inputs
-    task_agent_no_vars = TaskMicroagent(
+    # Create TaskSkill without variables or inputs
+    task_agent_no_vars = TaskSkill(
         name="test-task-no-vars",
         content="Task without variables or inputs",
         source="test.md",
