@@ -73,25 +73,13 @@ def test_multiple_commands_should_not_include_previous_output():
     start_response_2.raise_for_status = Mock()
     start_response_2.json.return_value = {"id": "cmd-002"}
 
-    # BUG: Due to missing command_id filter, the API returns BOTH
-    # the previous command's events AND the current command's events
-    poll_response_2_buggy = Mock()
-    poll_response_2_buggy.raise_for_status = Mock()
-    poll_response_2_buggy.json.return_value = {
+    # FIXED: With correct command_id filter, the API returns ONLY
+    # the current command's events (not previous commands)
+    poll_response_2_fixed = Mock()
+    poll_response_2_fixed.raise_for_status = Mock()
+    poll_response_2_fixed.json.return_value = {
         "items": [
-            # Events from FIRST command (should not be here)
-            {
-                "kind": "BashOutput",
-                "stdout": (
-                    "total 12\n"
-                    "drwxr-xr-x 2 openhands openhands 4096 Oct 20 17:29 bash_events\n"
-                    "drwxr-xr-x 2 openhands openhands 4096 Oct 20 17:29 conversations\n"
-                    "drwxr-xr-x 2 openhands openhands 4096 Oct 19 20:07 project\n"
-                ),
-                "stderr": "",
-                "exit_code": 0,
-            },
-            # Events from SECOND command (should be the only ones)
+            # Events from SECOND command only (first command events filtered out by API)
             {
                 "kind": "BashOutput",
                 "stdout": (
@@ -114,28 +102,20 @@ def test_multiple_commands_should_not_include_previous_output():
     generator_2.send(start_response_2)
 
     try:
-        generator_2.send(poll_response_2_buggy)
+        generator_2.send(poll_response_2_fixed)
     except StopIteration as e:
         result_2 = e.value
 
-    # BUG MANIFESTATION: The second command's output includes the first command's output
-    # This is the bug we're reproducing - the result should NOT contain first_output
+    # FIXED: With the correct params, the second command's output should ONLY
+    # contain events from the second command, not the first
     assert result_2.exit_code == 0
 
-    # The buggy behavior: output contains BOTH commands' results
-    # In the actual bug scenario, result_2.stdout would contain both outputs
-    # because all events are retrieved, not just events for cmd-002
-
-    # What we expect (after fix):
+    # Verify the fix works correctly:
     # result_2.stdout should only contain "total 84" and "agent-server" etc
-    # It should NOT contain "bash_events", "conversations", "project"
-
-    # What actually happens (bug):
-    # result_2.stdout contains the first output concatenated with the second
+    # It should NOT contain "bash_events", "conversations", "project" from first command
     print(f"Result 2 stdout:\n{result_2.stdout}")
 
-    # Test for the CORRECT behavior - these will FAIL with the current buggy code
-    # because result_2.stdout incorrectly includes the first command's output
+    # Test for the CORRECT behavior - should PASS now that bug is fixed
     assert "bash_events" not in result_2.stdout, (
         "BUG: Second command output incorrectly includes first command output! "
         "The output should NOT contain 'bash_events' from the first command."

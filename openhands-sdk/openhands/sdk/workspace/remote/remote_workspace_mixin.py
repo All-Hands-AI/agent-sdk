@@ -90,7 +90,8 @@ class RemoteWorkspaceMixin(BaseModel):
                     "method": "GET",
                     "url": f"{self.host}/api/bash/bash_events/search",
                     "params": {
-                        "command_id__eqsort_order": "TIMESTAMP",
+                        "command_id__eq": command_id,
+                        "sort_order": "TIMESTAMP",
                         "limit": 100,
                     },
                     "headers": self._headers,
