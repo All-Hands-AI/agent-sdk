@@ -38,13 +38,13 @@ class TomConsultExecutor(StatefulToolExecutor[ConsultTomAction, ConsultTomObserv
             api_key: API key for Tom agent's LLM
             api_base: Base URL for Tom agent's LLM
         """
-        self.file_store = file_store
-        self.enable_rag = enable_rag
-        self.llm_model = llm_model
-        self.api_key = api_key
-        self.api_base = api_base
-        self._tom_agent = None
-        self.user_id = ""
+        self.file_store: Any = file_store
+        self.enable_rag: bool = enable_rag
+        self.llm_model: str | None = llm_model
+        self.api_key: str | None = api_key
+        self.api_base: str | None = api_base
+        self._tom_agent: Any = None
+        self.user_id: str = ""
 
     def _get_tom_agent(self):
         """Lazy initialization of Tom agent."""
