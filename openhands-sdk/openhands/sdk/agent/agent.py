@@ -271,7 +271,7 @@ class Agent(AgentBase):
             3. A single `FinishAction` never requires confirmation
             4. A single `ThinkAction` never requires confirmation
         """
-
+        # A single `FinishAction` or `ThinkAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
             action_events[0].action, (FinishAction, ThinkAction)
         ):
