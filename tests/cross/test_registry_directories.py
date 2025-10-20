@@ -25,7 +25,7 @@ class DummyAgent(AgentBase):
 
     def __init__(self):
         llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
         super().__init__(llm=llm, tools=[])
 
