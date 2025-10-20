@@ -1,20 +1,20 @@
 from openhands.sdk.context.skills.exceptions import SkillValidationError
-from openhands.sdk.context.skills.skill import (
-    BaseSkill,
-    RepoSkill,
-    Skill,
-    TaskSkill,
-    load_skills_from_dir,
+from openhands.sdk.context.skills.skill import Skill, load_skills_from_dir
+from openhands.sdk.context.skills.trigger import (
+    BaseTrigger,
+    KeywordTrigger,
+    RepoTrigger,
+    TaskTrigger,
 )
-from openhands.sdk.context.skills.types import SkillKnowledge, SkillType
+from openhands.sdk.context.skills.types import SkillKnowledge
 
 
 __all__ = [
-    "BaseSkill",
     "Skill",
-    "SkillType",
-    "RepoSkill",
-    "TaskSkill",
+    "BaseTrigger",
+    "RepoTrigger",
+    "KeywordTrigger",
+    "TaskTrigger",
     "SkillKnowledge",
     "load_skills_from_dir",
     "SkillValidationError",

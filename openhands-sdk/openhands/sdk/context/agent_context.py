@@ -4,8 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from openhands.sdk.context.prompts import render_template
 from openhands.sdk.context.skills import (
-    BaseSkill,
-    RepoSkill,
+    RepoTrigger,
     Skill,
     SkillKnowledge,
 )
@@ -40,7 +39,7 @@ class AgentContext(BaseModel):
     LLM interactions.
     """  # noqa: E501
 
-    skills: list[BaseSkill] = Field(
+    skills: list[Skill] = Field(
         default_factory=list,
         description="List of available skills that can extend the user's input.",
     )
@@ -53,7 +52,7 @@ class AgentContext(BaseModel):
 
     @field_validator("skills")
     @classmethod
-    def _validate_skills(cls, v: list[BaseSkill], _info):
+    def _validate_skills(cls, v: list[Skill], _info):
         if not v:
             return v
         # Check for duplicate skill names
@@ -73,7 +72,7 @@ class AgentContext(BaseModel):
         - Conversation instructions (e.g., user preferences, task details)
         - Repository-specific instructions (collected from repo skills)
         """
-        repo_skills = [m for m in self.skills if isinstance(m, RepoSkill)]
+        repo_skills = [s for s in self.skills if isinstance(s.trigger, RepoTrigger)]
         logger.debug(f"Triggered {len(repo_skills)} repository skills: {repo_skills}")
         # Build the workspace context information
         if repo_skills:

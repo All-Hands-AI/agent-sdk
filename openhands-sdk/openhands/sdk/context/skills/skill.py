@@ -1,32 +1,44 @@
 import io
 import re
-from abc import ABC
 from itertools import chain
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Union, cast
+from typing import Annotated, ClassVar, Union
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
-from pydantic import Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from openhands.sdk.context.skills.exceptions import SkillValidationError
-from openhands.sdk.context.skills.types import (
-    VALID_SKILL_TYPES,
-    InputMetadata,
-    SkillType,
+from openhands.sdk.context.skills.trigger import (
+    KeywordTrigger,
+    RepoTrigger,
+    TaskTrigger,
 )
+from openhands.sdk.context.skills.types import InputMetadata
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 logger = get_logger(__name__)
 
+# Union type for all trigger types
+TriggerType = Annotated[
+    RepoTrigger | KeywordTrigger | TaskTrigger,
+    Field(discriminator="type"),
+]
 
-class BaseSkill(DiscriminatedUnionMixin, ABC):
-    """Base class for all skills."""
+
+class Skill(BaseModel):
+    """A skill provides specialized knowledge or functionality.
+
+    Skills use triggers to determine when they should be activated:
+    - RepoTrigger: Always active, for repository-specific guidelines
+    - KeywordTrigger: Activated when keywords appear in user messages
+    - TaskTrigger: Activated for specific tasks, may require user input
+    """
 
     name: str
     content: str
+    trigger: TriggerType
     source: str | None = Field(
         default=None,
         description=(
@@ -34,7 +46,18 @@ class BaseSkill(DiscriminatedUnionMixin, ABC):
             "When it is None, it is treated as a programmatically defined skill."
         ),
     )
-    type: SkillType = "repo"
+    mcp_tools: dict | None = Field(
+        default=None,
+        description=(
+            "MCP tools configuration for the skill (repo skills only). "
+            "It should conform to the MCPConfig schema: "
+            "https://gofastmcp.com/clients/client#configuration-format"
+        ),
+    )
+    inputs: list[InputMetadata] = Field(
+        default_factory=list,
+        description="Input metadata for the skill (task skills only)",
+    )
 
     PATH_TO_THIRD_PARTY_SKILL_NAME: ClassVar[dict[str, str]] = {
         ".cursorrules": "cursorrules",
@@ -43,19 +66,17 @@ class BaseSkill(DiscriminatedUnionMixin, ABC):
     }
 
     @classmethod
-    def _handle_third_party(
-        cls, path: Path, file_content: str
-    ) -> Union["RepoSkill", None]:
+    def _handle_third_party(cls, path: Path, file_content: str) -> Union["Skill", None]:
         # Determine the agent name based on file type
         skill_name = cls.PATH_TO_THIRD_PARTY_SKILL_NAME.get(path.name.lower())
 
-        # Create RepoSkill if we recognized the file type
+        # Create Skill with RepoTrigger if we recognized the file type
         if skill_name is not None:
-            return RepoSkill(
+            return Skill(
                 name=skill_name,
                 content=file_content,
                 source=str(path),
-                type="repo",
+                trigger=RepoTrigger(),
             )
 
         return None
@@ -66,7 +87,7 @@ class BaseSkill(DiscriminatedUnionMixin, ABC):
         path: str | Path,
         skill_dir: Path | None = None,
         file_content: str | None = None,
-    ) -> "BaseSkill":
+    ) -> "Skill":
         """Load a skill from a markdown file with frontmatter.
 
         The agent's name is derived from its path relative to the skill_dir.
@@ -90,11 +111,11 @@ class BaseSkill(DiscriminatedUnionMixin, ABC):
 
         # Legacy repo instructions are stored in .openhands_instructions
         if path.name == ".openhands_instructions":
-            return RepoSkill(
+            return Skill(
                 name="repo_legacy",
                 content=file_content,
                 source=str(path),
-                type="repo",
+                trigger=RepoTrigger(),
             )
 
         # Handle third-party agent instruction files
@@ -109,37 +130,41 @@ class BaseSkill(DiscriminatedUnionMixin, ABC):
         # Handle case where there's no frontmatter or empty frontmatter
         metadata_dict = loaded.metadata or {}
 
-        # Use name from frontmatter if provided, otherwise use derived name
-        agent_name = str(metadata_dict.get("name", skill_name))
-
-        # Validate type field if provided in frontmatter
+        # Validate explicit type if provided
         if "type" in metadata_dict:
-            type_value = metadata_dict["type"]
-            valid_types = VALID_SKILL_TYPES
-            if type_value not in valid_types:
+            provided_type = metadata_dict["type"]
+            valid_types = ["repo", "knowledge", "task"]
+            if provided_type not in valid_types:
                 valid_types_str = ", ".join(f'"{t}"' for t in valid_types)
                 raise SkillValidationError(
-                    f'Invalid "type" value: "{type_value}". '
+                    f'Invalid "type" value: "{provided_type}". '
                     f"Valid types are: {valid_types_str}"
                 )
 
-        # Infer the agent type:
-        # 1. If inputs exist -> TASK
-        # 2. If triggers exist -> KNOWLEDGE
-        # 3. Else (no triggers) -> REPO (always active)
-        triggers = metadata_dict.get("triggers", [])
-        if not isinstance(triggers, list):
+        # Use name from frontmatter if provided, otherwise use derived name
+        agent_name = str(metadata_dict.get("name", skill_name))
+
+        # Get trigger keywords from metadata
+        keywords = metadata_dict.get("triggers", [])
+        if not isinstance(keywords, list):
             raise SkillValidationError("Triggers must be a list of strings")
+
+        # Infer the trigger type:
+        # 1. If inputs exist -> TaskTrigger
+        # 2. If keywords exist -> KeywordTrigger
+        # 3. Else (no keywords) -> RepoTrigger (always active)
         if "inputs" in metadata_dict:
             # Add a trigger for the agent name if not already present
-            trigger = f"/{agent_name}"
-            if trigger not in triggers:
-                triggers.append(trigger)
-            return TaskSkill(
+            trigger_keyword = f"/{agent_name}"
+            if trigger_keyword not in keywords:
+                keywords.append(trigger_keyword)
+            inputs = metadata_dict.get("inputs", [])
+            return Skill(
                 name=agent_name,
                 content=content,
                 source=str(path),
-                triggers=triggers,
+                trigger=TaskTrigger(triggers=keywords),
+                inputs=inputs,
             )
 
         elif metadata_dict.get("triggers", None):
@@ -147,67 +172,18 @@ class BaseSkill(DiscriminatedUnionMixin, ABC):
                 name=agent_name,
                 content=content,
                 source=str(path),
-                triggers=triggers,
+                trigger=KeywordTrigger(keywords=keywords),
             )
         else:
-            # No triggers, default to REPO
+            # No triggers, default to RepoTrigger (always active)
             mcp_tools_raw = metadata_dict.get("mcp_tools")
-            # Type cast to satisfy type checker - validation happens in RepoSkill
-            mcp_tools = cast(dict[str, Any] | None, mcp_tools_raw)
-            return RepoSkill(
-                name=agent_name, content=content, source=str(path), mcp_tools=mcp_tools
+            return Skill(
+                name=agent_name,
+                content=content,
+                source=str(path),
+                trigger=RepoTrigger(),
+                mcp_tools=mcp_tools_raw,
             )
-
-
-class Skill(BaseSkill):
-    """Skills provide specialized expertise that's triggered by keywords
-    in conversations.
-
-    They help with:
-    - Language best practices
-    - Framework guidelines
-    - Common patterns
-    - Tool usage
-    """
-
-    type: SkillType = "knowledge"
-    triggers: list[str] = Field(
-        default_factory=list, description="List of triggers for the skill"
-    )
-
-    def match_trigger(self, message: str) -> str | None:
-        """Match a trigger in the message.
-
-        It returns the first trigger that matches the message.
-        """
-        message = message.lower()
-        for trigger in self.triggers:
-            if trigger.lower() in message:
-                return trigger
-
-        return None
-
-
-class RepoSkill(BaseSkill):
-    """Skill specialized for repository-specific knowledge and guidelines.
-
-    RepoSkills are loaded from `.openhands/skills/repo.md` files within
-    repositories and contain private, repository-specific instructions that are
-    automatically loaded when
-    working with that repository. They are ideal for:
-        - Repository-specific guidelines
-        - Team practices and conventions
-        - Project-specific workflows
-        - Custom documentation references
-    """
-
-    type: SkillType = "repo"
-    mcp_tools: dict | None = Field(
-        default=None,
-        description="MCP tools configuration for the skill. "
-        "It should conform to the MCPConfig schema: "
-        "https://gofastmcp.com/clients/client#configuration-format",
-    )
 
     # Field-level validation for mcp_tools
     @field_validator("mcp_tools")
@@ -223,31 +199,12 @@ class RepoSkill(BaseSkill):
         return v
 
     @model_validator(mode="after")
-    def _enforce_repo_type(self):
-        if self.type != "repo":
-            raise SkillValidationError(
-                f"RepoSkill initialized with incorrect type: {self.type}"
-            )
-        return self
-
-
-class TaskSkill(Skill):
-    """TaskSkill is a special type of Skill that requires user input.
-
-    These skills are triggered by a special format: "/{agent_name}"
-    and will prompt the user for any required inputs before proceeding.
-    """
-
-    type: SkillType = "task"
-    content: str  # Re-declare to allow modification in validator
-    inputs: list[InputMetadata] = Field(
-        default_factory=list,
-        description=("Input metadata for the skill. Only exists for task skills"),
-    )
-
-    @model_validator(mode="after")
     def _append_missing_variables_prompt(self):
         """Append a prompt to ask for missing variables after model construction."""
+        # Only apply to task skills
+        if not isinstance(self.trigger, TaskTrigger):
+            return self
+
         # If no variables and no inputs, nothing to do
         if not self.requires_user_input() and not self.inputs:
             return self
@@ -262,6 +219,24 @@ class TaskSkill(Skill):
             self.content += prompt
 
         return self
+
+    def match_trigger(self, message: str) -> str | None:
+        """Match a trigger in the message.
+
+        Returns the first trigger that matches the message, or None if no match.
+        Only applies to KeywordTrigger and TaskTrigger types.
+        """
+        if isinstance(self.trigger, KeywordTrigger):
+            message_lower = message.lower()
+            for keyword in self.trigger.keywords:
+                if keyword.lower() in message_lower:
+                    return keyword
+        elif isinstance(self.trigger, TaskTrigger):
+            message_lower = message.lower()
+            for trigger_str in self.trigger.triggers:
+                if trigger_str.lower() in message_lower:
+                    return trigger_str
+        return None
 
     def extract_variables(self, content: str) -> list[str]:
         """Extract variables from the content.
@@ -285,7 +260,7 @@ class TaskSkill(Skill):
 
 def load_skills_from_dir(
     skill_dir: str | Path,
-) -> tuple[dict[str, RepoSkill], dict[str, Skill]]:
+) -> tuple[dict[str, Skill], dict[str, Skill]]:
     """Load all skills from the given directory.
 
     Note, legacy repo instructions will not be loaded here.
@@ -294,23 +269,25 @@ def load_skills_from_dir(
         skill_dir: Path to the skills directory (e.g. .openhands/skills)
 
     Returns:
-        Tuple of (repo_agents, knowledge_agents) dictionaries
+        Tuple of (repo_skills, knowledge_skills) dictionaries.
+        repo_skills have RepoTrigger, knowledge_skills have KeywordTrigger
+        or TaskTrigger.
     """
     if isinstance(skill_dir, str):
         skill_dir = Path(skill_dir)
 
-    repo_agents = {}
-    knowledge_agents = {}
+    repo_skills = {}
+    knowledge_skills = {}
 
     # Load all agents from skills directory
     logger.debug(f"Loading agents from {skill_dir}")
 
-    # Always check for .cursorrules and AGENTS.md files in repo root, regardless of whether skills_dir exists  # noqa: E501
+    # Always check for .cursorrules and AGENTS.md files in repo root
     special_files = []
     repo_root = skill_dir.parent.parent
 
     # Check for third party rules: .cursorrules, AGENTS.md, etc
-    for filename in BaseSkill.PATH_TO_THIRD_PARTY_SKILL_NAME.keys():
+    for filename in Skill.PATH_TO_THIRD_PARTY_SKILL_NAME.keys():
         for variant in [filename, filename.lower(), filename.upper()]:
             if (repo_root / variant).exists():
                 special_files.append(repo_root / variant)
@@ -324,12 +301,12 @@ def load_skills_from_dir(
     # Process all files in one loop
     for file in chain(special_files, md_files):
         try:
-            agent = BaseSkill.load(file, skill_dir)
-            if isinstance(agent, RepoSkill):
-                repo_agents[agent.name] = agent
-            elif isinstance(agent, Skill):
-                # Both Skill and TaskSkill go into knowledge_agents
-                knowledge_agents[agent.name] = agent
+            skill = Skill.load(file, skill_dir)
+            if isinstance(skill.trigger, RepoTrigger):
+                repo_skills[skill.name] = skill
+            else:
+                # KeywordTrigger and TaskTrigger skills
+                knowledge_skills[skill.name] = skill
         except SkillValidationError as e:
             # For validation errors, include the original exception
             error_msg = f"Error loading skill from {file}: {str(e)}"
@@ -340,13 +317,7 @@ def load_skills_from_dir(
             raise ValueError(error_msg) from e
 
     logger.debug(
-        f"Loaded {len(repo_agents) + len(knowledge_agents)} skills: "
-        f"{[*repo_agents.keys(), *knowledge_agents.keys()]}"
+        f"Loaded {len(repo_skills) + len(knowledge_skills)} skills: "
+        f"{[*repo_skills.keys(), *knowledge_skills.keys()]}"
     )
-    return repo_agents, knowledge_agents
-
-
-SkillType = Annotated[
-    RepoSkill | Skill | TaskSkill,
-    Field(discriminator="type"),
-]
+    return repo_skills, knowledge_skills

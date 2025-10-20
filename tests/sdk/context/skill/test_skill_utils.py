@@ -7,8 +7,8 @@ import pytest
 from pydantic import ValidationError
 
 from openhands.sdk.context import (
-    BaseSkill,
-    RepoSkill,
+    KeywordTrigger,
+    RepoTrigger,
     Skill,
     SkillValidationError,
     load_skills_from_dir,
@@ -24,11 +24,10 @@ def test_legacy_micro_agent_load(tmp_path):
     legacy_file.write_text(CONTENT)
 
     # Pass skill_dir (tmp_path in this case) to load
-    skill = BaseSkill.load(legacy_file, tmp_path)
-    assert isinstance(skill, RepoSkill)
+    skill = Skill.load(legacy_file, tmp_path)
+    assert isinstance(skill.trigger, RepoTrigger)
     assert skill.name == "repo_legacy"  # Legacy name is hardcoded
     assert skill.content == CONTENT
-    assert skill.type == "repo"
 
 
 @pytest.fixture
@@ -71,19 +70,18 @@ Repository-specific test instructions.
 
 def test_knowledge_agent():
     """Test knowledge agent functionality."""
-    # Create a knowledge agent with triggers
+    # Create a knowledge agent with keyword triggers
     agent = Skill(
         name="test",
         content="Test content",
         source="test.md",
-        type="knowledge",
-        triggers=["testing", "pytest"],
+        trigger=KeywordTrigger(keywords=["testing", "pytest"]),
     )
 
     assert agent.match_trigger("running a testing") == "testing"
     assert agent.match_trigger("using pytest") == "pytest"
     assert agent.match_trigger("no match here") is None
-    assert agent.triggers == ["testing", "pytest"]
+    assert agent.trigger.keywords == ["testing", "pytest"]
 
 
 def test_load_skills(temp_skills_dir):
@@ -94,14 +92,14 @@ def test_load_skills(temp_skills_dir):
     assert len(knowledge_agents) == 1
     agent_k = knowledge_agents["knowledge"]
     assert isinstance(agent_k, Skill)
-    assert agent_k.type == "knowledge"  # Check inferred type
-    assert "test" in agent_k.triggers
+    assert isinstance(agent_k.trigger, KeywordTrigger)  # Check inferred type
+    assert "test" in agent_k.trigger.keywords
 
     # Check repo agents (name derived from filename: repo.md -> 'repo')
     assert len(repo_agents) == 1
     agent_r = repo_agents["repo"]
-    assert isinstance(agent_r, RepoSkill)
-    assert agent_r.type == "repo"  # Check inferred type
+    assert isinstance(agent_r.trigger, RepoTrigger)
+    assert isinstance(agent_r.trigger, RepoTrigger)  # Check inferred type
 
 
 def test_load_skills_with_nested_dirs(temp_skills_dir):
@@ -132,8 +130,8 @@ Testing nested directory loading.
     )  # Original ('knowledge') + nested ('nested/dir/nested')
     agent_n = knowledge_agents["nested/dir/nested"]
     assert isinstance(agent_n, Skill)
-    assert agent_n.type == "knowledge"  # Check inferred type
-    assert "nested" in agent_n.triggers
+    assert isinstance(agent_n.trigger, KeywordTrigger)  # Check inferred type
+    assert "nested" in agent_n.trigger.keywords
 
 
 def test_load_skills_with_trailing_slashes(temp_skills_dir):
@@ -166,8 +164,8 @@ Testing loading with trailing slashes.
     )  # Original ('knowledge') + trailing ('test_knowledge/trailing')
     agent_t = knowledge_agents["test_knowledge/trailing"]
     assert isinstance(agent_t, Skill)
-    assert agent_t.type == "knowledge"  # Check inferred type
-    assert "trailing" in agent_t.triggers
+    assert isinstance(agent_t.trigger, KeywordTrigger)  # Check inferred type
+    assert "trailing" in agent_t.trigger.keywords
 
 
 def test_invalid_skill_type(temp_skills_dir):
@@ -211,13 +209,13 @@ Add proper error handling."""
     cursorrules_path = Path(".cursorrules")
 
     # Test loading .cursorrules file directly
-    agent = BaseSkill.load(cursorrules_path, file_content=cursorrules_content)
+    agent = Skill.load(cursorrules_path, file_content=cursorrules_content)
 
     # Verify it's loaded as a RepoSkill
-    assert isinstance(agent, RepoSkill)
+    assert isinstance(agent.trigger, RepoTrigger)
     assert agent.name == "cursorrules"
     assert agent.content == cursorrules_content
-    assert agent.type == "repo"
+    assert isinstance(agent.trigger, RepoTrigger)
     assert agent.source == str(cursorrules_path)
 
 
@@ -242,7 +240,7 @@ This is a test agent with integer version.
     test_path = Path("test_agent.md")
 
     # This should not raise an error even though version is an integer in YAML
-    agent = BaseSkill.load(test_path, file_content=skill_content)
+    agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify the agent was loaded correctly
     assert isinstance(agent, Skill)
@@ -250,7 +248,7 @@ This is a test agent with integer version.
     # .metadata was deprecated in V1. this test simply tests
     # that we are backward compatible
     # assert agent.metadata.version == '2512312'  # Should be converted to string
-    assert agent.type == "knowledge"
+    assert isinstance(agent.trigger, KeywordTrigger)
 
 
 def test_skill_version_as_float():
@@ -273,12 +271,12 @@ This is a test agent with float version.
     test_path = Path("test_agent_float.md")
 
     # This should not raise an error even though version is a float in YAML
-    agent = BaseSkill.load(test_path, file_content=skill_content)
+    agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify the agent was loaded correctly
     assert isinstance(agent, Skill)
     assert agent.name == "test_agent_float"
-    assert agent.type == "knowledge"
+    assert isinstance(agent.trigger, KeywordTrigger)
 
 
 def test_skill_version_as_string_unchanged():
@@ -301,12 +299,12 @@ This is a test agent with string version.
     test_path = Path("test_agent_string.md")
 
     # This should work normally
-    agent = BaseSkill.load(test_path, file_content=skill_content)
+    agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify the agent was loaded correctly
     assert isinstance(agent, Skill)
     assert agent.name == "test_agent_string"
-    assert agent.type == "knowledge"
+    assert isinstance(agent.trigger, KeywordTrigger)
 
 
 @pytest.fixture
@@ -353,10 +351,10 @@ def test_load_skills_with_cursorrules(temp_skills_dir_with_cursorrules):
 
     # Check .cursorrules agent
     cursorrules_agent = repo_agents["cursorrules"]
-    assert isinstance(cursorrules_agent, RepoSkill)
+    assert isinstance(cursorrules_agent.trigger, RepoTrigger)
     assert cursorrules_agent.name == "cursorrules"
     assert "Always use TypeScript for new files" in cursorrules_agent.content
-    assert cursorrules_agent.type == "repo"
+    assert isinstance(cursorrules_agent.trigger, RepoTrigger)
 
 
 def test_repo_skill_with_mcp_tools():
@@ -382,12 +380,12 @@ This is a repo skill that includes MCP tools.
     test_path = Path("default-tools.md")
 
     # Load the skill
-    agent = BaseSkill.load(test_path, file_content=skill_content)
+    agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify it's loaded as a RepoSkill
-    assert isinstance(agent, RepoSkill)
+    assert isinstance(agent.trigger, RepoTrigger)
     assert agent.name == "default-tools"
-    assert agent.type == "repo"
+    assert isinstance(agent.trigger, RepoTrigger)
     assert agent.mcp_tools is not None
 
     # Verify the mcp_tools configuration is correctly loaded
@@ -429,12 +427,12 @@ This is a repo skill that includes MCP tools in dict format.
     test_path = Path("default-tools-dict.md")
 
     # Load the skill
-    agent = BaseSkill.load(test_path, file_content=skill_content)
+    agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify it's loaded as a RepoSkill
-    assert isinstance(agent, RepoSkill)
+    assert isinstance(agent.trigger, RepoTrigger)
     assert agent.name == "default-tools-dict"
-    assert agent.type == "repo"
+    assert isinstance(agent.trigger, RepoTrigger)
     assert agent.mcp_tools is not None
 
     # Verify the mcp_tools configuration is correctly loaded
@@ -468,12 +466,12 @@ This is a repo skill without MCP tools.
     test_path = Path("no-mcp-tools.md")
 
     # Load the skill
-    agent = BaseSkill.load(test_path, file_content=skill_content)
+    agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify it's loaded as a RepoSkill
-    assert isinstance(agent, RepoSkill)
+    assert isinstance(agent.trigger, RepoTrigger)
     assert agent.name == "no-mcp-tools"
-    assert agent.type == "repo"
+    assert isinstance(agent.trigger, RepoTrigger)
     assert agent.mcp_tools is None
 
 
@@ -497,7 +495,7 @@ This is a repo skill with invalid MCP tools configuration.
 
     # Loading should raise an error (either SkillValidationError or AttributeError)
     with pytest.raises(ValidationError) as excinfo:
-        BaseSkill.load(test_path, file_content=skill_content)
+        Skill.load(test_path, file_content=skill_content)
 
     # Check that the error message contains helpful information
     error_msg = str(excinfo.value)

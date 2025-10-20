@@ -4,9 +4,10 @@ import json
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.skills import (
-    RepoSkill,
+    KeywordTrigger,
+    RepoTrigger,
     Skill,
-    TaskSkill,
+    TaskTrigger,
 )
 from openhands.sdk.context.skills.types import InputMetadata
 
@@ -14,27 +15,28 @@ from openhands.sdk.context.skills.types import InputMetadata
 def test_agent_context_serialization_roundtrip():
     """Ensure AgentContext round-trips through dict and JSON serialization."""
 
-    repo_agent = RepoSkill(
+    repo_skill = Skill(
         name="repo-guidelines",
         content="Repository guidelines",
         source="repo.md",
+        trigger=RepoTrigger(),
     )
-    knowledge_agent = Skill(
+    knowledge_skill = Skill(
         name="python-help",
         content="Use type hints in Python code",
         source="knowledge.md",
-        triggers=["python"],
+        trigger=KeywordTrigger(keywords=["python"]),
     )
-    task_agent = TaskSkill(
+    task_skill = Skill(
         name="run-task",
         content="Execute the task with ${param}",
         source="task.md",
-        triggers=["run"],
+        trigger=TaskTrigger(triggers=["run"]),
         inputs=[InputMetadata(name="param", description="Task parameter")],
     )
 
     context = AgentContext(
-        skills=[repo_agent, knowledge_agent, task_agent],
+        skills=[repo_skill, knowledge_skill, task_skill],
         system_message_suffix="System suffix",
         user_message_suffix="User suffix",
     )
@@ -42,9 +44,9 @@ def test_agent_context_serialization_roundtrip():
     serialized = context.model_dump()
     assert serialized["system_message_suffix"] == "System suffix"
     assert serialized["user_message_suffix"] == "User suffix"
-    assert [agent["type"] for agent in serialized["skills"]] == [
+    assert [skill["trigger"]["type"] for skill in serialized["skills"]] == [
         "repo",
-        "knowledge",
+        "keyword",
         "task",
     ]
 
@@ -55,20 +57,26 @@ def test_agent_context_serialization_roundtrip():
     assert parsed["skills"][2]["inputs"][0]["name"] == "param"
 
     deserialized_from_dict = AgentContext.model_validate(serialized)
-    assert isinstance(deserialized_from_dict.skills[0], RepoSkill)
-    assert deserialized_from_dict.skills[0] == repo_agent
+    assert isinstance(deserialized_from_dict.skills[0], Skill)
+    assert isinstance(deserialized_from_dict.skills[0].trigger, RepoTrigger)
+    assert deserialized_from_dict.skills[0] == repo_skill
     assert isinstance(deserialized_from_dict.skills[1], Skill)
-    assert deserialized_from_dict.skills[1] == knowledge_agent
-    assert isinstance(deserialized_from_dict.skills[2], TaskSkill)
-    assert deserialized_from_dict.skills[2] == task_agent
+    assert isinstance(deserialized_from_dict.skills[1].trigger, KeywordTrigger)
+    assert deserialized_from_dict.skills[1] == knowledge_skill
+    assert isinstance(deserialized_from_dict.skills[2], Skill)
+    assert isinstance(deserialized_from_dict.skills[2].trigger, TaskTrigger)
+    assert deserialized_from_dict.skills[2] == task_skill
     assert deserialized_from_dict.system_message_suffix == "System suffix"
     assert deserialized_from_dict.user_message_suffix == "User suffix"
 
     deserialized_from_json = AgentContext.model_validate_json(json_str)
-    assert isinstance(deserialized_from_json.skills[0], RepoSkill)
-    assert deserialized_from_json.skills[0] == repo_agent
+    assert isinstance(deserialized_from_json.skills[0], Skill)
+    assert isinstance(deserialized_from_json.skills[0].trigger, RepoTrigger)
+    assert deserialized_from_json.skills[0] == repo_skill
     assert isinstance(deserialized_from_json.skills[1], Skill)
-    assert deserialized_from_json.skills[1] == knowledge_agent
-    assert isinstance(deserialized_from_json.skills[2], TaskSkill)
-    assert deserialized_from_json.skills[2] == task_agent
+    assert isinstance(deserialized_from_json.skills[1].trigger, KeywordTrigger)
+    assert deserialized_from_json.skills[1] == knowledge_skill
+    assert isinstance(deserialized_from_json.skills[2], Skill)
+    assert isinstance(deserialized_from_json.skills[2].trigger, TaskTrigger)
+    assert deserialized_from_json.skills[2] == task_skill
     assert deserialized_from_json.model_dump() == serialized

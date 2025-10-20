@@ -10,20 +10,29 @@ Context provides skills and knowledge the agent can rely on during a conversatio
 ## Key Components
 
 - **AgentContext**: Composes skills; pass to Agent to condition behavior
-- **RepoSkill**: Pulls knowledge from `.openhands/skills/repo.md` or explicit content
-- **Skill**: Embeds structured knowledge with optional triggers
+- **Skill**: Embeds structured knowledge with different trigger types:
+  - **RepoTrigger**: Activates for all conversations (repository-wide context)
+  - **KeywordTrigger**: Activates when specific keywords appear in user messages
+  - **TaskTrigger**: Activates based on task-specific conditions
 
 ## Quick Example
 
 ```python
-from openhands.sdk.context import AgentContext, Skill
+from openhands.sdk.context import AgentContext, KeywordTrigger, RepoTrigger, Skill
 
 agent_context = AgentContext(
     skills=[
         Skill(
+            name="repo-guidelines",
+            content="Repository-wide coding standards and best practices.",
+            source="repo.md",
+            trigger=RepoTrigger(),
+        ),
+        Skill(
             name="flarglebargle",
             content="If the user says flarglebargle, compliment them.",
-            triggers=["flarglebargle"],
+            source="flarglebargle.md",
+            trigger=KeywordTrigger(keywords=["flarglebargle"]),
         ),
     ]
 )

@@ -4,7 +4,8 @@ import pytest
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.skills import (
-    RepoSkill,
+    KeywordTrigger,
+    RepoTrigger,
     Skill,
 )
 from openhands.sdk.llm import Message, TextContent
@@ -31,35 +32,47 @@ class TestAgentContext:
 
     def test_skill_validation_duplicate_names(self):
         """Test that duplicate skill names raise validation error."""
-        repo_agent1 = RepoSkill(name="duplicate", content="First agent", type="repo")
-        repo_agent2 = RepoSkill(name="duplicate", content="Second agent", type="repo")
+        repo_skill1 = Skill(
+            name="duplicate",
+            content="First agent",
+            source="test1.md",
+            trigger=RepoTrigger(),
+        )
+        repo_skill2 = Skill(
+            name="duplicate",
+            content="Second agent",
+            source="test2.md",
+            trigger=RepoTrigger(),
+        )
 
         with pytest.raises(ValueError, match="Duplicate skill name found: duplicate"):
-            AgentContext(skills=[repo_agent1, repo_agent2])
+            AgentContext(skills=[repo_skill1, repo_skill2])
 
     def test_get_system_message_suffix_no_repo_skills(self):
         """Test system message suffix with no repo skills."""
-        knowledge_agent = Skill(
+        knowledge_skill = Skill(
             name="test_knowledge",
             content="Some knowledge content",
-            type="knowledge",
-            triggers=["test"],
+            source="test.md",
+            trigger=KeywordTrigger(keywords=["test"]),
         )
-        context = AgentContext(skills=[knowledge_agent])
+        context = AgentContext(skills=[knowledge_skill])
         result = context.get_system_message_suffix()
         assert result is None
 
     def test_get_system_message_suffix_with_repo_skills(self):
         """Test system message suffix rendering with repo skills."""
-        repo_agent1 = RepoSkill(
+        repo_agent1 = Skill(
             name="coding_standards",
             content="Follow PEP 8 style guidelines for Python code.",
-            type="repo",
+            source="coding_standards.md",
+            trigger=RepoTrigger(),
         )
-        repo_agent2 = RepoSkill(
+        repo_agent2 = Skill(
             name="testing_guidelines",
             content="Write comprehensive unit tests for all new features.",
-            type="repo",
+            source="testing_guidelines.md",
+            trigger=RepoTrigger(),
         )
 
         context = AgentContext(skills=[repo_agent1, repo_agent2])
@@ -87,10 +100,11 @@ defined in user's repository.\n"
 
     def test_get_system_message_suffix_with_custom_suffix(self):
         """Test system message suffix with repo skills and custom suffix."""
-        repo_agent = RepoSkill(
+        repo_agent = Skill(
             name="security_rules",
             content="Always validate user input and sanitize data.",
-            type="repo",
+            source="security-rules.md",
+            trigger=RepoTrigger(),
         )
 
         context = AgentContext(
@@ -124,8 +138,8 @@ defined in user's repository.\n"
         knowledge_agent = Skill(
             name="python_tips",
             content="Use list comprehensions for better performance.",
-            type="knowledge",
-            triggers=["python", "performance"],
+            source="python-tips.md",
+            trigger=KeywordTrigger(keywords=["python", "performance"]),
         )
 
         context = AgentContext(skills=[knowledge_agent])
@@ -139,8 +153,8 @@ defined in user's repository.\n"
         knowledge_agent = Skill(
             name="python_tips",
             content="Use list comprehensions for better performance.",
-            type="knowledge",
-            triggers=["python", "performance"],
+            source="python-tips.md",
+            trigger=KeywordTrigger(keywords=["python", "performance"]),
         )
 
         context = AgentContext(skills=[knowledge_agent])
@@ -156,8 +170,8 @@ defined in user's repository.\n"
         knowledge_agent = Skill(
             name="python_tips",
             content="Use list comprehensions for better performance.",
-            type="knowledge",
-            triggers=["python", "performance"],
+            source="python-tips.md",
+            trigger=KeywordTrigger(keywords=["python", "performance"]),
         )
 
         context = AgentContext(skills=[knowledge_agent])
@@ -188,15 +202,15 @@ for "python".\n'
         python_agent = Skill(
             name="python_best_practices",
             content="Follow PEP 8 and use type hints for better code quality.",
-            type="knowledge",
-            triggers=["python", "best practices"],
+            source="python-best-practices.md",
+            trigger=KeywordTrigger(keywords=["python", "best practices"]),
         )
         testing_agent = Skill(
             name="testing_framework",
             content="Use pytest for comprehensive testing with fixtures and \
 parametrization.",
-            type="knowledge",
-            triggers=["testing", "pytest"],
+            source="testing-framework.md",
+            trigger=KeywordTrigger(keywords=["testing", "pytest"]),
         )
 
         context = AgentContext(skills=[python_agent, testing_agent])
@@ -240,8 +254,8 @@ parametrization.\n"
         knowledge_agent = Skill(
             name="python_tips",
             content="Use list comprehensions for better performance.",
-            type="knowledge",
-            triggers=["python", "performance"],
+            source="python-tips.md",
+            trigger=KeywordTrigger(keywords=["python", "performance"]),
         )
 
         context = AgentContext(skills=[knowledge_agent])
@@ -259,8 +273,8 @@ parametrization.\n"
             name="database_tips",
             content="Always use parameterized queries to prevent SQL injection \
 attacks.",
-            type="knowledge",
-            triggers=["database", "sql"],
+            source="database-tips.md",
+            trigger=KeywordTrigger(keywords=["database", "sql"]),
         )
 
         context = AgentContext(skills=[knowledge_agent])
@@ -292,16 +306,17 @@ attacks.",
 
     def test_mixed_skill_types(self):
         """Test AgentContext with mixed skill types."""
-        repo_agent = RepoSkill(
+        repo_agent = Skill(
             name="repo_standards",
             content="Use semantic versioning for releases.",
-            type="repo",
+            source="repo-standards.md",
+            trigger=RepoTrigger(),
         )
         knowledge_agent = Skill(
             name="git_tips",
             content="Use conventional commits for better history.",
-            type="knowledge",
-            triggers=["git", "commit"],
+            source="git-tips.md",
+            trigger=KeywordTrigger(keywords=["git", "commit"]),
         )
 
         context = AgentContext(skills=[repo_agent, knowledge_agent])
@@ -351,8 +366,8 @@ for "git".\n'
         knowledge_agent = Skill(
             name="docker_tips",
             content="Use multi-stage builds to reduce image size.",
-            type="knowledge",
-            triggers=["docker", "container"],
+            source="docker-tips.md",
+            trigger=KeywordTrigger(keywords=["docker", "container"]),
         )
 
         context = AgentContext(skills=[knowledge_agent])
@@ -380,11 +395,12 @@ for "docker".\n'
 
     def test_special_characters_in_content(self):
         """Test template rendering with special characters in content."""
-        repo_agent = RepoSkill(
+        repo_agent = Skill(
             name="special_chars",
             content="Use {{ curly braces }} and <angle brackets> carefully in \
 templates.",
-            type="repo",
+            source="special-chars.md",
+            trigger=RepoTrigger(),
         )
 
         context = AgentContext(skills=[repo_agent])
@@ -409,7 +425,9 @@ templates.\n"
 
     def test_empty_skill_content(self):
         """Test template rendering with empty skill content."""
-        repo_agent = RepoSkill(name="empty_content", content="", type="repo")
+        repo_agent = Skill(
+            name="empty_content", content="", source="test.md", trigger=RepoTrigger()
+        )
 
         context = AgentContext(skills=[repo_agent])
         result = context.get_system_message_suffix()
@@ -442,8 +460,8 @@ defined in user's repository.\n"
         knowledge_agent = Skill(
             name="test_knowledge",
             content="Some knowledge content",
-            type="knowledge",
-            triggers=["test"],
+            source="test-knowledge.md",
+            trigger=KeywordTrigger(keywords=["test"]),
         )
         context = AgentContext(
             skills=[knowledge_agent],

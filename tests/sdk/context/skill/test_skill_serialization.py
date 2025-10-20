@@ -1,316 +1,310 @@
-"""Tests for skill serialization using discriminated union."""
+"""Tests for skill serialization using trigger composition."""
 
 import json
 
 from pydantic import BaseModel, Field
 
 from openhands.sdk.context.skills import (
-    BaseSkill,
-    RepoSkill,
+    KeywordTrigger,
+    RepoTrigger,
     Skill,
-    TaskSkill,
+    TaskTrigger,
 )
 from openhands.sdk.context.skills.types import InputMetadata
 from openhands.sdk.utils.models import OpenHandsModel
 
 
 def test_repo_skill_serialization():
-    """Test RepoSkill serialization and deserialization."""
-    # Create a RepoSkill
-    repo_agent = RepoSkill(
+    """Test Skill with RepoTrigger serialization and deserialization."""
+    # Create a Skill with RepoTrigger
+    repo_skill = Skill(
         name="test-repo",
         content="Repository-specific instructions",
         source="test-repo.md",
+        trigger=RepoTrigger(),
     )
 
     # Test serialization
-    serialized = repo_agent.model_dump()
-    assert serialized["type"] == "repo"
+    serialized = repo_skill.model_dump()
+    assert serialized["trigger"]["type"] == "repo"
     assert serialized["name"] == "test-repo"
     assert serialized["content"] == "Repository-specific instructions"
     assert serialized["source"] == "test-repo.md"
     assert serialized["mcp_tools"] is None
 
     # Test JSON serialization
-    json_str = repo_agent.model_dump_json()
+    json_str = repo_skill.model_dump_json()
     assert isinstance(json_str, str)
     parsed = json.loads(json_str)
-    assert parsed["type"] == "repo"
+    assert parsed["trigger"]["type"] == "repo"
 
     # Test deserialization
-    deserialized = BaseSkill.model_validate(serialized)
-    assert isinstance(deserialized, RepoSkill)
-    assert deserialized == repo_agent
+    deserialized = Skill.model_validate(serialized)
+    assert isinstance(deserialized.trigger, RepoTrigger)
+    assert deserialized == repo_skill
 
 
 def test_knowledge_skill_serialization():
-    """Test Skill serialization and deserialization."""
-    # Create a Skill
-    knowledge_agent = Skill(
+    """Test Skill with KeywordTrigger serialization and deserialization."""
+    # Create a Skill with KeywordTrigger
+    knowledge_skill = Skill(
         name="test-knowledge",
         content="Knowledge-based instructions",
         source="test-knowledge.md",
-        triggers=["python", "testing"],
+        trigger=KeywordTrigger(keywords=["python", "testing"]),
     )
 
     # Test serialization
-    serialized = knowledge_agent.model_dump()
-    assert serialized["type"] == "knowledge"
+    serialized = knowledge_skill.model_dump()
+    assert serialized["trigger"]["type"] == "keyword"
     assert serialized["name"] == "test-knowledge"
     assert serialized["content"] == "Knowledge-based instructions"
-    assert serialized["triggers"] == ["python", "testing"]
+    assert serialized["trigger"]["keywords"] == ["python", "testing"]
 
     # Test JSON serialization
-    json_str = knowledge_agent.model_dump_json()
+    json_str = knowledge_skill.model_dump_json()
     assert isinstance(json_str, str)
     parsed = json.loads(json_str)
-    assert parsed["type"] == "knowledge"
+    assert parsed["trigger"]["type"] == "keyword"
 
     # Test deserialization
-    deserialized = BaseSkill.model_validate(serialized)
-    assert isinstance(deserialized, Skill)
-    assert deserialized.type == "knowledge"
+    deserialized = Skill.model_validate(serialized)
+    assert isinstance(deserialized.trigger, KeywordTrigger)
     assert deserialized.name == "test-knowledge"
-    assert deserialized.triggers == ["python", "testing"]
+    assert deserialized.trigger.keywords == ["python", "testing"]
 
 
 def test_task_skill_serialization():
-    """Test TaskSkill serialization and deserialization."""
-    # Create a TaskSkill
-    task_agent = TaskSkill(
+    """Test Skill with TaskTrigger serialization and deserialization."""
+    # Create a Skill with TaskTrigger
+    task_skill = Skill(
         name="test-task",
         content="Task-based instructions with ${variable}",
         source="test-task.md",
-        triggers=["task", "automation"],
+        trigger=TaskTrigger(triggers=["task", "automation"]),
         inputs=[
             InputMetadata(name="variable", description="A test variable"),
         ],
     )
 
     # Test serialization
-    serialized = task_agent.model_dump()
-    assert serialized["type"] == "task"
+    serialized = task_skill.model_dump()
+    assert serialized["trigger"]["type"] == "task"
     assert serialized["name"] == "test-task"
     assert "Task-based instructions with ${variable}" in serialized["content"]
-    assert serialized["triggers"] == ["task", "automation"]
+    assert serialized["trigger"]["triggers"] == ["task", "automation"]
     assert len(serialized["inputs"]) == 1
     assert serialized["inputs"][0]["name"] == "variable"
 
     # Test JSON serialization
-    json_str = task_agent.model_dump_json()
+    json_str = task_skill.model_dump_json()
     assert isinstance(json_str, str)
     parsed = json.loads(json_str)
-    assert parsed["type"] == "task"
+    assert parsed["trigger"]["type"] == "task"
 
     # Test deserialization
-    deserialized = BaseSkill.model_validate(serialized)
-    assert isinstance(deserialized, TaskSkill)
-    assert deserialized.type == "task"
+    deserialized = Skill.model_validate(serialized)
+    assert isinstance(deserialized.trigger, TaskTrigger)
     assert deserialized.name == "test-task"
-    assert deserialized.triggers == ["task", "automation"]
+    assert deserialized.trigger.triggers == ["task", "automation"]
     assert len(deserialized.inputs) == 1
 
 
 def test_skill_union_serialization_roundtrip():
-    """Test complete serialization roundtrip for all skill types."""
-    # Test data for each skill type
+    """Test complete serialization roundtrip for all trigger types."""
+    # Test data for each trigger type
     test_cases = [
-        RepoSkill(
+        Skill(
             name="repo-test",
             content="Repo content",
             source="repo.md",
+            trigger=RepoTrigger(),
         ),
         Skill(
             name="knowledge-test",
             content="Knowledge content",
             source="knowledge.md",
-            triggers=["test"],
+            trigger=KeywordTrigger(keywords=["test"]),
         ),
-        TaskSkill(
+        Skill(
             name="task-test",
             content="Task content with ${var}",
             source="task.md",
-            triggers=["task"],
+            trigger=TaskTrigger(triggers=["task"]),
             inputs=[InputMetadata(name="var", description="Test variable")],
         ),
     ]
 
-    for original_agent in test_cases:
+    for original_skill in test_cases:
         # Serialize to dict
-        serialized = original_agent.model_dump()
+        serialized = original_skill.model_dump()
 
         # Serialize to JSON string
-        json_str = original_agent.model_dump_json()
+        json_str = original_skill.model_dump_json()
 
         # Deserialize from dict
-        deserialized_from_dict = BaseSkill.model_validate(serialized)
+        deserialized_from_dict = Skill.model_validate(serialized)
 
         # Deserialize from JSON string
-        deserialized_from_json = BaseSkill.model_validate_json(json_str)
+        deserialized_from_json = Skill.model_validate_json(json_str)
 
         # Verify all versions are equivalent
-        assert deserialized_from_dict.type == original_agent.type
-        assert deserialized_from_dict.name == original_agent.name
-        assert deserialized_from_dict.content == original_agent.content
-        assert deserialized_from_dict.source == original_agent.source
+        assert deserialized_from_dict.trigger.type == original_skill.trigger.type
+        assert deserialized_from_dict.name == original_skill.name
+        assert deserialized_from_dict.content == original_skill.content
+        assert deserialized_from_dict.source == original_skill.source
 
-        assert deserialized_from_json.type == original_agent.type
-        assert deserialized_from_json.name == original_agent.name
-        assert deserialized_from_json.content == original_agent.content
-        assert deserialized_from_json.source == original_agent.source
+        assert deserialized_from_json.trigger.type == original_skill.trigger.type
+        assert deserialized_from_json.name == original_skill.name
+        assert deserialized_from_json.content == original_skill.content
+        assert deserialized_from_json.source == original_skill.source
 
 
 def test_skill_union_polymorphic_list():
-    """Test that a list of SkillUnion can contain different skill types."""
-    # Create a list with different skill types
+    """Test that a list of Skills can contain different trigger types."""
+    # Create a list with different trigger types
     skills = [
-        RepoSkill(
+        Skill(
             name="repo1",
             content="Repo content",
             source="repo1.md",
+            trigger=RepoTrigger(),
         ),
         Skill(
             name="knowledge1",
             content="Knowledge content",
             source="knowledge1.md",
-            triggers=["test"],
+            trigger=KeywordTrigger(keywords=["test"]),
         ),
-        TaskSkill(
+        Skill(
             name="task1",
             content="Task content",
             source="task1.md",
-            triggers=["task"],
+            trigger=TaskTrigger(triggers=["task"]),
         ),
     ]
 
     # Serialize the list
-    serialized_list = [agent.model_dump() for agent in skills]
+    serialized_list = [skill.model_dump() for skill in skills]
 
-    # Verify each item has correct type
-    assert serialized_list[0]["type"] == "repo"
-    assert serialized_list[1]["type"] == "knowledge"
-    assert serialized_list[2]["type"] == "task"
+    # Verify each item has correct trigger type
+    assert serialized_list[0]["trigger"]["type"] == "repo"
+    assert serialized_list[1]["trigger"]["type"] == "keyword"
+    assert serialized_list[2]["trigger"]["type"] == "task"
 
     # Test JSON serialization of the list
     json_str = json.dumps(serialized_list)
     parsed_list = json.loads(json_str)
 
     assert len(parsed_list) == 3
-    assert parsed_list[0]["type"] == "repo"
-    assert parsed_list[1]["type"] == "knowledge"
-    assert parsed_list[2]["type"] == "task"
+    assert parsed_list[0]["trigger"]["type"] == "repo"
+    assert parsed_list[1]["trigger"]["type"] == "keyword"
+    assert parsed_list[2]["trigger"]["type"] == "task"
 
     # reconstruct the list from serialized data
-    deserialized_list = [BaseSkill.model_validate(item) for item in serialized_list]
+    deserialized_list = [Skill.model_validate(item) for item in serialized_list]
 
     assert len(deserialized_list) == 3
-    assert isinstance(deserialized_list[0], RepoSkill)
-    assert isinstance(deserialized_list[1], Skill)
-    assert isinstance(deserialized_list[2], TaskSkill)
+    assert isinstance(deserialized_list[0].trigger, RepoTrigger)
+    assert isinstance(deserialized_list[1].trigger, KeywordTrigger)
+    assert isinstance(deserialized_list[2].trigger, TaskTrigger)
     assert deserialized_list[0] == skills[0]
     assert deserialized_list[1] == skills[1]
     assert deserialized_list[2] == skills[2]
 
 
 def test_discriminated_union_with_openhands_model():
-    """Test discriminated union functionality with a Pydantic model."""
+    """Test trigger discrimination functionality with OpenHandsModel."""
 
     class TestModel(OpenHandsModel):
-        skills: list[BaseSkill] = Field(default_factory=list)
+        skills: list[Skill] = Field(default_factory=list)
 
-    # Create test data with different skill types
+    # Create test data with different trigger types
     test_data = {
         "skills": [
             {
-                "kind": "RepoSkill",
-                "type": "repo",
+                "kind": "Skill",
                 "name": "test-repo",
                 "content": "Repo content",
                 "source": "repo.md",
+                "trigger": {"type": "repo"},
                 "mcp_tools": None,
             },
             {
                 "kind": "Skill",
-                "type": "knowledge",
                 "name": "test-knowledge",
                 "content": "Knowledge content",
                 "source": "knowledge.md",
-                "triggers": ["test"],
+                "trigger": {"type": "keyword", "keywords": ["test"]},
             },
             {
-                "kind": "TaskSkill",
-                "type": "task",
+                "kind": "Skill",
                 "name": "test-task",
                 "content": "Task content",
                 "source": "task.md",
-                "triggers": ["task"],
+                "trigger": {"type": "task", "triggers": ["task"]},
                 "inputs": [],
             },
         ]
     }
 
-    # Validate the model - this tests the discriminated union
+    # Validate the model - this tests the trigger discrimination
     model = TestModel.model_validate(test_data)
 
     # Verify each skill was correctly discriminated
     assert len(model.skills) == 3
-    assert isinstance(model.skills[0], RepoSkill)
-    assert isinstance(model.skills[1], Skill)
-    assert isinstance(model.skills[2], TaskSkill)
+    assert isinstance(model.skills[0].trigger, RepoTrigger)
+    assert isinstance(model.skills[1].trigger, KeywordTrigger)
+    assert isinstance(model.skills[2].trigger, TaskTrigger)
 
-    # Verify types are correct
-    assert model.skills[0].type == "repo"
-    assert model.skills[1].type == "knowledge"
-    assert model.skills[2].type == "task"
+    # Verify trigger types are correct
+    assert model.skills[0].trigger.type == "repo"
+    assert model.skills[1].trigger.type == "keyword"
+    assert model.skills[2].trigger.type == "task"
 
 
 def test_discriminated_union_with_pydantic_model():
-    """Test discriminated union functionality with a Pydantic model."""
+    """Test trigger discrimination functionality with Pydantic BaseModel."""
 
     class TestModel(BaseModel):
-        skills: list[BaseSkill] = Field(default_factory=list)
+        skills: list[Skill] = Field(default_factory=list)
 
-    # Create test data with different skill types
+    # Create test data with different trigger types
     test_data = {
         "skills": [
             {
-                "kind": "RepoSkill",
-                "type": "repo",
                 "name": "test-repo",
                 "content": "Repo content",
                 "source": "repo.md",
+                "trigger": {"type": "repo"},
                 "mcp_tools": None,
             },
             {
-                "kind": "Skill",
-                "type": "knowledge",
                 "name": "test-knowledge",
                 "content": "Knowledge content",
                 "source": "knowledge.md",
-                "triggers": ["test"],
+                "trigger": {"type": "keyword", "keywords": ["test"]},
             },
             {
-                "kind": "TaskSkill",
-                "type": "task",
                 "name": "test-task",
                 "content": "Task content",
                 "source": "task.md",
-                "triggers": ["task"],
+                "trigger": {"type": "task", "triggers": ["task"]},
                 "inputs": [],
             },
         ]
     }
 
-    # Validate the model - this tests the discriminated union
+    # Validate the model - this tests the trigger discrimination
     model = TestModel.model_validate(test_data)
 
     # Verify each skill was correctly discriminated
     assert len(model.skills) == 3
-    assert isinstance(model.skills[0], RepoSkill)
-    assert isinstance(model.skills[1], Skill)
-    assert isinstance(model.skills[2], TaskSkill)
+    assert isinstance(model.skills[0].trigger, RepoTrigger)
+    assert isinstance(model.skills[1].trigger, KeywordTrigger)
+    assert isinstance(model.skills[2].trigger, TaskTrigger)
 
-    # Verify types are correct
-    assert model.skills[0].type == "repo"
-    assert model.skills[1].type == "knowledge"
-    assert model.skills[2].type == "task"
+    # Verify trigger types are correct
+    assert model.skills[0].trigger.type == "repo"
+    assert model.skills[1].trigger.type == "keyword"
+    assert model.skills[2].trigger.type == "task"

@@ -12,7 +12,8 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.context import (
-    RepoSkill,
+    KeywordTrigger,
+    RepoTrigger,
     Skill,
 )
 from openhands.sdk.tool import Tool, register_tool
@@ -47,10 +48,12 @@ tools = [
 
 agent_context = AgentContext(
     skills=[
-        RepoSkill(
+        Skill(
             name="repo.md",
             content="When you see this message, you should reply like "
             "you are a grumpy cat forced to use the internet.",
+            source="repo.md",
+            trigger=RepoTrigger(),
         ),
         Skill(
             name="flarglebargle",
@@ -58,7 +61,8 @@ agent_context = AgentContext(
                 'IMPORTANT! The user has said the magic word "flarglebargle". '
                 "You must only respond with a message telling them how smart they are"
             ),
-            triggers=["flarglebargle"],
+            source="flarglebargle.md",
+            trigger=KeywordTrigger(keywords=["flarglebargle"]),
         ),
     ],
     system_message_suffix="Always finish your response with the word 'yay!'",
