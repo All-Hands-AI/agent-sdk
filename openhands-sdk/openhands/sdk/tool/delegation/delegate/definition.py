@@ -7,13 +7,13 @@ from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
+from openhands.sdk.tool.delegation.delegate.impl import DelegateExecutor
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
     ToolAnnotations,
     ToolDefinition,
 )
-from openhands.tools.delegation.delegate.impl import DelegateExecutor
 
 
 class DelegateAction(Action):

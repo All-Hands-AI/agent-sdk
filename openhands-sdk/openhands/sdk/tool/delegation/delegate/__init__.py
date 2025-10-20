@@ -1,11 +1,11 @@
 """Delegate tools for OpenHands agents."""
 
-from openhands.tools.delegation.delegate.definition import (
+from openhands.sdk.tool.delegation.delegate.definition import (
     DelegateAction,
     DelegateObservation,
     DelegationTool,
 )
-from openhands.tools.delegation.delegate.impl import DelegateExecutor
+from openhands.sdk.tool.delegation.delegate.impl import DelegateExecutor
 
 
 __all__ = [

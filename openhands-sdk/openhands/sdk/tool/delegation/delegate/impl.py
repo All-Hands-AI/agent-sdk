@@ -8,7 +8,7 @@ from openhands.sdk.tool.tool import ToolExecutor
 
 
 if TYPE_CHECKING:
-    from openhands.tools.delegation.delegate.definition import (
+    from openhands.sdk.tool.delegation.delegate.definition import (
         DelegateAction,
         DelegateObservation,
     )
@@ -24,7 +24,9 @@ class DelegateExecutor(ToolExecutor):
 
     def __call__(self, action: "DelegateAction") -> "DelegateObservation":
         """Execute a delegation action."""
-        from openhands.tools.delegation.delegate.definition import DelegateObservation
+        from openhands.sdk.tool.delegation.delegate.definition import (
+            DelegateObservation,
+        )
 
         if action.operation == "spawn":
             return self._spawn_sub_agent(action)
@@ -45,7 +47,9 @@ class DelegateExecutor(ToolExecutor):
         The sub-agent will run in a separate thread and send messages back to the
         parent conversation when it completes or needs input.
         """
-        from openhands.tools.delegation.delegate.definition import DelegateObservation
+        from openhands.sdk.tool.delegation.delegate.definition import (
+            DelegateObservation,
+        )
 
         if not action.task:
             return DelegateObservation(
@@ -133,7 +137,9 @@ class DelegateExecutor(ToolExecutor):
 
     def _send_to_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Send a message to a sub-agent."""
-        from openhands.tools.delegation.delegate.definition import DelegateObservation
+        from openhands.sdk.tool.delegation.delegate.definition import (
+            DelegateObservation,
+        )
 
         if not action.sub_conversation_id:
             return DelegateObservation(
@@ -173,7 +179,9 @@ class DelegateExecutor(ToolExecutor):
 
     def _close_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Close a sub-agent."""
-        from openhands.tools.delegation.delegate.definition import DelegateObservation
+        from openhands.sdk.tool.delegation.delegate.definition import (
+            DelegateObservation,
+        )
 
         if not action.sub_conversation_id:
             return DelegateObservation(

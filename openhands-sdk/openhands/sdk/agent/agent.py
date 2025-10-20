@@ -33,7 +33,7 @@ from openhands.sdk.tool import (
     Observation,
 )
 from openhands.sdk.tool.builtins import FinishAction, ThinkAction
-from openhands.tools.delegation.wait_while_delegation import WaitWhileDelegationTool
+from openhands.sdk.tool.delegation import WaitWhileDelegationTool
 
 
 logger = get_logger(__name__)
