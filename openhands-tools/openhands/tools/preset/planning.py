@@ -90,7 +90,7 @@ def get_plan_headers() -> str:
 
 def register_planning_tools() -> None:
     """Register the planning agent tools."""
-    from openhands.tools.glob_tool import GlobTool
+    from openhands.tools.glob import GlobTool
     from openhands.tools.grep import GrepTool
     from openhands.tools.planning_file_editor import PlanningFileEditorTool
 
