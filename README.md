@@ -6,7 +6,7 @@ The OpenHands SDK allows you to build things with agents that write software. Fo
 2. An SRE system that reads your server logs and your codebase, then uses this info to debug new errors that are appearing in prod
 3. A customer onboarding system that takes all of their documents in unstructured format and enters information into your database
 
-This SDK also powers [OpenHands](https://github.com/All-Hands-AI/OpenHands), an all-batteries-included coding agent that you can access through a GUI, CLI, or API.
+This SDK also powers [OpenHands](https://github.com/OpenHands/OpenHands), an all-batteries-included coding agent that you can access through a GUI, CLI, or API.
 
 ## Hello World Example
 
@@ -63,7 +63,7 @@ Once this is done, run the following to do a Hello World example.
 
 ```bash
 # Clone the repository
-git clone https://github.com/All-Hands-AI/agent-sdk.git
+git clone https://github.com/OpenHands/agent-sdk.git
 cd agent-sdk
 
 # Install dependencies and setup development environment

@@ -17,7 +17,7 @@ on:
             image:
                 description: GHCR image name
                 type: string
-                default: ghcr.io/all-hands-ai/agent-server
+                default: ghcr.io/openhands/agent-server
             platforms:
                 description: Target platforms
                 type: string
@@ -177,7 +177,7 @@ jobs:
         runs-on: ${{ matrix.runner }}
 
         env:
-            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
+            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/openhands/agent-server' }}
             BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
             CUSTOM_TAGS: ${{ matrix.name }}
             TARGET: binary
@@ -317,7 +317,7 @@ jobs:
                   BUILD_SUMMARY=$(jq -n \
                       --arg image "$IMAGE" \
                       --arg short_sha "$SHORT_SHA" \
-                      --arg ghcr_url "https://github.com/All-Hands-AI/agent-sdk/pkgs/container/agent-server" \
+                      --arg ghcr_url "https://github.com/OpenHands/agent-sdk/pkgs/container/agent-server" \
                       --arg all_tags "$ALL_TAGS" \
                       --argjson variants "$VARIANTS_JSON" \
                       '{
