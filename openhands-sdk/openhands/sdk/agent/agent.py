@@ -35,14 +35,6 @@ from openhands.sdk.tool import (
 from openhands.sdk.tool.builtins import FinishAction, ThinkAction
 
 
-# Import WaitWhileDelegationAction for confirmation logic
-try:
-    from openhands.tools.delegation import WaitWhileDelegationAction
-except ImportError:
-    # Handle case where delegation tools are not available
-    WaitWhileDelegationAction = None
-
-
 logger = get_logger(__name__)
 
 
@@ -281,9 +273,17 @@ class Agent(AgentBase):
         """
         # A single `FinishAction`, `ThinkAction`, or `WaitWhileDelegationAction`
         # never requires confirmation
-        exempt_actions = (FinishAction, ThinkAction)
-        if WaitWhileDelegationAction is not None:
-            exempt_actions = exempt_actions + (WaitWhileDelegationAction,)
+        exempt_actions = [FinishAction, ThinkAction]
+
+        # Import WaitWhileDelegationAction locally to avoid circular imports
+        try:
+            from openhands.tools.delegation import WaitWhileDelegationAction
+
+            exempt_actions.append(WaitWhileDelegationAction)
+        except ImportError:
+            pass  # Delegation tools not available
+
+        exempt_actions = tuple(exempt_actions)
 
         if len(action_events) == 1 and isinstance(
             action_events[0].action, exempt_actions

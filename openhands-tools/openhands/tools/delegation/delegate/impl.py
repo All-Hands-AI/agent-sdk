@@ -15,15 +15,12 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Use singleton instance
+DELEGATION_MANAGER = DelegationManager()
+
 
 class DelegateExecutor(ToolExecutor):
     """Executor for delegation operations."""
-
-    def __init__(self, delegation_manager: DelegationManager | None = None):
-        # Use singleton by default, but allow override for testing
-        self.delegation_manager: DelegationManager = (
-            delegation_manager or DelegationManager()
-        )
 
     def __call__(self, action: "DelegateAction") -> "DelegateObservation":
         """Execute a delegation action."""
@@ -70,7 +67,7 @@ class DelegateExecutor(ToolExecutor):
 
         try:
             # Get parent conversation from delegation manager
-            parent_conversation = self.delegation_manager.get_conversation(
+            parent_conversation = DELEGATION_MANAGER.get_conversation(
                 str(action.conversation_id)
             )
             if parent_conversation is None:
@@ -103,7 +100,7 @@ class DelegateExecutor(ToolExecutor):
             visualize = getattr(parent_conversation, "visualize", True)
 
             # Spawn the sub-agent with real conversation (non-blocking)
-            sub_conversation = self.delegation_manager.spawn_sub_agent(
+            sub_conversation = DELEGATION_MANAGER.spawn_sub_agent(
                 parent_conversation=parent_conversation,
                 task=action.task,
                 worker_agent=worker_agent,
@@ -153,7 +150,7 @@ class DelegateExecutor(ToolExecutor):
             )
 
         # Send message to sub-agent
-        success = self.delegation_manager.send_to_sub_agent(
+        success = DELEGATION_MANAGER.send_to_sub_agent(
             sub_conversation_id=action.sub_conversation_id, message=action.message
         )
 
@@ -185,7 +182,7 @@ class DelegateExecutor(ToolExecutor):
                 message="Sub-conversation ID is required for close operation",
             )
 
-        success = self.delegation_manager.close_sub_agent(
+        success = DELEGATION_MANAGER.close_sub_agent(
             sub_conversation_id=action.sub_conversation_id
         )
 

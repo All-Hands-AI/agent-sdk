@@ -1,18 +1,14 @@
-"""Wait while delegation tools for OpenHands agents."""
-
-from openhands.tools.delegation.wait_while_delegation.definition import (
+from openhands.tools.delegation.wait_while_delegation.wait_while_delegation import (
     WaitWhileDelegationAction,
+    WaitWhileDelegationExecutor,
     WaitWhileDelegationObservation,
     WaitWhileDelegationTool,
-)
-from openhands.tools.delegation.wait_while_delegation.impl import (
-    WaitWhileDelegationExecutor,
 )
 
 
 __all__ = [
     "WaitWhileDelegationAction",
-    "WaitWhileDelegationObservation",
     "WaitWhileDelegationExecutor",
+    "WaitWhileDelegationObservation",
     "WaitWhileDelegationTool",
 ]
