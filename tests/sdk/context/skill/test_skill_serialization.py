@@ -6,8 +6,8 @@ from pydantic import BaseModel, Field
 
 from openhands.sdk.context.skills import (
     BaseSkill,
-    KnowledgeSkill,
     RepoSkill,
+    Skill,
     TaskSkill,
 )
 from openhands.sdk.context.skills.types import InputMetadata
@@ -44,9 +44,9 @@ def test_repo_skill_serialization():
 
 
 def test_knowledge_skill_serialization():
-    """Test KnowledgeSkill serialization and deserialization."""
-    # Create a KnowledgeSkill
-    knowledge_agent = KnowledgeSkill(
+    """Test Skill serialization and deserialization."""
+    # Create a Skill
+    knowledge_agent = Skill(
         name="test-knowledge",
         content="Knowledge-based instructions",
         source="test-knowledge.md",
@@ -68,7 +68,7 @@ def test_knowledge_skill_serialization():
 
     # Test deserialization
     deserialized = BaseSkill.model_validate(serialized)
-    assert isinstance(deserialized, KnowledgeSkill)
+    assert isinstance(deserialized, Skill)
     assert deserialized.type == "knowledge"
     assert deserialized.name == "test-knowledge"
     assert deserialized.triggers == ["python", "testing"]
@@ -120,7 +120,7 @@ def test_skill_union_serialization_roundtrip():
             content="Repo content",
             source="repo.md",
         ),
-        KnowledgeSkill(
+        Skill(
             name="knowledge-test",
             content="Knowledge content",
             source="knowledge.md",
@@ -169,7 +169,7 @@ def test_skill_union_polymorphic_list():
             content="Repo content",
             source="repo1.md",
         ),
-        KnowledgeSkill(
+        Skill(
             name="knowledge1",
             content="Knowledge content",
             source="knowledge1.md",
@@ -205,7 +205,7 @@ def test_skill_union_polymorphic_list():
 
     assert len(deserialized_list) == 3
     assert isinstance(deserialized_list[0], RepoSkill)
-    assert isinstance(deserialized_list[1], KnowledgeSkill)
+    assert isinstance(deserialized_list[1], Skill)
     assert isinstance(deserialized_list[2], TaskSkill)
     assert deserialized_list[0] == skills[0]
     assert deserialized_list[1] == skills[1]
@@ -230,7 +230,7 @@ def test_discriminated_union_with_openhands_model():
                 "mcp_tools": None,
             },
             {
-                "kind": "KnowledgeSkill",
+                "kind": "Skill",
                 "type": "knowledge",
                 "name": "test-knowledge",
                 "content": "Knowledge content",
@@ -255,7 +255,7 @@ def test_discriminated_union_with_openhands_model():
     # Verify each skill was correctly discriminated
     assert len(model.skills) == 3
     assert isinstance(model.skills[0], RepoSkill)
-    assert isinstance(model.skills[1], KnowledgeSkill)
+    assert isinstance(model.skills[1], Skill)
     assert isinstance(model.skills[2], TaskSkill)
 
     # Verify types are correct
@@ -282,7 +282,7 @@ def test_discriminated_union_with_pydantic_model():
                 "mcp_tools": None,
             },
             {
-                "kind": "KnowledgeSkill",
+                "kind": "Skill",
                 "type": "knowledge",
                 "name": "test-knowledge",
                 "content": "Knowledge content",
@@ -307,7 +307,7 @@ def test_discriminated_union_with_pydantic_model():
     # Verify each skill was correctly discriminated
     assert len(model.skills) == 3
     assert isinstance(model.skills[0], RepoSkill)
-    assert isinstance(model.skills[1], KnowledgeSkill)
+    assert isinstance(model.skills[1], Skill)
     assert isinstance(model.skills[2], TaskSkill)
 
     # Verify types are correct

@@ -4,8 +4,8 @@ from openhands.sdk.context.agent_context import (
 from openhands.sdk.context.prompts import render_template
 from openhands.sdk.context.skills import (
     BaseSkill,
-    KnowledgeSkill,
     RepoSkill,
+    Skill,
     SkillKnowledge,
     SkillValidationError,
     load_skills_from_dir,
@@ -15,7 +15,7 @@ from openhands.sdk.context.skills import (
 __all__ = [
     "AgentContext",
     "BaseSkill",
-    "KnowledgeSkill",
+    "Skill",
     "RepoSkill",
     "SkillKnowledge",
     "load_skills_from_dir",

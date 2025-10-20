@@ -143,7 +143,7 @@ class BaseSkill(DiscriminatedUnionMixin, ABC):
             )
 
         elif metadata_dict.get("triggers", None):
-            return KnowledgeSkill(
+            return Skill(
                 name=agent_name,
                 content=content,
                 source=str(path),
@@ -159,8 +159,8 @@ class BaseSkill(DiscriminatedUnionMixin, ABC):
             )
 
 
-class KnowledgeSkill(BaseSkill):
-    """Knowledge micro-agents provide specialized expertise that's triggered by keywords
+class Skill(BaseSkill):
+    """Skills provide specialized expertise that's triggered by keywords
     in conversations.
 
     They help with:
@@ -231,8 +231,8 @@ class RepoSkill(BaseSkill):
         return self
 
 
-class TaskSkill(KnowledgeSkill):
-    """TaskSkill is a special type of KnowledgeSkill that requires user input.
+class TaskSkill(Skill):
+    """TaskSkill is a special type of Skill that requires user input.
 
     These skills are triggered by a special format: "/{agent_name}"
     and will prompt the user for any required inputs before proceeding.
@@ -285,7 +285,7 @@ class TaskSkill(KnowledgeSkill):
 
 def load_skills_from_dir(
     skill_dir: str | Path,
-) -> tuple[dict[str, RepoSkill], dict[str, KnowledgeSkill]]:
+) -> tuple[dict[str, RepoSkill], dict[str, Skill]]:
     """Load all skills from the given directory.
 
     Note, legacy repo instructions will not be loaded here.
@@ -327,8 +327,8 @@ def load_skills_from_dir(
             agent = BaseSkill.load(file, skill_dir)
             if isinstance(agent, RepoSkill):
                 repo_agents[agent.name] = agent
-            elif isinstance(agent, KnowledgeSkill):
-                # Both KnowledgeSkill and TaskSkill go into knowledge_agents
+            elif isinstance(agent, Skill):
+                # Both Skill and TaskSkill go into knowledge_agents
                 knowledge_agents[agent.name] = agent
         except SkillValidationError as e:
             # For validation errors, include the original exception
@@ -347,6 +347,6 @@ def load_skills_from_dir(
 
 
 SkillType = Annotated[
-    RepoSkill | KnowledgeSkill | TaskSkill,
+    RepoSkill | Skill | TaskSkill,
     Field(discriminator="type"),
 ]

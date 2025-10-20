@@ -4,8 +4,8 @@ import pytest
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.skills import (
-    KnowledgeSkill,
     RepoSkill,
+    Skill,
 )
 from openhands.sdk.llm import Message, TextContent
 
@@ -39,7 +39,7 @@ class TestAgentContext:
 
     def test_get_system_message_suffix_no_repo_skills(self):
         """Test system message suffix with no repo skills."""
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="test_knowledge",
             content="Some knowledge content",
             type="knowledge",
@@ -121,7 +121,7 @@ defined in user's repository.\n"
 
     def test_get_user_message_suffix_empty_query(self):
         """Test user message suffix with empty query."""
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="python_tips",
             content="Use list comprehensions for better performance.",
             type="knowledge",
@@ -136,7 +136,7 @@ defined in user's repository.\n"
 
     def test_get_user_message_suffix_no_triggers(self):
         """Test user message suffix with no matching triggers."""
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="python_tips",
             content="Use list comprehensions for better performance.",
             type="knowledge",
@@ -153,7 +153,7 @@ defined in user's repository.\n"
 
     def test_get_user_message_suffix_with_single_trigger(self):
         """Test user message suffix with single triggered skill."""
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="python_tips",
             content="Use list comprehensions for better performance.",
             type="knowledge",
@@ -185,13 +185,13 @@ for "python".\n'
 
     def test_get_user_message_suffix_with_multiple_triggers(self):
         """Test user message suffix with multiple triggered skills."""
-        python_agent = KnowledgeSkill(
+        python_agent = Skill(
             name="python_best_practices",
             content="Follow PEP 8 and use type hints for better code quality.",
             type="knowledge",
             triggers=["python", "best practices"],
         )
-        testing_agent = KnowledgeSkill(
+        testing_agent = Skill(
             name="testing_framework",
             content="Use pytest for comprehensive testing with fixtures and \
 parametrization.",
@@ -237,7 +237,7 @@ parametrization.\n"
 
     def test_get_user_message_suffix_skip_skill_names(self):
         """Test user message suffix with skipped skill names."""
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="python_tips",
             content="Use list comprehensions for better performance.",
             type="knowledge",
@@ -255,7 +255,7 @@ parametrization.\n"
 
     def test_get_user_message_suffix_multiline_content(self):
         """Test user message suffix with multiline user content."""
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="database_tips",
             content="Always use parameterized queries to prevent SQL injection \
 attacks.",
@@ -297,7 +297,7 @@ attacks.",
             content="Use semantic versioning for releases.",
             type="repo",
         )
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="git_tips",
             content="Use conventional commits for better history.",
             type="knowledge",
@@ -348,7 +348,7 @@ for "git".\n'
 
     def test_case_insensitive_trigger_matching(self):
         """Test that trigger matching is case insensitive."""
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="docker_tips",
             content="Use multi-stage builds to reduce image size.",
             type="knowledge",
@@ -439,7 +439,7 @@ defined in user's repository.\n"
         """
         # Create context with only knowledge skills (no repo skills)
         # but with a custom system_message_suffix
-        knowledge_agent = KnowledgeSkill(
+        knowledge_agent = Skill(
             name="test_knowledge",
             content="Some knowledge content",
             type="knowledge",

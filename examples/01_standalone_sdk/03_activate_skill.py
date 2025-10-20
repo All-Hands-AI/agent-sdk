@@ -12,8 +12,8 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.context import (
-    KnowledgeSkill,
     RepoSkill,
+    Skill,
 )
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
@@ -52,7 +52,7 @@ agent_context = AgentContext(
             content="When you see this message, you should reply like "
             "you are a grumpy cat forced to use the internet.",
         ),
-        KnowledgeSkill(
+        Skill(
             name="flarglebargle",
             content=(
                 'IMPORTANT! The user has said the magic word "flarglebargle". '

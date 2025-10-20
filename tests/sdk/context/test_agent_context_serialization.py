@@ -4,8 +4,8 @@ import json
 
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.skills import (
-    KnowledgeSkill,
     RepoSkill,
+    Skill,
     TaskSkill,
 )
 from openhands.sdk.context.skills.types import InputMetadata
@@ -19,7 +19,7 @@ def test_agent_context_serialization_roundtrip():
         content="Repository guidelines",
         source="repo.md",
     )
-    knowledge_agent = KnowledgeSkill(
+    knowledge_agent = Skill(
         name="python-help",
         content="Use type hints in Python code",
         source="knowledge.md",
@@ -57,7 +57,7 @@ def test_agent_context_serialization_roundtrip():
     deserialized_from_dict = AgentContext.model_validate(serialized)
     assert isinstance(deserialized_from_dict.skills[0], RepoSkill)
     assert deserialized_from_dict.skills[0] == repo_agent
-    assert isinstance(deserialized_from_dict.skills[1], KnowledgeSkill)
+    assert isinstance(deserialized_from_dict.skills[1], Skill)
     assert deserialized_from_dict.skills[1] == knowledge_agent
     assert isinstance(deserialized_from_dict.skills[2], TaskSkill)
     assert deserialized_from_dict.skills[2] == task_agent
@@ -67,7 +67,7 @@ def test_agent_context_serialization_roundtrip():
     deserialized_from_json = AgentContext.model_validate_json(json_str)
     assert isinstance(deserialized_from_json.skills[0], RepoSkill)
     assert deserialized_from_json.skills[0] == repo_agent
-    assert isinstance(deserialized_from_json.skills[1], KnowledgeSkill)
+    assert isinstance(deserialized_from_json.skills[1], Skill)
     assert deserialized_from_json.skills[1] == knowledge_agent
     assert isinstance(deserialized_from_json.skills[2], TaskSkill)
     assert deserialized_from_json.skills[2] == task_agent

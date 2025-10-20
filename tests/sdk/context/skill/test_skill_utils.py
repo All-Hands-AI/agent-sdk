@@ -8,8 +8,8 @@ from pydantic import ValidationError
 
 from openhands.sdk.context import (
     BaseSkill,
-    KnowledgeSkill,
     RepoSkill,
+    Skill,
     SkillValidationError,
     load_skills_from_dir,
 )
@@ -72,7 +72,7 @@ Repository-specific test instructions.
 def test_knowledge_agent():
     """Test knowledge agent functionality."""
     # Create a knowledge agent with triggers
-    agent = KnowledgeSkill(
+    agent = Skill(
         name="test",
         content="Test content",
         source="test.md",
@@ -93,7 +93,7 @@ def test_load_skills(temp_skills_dir):
     # Check knowledge agents (name derived from filename: knowledge.md -> 'knowledge')
     assert len(knowledge_agents) == 1
     agent_k = knowledge_agents["knowledge"]
-    assert isinstance(agent_k, KnowledgeSkill)
+    assert isinstance(agent_k, Skill)
     assert agent_k.type == "knowledge"  # Check inferred type
     assert "test" in agent_k.triggers
 
@@ -131,7 +131,7 @@ Testing nested directory loading.
         len(knowledge_agents) == 2
     )  # Original ('knowledge') + nested ('nested/dir/nested')
     agent_n = knowledge_agents["nested/dir/nested"]
-    assert isinstance(agent_n, KnowledgeSkill)
+    assert isinstance(agent_n, Skill)
     assert agent_n.type == "knowledge"  # Check inferred type
     assert "nested" in agent_n.triggers
 
@@ -165,7 +165,7 @@ Testing loading with trailing slashes.
         len(knowledge_agents) == 2
     )  # Original ('knowledge') + trailing ('test_knowledge/trailing')
     agent_t = knowledge_agents["test_knowledge/trailing"]
-    assert isinstance(agent_t, KnowledgeSkill)
+    assert isinstance(agent_t, Skill)
     assert agent_t.type == "knowledge"  # Check inferred type
     assert "trailing" in agent_t.triggers
 
@@ -245,7 +245,7 @@ This is a test agent with integer version.
     agent = BaseSkill.load(test_path, file_content=skill_content)
 
     # Verify the agent was loaded correctly
-    assert isinstance(agent, KnowledgeSkill)
+    assert isinstance(agent, Skill)
     assert agent.name == "test_agent"
     # .metadata was deprecated in V1. this test simply tests
     # that we are backward compatible
@@ -276,7 +276,7 @@ This is a test agent with float version.
     agent = BaseSkill.load(test_path, file_content=skill_content)
 
     # Verify the agent was loaded correctly
-    assert isinstance(agent, KnowledgeSkill)
+    assert isinstance(agent, Skill)
     assert agent.name == "test_agent_float"
     assert agent.type == "knowledge"
 
@@ -304,7 +304,7 @@ This is a test agent with string version.
     agent = BaseSkill.load(test_path, file_content=skill_content)
 
     # Verify the agent was loaded correctly
-    assert isinstance(agent, KnowledgeSkill)
+    assert isinstance(agent, Skill)
     assert agent.name == "test_agent_string"
     assert agent.type == "knowledge"
 

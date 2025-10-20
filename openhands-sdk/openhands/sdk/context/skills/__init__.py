@@ -1,8 +1,8 @@
 from openhands.sdk.context.skills.exceptions import SkillValidationError
 from openhands.sdk.context.skills.skill import (
     BaseSkill,
-    KnowledgeSkill,
     RepoSkill,
+    Skill,
     TaskSkill,
     load_skills_from_dir,
 )
@@ -11,7 +11,7 @@ from openhands.sdk.context.skills.types import SkillKnowledge, SkillType
 
 __all__ = [
     "BaseSkill",
-    "KnowledgeSkill",
+    "Skill",
     "SkillType",
     "RepoSkill",
     "TaskSkill",

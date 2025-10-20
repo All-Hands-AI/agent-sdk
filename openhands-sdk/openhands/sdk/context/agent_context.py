@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field, field_validator
 from openhands.sdk.context.prompts import render_template
 from openhands.sdk.context.skills import (
     BaseSkill,
-    KnowledgeSkill,
     RepoSkill,
+    Skill,
     SkillKnowledge,
 )
 from openhands.sdk.llm import Message, TextContent
@@ -115,7 +115,7 @@ class AgentContext(BaseModel):
             return None
         # Search for skill triggers in the query
         for skill in self.skills:
-            if not isinstance(skill, KnowledgeSkill):
+            if not isinstance(skill, Skill):
                 continue
             trigger = skill.match_trigger(query)
             if trigger and skill.name not in skip_skill_names:

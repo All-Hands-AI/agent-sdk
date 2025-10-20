@@ -11,16 +11,16 @@ Context provides skills and knowledge the agent can rely on during a conversatio
 
 - **AgentContext**: Composes skills; pass to Agent to condition behavior
 - **RepoSkill**: Pulls knowledge from `.openhands/skills/repo.md` or explicit content
-- **KnowledgeSkill**: Embeds structured knowledge with optional triggers
+- **Skill**: Embeds structured knowledge with optional triggers
 
 ## Quick Example
 
 ```python
-from openhands.sdk.context import AgentContext, KnowledgeSkill
+from openhands.sdk.context import AgentContext, Skill
 
 agent_context = AgentContext(
     skills=[
-        KnowledgeSkill(
+        Skill(
             name="flarglebargle",
             content="If the user says flarglebargle, compliment them.",
             triggers=["flarglebargle"],
