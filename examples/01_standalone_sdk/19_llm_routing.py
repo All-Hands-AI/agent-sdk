@@ -26,19 +26,19 @@ model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
 base_url = os.getenv("LLM_BASE_URL")
 
 primary_llm = LLM(
-    service_id="agent-primary",
+    usage_id="agent-primary",
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
 )
 secondary_llm = LLM(
-    service_id="agent-secondary",
+    usage_id="agent-secondary",
     model="litellm_proxy/mistral/devstral-small-2507",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 multimodal_router = MultimodalRouter(
-    service_id="multimodal-router",
+    usage_id="multimodal-router",
     llms_for_routing={"primary": primary_llm, "secondary": secondary_llm},
 )
 

@@ -130,7 +130,7 @@ jobs:
                   version: latest
 
             - name: Install Node.js (for npx)
-              uses: actions/setup-node@v5
+              uses: actions/setup-node@v6
               with:
                   node-version: 22
 
@@ -208,7 +208,7 @@ jobs:
               id: build
               run: |
                   uv sync --frozen
-                  uv run ./openhands/agent_server/docker/build.py
+                  uv run ./openhands-agent-server/openhands/agent_server/docker/build.py
 
             - name: Summary (${{ matrix.name }}) - outputs
               run: |
