@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 from openhands.sdk.context.skills import (
     KeywordTrigger,
-    RepoTrigger,
     Skill,
     TaskTrigger,
 )
@@ -15,18 +14,18 @@ from openhands.sdk.utils.models import OpenHandsModel
 
 
 def test_repo_skill_serialization():
-    """Test Skill with RepoTrigger serialization and deserialization."""
-    # Create a Skill with RepoTrigger
+    """Test Skill with trigger=None (always-active) serialization."""
+    # Create a Skill with trigger=None (always-active)
     repo_skill = Skill(
         name="test-repo",
         content="Repository-specific instructions",
         source="test-repo.md",
-        trigger=RepoTrigger(),
+        trigger=None,
     )
 
     # Test serialization
     serialized = repo_skill.model_dump()
-    assert serialized["trigger"]["type"] == "repo"
+    assert serialized["trigger"] is None
     assert serialized["name"] == "test-repo"
     assert serialized["content"] == "Repository-specific instructions"
     assert serialized["source"] == "test-repo.md"
@@ -36,11 +35,11 @@ def test_repo_skill_serialization():
     json_str = repo_skill.model_dump_json()
     assert isinstance(json_str, str)
     parsed = json.loads(json_str)
-    assert parsed["trigger"]["type"] == "repo"
+    assert parsed["trigger"] is None
 
     # Test deserialization
     deserialized = Skill.model_validate(serialized)
-    assert isinstance(deserialized.trigger, RepoTrigger)
+    assert deserialized.trigger is None
     assert deserialized == repo_skill
 
 
@@ -118,7 +117,7 @@ def test_skill_union_serialization_roundtrip():
             name="repo-test",
             content="Repo content",
             source="repo.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         ),
         Skill(
             name="knowledge-test",
@@ -149,12 +148,16 @@ def test_skill_union_serialization_roundtrip():
         deserialized_from_json = Skill.model_validate_json(json_str)
 
         # Verify all versions are equivalent
-        assert deserialized_from_dict.trigger.type == original_skill.trigger.type
+        # Handle None trigger (always-active skills)
+        if original_skill.trigger is None:
+            assert deserialized_from_dict.trigger is None
+            assert deserialized_from_json.trigger is None
+        else:
+            assert deserialized_from_dict.trigger.type == original_skill.trigger.type
+            assert deserialized_from_json.trigger.type == original_skill.trigger.type
         assert deserialized_from_dict.name == original_skill.name
         assert deserialized_from_dict.content == original_skill.content
         assert deserialized_from_dict.source == original_skill.source
-
-        assert deserialized_from_json.trigger.type == original_skill.trigger.type
         assert deserialized_from_json.name == original_skill.name
         assert deserialized_from_json.content == original_skill.content
         assert deserialized_from_json.source == original_skill.source
@@ -168,7 +171,7 @@ def test_skill_union_polymorphic_list():
             name="repo1",
             content="Repo content",
             source="repo1.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         ),
         Skill(
             name="knowledge1",
@@ -188,7 +191,7 @@ def test_skill_union_polymorphic_list():
     serialized_list = [skill.model_dump() for skill in skills]
 
     # Verify each item has correct trigger type
-    assert serialized_list[0]["trigger"]["type"] == "repo"
+    assert serialized_list[0]["trigger"] is None  # Always-active skill
     assert serialized_list[1]["trigger"]["type"] == "keyword"
     assert serialized_list[2]["trigger"]["type"] == "task"
 
@@ -197,7 +200,7 @@ def test_skill_union_polymorphic_list():
     parsed_list = json.loads(json_str)
 
     assert len(parsed_list) == 3
-    assert parsed_list[0]["trigger"]["type"] == "repo"
+    assert parsed_list[0]["trigger"] is None  # Always-active skill
     assert parsed_list[1]["trigger"]["type"] == "keyword"
     assert parsed_list[2]["trigger"]["type"] == "task"
 
@@ -205,7 +208,7 @@ def test_skill_union_polymorphic_list():
     deserialized_list = [Skill.model_validate(item) for item in serialized_list]
 
     assert len(deserialized_list) == 3
-    assert isinstance(deserialized_list[0].trigger, RepoTrigger)
+    assert deserialized_list[0].trigger is None
     assert isinstance(deserialized_list[1].trigger, KeywordTrigger)
     assert isinstance(deserialized_list[2].trigger, TaskTrigger)
     assert deserialized_list[0] == skills[0]
@@ -227,7 +230,7 @@ def test_discriminated_union_with_openhands_model():
                 "name": "test-repo",
                 "content": "Repo content",
                 "source": "repo.md",
-                "trigger": {"type": "repo"},
+                "trigger": None,  # Always-active skill
                 "mcp_tools": None,
             },
             {
@@ -253,12 +256,12 @@ def test_discriminated_union_with_openhands_model():
 
     # Verify each skill was correctly discriminated
     assert len(model.skills) == 3
-    assert isinstance(model.skills[0].trigger, RepoTrigger)
+    assert model.skills[0].trigger is None
     assert isinstance(model.skills[1].trigger, KeywordTrigger)
     assert isinstance(model.skills[2].trigger, TaskTrigger)
 
     # Verify trigger types are correct
-    assert model.skills[0].trigger.type == "repo"
+    # First skill is always-active (trigger is None)
     assert model.skills[1].trigger.type == "keyword"
     assert model.skills[2].trigger.type == "task"
 
@@ -276,7 +279,7 @@ def test_discriminated_union_with_pydantic_model():
                 "name": "test-repo",
                 "content": "Repo content",
                 "source": "repo.md",
-                "trigger": {"type": "repo"},
+                "trigger": None,  # Always-active skill
                 "mcp_tools": None,
             },
             {
@@ -300,11 +303,11 @@ def test_discriminated_union_with_pydantic_model():
 
     # Verify each skill was correctly discriminated
     assert len(model.skills) == 3
-    assert isinstance(model.skills[0].trigger, RepoTrigger)
+    assert model.skills[0].trigger is None
     assert isinstance(model.skills[1].trigger, KeywordTrigger)
     assert isinstance(model.skills[2].trigger, TaskTrigger)
 
     # Verify trigger types are correct
-    assert model.skills[0].trigger.type == "repo"
+    # First skill is always-active (trigger is None)
     assert model.skills[1].trigger.type == "keyword"
     assert model.skills[2].trigger.type == "task"

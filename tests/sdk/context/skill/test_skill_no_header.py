@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from openhands.sdk.context import RepoTrigger, Skill
+from openhands.sdk.context import Skill
 
 
 def test_load_markdown_without_frontmatter():
@@ -12,7 +12,7 @@ def test_load_markdown_without_frontmatter():
     skill = Skill.load(path=path, file_content=content)
 
     # Verify it's loaded as a repo skill with default values
-    assert isinstance(skill.trigger, RepoTrigger)
+    assert skill.trigger is None
     assert skill.name == "test"  # Name comes from path.stem
     assert skill.content == content
 
@@ -28,7 +28,7 @@ def test_load_markdown_with_empty_frontmatter():
     skill = Skill.load(path=path, file_content=content)
 
     # Verify it's loaded as a repo skill with default values
-    assert isinstance(skill.trigger, RepoTrigger)
+    assert skill.trigger is None
     assert skill.name == "test"  # Name comes from path.stem
     assert (
         skill.content
@@ -49,7 +49,7 @@ This is a test markdown file with partial frontmatter."""
     skill = Skill.load(path=path, file_content=content)
 
     # Verify it uses provided name but default values for other fields
-    assert isinstance(skill.trigger, RepoTrigger)
+    assert skill.trigger is None
     assert skill.name == "custom_name"
     assert (
         skill.content
@@ -73,7 +73,7 @@ This is a test markdown file with full frontmatter."""
     skill = Skill.load(path=path, file_content=content)
 
     # Verify all provided values are used
-    assert isinstance(skill.trigger, RepoTrigger)
+    assert skill.trigger is None
     assert skill.name == "test_agent"
     assert (
         skill.content

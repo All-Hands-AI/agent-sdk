@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from openhands.sdk.context.prompts import render_template
 from openhands.sdk.context.skills import (
-    RepoTrigger,
     Skill,
     SkillKnowledge,
 )
@@ -72,7 +71,7 @@ class AgentContext(BaseModel):
         - Conversation instructions (e.g., user preferences, task details)
         - Repository-specific instructions (collected from repo skills)
         """
-        repo_skills = [s for s in self.skills if isinstance(s.trigger, RepoTrigger)]
+        repo_skills = [s for s in self.skills if s.trigger is None]
         logger.debug(f"Triggered {len(repo_skills)} repository skills: {repo_skills}")
         # Build the workspace context information
         if repo_skills:

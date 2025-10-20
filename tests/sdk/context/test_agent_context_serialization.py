@@ -5,7 +5,6 @@ import json
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.skills import (
     KeywordTrigger,
-    RepoTrigger,
     Skill,
     TaskTrigger,
 )
@@ -19,7 +18,7 @@ def test_agent_context_serialization_roundtrip():
         name="repo-guidelines",
         content="Repository guidelines",
         source="repo.md",
-        trigger=RepoTrigger(),
+        trigger=None,
     )
     knowledge_skill = Skill(
         name="python-help",
@@ -44,11 +43,10 @@ def test_agent_context_serialization_roundtrip():
     serialized = context.model_dump()
     assert serialized["system_message_suffix"] == "System suffix"
     assert serialized["user_message_suffix"] == "User suffix"
-    assert [skill["trigger"]["type"] for skill in serialized["skills"]] == [
-        "repo",
-        "keyword",
-        "task",
-    ]
+    # First skill has trigger=None (always-active), others have specific triggers
+    assert serialized["skills"][0]["trigger"] is None
+    assert serialized["skills"][1]["trigger"]["type"] == "keyword"
+    assert serialized["skills"][2]["trigger"]["type"] == "task"
 
     json_str = context.model_dump_json()
     parsed = json.loads(json_str)
@@ -58,7 +56,7 @@ def test_agent_context_serialization_roundtrip():
 
     deserialized_from_dict = AgentContext.model_validate(serialized)
     assert isinstance(deserialized_from_dict.skills[0], Skill)
-    assert isinstance(deserialized_from_dict.skills[0].trigger, RepoTrigger)
+    assert deserialized_from_dict.skills[0].trigger is None
     assert deserialized_from_dict.skills[0] == repo_skill
     assert isinstance(deserialized_from_dict.skills[1], Skill)
     assert isinstance(deserialized_from_dict.skills[1].trigger, KeywordTrigger)
@@ -71,7 +69,7 @@ def test_agent_context_serialization_roundtrip():
 
     deserialized_from_json = AgentContext.model_validate_json(json_str)
     assert isinstance(deserialized_from_json.skills[0], Skill)
-    assert isinstance(deserialized_from_json.skills[0].trigger, RepoTrigger)
+    assert deserialized_from_json.skills[0].trigger is None
     assert deserialized_from_json.skills[0] == repo_skill
     assert isinstance(deserialized_from_json.skills[1], Skill)
     assert isinstance(deserialized_from_json.skills[1].trigger, KeywordTrigger)

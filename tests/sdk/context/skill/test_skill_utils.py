@@ -8,7 +8,6 @@ from pydantic import ValidationError
 
 from openhands.sdk.context import (
     KeywordTrigger,
-    RepoTrigger,
     Skill,
     SkillValidationError,
     load_skills_from_dir,
@@ -25,7 +24,7 @@ def test_legacy_micro_agent_load(tmp_path):
 
     # Pass skill_dir (tmp_path in this case) to load
     skill = Skill.load(legacy_file, tmp_path)
-    assert isinstance(skill.trigger, RepoTrigger)
+    assert skill.trigger is None
     assert skill.name == "repo_legacy"  # Legacy name is hardcoded
     assert skill.content == CONTENT
 
@@ -98,8 +97,8 @@ def test_load_skills(temp_skills_dir):
     # Check repo agents (name derived from filename: repo.md -> 'repo')
     assert len(repo_agents) == 1
     agent_r = repo_agents["repo"]
-    assert isinstance(agent_r.trigger, RepoTrigger)
-    assert isinstance(agent_r.trigger, RepoTrigger)  # Check inferred type
+    assert agent_r.trigger is None
+    assert agent_r.trigger is None  # Check inferred type
 
 
 def test_load_skills_with_nested_dirs(temp_skills_dir):
@@ -206,10 +205,10 @@ Add proper error handling."""
     agent = Skill.load(cursorrules_path, file_content=cursorrules_content)
 
     # Verify it's loaded as a RepoSkill
-    assert isinstance(agent.trigger, RepoTrigger)
+    assert agent.trigger is None
     assert agent.name == "cursorrules"
     assert agent.content == cursorrules_content
-    assert isinstance(agent.trigger, RepoTrigger)
+    assert agent.trigger is None
     assert agent.source == str(cursorrules_path)
 
 
@@ -345,10 +344,10 @@ def test_load_skills_with_cursorrules(temp_skills_dir_with_cursorrules):
 
     # Check .cursorrules agent
     cursorrules_agent = repo_agents["cursorrules"]
-    assert isinstance(cursorrules_agent.trigger, RepoTrigger)
+    assert cursorrules_agent.trigger is None
     assert cursorrules_agent.name == "cursorrules"
     assert "Always use TypeScript for new files" in cursorrules_agent.content
-    assert isinstance(cursorrules_agent.trigger, RepoTrigger)
+    assert cursorrules_agent.trigger is None
 
 
 def test_repo_skill_with_mcp_tools():
@@ -377,9 +376,9 @@ This is a repo skill that includes MCP tools.
     agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify it's loaded as a RepoSkill
-    assert isinstance(agent.trigger, RepoTrigger)
+    assert agent.trigger is None
     assert agent.name == "default-tools"
-    assert isinstance(agent.trigger, RepoTrigger)
+    assert agent.trigger is None
     assert agent.mcp_tools is not None
 
     # Verify the mcp_tools configuration is correctly loaded
@@ -424,9 +423,9 @@ This is a repo skill that includes MCP tools in dict format.
     agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify it's loaded as a RepoSkill
-    assert isinstance(agent.trigger, RepoTrigger)
+    assert agent.trigger is None
     assert agent.name == "default-tools-dict"
-    assert isinstance(agent.trigger, RepoTrigger)
+    assert agent.trigger is None
     assert agent.mcp_tools is not None
 
     # Verify the mcp_tools configuration is correctly loaded
@@ -463,9 +462,9 @@ This is a repo skill without MCP tools.
     agent = Skill.load(test_path, file_content=skill_content)
 
     # Verify it's loaded as a RepoSkill
-    assert isinstance(agent.trigger, RepoTrigger)
+    assert agent.trigger is None
     assert agent.name == "no-mcp-tools"
-    assert isinstance(agent.trigger, RepoTrigger)
+    assert agent.trigger is None
     assert agent.mcp_tools is None
 
 

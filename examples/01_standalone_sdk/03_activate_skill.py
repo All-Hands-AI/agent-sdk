@@ -13,7 +13,6 @@ from openhands.sdk import (
 )
 from openhands.sdk.context import (
     KeywordTrigger,
-    RepoTrigger,
     Skill,
 )
 from openhands.sdk.tool import Tool, register_tool
@@ -56,8 +55,8 @@ agent_context = AgentContext(
             # (None = programmatically defined)
             source="repo.md",
             # trigger determines when the skill is active
-            # RepoTrigger = always active
-            trigger=RepoTrigger(),
+            # trigger=None means always active
+            trigger=None,
         ),
         Skill(
             name="flarglebargle",

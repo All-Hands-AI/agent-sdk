@@ -5,7 +5,6 @@ import pytest
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.skills import (
     KeywordTrigger,
-    RepoTrigger,
     Skill,
 )
 from openhands.sdk.llm import Message, TextContent
@@ -36,13 +35,13 @@ class TestAgentContext:
             name="duplicate",
             content="First agent",
             source="test1.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         )
         repo_skill2 = Skill(
             name="duplicate",
             content="Second agent",
             source="test2.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         )
 
         with pytest.raises(ValueError, match="Duplicate skill name found: duplicate"):
@@ -66,13 +65,13 @@ class TestAgentContext:
             name="coding_standards",
             content="Follow PEP 8 style guidelines for Python code.",
             source="coding_standards.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         )
         repo_agent2 = Skill(
             name="testing_guidelines",
             content="Write comprehensive unit tests for all new features.",
             source="testing_guidelines.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         )
 
         context = AgentContext(skills=[repo_agent1, repo_agent2])
@@ -104,7 +103,7 @@ defined in user's repository.\n"
             name="security_rules",
             content="Always validate user input and sanitize data.",
             source="security-rules.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         )
 
         context = AgentContext(
@@ -310,7 +309,7 @@ attacks.",
             name="repo_standards",
             content="Use semantic versioning for releases.",
             source="repo-standards.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         )
         knowledge_agent = Skill(
             name="git_tips",
@@ -400,7 +399,7 @@ for "docker".\n'
             content="Use {{ curly braces }} and <angle brackets> carefully in \
 templates.",
             source="special-chars.md",
-            trigger=RepoTrigger(),
+            trigger=None,
         )
 
         context = AgentContext(skills=[repo_agent])
@@ -426,7 +425,7 @@ templates.\n"
     def test_empty_skill_content(self):
         """Test template rendering with empty skill content."""
         repo_agent = Skill(
-            name="empty_content", content="", source="test.md", trigger=RepoTrigger()
+            name="empty_content", content="", source="test.md", trigger=None
         )
 
         context = AgentContext(skills=[repo_agent])

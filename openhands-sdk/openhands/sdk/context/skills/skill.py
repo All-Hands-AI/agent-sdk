@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from openhands.sdk.context.skills.exceptions import SkillValidationError
 from openhands.sdk.context.skills.trigger import (
     KeywordTrigger,
-    RepoTrigger,
     TaskTrigger,
 )
 from openhands.sdk.context.skills.types import InputMetadata
@@ -22,7 +21,7 @@ logger = get_logger(__name__)
 
 # Union type for all trigger types
 TriggerType = Annotated[
-    RepoTrigger | KeywordTrigger | TaskTrigger,
+    KeywordTrigger | TaskTrigger,
     Field(discriminator="type"),
 ]
 
@@ -31,14 +30,14 @@ class Skill(BaseModel):
     """A skill provides specialized knowledge or functionality.
 
     Skills use triggers to determine when they should be activated:
-    - RepoTrigger: Always active, for repository-specific guidelines
+    - None: Always active, for repository-specific guidelines
     - KeywordTrigger: Activated when keywords appear in user messages
     - TaskTrigger: Activated for specific tasks, may require user input
     """
 
     name: str
     content: str
-    trigger: TriggerType
+    trigger: TriggerType | None
     source: str | None = Field(
         default=None,
         description=(
@@ -70,13 +69,13 @@ class Skill(BaseModel):
         # Determine the agent name based on file type
         skill_name = cls.PATH_TO_THIRD_PARTY_SKILL_NAME.get(path.name.lower())
 
-        # Create Skill with RepoTrigger if we recognized the file type
+        # Create Skill with None trigger (always active) if we recognized the file type
         if skill_name is not None:
             return Skill(
                 name=skill_name,
                 content=file_content,
                 source=str(path),
-                trigger=RepoTrigger(),
+                trigger=None,
             )
 
         return None
@@ -115,7 +114,7 @@ class Skill(BaseModel):
                 name="repo_legacy",
                 content=file_content,
                 source=str(path),
-                trigger=RepoTrigger(),
+                trigger=None,
             )
 
         # Handle third-party agent instruction files
@@ -141,7 +140,7 @@ class Skill(BaseModel):
         # Infer the trigger type:
         # 1. If inputs exist -> TaskTrigger
         # 2. If keywords exist -> KeywordTrigger
-        # 3. Else (no keywords) -> RepoTrigger (always active)
+        # 3. Else (no keywords) -> None (always active)
         if "inputs" in metadata_dict:
             # Add a trigger for the agent name if not already present
             trigger_keyword = f"/{agent_name}"
@@ -164,13 +163,13 @@ class Skill(BaseModel):
                 trigger=KeywordTrigger(keywords=keywords),
             )
         else:
-            # No triggers, default to RepoTrigger (always active)
+            # No triggers, default to None (always active)
             mcp_tools_raw = metadata_dict.get("mcp_tools")
             return Skill(
                 name=agent_name,
                 content=content,
                 source=str(path),
-                trigger=RepoTrigger(),
+                trigger=None,
                 mcp_tools=mcp_tools_raw,
             )
 
@@ -259,7 +258,7 @@ def load_skills_from_dir(
 
     Returns:
         Tuple of (repo_skills, knowledge_skills) dictionaries.
-        repo_skills have RepoTrigger, knowledge_skills have KeywordTrigger
+        repo_skills have trigger=None, knowledge_skills have KeywordTrigger
         or TaskTrigger.
     """
     if isinstance(skill_dir, str):
@@ -291,7 +290,7 @@ def load_skills_from_dir(
     for file in chain(special_files, md_files):
         try:
             skill = Skill.load(file, skill_dir)
-            if isinstance(skill.trigger, RepoTrigger):
+            if skill.trigger is None:
                 repo_skills[skill.name] = skill
             else:
                 # KeywordTrigger and TaskTrigger skills

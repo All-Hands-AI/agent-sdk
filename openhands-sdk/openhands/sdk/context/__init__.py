@@ -3,7 +3,6 @@ from openhands.sdk.context.prompts import render_template
 from openhands.sdk.context.skills import (
     BaseTrigger,
     KeywordTrigger,
-    RepoTrigger,
     Skill,
     SkillKnowledge,
     SkillValidationError,
@@ -16,7 +15,6 @@ __all__ = [
     "AgentContext",
     "Skill",
     "BaseTrigger",
-    "RepoTrigger",
     "KeywordTrigger",
     "TaskTrigger",
     "SkillKnowledge",

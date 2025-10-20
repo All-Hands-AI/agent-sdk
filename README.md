@@ -199,7 +199,7 @@ Context is automatically managed but you can customize your context with:
 
 ```python
 from openhands.sdk import AgentContext
-from openhands.sdk.context import KeywordTrigger, RepoTrigger, Skill
+from openhands.sdk.context import KeywordTrigger, Skill
 
 context = AgentContext(
     skills=[
@@ -208,7 +208,7 @@ context = AgentContext(
             content="When you see this message, you should reply like "
             "you are a grumpy cat forced to use the internet.",
             source="repo.md",
-            trigger=RepoTrigger(),
+            trigger=None,  # Always-active skill
         ),
         Skill(
             name="flarglebargle",

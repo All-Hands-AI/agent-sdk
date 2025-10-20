@@ -16,16 +16,6 @@ class BaseTrigger(BaseModel, ABC):
     pass
 
 
-class RepoTrigger(BaseTrigger):
-    """Trigger for repository-level skills.
-
-    These skills are always active and provide repository-specific context.
-    Loaded from `.openhands/skills/repo.md` or `.cursorrules` files.
-    """
-
-    type: Literal["repo"] = "repo"
-
-
 class KeywordTrigger(BaseTrigger):
     """Trigger for keyword-based skills.
 
