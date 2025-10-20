@@ -1,7 +1,8 @@
-"""Test to reproduce bug #825: Output from previous execute_command is included.
+"""Test command output isolation for sequential execute_command calls.
 
-This test reproduces the bug where executing multiple commands sequentially
-causes the output from previous commands to be included in subsequent command results.
+This test verifies that executing multiple commands sequentially produces
+isolated outputs, ensuring each command's result contains only its own output
+without contamination from previous commands.
 """
 
 from unittest.mock import Mock
@@ -16,14 +17,14 @@ class TestRemoteWorkspaceMixin(RemoteWorkspaceMixin):
         super().__init__(**kwargs)
 
 
-def test_multiple_commands_should_not_include_previous_output():
-    """Test that executing multiple commands doesn't include previous output.
+def test_multiple_commands_output_isolation():
+    """Test that executing multiple commands produces isolated outputs.
 
-    This reproduces bug #825 where the output from previous execute_command
-    calls is included in the most recent command call.
+    Verifies that each execute_command call returns only its own output,
+    without including output from previous commands.
 
-    The bug occurs because the search params don't properly filter by command_id,
-    so all events are returned instead of just events for the current command.
+    This ensures proper command_id filtering in the API request params,
+    so only events for the current command are retrieved.
     """
     mixin = TestRemoteWorkspaceMixin(host="http://localhost:8000")
 
@@ -73,13 +74,13 @@ def test_multiple_commands_should_not_include_previous_output():
     start_response_2.raise_for_status = Mock()
     start_response_2.json.return_value = {"id": "cmd-002"}
 
-    # FIXED: With correct command_id filter, the API returns ONLY
+    # With correct command_id filter, the API returns ONLY
     # the current command's events (not previous commands)
-    poll_response_2_fixed = Mock()
-    poll_response_2_fixed.raise_for_status = Mock()
-    poll_response_2_fixed.json.return_value = {
+    poll_response_2 = Mock()
+    poll_response_2.raise_for_status = Mock()
+    poll_response_2.json.return_value = {
         "items": [
-            # Events from SECOND command only (first command events filtered out by API)
+            # Events from second command only (first command events filtered out by API)
             {
                 "kind": "BashOutput",
                 "stdout": (
@@ -102,43 +103,35 @@ def test_multiple_commands_should_not_include_previous_output():
     generator_2.send(start_response_2)
 
     try:
-        generator_2.send(poll_response_2_fixed)
+        generator_2.send(poll_response_2)
     except StopIteration as e:
         result_2 = e.value
 
-    # FIXED: With the correct params, the second command's output should ONLY
-    # contain events from the second command, not the first
-    assert result_2.exit_code == 0
-
-    # Verify the fix works correctly:
+    # Verify output isolation:
     # result_2.stdout should only contain "total 84" and "agent-server" etc
     # It should NOT contain "bash_events", "conversations", "project" from first command
+    assert result_2.exit_code == 0
     print(f"Result 2 stdout:\n{result_2.stdout}")
 
-    # Test for the CORRECT behavior - should PASS now that bug is fixed
+    # Verify that previous command output is not present
     assert "bash_events" not in result_2.stdout, (
-        "BUG: Second command output incorrectly includes first command output! "
+        "Second command output incorrectly includes first command output! "
         "The output should NOT contain 'bash_events' from the first command."
     )
     assert "conversations" not in result_2.stdout, (
-        "BUG: Second command output incorrectly includes first command output! "
+        "Second command output incorrectly includes first command output! "
         "The output should NOT contain 'conversations' from the first command."
     )
-    # The second command's output should be present
+    # Verify that current command output is present
     assert "agent-server" in result_2.stdout
 
 
-def test_command_id_filter_params_are_separate():
+def test_command_id_filter_params_structure():
     """Test that command_id__eq and sort_order are separate params.
 
-    This test verifies that the search params are correctly structured
-    with separate keys for command_id filtering and sort_order.
-
-    BUG: Line 93 in remote_workspace_mixin.py has:
-        "command_id__eqsort_order": "TIMESTAMP"
-    which should be two separate params:
-        "command_id__eq": command_id,
-        "sort_order": "TIMESTAMP"
+    Verifies that the API search params are correctly structured
+    with separate keys for command_id filtering and sort_order,
+    ensuring proper event filtering by command ID.
     """
     mixin = TestRemoteWorkspaceMixin(host="http://localhost:8000")
 
@@ -155,25 +148,21 @@ def test_command_id_filter_params_are_separate():
     # Send start response, get poll request
     poll_kwargs = generator.send(start_response)
 
-    # BUG: The params dict has a malformed key "command_id__eqsort_order"
-    # instead of separate "command_id__eq" and "sort_order" keys
+    # Verify the params dict has separate keys for filtering and sorting
     params = poll_kwargs["params"]
 
     print(f"\nActual params: {params}")
     print(f"Params keys: {list(params.keys())}")
 
-    # Test for the CORRECT behavior - these will FAIL with the current buggy code
-    # The params should have separate keys for command_id filtering and sort_order
+    # Verify params structure is correct
     assert "command_id__eq" in params, (
-        "Missing command_id__eq param. The buggy code has 'command_id__eqsort_order' "
-        "instead of separate 'command_id__eq' and 'sort_order' keys."
+        "Missing command_id__eq param for filtering events by command ID"
     )
     assert params["command_id__eq"] == "cmd-123", (
         "The command_id__eq param should filter by the command ID 'cmd-123'"
     )
     assert "sort_order" in params, (
-        "Missing sort_order param. The buggy code has 'command_id__eqsort_order' "
-        "instead of separate 'command_id__eq' and 'sort_order' keys."
+        "Missing sort_order param for sorting events by timestamp"
     )
     assert params["sort_order"] == "TIMESTAMP", (
         "The sort_order param should be set to 'TIMESTAMP'"
