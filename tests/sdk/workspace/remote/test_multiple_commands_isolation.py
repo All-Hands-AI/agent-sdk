@@ -10,8 +10,8 @@ from unittest.mock import Mock
 from openhands.sdk.workspace.remote.remote_workspace_mixin import RemoteWorkspaceMixin
 
 
-class TestRemoteWorkspaceMixin(RemoteWorkspaceMixin):
-    """Test implementation of RemoteWorkspaceMixin for testing purposes."""
+class _RemoteWorkspaceMixinForTest(RemoteWorkspaceMixin):
+    """Concrete implementation of RemoteWorkspaceMixin for testing purposes."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -26,7 +26,7 @@ def test_multiple_commands_output_isolation():
     This ensures proper command_id filtering in the API request params,
     so only events for the current command are retrieved.
     """
-    mixin = TestRemoteWorkspaceMixin(host="http://localhost:8000")
+    mixin = _RemoteWorkspaceMixinForTest(host="http://localhost:8000")
 
     # ==== First command: ls -l /workspace ====
     start_response_1 = Mock()
@@ -133,7 +133,7 @@ def test_command_id_filter_params_structure():
     with separate keys for command_id filtering and sort_order,
     ensuring proper event filtering by command ID.
     """
-    mixin = TestRemoteWorkspaceMixin(host="http://localhost:8000")
+    mixin = _RemoteWorkspaceMixinForTest(host="http://localhost:8000")
 
     start_response = Mock()
     start_response.raise_for_status = Mock()
