@@ -27,13 +27,13 @@ jobs:
             REPO_NAME: ${{ github.repository }}
         steps:
             - name: Checkout agent-sdk repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   repository: All-Hands-AI/agent-sdk
                   path: agent-sdk
 
             - name: Checkout PR repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   # Fetch the full history to get the diff
                   fetch-depth: 0
@@ -42,12 +42,12 @@ jobs:
                   ref: ${{ github.event.pull_request.head.ref }}
 
             - name: Set up Python
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
                   python-version: '3.12'
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v6
+              uses: astral-sh/setup-uv@v7
               with:
                   enable-cache: true
 
