@@ -33,6 +33,7 @@ from openhands.sdk.tool import (
     Observation,
 )
 from openhands.sdk.tool.builtins import FinishAction, ThinkAction
+from openhands.tools.delegation.wait_while_delegation import WaitWhileDelegationTool
 
 
 logger = get_logger(__name__)
@@ -446,7 +447,7 @@ class Agent(AgentBase):
         # Set conversation state
         if tool.name == FinishTool.name:
             state.agent_status = AgentExecutionStatus.FINISHED
-        elif tool.name == "wait_while_delegation":
+        elif tool.name == WaitWhileDelegationTool.name:
             # WaitWhileDelegationTool also sets status to FINISHED to pause main agent
             state.agent_status = AgentExecutionStatus.FINISHED
         return obs_event
