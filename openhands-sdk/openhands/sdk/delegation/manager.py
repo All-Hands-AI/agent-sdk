@@ -57,6 +57,13 @@ class DelegationManager:
         # Track parent conversation threads (triggered by sub-agent messages)
         self.parent_threads: dict[str, list[threading.Thread]] = {}
 
+    def _reset_for_testing(self) -> None:
+        """Reset the manager state for testing purposes."""
+        self.conversations.clear()
+        self.child_to_parent.clear()
+        self.sub_agent_threads.clear()
+        self.parent_threads.clear()
+
     def register_conversation(self, conversation: "BaseConversation") -> None:
         """Register a conversation with the delegation manager.
 

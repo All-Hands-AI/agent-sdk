@@ -9,6 +9,7 @@ from openhands.sdk.delegation.manager import DelegationManager
 def test_delegation_manager_init():
     """Test DelegationManager initialization."""
     manager = DelegationManager()
+    manager._reset_for_testing()  # Reset state for clean test
 
     assert manager.conversations == {}
     assert manager.child_to_parent == {}
@@ -17,6 +18,7 @@ def test_delegation_manager_init():
 def test_register_and_get_conversation():
     """Test registering and retrieving conversations."""
     manager = DelegationManager()
+    manager._reset_for_testing()  # Reset state for clean test
 
     # Create a mock conversation object with an ID
     mock_conv = MagicMock()
@@ -33,6 +35,7 @@ def test_register_and_get_conversation():
 def test_get_conversation_not_found():
     """Test getting a non-existent conversation."""
     manager = DelegationManager()
+    manager._reset_for_testing()  # Reset state for clean test
 
     # Try to get non-existent conversation
     result = manager.get_conversation("non-existent")
@@ -44,6 +47,7 @@ def test_get_conversation_not_found():
 def test_send_to_sub_agent_not_found():
     """Test sending message to non-existent sub-agent."""
     manager = DelegationManager()
+    manager._reset_for_testing()  # Reset state for clean test
 
     # Send message to non-existent sub-agent
     result = manager.send_to_sub_agent("non-existent", "Test message")
@@ -55,6 +59,7 @@ def test_send_to_sub_agent_not_found():
 def test_close_sub_agent_success():
     """Test closing sub-agent successfully."""
     manager = DelegationManager()
+    manager._reset_for_testing()  # Reset state for clean test
 
     # Create a dict-based entry to close
     test_id = str(uuid.uuid4())
@@ -74,6 +79,7 @@ def test_close_sub_agent_success():
 def test_close_sub_agent_with_parent_relationship():
     """Test closing sub-agent that has parent-child relationships."""
     manager = DelegationManager()
+    manager._reset_for_testing()  # Reset state for clean test
 
     # Create parent and child entries
     parent_id = str(uuid.uuid4())
@@ -99,6 +105,7 @@ def test_close_sub_agent_with_parent_relationship():
 def test_close_sub_agent_not_found():
     """Test closing non-existent sub-agent."""
     manager = DelegationManager()
+    manager._reset_for_testing()  # Reset state for clean test
 
     # Close non-existent sub-agent
     result = manager.close_sub_agent("non-existent")
