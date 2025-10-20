@@ -30,7 +30,8 @@ class DelegationManager:
     """
 
     _instance: "DelegationManager | None" = None
-    _lock = threading.Lock()
+    _lock: threading.Lock = threading.Lock()
+    _initialized: bool
 
     def __new__(cls):
         """Ensure only one instance exists (singleton pattern)."""
@@ -76,7 +77,11 @@ class DelegationManager:
         Returns:
             The conversation object if found, None otherwise
         """
-        return self.conversations.get(conversation_id)
+        conv = self.conversations.get(conversation_id)
+        # Only return proper conversation objects, not dict entries
+        if isinstance(conv, dict):
+            return None
+        return conv
 
     def spawn_sub_agent(
         self,
@@ -250,11 +255,24 @@ class DelegationManager:
             return False
 
         try:
-            sub_conversation.send_message(message)
-            logger.debug(
-                f"Sent message to sub-agent {sub_conversation_id}: {message[:100]}..."
-            )
-            return True
+            # Handle dict-based entries (backward compatibility)
+            if isinstance(sub_conversation, dict):
+                if "messages" not in sub_conversation:
+                    sub_conversation["messages"] = []
+                sub_conversation["messages"].append(message)
+                logger.debug(
+                    f"Sent message to dict-based sub-agent {sub_conversation_id}: "
+                    f"{message[:100]}..."
+                )
+                return True
+            else:
+                # Handle proper conversation objects
+                sub_conversation.send_message(message)
+                logger.debug(
+                    f"Sent message to sub-agent {sub_conversation_id}: "
+                    f"{message[:100]}..."
+                )
+                return True
         except Exception as e:
             logger.error(
                 f"Failed to send message to sub-agent {sub_conversation_id}: {e}"

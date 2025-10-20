@@ -21,7 +21,9 @@ class DelegateExecutor(ToolExecutor):
 
     def __init__(self, delegation_manager: DelegationManager | None = None):
         # Use singleton by default, but allow override for testing
-        self.delegation_manager = delegation_manager or DelegationManager()
+        self.delegation_manager: DelegationManager = (
+            delegation_manager or DelegationManager()
+        )
 
     def __call__(self, action: "DelegateAction") -> "DelegateObservation":
         """Execute a delegation action."""
