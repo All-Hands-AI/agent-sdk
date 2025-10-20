@@ -25,8 +25,9 @@ def test_legacy_micro_agent_load(tmp_path):
     # Pass skill_dir (tmp_path in this case) to load
     skill = Skill.load(legacy_file, tmp_path)
     assert skill.trigger is None
-    assert skill.name == "repo_legacy"  # Legacy name is hardcoded
-    assert skill.content == CONTENT
+    assert skill.name == ".openhands_instructions"  # Name derived from filename
+    # frontmatter.load() strips trailing newline
+    assert skill.content == CONTENT.rstrip("\n")
 
 
 @pytest.fixture
