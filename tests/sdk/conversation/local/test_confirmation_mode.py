@@ -5,7 +5,7 @@ Tests the core behavior: pause action execution for user confirmation.
 """
 
 from collections.abc import Sequence
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from litellm import ChatCompletionMessageToolCall
@@ -65,12 +65,12 @@ class TestConfirmationMode:
         """Set up test fixtures."""
 
         # Create a real LLM instance for Agent validation
-        self.llm = LLM(
-            model="gpt-4", api_key=SecretStr("test-key"), service_id="test-llm"
+        self.llm: LLM = LLM(
+            model="gpt-4", api_key=SecretStr("test-key"), usage_id="test-llm"
         )
 
         # Create a MagicMock to override the completion method
-        self.mock_llm = MagicMock()
+        self.mock_llm: Mock = MagicMock()
 
         # Create a proper MetricsSnapshot mock for the LLM
         mock_token_usage = TokenUsage(
@@ -114,11 +114,11 @@ class TestConfirmationMode:
 
         register_tool("test_tool", _make_tool)
 
-        self.agent = Agent(
+        self.agent: Agent = Agent(
             llm=self.llm,
             tools=[Tool(name="test_tool")],
         )
-        self.conversation = Conversation(agent=self.agent)
+        self.conversation: Conversation = Conversation(agent=self.agent)
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> MagicMock:
         """Configure LLM to return a plain assistant message (no tool calls)."""
@@ -201,6 +201,35 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=f"I'll finish with: {message}",
+                            tool_calls=[tool_call],
+                        )
+                    )
+                ],
+                created=0,
+                model="test-model",
+                object="chat.completion",
+            )
+        )
+
+    def _mock_think_action(self, thought: str = "Let me think about this") -> MagicMock:
+        """Configure LLM to return a ThinkAction tool call."""
+        tool_call = ChatCompletionMessageToolCall(
+            id="think_call_1",
+            type="function",
+            function=Function(
+                name="think",
+                arguments=f'{{"thought": "{thought}"}}',
+            ),
+        )
+
+        return MagicMock(
+            return_value=ModelResponse(
+                id="response_think",
+                choices=[
+                    Choices(
+                        message=LiteLLMMessage(
+                            role="assistant",
+                            content=f"I'll think: {thought}",
                             tool_calls=[tool_call],
                         )
                     )
@@ -496,50 +525,50 @@ class TestConfirmationMode:
         assert len(obs_events) == 1
         assert obs_events[0].observation.message == "Task completed successfully!"  # type: ignore[attr-defined]
 
-    def test_multiple_actions_with_finish_still_require_confirmation(self):
-        """Test that multiple actions (including FinishAction) still require confirmation."""  # noqa: E501
+    def test_think_and_finish_action_skips_confirmation_entirely(self):
+        """First step: ThinkAction (skips confirmation). Second step: FinishAction."""
         # Enable confirmation mode
         self.conversation.set_confirmation_policy(AlwaysConfirm())
 
-        # Mock LLM to return both a regular action and a FinishAction
-        mock_completion = self._mock_multiple_actions_with_finish()
+        # 1st model call -> ThinkAction; 2nd model call -> FinishAction
+        mock_think = self._mock_think_action("Let me analyze this problem")
+        mock_finish = self._mock_finish_action("Analysis complete")
 
-        # Send a message that should trigger both actions
         with patch(
             "openhands.sdk.llm.llm.litellm_completion",
-            return_value=mock_completion.return_value,
+            side_effect=[mock_think.return_value, mock_finish.return_value],
         ):
+            # Kick things off (LLM returns ThinkAction; should execute immediately)
             self.conversation.send_message(
                 Message(
-                    role="user",
-                    content=[TextContent(text="Execute command then finish")],
+                    role="user", content=[TextContent(text="Please think about this")]
                 )
             )
-
-            # Run the conversation
             self.conversation.run()
 
-        # Multiple actions should all wait for confirmation (including FinishAction)
+        # Still in confirmation mode overall, but both actions should have executed
         assert self.conversation.state.confirmation_policy == AlwaysConfirm()
-        assert (
-            self.conversation.state.agent_status
-            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-        )
+        assert self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
 
-        # Should have pending actions (both actions)
+        # No pending actions
         pending_actions = ConversationState.get_unmatched_actions(
             self.conversation.state.events
         )
-        assert len(pending_actions) == 2
-        action_tools = [action.tool_name for action in pending_actions]
-        assert "test_tool" in action_tools
-        assert "finish" in action_tools
+        assert len(pending_actions) == 0
 
-        # Should have no observation events (no actions executed yet)
+        # We should have two observations: one for ThinkAction, one for FinishAction
         obs_events = [
             e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
         ]
-        assert len(obs_events) == 0
+        assert len(obs_events) == 2
+
+        # 1) ThinkAction observation
+        assert hasattr(obs_events[0].observation, "content")
+        assert obs_events[0].observation.content == "Your thought has been logged."  # type: ignore[attr-defined]
+
+        # 2) FinishAction observation
+        assert hasattr(obs_events[1].observation, "message")
+        assert obs_events[1].observation.message == "Analysis complete"  # type: ignore[attr-defined]
 
     def test_pause_during_confirmation_preserves_waiting_status(self):
         """Test that pausing during WAITING_FOR_CONFIRMATION preserves the status.
