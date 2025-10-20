@@ -35,6 +35,14 @@ from openhands.sdk.tool import (
 from openhands.sdk.tool.builtins import FinishAction, ThinkAction
 
 
+# Import WaitWhileDelegationAction for confirmation logic
+try:
+    from openhands.tools.delegation import WaitWhileDelegationAction
+except ImportError:
+    # Handle case where delegation tools are not available
+    WaitWhileDelegationAction = None
+
+
 logger = get_logger(__name__)
 
 
@@ -271,9 +279,14 @@ class Agent(AgentBase):
             3. A single `FinishAction` never requires confirmation
             4. A single `ThinkAction` never requires confirmation
         """
-        # A single `FinishAction` or `ThinkAction` never requires confirmation
+        # A single `FinishAction`, `ThinkAction`, or `WaitWhileDelegationAction`
+        # never requires confirmation
+        exempt_actions = (FinishAction, ThinkAction)
+        if WaitWhileDelegationAction is not None:
+            exempt_actions = exempt_actions + (WaitWhileDelegationAction,)
+
         if len(action_events) == 1 and isinstance(
-            action_events[0].action, (FinishAction, ThinkAction)
+            action_events[0].action, exempt_actions
         ):
             return False
 
@@ -445,5 +458,8 @@ class Agent(AgentBase):
 
         # Set conversation state
         if tool.name == FinishTool.name:
+            state.agent_status = AgentExecutionStatus.FINISHED
+        elif tool.name == "wait_while_delegation":
+            # WaitWhileDelegationTool also sets status to FINISHED to pause main agent
             state.agent_status = AgentExecutionStatus.FINISHED
         return obs_event

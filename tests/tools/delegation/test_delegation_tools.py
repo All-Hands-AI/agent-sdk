@@ -7,8 +7,11 @@ from pydantic import SecretStr
 
 from openhands.sdk.delegation.manager import DelegationManager
 from openhands.sdk.llm import LLM
-from openhands.tools.delegation.definition import DelegateAction, DelegateObservation
-from openhands.tools.delegation.impl import DelegateExecutor
+from openhands.tools.delegation.delegate.definition import (
+    DelegateAction,
+    DelegateObservation,
+)
+from openhands.tools.delegation.delegate.impl import DelegateExecutor
 
 
 def create_test_executor_and_parent():
@@ -60,15 +63,15 @@ def test_delegate_action_creation():
 def test_delegate_observation_creation():
     """Test creating DelegateObservation instances."""
     observation = DelegateObservation(
+        operation="spawn",
+        success=True,
         sub_conversation_id="sub-123",
-        status="created",
         message="Sub-agent created successfully",
-        result="Task assigned",
     )
     assert observation.sub_conversation_id == "sub-123"
-    assert observation.status == "created"
+    assert observation.operation == "spawn"
+    assert observation.success is True
     assert observation.message == "Sub-agent created successfully"
-    assert observation.result == "Task assigned"
 
 
 def test_delegate_executor_spawn():

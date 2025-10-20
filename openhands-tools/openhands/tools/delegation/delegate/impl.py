@@ -1,4 +1,4 @@
-"""Implementation of delegation tool executor."""
+"""Implementation of delegate tool executor."""
 
 from typing import TYPE_CHECKING
 
@@ -8,10 +8,9 @@ from openhands.sdk.tool.tool import ToolExecutor
 
 
 if TYPE_CHECKING:
-    from openhands.tools.delegation.definition import (
+    from openhands.tools.delegation.delegate.definition import (
         DelegateAction,
         DelegateObservation,
-        WaitWhileDelegationObservation,
     )
 
 logger = get_logger(__name__)
@@ -28,7 +27,7 @@ class DelegateExecutor(ToolExecutor):
 
     def __call__(self, action: "DelegateAction") -> "DelegateObservation":
         """Execute a delegation action."""
-        from openhands.tools.delegation.definition import DelegateObservation
+        from openhands.tools.delegation.delegate.definition import DelegateObservation
 
         if action.operation == "spawn":
             return self._spawn_sub_agent(action)
@@ -38,7 +37,9 @@ class DelegateExecutor(ToolExecutor):
             return self._close_sub_agent(action)
         else:
             return DelegateObservation(
-                status="error", message=f"Unknown operation: {action.operation}"
+                operation=action.operation,
+                success=False,
+                message=f"Unknown operation: {action.operation}",
             )
 
     def _spawn_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
@@ -47,18 +48,21 @@ class DelegateExecutor(ToolExecutor):
         The sub-agent will run in a separate thread and send messages back to the
         parent conversation when it completes or needs input.
         """
-        from openhands.tools.delegation.definition import DelegateObservation
+        from openhands.tools.delegation.delegate.definition import DelegateObservation
 
         if not action.task:
             return DelegateObservation(
-                status="error", message="Task is required for spawn operation"
+                operation="spawn",
+                success=False,
+                message="Task is required for spawn operation",
             )
 
         # Check if conversation context is available
         if not action.conversation_id:
             logger.error("Conversation ID not set in action")
             return DelegateObservation(
-                status="error",
+                operation="spawn",
+                success=False,
                 message=(
                     "Delegation not properly configured - conversation ID missing"
                 ),
@@ -71,7 +75,8 @@ class DelegateExecutor(ToolExecutor):
             )
             if parent_conversation is None:
                 return DelegateObservation(
-                    status="error",
+                    operation="spawn",
+                    success=False,
                     message=f"Parent conversation {action.conversation_id} not found",
                 )
 
@@ -112,34 +117,39 @@ class DelegateExecutor(ToolExecutor):
             )
 
             return DelegateObservation(
+                operation="spawn",
+                success=True,
                 sub_conversation_id=str(sub_conversation.id),
-                status="created",
                 message=(
                     f"Sub-agent {sub_conversation.id} created and running "
                     "asynchronously"
                 ),
-                result=f"Task assigned: {action.task}",
             )
 
         except Exception as e:
             logger.error(f"Failed to spawn sub-agent: {e}", exc_info=True)
             return DelegateObservation(
-                status="error", message=f"Failed to spawn sub-agent: {str(e)}"
+                operation="spawn",
+                success=False,
+                message=f"Failed to spawn sub-agent: {str(e)}",
             )
 
     def _send_to_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Send a message to a sub-agent."""
-        from openhands.tools.delegation.definition import DelegateObservation
+        from openhands.tools.delegation.delegate.definition import DelegateObservation
 
         if not action.sub_conversation_id:
             return DelegateObservation(
-                status="error",
+                operation="send",
+                success=False,
                 message="Sub-conversation ID is required for send operation",
             )
 
         if not action.message:
             return DelegateObservation(
-                status="error", message="Message is required for send operation"
+                operation="send",
+                success=False,
+                message="Message is required for send operation",
             )
 
         # Send message to sub-agent
@@ -149,15 +159,16 @@ class DelegateExecutor(ToolExecutor):
 
         if success:
             return DelegateObservation(
+                operation="send",
+                success=True,
                 sub_conversation_id=action.sub_conversation_id,
-                status="message_sent",
                 message=f"Message sent to sub-agent {action.sub_conversation_id}",
-                result=f"Message: {action.message}",
             )
         else:
             return DelegateObservation(
+                operation="send",
+                success=False,
                 sub_conversation_id=action.sub_conversation_id,
-                status="error",
                 message=(
                     f"Failed to send message to sub-agent {action.sub_conversation_id}"
                 ),
@@ -165,11 +176,12 @@ class DelegateExecutor(ToolExecutor):
 
     def _close_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Close a sub-agent."""
-        from openhands.tools.delegation.definition import DelegateObservation
+        from openhands.tools.delegation.delegate.definition import DelegateObservation
 
         if not action.sub_conversation_id:
             return DelegateObservation(
-                status="error",
+                operation="close",
+                success=False,
                 message="Sub-conversation ID is required for close operation",
             )
 
@@ -179,48 +191,15 @@ class DelegateExecutor(ToolExecutor):
 
         if success:
             return DelegateObservation(
+                operation="close",
+                success=True,
                 sub_conversation_id=action.sub_conversation_id,
-                status="closed",
                 message=f"Sub-agent {action.sub_conversation_id} closed successfully",
             )
         else:
             return DelegateObservation(
+                operation="close",
+                success=False,
                 sub_conversation_id=action.sub_conversation_id,
-                status="error",
                 message=f"Failed to close sub-agent {action.sub_conversation_id}",
-            )
-
-
-class WaitWhileDelegationExecutor(ToolExecutor):
-    """Executor for waiting while sub-agents complete their tasks."""
-
-    def __call__(self, action) -> "WaitWhileDelegationObservation":
-        """Execute wait while delegation action by pausing the conversation."""
-        from openhands.tools.delegation.definition import WaitWhileDelegationObservation
-
-        logger.info("WaitWhileDelegation: Pausing main agent execution")
-
-        # This tool provides a way for the main agent to pause and wait
-        # for sub-agents to complete their tasks. The actual pausing mechanism
-        # is handled by the conversation framework when it encounters this observation.
-        try:
-            # Import here to avoid circular imports
-            from openhands.sdk.llm.message import TextContent
-
-            return WaitWhileDelegationObservation(
-                content=[
-                    TextContent(
-                        text=(
-                            f"Main agent paused: {action.message}\n"
-                            "Sub-agents will continue working and send results back."
-                        )
-                    )
-                ]
-            )
-        except Exception as e:
-            logger.error(f"Error in WaitWhileDelegation: {e}", exc_info=True)
-            from openhands.sdk.llm.message import TextContent
-
-            return WaitWhileDelegationObservation(
-                content=[TextContent(text=f"Error while waiting: {str(e)}")]
             )

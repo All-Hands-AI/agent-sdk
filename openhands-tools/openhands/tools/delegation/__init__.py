@@ -1,16 +1,16 @@
 """Delegation tools for OpenHands agents."""
 
-from openhands.tools.delegation.definition import (
+from openhands.tools.delegation.delegate import (
     DelegateAction,
+    DelegateExecutor,
     DelegateObservation,
     DelegationTool,
+)
+from openhands.tools.delegation.wait_while_delegation import (
     WaitWhileDelegationAction,
+    WaitWhileDelegationExecutor,
     WaitWhileDelegationObservation,
     WaitWhileDelegationTool,
-)
-from openhands.tools.delegation.impl import (
-    DelegateExecutor,
-    WaitWhileDelegationExecutor,
 )
 
 
