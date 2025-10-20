@@ -23,7 +23,7 @@ def test_nonexistent_tool_returns_error_and_continues_conversation():
 
     # Create a simple agent with no custom tools (only built-in ones)
     llm = LLM(
-        service_id="test-llm",
+        usage_id="test-llm",
         model="test-model",
         api_key=SecretStr("test-key"),
         base_url="http://test",
@@ -116,7 +116,7 @@ def test_nonexistent_tool_error_includes_available_tools():
 
     # Create agent with some tools
     llm = LLM(
-        service_id="test-llm",
+        usage_id="test-llm",
         model="test-model",
         api_key=SecretStr("test-key"),
         base_url="http://test",
@@ -190,7 +190,7 @@ def test_conversation_continues_after_tool_error():
     """Test that conversation can continue after a tool error."""
 
     llm = LLM(
-        service_id="test-llm",
+        usage_id="test-llm",
         model="test-model",
         api_key=SecretStr("test-key"),
         base_url="http://test",

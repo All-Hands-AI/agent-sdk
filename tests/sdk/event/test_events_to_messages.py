@@ -1,4 +1,4 @@
-"""Tests for events_to_messages conversion in openhands/sdk/event/base.py."""  # type: ignore
+"""Tests for events_to_messages conversion in openhands-sdk/event/base.py."""  # type: ignore
 
 import json
 from collections.abc import Sequence
