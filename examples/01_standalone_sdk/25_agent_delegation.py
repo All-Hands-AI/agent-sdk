@@ -191,79 +191,62 @@ conversation.run()
 print("⏳ Waiting for sub-agent threads to complete...")
 print()
 
-# Get the delegation manager from the main agent's delegate tool
-delegation_tool = main_agent.tools_map.get("delegate")
-delegation_manager = None
-if delegation_tool is not None:
-    try:
-        executor = delegation_tool.as_executable().executor
-        # DelegateExecutor exposes delegation_manager at runtime
-        delegation_manager = getattr(executor, "delegation_manager", None)
-    except Exception:
-        delegation_manager = None
 
 # Wait for specific sub-agent threads to complete (with timeout)
 max_wait = 180  # 3 minutes to account for LLM processing time
 start_time = time.time()
 
-if delegation_manager:
-    # Get the specific sub-agent threads we created
-    sub_agent_threads = list(delegation_manager.sub_agent_threads.items())
-    print(f"   Waiting for {len(sub_agent_threads)} sub-agent thread(s)...")
 
-    for sub_conv_id, thread in sub_agent_threads:
+# Get the specific sub-agent threads we created
+sub_agent_threads = list(delegation_manager.sub_agent_threads.items())
+print(f"   Waiting for {len(sub_agent_threads)} sub-agent thread(s)...")
+
+for sub_conv_id, thread in sub_agent_threads:
+    remaining = max_wait - (time.time() - start_time)
+    if remaining <= 0:
+        print(f"   ⏰ Timeout after {max_wait}s waiting for sub-agent threads")
+        break
+
+    # Wait for this specific thread to complete
+    thread.join(timeout=remaining)
+
+    if not thread.is_alive():
+        print(f"   ✅ Sub-agent {sub_conv_id[:8]} thread completed")
+    else:
+        print(f"   ⚠️  Sub-agent {sub_conv_id[:8]} thread still running after timeout")
+
+# Check if all threads completed
+all_completed = all(not thread.is_alive() for _, thread in sub_agent_threads)
+if all_completed:
+    print("\n✅ All sub-agent threads completed successfully!")
+else:
+    print(
+        f"\n⏰ Timeout after {int(time.time() - start_time)}s - some threads"
+        " still running"
+    )
+
+# Also wait for parent conversation threads (triggered by sub-agent messages)
+parent_threads = delegation_manager.parent_threads.get(str(conversation.id), [])
+if parent_threads:
+    print(f"\n⏳ Waiting for {len(parent_threads)} parent conversation thread(s)...")
+    for i, thread in enumerate(parent_threads):
         remaining = max_wait - (time.time() - start_time)
         if remaining <= 0:
-            print(f"   ⏰ Timeout after {max_wait}s waiting for sub-agent threads")
+            print("   ⏰ Timeout waiting for parent threads")
             break
 
-        # Wait for this specific thread to complete
         thread.join(timeout=remaining)
-
         if not thread.is_alive():
-            print(f"   ✅ Sub-agent {sub_conv_id[:8]} thread completed")
+            print(f"   ✅ Parent thread {i + 1} completed")
         else:
-            print(
-                f"   ⚠️  Sub-agent {sub_conv_id[:8]} thread still running after timeout"
-            )
+            print(f"   ⚠️  Parent thread {i + 1} still running after timeout")
 
-    # Check if all threads completed
-    all_completed = all(not thread.is_alive() for _, thread in sub_agent_threads)
-    if all_completed:
-        print("\n✅ All sub-agent threads completed successfully!")
+    all_parent_completed = all(not t.is_alive() for t in parent_threads)
+    if all_parent_completed:
+        print("✅ All parent conversation threads completed!")
     else:
-        print(
-            f"\n⏰ Timeout after {int(time.time() - start_time)}s - some threads"
-            " still running"
-        )
+        print("⚠️  Some parent threads still running")
 
-    # Also wait for parent conversation threads (triggered by sub-agent messages)
-    parent_threads = delegation_manager.parent_threads.get(str(conversation.id), [])
-    if parent_threads:
-        print(
-            f"\n⏳ Waiting for {len(parent_threads)} parent conversation thread(s)..."
-        )
-        for i, thread in enumerate(parent_threads):
-            remaining = max_wait - (time.time() - start_time)
-            if remaining <= 0:
-                print("   ⏰ Timeout waiting for parent threads")
-                break
-
-            thread.join(timeout=remaining)
-            if not thread.is_alive():
-                print(f"   ✅ Parent thread {i + 1} completed")
-            else:
-                print(f"   ⚠️  Parent thread {i + 1} still running after timeout")
-
-        all_parent_completed = all(not t.is_alive() for t in parent_threads)
-        if all_parent_completed:
-            print("✅ All parent conversation threads completed!")
-        else:
-            print("⚠️  Some parent threads still running")
-else:
-    print("⚠️  No delegation manager found")
-
-print()
 
 # Verify that main agent received messages from both sub-agents
 print("🔍 Verifying delegation workflow...")
