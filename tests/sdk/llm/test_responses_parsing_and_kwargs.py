@@ -182,7 +182,7 @@ def test_llm_responses_streaming_invokes_token_callback(mock_responses_call):
         ResponsesAPIStreamEvents.OUTPUT_TEXT_DELTA.value,
         ResponsesAPIStreamEvents.RESPONSE_COMPLETED.value,
     ]
-    assert captured[0].text == "Streaming "
+    assert captured[0].text_delta == "Streaming "
     assert captured[1].is_final is True
     assert result.message.role == "assistant"
     assert "Streaming hello" in "".join(

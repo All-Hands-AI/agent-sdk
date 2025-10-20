@@ -13,6 +13,12 @@ from openhands.sdk.conversation import (
     RemoteConversation,
 )
 from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.conversation.visualizer import (
+    ConversationVisualizer,
+    StreamingConversationVisualizer,
+    create_default_visualizer,
+    create_streaming_visualizer,
+)
 from openhands.sdk.event import Event, LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.io import FileStore, LocalFileStore
@@ -20,7 +26,7 @@ from openhands.sdk.llm import (
     LLM,
     ImageContent,
     LLMRegistry,
-    LLMStreamEvent,
+    LLMStreamChunk,
     Message,
     RedactedThinkingBlock,
     RegistryEvent,
@@ -60,9 +66,13 @@ except PackageNotFoundError:
 __all__ = [
     "LLM",
     "LLMRegistry",
-    "LLMStreamEvent",
+    "LLMStreamChunk",
     "TokenCallbackType",
     "ConversationStats",
+    "ConversationVisualizer",
+    "StreamingConversationVisualizer",
+    "create_default_visualizer",
+    "create_streaming_visualizer",
     "RegistryEvent",
     "Message",
     "TextContent",

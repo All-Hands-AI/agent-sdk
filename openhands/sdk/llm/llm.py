@@ -72,8 +72,8 @@ from openhands.sdk.llm.message import (
 )
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.streaming import (
-    LLMStreamEvent,
-    StreamChannel,
+    LLMStreamChunk,
+    StreamPartKind,
     TokenCallbackType,
 )
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
@@ -702,7 +702,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     def _stream_event_from_responses_chunk(
         self, chunk: ResponsesAPIStreamingResponse | Any
-    ) -> LLMStreamEvent | None:
+    ) -> LLMStreamChunk | None:
         event_type_obj = self._get_chunk_attr(chunk, "type")
         if event_type_obj is None:
             return None
@@ -712,42 +712,43 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         else:
             event_value = str(event_type_obj)
 
-        event = LLMStreamEvent(
+        stream_chunk = LLMStreamChunk(
             type=event_value,
             output_index=self._get_chunk_attr(chunk, "output_index"),
             content_index=self._get_chunk_attr(chunk, "content_index"),
             item_id=self._get_chunk_attr(chunk, "item_id"),
-            raw=chunk,
+            raw_chunk=chunk,
+            response_id=self._get_chunk_response_id(chunk),
         )
 
         if event_value in RESPONSES_FINAL_EVENT_TYPES:
-            event.is_final = True
+            stream_chunk.is_final = True
 
         text_value = self._get_chunk_text(chunk)
         arguments_value = self._get_chunk_arguments(chunk)
-        channel: StreamChannel = "unknown"
+        part_kind: StreamPartKind = "unknown"
 
         if event_value in {
             ResponsesAPIStreamEvents.OUTPUT_TEXT_DELTA.value,
             ResponsesAPIStreamEvents.OUTPUT_TEXT_DONE.value,
         }:
-            channel = "assistant_message"
+            part_kind = "assistant_message"
         elif event_value in {
             ResponsesAPIStreamEvents.REASONING_SUMMARY_TEXT_DELTA.value,
         }:
-            channel = "reasoning_summary"
+            part_kind = "reasoning_summary"
         elif event_value in {
             ResponsesAPIStreamEvents.FUNCTION_CALL_ARGUMENTS_DELTA.value,
             ResponsesAPIStreamEvents.FUNCTION_CALL_ARGUMENTS_DONE.value,
             ResponsesAPIStreamEvents.MCP_CALL_ARGUMENTS_DELTA.value,
             ResponsesAPIStreamEvents.MCP_CALL_ARGUMENTS_DONE.value,
         }:
-            channel = "function_call_arguments"
+            part_kind = "function_call_arguments"
         elif event_value in {
             ResponsesAPIStreamEvents.REFUSAL_DELTA.value,
             ResponsesAPIStreamEvents.REFUSAL_DONE.value,
         }:
-            channel = "refusal"
+            part_kind = "refusal"
         elif event_value in {
             ResponsesAPIStreamEvents.RESPONSE_CREATED.value,
             ResponsesAPIStreamEvents.RESPONSE_IN_PROGRESS.value,
@@ -771,18 +772,27 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ResponsesAPIStreamEvents.ERROR.value,
             "response.reasoning_summary_part.added",
         }:
-            channel = "status"
+            part_kind = "status"
 
-        event.channel = channel
+        stream_chunk.part_kind = part_kind
 
-        if channel in {"assistant_message", "reasoning_summary", "refusal"}:
+        if part_kind in {"assistant_message", "reasoning_summary", "refusal"}:
             if text_value:
-                event.text = text_value
-        if channel == "function_call_arguments":
-            if arguments_value:
-                event.arguments = arguments_value
+                stream_chunk.text_delta = text_value
+        if part_kind == "function_call_arguments" and arguments_value:
+            stream_chunk.arguments_delta = arguments_value
 
-        return event
+        return stream_chunk
+
+    def _get_chunk_response_id(self, chunk: Any) -> str | None:
+        response = self._get_chunk_attr(chunk, "response")
+        response_id = getattr(response, "id", None) if response is not None else None
+        if isinstance(response_id, str) and response_id:
+            return response_id
+        response_id = self._get_chunk_attr(chunk, "response_id")
+        if isinstance(response_id, str) and response_id:
+            return response_id
+        return None
 
     @staticmethod
     def _get_chunk_attr(chunk: Any, attr: str, default: Any = None) -> Any:

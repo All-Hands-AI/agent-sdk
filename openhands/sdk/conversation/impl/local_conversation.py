@@ -20,7 +20,7 @@ from openhands.sdk.event import (
     StreamingDeltaEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import LLM, LLMStreamEvent, Message, TextContent
+from openhands.sdk.llm import LLM, LLMStreamChunk, Message, TextContent
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
@@ -129,15 +129,15 @@ class LocalConversation(BaseConversation):
             _compose_token_callbacks(token_callbacks) if token_callbacks else None
         )
 
-        def _handle_stream_event(stream_event: LLMStreamEvent) -> None:
+        def _handle_stream_event(stream_chunk: LLMStreamChunk) -> None:
             try:
                 self._on_event(
-                    StreamingDeltaEvent(source="agent", stream_event=stream_event)
+                    StreamingDeltaEvent(source="agent", stream_chunk=stream_chunk)
                 )
             except Exception:
                 logger.exception("stream_event_processing_error", exc_info=True)
             if user_token_callback:
-                user_token_callback(stream_event)
+                user_token_callback(stream_chunk)
 
         self._on_token = _handle_stream_event
 

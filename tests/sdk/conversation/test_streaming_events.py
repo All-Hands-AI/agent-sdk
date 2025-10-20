@@ -6,7 +6,7 @@ from rich.console import Console
 from openhands.sdk import Conversation
 from openhands.sdk.agent import Agent
 from openhands.sdk.event import MessageEvent, StreamingDeltaEvent
-from openhands.sdk.llm import LLM, LLMResponse, LLMStreamEvent
+from openhands.sdk.llm import LLM, LLMResponse, LLMStreamChunk
 from openhands.sdk.llm.message import Message, TextContent
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 
@@ -15,37 +15,41 @@ class FakeStreamingLLM(LLM):
     def __init__(self) -> None:
         super().__init__(model="test-stream", service_id="test-stream")
         self._stream_events = [
-            LLMStreamEvent(
+            LLMStreamChunk(
                 type="response.output_text.delta",
-                channel="assistant_message",
-                text="Hello",
+                part_kind="assistant_message",
+                text_delta="Hello",
                 output_index=0,
                 content_index=0,
                 item_id="item-1",
+                response_id="resp-test",
             ),
-            LLMStreamEvent(
+            LLMStreamChunk(
                 type="response.output_text.delta",
-                channel="assistant_message",
-                text=" world",
+                part_kind="assistant_message",
+                text_delta=" world",
                 output_index=0,
                 content_index=0,
                 item_id="item-1",
+                response_id="resp-test",
             ),
-            LLMStreamEvent(
+            LLMStreamChunk(
                 type="response.output_text.done",
-                channel="assistant_message",
+                part_kind="assistant_message",
                 is_final=True,
                 output_index=0,
                 content_index=0,
                 item_id="item-1",
+                response_id="resp-test",
             ),
-            LLMStreamEvent(
+            LLMStreamChunk(
                 type="response.completed",
-                channel="status",
+                part_kind="status",
                 is_final=True,
                 output_index=0,
                 content_index=0,
                 item_id="item-1",
+                response_id="resp-test",
             ),
         ]
 
@@ -87,10 +91,10 @@ def test_streaming_events_persist_and_dispatch(tmp_path):
     llm = FakeStreamingLLM()
     agent = Agent(llm=llm, tools=[])
 
-    tokens: list[LLMStreamEvent] = []
+    tokens: list[LLMStreamChunk] = []
     callback_events = []
 
-    def token_cb(event: LLMStreamEvent) -> None:
+    def token_cb(event: LLMStreamChunk) -> None:
         tokens.append(event)
 
     def recorder(event) -> None:
@@ -114,17 +118,17 @@ def test_streaming_events_persist_and_dispatch(tmp_path):
     ]
 
     assert len(stream_events) == len(llm._stream_events)
-    assert [evt.stream_event.type for evt in stream_events] == [
+    assert [evt.stream_chunk.type for evt in stream_events] == [
         evt.type for evt in llm._stream_events
     ]
-    assert [evt.stream_event.channel for evt in stream_events[:3]] == [
+    assert [evt.stream_chunk.part_kind for evt in stream_events[:3]] == [
         "assistant_message",
         "assistant_message",
         "assistant_message",
     ]
-    assert stream_events[-2].stream_event.is_final is True
-    assert stream_events[-2].stream_event.channel == "assistant_message"
-    assert stream_events[-1].stream_event.channel == "status"
+    assert stream_events[-2].stream_chunk.is_final is True
+    assert stream_events[-2].stream_chunk.part_kind == "assistant_message"
+    assert stream_events[-1].stream_chunk.part_kind == "status"
 
     assert [evt.type for evt in tokens] == [evt.type for evt in llm._stream_events]
 
@@ -144,39 +148,43 @@ def test_streaming_events_persist_and_dispatch(tmp_path):
 
 
 def test_visualizer_streaming_renders_incremental_text():
-    from openhands.sdk.conversation.visualizer import ConversationVisualizer
+    from openhands.sdk.conversation.visualizer import create_streaming_visualizer
 
-    viz = ConversationVisualizer()
+    viz = create_streaming_visualizer()
     viz._console = Console(record=True)
+    viz._use_live = viz._console.is_terminal
 
-    reasoning_start = LLMStreamEvent(
+    reasoning_start = LLMStreamChunk(
         type="response.reasoning_summary_text.delta",
-        channel="reasoning_summary",
-        text="Think",
+        part_kind="reasoning_summary",
+        text_delta="Think",
         output_index=0,
         content_index=0,
         item_id="reasoning-1",
+        response_id="resp-test",
     )
-    reasoning_continue = LLMStreamEvent(
+    reasoning_continue = LLMStreamChunk(
         type="response.reasoning_summary_text.delta",
-        channel="reasoning_summary",
-        text=" deeply",
+        part_kind="reasoning_summary",
+        text_delta=" deeply",
         output_index=0,
         content_index=0,
         item_id="reasoning-1",
+        response_id="resp-test",
     )
-    reasoning_end = LLMStreamEvent(
+    reasoning_end = LLMStreamChunk(
         type="response.reasoning_summary_text.delta",
-        channel="reasoning_summary",
+        part_kind="reasoning_summary",
         is_final=True,
         output_index=0,
         content_index=0,
         item_id="reasoning-1",
+        response_id="resp-test",
     )
 
-    viz.on_event(StreamingDeltaEvent(source="agent", stream_event=reasoning_start))
-    viz.on_event(StreamingDeltaEvent(source="agent", stream_event=reasoning_continue))
-    viz.on_event(StreamingDeltaEvent(source="agent", stream_event=reasoning_end))
+    viz.on_event(StreamingDeltaEvent(source="agent", stream_chunk=reasoning_start))
+    viz.on_event(StreamingDeltaEvent(source="agent", stream_chunk=reasoning_continue))
+    viz.on_event(StreamingDeltaEvent(source="agent", stream_chunk=reasoning_end))
 
     output = viz._console.export_text()
     assert "Reasoning:" in output

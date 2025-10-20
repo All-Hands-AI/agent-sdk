@@ -74,16 +74,12 @@ Keeping the raw LiteLLM payload inside each `LLMStreamChunk` means we do **not**
 
 ## Visualization strategy
 
-1. **Track a hierarchy per conversation event.** When a LiteLLM stream begins we emit a placeholder `MessageEvent` (assistant message) or `ActionEvent` (function call). Each `LLMStreamChunk` should include a `response_id`/`item_id` so we can map to the owning conversation event:
-   - `output_text` → existing `MessageEvent` for the assistant response.
-   - `reasoning_summary_*` → reasoning area inside `MessageEvent`.
-   - `function_call_arguments_*` → arguments area inside `ActionEvent`.
-2. **Use `Live` per section.** For each unique `(conversation_event_id, part_kind, item_id)` create a Rich `Live` instance that updates with concatenated text. When the part is terminal, stop the `Live` and leave the final text in place.
-3. **Avoid newlines unless emitted by the model.** We’ll join chunks using plain string concatenation and only add newline characters when the delta contains `\n` or when we intentionally insert separators (e.g., between tool JSON arguments).
-4. **Segregate sections:**
-   - `Reasoning:` header per `MessageEvent`. Each new reasoning item gets its own Live line under that message.
-   - `Assistant:` body for natural language output, appended inside the message panel.
-   - `Function Arguments:` block under each action panel, streaming JSON incrementally.
+We will leave the existing `ConversationVisualizer` untouched for default/legacy usage and introduce a new `StreamingConversationVisualizer` that renders deltas directly inside the final panels:
+
+1. **Create/update per-response panels.** The first chunk for a `(response_id, output_index)` pair creates (or reuses) a panel for the assistant message or tool call and immediately starts streaming into it.
+2. **Route text into semantic sections.** Assistant text, reasoning summaries, function-call arguments, tool output, and refusals each update their own section inside the panel.
+3. **Use Rich `Live` when interactive.** In a real terminal we keep the panel on screen and update it in place; when the console is not interactive (tests, logging) we fall back to static updates.
+4. **Leave the panel in place when finished.** When the final chunk arrives we stop updating but keep the panel visible; the subsequent `MessageEvent`/`ActionEvent` is suppressed to avoid duplicate re-rendering.
 
 ## Implementation roadmap
 
@@ -95,11 +91,11 @@ Keeping the raw LiteLLM payload inside each `LLMStreamChunk` means we do **not**
    - When we enqueue the initial `MessageEvent`/`ActionEvent`, cache a lookup (e.g., `inflight_streams[(response_id, output_index)] = conversation_event_id`).
    - Update `LocalConversation` token callback wrapper to attach the resolved conversation event ID onto the `LLMStreamChunk` before emitting/persisting.
 
-3. **Visualizer rewrite**
-   - Maintain `self._stream_views[(conversation_event_id, part_kind, item_id)] = LiveState` where `LiveState` wraps buffer, style, and a `Live` instance.
-   - On streaming updates: update buffer, `live.update(Text(buffer, style=...))` without printing newlines.
-   - On final chunk: stop `Live`, render final static text, and optionally record in conversation state for playback.
-   - Ensure replay (when visualizer processes stored events) converts stored parts into final text as well.
+3. **Streaming visualizer**
+   - Implement `StreamingConversationVisualizer` with lightweight session tracking (keyed by response/output) that owns Rich panels for streaming sections.
+   - Stream updates into the same panel that will remain visible after completion; use `Live` only when running in an interactive terminal.
+   - Suppress duplicate rendering when the final `MessageEvent`/`ActionEvent` arrives, since the streamed panel already contains the content.
+   - Provide a factory helper (e.g., `create_streaming_visualizer`) for callers that want the streaming experience.
 
 4. **Persistence / tests**
    - Update tests to ensure:
@@ -117,5 +113,6 @@ Keeping the raw LiteLLM payload inside each `LLMStreamChunk` means we do **not**
 - [ ] Refactor classifier to output `LLMStreamChunk` objects with clear `part_kind`.
 - [ ] Track in-flight conversation events so parts know their owner.
 - [ ] Replace print-based visualizer streaming with `Live` blocks per section.
-- [ ] Extend unit tests to cover multiple messages, reasoning segments, and tool calls.
+- [ ] Extend unit tests to cover multiple messages, reasoning segments, tool calls, and the new streaming visualizer.
+- [ ] Update the standalone streaming example to wire in the streaming visualizer helper.
 - [ ] Manually validate with long streaming example to confirm smooth in-place updates.

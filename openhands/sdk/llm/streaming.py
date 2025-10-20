@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 
-StreamChannel = Literal[
+StreamPartKind = Literal[
     "assistant_message",
     "reasoning_summary",
     "function_call_arguments",
@@ -18,18 +18,19 @@ StreamChannel = Literal[
 
 
 @dataclass(slots=True)
-class LLMStreamEvent:
+class LLMStreamChunk:
     """Represents a streaming delta emitted by an LLM provider."""
 
     type: str
-    channel: StreamChannel = "unknown"
-    text: str | None = None
-    arguments: str | None = None
+    part_kind: StreamPartKind = "unknown"
+    text_delta: str | None = None
+    arguments_delta: str | None = None
     output_index: int | None = None
     content_index: int | None = None
     item_id: str | None = None
+    response_id: str | None = None
     is_final: bool = False
-    raw: Any | None = None
+    raw_chunk: Any | None = None
 
 
-TokenCallbackType = Callable[[LLMStreamEvent], None]
+TokenCallbackType = Callable[[LLMStreamChunk], None]
