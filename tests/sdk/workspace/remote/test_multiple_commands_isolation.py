@@ -17,113 +17,63 @@ class _RemoteWorkspaceMixinForTest(RemoteWorkspaceMixin):
         super().__init__(**kwargs)
 
 
-def test_multiple_commands_output_isolation():
-    """Test that executing multiple commands produces isolated outputs.
+def test_multiple_commands_use_different_command_ids():
+    """Test that sequential commands use different command IDs in API params.
 
-    Verifies that each execute_command call returns only its own output,
-    without including output from previous commands.
-
-    This ensures proper command_id filtering in the API request params,
-    so only events for the current command are retrieved.
+    Verifies that when multiple commands are executed sequentially,
+    each one uses its own command_id for filtering events, preventing
+    output contamination from previous commands.
     """
     mixin = _RemoteWorkspaceMixinForTest(host="http://localhost:8000")
 
-    # ==== First command: ls -l /workspace ====
+    # ==== First command ====
     start_response_1 = Mock()
     start_response_1.raise_for_status = Mock()
     start_response_1.json.return_value = {"id": "cmd-001"}
 
-    # Events for first command
-    poll_response_1 = Mock()
-    poll_response_1.raise_for_status = Mock()
-    poll_response_1.json.return_value = {
-        "items": [
-            {
-                "kind": "BashOutput",
-                "stdout": (
-                    "total 12\n"
-                    "drwxr-xr-x 2 openhands openhands 4096 Oct 20 17:29 bash_events\n"
-                    "drwxr-xr-x 2 openhands openhands 4096 Oct 20 17:29 conversations\n"
-                    "drwxr-xr-x 2 openhands openhands 4096 Oct 19 20:07 project\n"
-                ),
-                "stderr": "",
-                "exit_code": 0,
-            }
-        ]
-    }
-
     generator_1 = mixin._execute_command_generator("ls -l /workspace", None, 30.0)
 
-    # Execute first command
-    next(generator_1)  # Start command
-    generator_1.send(start_response_1)
+    # Start first command
+    start_kwargs_1 = next(generator_1)
+    assert start_kwargs_1["method"] == "POST"
 
-    try:
-        generator_1.send(poll_response_1)
-    except StopIteration as e:
-        result_1 = e.value
+    # Get poll request for first command
+    poll_kwargs_1 = generator_1.send(start_response_1)
 
-    # Verify first command result is correct
-    assert result_1.exit_code == 0
-    assert "bash_events" in result_1.stdout
-    assert "conversations" in result_1.stdout
-    assert "project" in result_1.stdout
+    # Verify first command filters by cmd-001
+    params_1 = poll_kwargs_1["params"]
+    assert "command_id__eq" in params_1
+    assert params_1["command_id__eq"] == "cmd-001", (
+        "First command should filter events by its command ID 'cmd-001'"
+    )
 
-    # ==== Second command: ls -l ./ ====
+    # ==== Second command ====
     start_response_2 = Mock()
     start_response_2.raise_for_status = Mock()
     start_response_2.json.return_value = {"id": "cmd-002"}
 
-    # With correct command_id filter, the API returns ONLY
-    # the current command's events (not previous commands)
-    poll_response_2 = Mock()
-    poll_response_2.raise_for_status = Mock()
-    poll_response_2.json.return_value = {
-        "items": [
-            # Events from second command only (first command events filtered out by API)
-            {
-                "kind": "BashOutput",
-                "stdout": (
-                    "total 84\n"
-                    "drwxr-xr-x     1 openhands openhands 4096 "
-                    "Oct 19 01:07 agent-server\n"
-                    "lrwxrwxrwx     1 root      root         7 "
-                    "Aug 24 16:20 bin -> usr/bin\n"
-                ),
-                "stderr": "",
-                "exit_code": 0,
-            },
-        ]
-    }
-
     generator_2 = mixin._execute_command_generator("ls -l ./", None, 30.0)
 
-    # Execute second command
-    next(generator_2)  # Start command
-    generator_2.send(start_response_2)
+    # Start second command
+    start_kwargs_2 = next(generator_2)
+    assert start_kwargs_2["method"] == "POST"
 
-    try:
-        generator_2.send(poll_response_2)
-    except StopIteration as e:
-        result_2 = e.value
+    # Get poll request for second command
+    poll_kwargs_2 = generator_2.send(start_response_2)
 
-    # Verify output isolation:
-    # result_2.stdout should only contain "total 84" and "agent-server" etc
-    # It should NOT contain "bash_events", "conversations", "project" from first command
-    assert result_2.exit_code == 0
-    print(f"Result 2 stdout:\n{result_2.stdout}")
-
-    # Verify that previous command output is not present
-    assert "bash_events" not in result_2.stdout, (
-        "Second command output incorrectly includes first command output! "
-        "The output should NOT contain 'bash_events' from the first command."
+    # Verify second command filters by cmd-002 (NOT cmd-001)
+    params_2 = poll_kwargs_2["params"]
+    assert "command_id__eq" in params_2
+    assert params_2["command_id__eq"] == "cmd-002", (
+        "Second command should filter events by its OWN command ID 'cmd-002', "
+        "not by the first command's ID. This ensures outputs are isolated."
     )
-    assert "conversations" not in result_2.stdout, (
-        "Second command output incorrectly includes first command output! "
-        "The output should NOT contain 'conversations' from the first command."
+
+    # Verify the two commands use different command IDs
+    assert params_1["command_id__eq"] != params_2["command_id__eq"], (
+        "Sequential commands must use different command IDs to prevent "
+        "output contamination"
     )
-    # Verify that current command output is present
-    assert "agent-server" in result_2.stdout
 
 
 def test_command_id_filter_params_structure():
