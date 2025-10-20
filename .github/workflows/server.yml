@@ -146,10 +146,12 @@ jobs:
 
     build-and-push-image:
         name: Build & Push
-        # Run on all commits (push events and pull requests)
+        # Run on push events and pull requests from the same repository (not forks)
+        # Fork PRs cannot push to GHCR and would fail authentication
         if: >
             github.event_name == 'push' ||
-            github.event_name == 'pull_request'
+            (github.event_name == 'pull_request' &&
+             !github.event.pull_request.head.repo.fork)
         strategy:
             fail-fast: false
             matrix:
