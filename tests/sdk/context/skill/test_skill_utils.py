@@ -24,11 +24,11 @@ def test_legacy_micro_agent_load(tmp_path):
     legacy_file.write_text(CONTENT)
 
     # Pass skill_dir (tmp_path in this case) to load
-    micro_agent = BaseSkill.load(legacy_file, tmp_path)
-    assert isinstance(micro_agent, RepoSkill)
-    assert micro_agent.name == "repo_legacy"  # Legacy name is hardcoded
-    assert micro_agent.content == CONTENT
-    assert micro_agent.type == "repo"
+    skill = BaseSkill.load(legacy_file, tmp_path)
+    assert isinstance(skill, RepoSkill)
+    assert skill.name == "repo_legacy"  # Legacy name is hardcoded
+    assert skill.content == CONTENT
+    assert skill.type == "repo"
 
 
 @pytest.fixture
