@@ -24,6 +24,7 @@ from openhands.sdk.llm import (
     TextContent,
     ThinkingBlock,
 )
+from openhands.sdk.llm.exceptions import FunctionCallValidationError
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -202,6 +203,20 @@ class Agent(AgentBase):
                     "LLM raised context window exceeded error, triggering condensation"
                 )
                 on_event(CondensationRequest())
+                return
+
+            # If the LLM generated a malformed function call, send the error back
+            # as a message so it can correct the tool call
+            elif isinstance(e, FunctionCallValidationError):
+                logger.warning(f"LLM generated malformed function call: {e}")
+                error_message = MessageEvent(
+                    source="user",
+                    llm_message=Message(
+                        role="user",
+                        content=[TextContent(text=str(e))],
+                    ),
+                )
+                on_event(error_message)
                 return
 
             # If the error isn't recoverable, keep propagating it up the stack.
