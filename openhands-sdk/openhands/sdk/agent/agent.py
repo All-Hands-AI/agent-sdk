@@ -271,22 +271,9 @@ class Agent(AgentBase):
             3. A single `FinishAction` never requires confirmation
             4. A single `ThinkAction` never requires confirmation
         """
-        # A single `FinishAction`, `ThinkAction`, or `WaitWhileDelegationAction`
-        # never requires confirmation
-        exempt_actions = [FinishAction, ThinkAction]
-
-        # Import WaitWhileDelegationAction locally to avoid circular imports
-        try:
-            from openhands.tools.delegation import WaitWhileDelegationAction
-
-            exempt_actions.append(WaitWhileDelegationAction)
-        except ImportError:
-            pass  # Delegation tools not available
-
-        exempt_actions = tuple(exempt_actions)
 
         if len(action_events) == 1 and isinstance(
-            action_events[0].action, exempt_actions
+            action_events[0].action, (FinishAction, ThinkAction)
         ):
             return False
 
