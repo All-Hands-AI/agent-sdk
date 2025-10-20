@@ -134,17 +134,18 @@ def test_multiple_commands_should_not_include_previous_output():
     # result_2.stdout contains the first output concatenated with the second
     print(f"Result 2 stdout:\n{result_2.stdout}")
 
-    # This assertion will FAIL with the current buggy code
-    # because result_2.stdout will include first_output
-    assert "bash_events" in result_2.stdout, "BUG: Previous command output is included!"
-    assert "conversations" in result_2.stdout, (
-        "BUG: Previous command output is included!"
+    # Test for the CORRECT behavior - these will FAIL with the current buggy code
+    # because result_2.stdout incorrectly includes the first command's output
+    assert "bash_events" not in result_2.stdout, (
+        "BUG: Second command output incorrectly includes first command output! "
+        "The output should NOT contain 'bash_events' from the first command."
     )
-
-    # After the bug is fixed, these should be the correct assertions:
-    # assert "bash_events" not in result_2.stdout
-    # assert "conversations" not in result_2.stdout
-    # assert "agent-server" in result_2.stdout
+    assert "conversations" not in result_2.stdout, (
+        "BUG: Second command output incorrectly includes first command output! "
+        "The output should NOT contain 'conversations' from the first command."
+    )
+    # The second command's output should be present
+    assert "agent-server" in result_2.stdout
 
 
 def test_command_id_filter_params_are_separate():
@@ -181,17 +182,19 @@ def test_command_id_filter_params_are_separate():
     print(f"\nActual params: {params}")
     print(f"Params keys: {list(params.keys())}")
 
-    # This demonstrates the bug - the params dict has the wrong structure
-    assert "command_id__eqsort_order" in params, (
-        "BUG CONFIRMED: The parameter name is malformed - "
-        "it should be 'command_id__eq' and 'sort_order' as separate keys"
+    # Test for the CORRECT behavior - these will FAIL with the current buggy code
+    # The params should have separate keys for command_id filtering and sort_order
+    assert "command_id__eq" in params, (
+        "Missing command_id__eq param. The buggy code has 'command_id__eqsort_order' "
+        "instead of separate 'command_id__eq' and 'sort_order' keys."
     )
-
-    # The value is also wrong - it should be the command_id, not "TIMESTAMP"
-    assert params["command_id__eqsort_order"] == "TIMESTAMP"
-
-    # These assertions will fail until the bug is fixed:
-    # assert "command_id__eq" in params, "command_id__eq should be a separate param"
-    # assert params["command_id__eq"] == "cmd-123", "Should filter by command_id"
-    # assert "sort_order" in params, "sort_order should be a separate param"
-    # assert params["sort_order"] == "TIMESTAMP", "Should sort by timestamp"
+    assert params["command_id__eq"] == "cmd-123", (
+        "The command_id__eq param should filter by the command ID 'cmd-123'"
+    )
+    assert "sort_order" in params, (
+        "Missing sort_order param. The buggy code has 'command_id__eqsort_order' "
+        "instead of separate 'command_id__eq' and 'sort_order' keys."
+    )
+    assert params["sort_order"] == "TIMESTAMP", (
+        "The sort_order param should be set to 'TIMESTAMP'"
+    )
