@@ -108,15 +108,6 @@ class Skill(BaseModel):
             with open(path) as f:
                 file_content = f.read()
 
-        # Legacy repo instructions are stored in .openhands_instructions
-        if path.name == ".openhands_instructions":
-            return Skill(
-                name="repo_legacy",
-                content=file_content,
-                source=str(path),
-                trigger=None,
-            )
-
         # Handle third-party agent instruction files
         third_party_agent = cls._handle_third_party(path, file_content)
         if third_party_agent is not None:
