@@ -48,8 +48,8 @@ class _ConfigurableHelloTool(ToolDefinition):
     ):
         class _ConfigurableExec(ToolExecutor[_HelloAction, _HelloObservation]):
             def __init__(self, greeting: str, punctuation: str) -> None:
-                self._greeting = greeting
-                self._punctuation = punctuation
+                self._greeting: str = greeting
+                self._punctuation: str = punctuation
 
             def __call__(self, action: _HelloAction) -> _HelloObservation:
                 return _HelloObservation(

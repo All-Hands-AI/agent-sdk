@@ -53,7 +53,7 @@ def create_llm(
     }
     if log_completions_folder:
         llm_kwargs["log_completions_folder"] = log_completions_folder
-    return LLM(**llm_kwargs, service_id="test-llm")
+    return LLM(**llm_kwargs, usage_id="test-llm")
 
 
 def create_tools(working_dir: str | None = None) -> list[Tool]:
@@ -85,7 +85,7 @@ def run_conversation(
     def conversation_callback(event: Event):
         logger.info(f"Found a conversation message: {str(event)[:200]}...")
         if isinstance(event, LLMConvertibleEvent):
-            llm_messages.append(event.to_llm_message().to_llm_dict())
+            llm_messages.append(event.to_llm_message().to_chat_dict())
 
     conversation = Conversation(agent=agent, callbacks=[conversation_callback])
     message = Message(role="user", content=[TextContent(text=user_message)])

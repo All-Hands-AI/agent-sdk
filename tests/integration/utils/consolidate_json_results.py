@@ -66,15 +66,51 @@ def load_and_validate_results(
     return model_results
 
 
+def extract_matrix_run_suffix(full_run_suffix: str) -> str | None:
+    """
+    Extract the matrix run-suffix from the full run_suffix.
+
+    The full run_suffix format is:
+    {model_name}_{commit_hash}_{matrix_run_suffix}_N{count}_{timestamp}
+    We need to extract the matrix_run_suffix part.
+
+    Examples:
+    - litellm_proxy_anthropic_claude_sonnet_4_5_20250929_0dd44e1_sonnet_run_N7_20251006_183106
+      -> sonnet_run
+    - litellm_proxy_deepseek_deepseek_chat_0dd44e1_deepseek_run_N7_20251006_183104
+      -> deepseek_run
+    - litellm_proxy_openai_gpt_5_mini_0dd44e1_gpt5_mini_run_N7_20251006_183117
+      -> gpt5_mini_run
+    """  # noqa: E501
+    import re
+
+    # Pattern to match the matrix run suffix
+    # Look for pattern: _{7_hex_chars}_{matrix_run_suffix}_N{number}_
+    # The commit hash is always 7 hex characters
+    pattern = r"_[a-f0-9]{7}_([^_]+(?:_[^_]+)*_run)_N\d+_"
+    match = re.search(pattern, full_run_suffix)
+
+    if match:
+        return match.group(1)
+
+    # Fallback: if pattern doesn't match, return None
+    return None
+
+
 def find_artifact_url(run_suffix: str, artifacts_dir: str) -> str | None:
     """Find the artifact URL for a given run suffix."""
     artifacts_path = Path(artifacts_dir)
     if not artifacts_path.exists():
         return None
 
-    # Look for artifact directories that match the run suffix
-    # Artifact naming pattern: integration-test-outputs-{run-suffix}-{run-id}-{run-attempt}  # noqa: E501
-    expected_prefix = f"integration-test-outputs-{run_suffix}-"
+    # Extract the matrix run-suffix from the full run_suffix
+    matrix_run_suffix = extract_matrix_run_suffix(run_suffix)
+    if not matrix_run_suffix:
+        return None
+
+    # Look for artifact directories that match the matrix run suffix
+    # Artifact naming pattern: integration-test-outputs-{matrix-run-suffix}-{run-id}-{run-attempt}  # noqa: E501
+    expected_prefix = f"integration-test-outputs-{matrix_run_suffix}-"
 
     for artifact_dir in artifacts_path.iterdir():
         if artifact_dir.is_dir() and artifact_dir.name.startswith(expected_prefix):
@@ -84,10 +120,13 @@ def find_artifact_url(run_suffix: str, artifacts_dir: str) -> str | None:
             run_id = os.getenv("GITHUB_RUN_ID", "")
 
             if repository and run_id:
-                return f"{server_url}/{repository}/actions/runs/{run_id}#artifacts"
+                # Create a URL that points to the GitHub Actions run page
+                # Users can download the specific artifact from there
+                return f"{server_url}/{repository}/actions/runs/{run_id}"
             else:
-                # Fallback to artifact name if environment variables not available
-                return artifact_dir.name
+                # Fallback: if environment variables not available, return None
+                # This will prevent showing broken links
+                return None
 
     return None
 
