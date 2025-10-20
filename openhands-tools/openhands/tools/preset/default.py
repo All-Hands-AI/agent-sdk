@@ -36,10 +36,12 @@ def register_default_tools(
         logger.debug("Tool: BrowserToolSet registered.")
 
     if enable_delegation:
-        from openhands.tools.delegation import DelegationTool
+        from openhands.tools.delegation import DelegationTool, WaitWhileDelegationTool
 
         register_tool("DelegationTool", DelegationTool)
         logger.debug("Tool: DelegationTool registered.")
+        register_tool("WaitWhileDelegationTool", WaitWhileDelegationTool)
+        logger.debug("Tool: WaitWhileDelegationTool registered.")
 
 
 def get_default_tools(
@@ -65,6 +67,7 @@ def get_default_tools(
         tools.append(Tool(name="BrowserToolSet"))
     if enable_delegation:
         tools.append(Tool(name="DelegationTool"))
+        tools.append(Tool(name="WaitWhileDelegationTool"))
     return tools
 
 

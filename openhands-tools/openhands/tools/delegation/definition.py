@@ -13,7 +13,10 @@ from openhands.sdk.tool.tool import (
     ToolAnnotations,
     ToolDefinition,
 )
-from openhands.tools.delegation.impl import DelegateExecutor
+from openhands.tools.delegation.impl import (
+    DelegateExecutor,
+    WaitWhileDelegationExecutor,
+)
 
 
 class DelegateAction(Action):
@@ -124,5 +127,63 @@ DelegationTool = ToolDefinition(
         destructiveHint=False,
         idempotentHint=False,
         openWorldHint=True,
+    ),
+)
+
+
+class WaitWhileDelegationAction(Action):
+    """Action for waiting while sub-agents complete their delegated tasks."""
+
+    action: Literal["wait_while_delegation"] = "wait_while_delegation"
+    message: str = Field(
+        default="Waiting for sub-agents to complete their tasks...",
+        description="Optional message to display while waiting",
+    )
+
+
+class WaitWhileDelegationObservation(Observation):
+    """Observation returned when waiting for delegation completion."""
+
+    observation: Literal["wait_while_delegation"] = "wait_while_delegation"
+    content: Sequence[TextContent | ImageContent] = Field(
+        default_factory=list,
+        description="Content of the wait observation",
+    )
+
+    def to_text(self) -> str:
+        """Convert observation to text representation."""
+        text_parts = []
+        for content in self.content:
+            if isinstance(content, TextContent):
+                text_parts.append(content.text)
+            elif isinstance(content, ImageContent):
+                text_parts.append(f"[Image: {content.image_url}]")
+        return "\n".join(text_parts) if text_parts else "Waiting for sub-agents..."
+
+    def to_rich_text(self) -> Text:
+        """Convert observation to rich text representation."""
+        return Text(self.to_text())
+
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        """Get the observation content to show to the agent."""
+        return self.content
+
+
+WaitWhileDelegationTool = ToolDefinition(
+    name="wait_while_delegation",
+    description=(
+        "Pause the main agent's execution while waiting for sub-agents to complete "
+        "their delegated tasks. This tool should be used after spawning sub-agents "
+        "to prevent the main agent from continuing until sub-agents send their results."
+    ),
+    action_type=WaitWhileDelegationAction,
+    observation_type=WaitWhileDelegationObservation,
+    executor=WaitWhileDelegationExecutor(),
+    annotations=ToolAnnotations(
+        title="wait_while_delegation",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )

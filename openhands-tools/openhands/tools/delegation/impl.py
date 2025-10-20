@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from openhands.tools.delegation.definition import (
         DelegateAction,
         DelegateObservation,
+        WaitWhileDelegationObservation,
     )
 
 logger = get_logger(__name__)
@@ -187,4 +188,39 @@ class DelegateExecutor(ToolExecutor):
                 sub_conversation_id=action.sub_conversation_id,
                 status="error",
                 message=f"Failed to close sub-agent {action.sub_conversation_id}",
+            )
+
+
+class WaitWhileDelegationExecutor(ToolExecutor):
+    """Executor for waiting while sub-agents complete their tasks."""
+
+    def __call__(self, action) -> "WaitWhileDelegationObservation":
+        """Execute wait while delegation action by pausing the conversation."""
+        from openhands.tools.delegation.definition import WaitWhileDelegationObservation
+
+        logger.info("WaitWhileDelegation: Pausing main agent execution")
+
+        # This tool provides a way for the main agent to pause and wait
+        # for sub-agents to complete their tasks. The actual pausing mechanism
+        # is handled by the conversation framework when it encounters this observation.
+        try:
+            # Import here to avoid circular imports
+            from openhands.sdk.llm.message import TextContent
+
+            return WaitWhileDelegationObservation(
+                content=[
+                    TextContent(
+                        text=(
+                            f"Main agent paused: {action.message}\n"
+                            "Sub-agents will continue working and send results back."
+                        )
+                    )
+                ]
+            )
+        except Exception as e:
+            logger.error(f"Error in WaitWhileDelegation: {e}", exc_info=True)
+            from openhands.sdk.llm.message import TextContent
+
+            return WaitWhileDelegationObservation(
+                content=[TextContent(text=f"Error while waiting: {str(e)}")]
             )

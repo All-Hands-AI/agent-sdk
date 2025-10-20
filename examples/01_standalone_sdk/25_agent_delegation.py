@@ -167,8 +167,9 @@ task_message = (
     "IMPORTANT: Tell each sub-agent to keep their analysis SHORT and CONCISE "
     "(no more than 10 lines of output each).\n\n"
     "Use the delegate tool to spawn both sub-agents with their tasks. "
-    "After spawning them, use FinishAction to pause and wait for their results. "
-    "The sub-agents will send their analysis back to you when complete.\n\n"
+    "After spawning them, use the wait_while_delegation tool to pause and wait "
+    "for their results. The sub-agents will send their analysis back to you "
+    "when complete.\n\n"
     "Once you receive results from BOTH sub-agents, merge their analyses into a "
     "single SHORT consolidated report (5-10 lines total) with top recommendations."
 )
