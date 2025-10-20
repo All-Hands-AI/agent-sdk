@@ -169,22 +169,20 @@ Testing loading with trailing slashes.
 
 
 def test_invalid_skill_type(temp_skills_dir):
-    """Test loading a skill with an invalid type."""
-    # Create a skill with an invalid type
+    """Test loading a skill with invalid triggers field (not a list)."""
+    # Create a skill with invalid triggers (should be a list, not a string)
     invalid_agent = """---
-name: invalid_type_agent
-type: invalid_type
+name: invalid_triggers_agent
 version: 1.0.0
 agent: CodeActAgent
-triggers:
-  - test
+triggers: not_a_list
 ---
 
-# Invalid Type Test
+# Invalid Triggers Test
 
-This skill has an invalid type.
+This skill has invalid triggers format.
 """
-    invalid_file = temp_skills_dir / "invalid_type.md"
+    invalid_file = temp_skills_dir / "invalid_triggers.md"
     invalid_file.write_text(invalid_agent)
 
     with pytest.raises(SkillValidationError) as excinfo:
@@ -192,12 +190,8 @@ This skill has an invalid type.
 
     # Check that the error message contains helpful information
     error_msg = str(excinfo.value)
-    assert "invalid_type.md" in error_msg
-    assert 'Invalid "type" value: "invalid_type"' in error_msg
-    assert "Valid types are:" in error_msg
-    assert '"knowledge"' in error_msg
-    assert '"repo"' in error_msg
-    assert '"task"' in error_msg
+    assert "invalid_triggers.md" in error_msg
+    assert "Triggers must be a list" in error_msg
 
 
 def test_cursorrules_file_load():

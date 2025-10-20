@@ -130,17 +130,6 @@ class Skill(BaseModel):
         # Handle case where there's no frontmatter or empty frontmatter
         metadata_dict = loaded.metadata or {}
 
-        # Validate explicit type if provided
-        if "type" in metadata_dict:
-            provided_type = metadata_dict["type"]
-            valid_types = ["repo", "knowledge", "task"]
-            if provided_type not in valid_types:
-                valid_types_str = ", ".join(f'"{t}"' for t in valid_types)
-                raise SkillValidationError(
-                    f'Invalid "type" value: "{provided_type}". '
-                    f"Valid types are: {valid_types_str}"
-                )
-
         # Use name from frontmatter if provided, otherwise use derived name
         agent_name = str(metadata_dict.get("name", skill_name))
 
