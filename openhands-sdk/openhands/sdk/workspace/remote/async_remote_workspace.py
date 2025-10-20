@@ -18,7 +18,7 @@ class AsyncRemoteWorkspace(RemoteWorkspaceMixin):
     def client(self) -> httpx.AsyncClient:
         client = self._client
         if client is None:
-            client = httpx.AsyncClient()
+            client = httpx.AsyncClient(base_url=self.host)
             self._client = client
         return client
 
