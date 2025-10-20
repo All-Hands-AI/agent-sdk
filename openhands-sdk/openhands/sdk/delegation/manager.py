@@ -77,11 +77,7 @@ class DelegationManager:
         Returns:
             The conversation object if found, None otherwise
         """
-        conv = self.conversations.get(conversation_id)
-        # Only return proper conversation objects, not dict entries
-        if isinstance(conv, dict):
-            return None
-        return conv
+        return self.conversations.get(conversation_id)
 
     def spawn_sub_agent(
         self,
@@ -255,24 +251,11 @@ class DelegationManager:
             return False
 
         try:
-            # Handle dict-based entries (backward compatibility)
-            if isinstance(sub_conversation, dict):
-                if "messages" not in sub_conversation:
-                    sub_conversation["messages"] = []
-                sub_conversation["messages"].append(message)
-                logger.debug(
-                    f"Sent message to dict-based sub-agent {sub_conversation_id}: "
-                    f"{message[:100]}..."
-                )
-                return True
-            else:
-                # Handle proper conversation objects
-                sub_conversation.send_message(message)
-                logger.debug(
-                    f"Sent message to sub-agent {sub_conversation_id}: "
-                    f"{message[:100]}..."
-                )
-                return True
+            sub_conversation.send_message(message)
+            logger.debug(
+                f"Sent message to sub-agent {sub_conversation_id}: {message[:100]}..."
+            )
+            return True
         except Exception as e:
             logger.error(
                 f"Failed to send message to sub-agent {sub_conversation_id}: {e}"

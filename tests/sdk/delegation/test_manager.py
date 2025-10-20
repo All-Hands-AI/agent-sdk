@@ -41,19 +41,6 @@ def test_get_conversation_not_found():
     assert result is None
 
 
-def test_get_conversation_returns_none_for_dict():
-    """Test get_conversation returns None for dict entries."""
-    manager = DelegationManager()
-
-    # Store a dict-based entry (like old simple sub-agents might have)
-    test_id = str(uuid.uuid4())
-    manager.conversations[test_id] = {"task": "test", "messages": []}
-
-    # get_conversation should return None since it's not a real conversation object
-    result = manager.get_conversation(test_id)
-    assert result is None
-
-
 def test_send_to_sub_agent_not_found():
     """Test sending message to non-existent sub-agent."""
     manager = DelegationManager()
@@ -63,24 +50,6 @@ def test_send_to_sub_agent_not_found():
 
     # Verify
     assert result is False
-
-
-def test_send_to_sub_agent_with_dict():
-    """Test sending message to a dict-based sub-agent entry."""
-    manager = DelegationManager()
-
-    # Create a dict-based entry (for backward compatibility)
-    test_id = str(uuid.uuid4())
-    manager.conversations[test_id] = {"task": "test", "messages": []}
-
-    # Send message
-    result = manager.send_to_sub_agent(test_id, "Test message")
-
-    # Verify
-    assert result is True
-    conv_entry = manager.conversations[test_id]
-    assert isinstance(conv_entry, dict)
-    assert "Test message" in conv_entry["messages"]
 
 
 def test_close_sub_agent_success():
