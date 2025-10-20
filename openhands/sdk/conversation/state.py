@@ -21,6 +21,7 @@ from openhands.sdk.conversation.types import ConversationCallbackType, Conversat
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
+from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -271,6 +272,32 @@ class ConversationState(OpenHandsModel):
                     logger.exception(
                         f"State change callback failed for field {name}", exc_info=True
                     )
+
+    def switch_agent_llm(self, profile_id: str, *, registry: LLMRegistry) -> None:
+        """Swap the agent's primary LLM to ``profile_id`` using ``registry``."""
+
+        if should_inline_conversations():
+            raise RuntimeError(
+                "LLM switching requires OPENHANDS_INLINE_CONVERSATIONS to be false."
+            )
+
+        if self.agent_status not in (
+            AgentExecutionStatus.IDLE,
+            AgentExecutionStatus.FINISHED,
+        ):
+            raise RuntimeError("Agent must be idle before switching LLM profiles.")
+
+        service_id = self.agent.llm.service_id
+        try:
+            new_llm = registry.switch_profile(service_id, profile_id)
+        except FileNotFoundError as exc:
+            raise ValueError(str(exc)) from exc
+        except KeyError as exc:
+            raise ValueError(str(exc)) from exc
+
+        self.agent = self.agent._clone_with_llm(new_llm)
+        if self.agent_status == AgentExecutionStatus.FINISHED:
+            self.agent_status = AgentExecutionStatus.IDLE
 
     @staticmethod
     def get_unmatched_actions(events: Sequence[Event]) -> list[ActionEvent]:

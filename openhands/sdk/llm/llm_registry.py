@@ -174,6 +174,26 @@ class LLMRegistry:
                     f"Skipping profile {profile_id}: registry.add failed: {exc}"
                 )
 
+    def switch_profile(self, service_id: str, profile_id: str) -> LLM:
+        """Replace ``service_id``'s active LLM with ``profile_id`` and return it."""
+
+        if service_id not in self.service_to_llm:
+            raise KeyError(f"Service ID '{service_id}' not found in registry")
+
+        current_llm = self.service_to_llm[service_id]
+        if current_llm.profile_id == profile_id:
+            return current_llm
+
+        llm = self.load_profile(profile_id)
+        llm = llm.model_copy(update={"service_id": service_id})
+        self.service_to_llm[service_id] = llm
+        self.notify(RegistryEvent(llm=llm))
+        logger.info(
+            f"[LLM registry {self.registry_id}]: Switched service {service_id} "
+            f"to profile {profile_id}"
+        )
+        return llm
+
     def validate_profile(self, data: Mapping[str, Any]) -> tuple[bool, list[str]]:
         """Return (is_valid, errors) after validating a profile payload."""
         try:
