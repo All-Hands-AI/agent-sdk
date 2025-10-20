@@ -605,7 +605,7 @@ class RemoteConversation(BaseConversation):
         """Generate a title for the conversation based on the first user message.
 
         Args:
-            llm: Optional LLM to use for title generation. If provided, its service_id
+            llm: Optional LLM to use for title generation. If provided, its usage_id
                  will be sent to the server. If not provided, uses the agent's LLM.
             max_length: Maximum length of the generated title.
 

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -89,6 +90,11 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     LiteLLMTimeout,
     InternalServerError,
     LLMNoResponseError,
+)
+
+SERVICE_ID_DEPRECATION_MSG = (
+    "LLM.service_id is deprecated and will be removed in a future release; "
+    "use LLM.usage_id instead."
 )
 
 
@@ -210,9 +216,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
-    service_id: str = Field(
+    usage_id: str = Field(
         default="default",
-        description="Unique identifier for LLM. Typically used by LLM registry.",
+        validation_alias=AliasChoices("usage_id", "service_id"),
+        serialization_alias="usage_id",
+        description=(
+            "Unique usage identifier for the LLM. Used for registry lookups, "
+            "telemetry, and spend tracking."
+        ),
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,
@@ -280,6 +291,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if not isinstance(data, dict):
             return data
         d = dict(data)
+
+        if "service_id" in d and "usage_id" not in d:
+            warnings.warn(
+                SERVICE_ID_DEPRECATION_MSG,
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            d["usage_id"] = d.pop("service_id")
 
         model_val = d.get("model")
         if not model_val:
@@ -372,6 +391,24 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Public API
     # =========================================================================
+    @property
+    def service_id(self) -> str:
+        warnings.warn(
+            SERVICE_ID_DEPRECATION_MSG,
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.usage_id
+
+    @service_id.setter
+    def service_id(self, value: str) -> None:
+        warnings.warn(
+            SERVICE_ID_DEPRECATION_MSG,
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.usage_id = value
+
     @property
     def metrics(self) -> Metrics:
         assert self._metrics is not None, (
