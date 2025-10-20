@@ -87,6 +87,7 @@ class DelegateObservation(Observation):
         """Convert observation to rich text representation."""
         return Text(self.to_text())
 
+    @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation content to show to the agent."""
         base_content = [TextContent(text=self.message)]
