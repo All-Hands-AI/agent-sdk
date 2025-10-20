@@ -163,7 +163,7 @@ class BrowserToolExecutor(ToolExecutor[BrowserAction, BrowserObservation]):
                 f"Browser tool initialization timed out after {init_timeout_seconds}s"
             )
 
-        self.full_output_save_dir = full_output_save_dir
+        self.full_output_save_dir: str | None = full_output_save_dir
         self._initialized = False
         self._async_executor = AsyncExecutor()
 

@@ -56,7 +56,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
         self.session.initialize()
         self.env_provider = env_provider
         self.env_masker = env_masker
-        self.full_output_save_dir = full_output_save_dir
+        self.full_output_save_dir: str | None = full_output_save_dir
         logger.info(
             f"BashExecutor initialized with working_dir: {working_dir}, "
             f"username: {username}, "
