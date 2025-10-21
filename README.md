@@ -8,6 +8,7 @@ The OpenHands SDK allows you to build things with agents that write software. Fo
 
 This SDK also powers [OpenHands](https://github.com/OpenHands/OpenHands), an all-batteries-included coding agent that you can access through a GUI, CLI, or API.
 
+
 ## Hello World Example
 
 This is what it looks like to write a program with an OpenHands agent:
