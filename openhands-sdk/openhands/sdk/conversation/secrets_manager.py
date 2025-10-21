@@ -1,6 +1,6 @@
 """Secrets manager for handling sensitive data in conversations."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from pydantic import SecretStr
 
@@ -13,7 +13,20 @@ from openhands.sdk.logger import get_logger
 
 logger = get_logger(__name__)
 
-SecretValue = str | SecretSource
+SecretValue = str | SecretSource | Callable[[], str]
+
+
+class CallableSecretSource(SecretSource):
+    """A secret source that wraps a callable function."""
+
+    _func: Callable[[], str]
+
+    def __init__(self, func: Callable[[], str]):
+        super().__init__()
+        self._func = func
+
+    def get_value(self) -> str:
+        return self._func()
 
 
 class SecretsManager:
@@ -103,13 +116,9 @@ class SecretsManager:
         import shlex
 
         export_commands = []
-        for key, provider_or_value in self._secrets.items():
+        for key, secret_source in self._secret_sources.items():
             try:
-                value = (
-                    provider_or_value()
-                    if callable(provider_or_value)
-                    else provider_or_value
-                )
+                value = secret_source.get_value()
                 # Track successfully exported values for masking
                 self._exported_values[key] = value
                 # Use shlex.quote to safely handle special characters
@@ -204,4 +213,6 @@ def _wrap_secret(value: SecretValue) -> SecretSource:
         return value
     if isinstance(value, str):
         return StaticSecret(value=SecretStr(value))
+    if callable(value):
+        return CallableSecretSource(value)
     raise ValueError("Invalid SecretValue")
