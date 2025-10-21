@@ -6,7 +6,10 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.exceptions import ConversationRunError
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.state import (
+    ConversationExecutionStatus,
+    ConversationState,
+)
 from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.title_utils import generate_conversation_title
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -169,9 +172,9 @@ class LocalConversation(BaseConversation):
             "Only user messages are allowed to be sent to the agent."
         )
         with self._state:
-            if self._state.agent_status == AgentExecutionStatus.FINISHED:
+            if self._state.agent_status == ConversationExecutionStatus.FINISHED:
                 self._state.agent_status = (
-                    AgentExecutionStatus.IDLE
+                    ConversationExecutionStatus.IDLE
                 )  # now we have a new message
 
             # TODO: We should add test cases for all these scenarios
@@ -221,8 +224,8 @@ class LocalConversation(BaseConversation):
         """
 
         with self._state:
-            if self._state.agent_status == AgentExecutionStatus.PAUSED:
-                self._state.agent_status = AgentExecutionStatus.RUNNING
+            if self._state.agent_status == ConversationExecutionStatus.PAUSED:
+                self._state.agent_status = ConversationExecutionStatus.RUNNING
 
         iteration = 0
         try:
@@ -233,9 +236,9 @@ class LocalConversation(BaseConversation):
                     # Before value can be modified step can be taken
                     # Ensure step conditions are checked when lock is already acquired
                     if self._state.agent_status in [
-                        AgentExecutionStatus.FINISHED,
-                        AgentExecutionStatus.PAUSED,
-                        AgentExecutionStatus.STUCK,
+                        ConversationExecutionStatus.FINISHED,
+                        ConversationExecutionStatus.PAUSED,
+                        ConversationExecutionStatus.STUCK,
                     ]:
                         break
 
@@ -245,15 +248,15 @@ class LocalConversation(BaseConversation):
 
                         if is_stuck:
                             logger.warning("Stuck pattern detected.")
-                            self._state.agent_status = AgentExecutionStatus.STUCK
+                            self._state.agent_status = ConversationExecutionStatus.STUCK
                             continue
 
                     # clear the flag before calling agent.step() (user approved)
                     if (
                         self._state.agent_status
-                        == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                        == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
                     ):
-                        self._state.agent_status = AgentExecutionStatus.RUNNING
+                        self._state.agent_status = ConversationExecutionStatus.RUNNING
 
                     # step must mutate the SAME state object
                     self.agent.step(self._state, on_event=self._on_event)
@@ -269,7 +272,7 @@ class LocalConversation(BaseConversation):
                     # 5. Without this design, concurrent messages would be lost
                     if (
                         self.state.agent_status
-                        == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                        == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
                         or iteration >= self.max_iteration_per_run
                     ):
                         break
@@ -295,9 +298,9 @@ class LocalConversation(BaseConversation):
             # Always clear the agent_waiting_for_confirmation flag
             if (
                 self._state.agent_status
-                == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+                == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
             ):
-                self._state.agent_status = AgentExecutionStatus.IDLE
+                self._state.agent_status = ConversationExecutionStatus.IDLE
 
             if not pending_actions:
                 logger.warning("No pending actions to reject")
@@ -325,16 +328,16 @@ class LocalConversation(BaseConversation):
         effect until the current LLM call completes.
         """
 
-        if self._state.agent_status == AgentExecutionStatus.PAUSED:
+        if self._state.agent_status == ConversationExecutionStatus.PAUSED:
             return
 
         with self._state:
             # Only pause when running or idle
             if (
-                self._state.agent_status == AgentExecutionStatus.IDLE
-                or self._state.agent_status == AgentExecutionStatus.RUNNING
+                self._state.agent_status == ConversationExecutionStatus.IDLE
+                or self._state.agent_status == ConversationExecutionStatus.RUNNING
             ):
-                self._state.agent_status = AgentExecutionStatus.PAUSED
+                self._state.agent_status = ConversationExecutionStatus.PAUSED
                 pause_event = PauseEvent()
                 self._on_event(pause_event)
                 logger.info("Agent execution pause requested")

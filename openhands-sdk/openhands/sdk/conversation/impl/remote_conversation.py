@@ -15,7 +15,7 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.exceptions import ConversationRunError
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.state import ConversationExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import (
     ConversationVisualizer,
@@ -309,18 +309,18 @@ class RemoteState(ConversationStateProtocol):
         return uuid.UUID(self._conversation_id)
 
     @property
-    def agent_status(self) -> AgentExecutionStatus:
-        """The current agent execution status."""
+    def agent_status(self) -> ConversationExecutionStatus:
+        """The current conversation execution status."""
         info = self._get_conversation_info()
         status_str = info.get("agent_status", None)
         if status_str is None:
             raise RuntimeError(
                 "agent_status missing in conversation info: " + str(info)
             )
-        return AgentExecutionStatus(status_str)
+        return ConversationExecutionStatus(status_str)
 
     @agent_status.setter
-    def agent_status(self, value: AgentExecutionStatus) -> None:
+    def agent_status(self, value: ConversationExecutionStatus) -> None:
         """Set agent status is No-OP for RemoteConversation.
 
         # For remote conversations, agent status is managed server-side

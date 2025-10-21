@@ -21,7 +21,10 @@ from openhands.agent_server.pub_sub import Subscriber
 from openhands.agent_server.server_details_router import update_last_execution_time
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import LLM, Event, Message
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.state import (
+    ConversationExecutionStatus,
+    ConversationState,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +70,7 @@ class ConversationService:
         self,
         page_id: str | None = None,
         limit: int = 100,
-        agent_status: AgentExecutionStatus | None = None,
+        agent_status: ConversationExecutionStatus | None = None,
         sort_order: ConversationSortOrder = ConversationSortOrder.CREATED_AT_DESC,
     ) -> ConversationPage:
         if self._event_services is None:
@@ -122,7 +125,7 @@ class ConversationService:
 
     async def count_conversations(
         self,
-        agent_status: AgentExecutionStatus | None = None,
+        agent_status: ConversationExecutionStatus | None = None,
     ) -> int:
         """Count conversations matching the given filters."""
         if self._event_services is None:
