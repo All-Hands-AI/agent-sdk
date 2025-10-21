@@ -156,11 +156,11 @@ def test_none_env_parser(clean_env):
     parser = NoneEnvParser()
 
     # Test missing key (should return None)
-    assert parser.from_env("MISSING_KEY") is None
+    assert parser.from_env("SOME_VALUE") is MISSING
 
     # Test present key (should return MISSING)
-    os.environ["TEST_NONE"] = "any_value"
-    assert parser.from_env("TEST_NONE") is MISSING
+    os.environ["SOME_VALUE_IS_NONE"] = "1"
+    assert parser.from_env("SOME_VALUE") is None
 
 
 def test_dict_env_parser(clean_env):
@@ -248,7 +248,7 @@ def test_list_env_parser_with_complex_items(clean_env):
 
 def test_union_env_parser(clean_env):
     """Test UnionEnvParser with multiple parser types."""
-    parsers = [StrEnvParser(), IntEnvParser()]
+    parsers = {str: StrEnvParser(), int: IntEnvParser()}
     parser = UnionEnvParser(parsers)
 
     # Test with string value that can't be parsed as int - this will fail
@@ -263,7 +263,7 @@ def test_union_env_parser(clean_env):
     assert result == 42
 
     # Test with compatible parsers (str and bool)
-    bool_str_parsers = [StrEnvParser(), BoolEnvParser()]
+    bool_str_parsers = {str: StrEnvParser(), bool: BoolEnvParser()}
     bool_str_parser = UnionEnvParser(bool_str_parsers)
 
     os.environ["TEST_UNION"] = "true"
@@ -283,7 +283,8 @@ def test_model_env_parser_simple(clean_env):
         "name": StrEnvParser(),
         "count": IntEnvParser(),
     }
-    parser = ModelEnvParser(field_parsers)
+    descriptions = {}
+    parser = ModelEnvParser(field_parsers, descriptions)
 
     # Test with individual field overrides
     os.environ["TEST_MODEL_NAME"] = "test_name"

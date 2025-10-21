@@ -8,9 +8,11 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+from io import StringIO
 from pathlib import Path
 from types import UnionType
-from typing import Annotated, Literal, Union, get_args, get_origin
+from typing import IO, Annotated, Any, Literal, Union, cast, get_args, get_origin
 from uuid import UUID
 
 from pydantic import BaseModel, SecretStr, TypeAdapter
@@ -34,12 +36,19 @@ class EnvParser(ABC):
     def from_env(self, key: str) -> JsonType:
         """Parse environment variables into a json like structure"""
 
+    def to_env(self, key: str, value: Any, output: IO):
+        """Produce a template based on this parser"""
+        output.write(f"{key}={value}\n")
+
 
 class BoolEnvParser(EnvParser):
     def from_env(self, key: str) -> bool | MissingType:
         if key not in os.environ:
             return MISSING
         return os.environ[key].upper() in ["1", "TRUE"]  # type: ignore
+
+    def to_env(self, key: str, value: Any, output: IO):
+        output.write(f"{key}={1 if value else 0}\n")
 
 
 class IntEnvParser(EnvParser):
@@ -65,15 +74,36 @@ class StrEnvParser(EnvParser):
 
 class NoneEnvParser(EnvParser):
     def from_env(self, key: str) -> None | MissingType:
-        # Perversely, if the key is present this is not none so we consider it missing
-        if key in os.environ:
+        key = f"{key}_IS_NONE"
+        value = (os.getenv(key) or "").upper()
+        if value in ["1", "TRUE"]:
+            return None
+        return MISSING
+
+    def to_env(self, key: str, value: Any, output: IO):
+        if value is None:
+            output.write(f"{key}_IS_NONE=1\n")
+
+
+@dataclass
+class LiteralEnvParser(EnvParser):
+    values: tuple[str, ...]
+
+    def from_env(self, key: str) -> str | MissingType:
+        value = os.getenv(key)
+        if value not in self.values:
             return MISSING
-        return None
+        return value
+
+    def to_env(self, key: str, value: Any, output: IO):
+        output.write(f"# Permitted Values: {', '.join(self.values)}")
+        output.write(f"{key}={value}\n")
 
 
 @dataclass
 class ModelEnvParser(EnvParser):
     parsers: dict[str, EnvParser]
+    descriptions: dict[str, str]
 
     def from_env(self, key: str) -> dict | MissingType:
         # First we see is there a base value defined as json...
@@ -107,6 +137,16 @@ class ModelEnvParser(EnvParser):
                 result[field_name] = new_field_value  # type: ignore
 
         return result
+
+    def to_env(self, key: str, value: Any, output: IO):
+        for field_name, parser in self.parsers.items():
+            field_description = self.descriptions.get(field_name)
+            if field_description:
+                output.writelines(f"# {line}" for line in field_description.split("\n"))
+            field_key = key + "_" + field_name
+            field_value = getattr(value, field_name)
+            parser.to_env(field_key, field_value, output)
+            output.write("\n\n")
 
 
 class DictEnvParser(EnvParser):
@@ -162,17 +202,41 @@ class ListEnvParser(EnvParser):
 
         return result
 
+    def to_env(self, key: str, value: Any, output: IO):
+        for index, sub_value in enumerate(value):
+            sub_key = f"{key}_{index}"
+            self.item_parser.to_env(sub_key, sub_value, output)
+
 
 @dataclass
 class UnionEnvParser(EnvParser):
-    parsers: list[EnvParser]
+    parsers: dict[type, EnvParser]
 
     def from_env(self, key: str) -> JsonType:
         result = MISSING
-        for parser in self.parsers:
+        for parser in self.parsers.values():
             parser_result = parser.from_env(key)
             result = merge(result, parser_result)
         return result
+
+    def to_env(self, key: str, value: Any, output: IO):
+        for type_, parser in self.parsers.items():
+            if isinstance(value, type_):
+                output.write("# {value.__class__.__name__}\n")
+                parser.to_env(key, value, output)
+                output.write("\n")
+            else:
+                # Try to produce a sample value based on the defaults...
+                try:
+                    sample_value = type_()
+                    sample_output = StringIO()
+                    parser.to_env(key, sample_value, sample_output)
+                    output.writelines(
+                        f"# {line}" for line in sample_output.getvalue().split("\n")
+                    )
+                except Exception:
+                    # Couldn't create a sample value. Skip
+                    pass
 
 
 @dataclass
@@ -184,6 +248,10 @@ class DelayedParser(EnvParser):
     def from_env(self, key: str) -> JsonType:
         assert self.parser is not None
         return self.parser.from_env(key)
+
+    def to_env(self, key: str, value: Any, output: IO):
+        assert self.parser is not None
+        return self.parser.to_env(key, value, output)
 
 
 def merge(a, b):
@@ -222,10 +290,10 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
         # Strip annotations...
         return get_env_parser(get_args(target_type)[0], parsers)
     if origin is UnionType or origin is Union:
-        union_parsers = [
-            get_env_parser(t, parsers)  # type: ignore
+        union_parsers = {
+            t: get_env_parser(t, parsers)  # type: ignore
             for t in get_args(target_type)
-        ]
+        }
         return UnionEnvParser(union_parsers)
     if origin is list:
         parser = get_env_parser(get_args(target_type)[0], parsers)
@@ -236,8 +304,8 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
         assert args[1] in (str, int, float, bool)
         return DictEnvParser()
     if origin is Literal:
-        return StrEnvParser()
-
+        args = cast(tuple[str, ...], get_args(target_type))
+        return LiteralEnvParser(args)
     if origin and issubclass(origin, BaseModel):
         target_type = origin
     if issubclass(target_type, DiscriminatedUnionMixin) and (
@@ -249,15 +317,36 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
     if issubclass(target_type, BaseModel):  # type: ignore
         delayed = DelayedParser()
         parsers[target_type] = delayed  # Prevent circular dependency
-        field_parsers = {
-            name: get_env_parser(field.annotation, parsers)  # type: ignore
-            for name, field in target_type.model_fields.items()
-        }
-        parser = ModelEnvParser(field_parsers)
+        field_parsers = {}
+        descriptions = {}
+        for name, field in target_type.model_fields.items():
+            field_parsers[name] = get_env_parser(field.annotation, parsers)  # type: ignore
+            description = field.description
+            if description:
+                descriptions[name] = description
+
+        parser = ModelEnvParser(field_parsers, descriptions)
         delayed.parser = parser
         parsers[target_type] = parser
         return parser
+    if issubclass(target_type, Enum):
+        values = tuple(e.value for e in target_type)
+        return LiteralEnvParser(values)
     raise ValueError(f"unknown_type:{target_type}")
+
+
+def _get_default_parsers() -> dict[type, EnvParser]:
+    return {
+        str: StrEnvParser(),
+        int: IntEnvParser(),
+        float: FloatEnvParser(),
+        bool: BoolEnvParser(),
+        type(None): NoneEnvParser(),
+        UUID: StrEnvParser(),
+        Path: StrEnvParser(),
+        datetime: StrEnvParser(),
+        SecretStr: StrEnvParser(),
+    }
 
 
 def from_env(
@@ -266,17 +355,7 @@ def from_env(
     parsers: dict[type, EnvParser] | None = None,
 ):
     if parsers is None:
-        parsers = {
-            str: StrEnvParser(),
-            int: IntEnvParser(),
-            float: FloatEnvParser(),
-            bool: BoolEnvParser(),
-            type(None): NoneEnvParser(),
-            UUID: StrEnvParser(),
-            Path: StrEnvParser(),
-            datetime: StrEnvParser(),
-            SecretStr: StrEnvParser(),
-        }
+        parsers = _get_default_parsers()
     parser = get_env_parser(target_type, parsers)
     json_data = parser.from_env(prefix)
     if json_data is MISSING:
@@ -286,3 +365,16 @@ def from_env(
         type_adapter = TypeAdapter(target_type)
         result = type_adapter.validate_json(json_str)
     return result
+
+
+def to_env(
+    value: Any,
+    prefix: str = "",
+    parsers: dict[type, EnvParser] | None = None,
+) -> str:
+    if parsers is None:
+        parsers = _get_default_parsers()
+    parser = get_env_parser(value.__class__, parsers)
+    output = StringIO()
+    parser.to_env(prefix, value, output)
+    return output.getvalue()
