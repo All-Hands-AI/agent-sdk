@@ -92,6 +92,7 @@ async def start_bash_command(request: ExecuteBashRequest) -> BashCommand:
 async def execute_bash_command(request: ExecuteBashRequest) -> BashOutput:
     """Execute a bash command and wait for a result"""
     command, task = await bash_event_service.start_bash_command(request)
+    await task
     page = await bash_event_service.search_bash_events(command_id__eq=command.id)
     result = cast(BashOutput, page.items[-1])
     return result
