@@ -18,7 +18,13 @@ llm = LLM(
     base_url=base_url,
     usage_id="agent",
 )
-agent = get_default_agent(llm=llm, cli_mode=True)
+
+add_security_analyzer = bool(os.getenv("ADD_SECURITY_ANALYZER", "").strip())
+if add_security_analyzer:
+    print("Agent security analyzer added.")
+agent = get_default_agent(
+    llm=llm, cli_mode=True, add_security_analyzer=add_security_analyzer
+)
 
 # Start a conversation and send some messages
 cwd = os.getcwd()
