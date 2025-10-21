@@ -96,7 +96,8 @@ class APIRemoteWorkspace(RemoteWorkspace):
         self._wait_until_runtime_alive()
         logger.info(f"Runtime ready at {self._runtime_url}")
         self.host = self._runtime_url.rstrip("/")
-        self.api_key: str = self._session_api_key
+        # Update the api_key from the session API key received from runtime
+        object.__setattr__(self, "api_key", self._session_api_key)
 
     def _check_existing_runtime(self) -> bool:
         """Check if there's an existing runtime for this session."""

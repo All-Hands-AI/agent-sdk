@@ -387,7 +387,7 @@ class Message(BaseModel):
 
         if self.role == "assistant":
             # Emit prior assistant content as a single message item using output_text
-            content_items: list[dict[str, Any]] = []
+            content_items = []
             for c in self.content:
                 if isinstance(c, TextContent) and c.text:
                     content_items.append({"type": "output_text", "text": c.text})

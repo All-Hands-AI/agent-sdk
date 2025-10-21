@@ -67,8 +67,17 @@ asyncio_mode = "auto"
 
 # basedpyright configuration
 [tool.basedpyright]
-include = ["openhands"]
+include = [
+    "openhands-sdk/openhands",
+    "openhands-tools/openhands",
+    "openhands-workspace/openhands",
+    "openhands-agent-server/openhands",
+    "tests",
+    "examples"
+]
 exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
+venvPath = "."
+venv = ".venv"
 
 # Start with basic type checking and gradually increase strictness
 typeCheckingMode = "basic"
@@ -78,20 +87,72 @@ reportUnusedCallResult = false
 reportAny = false
 reportUnknownMemberType = false
 reportUnknownArgumentType = false
-reportImplicitOverride = false
-reportUnnecessaryIsInstance = false
-reportImplicitStringConcatenation = false
-reportAttributeAccessIssue = false
-reportOptionalMemberAccess = false
-reportRedeclaration = false
-reportMissingImports = false
-reportArgumentType = false
-reportCallIssue = false
 
 # Keep critical errors enabled, but allow some flexibility for generic types
 reportMissingTypeArgument = false  # Too strict for existing generic Tool usage
 reportUnannotatedClassAttribute = true
 reportExplicitAny = false  # Allow Any for generic type parameters
+
+# Configure execution environments to handle the workspace structure
+[[tool.basedpyright.executionEnvironments]]
+root = "openhands-sdk"
+pythonVersion = "3.12"
+extraPaths = [
+    "openhands-sdk",
+    "openhands-tools",
+    "openhands-workspace",
+    "openhands-agent-server"
+]
+
+[[tool.basedpyright.executionEnvironments]]
+root = "openhands-tools"
+pythonVersion = "3.12"
+extraPaths = [
+    "openhands-sdk",
+    "openhands-tools",
+    "openhands-workspace",
+    "openhands-agent-server"
+]
+
+[[tool.basedpyright.executionEnvironments]]
+root = "openhands-workspace"
+pythonVersion = "3.12"
+extraPaths = [
+    "openhands-sdk",
+    "openhands-tools",
+    "openhands-workspace",
+    "openhands-agent-server"
+]
+
+[[tool.basedpyright.executionEnvironments]]
+root = "openhands-agent-server"
+pythonVersion = "3.12"
+extraPaths = [
+    "openhands-sdk",
+    "openhands-tools",
+    "openhands-workspace",
+    "openhands-agent-server"
+]
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+pythonVersion = "3.12"
+extraPaths = [
+    "openhands-sdk",
+    "openhands-tools",
+    "openhands-workspace",
+    "openhands-agent-server"
+]
+
+[[tool.basedpyright.executionEnvironments]]
+root = "examples"
+pythonVersion = "3.12"
+extraPaths = [
+    "openhands-sdk",
+    "openhands-tools",
+    "openhands-workspace",
+    "openhands-agent-server"
+]
 
 [[tool.uv.index]]
 name = "testpypi"
