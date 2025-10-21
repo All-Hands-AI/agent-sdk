@@ -80,7 +80,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         "the agent with specific context.",
         examples=[
             {
-                "microagents": [
+                "skills": [
                     {
                         "name": "repo.md",
                         "content": "When you see this message, you should reply like "

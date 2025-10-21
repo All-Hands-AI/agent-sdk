@@ -468,7 +468,7 @@ def test_conversation_state_flags_persistence():
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED
         state.confirmation_policy = AlwaysConfirm()
-        state.activated_knowledge_microagents = ["agent1", "agent2"]
+        state.activated_knowledge_skills = ["agent1", "agent2"]
 
         # Create a new ConversationState that loads from the same persistence directory
         loaded_state = ConversationState.create(
@@ -484,7 +484,7 @@ def test_conversation_state_flags_persistence():
         # Verify flags are preserved
         assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
         assert loaded_state.confirmation_policy == AlwaysConfirm()
-        assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
+        assert loaded_state.activated_knowledge_skills == ["agent1", "agent2"]
         # Test model_dump equality
         assert loaded_state.model_dump(mode="json") != state.model_dump(mode="json")
         loaded_state.stats.register_llm(RegistryEvent(llm=llm))
