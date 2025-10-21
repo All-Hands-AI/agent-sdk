@@ -2,7 +2,7 @@ import io
 import re
 from itertools import chain
 from pathlib import Path
-from typing import Annotated, ClassVar, Union
+from typing import Annotated, ClassVar, Union, cast
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
@@ -137,13 +137,15 @@ class Skill(BaseModel):
             trigger_keyword = f"/{agent_name}"
             if trigger_keyword not in keywords:
                 keywords.append(trigger_keyword)
-            inputs = metadata_dict.get("inputs", [])
+            inputs_raw = metadata_dict.get("inputs", [])
+            # Cast to expected type - Pydantic will validate at runtime
+            inputs_list = cast(list[InputMetadata], inputs_raw)
             return Skill(
                 name=agent_name,
                 content=content,
                 source=str(path),
                 trigger=TaskTrigger(triggers=keywords),
-                inputs=inputs,
+                inputs=inputs_list,
             )
 
         elif metadata_dict.get("triggers", None):
@@ -156,12 +158,14 @@ class Skill(BaseModel):
         else:
             # No triggers, default to None (always active)
             mcp_tools_raw = metadata_dict.get("mcp_tools")
+            # Cast to expected type - Pydantic will validate at runtime
+            mcp_tools_dict = cast(dict | None, mcp_tools_raw)
             return Skill(
                 name=agent_name,
                 content=content,
                 source=str(path),
                 trigger=None,
-                mcp_tools=mcp_tools_raw,
+                mcp_tools=mcp_tools_dict,
             )
 
     # Field-level validation for mcp_tools
