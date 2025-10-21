@@ -33,7 +33,7 @@ class ManagedAPIServer:
     def __init__(self, port: int = 8000, host: str = "127.0.0.1"):
         self.port: int = port
         self.host: str = host
-        self.process: subprocess.Popen[bytes] | None = None
+        self.process: subprocess.Popen[str] | None = None
         self.base_url: str = f"http://{host}:{port}"
         self.stdout_thread: threading.Thread | None = None
         self.stderr_thread: threading.Thread | None = None
@@ -60,19 +60,22 @@ class ManagedAPIServer:
         )
 
         # Start threads to stream stdout and stderr
-        self.stdout_thread = threading.Thread(
-            target=_stream_output,
-            args=(self.process.stdout, "SERVER", sys.stdout),
-            daemon=True,
-        )
-        self.stderr_thread = threading.Thread(
-            target=_stream_output,
-            args=(self.process.stderr, "SERVER", sys.stderr),
-            daemon=True,
-        )
+        assert self.process is not None
+        if self.process.stdout is not None:
+            self.stdout_thread = threading.Thread(
+                target=_stream_output,
+                args=(self.process.stdout, "SERVER", sys.stdout),
+                daemon=True,
+            )
+            self.stdout_thread.start()
 
-        self.stdout_thread.start()
-        self.stderr_thread.start()
+        if self.process.stderr is not None:
+            self.stderr_thread = threading.Thread(
+                target=_stream_output,
+                args=(self.process.stderr, "SERVER", sys.stderr),
+                daemon=True,
+            )
+            self.stderr_thread.start()
 
         # Wait for server to be ready
         max_retries = 30
@@ -87,6 +90,7 @@ class ManagedAPIServer:
             except Exception:
                 pass
 
+            assert self.process is not None
             if self.process.poll() is not None:
                 # Process has terminated
                 raise RuntimeError(
