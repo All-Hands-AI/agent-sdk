@@ -191,6 +191,17 @@ class Agent(AgentBase):
                     extra_body={"metadata": self.llm.metadata},
                     add_security_risk_prediction=self._add_security_risk_prediction,
                 )
+        except FunctionCallValidationError as e:
+            logger.warning(f"LLM generated malformed function call: {e}")
+            error_message = MessageEvent(
+                source="user",
+                llm_message=Message(
+                    role="user",
+                    content=[TextContent(text=str(e))],
+                ),
+            )
+            on_event(error_message)
+            return
         except Exception as e:
             # If there is a condenser registered and the exception is a context window
             # exceeded, we can recover by triggering a condensation request.
@@ -204,21 +215,6 @@ class Agent(AgentBase):
                 )
                 on_event(CondensationRequest())
                 return
-
-            # If the LLM generated a malformed function call, send the error back
-            # as a message so it can correct the tool call
-            elif isinstance(e, FunctionCallValidationError):
-                logger.warning(f"LLM generated malformed function call: {e}")
-                error_message = MessageEvent(
-                    source="user",
-                    llm_message=Message(
-                        role="user",
-                        content=[TextContent(text=str(e))],
-                    ),
-                )
-                on_event(error_message)
-                return
-
             # If the error isn't recoverable, keep propagating it up the stack.
             else:
                 raise e
