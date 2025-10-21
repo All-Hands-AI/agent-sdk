@@ -11,14 +11,12 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 
-from openhands.agent_server.config import get_default_config
 from openhands.agent_server.models import Success
 from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
 file_router = APIRouter(prefix="/file", tags=["Files"])
-config = get_default_config()
 
 
 @file_router.post("/upload/{path:path}")
@@ -26,7 +24,7 @@ async def upload_file(
     path: Annotated[str, FastApiPath(alias="path", description="Absolute file path.")],
     file: UploadFile = File(...),
 ) -> Success:
-    """Upload a file to the workspace."""
+    """Upload a file to an absolute path on disk."""
     try:
         target_path = Path(path)
         if not target_path.is_absolute():
@@ -46,6 +44,8 @@ async def upload_file(
         logger.info(f"Uploaded file to {target_path}")
         return Success()
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to upload file: {e}")
         raise HTTPException(
@@ -58,7 +58,7 @@ async def upload_file(
 async def download_file(
     path: Annotated[str, FastApiPath(description="Absolute file path.")],
 ) -> FileResponse:
-    """Download a file from the workspace."""
+    """Download a file from an absolute path on disk."""
     try:
         target_path = Path(path)
         if not target_path.is_absolute():
