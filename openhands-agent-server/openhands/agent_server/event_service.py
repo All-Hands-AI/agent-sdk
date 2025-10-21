@@ -49,7 +49,9 @@ class EventService:
     async def save_meta(self):
         self.stored.updated_at = utc_now()
         meta_file = self.conversation_dir / "meta.json"
-        meta_file.write_text(self.stored.model_dump_json())
+        meta_file.write_text(
+            self.stored.model_dump_json(context={"expose_secrets": True})
+        )
 
     async def get_event(self, event_id: str) -> Event | None:
         if not self._conversation:
