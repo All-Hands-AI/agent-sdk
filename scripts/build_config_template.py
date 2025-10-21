@@ -11,7 +11,7 @@ from openhands.agent_server.env_parser import to_env
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Generate a .env file cotnaining all config options"
+        description="Generate a .env file containing all config options"
     )
     parser.add_argument("--file", default=".env", help="File path")
     args = parser.parse_args()
