@@ -17,7 +17,7 @@ on:
             image:
                 description: GHCR image name
                 type: string
-                default: ghcr.io/all-hands-ai/agent-server
+                default: ghcr.io/openhands/agent-server
             platforms:
                 description: Target platforms
                 type: string
@@ -121,7 +121,6 @@ jobs:
             - name: Checkout PR branch
               uses: actions/checkout@v5
               with:
-                  ref: ${{ github.head_ref }}
                   fetch-depth: 0
 
             - name: Install uv
@@ -130,7 +129,7 @@ jobs:
                   version: latest
 
             - name: Install Node.js (for npx)
-              uses: actions/setup-node@v5
+              uses: actions/setup-node@v6
               with:
                   node-version: 22
 
@@ -147,10 +146,12 @@ jobs:
 
     build-and-push-image:
         name: Build & Push
-        # Run on all commits (push events and pull requests)
+        # Run on push events and pull requests from the same repository (not forks)
+        # Fork PRs cannot push to GHCR and would fail authentication
         if: >
             github.event_name == 'push' ||
-            github.event_name == 'pull_request'
+            (github.event_name == 'pull_request' &&
+             !github.event.pull_request.head.repo.fork)
         strategy:
             fail-fast: false
             matrix:
@@ -176,7 +177,7 @@ jobs:
         runs-on: ${{ matrix.runner }}
 
         env:
-            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
+            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/openhands/agent-server' }}
             BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
             CUSTOM_TAGS: ${{ matrix.name }}
             TARGET: binary
@@ -208,7 +209,7 @@ jobs:
               id: build
               run: |
                   uv sync --frozen
-                  uv run ./openhands/agent_server/docker/build.py
+                  uv run ./openhands-agent-server/openhands/agent_server/docker/build.py
 
             - name: Summary (${{ matrix.name }}) - outputs
               run: |
@@ -244,7 +245,7 @@ jobs:
         # Run if it's a PR and the matrix job completed (even if some variants failed)
         if: github.event_name == 'pull_request' && always() && (needs.build-and-push-image.result == 'success' || needs.build-and-push-image.result ==
             'failure')
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-4vcpu-ubuntu-2404
         outputs:
             build_summary: ${{ steps.consolidate.outputs.build_summary }}
         steps:
@@ -316,7 +317,7 @@ jobs:
                   BUILD_SUMMARY=$(jq -n \
                       --arg image "$IMAGE" \
                       --arg short_sha "$SHORT_SHA" \
-                      --arg ghcr_url "https://github.com/All-Hands-AI/agent-sdk/pkgs/container/agent-server" \
+                      --arg ghcr_url "https://github.com/OpenHands/agent-sdk/pkgs/container/agent-server" \
                       --arg all_tags "$ALL_TAGS" \
                       --argjson variants "$VARIANTS_JSON" \
                       '{

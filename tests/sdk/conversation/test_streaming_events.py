@@ -14,7 +14,7 @@ from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 class FakeStreamingLLM(LLM):
     def __init__(self) -> None:
         super().__init__(model="test-stream", service_id="test-stream")
-        self._stream_events = [
+        self._stream_events: list[LLMStreamChunk] = [
             LLMStreamChunk(
                 type="response.output_text.delta",
                 part_kind="assistant_message",

@@ -33,7 +33,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key, "LITELLM_API_KEY required"
 
 llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
@@ -48,7 +48,7 @@ if not runtime_api_key:
 with APIRemoteWorkspace(
     runtime_api_url="https://runtime.eval.all-hands.dev",
     runtime_api_key=runtime_api_key,
-    server_image="ghcr.io/all-hands-ai/agent-server:latest-python",
+    server_image="ghcr.io/openhands/agent-server:latest-python",
 ) as workspace:
     agent = get_default_agent(llm=llm, cli_mode=True)
     received_events: list = []
