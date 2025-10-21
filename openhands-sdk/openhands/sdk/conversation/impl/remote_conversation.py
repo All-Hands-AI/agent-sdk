@@ -309,27 +309,43 @@ class RemoteState(ConversationStateProtocol):
         return uuid.UUID(self._conversation_id)
 
     @property
-    def agent_status(self) -> ConversationExecutionStatus:
+    def execution_status(self) -> ConversationExecutionStatus:
         """The current conversation execution status."""
         info = self._get_conversation_info()
-        status_str = info.get("agent_status", None)
+        # Try new field name first, then fall back to old field name for backward compat
+        status_str = info.get("execution_status") or info.get("agent_status")
         if status_str is None:
             raise RuntimeError(
-                "agent_status missing in conversation info: " + str(info)
+                "execution_status/agent_status missing in conversation info: "
+                + str(info)
             )
         return ConversationExecutionStatus(status_str)
 
+    @execution_status.setter
+    def execution_status(self, value: ConversationExecutionStatus) -> None:
+        """Set execution status is No-OP for RemoteConversation.
+
+        # For remote conversations, execution status is managed server-side
+        # This setter is provided for test compatibility but doesn't actually change remote state  # noqa: E501
+        """  # noqa: E501
+        raise NotImplementedError(
+            f"Setting execution_status on RemoteState has no effect. "
+            f"Remote execution status is managed server-side. Attempted to set: {value}"
+        )
+
+    @property
+    def agent_status(self) -> ConversationExecutionStatus:
+        """The current conversation execution status (backward compatibility)."""
+        return self.execution_status
+
     @agent_status.setter
     def agent_status(self, value: ConversationExecutionStatus) -> None:
-        """Set agent status is No-OP for RemoteConversation.
+        """Set agent status is No-OP for RemoteConversation (backward compatibility property).
 
         # For remote conversations, agent status is managed server-side
         # This setter is provided for test compatibility but doesn't actually change remote state  # noqa: E501
         """  # noqa: E501
-        raise NotImplementedError(
-            f"Setting agent_status on RemoteState has no effect. "
-            f"Remote agent status is managed server-side. Attempted to set: {value}"
-        )
+        self.execution_status = value
 
     @property
     def confirmation_policy(self) -> ConfirmationPolicyBase:
