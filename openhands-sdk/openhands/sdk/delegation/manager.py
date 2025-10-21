@@ -296,38 +296,3 @@ class DelegationManager:
         except Exception as e:
             logger.error(f"Failed to close sub-agent {sub_conversation_id}: {e}")
             return False
-
-    def is_task_in_progress(self, conversation_id: str) -> bool:
-        """Check if a task started by a parent conversation is still in progress.
-
-        This method checks if there are any active threads associated with the
-        parent conversation or any of its sub-agents.
-
-        Args:
-            conversation_id: The parent conversation ID
-
-        Returns:
-            True if any sub-agent threads or parent threads are still active,
-            False if all work is complete
-        """
-        # Step 1: Find all sub-conversation IDs linked to this parent conversation
-        linked_sub_conversation_ids = []
-        for sub_conv_id, parent_id in self.child_to_parent.items():
-            if parent_id == conversation_id:
-                linked_sub_conversation_ids.append(sub_conv_id)
-
-        # Step 2: Check if any threads for linked sub-conversations are still active
-        for sub_conv_id in linked_sub_conversation_ids:
-            thread = self.sub_agent_threads.get(sub_conv_id)
-            if thread and thread.is_alive():
-                logger.debug(f"Sub-agent {sub_conv_id[:8]} thread still active")
-                return True
-
-        # Also check if any parent conversation threads are still active
-        parent_threads = self.parent_threads.get(conversation_id, [])
-        for thread in parent_threads:
-            if thread.is_alive():
-                logger.debug("Parent conversation thread still active")
-                return True
-
-        return False

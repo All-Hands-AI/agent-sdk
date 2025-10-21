@@ -37,6 +37,9 @@ class AgentExecutionStatus(str, Enum):
     WAITING_FOR_CONFIRMATION = (
         "waiting_for_confirmation"  # Agent is waiting for user confirmation
     )
+    WAITING_WHILE_DELEGATION = (
+        "waiting_while_delegation"  # Agent is waiting for a delegated task to complete
+    )
     FINISHED = "finished"  # Agent has completed the current task
     ERROR = "error"  # Agent encountered an error (optional for future use)
     STUCK = "stuck"  # Agent is stuck in a loop or unable to proceed
