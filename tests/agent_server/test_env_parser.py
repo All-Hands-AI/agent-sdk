@@ -202,7 +202,7 @@ def test_dict_env_parser(clean_env):
 def test_list_env_parser_with_json(clean_env):
     """Test ListEnvParser with JSON list values."""
     item_parser = StrEnvParser()
-    parser = ListEnvParser(item_parser)
+    parser = ListEnvParser(item_parser, str)
 
     # Test JSON list
     test_list = ["item1", "item2", "item3"]
@@ -226,7 +226,7 @@ def test_list_env_parser_with_json(clean_env):
 def test_list_env_parser_sequential(clean_env):
     """Test ListEnvParser with sequential environment variables."""
     item_parser = StrEnvParser()
-    parser = ListEnvParser(item_parser)
+    parser = ListEnvParser(item_parser, str)
 
     # Test sequential items without base key
     os.environ["TEST_LIST_0"] = "first"
@@ -244,7 +244,7 @@ def test_list_env_parser_sequential(clean_env):
 def test_list_env_parser_with_complex_items(clean_env):
     """Test ListEnvParser with complex item types."""
     item_parser = IntEnvParser()
-    parser = ListEnvParser(item_parser)
+    parser = ListEnvParser(item_parser, int)
 
     # Test with integer items
     os.environ["TEST_LIST_0"] = "10"
@@ -849,8 +849,9 @@ def test_enum_parsing_missing_values(clean_env):
 
 def test_literal_env_parser_creation():
     """Test that Literal types create LiteralEnvParser with correct values."""
+    type_: type = Literal["red", "green", "blue"]  # type: ignore
     parsers = {}
-    parser = get_env_parser(Literal["red", "green", "blue"], parsers)
+    parser = get_env_parser(type_, parsers)
 
     assert isinstance(parser, LiteralEnvParser)
     assert parser.values == ("red", "green", "blue")
@@ -971,7 +972,7 @@ def test_literal_env_parser_to_env():
 def test_list_env_parser_to_env():
     """Test ListEnvParser template generation."""
     item_parser = StrEnvParser()
-    parser = ListEnvParser(item_parser)
+    parser = ListEnvParser(item_parser, str)
     output = StringIO()
 
     test_list = ["item1", "item2", "item3"]
@@ -1001,9 +1002,9 @@ def test_model_env_parser_to_env():
     # Should include field descriptions and values
     assert "# The name field" in template
     assert "# The count field" in template
-    assert "TEST_MODEL_name=test" in template
-    assert "TEST_MODEL_count=42" in template
-    assert "TEST_MODEL_enabled=0" in template
+    assert "TEST_MODEL_NAME=test" in template
+    assert "TEST_MODEL_COUNT=42" in template
+    assert "TEST_MODEL_ENABLED=0" in template
 
 
 def test_union_env_parser_to_env():
@@ -1031,8 +1032,8 @@ def test_to_env_function_with_enum():
     template = to_env(model, "TEST")
 
     # Should generate templates for enum fields
-    assert "TEST_risk=HIGH" in template
-    assert "TEST_option=option_b" in template
+    assert "TEST_RISK=HIGH" in template
+    assert "TEST_OPTION=option_b" in template
     # Should include permitted values comments
     assert "Permitted Values:" in template
 
@@ -1048,8 +1049,8 @@ def test_to_env_function_with_literal():
     template = to_env(model, "TEST")
 
     # Should generate templates for literal fields
-    assert "TEST_color=blue" in template
-    assert "TEST_size=large" in template
+    assert "TEST_COLOR=blue" in template
+    assert "TEST_SIZE=large" in template
     # Should include permitted values comments
     assert "Permitted Values:" in template
 
@@ -1091,15 +1092,15 @@ def test_to_env_function_with_complex_model():
     assert "# City name" in template
 
     # Should include nested structure
-    assert "PERSON_name=John Doe" in template
-    assert "PERSON_age=30" in template
-    assert "PERSON_addresses_0_street=123 Main St" in template
-    assert "PERSON_addresses_0_city=Anytown" in template
-    assert "PERSON_addresses_0_zip_code=12345" in template
-    assert "PERSON_addresses_1_street=456 Oak Ave" in template
-    assert "PERSON_addresses_1_city=Other City" in template
-    assert "PERSON_addresses_1_zip_code=67890" in template
-    assert "PERSON_risk_level=MEDIUM" in template
+    assert "PERSON_NAME=John Doe" in template
+    assert "PERSON_AGE=30" in template
+    assert "PERSON_ADDRESSES_0_STREET=123 Main St" in template
+    assert "PERSON_ADDRESSES_0_CITY=Anytown" in template
+    assert "PERSON_ADDRESSES_0_ZIP_CODE=12345" in template
+    assert "PERSON_ADDRESSES_1_STREET=456 Oak Ave" in template
+    assert "PERSON_ADDRESSES_1_CITY=Other City" in template
+    assert "PERSON_ADDRESSES_1_ZIP_CODE=67890" in template
+    assert "PERSON_RISK_LEVEL=MEDIUM" in template
 
 
 def test_to_env_function_with_none_values():
@@ -1117,9 +1118,9 @@ def test_to_env_function_with_none_values():
     template = to_env(model, "TEST")
 
     # Should handle None values with _IS_NONE suffix
-    assert "TEST_required_field=required" in template
-    assert "TEST_optional_field_IS_NONE=1" in template
-    assert "TEST_another_optional=42" in template
+    assert "TEST_REQUIRED_FIELD=required" in template
+    assert "TEST_OPTIONAL_FIELD_IS_NONE=1" in template
+    assert "TEST_ANOTHER_OPTIONAL=42" in template
 
 
 def test_to_env_function_with_boolean_values():
@@ -1134,6 +1135,6 @@ def test_to_env_function_with_boolean_values():
     template = to_env(model, "BOOL_TEST")
 
     # Should convert booleans to 1/0
-    assert "BOOL_TEST_enabled=1" in template
-    assert "BOOL_TEST_disabled=0" in template
-    assert "BOOL_TEST_maybe_IS_NONE=1" in template
+    assert "BOOL_TEST_ENABLED=1" in template
+    assert "BOOL_TEST_DISABLED=0" in template
+    assert "BOOL_TEST_MAYBE_IS_NONE=1" in template

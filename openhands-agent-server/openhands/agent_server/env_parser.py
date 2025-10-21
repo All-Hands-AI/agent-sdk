@@ -38,6 +38,8 @@ class EnvParser(ABC):
 
     def to_env(self, key: str, value: Any, output: IO):
         """Produce a template based on this parser"""
+        if value is None:
+            value = ""
         output.write(f"{key}={value}\n")
 
 
@@ -146,11 +148,14 @@ class ModelEnvParser(EnvParser):
         for field_name, parser in self.parsers.items():
             field_description = self.descriptions.get(field_name)
             if field_description:
-                output.writelines(f"# {line}" for line in field_description.split("\n"))
-            field_key = key + "_" + field_name
+                for line in field_description.split("\n"):
+                    output.write("# ")
+                    output.write(line)
+                    output.write("\n")
+            field_key = key + "_" + field_name.upper()
             field_value = getattr(value, field_name)
             parser.to_env(field_key, field_value, output)
-            output.write("\n\n")
+            output.write("\n")
 
 
 class DictEnvParser(EnvParser):
@@ -169,6 +174,7 @@ class DictEnvParser(EnvParser):
 @dataclass
 class ListEnvParser(EnvParser):
     item_parser: EnvParser
+    item_type: type
 
     def from_env(self, key: str) -> list | MissingType:
         if key not in os.environ:
@@ -207,9 +213,25 @@ class ListEnvParser(EnvParser):
         return result
 
     def to_env(self, key: str, value: Any, output: IO):
-        for index, sub_value in enumerate(value):
-            sub_key = f"{key}_{index}"
-            self.item_parser.to_env(sub_key, sub_value, output)
+        if len(value):
+            for index, sub_value in enumerate(value):
+                sub_key = f"{key}_{index}"
+                self.item_parser.to_env(sub_key, sub_value, output)
+        else:
+            # Try to produce a sample value based on the defaults...
+            try:
+                sub_key = f"{key}_0"
+                sample_output = StringIO()
+                self.item_parser.to_env(
+                    sub_key, _create_sample(self.item_type), sample_output
+                )
+                for line in sample_output.getvalue().strip().split("\n"):
+                    output.write("# ")
+                    output.write(line)
+                    output.write("\n")
+            except Exception:
+                # Couldn't create a sample value. Skip
+                pass
 
 
 @dataclass
@@ -225,22 +247,25 @@ class UnionEnvParser(EnvParser):
 
     def to_env(self, key: str, value: Any, output: IO):
         for type_, parser in self.parsers.items():
-            if isinstance(value, type_):
-                output.write("# {value.__class__.__name__}\n")
-                parser.to_env(key, value, output)
-                output.write("\n")
-            else:
+            if not isinstance(value, type_):
                 # Try to produce a sample value based on the defaults...
                 try:
-                    sample_value = type_()
+                    sample_value = _create_sample(type_)
                     sample_output = StringIO()
+                    sample_output.write(f"{sample_value.__class__.__name__}\n")
                     parser.to_env(key, sample_value, sample_output)
-                    output.writelines(
-                        f"# {line}" for line in sample_output.getvalue().split("\n")
-                    )
+                    for line in sample_output.getvalue().split("\n"):
+                        output.write("# ")
+                        output.write(line)
+                        output.write("\n")
                 except Exception:
                     # Couldn't create a sample value. Skip
                     pass
+        for type_, parser in self.parsers.items():
+            if isinstance(value, type_):
+                output.write(f"# {value.__class__.__name__}\n")
+                parser.to_env(key, value, output)
+                output.write("\n")
 
 
 @dataclass
@@ -300,8 +325,9 @@ def get_env_parser(target_type: type, parsers: dict[type, EnvParser]) -> EnvPars
         }
         return UnionEnvParser(union_parsers)
     if origin is list:
-        parser = get_env_parser(get_args(target_type)[0], parsers)
-        return ListEnvParser(parser)
+        item_type = get_args(target_type)[0]
+        parser = get_env_parser(item_type, parsers)
+        return ListEnvParser(parser, item_type)
     if origin is dict:
         args = get_args(target_type)
         assert args[0] is str
@@ -351,6 +377,26 @@ def _get_default_parsers() -> dict[type, EnvParser]:
         datetime: StrEnvParser(),
         SecretStr: StrEnvParser(),
     }
+
+
+def _create_sample(type_: type):
+    if type_ is None:
+        return None
+    if type_ is str:
+        return "..."
+    if type_ is int:
+        return 0
+    if type_ is float:
+        return 0.0
+    if type_ is bool:
+        return False
+    try:
+        if issubclass(type_, Enum):
+            return next(iter(type_))
+    except Exception:
+        pass
+    # Try to initialize and raise exception if failure.
+    return type_()
 
 
 def from_env(
