@@ -98,7 +98,7 @@ def test_nonexistent_tool_returns_error_and_continues_conversation():
     # Verify that the conversation is NOT finished (this is the key fix)
     with conversation.state:
         assert (
-            conversation.state.agent_status != ConversationExecutionStatus.FINISHED
+            conversation.state.execution_status != ConversationExecutionStatus.FINISHED
         ), "Agent should not be finished after encountering non-existent tool"
 
     # Verify that the error event is properly formatted for LLM
@@ -279,7 +279,8 @@ def test_conversation_continues_after_tool_error():
         # Verify conversation is not finished
         with conversation.state:
             assert (
-                conversation.state.agent_status != ConversationExecutionStatus.FINISHED
+                conversation.state.execution_status
+                != ConversationExecutionStatus.FINISHED
             )
 
         # Run second step - should continue normally
@@ -301,7 +302,8 @@ def test_conversation_continues_after_tool_error():
         # Now the conversation should be finished
         with conversation.state:
             assert (
-                conversation.state.agent_status == ConversationExecutionStatus.FINISHED
+                conversation.state.execution_status
+                == ConversationExecutionStatus.FINISHED
             )
 
     # Verify we made two LLM calls

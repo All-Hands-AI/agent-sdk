@@ -151,7 +151,7 @@ class TestConfirmationMode:
             self.conversation.run()
         assert self.conversation.state.confirmation_policy == AlwaysConfirm()
         assert (
-            self.conversation.state.agent_status
+            self.conversation.state.execution_status
             == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
         )
 
@@ -335,7 +335,9 @@ class TestConfirmationMode:
         """Test basic confirmation mode operations."""
         # Test initial state
         assert self.conversation.state.confirmation_policy == NeverConfirm()
-        assert self.conversation.state.agent_status == ConversationExecutionStatus.IDLE
+        assert (
+            self.conversation.state.execution_status == ConversationExecutionStatus.IDLE
+        )
         assert (
             ConversationState.get_unmatched_actions(self.conversation.state.events)
             == []
@@ -424,7 +426,8 @@ class TestConfirmationMode:
             self.conversation.run()
 
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.FINISHED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.FINISHED
         )
 
         msg_events = [
@@ -470,7 +473,7 @@ class TestConfirmationMode:
             ]
             assert len(rejection_events) == 0
             assert (
-                self.conversation.state.agent_status
+                self.conversation.state.execution_status
                 == ConversationExecutionStatus.FINISHED
             )
         else:
@@ -517,7 +520,8 @@ class TestConfirmationMode:
             self.conversation.state.confirmation_policy == AlwaysConfirm()
         )  # Still in confirmation mode
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.FINISHED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.FINISHED
         )  # Agent should be finished
 
         # Should have no pending actions (FinishAction was executed immediately)
@@ -557,7 +561,8 @@ class TestConfirmationMode:
         # Still in confirmation mode overall, but both actions should have executed
         assert self.conversation.state.confirmation_policy == AlwaysConfirm()
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.FINISHED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.FINISHED
         )
 
         # No pending actions
@@ -592,7 +597,7 @@ class TestConfirmationMode:
 
         # Verify we're in the expected state
         assert (
-            self.conversation.state.agent_status
+            self.conversation.state.execution_status
             == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
         )
         assert self.conversation.state.confirmation_policy == AlwaysConfirm()
@@ -603,29 +608,33 @@ class TestConfirmationMode:
         # Status should remain WAITING_FOR_CONFIRMATION, not change to PAUSED
         # This is the key fix: waiting for confirmation is a special type of pause
         assert (
-            self.conversation.state.agent_status
+            self.conversation.state.execution_status
             == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
         )
 
         # Test that pause works correctly for other states
         # Reset to IDLE state
         with self.conversation._state:
-            self.conversation._state.agent_status = ConversationExecutionStatus.IDLE
+            self.conversation._state.execution_status = ConversationExecutionStatus.IDLE
 
         # Pause from IDLE should change status to PAUSED
         self.conversation.pause()
         assert (
-            self.conversation._state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation._state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
 
         # Reset to RUNNING state
         with self.conversation._state:
-            self.conversation._state.agent_status = ConversationExecutionStatus.RUNNING
+            self.conversation._state.execution_status = (
+                ConversationExecutionStatus.RUNNING
+            )
 
         # Pause from RUNNING should change status to PAUSED
         self.conversation.pause()
         assert (
-            self.conversation._state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation._state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
 
     def test_is_confirmation_mode_active_property(self):

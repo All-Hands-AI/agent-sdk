@@ -118,13 +118,16 @@ class TestPauseFunctionality:
     def test_pause_basic_functionality(self):
         """Test basic pause operations."""
         # Test initial state
-        assert self.conversation.state.agent_status == ConversationExecutionStatus.IDLE
+        assert (
+            self.conversation.state.execution_status == ConversationExecutionStatus.IDLE
+        )
         assert len(self.conversation.state.events) == 1  # System prompt event
 
         # Test pause method
         self.conversation.pause()
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
 
         pause_events = [
@@ -161,7 +164,8 @@ class TestPauseFunctionality:
 
         # Verify pause was set
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
 
         # Run resets pause flag at start and proceeds normally
@@ -169,7 +173,8 @@ class TestPauseFunctionality:
 
         # Agent should be finished (pause was reset at start of run)
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.FINISHED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.FINISHED
         )
 
         # Should have pause event from the pause() call
@@ -204,7 +209,8 @@ class TestPauseFunctionality:
         # Pause before run
         self.conversation.pause()
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
 
         # First run() call resets pause and runs normally
@@ -212,7 +218,8 @@ class TestPauseFunctionality:
 
         # Agent should be finished (pause was reset at start of run)
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.FINISHED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.FINISHED
         )
 
         # Should have agent message since run completed normally
@@ -230,7 +237,8 @@ class TestPauseFunctionality:
         self.conversation.set_confirmation_policy(AlwaysConfirm())
         self.conversation.pause()
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
 
         # Mock action
@@ -268,7 +276,7 @@ class TestPauseFunctionality:
 
         # Pause should be reset, agent should be waiting for confirmation
         assert (
-            self.conversation.state.agent_status
+            self.conversation.state.execution_status
             == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
         )
 
@@ -300,7 +308,8 @@ class TestPauseFunctionality:
 
         # State should be paused
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
 
     @pytest.mark.timeout(3)
@@ -385,7 +394,8 @@ class TestPauseFunctionality:
         assert step_entered.wait(timeout=3.0), "Agent never reached tool execution"
         self.conversation.pause()
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
 
         assert finished.wait(timeout=3.0), "run() did not exit after pause"
@@ -394,7 +404,8 @@ class TestPauseFunctionality:
 
         # paused, not finished, exactly one PauseEvent
         assert (
-            self.conversation.state.agent_status == ConversationExecutionStatus.PAUSED
+            self.conversation.state.execution_status
+            == ConversationExecutionStatus.PAUSED
         )
         pause_events = [
             e for e in self.conversation.state.events if isinstance(e, PauseEvent)

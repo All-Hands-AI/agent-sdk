@@ -85,7 +85,7 @@ class ConversationState(OpenHandsModel):
     )
 
     # Enum-based state management
-    agent_status: ConversationExecutionStatus = Field(
+    execution_status: ConversationExecutionStatus = Field(
         default=ConversationExecutionStatus.IDLE
     )
     confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
@@ -340,3 +340,14 @@ class ConversationState(OpenHandsModel):
         Return True if the lock is currently held by the calling thread.
         """
         return self._lock.owned()
+
+    # Backward compatibility property
+    @property
+    def agent_status(self) -> ConversationExecutionStatus:
+        """Backward compatibility property for execution_status."""
+        return self.execution_status
+
+    @agent_status.setter
+    def agent_status(self, value: ConversationExecutionStatus) -> None:
+        """Backward compatibility setter for execution_status."""
+        self.execution_status = value

@@ -72,9 +72,9 @@ def run_until_finished_with_security(
         * On reject: conversation.reject_pending_actions(...).
     - If WAITING but no pending actions: print warning and set IDLE (matches original).
     """
-    while conversation.state.agent_status != ConversationExecutionStatus.FINISHED:
+    while conversation.state.execution_status != ConversationExecutionStatus.FINISHED:
         if (
-            conversation.state.agent_status
+            conversation.state.execution_status
             == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
         ):
             pending = ConversationState.get_unmatched_actions(conversation.state.events)

@@ -104,7 +104,7 @@ class TestConversationServiceSearchConversations:
 
         assert len(result.items) == 1
         assert result.items[0].id == conversation_id
-        assert result.items[0].agent_status == ConversationExecutionStatus.IDLE
+        assert result.items[0].execution_status == ConversationExecutionStatus.IDLE
         assert result.next_page_id is None
 
     @pytest.mark.asyncio
@@ -149,14 +149,14 @@ class TestConversationServiceSearchConversations:
             agent_status=ConversationExecutionStatus.IDLE
         )
         assert len(result.items) == 1
-        assert result.items[0].agent_status == ConversationExecutionStatus.IDLE
+        assert result.items[0].execution_status == ConversationExecutionStatus.IDLE
 
         # Test filtering by RUNNING status
         result = await conversation_service.search_conversations(
             agent_status=ConversationExecutionStatus.RUNNING
         )
         assert len(result.items) == 1
-        assert result.items[0].agent_status == ConversationExecutionStatus.RUNNING
+        assert result.items[0].execution_status == ConversationExecutionStatus.RUNNING
 
         # Test filtering by non-existent status
         result = await conversation_service.search_conversations(
@@ -554,7 +554,7 @@ class TestConversationServiceStartConversation:
 
                 # Verify the result
                 assert result.id == mock_state.id
-                assert result.agent_status == ConversationExecutionStatus.IDLE
+                assert result.execution_status == ConversationExecutionStatus.IDLE
 
     @pytest.mark.asyncio
     async def test_start_conversation_without_secrets(self, conversation_service):
@@ -606,7 +606,7 @@ class TestConversationServiceStartConversation:
 
                 # Verify the result
                 assert result.id == mock_state.id
-                assert result.agent_status == ConversationExecutionStatus.IDLE
+                assert result.execution_status == ConversationExecutionStatus.IDLE
 
     @pytest.mark.asyncio
     async def test_start_conversation_with_custom_id(self, conversation_service):

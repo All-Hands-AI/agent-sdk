@@ -54,8 +54,8 @@ thread.start()
 try:
     # Main loop - similar to the user's sample script
     while (
-        conversation.state.agent_status != ConversationExecutionStatus.FINISHED
-        and conversation.state.agent_status != ConversationExecutionStatus.PAUSED
+        conversation.state.execution_status != ConversationExecutionStatus.FINISHED
+        and conversation.state.execution_status != ConversationExecutionStatus.PAUSED
     ):
         # Send encouraging messages periodically
         conversation.send_message("keep going! you can do it!")
@@ -65,4 +65,4 @@ except KeyboardInterrupt:
 
 thread.join()
 
-print(f"Agent status: {conversation.state.agent_status}")
+print(f"Agent status: {conversation.state.execution_status}")

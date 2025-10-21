@@ -371,7 +371,7 @@ class TestEventServiceSendMessage:
         # Mock conversation and its methods
         conversation = MagicMock()
         state = MagicMock()
-        state.agent_status = ConversationExecutionStatus.IDLE
+        state.execution_status = ConversationExecutionStatus.IDLE
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
         conversation.state = state
@@ -435,7 +435,7 @@ class TestEventServiceSendMessage:
         # Mock conversation and its methods
         conversation = MagicMock()
         state = MagicMock()
-        state.agent_status = ConversationExecutionStatus.RUNNING
+        state.execution_status = ConversationExecutionStatus.RUNNING
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
         conversation.state = state
@@ -467,7 +467,7 @@ class TestEventServiceSendMessage:
         # Mock conversation and its methods
         conversation = MagicMock()
         state = MagicMock()
-        state.agent_status = ConversationExecutionStatus.IDLE
+        state.execution_status = ConversationExecutionStatus.IDLE
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
         conversation.state = state

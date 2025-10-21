@@ -59,9 +59,9 @@ def run_until_finished(conversation: BaseConversation, confirmer: Callable) -> N
     on reject, call reject_pending_actions().
     Preserves original error if agent waits but no actions exist.
     """
-    while conversation.state.agent_status != ConversationExecutionStatus.FINISHED:
+    while conversation.state.execution_status != ConversationExecutionStatus.FINISHED:
         if (
-            conversation.state.agent_status
+            conversation.state.execution_status
             == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
         ):
             pending = ConversationState.get_unmatched_actions(conversation.state.events)

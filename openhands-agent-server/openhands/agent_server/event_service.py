@@ -151,7 +151,7 @@ class EventService:
         await loop.run_in_executor(None, self._conversation.send_message, message)
         if run:
             with self._conversation.state as state:
-                run = state.agent_status != ConversationExecutionStatus.RUNNING
+                run = state.execution_status != ConversationExecutionStatus.RUNNING
         if run:
             loop.run_in_executor(None, self._conversation.run)
 

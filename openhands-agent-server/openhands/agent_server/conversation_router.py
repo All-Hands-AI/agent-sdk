@@ -67,7 +67,7 @@ async def search_conversations(
     ] = 100,
     status: Annotated[
         ConversationExecutionStatus | None,
-        Query(title="Optional filter by agent execution status"),
+        Query(title="Optional filter by conversation execution status"),
     ] = None,
     sort_order: Annotated[
         ConversationSortOrder,
@@ -87,7 +87,7 @@ async def search_conversations(
 async def count_conversations(
     status: Annotated[
         ConversationExecutionStatus | None,
-        Query(title="Optional filter by agent execution status"),
+        Query(title="Optional filter by conversation execution status"),
     ] = None,
     conversation_service: ConversationService = Depends(get_conversation_service),
 ) -> int:

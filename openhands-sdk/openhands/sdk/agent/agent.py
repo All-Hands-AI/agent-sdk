@@ -251,7 +251,7 @@ class Agent(AgentBase):
 
         else:
             logger.info("LLM produced a message response - awaits user input")
-            state.agent_status = ConversationExecutionStatus.FINISHED
+            state.execution_status = ConversationExecutionStatus.FINISHED
             msg_event = MessageEvent(
                 source="agent",
                 llm_message=message,
@@ -294,7 +294,9 @@ class Agent(AgentBase):
 
         # Grab the confirmation policy from the state and pass in the risks.
         if any(state.confirmation_policy.should_confirm(risk) for risk in risks):
-            state.agent_status = ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
+            state.execution_status = (
+                ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
+            )
             return True
 
         return False
@@ -439,5 +441,5 @@ class Agent(AgentBase):
 
         # Set conversation state
         if tool.name == FinishTool.name:
-            state.agent_status = ConversationExecutionStatus.FINISHED
+            state.execution_status = ConversationExecutionStatus.FINISHED
         return obs_event
