@@ -7,14 +7,13 @@ import pytest
 from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
-from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.conversation.secret_source import LookupSecret, SecretSource
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
+from openhands.tools.execute_bash.secret_source import LookupSecret, SecretSource
 
 
 # -----------------------
@@ -63,7 +62,7 @@ def conversation_no_bash(agent_no_bash: Agent, tmp_path) -> LocalConversation:
 def test_agent_configures_bash_tools_env_provider(
     conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
-    """Test that agent configures bash tools with env provider."""
+    """Test that bash executor has secrets_manager configured."""
     # Add secrets to conversation
     conversation.update_secrets(
         {
@@ -78,22 +77,22 @@ def test_agent_configures_bash_tools_env_provider(
     assert bash_tool is not None
     assert bash_tool.executor is not None
 
-    # Check that env_provider is configured
+    # Check that secrets_manager is configured
     bash_executor = cast(BashExecutor, bash_tool.executor)
-    assert bash_executor.env_provider is not None
+    assert bash_executor.secrets_manager is not None
 
-    # Test that env_provider works correctly
-    env_vars = bash_executor.env_provider("echo $API_KEY")
+    # Test that secrets_manager works correctly
+    env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars("echo $API_KEY")
     assert env_vars == {"API_KEY": "test-api-key"}
 
-    env_vars = bash_executor.env_provider("echo $NOT_A_KEY")
+    env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars("echo $NOT_A_KEY")
     assert env_vars == {}
 
 
 def test_agent_env_provider_with_callable_secrets(
     conversation: LocalConversation, bash_executor: BashExecutor
 ):
-    """Test that agent env provider works with callable secrets."""
+    """Test that secrets_manager works with callable secrets."""
 
     # Add callable secrets
     class MySecretSource(SecretSource):
@@ -107,15 +106,17 @@ def test_agent_env_provider_with_callable_secrets(
         }
     )
 
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("export DYNAMIC_TOKEN=$DYNAMIC_TOKEN")
+    assert bash_executor.secrets_manager is not None
+    env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars(
+        "export DYNAMIC_TOKEN=$DYNAMIC_TOKEN"
+    )
     assert env_vars == {"DYNAMIC_TOKEN": "dynamic-token-123"}
 
 
 def test_agent_env_provider_handles_exceptions(
     conversation: LocalConversation, bash_executor: BashExecutor
 ):
-    """Test that agent env provider handles exceptions gracefully."""
+    """Test that secrets_manager handles exceptions gracefully."""
 
     # Add a failing callable secret
     class MyFailingSecretSource(SecretSource):
@@ -129,41 +130,33 @@ def test_agent_env_provider_handles_exceptions(
         }
     )
 
-    assert bash_executor.env_provider is not None
+    assert bash_executor.secrets_manager is not None
 
     # Should not raise exception, should return empty dict
-    env_vars = bash_executor.env_provider("export FAILING_KEY=$FAILING_KEY")
+    env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars(
+        "export FAILING_KEY=$FAILING_KEY"
+    )
     assert env_vars == {}
 
     # Working key should still work
-    env_vars = bash_executor.env_provider("export WORKING_KEY=$WORKING_KEY")
+    env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars(
+        "export WORKING_KEY=$WORKING_KEY"
+    )
     assert env_vars == {"WORKING_KEY": "working-value"}
 
 
 def test_agent_env_provider_no_matches(
     conversation: LocalConversation, bash_executor: BashExecutor
 ):
-    """Test agent env provider when command has no secret matches."""
+    """Test secrets_manager when command has no secret matches."""
 
     conversation.update_secrets({"API_KEY": "test-value"})
 
-    # Test env provider with command that doesn't reference secrets
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("echo hello world")
+    # Test secrets_manager with command that doesn't reference secrets
+    assert bash_executor.secrets_manager is not None
+    env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars("echo hello world")
 
     assert env_vars == {}
-
-
-def test_agent_without_bash_throws_warning(llm):
-    """Test that agent works correctly when no bash tools are present."""
-
-    with patch("openhands.sdk.agent.agent.logger") as mock_logger:
-        _ = Conversation(agent=Agent(llm=llm, tools=[]))
-
-        # Check that the warning was logged
-        mock_logger.warning.assert_called_once_with(
-            "Skipped wiring SecretsManager: missing bash tool"
-        )
 
 
 def test_agent_secrets_integration_workflow(
@@ -185,29 +178,35 @@ def test_agent_secrets_integration_workflow(
         )
 
         # Single secret
-        assert bash_executor.env_provider is not None
-        env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
+        assert bash_executor.secrets_manager is not None
+        env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars(
+            "curl -H 'X-API-Key: $API_KEY'"
+        )
         assert env_vars == {"API_KEY": "static-api-key-123"}
 
         # Multiple secrets
         command = "export API_KEY=$API_KEY && export AUTH_TOKEN=$AUTH_TOKEN"
-        assert bash_executor.env_provider is not None
-        env_vars = bash_executor.env_provider(command)
+        assert bash_executor.secrets_manager is not None
+        env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars(command)
         assert env_vars == {
             "API_KEY": "static-api-key-123",
             "AUTH_TOKEN": "bearer-token-456",
         }
 
         # No secrets referenced
-        assert bash_executor.env_provider is not None
-        env_vars = bash_executor.env_provider("echo hello world")
+        assert bash_executor.secrets_manager is not None
+        env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars(
+            "echo hello world"
+        )
         assert env_vars == {}
 
     # Step 5: Update secrets and verify changes propagate
     conversation.update_secrets({"API_KEY": "updated-api-key-789"})
 
-    assert bash_executor.env_provider is not None
-    env_vars = bash_executor.env_provider("curl -H 'X-API-Key: $API_KEY'")
+    assert bash_executor.secrets_manager is not None
+    env_vars = bash_executor.secrets_manager.get_secrets_as_env_vars(
+        "curl -H 'X-API-Key: $API_KEY'"
+    )
     assert env_vars == {"API_KEY": "updated-api-key-789"}
 
 

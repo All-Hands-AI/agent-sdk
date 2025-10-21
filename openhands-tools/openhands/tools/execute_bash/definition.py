@@ -1,7 +1,7 @@
 """Execute bash tool implementation."""
 
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
@@ -242,8 +242,6 @@ class BashTool(ToolDefinition[ExecuteBashAction, ExecuteBashObservation]):
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
-        env_provider: Callable[[str], dict[str, str]] | None = None,
-        env_masker: Callable[[str], str] | None = None,
     ) -> Sequence["BashTool"]:
         """Initialize BashTool with executor parameters.
 
@@ -258,28 +256,22 @@ class BashTool(ToolDefinition[ExecuteBashAction, ExecuteBashObservation]):
                          If None, auto-detect based on system capabilities:
                          - On Windows: PowerShell if available, otherwise subprocess
                          - On Unix-like: tmux if available, otherwise subprocess
-            env_provider: Optional callable that maps a command string to
-                          environment variables (key -> value) to export before
-                          running that command.
-            env_masker: Optional callable that returns current secret values
-                        for masking purposes. This ensures consistent masking
-                        even when env_provider calls fail.
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
+        from openhands.tools.execute_bash.secrets_manager import SecretsManager
 
         working_dir = conv_state.workspace.working_dir
         if not os.path.isdir(working_dir):
             raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
 
-        # Initialize the executor
+        # Initialize the executor with a new SecretsManager
         executor = BashExecutor(
             working_dir=working_dir,
             username=username,
             no_change_timeout_seconds=no_change_timeout_seconds,
             terminal_type=terminal_type,
-            env_provider=env_provider,
-            env_masker=env_masker,
+            secrets_manager=SecretsManager(),
         )
 
         # Initialize the parent ToolDefinition with the executor

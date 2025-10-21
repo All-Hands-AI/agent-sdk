@@ -4,30 +4,23 @@ import tempfile
 
 from openhands.tools.execute_bash import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
+from openhands.tools.execute_bash.secrets_manager import SecretsManager
 
 
 def test_bash_executor_with_env_provider_automatic_masking():
-    """Test that BashExecutor automatically masks secrets when env_masker is provided."""  # noqa: E501
+    """Test BashExecutor automatically masks secrets with secrets_manager."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create a mock env_provider that returns secrets
-        def mock_env_provider(cmd: str) -> dict[str, str]:
-            return {
+        # Create a secrets manager with secrets
+        secrets_manager = SecretsManager()
+        secrets_manager.update_secrets(
+            {
                 "SECRET_TOKEN": "secret-value-123",
                 "API_KEY": "another-secret-456",
             }
-
-        # Create env_masker that returns the same secrets for masking
-        def mock_env_masker(str: str) -> str:
-            str = str.replace("secret-value-123", "<secret-hidden>")
-            str = str.replace("another-secret-456", "<secret-hidden>")
-            return str
-
-        # Create executor with both env_provider and env_masker
-        executor = BashExecutor(
-            working_dir=temp_dir,
-            env_provider=mock_env_provider,
-            env_masker=mock_env_masker,
         )
+
+        # Create executor with secrets_manager
+        executor = BashExecutor(working_dir=temp_dir, secrets_manager=secrets_manager)
 
         try:
             # Execute a command that outputs secret values
@@ -47,9 +40,9 @@ def test_bash_executor_with_env_provider_automatic_masking():
 
 
 def test_bash_executor_without_env_provider():
-    """Test that BashExecutor works normally without env_provider (no masking)."""
+    """Test that BashExecutor works normally without secrets_manager (no masking)."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create executor without env_provider
+        # Create executor without secrets_manager
         executor = BashExecutor(working_dir=temp_dir)
 
         try:

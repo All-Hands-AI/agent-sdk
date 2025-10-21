@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
-from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.message import Message, content_to_str
@@ -19,6 +18,7 @@ from openhands.sdk.workspace.base import BaseWorkspace
 if TYPE_CHECKING:
     from openhands.sdk.agent.base import AgentBase
     from openhands.sdk.conversation.state import AgentExecutionStatus
+    from openhands.tools.execute_bash import SecretValue
 
 
 class ConversationStateProtocol(Protocol):
@@ -117,7 +117,7 @@ class BaseConversation(ABC):
     def pause(self) -> None: ...
 
     @abstractmethod
-    def update_secrets(self, secrets: Mapping[str, SecretValue]) -> None: ...
+    def update_secrets(self, secrets: Mapping[str, "SecretValue"]) -> None: ...
 
     @abstractmethod
     def close(self) -> None: ...

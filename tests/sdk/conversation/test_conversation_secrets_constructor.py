@@ -10,9 +10,12 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
-from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.llm import LLM
+from openhands.sdk.tool import Tool, register_tool
 from openhands.sdk.workspace import RemoteWorkspace
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.execute_bash.impl import BashExecutor
+from openhands.tools.execute_bash.secret_source import SecretSource
 
 from .conftest import create_mock_http_client
 
@@ -20,7 +23,8 @@ from .conftest import create_mock_http_client
 def create_test_agent() -> Agent:
     """Create a test agent."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
-    return Agent(llm=llm, tools=[])
+    register_tool("BashTool", BashTool)
+    return Agent(llm=llm, tools=[Tool(name="BashTool")])
 
 
 def test_local_conversation_constructor_with_secrets():
@@ -42,8 +46,13 @@ def test_local_conversation_constructor_with_secrets():
         # Verify it's a LocalConversation
         assert isinstance(conv, LocalConversation)
 
+        # Get bash executor to access secrets_manager
+        bash_tool = conv.agent.tools_map["execute_bash"]
+        bash_executor = bash_tool.executor
+        assert isinstance(bash_executor, BashExecutor)
+
         # Verify secrets were initialized
-        secrets_manager = conv.state.secrets_manager
+        secrets_manager = bash_executor.secrets_manager
         assert secrets_manager is not None
 
         # Verify secrets are accessible through the secrets manager
@@ -89,8 +98,13 @@ def test_local_conversation_constructor_with_callable_secrets():
         # Verify it's a LocalConversation
         assert isinstance(conv, LocalConversation)
 
+        # Get bash executor to access secrets_manager
+        bash_tool = conv.agent.tools_map["execute_bash"]
+        bash_executor = bash_tool.executor
+        assert isinstance(bash_executor, BashExecutor)
+
         # Verify callable secrets work
-        secrets_manager = conv.state.secrets_manager
+        secrets_manager = bash_executor.secrets_manager
 
         env_vars = secrets_manager.get_secrets_as_env_vars("echo $DYNAMIC_TOKEN")
         assert env_vars == {"DYNAMIC_TOKEN": "dynamic-token-789"}
@@ -117,8 +131,13 @@ def test_local_conversation_constructor_without_secrets():
         # Verify it's a LocalConversation
         assert isinstance(conv, LocalConversation)
 
+        # Get bash executor to access secrets_manager
+        bash_tool = conv.agent.tools_map["execute_bash"]
+        bash_executor = bash_tool.executor
+        assert isinstance(bash_executor, BashExecutor)
+
         # Verify secrets manager exists but is empty
-        secrets_manager = conv.state.secrets_manager
+        secrets_manager = bash_executor.secrets_manager
         assert secrets_manager is not None
 
         # Should return empty dict for any command
@@ -141,8 +160,13 @@ def test_local_conversation_constructor_with_empty_secrets():
         # Verify it's a LocalConversation
         assert isinstance(conv, LocalConversation)
 
+        # Get bash executor to access secrets_manager
+        bash_tool = conv.agent.tools_map["execute_bash"]
+        bash_executor = bash_tool.executor
+        assert isinstance(bash_executor, BashExecutor)
+
         # Verify secrets manager exists but is empty
-        secrets_manager = conv.state.secrets_manager
+        secrets_manager = bash_executor.secrets_manager
         assert secrets_manager is not None
 
         # Should return empty dict for any command

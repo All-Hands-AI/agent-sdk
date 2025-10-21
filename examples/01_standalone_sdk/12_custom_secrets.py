@@ -7,9 +7,9 @@ from openhands.sdk import (
     Agent,
     Conversation,
 )
-from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
+from openhands.tools.execute_bash.secret_source import SecretSource
 from openhands.tools.file_editor import FileEditorTool
 
 

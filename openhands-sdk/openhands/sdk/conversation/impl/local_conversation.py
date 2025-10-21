@@ -5,7 +5,6 @@ from pathlib import Path
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.exceptions import ConversationRunError
-from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.title_utils import generate_conversation_title
@@ -26,6 +25,7 @@ from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
 from openhands.sdk.workspace import LocalWorkspace
+from openhands.tools.execute_bash import SecretValue
 
 
 logger = get_logger(__name__)
@@ -345,10 +345,19 @@ class LocalConversation(BaseConversation):
                      SecretValue = str | Callable[[], str]. Callables are invoked lazily
                      when a command references the secret key.
         """
+        # Find the bash tool and update its secrets manager
+        for tool in self.agent.tools_map.values():
+            if tool.name == "execute_bash":
+                try:
+                    executable_tool = tool.as_executable()
+                    executable_tool.executor.secrets_manager.update_secrets(secrets)
+                    logger.info(f"Added {len(secrets)} secrets to conversation")
+                    return
+                except NotImplementedError:
+                    # Tool has no executor, skip it
+                    continue
 
-        secrets_manager = self._state.secrets_manager
-        secrets_manager.update_secrets(secrets)
-        logger.info(f"Added {len(secrets)} secrets to conversation")
+        logger.warning("No bash tool found to update secrets")
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
