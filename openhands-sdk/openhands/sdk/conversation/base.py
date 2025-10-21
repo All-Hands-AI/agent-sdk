@@ -40,11 +40,6 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def agent_status(self) -> "ConversationExecutionStatus":
-        """The current conversation execution status (backward compatibility)."""
-        ...
-
-    @property
     def confirmation_policy(self) -> ConfirmationPolicyBase:
         """The confirmation policy."""
         ...

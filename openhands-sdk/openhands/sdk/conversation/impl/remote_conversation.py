@@ -312,12 +312,10 @@ class RemoteState(ConversationStateProtocol):
     def execution_status(self) -> ConversationExecutionStatus:
         """The current conversation execution status."""
         info = self._get_conversation_info()
-        # Try new field name first, then fall back to old field name for backward compat
-        status_str = info.get("execution_status") or info.get("agent_status")
+        status_str = info.get("execution_status")
         if status_str is None:
             raise RuntimeError(
-                "execution_status/agent_status missing in conversation info: "
-                + str(info)
+                "execution_status missing in conversation info: " + str(info)
             )
         return ConversationExecutionStatus(status_str)
 
@@ -332,20 +330,6 @@ class RemoteState(ConversationStateProtocol):
             f"Setting execution_status on RemoteState has no effect. "
             f"Remote execution status is managed server-side. Attempted to set: {value}"
         )
-
-    @property
-    def agent_status(self) -> ConversationExecutionStatus:
-        """The current conversation execution status (backward compatibility)."""
-        return self.execution_status
-
-    @agent_status.setter
-    def agent_status(self, value: ConversationExecutionStatus) -> None:
-        """Set agent status is No-OP for RemoteConversation (backward compatibility property).
-
-        # For remote conversations, agent status is managed server-side
-        # This setter is provided for test compatibility but doesn't actually change remote state  # noqa: E501
-        """  # noqa: E501
-        self.execution_status = value
 
     @property
     def confirmation_policy(self) -> ConfirmationPolicyBase:

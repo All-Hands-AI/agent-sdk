@@ -42,10 +42,6 @@ class ConversationExecutionStatus(str, Enum):
     STUCK = "stuck"  # Conversation is stuck in a loop or unable to proceed
 
 
-# Backward compatibility alias
-AgentExecutionStatus = ConversationExecutionStatus
-
-
 if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
@@ -340,14 +336,3 @@ class ConversationState(OpenHandsModel):
         Return True if the lock is currently held by the calling thread.
         """
         return self._lock.owned()
-
-    # Backward compatibility property
-    @property
-    def agent_status(self) -> ConversationExecutionStatus:
-        """Backward compatibility property for execution_status."""
-        return self.execution_status
-
-    @agent_status.setter
-    def agent_status(self, value: ConversationExecutionStatus) -> None:
-        """Backward compatibility setter for execution_status."""
-        self.execution_status = value
