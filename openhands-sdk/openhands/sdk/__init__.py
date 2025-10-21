@@ -13,11 +13,13 @@ from openhands.sdk.conversation import (
     RemoteConversation,
 )
 from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.conversation.streaming_visualizer import (
+    StreamingConversationVisualizer,
+    create_streaming_visualizer,
+)
 from openhands.sdk.conversation.visualizer import (
     ConversationVisualizer,
-    StreamingConversationVisualizer,
     create_default_visualizer,
-    create_streaming_visualizer,
 )
 from openhands.sdk.event import Event, LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import MessageEvent

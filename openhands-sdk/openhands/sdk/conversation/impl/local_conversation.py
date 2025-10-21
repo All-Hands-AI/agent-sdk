@@ -155,7 +155,19 @@ class LocalConversation(BaseConversation):
             if user_token_callback:
                 user_token_callback(stream_chunk)
 
-        self._on_token = _handle_stream_event
+        streaming_enabled = user_token_callback is not None
+
+        if callbacks:
+            for cb in callbacks:
+                owner = getattr(cb, "__self__", None)
+                if owner is not None and getattr(owner, "requires_streaming", False):
+                    streaming_enabled = True
+                    break
+
+        if self._visualizer and getattr(self._visualizer, "requires_streaming", False):
+            streaming_enabled = True
+
+        self._on_token = _handle_stream_event if streaming_enabled else None
 
         # Initialize secrets if provided
         if secrets:
@@ -287,12 +299,17 @@ class LocalConversation(BaseConversation):
                     ):
                         self._state.agent_status = AgentExecutionStatus.RUNNING
 
-                    # step must mutate the SAME state object
-                    self.agent.step(
-                        self._state,
-                        on_event=self._on_event,
-                        on_token=self._on_token,
-                    )
+                    if self._on_token is not None:
+                        self.agent.step(
+                            self._state,
+                            on_event=self._on_event,
+                            on_token=self._on_token,
+                        )
+                    else:
+                        self.agent.step(
+                            self._state,
+                            on_event=self._on_event,
+                        )
                     iteration += 1
 
                     # Check for non-finished terminal conditions
@@ -391,12 +408,15 @@ class LocalConversation(BaseConversation):
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
-        for tool in self.agent.tools_map.values():
+        try:
+            tools = list(self.agent.tools_map.values())
+        except RuntimeError:
+            tools = []
+        for tool in tools:
             try:
                 executable_tool = tool.as_executable()
                 executable_tool.executor.close()
             except NotImplementedError:
-                # Tool has no executor, skip it
                 continue
             except Exception as e:
                 logger.warning(f"Error closing executor for tool '{tool.name}': {e}")

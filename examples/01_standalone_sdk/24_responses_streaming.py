@@ -21,7 +21,7 @@ from openhands.sdk import (
     LLMStreamChunk,
     get_logger,
 )
-from openhands.sdk.conversation.visualizer import create_streaming_visualizer
+from openhands.sdk.conversation.streaming_visualizer import create_streaming_visualizer
 from openhands.sdk.llm import LLM
 from openhands.tools.preset.default import get_default_agent
 

@@ -148,7 +148,9 @@ def test_streaming_events_persist_and_dispatch(tmp_path):
 
 
 def test_visualizer_streaming_renders_incremental_text():
-    from openhands.sdk.conversation.visualizer import create_streaming_visualizer
+    from openhands.sdk.conversation.streaming_visualizer import (
+        create_streaming_visualizer,
+    )
 
     viz = create_streaming_visualizer()
     viz._console = Console(record=True)
