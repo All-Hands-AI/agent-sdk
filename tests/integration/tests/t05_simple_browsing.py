@@ -9,7 +9,8 @@ from openhands.sdk import get_logger
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.file_editor import FileEditorTool
-from tests.integration.base import BaseIntegrationTest, TestResult
+
+from ..base import BaseIntegrationTest, TestResult
 
 
 INSTRUCTION = "Browse localhost:8000, and tell me the ultimate answer to life."
@@ -119,7 +120,7 @@ class SimpleBrowsingTest(BaseIntegrationTest):
                 f.write(HTML_FILE)
 
             # Start the HTTP server in the background
-            self.server_process: subprocess.Popen[bytes] | None = subprocess.Popen(
+            self.server_process = subprocess.Popen(
                 ["python3", "-m", "http.server", "8000"],
                 cwd=self.workspace,
                 stdout=subprocess.DEVNULL,

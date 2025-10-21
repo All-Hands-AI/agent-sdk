@@ -17,9 +17,10 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict
 
 from openhands.sdk.logger import get_logger
-from tests.integration.base import BaseIntegrationTest, TestResult
-from tests.integration.schemas import ModelTestResults
-from tests.integration.utils.format_costs import format_cost
+
+from .base import BaseIntegrationTest, TestResult
+from .schemas import ModelTestResults
+from .utils.format_costs import format_cost
 
 
 logger = get_logger(__name__)

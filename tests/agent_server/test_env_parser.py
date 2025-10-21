@@ -33,7 +33,8 @@ from openhands.agent_server.env_parser import (
     get_env_parser,
     merge,
 )
-from tests.sdk.utils.test_discriminated_union import Animal, Dog
+
+from ..sdk.utils.test_discriminated_union import Animal, Dog
 
 
 class NodeModel(BaseModel):

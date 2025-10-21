@@ -122,7 +122,7 @@ class MockSubscriber(SubscriberForTesting):
 
     async def close(self):
         """Clean up this subscriber"""
-        self.close_called: bool = True
+        self.close_called = True
 
 
 @pytest.fixture

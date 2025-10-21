@@ -7,11 +7,11 @@ import argparse
 import json
 import sys
 
-from tests.integration.schemas import (
+from ..schemas import (
     ConsolidatedResults,
     ModelTestResults,
 )
-from tests.integration.utils.format_costs import format_cost
+from .format_costs import format_cost
 
 
 def generate_model_summary_table(model_results: list[ModelTestResults]) -> str:

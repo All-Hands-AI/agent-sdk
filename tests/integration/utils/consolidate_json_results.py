@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-from tests.integration.schemas import (
+from ..schemas import (
     ConsolidatedResults,
     ModelTestResults,
 )
