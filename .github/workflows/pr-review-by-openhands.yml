@@ -38,6 +38,8 @@ jobs:
                   # Fetch the full history to get the diff
                   fetch-depth: 0
                   path: pr-repo
+                  # For forks, we need to checkout from the fork repository
+                  repository: ${{ github.event.pull_request.head.repo.full_name }}
                   # Check out the feature branch so agent can inspect the PR changes
                   ref: ${{ github.event.pull_request.head.ref }}
 
