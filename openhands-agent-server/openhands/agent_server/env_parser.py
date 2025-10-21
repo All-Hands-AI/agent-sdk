@@ -98,7 +98,7 @@ class LiteralEnvParser(EnvParser):
     def to_env(self, key: str, value: Any, output: IO):
         output.write(f"# Permitted Values: {', '.join(self.values)}\n")
         # For enums, use the value instead of the string representation
-        if hasattr(value, 'value'):
+        if hasattr(value, "value"):
             output.write(f"{key}={value.value}\n")
         else:
             output.write(f"{key}={value}\n")
