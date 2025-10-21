@@ -68,9 +68,7 @@ def test_knowledge_skill_serialization():
 
     # Test deserialization
     deserialized = Skill.model_validate(serialized)
-    assert isinstance(deserialized.trigger, KeywordTrigger)
-    assert deserialized.name == "test-knowledge"
-    assert deserialized.trigger.keywords == ["python", "testing"]
+    assert deserialized == knowledge_skill
 
 
 def test_task_skill_serialization():
@@ -103,10 +101,7 @@ def test_task_skill_serialization():
 
     # Test deserialization
     deserialized = Skill.model_validate(serialized)
-    assert isinstance(deserialized.trigger, TaskTrigger)
-    assert deserialized.name == "test-task"
-    assert deserialized.trigger.triggers == ["task", "automation"]
-    assert len(deserialized.inputs) == 1
+    assert deserialized == task_skill
 
 
 def test_skill_union_serialization_roundtrip():
@@ -148,19 +143,8 @@ def test_skill_union_serialization_roundtrip():
         deserialized_from_json = Skill.model_validate_json(json_str)
 
         # Verify all versions are equivalent
-        # Handle None trigger (always-active skills)
-        if original_skill.trigger is None:
-            assert deserialized_from_dict.trigger is None
-            assert deserialized_from_json.trigger is None
-        else:
-            assert deserialized_from_dict.trigger.type == original_skill.trigger.type
-            assert deserialized_from_json.trigger.type == original_skill.trigger.type
-        assert deserialized_from_dict.name == original_skill.name
-        assert deserialized_from_dict.content == original_skill.content
-        assert deserialized_from_dict.source == original_skill.source
-        assert deserialized_from_json.name == original_skill.name
-        assert deserialized_from_json.content == original_skill.content
-        assert deserialized_from_json.source == original_skill.source
+        assert deserialized_from_dict == original_skill
+        assert deserialized_from_json == original_skill
 
 
 def test_skill_union_polymorphic_list():
