@@ -123,3 +123,29 @@ reloaded.send_message(
 reloaded.run()
 
 print("Reloaded run finished with profile:", reloaded.state.agent.llm.profile_id)
+
+# ---------------------------------------------------------------------------
+# Part 2: Inline persistence rejects runtime switching
+# ---------------------------------------------------------------------------
+# When OPENHANDS_INLINE_CONVERSATIONS is true the conversation persists full
+# LLM payloads instead of profile references. Switching profiles would break
+# the diff reconciliation step, so the SDK deliberately rejects it with a
+# RuntimeError. We demonstrate that behaviour below.
+os.environ["OPENHANDS_INLINE_CONVERSATIONS"] = "true"
+
+inline_persistence_dir = Path("./.conversations_switch_demo_inline").resolve()
+inline_agent = Agent(llm=registry.load_profile(base_profile_id), tools=[])
+inline_conversation = Conversation(
+    agent=inline_agent,
+    workspace=str(workspace_dir),
+    persistence_dir=str(inline_persistence_dir),
+    conversation_id=uuid.uuid4(),
+    visualize=False,
+)
+
+try:
+    inline_conversation.switch_llm(alt_profile_id)
+except RuntimeError as exc:
+    print("Inline mode switch attempt rejected as expected:", exc)
+else:
+    raise AssertionError("Inline mode should have rejected the LLM switch")
