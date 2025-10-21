@@ -165,7 +165,7 @@ def _setup_static_files(app: FastAPI, config: Config) -> None:
     )
 
     # Add root redirect to static files
-    @app.get("/")
+    @app.get("/", tags=["Server Details"])
     async def root_redirect():
         """Redirect root endpoint to static files directory."""
         # Check if index.html exists in the static directory

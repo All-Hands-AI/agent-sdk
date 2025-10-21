@@ -19,7 +19,7 @@ class RemoteWorkspace(RemoteWorkspaceMixin, BaseWorkspace):
     def client(self) -> httpx.Client:
         client = self._client
         if client is None:
-            client = httpx.Client()
+            client = httpx.Client(base_url=self.host)
             self._client = client
         return client
 

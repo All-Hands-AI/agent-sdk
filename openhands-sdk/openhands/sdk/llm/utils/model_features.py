@@ -86,6 +86,7 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
     "claude-3.5-haiku*",
     "claude-3-5-haiku*",
     "claude-sonnet-4*",
+    "claude-haiku-4*",
     "claude-opus-4*",
     # OpenAI families
     "gpt-4o*",
