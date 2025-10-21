@@ -87,6 +87,7 @@ def get_default_agent(
     llm: LLM,
     cli_mode: bool = False,
     enable_delegation: bool = True,
+    add_security_analyzer: bool = False,
 ) -> Agent:
     """Get the default agent with delegation capabilities.
 
@@ -116,6 +117,6 @@ def get_default_agent(
         condenser=get_default_condenser(
             llm=llm.model_copy(update={"usage_id": "condenser"})
         ),
-        security_analyzer=LLMSecurityAnalyzer(),
+        security_analyzer=LLMSecurityAnalyzer() if add_security_analyzer else None,
     )
     return agent

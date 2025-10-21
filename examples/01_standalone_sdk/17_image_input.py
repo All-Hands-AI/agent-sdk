@@ -69,9 +69,7 @@ conversation = Conversation(
     agent=agent, callbacks=[conversation_callback], workspace=cwd
 )
 
-IMAGE_URL = (
-    "https://github.com/All-Hands-AI/OpenHands/raw/main/docs/static/img/logo.png"
-)
+IMAGE_URL = "https://github.com/OpenHands/OpenHands/raw/main/docs/static/img/logo.png"
 
 conversation.send_message(
     Message(
