@@ -228,10 +228,10 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
         path_obj = Path(pattern)
         parts = path_obj.parts
 
-        # Find where the glob characters start
+        # Find where the glob characters start using glob.has_magic()
         search_parts = []
         for part in parts:
-            if any(ch in part for ch in "*?[]"):
+            if glob_module.has_magic(part):
                 break
             search_parts.append(part)
 
