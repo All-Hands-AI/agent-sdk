@@ -163,10 +163,10 @@ def test_none_env_parser(clean_env):
     """Test NoneEnvParser behavior."""
     parser = NoneEnvParser()
 
-    # Test missing key (should return None)
+    # Test missing key (should return MISSING)
     assert parser.from_env("SOME_VALUE") is MISSING
 
-    # Test present key (should return MISSING)
+    # Test present key (should return None)
     os.environ["SOME_VALUE_IS_NONE"] = "1"
     assert parser.from_env("SOME_VALUE") is None
 
