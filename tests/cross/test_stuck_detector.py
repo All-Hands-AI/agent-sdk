@@ -1,7 +1,5 @@
 import uuid
 
-from litellm import ChatCompletionMessageToolCall
-
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -11,7 +9,13 @@ from openhands.sdk.event import (
     MessageEvent,
     ObservationEvent,
 )
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import (
+    LLM,
+    Message,
+    MessageToolCall,
+    TextContent,
+)
+from openhands.sdk.workspace import LocalWorkspace
 from openhands.tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,
@@ -21,9 +25,11 @@ from openhands.tools.execute_bash.definition import (
 def test_history_too_short():
     """Test that stuck detector returns False when there are too few events."""
     # Create a minimal agent for testing
-    llm = LLM(model="gpt-4o-mini")
+    llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
     agent = Agent(llm=llm)
-    state = ConversationState.create(id=uuid.uuid4(), agent=agent)
+    state = ConversationState.create(
+        id=uuid.uuid4(), agent=agent, workspace=LocalWorkspace(working_dir="/tmp")
+    )
     stuck_detector = StuckDetector(state)
 
     # Add a user message
@@ -40,10 +46,11 @@ def test_history_too_short():
         action=ExecuteBashAction(command="ls"),
         tool_name="execute_bash",
         tool_call_id="call_1",
-        tool_call=ChatCompletionMessageToolCall(
+        tool_call=MessageToolCall(
             id="call_1",
-            function={"name": "execute_bash", "arguments": '{"command": "ls"}'},
-            type="function",
+            name="execute_bash",
+            arguments='{"command": "ls"}',
+            origin="completion",
         ),
         llm_response_id="response_1",
     )
@@ -66,9 +73,11 @@ def test_history_too_short():
 
 def test_repeating_action_observation_not_stuck_less_than_4_repeats():
     """Test detection of repeating action-observation cycles."""
-    llm = LLM(model="gpt-4o-mini")
+    llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
     agent = Agent(llm=llm)
-    state = ConversationState.create(id=uuid.uuid4(), agent=agent)
+    state = ConversationState.create(
+        id=uuid.uuid4(), agent=agent, workspace=LocalWorkspace(working_dir="/tmp")
+    )
     stuck_detector = StuckDetector(state)
 
     # Add a user message first
@@ -86,10 +95,11 @@ def test_repeating_action_observation_not_stuck_less_than_4_repeats():
             action=ExecuteBashAction(command="ls"),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=MessageToolCall(
                 id=f"call_{i}",
-                function={"name": "execute_bash", "arguments": '{"command": "ls"}'},
-                type="function",
+                name="execute_bash",
+                arguments='{"command": "ls"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -112,9 +122,11 @@ def test_repeating_action_observation_not_stuck_less_than_4_repeats():
 
 def test_repeating_action_observation_stuck():
     """Test detection of repeating action-observation cycles."""
-    llm = LLM(model="gpt-4o-mini")
+    llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
     agent = Agent(llm=llm)
-    state = ConversationState.create(id=uuid.uuid4(), agent=agent)
+    state = ConversationState.create(
+        id=uuid.uuid4(), agent=agent, workspace=LocalWorkspace(working_dir="/tmp")
+    )
     stuck_detector = StuckDetector(state)
 
     # Add a user message first
@@ -132,10 +144,11 @@ def test_repeating_action_observation_stuck():
             action=ExecuteBashAction(command="ls"),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=MessageToolCall(
                 id=f"call_{i}",
-                function={"name": "execute_bash", "arguments": '{"command": "ls"}'},
-                type="function",
+                name="execute_bash",
+                arguments='{"command": "ls"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -158,9 +171,11 @@ def test_repeating_action_observation_stuck():
 
 def test_repeating_action_error_stuck():
     """Test detection of repeating action-error cycles."""
-    llm = LLM(model="gpt-4o-mini")
+    llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
     agent = Agent(llm=llm)
-    state = ConversationState.create(id=uuid.uuid4(), agent=agent)
+    state = ConversationState.create(
+        id=uuid.uuid4(), agent=agent, workspace=LocalWorkspace(working_dir="/tmp")
+    )
     stuck_detector = StuckDetector(state)
 
     # Add a user message first
@@ -179,13 +194,11 @@ def test_repeating_action_error_stuck():
             action=ExecuteBashAction(command="invalid_command"),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=MessageToolCall(
                 id=f"call_{i}",
-                function={
-                    "name": "execute_bash",
-                    "arguments": '{"command": "invalid_command"}',
-                },
-                type="function",
+                name="execute_bash",
+                arguments='{"command": "invalid_command"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -217,9 +230,11 @@ def test_repeating_action_error_stuck():
 
 def test_agent_monologue_stuck():
     """Test detection of agent monologue (repeated messages without user input)."""
-    llm = LLM(model="gpt-4o-mini")
+    llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
     agent = Agent(llm=llm)
-    state = ConversationState.create(id=uuid.uuid4(), agent=agent)
+    state = ConversationState.create(
+        id=uuid.uuid4(), agent=agent, workspace=LocalWorkspace(working_dir="/tmp")
+    )
     stuck_detector = StuckDetector(state)
 
     # Add a user message first
@@ -245,9 +260,11 @@ def test_agent_monologue_stuck():
 
 def test_not_stuck_with_different_actions():
     """Test that different actions don't trigger stuck detection."""
-    llm = LLM(model="gpt-4o-mini")
+    llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
     agent = Agent(llm=llm)
-    state = ConversationState.create(id=uuid.uuid4(), agent=agent)
+    state = ConversationState.create(
+        id=uuid.uuid4(), agent=agent, workspace=LocalWorkspace(working_dir="/tmp")
+    )
     stuck_detector = StuckDetector(state)
 
     # Add a user message first
@@ -268,13 +285,11 @@ def test_not_stuck_with_different_actions():
             action=ExecuteBashAction(command=cmd),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=MessageToolCall(
                 id=f"call_{i}",
-                function={
-                    "name": "execute_bash",
-                    "arguments": f'{{"command": "{cmd}"}}',
-                },
-                type="function",
+                name="execute_bash",
+                arguments=f'{{"command": "{cmd}"}}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -297,9 +312,11 @@ def test_not_stuck_with_different_actions():
 
 def test_reset_after_user_message():
     """Test that stuck detection resets after a new user message."""
-    llm = LLM(model="gpt-4o-mini")
+    llm = LLM(model="gpt-4o-mini", usage_id="test-llm")
     agent = Agent(llm=llm)
-    state = ConversationState.create(id=uuid.uuid4(), agent=agent)
+    state = ConversationState.create(
+        id=uuid.uuid4(), agent=agent, workspace=LocalWorkspace(working_dir="/tmp")
+    )
     stuck_detector = StuckDetector(state)
 
     # Add initial user message
@@ -317,10 +334,11 @@ def test_reset_after_user_message():
             action=ExecuteBashAction(command="ls"),
             tool_name="execute_bash",
             tool_call_id=f"call_{i}",
-            tool_call=ChatCompletionMessageToolCall(
+            tool_call=MessageToolCall(
                 id=f"call_{i}",
-                function={"name": "execute_bash", "arguments": '{"command": "ls"}'},
-                type="function",
+                name="execute_bash",
+                arguments='{"command": "ls"}',
+                origin="completion",
             ),
             llm_response_id=f"response_{i}",
         )
@@ -359,10 +377,11 @@ def test_reset_after_user_message():
         action=ExecuteBashAction(command="pwd"),
         tool_name="execute_bash",
         tool_call_id="call_new",
-        tool_call=ChatCompletionMessageToolCall(
+        tool_call=MessageToolCall(
             id="call_new",
-            function={"name": "execute_bash", "arguments": '{"command": "pwd"}'},
-            type="function",
+            name="execute_bash",
+            arguments='{"command": "pwd"}',
+            origin="completion",
         ),
         llm_response_id="response_new",
     )

@@ -1,4 +1,5 @@
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import Mock, patch
 
 import pytest
 from litellm.exceptions import (
@@ -6,7 +7,7 @@ from litellm.exceptions import (
 )
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
 
@@ -19,6 +20,7 @@ def default_llm():
     return LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
+        usage_id="default-test-llm",
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -36,9 +38,29 @@ def test_llm_init_with_default_config(default_llm):
     assert default_llm.metrics.model_name == "gpt-4o"
 
 
-def test_base_url_for_openhands_provider():
-    llm = LLM(model="openhands/claude-sonnet-4-20250514", api_key=SecretStr("test-key"))
+@patch("openhands.sdk.llm.llm.httpx.get")
+def test_base_url_for_openhands_provider(mock_get):
+    """Test that openhands/ prefix automatically sets base_url to production proxy."""
+    # Mock the model info fetch to avoid actual HTTP calls to production
+    mock_get.return_value = Mock(json=lambda: {"data": []})
+
+    llm = LLM(
+        model="openhands/claude-sonnet-4-20250514",
+        api_key=SecretStr("test-key"),
+        usage_id="test-openhands-llm",
+    )
     assert llm.base_url == "https://llm-proxy.app.all-hands.dev/"
+    mock_get.assert_called_once()
+
+
+def test_llm_service_id_alias_uses_usage_id():
+    legacy_kwargs: dict[str, Any] = {
+        "model": "alias-model",
+        "service_id": "legacy",
+    }
+    with pytest.warns(DeprecationWarning):
+        llm = LLM(**legacy_kwargs)  # type: ignore[arg-type]
+    assert llm.usage_id == "legacy"
 
 
 def test_token_usage_add():
@@ -107,6 +129,7 @@ def test_metrics_merge_accumulated_token_usage():
 
     # Verify merged accumulated token usage
     merged_data = metrics1.get()
+
     merged_accumulated = merged_data["accumulated_token_usage"]
     assert merged_accumulated["prompt_tokens"] == 18  # 10 + 8
     assert merged_accumulated["completion_tokens"] == 11  # 5 + 6
@@ -156,6 +179,7 @@ def test_llm_completion_with_mock(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -167,7 +191,8 @@ def test_llm_completion_with_mock(mock_completion):
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     mock_completion.assert_called_once()
 
 
@@ -187,6 +212,7 @@ def test_llm_retry_on_rate_limit(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -198,7 +224,8 @@ def test_llm_retry_on_rate_limit(mock_completion):
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     assert mock_completion.call_count == 2  # First call failed, second succeeded
 
 
@@ -294,15 +321,21 @@ def test_llm_local_detection_based_on_model_name(default_llm):
 def test_llm_local_detection_based_on_base_url():
     """Test local model detection based on base_url."""
     # Test with localhost base_url
-    local_llm = LLM(model="gpt-4o", base_url="http://localhost:8000")
+    local_llm = LLM(
+        model="gpt-4o", base_url="http://localhost:8000", usage_id="test-llm"
+    )
     assert local_llm.base_url == "http://localhost:8000"
 
     # Test with 127.0.0.1 base_url
-    local_llm_ip = LLM(model="gpt-4o", base_url="http://127.0.0.1:8000")
+    local_llm_ip = LLM(
+        model="gpt-4o", base_url="http://127.0.0.1:8000", usage_id="test-llm"
+    )
     assert local_llm_ip.base_url == "http://127.0.0.1:8000"
 
     # Test with remote model
-    remote_llm = LLM(model="gpt-4o", base_url="https://api.openai.com/v1")
+    remote_llm = LLM(
+        model="gpt-4o", base_url="https://api.openai.com/v1", usage_id="test-llm"
+    )
     assert remote_llm.base_url == "https://api.openai.com/v1"
 
 
@@ -369,11 +402,12 @@ def test_metrics_log():
 def test_llm_config_validation():
     """Test LLM configuration validation."""
     # Test with minimal valid config
-    llm = LLM(model="gpt-4o")
+    llm = LLM(model="gpt-4o", usage_id="test-llm")
     assert llm.model == "gpt-4o"
 
     # Test with full config
     full_llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         base_url="https://api.openai.com/v1",
@@ -405,6 +439,7 @@ def test_llm_no_response_error(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -500,6 +535,65 @@ def test_telemetry_cost_calculation_header_exception():
             assert "Failed to get cost from LiteLLM headers:" in str(
                 mock_logger.debug.call_args
             )
+
+
+def test_gpt5_enable_encrypted_reasoning_default():
+    """
+    Test that enable_encrypted_reasoning is enabled for GPT-5 models in Responses API.
+    """
+    # Test with gpt-5 model - should auto-enable in _normalize_responses_kwargs
+    llm = LLM(
+        model="openai/gpt-5-mini",
+        api_key=SecretStr("test_key"),
+        usage_id="test-gpt5-llm",
+    )
+    # Field default is False, but _normalize_responses_kwargs will enable it
+    assert llm.enable_encrypted_reasoning is False
+
+    # Test that the normalization actually enables it
+    from openhands.sdk.llm.options.responses_options import select_responses_options
+
+    normalized = select_responses_options(llm, {}, include=None, store=None)
+    assert "include" in normalized
+    assert "reasoning.encrypted_content" in normalized["include"]
+
+    # Test with litellm_proxy/openai/gpt-5 model
+    llm_proxy = LLM(
+        model="litellm_proxy/openai/gpt-5-codex",
+        api_key=SecretStr("test_key"),
+        usage_id="test-gpt5-proxy-llm",
+    )
+    normalized_proxy = select_responses_options(llm_proxy, {}, include=None, store=None)
+    assert "include" in normalized_proxy
+    assert "reasoning.encrypted_content" in normalized_proxy["include"]
+
+    # Test that explicit True is respected
+    llm_explicit = LLM(
+        model="openai/gpt-5-mini",
+        api_key=SecretStr("test_key"),
+        enable_encrypted_reasoning=True,
+        usage_id="test-gpt5-explicit-llm",
+    )
+    assert llm_explicit.enable_encrypted_reasoning is True
+    normalized_explicit = select_responses_options(
+        llm_explicit, {}, include=None, store=None
+    )
+    assert "reasoning.encrypted_content" in normalized_explicit["include"]
+
+    # Encrypted reasoning is included when stateless (store=False)
+    llm_gpt4 = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        usage_id="test-gpt4-llm",
+    )
+    assert llm_gpt4.enable_encrypted_reasoning is False
+    normalized_gpt4 = select_responses_options(llm_gpt4, {}, include=None, store=None)
+    assert "reasoning.encrypted_content" in normalized_gpt4.get("include", [])
+    # But if store=True, it should not be included
+    normalized_gpt4_store = select_responses_options(
+        llm_gpt4, {}, include=None, store=True
+    )
+    assert "reasoning.encrypted_content" not in normalized_gpt4_store.get("include", [])
 
 
 # LLM Registry Tests

@@ -3,8 +3,8 @@ class OpenHandsWebChat {
         // In Docker setup, API calls go through nginx proxy
         this.apiBaseUrl = window.location.origin + '/api';
         this.wsBaseUrl = window.location.protocol === 'https:' 
-            ? `wss://${window.location.host}/api`
-            : `ws://${window.location.host}/api`;
+            ? `wss://${window.location.host}`
+            : `ws://${window.location.host}`;
         
         this.currentConversationId = null;
         this.websocket = null;
@@ -275,7 +275,7 @@ class OpenHandsWebChat {
     }
 
     connectWebSocket(conversationId) {
-        const wsUrl = `${this.wsBaseUrl}/conversations/${conversationId}/events/socket`;
+        const wsUrl = `${this.wsBaseUrl}/sockets/events/${conversationId}`;
         
         this.updateConnectionStatus('connecting');
         this.websocket = new WebSocket(wsUrl);
@@ -599,14 +599,14 @@ class OpenHandsWebChat {
         return JSON.stringify({
             agent: {
                 llm: {
-                    model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                    model: "litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
                     base_url: "https://llm-proxy.app.all-hands.dev",
                     api_key: "secret"
                 },
                 tools: [
-                    { name: "BashTool", params: { working_dir: "/workspace" } },
-                    { name: "FileEditorTool", params: { workspace_root: "/workspace" } },
-                    { name: "TaskTrackerTool", params: { save_dir: "/conversations" } }
+                    { name: "BashTool", params: { } },
+                    { name: "FileEditorTool", params: { } },
+                    { name: "TaskTrackerTool", params: { } }
                 ]
             }
         }, null, 2);

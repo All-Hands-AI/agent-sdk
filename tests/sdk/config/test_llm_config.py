@@ -9,7 +9,7 @@ from openhands.sdk.llm import LLM
 
 def test_llm_config_defaults():
     """Test LLM with default values."""
-    config = LLM(model="gpt-4")
+    config = LLM(model="gpt-4", usage_id="test-llm")
     assert config.model == "gpt-4"
     assert config.api_key is None
     assert config.base_url is None
@@ -45,6 +45,7 @@ def test_llm_config_defaults():
 def test_llm_config_custom_values():
     """Test LLM with custom values."""
     config = LLM(
+        usage_id="test-llm",
         model="gpt-4",
         api_key=SecretStr("test-key"),
         base_url="https://api.example.com",
@@ -120,7 +121,7 @@ def test_llm_config_custom_values():
 
 def test_llm_config_secret_str():
     """Test that api_key is properly handled as SecretStr."""
-    config = LLM(model="gpt-4", api_key=SecretStr("secret-key"))
+    config = LLM(model="gpt-4", api_key=SecretStr("secret-key"), usage_id="test-llm")
     assert (
         config.api_key is not None and config.api_key.get_secret_value() == "secret-key"
     )
@@ -131,6 +132,7 @@ def test_llm_config_secret_str():
 def test_llm_config_aws_credentials():
     """Test AWS credentials handling."""
     config = LLM(
+        usage_id="test-llm",
         model="gpt-4",
         aws_access_key_id=SecretStr("test-access-key"),
         aws_secret_access_key=SecretStr("test-secret-key"),
@@ -149,7 +151,7 @@ def test_llm_config_aws_credentials():
 
 def test_llm_config_openrouter_defaults():
     """Test OpenRouter default values."""
-    config = LLM(model="gpt-4")
+    config = LLM(model="gpt-4", usage_id="test-llm")
     assert config.openrouter_site_url == "https://docs.all-hands.dev/"
     assert config.openrouter_app_name == "OpenHands"
 
@@ -161,6 +163,7 @@ def test_llm_config_post_init_openrouter_env_vars():
             model="gpt-4",
             openrouter_site_url="https://custom.site.com",
             openrouter_app_name="CustomApp",
+            usage_id="test-llm",
         )
         assert os.environ.get("OR_SITE_URL") == "https://custom.site.com"
         assert os.environ.get("OR_APP_NAME") == "CustomApp"
@@ -168,25 +171,25 @@ def test_llm_config_post_init_openrouter_env_vars():
 
 def test_llm_config_post_init_reasoning_effort_default():
     """Test that reasoning_effort is set to 'high' by default for non-Gemini models."""
-    config = LLM(model="gpt-4")
+    config = LLM(model="gpt-4", usage_id="test-llm")
     assert config.reasoning_effort == "high"
 
     # Test that Gemini models don't get default reasoning_effort
-    config = LLM(model="gemini-2.5-pro-experimental")
+    config = LLM(model="gemini-2.5-pro-experimental", usage_id="test-llm")
     assert config.reasoning_effort is None
 
 
 def test_llm_config_post_init_azure_api_version():
     """Test that Azure models get default API version."""
-    config = LLM(model="azure/gpt-4")
+    config = LLM(model="azure/gpt-4", usage_id="test-llm")
     assert config.api_version == "2024-12-01-preview"
 
     # Test that non-Azure models don't get default API version
-    config = LLM(model="gpt-4")
+    config = LLM(model="gpt-4", usage_id="test-llm")
     assert config.api_version is None
 
     # Test that explicit API version is preserved
-    config = LLM(model="azure/gpt-4", api_version="custom-version")
+    config = LLM(model="azure/gpt-4", api_version="custom-version", usage_id="test-llm")
     assert config.api_version == "custom-version"
 
 
@@ -194,6 +197,7 @@ def test_llm_config_post_init_aws_env_vars():
     """Test that AWS credentials are set as environment variables."""
     with patch.dict(os.environ, {}, clear=True):
         LLM(
+            usage_id="test-llm",
             model="gpt-4",
             aws_access_key_id=SecretStr("test-access-key"),
             aws_secret_access_key=SecretStr("test-secret-key"),
@@ -206,7 +210,7 @@ def test_llm_config_post_init_aws_env_vars():
 
 def test_llm_config_log_completions_folder_default():
     """Test that log_completions_folder has a default value."""
-    config = LLM(model="gpt-4")
+    config = LLM(model="gpt-4", usage_id="test-llm")
     assert config.log_completions_folder is not None
     assert "completions" in config.log_completions_folder
 
@@ -214,7 +218,7 @@ def test_llm_config_log_completions_folder_default():
 def test_llm_config_extra_fields_forbidden():
     """Test that extra fields are forbidden."""
     with pytest.raises(ValidationError) as exc_info:
-        LLM(model="gpt-4", invalid_field="should_not_work")  # type: ignore
+        LLM(model="gpt-4", invalid_field="should_not_work", usage_id="test-llm")  # type: ignore
     assert "Extra inputs are not permitted" in str(exc_info.value)
 
 
@@ -232,6 +236,7 @@ def test_llm_config_validation():
             max_message_chars=-1,  # Should fail: ge=1
             temperature=-1,  # Should fail: ge=0
             top_p=-1,  # Should fail: ge=0
+            usage_id="test-llm",
         )
 
     # Verify that the validation error contains expected field names
@@ -260,6 +265,7 @@ def test_llm_config_validation():
         max_message_chars=1,  # Valid: ge=1
         temperature=0.0,  # Valid: ge=0
         top_p=0.0,  # Valid: ge=0
+        usage_id="test-llm",
     )
     assert config.num_retries == 0
     assert config.retry_multiplier == 0.0
@@ -283,7 +289,7 @@ def test_llm_config_model_variants():
     ]
 
     for model in models:
-        config = LLM(model=model)
+        config = LLM(model=model, usage_id="test-llm")
         assert config.model == model
 
 
@@ -291,13 +297,13 @@ def test_llm_config_boolean_fields():
     """Test boolean field handling."""
     config = LLM(
         model="gpt-4",
-        drop_params=True,
         modify_params=False,
         disable_vision=True,
         disable_stop_word=False,
         caching_prompt=True,
         log_completions=False,
         native_tool_calling=True,
+        usage_id="test-llm",
     )
 
     assert config.drop_params is True
@@ -334,6 +340,7 @@ def test_llm_config_optional_fields():
         reasoning_effort=None,
         seed=None,
         safety_settings=None,
+        usage_id="test-llm",
     )
 
     assert config.api_key is None

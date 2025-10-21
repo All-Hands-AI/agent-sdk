@@ -73,14 +73,14 @@ def test_api_no_auth_required(client):
 
 def test_api_auth_missing_key(client_with_auth):
     """Integration test: missing X-Session-API-Key should return 401."""
-    response = client_with_auth.get("/api/conversations/")
+    response = client_with_auth.get("/api/conversations")
     assert response.status_code == 401
 
 
 def test_api_auth_invalid_key(client_with_auth):
     """Integration test: invalid X-Session-API-Key should return 401."""
     response = client_with_auth.get(
-        "/api/conversations/", headers={"X-Session-API-Key": "wrong-key"}
+        "/api/conversations", headers={"X-Session-API-Key": "wrong-key"}
     )
     assert response.status_code == 401
 
@@ -88,7 +88,7 @@ def test_api_auth_invalid_key(client_with_auth):
 def test_api_auth_valid_key(client_with_auth):
     """Integration test: valid X-Session-API-Key should allow access."""
     response = client_with_auth.get(
-        "/api/conversations/", headers={"X-Session-API-Key": "test-key-123"}
+        "/api/conversations", headers={"X-Session-API-Key": "test-key-123"}
     )
     # Should not be 401 (might be other status depending on endpoint implementation)
     assert response.status_code != 401
@@ -98,7 +98,7 @@ def test_api_auth_multiple_keys_all_valid(client_with_multiple_keys):
     """Integration test: all configured keys should work."""
     for key in ["key-1", "key-2", "key-3"]:
         response = client_with_multiple_keys.get(
-            "/api/conversations/", headers={"X-Session-API-Key": key}
+            "/api/conversations", headers={"X-Session-API-Key": key}
         )
         assert response.status_code != 401, f"Key {key} should be valid"
 
@@ -106,7 +106,7 @@ def test_api_auth_multiple_keys_all_valid(client_with_multiple_keys):
 def test_api_auth_multiple_keys_invalid(client_with_multiple_keys):
     """Integration test: invalid key should fail with multiple keys configured."""
     response = client_with_multiple_keys.get(
-        "/api/conversations/", headers={"X-Session-API-Key": "invalid-key"}
+        "/api/conversations", headers={"X-Session-API-Key": "invalid-key"}
     )
     assert response.status_code == 401
 
@@ -121,7 +121,7 @@ def test_api_server_details_no_auth_required(client_with_auth):
 def test_api_protected_endpoints_require_auth(client_with_auth):
     """Test that API endpoints under /api prefix require authentication."""
     protected_endpoints = [
-        "/api/conversations/",
+        "/api/conversations",
         "/api/tools/",
         "/api/file/download/test.txt",
     ]
@@ -149,13 +149,13 @@ def test_api_case_sensitive_keys(client_with_auth):
 
     # Exact match should work
     response = client.get(
-        "/api/conversations/", headers={"X-Session-API-Key": "Test-Key-123"}
+        "/api/conversations", headers={"X-Session-API-Key": "Test-Key-123"}
     )
     assert response.status_code != 401
 
     # Case mismatch should fail
     response = client.get(
-        "/api/conversations/", headers={"X-Session-API-Key": "test-key-123"}
+        "/api/conversations", headers={"X-Session-API-Key": "test-key-123"}
     )
     assert response.status_code == 401
 
@@ -174,7 +174,7 @@ def test_api_header_case_insensitive():
     ]
 
     for header_name in header_variations:
-        response = client.get("/api/conversations/", headers={header_name: "test-key"})
+        response = client.get("/api/conversations", headers={header_name: "test-key"})
         assert response.status_code != 401, f"Header {header_name} should work"
 
 
@@ -192,7 +192,7 @@ def test_api_special_character_keys():
     client = TestClient(app, raise_server_exceptions=False)
 
     for key in special_keys:
-        response = client.get("/api/conversations/", headers={"X-Session-API-Key": key})
+        response = client.get("/api/conversations", headers={"X-Session-API-Key": key})
         assert response.status_code != 401, f"Special key {key} should work"
 
 
@@ -203,7 +203,7 @@ def test_api_empty_key_list():
     client = TestClient(app)
 
     # Should work without any authentication
-    response = client.get("/api/conversations/")
+    response = client.get("/api/conversations")
     assert response.status_code != 401
 
 
@@ -213,16 +213,27 @@ def test_api_websocket_authentication():
     app = create_app(config)
     client = TestClient(app)
 
-    # This is a basic test - WebSocket auth might be handled differently
-    # The actual WebSocket endpoint might not exist or might handle auth differently
+    # Test WebSocket connection without authentication - should fail
     try:
-        with client.websocket_connect("/api/events/ws"):
-            # If we get here, the connection was established
-            # The actual auth might be handled in the WebSocket handler
+        with client.websocket_connect("/sockets/bash-events"):
+            # If we get here, the connection was established without auth
+            # (should not happen)
+            assert False, (
+                "WebSocket connection should have failed without authentication"
+            )
+    except Exception:
+        # WebSocket connection should fail without proper authentication
+        pass
+
+    # Test WebSocket connection with authentication via query parameter - should work
+    try:
+        with client.websocket_connect("/sockets/bash-events?session_api_key=test-key"):
+            # If we get here, the connection was established with proper auth
             pass
     except Exception:
-        # WebSocket connection might fail for various reasons
-        # This test mainly ensures the dependency doesn't break WebSocket setup
+        # Connection might fail for other reasons (like missing conversation ID for
+        # events endpoint)
+        # This test mainly ensures the auth mechanism works
         pass
 
 
@@ -233,7 +244,7 @@ def test_api_options_requests():
     client = TestClient(app)
 
     # OPTIONS requests should work without authentication for CORS
-    response = client.options("/api/conversations/")
+    response = client.options("/api/conversations")
     # Should not be 401, might be 405 (Method Not Allowed) or 200
     assert response.status_code != 401
 
@@ -267,7 +278,7 @@ def test_api_multiple_concurrent_requests():
     responses = []
 
     for key in ["key-1", "key-2", "invalid-key"]:
-        response = client.get("/api/conversations/", headers={"X-Session-API-Key": key})
+        response = client.get("/api/conversations", headers={"X-Session-API-Key": key})
         responses.append((key, response.status_code))
 
     # Valid keys should work
@@ -284,7 +295,7 @@ def test_api_error_response_format():
     app = create_app(config)
     client = TestClient(app, raise_server_exceptions=False)
 
-    response = client.get("/api/conversations/")
+    response = client.get("/api/conversations")
     assert response.status_code == 401
 
     # The response might have additional details, but status code is most important

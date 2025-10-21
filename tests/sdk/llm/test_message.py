@@ -4,14 +4,11 @@ import pytest
 
 
 def test_content_base_class_not_implemented():
-    """Test that Content base class raises NotImplementedError."""
+    """Test that Content base class cannot be instantiated due to abstract method."""
     from openhands.sdk.llm.message import BaseContent
 
-    content = BaseContent()
-    with pytest.raises(
-        NotImplementedError, match="Subclasses should implement this method"
-    ):
-        content.to_llm_dict()
+    with pytest.raises(TypeError, match="Can't instantiate abstract class BaseContent"):
+        BaseContent()  # type: ignore[abstract]
 
 
 def test_text_content_with_cache_prompt():
@@ -21,9 +18,10 @@ def test_text_content_with_cache_prompt():
     content = TextContent(text="Hello world", cache_prompt=True)
     result = content.to_llm_dict()
 
-    assert result["type"] == "text"
-    assert result["text"] == "Hello world"
-    assert result["cache_control"] == {"type": "ephemeral"}
+    assert len(result) == 1
+    assert result[0]["type"] == "text"
+    assert result[0]["text"] == "Hello world"
+    assert result[0]["cache_control"] == {"type": "ephemeral"}
 
 
 def test_image_content_with_cache_prompt():
@@ -79,7 +77,7 @@ def test_message_tool_role_with_cache_prompt():
         cache_enabled=True,
     )
 
-    result = message.to_llm_dict()
+    result = message.to_chat_dict()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
     assert result["cache_control"] == {"type": "ephemeral"}
@@ -105,7 +103,7 @@ def test_message_tool_role_with_image_cache_prompt():
         cache_enabled=True,
     )
 
-    result = message.to_llm_dict()
+    result = message.to_chat_dict()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
     assert result["cache_control"] == {"type": "ephemeral"}
@@ -115,14 +113,17 @@ def test_message_tool_role_with_image_cache_prompt():
 
 def test_message_with_tool_calls():
     """Test Message with tool_calls."""
-    from litellm.types.utils import ChatCompletionMessageToolCall, Function
+    from openhands.sdk.llm.message import (
+        Message,
+        MessageToolCall,
+        TextContent,
+    )
 
-    from openhands.sdk.llm.message import Message, TextContent
-
-    tool_call = ChatCompletionMessageToolCall(
+    tool_call = MessageToolCall(
         id="call_123",
-        type="function",
-        function=Function(name="test_function", arguments='{"arg": "value"}'),
+        name="test_function",
+        arguments='{"arg": "value"}',
+        origin="completion",
     )
 
     message = Message(
@@ -131,7 +132,7 @@ def test_message_with_tool_calls():
         tool_calls=[tool_call],
     )
 
-    result = message.to_llm_dict()
+    result = message.to_chat_dict()
     assert result["role"] == "assistant"
     assert "tool_calls" in result
     assert len(result["tool_calls"]) == 1
@@ -141,8 +142,8 @@ def test_message_with_tool_calls():
     assert result["tool_calls"][0]["function"]["arguments"] == '{"arg": "value"}'
 
 
-def test_message_from_litellm_message_function_role_error():
-    """Test Message.from_litellm_message with function role raises error."""
+def test_message_from_llm_chat_message_function_role_error():
+    """Test Message.from_llm_chat_message with function role raises error."""
     from litellm.types.utils import Message as LiteLLMMessage
 
     from openhands.sdk.llm.message import Message
@@ -150,11 +151,11 @@ def test_message_from_litellm_message_function_role_error():
     litellm_message = LiteLLMMessage(role="function", content="Function response")  # type: ignore
 
     with pytest.raises(AssertionError, match="Function role is not supported"):
-        Message.from_litellm_message(litellm_message)
+        Message.from_llm_chat_message(litellm_message)
 
 
-def test_message_from_litellm_message_with_non_string_content():
-    """Test Message.from_litellm_message with non-string content."""
+def test_message_from_llm_chat_message_with_non_string_content():
+    """Test Message.from_llm_chat_message with non-string content."""
     from litellm.types.utils import Message as LiteLLMMessage
 
     from openhands.sdk.llm.message import Message
@@ -162,7 +163,7 @@ def test_message_from_litellm_message_with_non_string_content():
     # Create a message with non-string content (None or list)
     litellm_message = LiteLLMMessage(role="assistant", content=None)
 
-    result = Message.from_litellm_message(litellm_message)
+    result = Message.from_llm_chat_message(litellm_message)
     assert result.role == "assistant"
     assert result.content == []  # Empty list for non-string content
 
@@ -174,7 +175,8 @@ def test_text_content_truncation_under_limit():
     content = TextContent(text="Short text")
     result = content.to_llm_dict()
 
-    assert result["text"] == "Short text"
+    assert len(result) == 1
+    assert result[0]["text"] == "Short text"
 
 
 def test_text_content_truncation_over_limit():
@@ -197,7 +199,8 @@ def test_text_content_truncation_over_limit():
         assert str(DEFAULT_TEXT_CONTENT_LIMIT) in warning_call
 
         # Check that text was truncated
-        text_result = result["text"]
+        assert len(result) == 1
+        text_result = result[0]["text"]
         assert isinstance(text_result, str)
         assert len(text_result) < len(long_text)
         assert len(text_result) == DEFAULT_TEXT_CONTENT_LIMIT
@@ -223,4 +226,5 @@ def test_text_content_truncation_exact_limit():
         mock_logger.warning.assert_not_called()
 
         # Check that text was not truncated
-        assert result["text"] == exact_text
+        assert len(result) == 1
+        assert result[0]["text"] == exact_text

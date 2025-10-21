@@ -7,7 +7,7 @@ def test_submodule_imports_work():
     """Tools should be imported via explicit submodules."""
     from openhands.tools.browser_use import BrowserToolSet
     from openhands.tools.execute_bash import BashTool
-    from openhands.tools.str_replace_editor import FileEditorTool
+    from openhands.tools.file_editor import FileEditorTool
     from openhands.tools.task_tracker import TaskTrackerTool
 
     assert BashTool is not None

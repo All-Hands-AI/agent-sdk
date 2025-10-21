@@ -8,9 +8,11 @@ from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 
 
-class TestSendMessageDummyAgent(AgentBase):
+class SendMessageDummyAgent(AgentBase):
     def __init__(self):
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         super().__init__(llm=llm, tools=[])
 
     def init_state(
@@ -34,7 +36,7 @@ class TestSendMessageDummyAgent(AgentBase):
 
 def test_send_message_with_string_creates_correct_message():
     """Test that send_message with string creates the correct Message structure."""
-    agent = TestSendMessageDummyAgent()
+    agent = SendMessageDummyAgent()
     conversation = Conversation(agent=agent)
 
     test_text = "Hello, world!"
@@ -58,8 +60,8 @@ def test_send_message_with_string_creates_correct_message():
 
 def test_send_message_string_equivalent_to_message_object():
     """Test that send_message with string produces the same result as with Message object."""  # noqa: E501
-    agent1 = TestSendMessageDummyAgent()
-    agent2 = TestSendMessageDummyAgent()
+    agent1 = SendMessageDummyAgent()
+    agent2 = SendMessageDummyAgent()
 
     conversation1 = Conversation(agent=agent1)
     conversation2 = Conversation(agent=agent2)
@@ -95,7 +97,7 @@ def test_send_message_string_equivalent_to_message_object():
 
 def test_send_message_with_empty_string():
     """Test that send_message works with empty string."""
-    agent = TestSendMessageDummyAgent()
+    agent = SendMessageDummyAgent()
     conversation = Conversation(agent=agent)
 
     conversation.send_message("")
@@ -111,7 +113,7 @@ def test_send_message_with_empty_string():
 
 def test_send_message_with_multiline_string():
     """Test that send_message works with multiline strings."""
-    agent = TestSendMessageDummyAgent()
+    agent = SendMessageDummyAgent()
     conversation = Conversation(agent=agent)
 
     test_text = "Line 1\nLine 2\nLine 3"
@@ -128,7 +130,7 @@ def test_send_message_with_multiline_string():
 
 def test_send_message_with_message_object():
     """Test that send_message works with Message objects (existing functionality)."""
-    agent = TestSendMessageDummyAgent()
+    agent = SendMessageDummyAgent()
     conversation = Conversation(agent=agent)
 
     test_text = "Test message"

@@ -1,13 +1,13 @@
 """Tests for MCP tool functionality with new simplified implementation."""
 
 from typing import cast
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import mcp.types
 import pytest
 
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPTool, MCPToolExecutor
+from openhands.sdk.mcp.tool import MCPToolDefinition, MCPToolExecutor
 
 
 class MockMCPClient(MCPClient):
@@ -23,10 +23,10 @@ class TestMCPToolImmutability:
 
     def setup_method(self):
         """Set up test environment."""
-        self.mock_client = MockMCPClient()
+        self.mock_client: Mock = MockMCPClient()
 
         # Create a mock MCP tool
-        self.mock_mcp_tool = MagicMock(spec=mcp.types.Tool)
+        self.mock_mcp_tool: Mock = MagicMock(spec=mcp.types.Tool)
         self.mock_mcp_tool.name = "test_tool"
         self.mock_mcp_tool.description = "Test tool description"
         self.mock_mcp_tool.inputSchema = {
@@ -36,13 +36,13 @@ class TestMCPToolImmutability:
         self.mock_mcp_tool.annotations = None
         self.mock_mcp_tool.meta = {"version": "1.0"}
 
-        tools = MCPTool.create(mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client)
-        self.tool = tools[0]  # Extract single tool from sequence
+        tools = MCPToolDefinition.create(
+            mcp_tool=self.mock_mcp_tool, mcp_client=self.mock_client
+        )
+        self.tool: MCPToolDefinition = tools[0]  # Extract single tool from sequence
 
     def test_mcp_tool_is_frozen(self):
         """Test that MCPTool instances are frozen and cannot be modified."""
-        import pytest
-
         # Test that direct field assignment raises ValidationError
         with pytest.raises(
             Exception
@@ -102,7 +102,7 @@ class TestMCPToolImmutability:
         assert self.tool.mcp_tool is self.mock_mcp_tool
 
     def test_mcp_tool_create_immutable_instance(self):
-        """Test that MCPTool.create() creates immutable instances."""
+        """Test that MCPToolDefinition.create() creates immutable instances."""
         # Create another tool using create
         mock_tool2 = MagicMock(spec=mcp.types.Tool)
         mock_tool2.name = "another_tool"
@@ -111,7 +111,9 @@ class TestMCPToolImmutability:
         mock_tool2.annotations = None
         mock_tool2.meta = None
 
-        tools2 = MCPTool.create(mcp_tool=mock_tool2, mcp_client=self.mock_client)
+        tools2 = MCPToolDefinition.create(
+            mcp_tool=mock_tool2, mcp_client=self.mock_client
+        )
         tool2 = tools2[0]  # Extract single tool from sequence
 
         # Verify it's immutable

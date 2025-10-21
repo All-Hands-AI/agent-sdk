@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr
 
-from openhands.sdk import Agent, Conversation, LocalFileStore
+from openhands.sdk import Agent, Conversation
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
@@ -16,14 +16,17 @@ from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.llm_registry import RegistryEvent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
+from openhands.sdk.workspace import LocalWorkspace
 
 
 def test_conversation_state_basic_serialization():
     """Test basic ConversationState serialization and deserialization."""
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
     agent = Agent(llm=llm, tools=[])
     state = ConversationState.create(
-        agent=agent, id=uuid.UUID("12345678-1234-5678-9abc-123456789001")
+        agent=agent,
+        id=uuid.UUID("12345678-1234-5678-9abc-123456789001"),
+        workspace=LocalWorkspace(working_dir="/tmp"),
     )
 
     # Add some events
@@ -68,13 +71,20 @@ def test_conversation_state_basic_serialization():
 def test_conversation_state_persistence_save_load():
     """Test ConversationState persistence with FileStore."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=[])
+
+        conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789002")
+        persist_path_for_state = LocalConversation.get_persistence_dir(
+            temp_dir, conv_id
+        )
         state = ConversationState.create(
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            persistence_dir=persist_path_for_state,
             agent=agent,
-            id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
-            file_store=file_store,
+            id=conv_id,
         )
 
         # Add events
@@ -87,24 +97,26 @@ def test_conversation_state_persistence_save_load():
         )
         state.events.append(event1)
         state.events.append(event2)
-        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
+        state.stats.register_llm(RegistryEvent(llm=llm))
 
         # State auto-saves when events are added
         # Verify files were created
-        assert Path(temp_dir, "base_state.json").exists()
+        assert Path(persist_path_for_state, "base_state.json").exists()
 
         # Events are stored with new naming pattern
-        event_files = list(Path(temp_dir, "events").glob("*.json"))
+        event_files = list(Path(persist_path_for_state, "events").glob("*.json"))
         assert len(event_files) == 2
 
         # Load state using Conversation (which handles loading)
         conversation = Conversation(
             agent=agent,
-            persist_filestore=file_store,
-            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
+            persistence_dir=temp_dir,
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            conversation_id=conv_id,
         )
         assert isinstance(conversation, LocalConversation)
         loaded_state = conversation._state
+        assert conversation.state.persistence_dir == persist_path_for_state
 
         # Verify loaded state matches original
         assert loaded_state.id == state.id
@@ -123,13 +135,20 @@ def test_conversation_state_persistence_save_load():
 def test_conversation_state_incremental_save():
     """Test that ConversationState saves events incrementally."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=[])
+
+        conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789003")
+        persist_path_for_state = LocalConversation.get_persistence_dir(
+            temp_dir, conv_id
+        )
         state = ConversationState.create(
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            persistence_dir=persist_path_for_state,
             agent=agent,
             id=uuid.UUID("12345678-1234-5678-9abc-123456789003"),
-            file_store=file_store,
         )
 
         # Add first event - auto-saves
@@ -137,10 +156,10 @@ def test_conversation_state_incremental_save():
             source="agent", system_prompt=TextContent(text="system"), tools=[]
         )
         state.events.append(event1)
-        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
+        state.stats.register_llm(RegistryEvent(llm=llm))
 
         # Verify event files exist (may have additional events from Agent.init_state)
-        event_files = list(Path(temp_dir, "events").glob("*.json"))
+        event_files = list(Path(persist_path_for_state, "events").glob("*.json"))
         assert len(event_files) == 1
 
         # Add second event - auto-saves
@@ -151,15 +170,18 @@ def test_conversation_state_incremental_save():
         state.events.append(event2)
 
         # Verify additional event file was created
-        event_files = list(Path(temp_dir, "events").glob("*.json"))
+        event_files = list(Path(persist_path_for_state, "events").glob("*.json"))
         assert len(event_files) == 2
 
         # Load using Conversation and verify events are present
         conversation = Conversation(
             agent=agent,
-            persist_filestore=file_store,
-            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789003"),
+            persistence_dir=temp_dir,
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            conversation_id=conv_id,
         )
+        assert isinstance(conversation, LocalConversation)
+        assert conversation.state.persistence_dir == persist_path_for_state
         loaded_state = conversation._state
         assert len(loaded_state.events) == 2
         # Test model_dump equality
@@ -169,13 +191,19 @@ def test_conversation_state_incremental_save():
 def test_conversation_state_event_file_scanning():
     """Test event file scanning and sorting logic through EventLog."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=[])
 
+        conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789004")
+        persist_path_for_state = LocalConversation.get_persistence_dir(
+            temp_dir, conv_id
+        )
+
         # Create event files with valid format (new pattern)
-        events_dir = Path(temp_dir, "events")
-        events_dir.mkdir()
+        events_dir = Path(persist_path_for_state, "events")
+        events_dir.mkdir(parents=True, exist_ok=True)
 
         # Create files with different indices using valid event format
         event1 = SystemPromptEvent(
@@ -202,7 +230,12 @@ def test_conversation_state_event_file_scanning():
         (events_dir / "invalid-file.json").write_text('{"type": "test"}')
 
         # Load state - EventLog should handle scanning
-        conversation = Conversation(agent=agent, persist_filestore=file_store)
+        conversation = Conversation(
+            agent=agent,
+            persistence_dir=temp_dir,
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            conversation_id=conv_id,
+        )
 
         # Should load valid events in order
         assert (
@@ -221,13 +254,18 @@ def test_conversation_state_event_file_scanning():
 def test_conversation_state_corrupted_event_handling():
     """Test handling of corrupted event files during replay."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=[])
 
         # Create event files with some corrupted
-        events_dir = Path(temp_dir, "events")
-        events_dir.mkdir()
+        conv_id = uuid.uuid4()
+        persist_path_for_state = LocalConversation.get_persistence_dir(
+            temp_dir, conv_id
+        )
+        events_dir = Path(persist_path_for_state, "events")
+        events_dir.mkdir(parents=True, exist_ok=True)
 
         # Valid event with proper format
         valid_event = SystemPromptEvent(
@@ -258,19 +296,28 @@ def test_conversation_state_corrupted_event_handling():
 
         # Load conversation - EventLog will fail on corrupted files
         with pytest.raises(json.JSONDecodeError):
-            Conversation(agent=agent, persist_filestore=file_store)
+            Conversation(
+                agent=agent,
+                workspace=LocalWorkspace(working_dir="/tmp"),
+                persistence_dir=temp_dir,
+                conversation_id=conv_id,
+            )
 
 
 def test_conversation_state_empty_filestore():
-    """Test ConversationState behavior with empty filestore."""
+    """Test ConversationState behavior with empty persistence directory."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=[])
 
-        # Create conversation with empty filestore
+        # Create conversation with empty persistence directory
         conversation = Conversation(
-            agent=agent, persist_filestore=file_store, visualize=False
+            agent=agent,
+            persistence_dir=temp_dir,
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            visualize=False,
         )
 
         # Should create new state
@@ -282,8 +329,9 @@ def test_conversation_state_empty_filestore():
 def test_conversation_state_missing_base_state():
     """Test error handling when base_state.json is missing but events exist."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=[])
 
         # Create events directory with files but no base_state.json
@@ -299,8 +347,13 @@ def test_conversation_state_missing_base_state():
             event.model_dump_json(exclude_none=True)
         )
 
-        # Current implementation creates new conversation and ignores orphaned event files  # noqa: E501
-        conversation = Conversation(agent=agent, persist_filestore=file_store)
+        # Current implementation creates new conversation and ignores orphaned
+        # event files
+        conversation = Conversation(
+            agent=agent,
+            persistence_dir=temp_dir,
+            workspace=LocalWorkspace(working_dir="/tmp"),
+        )
 
         # Should create new state, not load the orphaned event file
         assert conversation._state.id is not None
@@ -312,13 +365,15 @@ def test_conversation_state_missing_base_state():
 def test_conversation_state_exclude_from_base_state():
     """Test that events are excluded from base state serialization."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=[])
         state = ConversationState.create(
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            persistence_dir=temp_dir,
             agent=agent,
             id=uuid.UUID("12345678-1234-5678-9abc-123456789004"),
-            file_store=file_store,
         )
 
         # Add events
@@ -328,7 +383,8 @@ def test_conversation_state_exclude_from_base_state():
         state.events.append(event)
 
         # State auto-saves, read base state file directly
-        base_state_content = file_store.read("base_state.json")
+        base_state_path = Path(temp_dir) / "base_state.json"
+        base_state_content = base_state_path.read_text()
         base_state_data = json.loads(base_state_content)
 
         # Events should not be in base state
@@ -339,10 +395,12 @@ def test_conversation_state_exclude_from_base_state():
 
 def test_conversation_state_thread_safety():
     """Test ConversationState thread safety with lock/unlock."""
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
     agent = Agent(llm=llm, tools=[])
     state = ConversationState.create(
-        agent=agent, id=uuid.UUID("12345678-1234-5678-9abc-123456789005")
+        workspace=LocalWorkspace(working_dir="/tmp"),
+        agent=agent,
+        id=uuid.UUID("12345678-1234-5678-9abc-123456789005"),
     )
 
     # Test context manager
@@ -366,7 +424,11 @@ def test_agent_resolve_diff_different_class_raises_error():
 
     class DifferentAgent(AgentBase):
         def __init__(self):
-            llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+            llm = LLM(
+                model="gpt-4o-mini",
+                api_key=SecretStr("test-key"),
+                usage_id="test-llm",
+            )
             super().__init__(llm=llm, tools=[])
 
         def init_state(self, state, on_event):
@@ -375,7 +437,7 @@ def test_agent_resolve_diff_different_class_raises_error():
         def step(self, state, on_event):
             pass
 
-    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
     original_agent = Agent(llm=llm, tools=[])
     different_agent = DifferentAgent()
 
@@ -386,51 +448,64 @@ def test_agent_resolve_diff_different_class_raises_error():
 def test_conversation_state_flags_persistence():
     """Test that conversation state flags are properly persisted."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-        llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+        llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm"
+        )
         agent = Agent(llm=llm, tools=[])
+        conv_id = uuid.UUID("12345678-1234-5678-9abc-123456789006")
+        persist_path_for_state = LocalConversation.get_persistence_dir(
+            temp_dir, conv_id
+        )
         state = ConversationState.create(
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            persistence_dir=persist_path_for_state,
             agent=agent,
-            id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
-            file_store=file_store,
+            id=conv_id,
         )
 
-        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
+        state.stats.register_llm(RegistryEvent(llm=llm))
 
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED
         state.confirmation_policy = AlwaysConfirm()
-        state.activated_knowledge_microagents = ["agent1", "agent2"]
+        state.activated_knowledge_skills = ["agent1", "agent2"]
 
-        # State auto-saves, load using Conversation
-        conversation = Conversation(
+        # Create a new ConversationState that loads from the same persistence directory
+        loaded_state = ConversationState.create(
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            persistence_dir=persist_path_for_state,
             agent=agent,
-            persist_filestore=file_store,
-            conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
+            id=conv_id,
         )
-        loaded_state = conversation._state
 
-        # Verify flags are preserved
-        assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
-        assert loaded_state.confirmation_policy == AlwaysConfirm()
-        assert loaded_state.activated_knowledge_microagents == ["agent1", "agent2"]
-        # Test model_dump equality
-        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
         # Verify key fields are preserved
         assert loaded_state.id == state.id
         assert loaded_state.agent.llm.model == state.agent.llm.model
+        # Verify flags are preserved
+        assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
+        assert loaded_state.confirmation_policy == AlwaysConfirm()
+        assert loaded_state.activated_knowledge_skills == ["agent1", "agent2"]
+        # Test model_dump equality
+        assert loaded_state.model_dump(mode="json") != state.model_dump(mode="json")
+        loaded_state.stats.register_llm(RegistryEvent(llm=llm))
+        assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
 
 
 def test_conversation_with_agent_different_llm_config():
     """Test conversation with agent having different LLM configuration."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_store = LocalFileStore(temp_dir)
-
         # Create conversation with original LLM config
-        original_llm = LLM(model="gpt-4o-mini", api_key=SecretStr("original-key"))
+        original_llm = LLM(
+            model="gpt-4o-mini",
+            api_key=SecretStr("original-key"),
+            usage_id="test-llm",
+        )
         original_agent = Agent(llm=original_llm, tools=[])
         conversation = Conversation(
-            agent=original_agent, persist_filestore=file_store, visualize=False
+            agent=original_agent,
+            persistence_dir=temp_dir,
+            workspace=LocalWorkspace(working_dir="/tmp"),
+            visualize=False,
         )
 
         # Send a message
@@ -447,13 +522,16 @@ def test_conversation_with_agent_different_llm_config():
         del conversation
 
         # Try with different LLM config (different API key should be resolved)
-        new_llm = LLM(model="gpt-4o-mini", api_key=SecretStr("new-key"))
+        new_llm = LLM(
+            model="gpt-4o-mini", api_key=SecretStr("new-key"), usage_id="test-llm"
+        )
         new_agent = Agent(llm=new_llm, tools=[])
 
         # This should succeed because API key differences are resolved
         new_conversation = Conversation(
             agent=new_agent,
-            persist_filestore=file_store,
+            persistence_dir=temp_dir,
+            workspace=LocalWorkspace(working_dir="/tmp"),
             conversation_id=conversation_id,  # Use same ID
             visualize=False,
         )

@@ -2,16 +2,22 @@ from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pytest
+from litellm.types.utils import ModelResponse
 
 from openhands.sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.context.view import View
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.utils.protocol import ListLike
+from openhands.sdk.llm import (
+    LLM,
+    LLMResponse,
+    Message,
+    MetricsSnapshot,
+    TextContent,
+)
 
 
 def message_event(content: str) -> MessageEvent:
@@ -26,17 +32,22 @@ def mock_llm() -> LLM:
     """Create a mock LLM for testing."""
     mock_llm = MagicMock(spec=LLM)
 
-    # Mock the completion response
-    mock_message = MagicMock()
-    mock_message.content = "Summary of forgotten events"
+    # Mock the completion response - now returns LLMResponse
+    def create_completion_result(content: str) -> LLMResponse:
+        message = Message(role="assistant", content=[TextContent(text=content)])
+        metrics = MetricsSnapshot(
+            model_name="test-model",
+            accumulated_cost=0.0,
+            max_budget_per_task=None,
+            accumulated_token_usage=None,
+        )
+        # Create a mock ModelResponse
+        raw_response = MagicMock(spec=ModelResponse)
+        return LLMResponse(message=message, metrics=metrics, raw_response=raw_response)
 
-    mock_choice = MagicMock()
-    mock_choice.message = mock_message
-
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
-
-    mock_llm.completion.return_value = mock_response
+    mock_llm.completion.return_value = create_completion_result(
+        "Summary of forgotten events"
+    )
     mock_llm.format_messages_for_llm = lambda messages: messages
 
     # Mock the required attributes that are checked in _set_env_side_effects
@@ -52,12 +63,17 @@ def mock_llm() -> LLM:
     mock_llm.custom_tokenizer = None
     mock_llm.base_url = None
     mock_llm.reasoning_effort = None
+    mock_llm.metadata = {}
+
+    # Explicitly set pricing attributes required by LLM -> Telemetry wiring
+    mock_llm.input_cost_per_token = None
+    mock_llm.output_cost_per_token = None
 
     mock_llm._metrics = None
 
     # Helper method to set mock response content
     def set_mock_response_content(content: str):
-        mock_message.content = content
+        mock_llm.completion.return_value = create_completion_result(content)
 
     mock_llm.set_mock_response_content = set_mock_response_content
 
@@ -71,13 +87,13 @@ def test_should_condense(mock_llm: LLM) -> None:
 
     # Create events below the threshold
     small_events = [message_event(f"Event {i}") for i in range(max_size)]
-    small_view = View.from_events(cast(ListLike[EventBase], small_events))
+    small_view = View.from_events(small_events)
 
     assert not condenser.should_condense(small_view)
 
     # Create events above the threshold
     large_events = [message_event(f"Event {i}") for i in range(max_size + 1)]
-    large_view = View.from_events(cast(ListLike[EventBase], large_events))
+    large_view = View.from_events(large_events)
 
     assert condenser.should_condense(large_view)
 
@@ -87,8 +103,8 @@ def test_condense_returns_view_when_no_condensation_needed(mock_llm: LLM) -> Non
     max_size = 100
     condenser = LLMSummarizingCondenser(llm=mock_llm, max_size=max_size)
 
-    events: list[EventBase] = [message_event(f"Event {i}") for i in range(max_size)]
-    view = View.from_events(cast(ListLike[EventBase], events))
+    events: list[Event] = [message_event(f"Event {i}") for i in range(max_size)]
+    view = View.from_events(events)
 
     result = condenser.condense(view)
 
@@ -109,8 +125,8 @@ def test_condense_returns_condensation_when_needed(mock_llm: LLM) -> None:
     # Set up mock response
     cast(Any, mock_llm).set_mock_response_content("Summary of forgotten events")
 
-    events: list[EventBase] = [message_event(f"Event {i}") for i in range(max_size + 1)]
-    view = View.from_events(cast(ListLike[EventBase], events))
+    events: list[Event] = [message_event(f"Event {i}") for i in range(max_size + 1)]
+    view = View.from_events(events)
 
     result = condenser.condense(view)
 
@@ -147,7 +163,7 @@ def test_get_condensation_with_previous_summary(mock_llm: LLM) -> None:
         events[:keep_first] + [condensation] + events[keep_first:]
     )
 
-    view = View.from_events(cast(ListLike[EventBase], events_with_condensation))
+    view = View.from_events(events_with_condensation)
 
     result = condenser.get_condensation(view)
 

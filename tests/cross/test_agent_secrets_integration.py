@@ -1,6 +1,7 @@
 """Tests for agent integration with secrets manager."""
 
 from typing import cast
+from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
@@ -8,8 +9,9 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.llm import LLM
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
@@ -22,30 +24,28 @@ from openhands.tools.execute_bash.impl import BashExecutor
 
 @pytest.fixture
 def llm() -> LLM:
-    return LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
+    return LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
 
 
 @pytest.fixture
-def tools(tmp_path) -> list[ToolSpec]:
+def tools() -> list[Tool]:
     register_tool("BashTool", BashTool)
-    return [ToolSpec(name="BashTool", params={"working_dir": str(tmp_path)})]
+    return [Tool(name="BashTool")]
 
 
 @pytest.fixture
-def agent(llm: LLM, tools: list[ToolSpec]) -> Agent:
-    agent = Agent(llm=llm, tools=tools)
-    agent._initialize()
-    return agent
+def agent(llm: LLM, tools: list[Tool]) -> Agent:
+    return Agent(llm=llm, tools=tools)
 
 
 @pytest.fixture
-def conversation(agent: Agent) -> LocalConversation:
-    return LocalConversation(agent)
+def conversation(agent: Agent, tmp_path) -> LocalConversation:
+    return LocalConversation(agent, workspace=str(tmp_path))
 
 
 @pytest.fixture
-def bash_executor(agent: Agent) -> BashExecutor:
-    tools_map = agent.tools_map
+def bash_executor(conversation: LocalConversation) -> BashExecutor:
+    tools_map = conversation.agent.tools_map
     bash_tool = tools_map["execute_bash"]
     return cast(BashExecutor, bash_tool.executor)
 
@@ -56,8 +56,8 @@ def agent_no_bash(llm: LLM) -> Agent:
 
 
 @pytest.fixture
-def conversation_no_bash(agent_no_bash: Agent) -> LocalConversation:
-    return LocalConversation(agent_no_bash)
+def conversation_no_bash(agent_no_bash: Agent, tmp_path) -> LocalConversation:
+    return LocalConversation(agent_no_bash, workspace=str(tmp_path))
 
 
 def test_agent_exports_secrets_to_bash(
@@ -97,13 +97,14 @@ def test_agent_exports_callable_secrets(
     """Test that agent exports callable secrets to bash session."""
 
     # Add callable secrets
-    def get_dynamic_token():
-        return "dynamic-token-123"
+    class MySecretSource(SecretSource):
+        def get_value(self):
+            return "dynamic-token-123"
 
     conversation.update_secrets(
         {
             "STATIC_KEY": "static-value",
-            "DYNAMIC_TOKEN": get_dynamic_token,
+            "DYNAMIC_TOKEN": MySecretSource(),
         }
     )
 
@@ -120,13 +121,14 @@ def test_agent_handles_failing_callable_secrets(
     """Test that agent handles failing callable secrets gracefully."""
 
     # Add a failing callable secret
-    def failing_secret():
-        raise ValueError("Secret retrieval failed")
+    class MyFailingSecretSource(SecretSource):
+        def get_value(self):
+            raise ValueError("Secret retrieval failed")
 
     conversation.update_secrets(
         {
             "WORKING_KEY": "working-value",
-            "FAILING_KEY": failing_secret,
+            "FAILING_KEY": MyFailingSecretSource(),
         }
     )
 
@@ -159,7 +161,6 @@ def test_agent_bash_works_without_secrets(
 
 def test_agent_without_bash_throws_warning(llm):
     """Test that agent works correctly when no bash tools are present."""
-    from unittest.mock import patch
 
     with patch("openhands.sdk.agent.agent.logger") as mock_logger:
         _ = Conversation(agent=Agent(llm=llm, tools=[]))
@@ -221,14 +222,15 @@ def test_mask_secrets(
 ):
     """Test that agent configures bash tools with env provider."""
 
-    def dynamic_secret() -> str:
-        return "dynamic-secret"
+    class MyDynamicSecretSource(SecretSource):
+        def get_value(self):
+            return "dynamic-secret"
 
     # Add secrets to conversation
     conversation.update_secrets(
         {
             "API_KEY": "test-api-key",
-            "DB_PASSWORD": dynamic_secret,
+            "DB_PASSWORD": MyDynamicSecretSource(),
         }
     )
 
@@ -250,16 +252,16 @@ def test_mask_secrets(
 def test_mask_changing_secrets(
     conversation: LocalConversation, bash_executor: BashExecutor, agent: Agent
 ):
-    counter = 0
+    class MyChangingDynamicSecretSource(SecretSource):
+        counter: int = 0
 
-    def dynamic_secret() -> str:
-        nonlocal counter
-        counter += 1
-        return f"changing-secret-{counter}"
+        def get_value(self):
+            self.counter += 1
+            return f"changing-secret-{self.counter}"
 
     conversation.update_secrets(
         {
-            "DB_PASSWORD": dynamic_secret,
+            "DB_PASSWORD": MyChangingDynamicSecretSource(),
         }
     )
 

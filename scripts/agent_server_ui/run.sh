@@ -8,5 +8,5 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # Change to the script's directory before spawning the process
 cd "$SCRIPT_DIR"
 
-export OPENHANDS_AGENT_SERVER_CONFIG_PATH="config.json"
+export OH_STATIC_FILES_PATH="static"
 python -m openhands.agent_server 

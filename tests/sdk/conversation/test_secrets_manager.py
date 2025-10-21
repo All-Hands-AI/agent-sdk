@@ -1,5 +1,8 @@
 """Tests for SecretsManager class."""
 
+from pydantic import SecretStr
+
+from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
@@ -12,7 +15,10 @@ def test_update_secrets_with_static_values():
     }
 
     manager.update_secrets(secrets)
-    assert manager._secrets == secrets
+    assert manager._secret_sources == {
+        "API_KEY": StaticSecret(value=SecretStr("test-api-key")),
+        "DATABASE_URL": StaticSecret(value=SecretStr("postgresql://localhost/test")),
+    }
 
 
 def test_update_secrets_overwrites_existing():
@@ -21,14 +27,20 @@ def test_update_secrets_overwrites_existing():
 
     # Add initial secrets
     manager.update_secrets({"API_KEY": "old-value"})
-    assert manager._secrets["API_KEY"] == "old-value"
+    assert manager._secret_sources["API_KEY"] == StaticSecret(
+        value=SecretStr("old-value")
+    )
 
     # Update with new value
     manager.update_secrets({"API_KEY": "new-value", "NEW_KEY": "key-value"})
-    assert manager._secrets["API_KEY"] == "new-value"
+    assert manager._secret_sources["API_KEY"] == StaticSecret(
+        value=SecretStr("new-value")
+    )
 
     manager.update_secrets({"API_KEY": "new-value-2"})
-    assert manager._secrets["API_KEY"] == "new-value-2"
+    assert manager._secret_sources["API_KEY"] == StaticSecret(
+        value=SecretStr("new-value-2")
+    )
 
 
 def test_find_secrets_in_text_case_insensitive():
@@ -97,13 +109,14 @@ def test_get_secrets_as_env_vars_callable_values():
     """Test get_secrets_as_env_vars with callable values."""
     manager = SecretsManager()
 
-    def get_dynamic_token():
-        return "dynamic-token-456"
+    class MyTokenSource(SecretSource):
+        def get_value(self):
+            return "dynamic-token-456"
 
     manager.update_secrets(
         {
             "STATIC_KEY": "static-value",
-            "DYNAMIC_TOKEN": get_dynamic_token,
+            "DYNAMIC_TOKEN": MyTokenSource(),
         }
     )
 
@@ -115,16 +128,18 @@ def test_get_secrets_as_env_vars_handles_callable_exceptions():
     """Test that get_secrets_as_env_vars handles exceptions from callables."""
     manager = SecretsManager()
 
-    def failing_callable():
-        raise ValueError("Secret retrieval failed")
+    class MyFailingTokenSource(SecretSource):
+        def get_value(self):
+            raise ValueError("Secret retrieval failed")
 
-    def working_callable():
-        return "working-value"
+    class MyWorkingTokenSource(SecretSource):
+        def get_value(self):
+            return "working-value"
 
     manager.update_secrets(
         {
-            "FAILING_SECRET": failing_callable,
-            "WORKING_SECRET": working_callable,
+            "FAILING_SECRET": MyFailingTokenSource(),
+            "WORKING_SECRET": MyWorkingTokenSource(),
         }
     )
 

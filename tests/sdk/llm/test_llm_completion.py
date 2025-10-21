@@ -1,15 +1,25 @@
 """Tests for LLM completion functionality, configuration, and metrics tracking."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from litellm import ChatCompletionToolParam
-from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
+from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import (
+    Choices,
+    Function,
+    Message as LiteLLMMessage,
+    ModelResponse,
+    Usage,
+)
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.tool.schema import ActionBase
-from openhands.sdk.tool.tool import Tool, ToolBase
+from openhands.sdk.llm import (
+    LLM,
+    Message,
+    TextContent,
+)
+from openhands.sdk.tool.schema import Action
+from openhands.sdk.tool.tool import ToolBase, ToolDefinition
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -20,21 +30,14 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             Choices(
                 finish_reason="stop",
                 index=0,
-                message=LiteLLMMessage(
-                    content=content,
-                    role="assistant",
-                ),
+                message=LiteLLMMessage(content=content, role="assistant"),
             )
         ],
         created=1234567890,
         model="gpt-4o",
         object="chat.completion",
         system_fingerprint="test",
-        usage=Usage(
-            prompt_tokens=10,
-            completion_tokens=5,
-            total_tokens=15,
-        ),
+        usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
 
@@ -43,6 +46,7 @@ def default_config():
     return LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
+        usage_id="test-llm",
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -57,6 +61,7 @@ def test_llm_completion_basic(mock_completion):
     # Create LLM after the patch is applied
 
     llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -68,12 +73,17 @@ def test_llm_completion_basic(mock_completion):
     messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    # Check that response is a LLMResponse with expected properties
+    assert response.raw_response == mock_response
+    assert response.message.role == "assistant"
+    assert isinstance(response.message.content[0], TextContent)
+    assert response.message.content[0].text == "Test response"
+    assert response.metrics.model_name == "gpt-4o"
     mock_completion.assert_called_once()
 
     # Additionally, verify the pre-check helper recognizes provider-style tools
     # (use an empty list of tools here just to exercise the path)
-    cc_tools: list[ChatCompletionToolParam] = []
+    cc_tools = []
     assert not llm.should_mock_tool_calls(cc_tools)
 
 
@@ -93,16 +103,20 @@ def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
     mock_response.choices[0].message.tool_calls = [  # type: ignore
-        MagicMock(
+        ChatCompletionMessageToolCall(
             id="call_123",
             type="function",
-            function=MagicMock(name="test_tool", arguments='{"param": "value"}'),
+            function=Function(
+                name="test_tool",
+                arguments='{"param": "value"}',
+            ),
         )
     ]
     mock_completion.return_value = mock_response
 
     # Create LLM after the patch is applied
     llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -113,17 +127,25 @@ def test_llm_completion_with_tools(mock_completion):
     # Test completion with tools
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
-    class _ArgsBasic(ActionBase):
+    class _ArgsBasic(Action):
         param: str
 
-    tool: ToolBase = Tool(
+    tool: ToolBase = ToolDefinition(
         name="test_tool", description="A test tool", action_type=_ArgsBasic
     )
     tools_list: list[ToolBase] = [tool]
 
     response = llm.completion(messages=messages, tools=tools_list)
 
-    assert response == mock_response
+    # Check that response is a LLMResponse with expected properties
+    assert response.raw_response == mock_response
+    assert response.message.role == "assistant"
+    assert isinstance(response.message.content[0], TextContent)
+    assert response.message.content[0].text == "I'll use the tool"
+    assert response.message.tool_calls is not None
+    assert len(response.message.tool_calls) == 1
+    assert response.message.tool_calls[0].id == "call_123"
+    assert response.message.tool_calls[0].name == "test_tool"
     mock_completion.assert_called_once()
 
 
@@ -135,6 +157,7 @@ def test_llm_completion_error_handling(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -244,6 +267,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
 
     # Create config with custom parameters
     custom_config = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         temperature=0.8,
@@ -258,7 +282,11 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     ]
     response = llm.completion(messages=messages)
 
-    assert response == mock_response
+    # Check that response is a LLMResponse with expected properties
+    assert response.raw_response == mock_response
+    assert response.message.role == "assistant"
+    assert isinstance(response.message.content[0], TextContent)
+    assert response.message.content[0].text == "Custom response"
     mock_completion.assert_called_once()
 
     # Verify that custom parameters were used in the call
@@ -284,6 +312,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Create LLM with native_tool_calling explicitly set to False
     # This forces the LLM to use prompt-based tool calling instead of native FC
     llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         native_tool_calling=False,  # This is the key setting for non-function call mode
@@ -303,11 +332,11 @@ def test_llm_completion_non_function_call_mode(mock_completion):
         )
     ]
 
-    class TestNonFCArgs(ActionBase):
+    class TestNonFCArgs(Action):
         param: str
 
     tools: list[ToolBase] = [
-        Tool(
+        ToolDefinition(
             name="test_tool",
             description="A test tool for non-function call mode",
             action_type=TestNonFCArgs,
@@ -315,9 +344,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     ]
 
     # Verify that tools should be mocked (non-function call path)
-    cc_tools: list[ChatCompletionToolParam] = [
-        t.to_openai_tool(add_security_risk_prediction=False) for t in tools
-    ]
+    cc_tools = [t.to_openai_tool(add_security_risk_prediction=False) for t in tools]
     assert llm.should_mock_tool_calls(cc_tools)
 
     # Call completion - this should go through the prompt-based tool calling path
@@ -327,22 +354,22 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     assert response is not None
     mock_completion.assert_called_once()
     # And that post-response conversion produced a tool_call
-    # Pyright: choices can include StreamingChoices; assert/guard for message presence
-    choice0 = response.choices[0]
-    assert hasattr(choice0, "message")
-    msg = choice0.message  # type: ignore[attr-defined]
-    # Guard for optional attribute in typeshed: treat None as failure explicitly
+    # Access message through LLMResponse interface
+    msg = response.message
+    # Guard for optional attribute: treat None as failure explicitly
     assert getattr(msg, "tool_calls", None) is not None, (
         "Expected tool_calls after post-mock"
     )
-    # At this point, typeshed doesn't narrow tool_calls to non-None; assert explicitly
+    # At this point, tool_calls should be non-None; assert explicitly
     assert msg.tool_calls is not None
     tc = msg.tool_calls[0]
-    assert tc.type == "function"
-    assert tc.function.name == "test_tool"
+
+    assert tc.name == "test_tool"
     # Ensure function-call markup was stripped from assistant content
-    if isinstance(msg.content, str):
-        assert "<function=" not in msg.content
+    if msg.content:
+        for content_item in msg.content:
+            if isinstance(content_item, TextContent):
+                assert "<function=" not in content_item.text
 
     # Verify that the call was made without native tools parameter
     # (since we're using prompt-based tool calling)
@@ -362,16 +389,19 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
 
-    class TestFCArgs(ActionBase):
+    class TestFCArgs(Action):
         param: str | None = None
 
     tools: list[ToolBase] = [
-        Tool(name="test_tool", description="A test tool", action_type=TestFCArgs)
+        ToolDefinition(
+            name="test_tool", description="A test tool", action_type=TestFCArgs
+        )
     ]
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
     # Test with native function calling enabled (default behavior for gpt-4o)
     llm_native = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         native_tool_calling=True,  # Explicitly enable native function calling
@@ -386,6 +416,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # Test with native function calling disabled
     llm_non_native = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         native_tool_calling=False,  # Explicitly disable native function calling
@@ -406,9 +437,11 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     response_non_native = llm_non_native.completion(messages=messages, tools=tools)
     non_native_call_kwargs = mock_completion.call_args[1]
 
-    # Both should return responses
-    assert response_native == mock_response
-    assert response_non_native == mock_response
+    # Both should return LLMResponse responses
+    assert response_native.raw_response == mock_response
+    assert response_native.message.role == "assistant"
+    assert response_non_native.raw_response == mock_response
+    assert response_non_native.message.role == "assistant"
 
     # But the underlying calls should be different:
     # Native mode should pass tools to the LLM

@@ -5,7 +5,7 @@ from litellm.exceptions import APIConnectionError
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -16,27 +16,21 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             Choices(
                 finish_reason="stop",
                 index=0,
-                message=LiteLLMMessage(
-                    content=content,
-                    role="assistant",
-                ),
+                message=LiteLLMMessage(content=content, role="assistant"),
             )
         ],
         created=1234567890,
         model="gpt-4o",
         object="chat.completion",
         system_fingerprint="test",
-        usage=Usage(
-            prompt_tokens=10,
-            completion_tokens=5,
-            total_tokens=15,
-        ),
+        usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
 
 @pytest.fixture
 def default_config():
     return LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -70,14 +64,15 @@ def test_completion_retries_api_connection_error(
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
-        service_id="test-service",
+        usage_id="test-service",
     )
     response = llm.completion(
         messages=[Message(role="user", content=[TextContent(text="Hello!")])],
     )
 
     # Verify that the retry was successful
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     assert mock_litellm_completion.call_count == 2  # Initial call + 1 retry
 
 
@@ -112,7 +107,7 @@ def test_completion_max_retries_api_connection_error(
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
-        service_id="test-service",
+        usage_id="test-service",
     )
 
     # The completion should raise an APIConnectionError after exhausting all retries
@@ -142,14 +137,15 @@ def test_completion_no_retry_on_success(mock_litellm_completion, default_config)
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
-        service_id="test-service",
+        usage_id="test-service",
     )
     response = llm.completion(
         messages=[Message(role="user", content=[TextContent(text="Hello!")])],
     )
 
     # Verify that no retries were needed
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     assert mock_litellm_completion.call_count == 1  # Only the initial call
 
 
@@ -168,7 +164,7 @@ def test_completion_no_retry_on_non_retryable_error(
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
-        service_id="test-service",
+        usage_id="test-service",
     )
 
     # The completion should raise the ValueError immediately without retries
@@ -185,11 +181,17 @@ def test_completion_no_retry_on_non_retryable_error(
 def test_retry_configuration_validation():
     """Test that retry configuration is properly validated."""
     # Test with zero retries
-    llm_no_retry = LLM(model="gpt-4o", api_key=SecretStr("test_key"), num_retries=0)
+    llm_no_retry = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        num_retries=0,
+        usage_id="test-llm",
+    )
     assert llm_no_retry.num_retries == 0
 
     # Test with custom retry settings
     llm_custom = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=5,
@@ -224,6 +226,7 @@ def test_retry_listener_callback(mock_litellm_completion, default_config):
 
     # Create an LLM instance with retry listener
     llm = LLM(
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -236,7 +239,8 @@ def test_retry_listener_callback(mock_litellm_completion, default_config):
     )
 
     # Verify that the retry listener was called
-    assert response == mock_response
+    assert isinstance(response, LLMResponse)
+    assert response.raw_response == mock_response
     assert len(retry_calls) >= 1  # At least one retry attempt should be logged
 
     # Check that retry listener received correct parameters

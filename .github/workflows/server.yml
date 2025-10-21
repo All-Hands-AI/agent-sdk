@@ -17,7 +17,7 @@ on:
             image:
                 description: GHCR image name
                 type: string
-                default: ghcr.io/all-hands-ai/agent-server
+                default: ghcr.io/openhands/agent-server
             platforms:
                 description: Target platforms
                 type: string
@@ -37,7 +37,7 @@ jobs:
             - uses: actions/checkout@v5
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v6
+              uses: astral-sh/setup-uv@v7
               with:
                   version: latest
             - name: Install dependencies
@@ -62,7 +62,48 @@ jobs:
               if: matrix.os != 'windows-latest'
               shell: bash
               run: |
+                  # Test help command
                   ./dist/openhands-agent-server --help
+
+                  # Test server startup and template loading
+                  echo "Testing server startup and template loading..."
+                  ./dist/openhands-agent-server --port 8002 > server_test.log 2>&1 &
+                  SERVER_PID=$!
+
+                  # Wait for server to start
+                  sleep 5
+
+                  # Check if server started successfully (no template errors)
+                  if grep -q "system_prompt.j2.*not found" server_test.log; then
+                      echo "ERROR: Template files not found in binary!"
+                      cat server_test.log
+                      kill $SERVER_PID 2>/dev/null || true
+                      exit 1
+                  fi
+
+                  # Check if server is running
+                  if ! kill -0 $SERVER_PID 2>/dev/null; then
+                      echo "ERROR: Server failed to start!"
+                      cat server_test.log
+                      exit 1
+                  fi
+
+                  # Test basic API endpoint
+                  if command -v curl >/dev/null 2>&1; then
+                      echo "Testing basic API endpoint..."
+                      if curl -f -s http://localhost:8002/health >/dev/null 2>&1; then
+                          echo "✓ Health endpoint accessible"
+                      else
+                          echo "⚠ Health endpoint not accessible (may be expected)"
+                      fi
+                  fi
+
+                  # Clean up
+                  kill $SERVER_PID 2>/dev/null || true
+                  wait $SERVER_PID 2>/dev/null || true
+                  rm -f server_test.log
+
+                  echo "✓ Binary test completed successfully"
 
             - name: Upload binary artifact
               uses: actions/upload-artifact@v4
@@ -80,16 +121,15 @@ jobs:
             - name: Checkout PR branch
               uses: actions/checkout@v5
               with:
-                  ref: ${{ github.head_ref }}
                   fetch-depth: 0
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v6
+              uses: astral-sh/setup-uv@v7
               with:
                   version: latest
 
             - name: Install Node.js (for npx)
-              uses: actions/setup-node@v5
+              uses: actions/setup-node@v6
               with:
                   node-version: 22
 
@@ -106,14 +146,12 @@ jobs:
 
     build-and-push-image:
         name: Build & Push
-        # Run on all commits (push events and pull requests)
+        # Run on push events and pull requests from the same repository (not forks)
+        # Fork PRs cannot push to GHCR and would fail authentication
         if: >
             github.event_name == 'push' ||
-            github.event_name == 'pull_request'
-        outputs:
-            image: ${{ steps.build.outputs.image }}
-            short_sha: ${{ steps.build.outputs.short_sha }}
-            tags: ${{ steps.build.outputs.tags }}
+            (github.event_name == 'pull_request' &&
+             !github.event.pull_request.head.repo.fork)
         strategy:
             fail-fast: false
             matrix:
@@ -139,9 +177,9 @@ jobs:
         runs-on: ${{ matrix.runner }}
 
         env:
-            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
+            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/openhands/agent-server' }}
             BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
-            VARIANT_NAME: ${{ matrix.name }}
+            CUSTOM_TAGS: ${{ matrix.name }}
             TARGET: binary
             PLATFORMS: ${{ matrix.platforms }}
             GITHUB_SHA: ${{ github.sha }}
@@ -153,14 +191,12 @@ jobs:
               uses: actions/checkout@v5
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v6
+              uses: astral-sh/setup-uv@v7
               with:
                   version: latest
 
             - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
-              with:
-                  driver-opts: network=host
+              uses: useblacksmith/setup-docker-builder@v1
 
             - name: Log in to GHCR
               uses: docker/login-action@v3
@@ -169,16 +205,11 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Make build script executable
-              run: chmod +x ./openhands/agent_server/docker/build.sh
-              shell: bash
-
             - name: Build & Push (${{ matrix.name }})
               id: build
               run: |
                   uv sync --frozen
-                  ./openhands/agent_server/docker/build.sh
-              shell: bash
+                  uv run ./openhands-agent-server/openhands/agent_server/docker/build.py
 
             - name: Summary (${{ matrix.name }}) - outputs
               run: |
@@ -188,39 +219,229 @@ jobs:
                   echo "Multiline tags:"
                   echo "${{ steps.build.outputs.tags }}"
 
-    post-image-comment:
-        name: Post/Update PR image comment
+            - name: Save build info for consolidation
+              run: |
+                  mkdir -p build-info
+                  cat > "build-info/${{ matrix.name }}.json" << EOF
+                  {
+                    "custom_tags": "${{ matrix.name }}",
+                    "base_image": "${{ matrix.base_image }}",
+                    "image": "${{ steps.build.outputs.image }}",
+                    "short_sha": "${{ steps.build.outputs.short_sha }}",
+                    "tags": "${{ steps.build.outputs.tags_csv }}"
+                  }
+                  EOF
+
+            - name: Upload build info artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: build-info-${{ matrix.name }}
+                  path: build-info/${{ matrix.name }}.json
+                  retention-days: 1
+
+    consolidate-build-info:
+        name: Consolidate Build Information
         needs: build-and-push-image
-        # Only on PRs, and only if the build actually ran and succeeded
-        if: github.event_name == 'pull_request' && needs.build-and-push-image.result == 'success'
+        # Run if it's a PR and the matrix job completed (even if some variants failed)
+        if: github.event_name == 'pull_request' && always() && (needs.build-and-push-image.result == 'success' || needs.build-and-push-image.result ==
+            'failure')
+        runs-on: blacksmith-4vcpu-ubuntu-2404
+        outputs:
+            build_summary: ${{ steps.consolidate.outputs.build_summary }}
+        steps:
+            - name: Download all build info artifacts
+              uses: actions/download-artifact@v5
+              with:
+                  pattern: build-info-*
+                  merge-multiple: true
+                  path: build-info
+
+            - name: Consolidate build information from artifacts
+              id: consolidate
+              run: |
+                  echo "Processing build info artifacts..."
+                  ls -la build-info/
+                  echo "Found $(ls build-info/*.json 2>/dev/null | wc -l) JSON files"
+
+                  # Initialize variables
+                  IMAGE=""
+                  SHORT_SHA=""
+                  ALL_TAGS=""
+                  VARIANTS_JSON="[]"
+
+                  # Process each build info
+                  for info_file in build-info/*.json; do
+                      if [[ ! -f "$info_file" ]]; then
+                          echo "Skipping $info_file - not a file"
+                          continue
+                      fi
+                      
+                      echo "=== Processing $info_file ==="
+                      cat "$info_file"
+                      echo "=== End of $info_file ==="
+                      
+                      # Extract information from JSON
+                      CUSTOM_TAGS=$(jq -r '.custom_tags' "$info_file")
+                      BASE_IMAGE=$(jq -r '.base_image' "$info_file")
+                      VARIANT_IMAGE=$(jq -r '.image' "$info_file")
+                      VARIANT_SHA=$(jq -r '.short_sha' "$info_file")
+                      VARIANT_TAGS=$(jq -r '.tags' "$info_file")
+                      
+                      # Set common values (same across all builds)
+                      if [[ -z "$IMAGE" ]]; then
+                          IMAGE="$VARIANT_IMAGE"
+                          SHORT_SHA="$VARIANT_SHA"
+                      fi
+                      
+                      # Add to JSON array
+                      VARIANTS_JSON=$(echo "$VARIANTS_JSON" | jq \
+                          --arg custom_tags "$CUSTOM_TAGS" \
+                          --arg base_image "$BASE_IMAGE" \
+                          '. += [{custom_tags: $custom_tags, base_image: $base_image}]')
+                      
+                      echo "Added custom_tags $CUSTOM_TAGS, current variants JSON:"
+                      echo "$VARIANTS_JSON" | jq .
+                      
+                      # Collect tags (comma-separated to newline-separated)
+                      if [[ -n "$VARIANT_TAGS" ]]; then
+                          VARIANT_TAG_LIST=$(echo "$VARIANT_TAGS" | tr ',' '\n')
+                          if [[ -n "$ALL_TAGS" ]]; then
+                              ALL_TAGS="${ALL_TAGS}"$'\n'"${VARIANT_TAG_LIST}"
+                          else
+                              ALL_TAGS="$VARIANT_TAG_LIST"
+                          fi
+                      fi
+                  done
+
+                  # Create consolidated build summary
+                  BUILD_SUMMARY=$(jq -n \
+                      --arg image "$IMAGE" \
+                      --arg short_sha "$SHORT_SHA" \
+                      --arg ghcr_url "https://github.com/OpenHands/agent-sdk/pkgs/container/agent-server" \
+                      --arg all_tags "$ALL_TAGS" \
+                      --argjson variants "$VARIANTS_JSON" \
+                      '{
+                          image: $image,
+                          short_sha: $short_sha,
+                          ghcr_package_url: $ghcr_url,
+                          all_tags: $all_tags,
+                          variants: $variants
+                      }')
+
+                  echo "Consolidated build summary:"
+                  echo "$BUILD_SUMMARY" | jq .
+
+                  echo "DEBUG: Final variants count: $(echo "$VARIANTS_JSON" | jq 'length')"
+                  echo "DEBUG: Final variants: $(echo "$VARIANTS_JSON" | jq -c '.')"
+
+                  # Set output
+                  {
+                      echo 'build_summary<<EOF'
+                      echo "$BUILD_SUMMARY"
+                      echo 'EOF'
+                  } >> $GITHUB_OUTPUT
+
+    update-pr-description:
+        name: Update PR description with agent server image
+        needs: consolidate-build-info
+        # Only on PRs, and only if the consolidation succeeded
+        if: github.event_name == 'pull_request' && needs.consolidate-build-info.result == 'success'
         runs-on: blacksmith-2vcpu-ubuntu-2404
         permissions:
             contents: read
             pull-requests: write
-        env:
-            IMAGE: ${{ needs.build-and-push-image.outputs.image }}
-            SHORT_SHA: ${{ needs.build-and-push-image.outputs.short_sha }}
 
         steps:
-            - name: Sticky PR comment with docker command
-              uses: marocchino/sticky-pull-request-comment@v2
+            - name: Generate PR description from build summary
+              id: generate_description
+              run: |
+                  echo "Event: ${{ github.event_name }}"
+                  echo "PR number: ${{ github.event.number }}"
+                  echo "Run attempt: ${{ github.run_attempt }}"
+
+                  # Parse the build summary JSON
+                  BUILD_SUMMARY='${{ needs.consolidate-build-info.outputs.build_summary }}'
+                  echo "Build summary received:"
+                  echo "$BUILD_SUMMARY" | jq .
+
+                  # Extract basic information
+                  IMAGE=$(echo "$BUILD_SUMMARY" | jq -r '.image')
+                  SHORT_SHA=$(echo "$BUILD_SUMMARY" | jq -r '.short_sha')
+                  GHCR_URL=$(echo "$BUILD_SUMMARY" | jq -r '.ghcr_package_url')
+                  ALL_TAGS=$(echo "$BUILD_SUMMARY" | jq -r '.all_tags')
+
+                  # Build the variants table dynamically
+                  VARIANTS_TABLE=""
+
+                  # Process each build
+                  VARIANTS=$(echo "$BUILD_SUMMARY" | jq -r '.variants[] | @base64')
+                  echo "DEBUG: Found builds (base64 encoded):"
+                  echo "$VARIANTS"
+                  echo "DEBUG: Number of builds: $(echo "$VARIANTS" | wc -l)"
+
+                  for variant_data in $VARIANTS; do
+                      # Decode base64 and extract build info
+                      VARIANT_JSON=$(echo "$variant_data" | base64 --decode)
+                      echo "DEBUG: Processing build JSON: $VARIANT_JSON"
+                      CUSTOM_TAGS=$(echo "$VARIANT_JSON" | jq -r '.custom_tags')
+                      BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
+                      
+                      echo "DEBUG: Adding custom_tags $CUSTOM_TAGS with base image $BASE_IMAGE"
+                      # Add to variants table
+                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${CUSTOM_TAGS} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |"$'\n'
+                  done
+
+                  echo "DEBUG: Final variants table:"
+                  echo "$VARIANTS_TABLE"
+
+                  # Create the complete PR description with the requested format
+                  PR_CONTENT=$(cat << EOF
+
+                  <!-- AGENT_SERVER_IMAGES_START -->
+                  ---
+                  **Agent Server images for this PR**
+
+                  • **GHCR package:** ${GHCR_URL}
+
+                  **Variants & Base Images**
+                  | Variant | Base Image | Docs / Tags |
+                  |---|---|---|
+                  ${VARIANTS_TABLE}
+
+                  **Pull (multi-arch manifest)**
+                  \`\`\`bash
+                  docker pull ${IMAGE}:${SHORT_SHA}-python
+                  \`\`\`
+
+                  **Run**
+                  \`\`\`bash
+                  docker run -it --rm \\
+                    -p 8000:8000 \\
+                    --name agent-server-${SHORT_SHA}-python \\
+                    ${IMAGE}:${SHORT_SHA}-python
+                  \`\`\`
+
+                  **All tags pushed for this build**
+                  \`\`\`
+                  ${ALL_TAGS}
+                  \`\`\`
+
+                  _The \`${SHORT_SHA}\` tag is a multi-arch manifest (amd64/arm64); your client pulls the right arch automatically._
+                  <!-- AGENT_SERVER_IMAGES_END -->
+                  EOF
+                  )
+
+                  # Set output for the next step
+                  {
+                      echo 'pr_content<<EOF'
+                      echo "$PR_CONTENT"
+                      echo 'EOF'
+                  } >> $GITHUB_OUTPUT
+
+            - name: Update PR description with comprehensive docker information
+              uses: nefrob/pr-description@v1.2.0
               with:
-                  header: agent-server-image
-                  recreate: true
-                  message: |
-                      **Agent Server image for this PR**
-
-                      Pull (multi-arch manifest):
-                      ```bash
-                      docker pull ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
-                      ```
-
-                      Run:
-                      ```bash
-                      docker run -it --rm \
-                        -p 8000:8000 \
-                        --name agent-server-${{ env.SHORT_SHA }} \
-                        ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
-                      ```
-
-                      _This tag is a multi-arch manifest (amd64/arm64). Your client pulls the right arch automatically._
+                  content: ${{ steps.generate_description.outputs.pr_content }}
+                  regex: <!-- AGENT_SERVER_IMAGES_START -->.*?<!-- AGENT_SERVER_IMAGES_END -->
+                  regexFlags: s
+                  token: ${{ secrets.GITHUB_TOKEN }}
