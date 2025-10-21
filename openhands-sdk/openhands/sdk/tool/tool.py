@@ -370,7 +370,7 @@ class ToolDefinition[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
     def create(cls, *args, **kwargs) -> Sequence[Self]:
         """Create a sequence of ToolDefinition instances.
 
-        TODO https://github.com/All-Hands-AI/agent-sdk/issues/493
+        TODO https://github.com/OpenHands/agent-sdk/issues/493
         Refactor this - the ToolDefinition class should not have a concrete create()
         implementation. Built-in tools should be refactored to not rely on this
         method, and then this should be made abstract with @abstractmethod.
