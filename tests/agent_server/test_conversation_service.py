@@ -92,7 +92,7 @@ class TestConversationServiceSearchConversations:
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
             workspace=sample_stored_conversation.workspace,
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
         mock_service.get_state.return_value = mock_state
@@ -136,7 +136,7 @@ class TestConversationServiceSearchConversations:
                 id=stored_conv.id,
                 agent=stored_conv.agent,
                 workspace=stored_conv.workspace,
-                agent_status=status,
+                execution_status=status,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
             mock_service.get_state.return_value = mock_state
@@ -146,21 +146,21 @@ class TestConversationServiceSearchConversations:
 
         # Test filtering by IDLE status
         result = await conversation_service.search_conversations(
-            agent_status=ConversationExecutionStatus.IDLE
+            execution_status=ConversationExecutionStatus.IDLE
         )
         assert len(result.items) == 1
         assert result.items[0].execution_status == ConversationExecutionStatus.IDLE
 
         # Test filtering by RUNNING status
         result = await conversation_service.search_conversations(
-            agent_status=ConversationExecutionStatus.RUNNING
+            execution_status=ConversationExecutionStatus.RUNNING
         )
         assert len(result.items) == 1
         assert result.items[0].execution_status == ConversationExecutionStatus.RUNNING
 
         # Test filtering by non-existent status
         result = await conversation_service.search_conversations(
-            agent_status=ConversationExecutionStatus.ERROR
+            execution_status=ConversationExecutionStatus.ERROR
         )
         assert len(result.items) == 0
 
@@ -190,7 +190,7 @@ class TestConversationServiceSearchConversations:
                 id=stored_conv.id,
                 agent=stored_conv.agent,
                 workspace=stored_conv.workspace,
-                agent_status=ConversationExecutionStatus.IDLE,
+                execution_status=ConversationExecutionStatus.IDLE,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
             mock_service.get_state.return_value = mock_state
@@ -265,7 +265,7 @@ class TestConversationServiceSearchConversations:
                 id=stored_conv.id,
                 agent=stored_conv.agent,
                 workspace=stored_conv.workspace,
-                agent_status=ConversationExecutionStatus.IDLE,
+                execution_status=ConversationExecutionStatus.IDLE,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
             mock_service.get_state.return_value = mock_state
@@ -335,7 +335,7 @@ class TestConversationServiceSearchConversations:
                 id=stored_conv.id,
                 agent=stored_conv.agent,
                 workspace=stored_conv.workspace,
-                agent_status=status,
+                execution_status=status,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
             mock_service.get_state.return_value = mock_state
@@ -344,7 +344,7 @@ class TestConversationServiceSearchConversations:
 
         # Filter by IDLE status and sort by CREATED_AT_DESC
         result = await conversation_service.search_conversations(
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             sort_order=ConversationSortOrder.CREATED_AT_DESC,
         )
 
@@ -363,7 +363,7 @@ class TestConversationServiceSearchConversations:
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
             workspace=sample_stored_conversation.workspace,
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
         mock_service.get_state.return_value = mock_state
@@ -412,7 +412,7 @@ class TestConversationServiceCountConversations:
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
             workspace=sample_stored_conversation.workspace,
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
         mock_service.get_state.return_value = mock_state
@@ -452,7 +452,7 @@ class TestConversationServiceCountConversations:
                 id=stored_conv.id,
                 agent=stored_conv.agent,
                 workspace=stored_conv.workspace,
-                agent_status=status,
+                execution_status=status,
                 confirmation_policy=stored_conv.confirmation_policy,
             )
             mock_service.get_state.return_value = mock_state
@@ -465,19 +465,19 @@ class TestConversationServiceCountConversations:
 
         # Test counting by IDLE status (should be 2)
         result = await conversation_service.count_conversations(
-            agent_status=ConversationExecutionStatus.IDLE
+            execution_status=ConversationExecutionStatus.IDLE
         )
         assert result == 2
 
         # Test counting by RUNNING status (should be 1)
         result = await conversation_service.count_conversations(
-            agent_status=ConversationExecutionStatus.RUNNING
+            execution_status=ConversationExecutionStatus.RUNNING
         )
         assert result == 1
 
         # Test counting by non-existent status (should be 0)
         result = await conversation_service.count_conversations(
-            agent_status=ConversationExecutionStatus.ERROR
+            execution_status=ConversationExecutionStatus.ERROR
         )
         assert result == 0
 
@@ -517,7 +517,7 @@ class TestConversationServiceStartConversation:
                     id=uuid4(),
                     agent=request.agent,
                     workspace=request.workspace,
-                    agent_status=ConversationExecutionStatus.IDLE,
+                    execution_status=ConversationExecutionStatus.IDLE,
                     confirmation_policy=request.confirmation_policy,
                 )
                 mock_event_service.get_state.return_value = mock_state
@@ -579,7 +579,7 @@ class TestConversationServiceStartConversation:
                     id=uuid4(),
                     agent=request.agent,
                     workspace=request.workspace,
-                    agent_status=ConversationExecutionStatus.IDLE,
+                    execution_status=ConversationExecutionStatus.IDLE,
                     confirmation_policy=request.confirmation_policy,
                 )
                 mock_event_service.get_state.return_value = mock_state
@@ -673,7 +673,7 @@ class TestConversationServiceUpdateConversation:
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
             workspace=sample_stored_conversation.workspace,
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
         mock_service.get_state.return_value = mock_state
@@ -704,7 +704,7 @@ class TestConversationServiceUpdateConversation:
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
             workspace=sample_stored_conversation.workspace,
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
         mock_service.get_state.return_value = mock_state
@@ -756,7 +756,7 @@ class TestConversationServiceUpdateConversation:
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
             workspace=sample_stored_conversation.workspace,
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
         mock_service.get_state.return_value = mock_state
@@ -793,7 +793,7 @@ class TestConversationServiceUpdateConversation:
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
             workspace=sample_stored_conversation.workspace,
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
         mock_service.get_state.return_value = mock_state
@@ -825,7 +825,7 @@ class TestConversationServiceUpdateConversation:
             id=sample_stored_conversation.id,
             agent=sample_stored_conversation.agent,
             workspace=sample_stored_conversation.workspace,
-            agent_status=ConversationExecutionStatus.IDLE,
+            execution_status=ConversationExecutionStatus.IDLE,
             confirmation_policy=sample_stored_conversation.confirmation_policy,
         )
         mock_service.get_state.return_value = mock_state
