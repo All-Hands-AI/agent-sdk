@@ -61,8 +61,8 @@ thread = threading.Thread(target=conversation.run)
 thread.start()
 
 # Let the agent work for a few seconds
-print("Letting agent work for 5 seconds...")
-time.sleep(5)
+print("Letting agent work for 2 seconds...")
+time.sleep(2)
 
 # Phase 2: Pause the agent
 print()
