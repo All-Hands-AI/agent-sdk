@@ -237,8 +237,14 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         if self.executor is None:
             raise NotImplementedError(f"Tool '{self.name}' has no executor")
 
-        # Execute
-        result = self.executor(action, conversation)
+        # Execute - check if executor accepts conversation parameter
+        import inspect
+
+        sig = inspect.signature(self.executor.__call__)
+        if len(sig.parameters) > 2:  # self, action, conversation
+            result = self.executor(action, conversation)
+        else:  # self, action (old signature)
+            result = self.executor(action)
 
         # Coerce output only if we declared a model; else wrap in base Observation
         if self.observation_type:
