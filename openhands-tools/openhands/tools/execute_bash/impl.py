@@ -120,7 +120,9 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             exit_code=0,
         )
 
-    def __call__(self, action: ExecuteBashAction, conversation) -> ExecuteBashObservation:
+    def __call__(
+        self, action: ExecuteBashAction, conversation
+    ) -> ExecuteBashObservation:
         # Validate field combinations
         if action.reset and action.is_input:
             raise ValueError("Cannot use reset=True with is_input=True")

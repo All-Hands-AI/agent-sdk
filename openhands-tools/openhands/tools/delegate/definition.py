@@ -1,19 +1,21 @@
 """Delegate tool definitions for OpenHands agents."""
 
 from collections.abc import Sequence
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool.delegation.delegate.impl import DelegateExecutor
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
     ToolAnnotations,
     ToolDefinition,
 )
+
+if TYPE_CHECKING:
+    from openhands.tools.delegate.impl import DelegateExecutor
 
 
 class DelegateAction(Action):
@@ -116,17 +118,24 @@ This tool allows the main agent to spawn, communicate with, and manage sub-agent
 - Always close sub-agents when their work is complete to free resources
 """
 
-DelegationTool = ToolDefinition(
-    name="delegate",
-    action_type=DelegateAction,
-    observation_type=DelegateObservation,
-    description=DELEGATE_TOOL_DESCRIPTION,
-    executor=DelegateExecutor(),
-    annotations=ToolAnnotations(
-        title="delegate",
-        readOnlyHint=False,
-        destructiveHint=False,
-        idempotentHint=False,
-        openWorldHint=True,
-    ),
-)
+def _get_delegation_tool():
+    """Lazy initialization of DelegationTool to avoid circular imports."""
+    from openhands.tools.delegate.impl import DelegateExecutor
+    
+    return ToolDefinition(
+        name="delegate",
+        action_type=DelegateAction,
+        observation_type=DelegateObservation,
+        description=DELEGATE_TOOL_DESCRIPTION,
+        executor=DelegateExecutor(),
+        annotations=ToolAnnotations(
+            title="delegate",
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
+        ),
+    )
+
+
+DelegationTool = _get_delegation_tool()

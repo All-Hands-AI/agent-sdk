@@ -3,7 +3,7 @@
 import uuid
 from unittest.mock import MagicMock
 
-from openhands.sdk.delegation.manager import DelegationManager
+from openhands.tools.delegate import DelegationManager
 
 
 def test_delegation_manager_init():

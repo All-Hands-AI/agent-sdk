@@ -5,13 +5,13 @@ from unittest.mock import MagicMock, patch
 
 from pydantic import SecretStr
 
-from openhands.sdk.delegation.manager import DelegationManager
 from openhands.sdk.llm import LLM
-from openhands.sdk.tool.delegation.delegate.definition import (
+from openhands.tools.delegate import (
     DelegateAction,
     DelegateObservation,
+    DelegateExecutor,
+    DelegationManager,
 )
-from openhands.sdk.tool.delegation.delegate.impl import DelegateExecutor
 
 
 def create_test_executor_and_parent():
@@ -84,7 +84,7 @@ def test_delegate_executor_spawn():
 
     # Mock the delegation manager's spawn_sub_agent method
     with patch(
-        "openhands.sdk.tool.delegation.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
+        "openhands.tools.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
     ) as mock_spawn:
         mock_conversation = MagicMock()
         mock_conversation.id = "sub-123"
@@ -111,10 +111,10 @@ def test_delegate_executor_send():
     # Mock the delegation manager methods
     with (
         patch(
-            "openhands.sdk.tool.delegation.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
+            "openhands.tools.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
         ) as mock_spawn,
         patch(
-            "openhands.sdk.tool.delegation.delegate.impl.DELEGATION_MANAGER.send_to_sub_agent"
+            "openhands.tools.delegate.impl.DELEGATION_MANAGER.send_to_sub_agent"
         ) as mock_send,
     ):
         # First spawn a sub-agent
@@ -167,10 +167,10 @@ def test_delegate_executor_close():
     # Mock the delegation manager methods
     with (
         patch(
-            "openhands.sdk.tool.delegation.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
+            "openhands.tools.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
         ) as mock_spawn,
         patch(
-            "openhands.sdk.tool.delegation.delegate.impl.DELEGATION_MANAGER.close_sub_agent"
+            "openhands.tools.delegate.impl.DELEGATION_MANAGER.close_sub_agent"
         ) as mock_close,
     ):
         # First spawn a sub-agent

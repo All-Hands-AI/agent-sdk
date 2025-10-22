@@ -17,7 +17,7 @@ from openhands.sdk import (
     Conversation,
     get_logger,
 )
-from openhands.sdk.delegation.manager import DelegationManager
+from openhands.tools.delegate import DelegationManager
 from openhands.tools.preset.default import get_default_agent
 
 

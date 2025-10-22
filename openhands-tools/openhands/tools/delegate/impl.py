@@ -2,21 +2,23 @@
 
 from typing import TYPE_CHECKING
 
-from openhands.sdk.delegation.manager import DelegationManager
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolExecutor
 
-
 if TYPE_CHECKING:
-    from openhands.sdk.tool.delegation.delegate.definition import (
+    from openhands.tools.delegate.definition import (
         DelegateAction,
         DelegateObservation,
     )
 
 logger = get_logger(__name__)
 
-# Use singleton instance
-DELEGATION_MANAGER = DelegationManager()
+# Use singleton instance - import here to avoid circular dependency
+def _get_delegation_manager():
+    from openhands.tools.delegate.manager import DelegationManager
+    return DelegationManager()
+
+DELEGATION_MANAGER = _get_delegation_manager()
 
 
 class DelegateExecutor(ToolExecutor):
@@ -24,7 +26,7 @@ class DelegateExecutor(ToolExecutor):
 
     def __call__(self, action: "DelegateAction", conversation) -> "DelegateObservation":
         """Execute a delegation action."""
-        from openhands.sdk.tool.delegation.delegate.definition import (
+        from openhands.tools.delegate.definition import (
             DelegateObservation,
         )
 
@@ -47,7 +49,7 @@ class DelegateExecutor(ToolExecutor):
         The sub-agent will run in a separate thread and send messages back to the
         parent conversation when it completes or needs input.
         """
-        from openhands.sdk.tool.delegation.delegate.definition import (
+        from openhands.tools.delegate.definition import (
             DelegateObservation,
         )
 
@@ -137,7 +139,7 @@ class DelegateExecutor(ToolExecutor):
 
     def _send_to_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Send a message to a sub-agent."""
-        from openhands.sdk.tool.delegation.delegate.definition import (
+        from openhands.tools.delegate.definition import (
             DelegateObservation,
         )
 
@@ -179,7 +181,7 @@ class DelegateExecutor(ToolExecutor):
 
     def _close_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Close a sub-agent."""
-        from openhands.sdk.tool.delegation.delegate.definition import (
+        from openhands.tools.delegate.definition import (
             DelegateObservation,
         )
 
