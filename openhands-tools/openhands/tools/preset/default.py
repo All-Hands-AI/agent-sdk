@@ -17,18 +17,18 @@ logger = get_logger(__name__)
 def register_default_tools(enable_browser: bool = True) -> None:
     """Register the default set of tools."""
     # Tools are now automatically registered when imported
-    from openhands.tools.execute_bash import BashTool  # noqa: F401
-    from openhands.tools.file_editor import FileEditorTool  # noqa: F401
-    from openhands.tools.task_tracker import TaskTrackerTool  # noqa: F401
+    from openhands.tools.execute_bash import BashTool
+    from openhands.tools.file_editor import FileEditorTool
+    from openhands.tools.task_tracker import TaskTrackerTool
 
-    logger.debug("Tool: BashTool registered.")
-    logger.debug("Tool: FileEditorTool registered.")
-    logger.debug("Tool: TaskTrackerTool registered.")
+    logger.debug(f"Tool: {BashTool.name} registered.")
+    logger.debug(f"Tool: {FileEditorTool.name} registered.")
+    logger.debug(f"Tool: {TaskTrackerTool.name} registered.")
 
     if enable_browser:
-        from openhands.tools.browser_use import BrowserToolSet  # noqa: F401
+        from openhands.tools.browser_use import BrowserToolSet
 
-        logger.debug("Tool: BrowserToolSet registered.")
+        logger.debug(f"Tool: {BrowserToolSet.name} registered.")
 
 
 def get_default_tools(
@@ -41,13 +41,20 @@ def get_default_tools(
     """
     register_default_tools(enable_browser=enable_browser)
 
+    # Import tools to access their name attributes
+    from openhands.tools.execute_bash import BashTool
+    from openhands.tools.file_editor import FileEditorTool
+    from openhands.tools.task_tracker import TaskTrackerTool
+
     tools = [
-        Tool(name="BashTool"),
-        Tool(name="FileEditorTool"),
-        Tool(name="TaskTrackerTool"),
+        Tool(name=BashTool.tool_name),
+        Tool(name=FileEditorTool.tool_name),
+        Tool(name=TaskTrackerTool.tool_name),
     ]
     if enable_browser:
-        tools.append(Tool(name="BrowserToolSet"))
+        from openhands.tools.browser_use import BrowserToolSet
+
+        tools.append(Tool(name=BrowserToolSet.tool_name))
     return tools
 
 

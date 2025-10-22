@@ -20,9 +20,9 @@ from openhands.sdk import (
 from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.tool import Tool
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
-from openhands.tools.execute_bash import BashTool  # noqa: F401
-from openhands.tools.file_editor import FileEditorTool  # noqa: F401
-from openhands.tools.task_tracker import TaskTrackerTool  # noqa: F401
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.file_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
 
 
 logger = get_logger(__name__)
@@ -43,10 +43,10 @@ llm = LLM(
 cwd = os.getcwd()
 tools = [
     Tool(
-        name="BashTool",
+        name=BashTool.tool_name,
     ),
-    Tool(name="FileEditorTool"),
-    Tool(name="TaskTrackerTool"),
+    Tool(name=FileEditorTool.tool_name),
+    Tool(name=TaskTrackerTool.tool_name),
 ]
 
 # Agent

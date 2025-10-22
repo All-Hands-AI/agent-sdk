@@ -10,8 +10,8 @@ from openhands.sdk import (
     Conversation,
 )
 from openhands.sdk.tool import Tool
-from openhands.tools.execute_bash import BashTool  # noqa: F401
-from openhands.tools.file_editor import FileEditorTool  # noqa: F401
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.file_editor import FileEditorTool
 
 
 # Configure LLM
@@ -29,9 +29,9 @@ llm = LLM(
 # Tools
 tools = [
     Tool(
-        name="BashTool",
+        name=BashTool.tool_name,
     ),
-    Tool(name="FileEditorTool"),
+    Tool(name=FileEditorTool.tool_name),
 ]
 
 # Agent

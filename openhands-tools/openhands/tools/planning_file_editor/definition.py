@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
+from typing import ClassVar
+
 from openhands.sdk.tool import (
     ToolAnnotations,
     ToolDefinition,
@@ -57,6 +59,8 @@ class PlanningFileEditorTool(
     ToolDefinition[PlanningFileEditorAction, PlanningFileEditorObservation]
 ):
     """A planning file editor tool with read-all, edit-PLAN.md-only access."""
+
+    tool_name: ClassVar[str] = "PlanningFileEditorTool"
 
     @classmethod
     def create(
@@ -118,4 +122,4 @@ class PlanningFileEditorTool(
 
 
 # Automatically register the tool when this module is imported
-register_tool("PlanningFileEditorTool", PlanningFileEditorTool)
+register_tool(PlanningFileEditorTool.tool_name, PlanningFileEditorTool)

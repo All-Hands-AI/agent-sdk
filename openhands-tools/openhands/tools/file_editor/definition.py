@@ -8,6 +8,8 @@ from pydantic import Field, PrivateAttr
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
+from typing import ClassVar
+
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -206,6 +208,8 @@ file_editor_tool = ToolDefinition(
 class FileEditorTool(ToolDefinition[FileEditorAction, FileEditorObservation]):
     """A ToolDefinition subclass that automatically initializes a FileEditorExecutor."""
 
+    tool_name: ClassVar[str] = "FileEditorTool"
+
     @classmethod
     def create(
         cls,
@@ -248,4 +252,4 @@ class FileEditorTool(ToolDefinition[FileEditorAction, FileEditorObservation]):
 
 
 # Automatically register the tool when this module is imported
-register_tool("FileEditorTool", FileEditorTool)
+register_tool(FileEditorTool.tool_name, FileEditorTool)

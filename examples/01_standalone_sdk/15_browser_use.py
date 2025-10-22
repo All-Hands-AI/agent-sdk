@@ -11,9 +11,9 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool import Tool
-from openhands.tools.browser_use import BrowserToolSet  # noqa: F401
-from openhands.tools.execute_bash import BashTool  # noqa: F401
-from openhands.tools.file_editor import FileEditorTool  # noqa: F401
+from openhands.tools.browser_use import BrowserToolSet
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.file_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -34,10 +34,10 @@ llm = LLM(
 cwd = os.getcwd()
 tools = [
     Tool(
-        name="BashTool",
+        name=BashTool.tool_name,
     ),
-    Tool(name="FileEditorTool"),
-    Tool(name="BrowserToolSet"),
+    Tool(name=FileEditorTool.tool_name),
+    Tool(name=BrowserToolSet.tool_name),
 ]
 
 # If you need fine-grained browser control, you can manually register individual browser

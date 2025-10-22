@@ -13,6 +13,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool.spec import Tool
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)
@@ -46,7 +47,7 @@ agent = Agent(
     llm=llm,
     tools=[
         Tool(
-            name="BashTool",
+            name=BashTool.tool_name,
         ),
     ],
     condenser=condenser,

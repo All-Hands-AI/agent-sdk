@@ -14,7 +14,7 @@ from openhands.sdk import (
     ThinkingBlock,
 )
 from openhands.sdk.tool import Tool
-from openhands.tools.execute_bash import BashTool  # noqa: F401
+from openhands.tools.execute_bash import BashTool
 
 
 # Configure LLM for Anthropic Claude with extended thinking
@@ -31,7 +31,7 @@ llm = LLM(
 )
 
 # Setup agent with bash tool
-agent = Agent(llm=llm, tools=[Tool(name="BashTool")])
+agent = Agent(llm=llm, tools=[Tool(name=BashTool.tool_name)])
 
 
 # Callback to display thinking blocks

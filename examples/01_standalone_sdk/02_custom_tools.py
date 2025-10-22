@@ -29,7 +29,7 @@ from openhands.tools.execute_bash import (
     ExecuteBashAction,
     execute_bash_tool,
 )
-from openhands.tools.file_editor import FileEditorTool  # noqa: F401
+from openhands.tools.file_editor import FileEditorTool
 
 
 logger = get_logger(__name__)
@@ -151,7 +151,7 @@ def _make_bash_and_grep_tools(conv_state) -> list[ToolDefinition]:
 register_tool("BashAndGrepToolSet", _make_bash_and_grep_tools)
 
 tools = [
-    Tool(name="FileEditorTool"),
+    Tool(name=FileEditorTool.tool_name),
     Tool(name="BashAndGrepToolSet"),
 ]
 

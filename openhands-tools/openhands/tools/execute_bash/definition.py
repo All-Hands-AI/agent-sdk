@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 from pydantic import Field
 
@@ -236,6 +236,8 @@ execute_bash_tool = ToolDefinition(
 class BashTool(ToolDefinition[ExecuteBashAction, ExecuteBashObservation]):
     """A ToolDefinition subclass that automatically initializes a BashExecutor with auto-detection."""  # noqa: E501
 
+    tool_name: ClassVar[str] = "BashTool"
+
     @classmethod
     def create(
         cls,
@@ -297,4 +299,4 @@ class BashTool(ToolDefinition[ExecuteBashAction, ExecuteBashObservation]):
 
 
 # Automatically register the tool when this module is imported
-register_tool("BashTool", BashTool)
+register_tool(BashTool.tool_name, BashTool)

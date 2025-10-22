@@ -1,7 +1,7 @@
 """Browser-use tool implementation for web automation."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal, Self
+from typing import TYPE_CHECKING, ClassVar, Literal, Self
 
 from pydantic import Field
 
@@ -611,6 +611,8 @@ class BrowserToolSet(ToolBase[BrowserAction, BrowserObservation]):
     when created and automatically installs it if missing.
     """
 
+    tool_name: ClassVar[str] = "BrowserToolSet"
+
     @classmethod
     def create(
         cls,
@@ -636,4 +638,4 @@ class BrowserToolSet(ToolBase[BrowserAction, BrowserObservation]):
 
 
 # Automatically register the tool when this module is imported
-register_tool("BrowserToolSet", BrowserToolSet)
+register_tool(BrowserToolSet.tool_name, BrowserToolSet)

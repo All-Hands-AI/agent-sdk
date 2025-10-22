@@ -14,7 +14,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool import Tool
-from openhands.tools.execute_bash import BashTool  # noqa: F401
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)
@@ -42,7 +42,7 @@ llm = llm_registry.get("agent")
 
 # Tools
 cwd = os.getcwd()
-tools = [Tool(name="BashTool")]
+tools = [Tool(name=BashTool.tool_name)]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
