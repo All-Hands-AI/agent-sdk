@@ -1,29 +1,29 @@
 """Command router for OpenHands SDK."""
 
 import logging
-import tempfile
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter
-from fastapi.responses import FileResponse
-from starlette.background import BackgroundTask
 
 from openhands.agent_server.bash_service import get_default_bash_event_service
-from openhands.agent_server.config import get_default_config
 from openhands.agent_server.conversation_service import get_default_conversation_service
-from openhands.agent_server.models import ExecuteBashRequest
 from openhands.sdk.cmd.git_changes import get_git_changes
 from openhands.sdk.cmd.git_diff import get_git_diff
 
 
-cmd_router = APIRouter(prefix="/cmd", tags=["Command"])
+git_router = APIRouter(prefix="/git", tags=["Git"])
 logger = logging.getLogger(__name__)
 bash_event_service = get_default_bash_event_service()
 conversation_service = get_default_conversation_service()
 
+# TODO: Ditch the dict - use classes
+# Maybe make this "git" rather than "command"
 
-@cmd_router.get("/cmd/git-changes/{conversation_id}")
+# Is it something
+
+
+@git_router.get("/changes/{conversation_id}")
 async def git_changes(
     conversation_id: UUID,
 ) -> list[dict[str, str]]:
@@ -34,7 +34,7 @@ async def git_changes(
 
 
 # bash event routes
-@cmd_router.get("/cmd/git-diff/{conversation_id}/{path:path}")
+@git_router.get("/diff/{conversation_id}/{path:path}")
 async def git_diff(
     conversation_id: UUID,
     path: str,
@@ -46,7 +46,8 @@ async def git_diff(
     return result
 
 
-@cmd_router.get("/cmd/download-trajectory/{conversation_id}")
+"""
+@git_router.get("/cmd/download-trajectory/{conversation_id}")
 async def download_trajectory(
     conversation_id: UUID,
 ) -> FileResponse:
@@ -63,3 +64,4 @@ async def download_trajectory(
         media_type="application/octet-stream",
         background=BackgroundTask(temp_file.unlink),
     )
+"""
