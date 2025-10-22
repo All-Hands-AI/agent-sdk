@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 from pydantic import Field
@@ -14,6 +15,13 @@ from openhands.sdk.tool import (
     ToolDefinition,
     ToolExecutor,
 )
+
+
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    mock_conversation = Mock()
+    mock_conversation.id = "test-conversation-id"
+    return mock_conversation
 
 
 class ToolMockAction(Action):
@@ -58,7 +66,9 @@ class TestTool:
         """Test tool creation with executor function."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> ToolMockObservation:  # noqa: ARG002
                 return ToolMockObservation(result=f"Executed: {action.command}")
 
         tool = ToolDefinition(
@@ -72,7 +82,7 @@ class TestTool:
         # Test that tool can be used as executable
         executable_tool = tool.as_executable()
         action = ToolMockAction(command="test")
-        result = executable_tool(action)
+        result = executable_tool(action, create_mock_conversation())
         assert isinstance(result, ToolMockObservation)
         assert result.result == "Executed: test"
 
@@ -158,13 +168,15 @@ class TestTool:
         with pytest.raises(
             NotImplementedError, match="Tool 'test_tool' has no executor"
         ):
-            tool(action)
+            tool(action, create_mock_conversation())
 
     def test_call_with_executor(self):
         """Test calling tool with executor."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> ToolMockObservation:  # noqa: ARG002
                 return ToolMockObservation(result=f"Processed: {action.command}")
 
         tool = ToolDefinition(
@@ -176,7 +188,7 @@ class TestTool:
         )
 
         action = ToolMockAction(command="test_command")
-        result = tool(action)
+        result = tool(action, create_mock_conversation())
 
         assert isinstance(result, ToolMockObservation)
         assert result.result == "Processed: test_command"
@@ -214,7 +226,9 @@ class TestTool:
         """Test that observation type is properly validated."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> ToolMockObservation:  # noqa: ARG002
                 return ToolMockObservation(result="success")
 
         tool = ToolDefinition(
@@ -226,7 +240,7 @@ class TestTool:
         )
 
         action = ToolMockAction(command="test")
-        result = tool(action)
+        result = tool(action, create_mock_conversation())
 
         # Should return the correct observation type
         assert isinstance(result, ToolMockObservation)
@@ -236,7 +250,9 @@ class TestTool:
         """Test observation with additional fields."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> ToolMockObservation:  # noqa: ARG002
                 return ToolMockObservation(result="test", extra_field="extra_data")
 
         tool = ToolDefinition(
@@ -248,7 +264,7 @@ class TestTool:
         )
 
         action = ToolMockAction(command="test")
-        result = tool(action)
+        result = tool(action, create_mock_conversation())
 
         assert isinstance(result, ToolMockObservation)
         assert result.result == "test"
@@ -316,7 +332,9 @@ class TestTool:
 
         # Create executor first
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> ToolMockObservation:  # noqa: ARG002
                 return ToolMockObservation(result=f"Attached: {action.command}")
 
         executor = MockExecutor()
@@ -332,7 +350,7 @@ class TestTool:
         # Should work as executable tool
         executable_tool = tool.as_executable()
         action = ToolMockAction(command="test")
-        result = executable_tool(action)
+        result = executable_tool(action, create_mock_conversation())
         assert isinstance(result, ToolMockObservation)
         assert result.result == "Attached: test"
 
@@ -370,7 +388,9 @@ class TestTool:
                 return [TextContent(text=f"Data: {self.data}, Count: {self.count}")]
 
         class MockComplexExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ComplexObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> ComplexObservation:  # noqa: ARG002
                 return ComplexObservation(
                     data={"processed": action.command, "timestamp": 12345},
                     count=len(action.command) if hasattr(action, "command") else 0,
@@ -385,7 +405,7 @@ class TestTool:
         )
 
         action = ToolMockAction(command="test_command")
-        result = tool(action)
+        result = tool(action, create_mock_conversation())
 
         assert isinstance(result, ComplexObservation)
         assert result.data["processed"] == "test_command"
@@ -395,7 +415,9 @@ class TestTool:
         """Test error handling when executor raises exceptions."""
 
         class FailingExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> ToolMockObservation:  # noqa: ARG002
                 raise RuntimeError("Executor failed")
 
         tool = ToolDefinition(
@@ -408,7 +430,7 @@ class TestTool:
 
         action = ToolMockAction(command="test")
         with pytest.raises(RuntimeError, match="Executor failed"):
-            tool(action)
+            tool(action, create_mock_conversation())
 
     def test_executor_with_observation_validation(self):
         """Test that executor return values are validated."""
@@ -422,7 +444,9 @@ class TestTool:
                 return [TextContent(text=f"{self.message}: {self.value}")]
 
         class ValidExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> StrictObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> StrictObservation:  # noqa: ARG002
                 return StrictObservation(message="success", value=42)
 
         tool = ToolDefinition(
@@ -434,7 +458,7 @@ class TestTool:
         )
 
         action = ToolMockAction(command="test")
-        result = tool(action)
+        result = tool(action, create_mock_conversation())
         assert isinstance(result, StrictObservation)
         assert result.message == "success"
         assert result.value == 42
@@ -709,7 +733,9 @@ class TestTool:
         """Test as_executable() method with a tool that has an executor."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(
+                self, action: ToolMockAction, conversation
+            ) -> ToolMockObservation:  # noqa: ARG002
                 return ToolMockObservation(result=f"Executed: {action.command}")
 
         executor = MockExecutor()
@@ -728,7 +754,7 @@ class TestTool:
 
         # Should be able to call it
         action = ToolMockAction(command="test")
-        result = executable_tool(action)
+        result = executable_tool(action, create_mock_conversation())
         assert isinstance(result, ToolMockObservation)
         assert result.result == "Executed: test"
 

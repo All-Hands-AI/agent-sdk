@@ -12,6 +12,13 @@ from openhands.sdk.mcp.tool import MCPToolDefinition, MCPToolExecutor
 from openhands.sdk.tool import ToolAnnotations
 
 
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    mock_conversation = Mock()
+    mock_conversation.id = "test-conversation-id"
+    return mock_conversation
+
+
 class MockMCPClient(MCPClient):
     """Mock MCPClient for testing that bypasses the complex constructor."""
 
@@ -147,7 +154,7 @@ class TestMCPToolExecutor:
 
         self.mock_client.call_async_from_sync = mock_call_async_from_sync
 
-        observation = self.executor(mock_action)
+        observation = self.executor(mock_action, create_mock_conversation())
 
         assert isinstance(observation, MCPToolObservation)
         assert observation.tool_name == "test_tool"
@@ -174,7 +181,7 @@ class TestMCPToolExecutor:
 
         self.mock_client.call_async_from_sync = mock_call_async_from_sync
 
-        observation = self.executor(mock_action)
+        observation = self.executor(mock_action, create_mock_conversation())
 
         assert isinstance(observation, MCPToolObservation)
         assert observation.tool_name == "test_tool"
@@ -200,7 +207,7 @@ class TestMCPToolExecutor:
 
         self.mock_client.call_async_from_sync = mock_call_async_from_sync
 
-        observation = self.executor(mock_action)
+        observation = self.executor(mock_action, create_mock_conversation())
 
         assert isinstance(observation, MCPToolObservation)
         assert isinstance(observation.content[0], TextContent)

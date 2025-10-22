@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -19,6 +19,13 @@ def _create_mock_conv_state() -> ConversationState:
     mock_conv_state.workspace = "workspace/project"
     mock_conv_state.persistence_dir = None
     return mock_conv_state
+
+
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    mock_conversation = Mock()
+    mock_conversation.id = "test-conversation-id"
+    return mock_conversation
 
 
 class _HelloAction(Action):
@@ -51,7 +58,7 @@ class _ConfigurableHelloTool(ToolDefinition):
                 self._greeting: str = greeting
                 self._punctuation: str = punctuation
 
-            def __call__(self, action: _HelloAction) -> _HelloObservation:
+            def __call__(self, action: _HelloAction, conversation) -> _HelloObservation:  # noqa: ARG002
                 return _HelloObservation(
                     message=f"{self._greeting}, {action.name}{self._punctuation}"
                 )
@@ -129,6 +136,6 @@ def test_register_tool_type_uses_create_params():
     assert isinstance(tool, _ConfigurableHelloTool)
     assert tool.description == "Howdy?"
 
-    observation = tool(_HelloAction(name="Alice"))
+    observation = tool(_HelloAction(name="Alice"), create_mock_conversation())
     assert isinstance(observation, _HelloObservation)
     assert observation.message == "Howdy, Alice?"

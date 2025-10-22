@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 
 if TYPE_CHECKING:
+    from openhands.sdk.conversation.base import BaseConversation
     from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
@@ -164,7 +165,7 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
     def __call__(
         self,
         action: TaskTrackerAction,
-        conversation,  # noqa: ARG002
+        conversation: "BaseConversation",  # noqa: ARG002
     ) -> TaskTrackerObservation:
         """Execute the task tracker action."""
         if action.command == "plan":

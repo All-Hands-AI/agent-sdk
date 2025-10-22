@@ -1,10 +1,19 @@
 """Tests for MCP tool with security risk prediction."""
 
+from unittest.mock import Mock
+
 import mcp.types
 
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands.sdk.mcp.tool import MCPToolDefinition
+
+
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    mock_conversation = Mock()
+    mock_conversation.id = "test-conversation-id"
+    return mock_conversation
 
 
 class MockMCPClient(MCPClient):
@@ -176,6 +185,6 @@ def test_mcp_tool_validates_correctly_after_security_risk_pop():
     assert action.data == {"kind": "FetchFetchAction", "url": "https://google.com"}
 
     # 4. Execute the action (this should also work)
-    observation = tool(action)
+    observation = tool(action, create_mock_conversation())
     assert isinstance(observation, MCPToolObservation)
     assert not observation.is_error

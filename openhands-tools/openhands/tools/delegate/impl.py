@@ -67,7 +67,9 @@ class DelegateExecutor(ToolExecutor):
 
         return False
 
-    def __call__(self, action: "DelegateAction", conversation) -> "DelegateObservation":
+    def __call__(
+        self, action: "DelegateAction", conversation: "BaseConversation"
+    ) -> "DelegateObservation":
         """Execute a delegation action."""
         from openhands.tools.delegate.definition import DelegateObservation
 

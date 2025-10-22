@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any, ClassVar, Protocol, Self, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, Self, TypeVar
 
 from litellm import (
     ChatCompletionToolParam,
@@ -24,6 +24,10 @@ from openhands.sdk.utils.models import (
     get_known_concrete_subclasses,
     kind_of,
 )
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.base import BaseConversation
 
 
 ActionT = TypeVar("ActionT", bound=Action)
@@ -70,7 +74,9 @@ class ToolExecutor[ActionT, ObservationT](ABC):
     """Executor function type for a Tool."""
 
     @abstractmethod
-    def __call__(self, action: ActionT, conversation) -> ObservationT:
+    def __call__(
+        self, action: ActionT, conversation: "BaseConversation"
+    ) -> ObservationT:
         """Execute the tool with the given action and return an observation.
 
         Args:
@@ -102,7 +108,7 @@ class ExecutableTool(Protocol):
     name: str
     executor: ToolExecutor[Any, Any]  # Non-optional executor
 
-    def __call__(self, action: Action, conversation) -> Observation:
+    def __call__(self, action: Action, conversation: "BaseConversation") -> Observation:
         """Execute the tool with the given action."""
         ...
 
@@ -218,7 +224,9 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         """
         return self.action_type.model_validate(arguments)
 
-    def __call__(self, action: ActionT, conversation) -> Observation:
+    def __call__(
+        self, action: ActionT, conversation: "BaseConversation"
+    ) -> Observation:
         """Validate input, execute, and coerce output.
 
         We always return some Observation subclass, but not always the
