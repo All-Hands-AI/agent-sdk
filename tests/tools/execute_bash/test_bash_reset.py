@@ -17,6 +17,13 @@ from openhands.tools.execute_bash import (
 )
 
 
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    from unittest.mock import Mock
+
+    return Mock()
+
+
 def _create_conv_state(working_dir: str) -> ConversationState:
     """Helper to create a ConversationState for testing."""
 
@@ -35,26 +42,30 @@ def test_bash_reset_basic():
 
         # Execute a command to set an environment variable
         action = ExecuteBashAction(command="export TEST_VAR=hello")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert result.metadata.exit_code == 0
 
         # Verify the variable is set
         action = ExecuteBashAction(command="echo $TEST_VAR")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert "hello" in result.output
 
         # Reset the terminal
         reset_action = ExecuteBashAction(command="", reset=True)
-        reset_result = tool(reset_action)
+        conversation = create_mock_conversation()
+        reset_result = tool(reset_action, conversation)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
         assert reset_result.command == "[RESET]"
 
         # Verify the variable is no longer set after reset
         action = ExecuteBashAction(command="echo $TEST_VAR")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         # The variable should be empty after reset
         assert result.output.strip() == ""
@@ -68,7 +79,8 @@ def test_bash_reset_with_command():
 
         # Set an environment variable
         action = ExecuteBashAction(command="export TEST_VAR=world")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert result.metadata.exit_code == 0
 
@@ -76,7 +88,8 @@ def test_bash_reset_with_command():
         reset_action = ExecuteBashAction(
             command="echo 'hello from fresh terminal'", reset=True
         )
-        reset_result = tool(reset_action)
+        conversation = create_mock_conversation()
+        reset_result = tool(reset_action, conversation)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
         assert "hello from fresh terminal" in reset_result.output
@@ -84,7 +97,8 @@ def test_bash_reset_with_command():
 
         # Verify the variable is no longer set (confirming reset worked)
         action = ExecuteBashAction(command="echo $TEST_VAR")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert result.output.strip() == ""
 
@@ -97,30 +111,35 @@ def test_bash_reset_working_directory():
 
         # Check initial working directory
         action = ExecuteBashAction(command="pwd")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert temp_dir in result.output
 
         # Change directory
         action = ExecuteBashAction(command="cd /home")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
 
         # Verify directory changed
         action = ExecuteBashAction(command="pwd")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert "/home" in result.output
 
         # Reset the terminal
         reset_action = ExecuteBashAction(command="", reset=True)
-        reset_result = tool(reset_action)
+        conversation = create_mock_conversation()
+        reset_result = tool(reset_action, conversation)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
 
         # Verify working directory is back to original
         action = ExecuteBashAction(command="pwd")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert temp_dir in result.output
 
@@ -133,25 +152,29 @@ def test_bash_reset_multiple_times():
 
         # First reset
         reset_action = ExecuteBashAction(command="", reset=True)
-        reset_result = tool(reset_action)
+        conversation = create_mock_conversation()
+        reset_result = tool(reset_action, conversation)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
 
         # Execute a command after first reset
         action = ExecuteBashAction(command="echo 'after first reset'")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert "after first reset" in result.output
 
         # Second reset
         reset_action = ExecuteBashAction(command="", reset=True)
-        reset_result = tool(reset_action)
+        conversation = create_mock_conversation()
+        reset_result = tool(reset_action, conversation)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
 
         # Execute a command after second reset
         action = ExecuteBashAction(command="echo 'after second reset'")
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
         assert isinstance(result, ExecuteBashObservation)
         assert "after second reset" in result.output
 
@@ -164,7 +187,8 @@ def test_bash_reset_with_timeout():
 
         # Reset with timeout (should ignore timeout)
         reset_action = ExecuteBashAction(command="", reset=True, timeout=5.0)
-        reset_result = tool(reset_action)
+        conversation = create_mock_conversation()
+        reset_result = tool(reset_action, conversation)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
         assert reset_result.command == "[RESET]"
@@ -183,7 +207,8 @@ def test_bash_reset_with_is_input_validation():
         with pytest.raises(
             ValueError, match="Cannot use reset=True with is_input=True"
         ):
-            tool(action)
+            conversation = create_mock_conversation()
+        tool(action, conversation)
 
 
 def test_bash_reset_only_with_empty_command():
@@ -194,7 +219,8 @@ def test_bash_reset_only_with_empty_command():
 
         # Reset with empty command
         reset_action = ExecuteBashAction(command="", reset=True)
-        reset_result = tool(reset_action)
+        conversation = create_mock_conversation()
+        reset_result = tool(reset_action, conversation)
         assert isinstance(reset_result, ExecuteBashObservation)
         assert "Terminal session has been reset" in reset_result.output
         assert reset_result.command == "[RESET]"
