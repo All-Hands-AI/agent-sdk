@@ -10,6 +10,7 @@ from openhands.agent_server.bash_service import get_default_bash_event_service
 from openhands.agent_server.conversation_service import get_default_conversation_service
 from openhands.sdk.git.git_changes import get_git_changes
 from openhands.sdk.git.git_diff import get_git_diff
+from openhands.sdk.git.models import GitChange
 
 
 git_router = APIRouter(prefix="/git", tags=["Git"])
@@ -26,19 +27,10 @@ conversation_service = get_default_conversation_service()
 @git_router.get("/changes/{conversation_id}")
 async def git_changes(
     conversation_id: UUID,
-) -> list[dict[str, str]]:
+) -> list[GitChange]:
     conversation_info = await conversation_service.get_conversation(conversation_id)
     assert conversation_info is not None
-    git_change_objects = get_git_changes(conversation_info.workspace.working_dir)
-    # Convert GitChange objects to dictionaries for API response
-    result = [
-        {
-            "status": change.status.value,
-            "path": str(change.path),
-        }
-        for change in git_change_objects
-    ]
-    return result
+    return get_git_changes(conversation_info.workspace.working_dir)
 
 
 # bash event routes
