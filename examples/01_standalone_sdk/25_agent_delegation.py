@@ -17,7 +17,6 @@ from openhands.sdk import (
     Conversation,
     get_logger,
 )
-from openhands.tools.delegate import DelegationManager
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -48,11 +47,6 @@ conversation = Conversation(
     workspace=cwd,
 )
 
-# Register the conversation with the singleton delegation manager
-# This allows the delegate tool to look up the parent conversation by ID
-delegation_manager = DelegationManager()
-delegation_manager.register_conversation(conversation)
-
 # Send the high-level task to the main agent
 task_message = (
     "Forget about coding. Let's switch to travel planning. "
@@ -73,10 +67,12 @@ conversation.run()
 
 time.sleep(4)
 # Wait for all delegation work to complete (with timeout)
+# Access the executor through the agent's tools
+executor = conversation.agent.tools_map['delegate'].executor
 max_wait = 180  # 3 minutes to account for LLM processing time
 start_time = time.time()
 
-while delegation_manager.is_task_in_progress(str(conversation.id)):
+while executor.is_task_in_progress(str(conversation.id)):
     elapsed = time.time() - start_time
     if elapsed >= max_wait:
         print(f"⏰ Timeout after {max_wait}s - task still in progress")
@@ -86,7 +82,7 @@ while delegation_manager.is_task_in_progress(str(conversation.id)):
     time.sleep(2)
     print("   ⏳ Task still in progress...")
 
-if not delegation_manager.is_task_in_progress(str(conversation.id)):
+if not executor.is_task_in_progress(str(conversation.id)):
     print("✅ All delegation work completed successfully!")
 else:
     print("⚠️  Some threads still running after timeout")

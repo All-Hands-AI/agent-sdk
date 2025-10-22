@@ -10,14 +10,12 @@ from openhands.tools.delegate import (
     DelegateAction,
     DelegateObservation,
     DelegateExecutor,
-    DelegationManager,
 )
 
 
 def create_test_executor_and_parent():
     """Helper to create test executor and parent conversation."""
-    # Create delegation manager (now using singleton pattern)
-    delegation_manager = DelegationManager()
+    # Create executor (singleton pattern)
     executor = DelegateExecutor()
 
     # Create a real LLM object
@@ -36,9 +34,9 @@ def create_test_executor_and_parent():
     parent_conversation.visualize = False  # Disable visualization for tests
 
     # Register the parent conversation
-    delegation_manager.register_conversation(parent_conversation)
+    executor.register_conversation(parent_conversation)
 
-    return executor, parent_conversation, delegation_manager
+    return executor, parent_conversation
 
 
 def test_delegate_action_creation():
@@ -76,22 +74,24 @@ def test_delegate_observation_creation():
 
 def test_delegate_executor_spawn():
     """Test DelegateExecutor spawn operation."""
-    executor, parent_conversation, _ = create_test_executor_and_parent()
+    executor, parent_conversation = create_test_executor_and_parent()
 
     # Create spawn action with conversation_id
     action = DelegateAction(operation="spawn", task="Analyze code quality")
     action = action.model_copy(update={"conversation_id": parent_conversation.id})
 
-    # Mock the delegation manager's spawn_sub_agent method
-    with patch(
-        "openhands.tools.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
-    ) as mock_spawn:
-        mock_conversation = MagicMock()
-        mock_conversation.id = "sub-123"
-        mock_spawn.return_value = mock_conversation
+    # Mock the executor's private _spawn_sub_agent method
+    with patch.object(executor, "_spawn_sub_agent") as mock_spawn:
+        mock_observation = DelegateObservation(
+            operation="spawn",
+            success=True,
+            message="Sub-agent created successfully",
+            sub_conversation_id="sub-123",
+        )
+        mock_spawn.return_value = mock_observation
 
         # Execute action
-        observation = executor(action)
+        observation = executor(action, parent_conversation)
 
     # Verify
     assert isinstance(observation, DelegateObservation)
@@ -106,36 +106,41 @@ def test_delegate_executor_spawn():
 
 def test_delegate_executor_send():
     """Test DelegateExecutor send operation."""
-    executor, parent_conversation, _ = create_test_executor_and_parent()
+    executor, parent_conversation = create_test_executor_and_parent()
 
-    # Mock the delegation manager methods
+    # Mock the executor's private methods
     with (
-        patch(
-            "openhands.tools.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
-        ) as mock_spawn,
-        patch(
-            "openhands.tools.delegate.impl.DELEGATION_MANAGER.send_to_sub_agent"
-        ) as mock_send,
+        patch.object(executor, "_spawn_sub_agent") as mock_spawn,
+        patch.object(executor, "_send_to_sub_agent") as mock_send,
     ):
         # First spawn a sub-agent
-        mock_conversation = MagicMock()
-        mock_conversation.id = "sub-123"
-        mock_spawn.return_value = mock_conversation
+        sub_id = "sub-123"
+        mock_spawn.return_value = DelegateObservation(
+            operation="spawn",
+            success=True,
+            message="Sub-agent created",
+            sub_conversation_id=sub_id,
+        )
         spawn_action = DelegateAction(operation="spawn", task="Test task")
         spawn_action = spawn_action.model_copy(
             update={"conversation_id": parent_conversation.id}
         )
-        spawn_result = executor(spawn_action)
+        spawn_result = executor(spawn_action, parent_conversation)
         sub_id = spawn_result.sub_conversation_id
 
-        # Mock send to return success
-        mock_send.return_value = True
+        # Mock send to return success observation
+        mock_send.return_value = DelegateObservation(
+            operation="send",
+            success=True,
+            sub_conversation_id=sub_id,
+            message=f"Message sent to sub-agent {sub_id}",
+        )
 
         # Send message to sub-agent
         send_action = DelegateAction(
             operation="send", sub_conversation_id=sub_id, message="Hello sub-agent"
         )
-        observation = executor(send_action)
+        observation = executor(send_action, None)
 
     # Verify
     assert isinstance(observation, DelegateObservation)
@@ -152,7 +157,7 @@ def test_delegate_executor_send_invalid_id():
     action = DelegateAction(
         operation="send", sub_conversation_id="invalid-id", message="Hello"
     )
-    observation = executor(action)
+    observation = executor(action, None)
 
     # Verify
     assert isinstance(observation, DelegateObservation)
@@ -162,34 +167,39 @@ def test_delegate_executor_send_invalid_id():
 
 def test_delegate_executor_close():
     """Test DelegateExecutor close operation."""
-    executor, parent_conversation, _ = create_test_executor_and_parent()
+    executor, parent_conversation = create_test_executor_and_parent()
 
-    # Mock the delegation manager methods
+    # Mock the executor's private methods
     with (
-        patch(
-            "openhands.tools.delegate.impl.DELEGATION_MANAGER.spawn_sub_agent"
-        ) as mock_spawn,
-        patch(
-            "openhands.tools.delegate.impl.DELEGATION_MANAGER.close_sub_agent"
-        ) as mock_close,
+        patch.object(executor, "_spawn_sub_agent") as mock_spawn,
+        patch.object(executor, "_close_sub_agent") as mock_close,
     ):
         # First spawn a sub-agent
-        mock_conversation = MagicMock()
-        mock_conversation.id = "sub-123"
-        mock_spawn.return_value = mock_conversation
+        sub_id = "sub-123"
+        mock_spawn.return_value = DelegateObservation(
+            operation="spawn",
+            success=True,
+            message="Sub-agent created",
+            sub_conversation_id=sub_id,
+        )
         spawn_action = DelegateAction(operation="spawn", task="Test task")
         spawn_action = spawn_action.model_copy(
             update={"conversation_id": parent_conversation.id}
         )
-        spawn_result = executor(spawn_action)
+        spawn_result = executor(spawn_action, parent_conversation)
         sub_id = spawn_result.sub_conversation_id
 
-        # Mock close to return success
-        mock_close.return_value = True
+        # Mock close to return success observation
+        mock_close.return_value = DelegateObservation(
+            operation="close",
+            success=True,
+            sub_conversation_id=sub_id,
+            message=f"Sub-agent {sub_id} closed successfully",
+        )
 
         # Close the sub-agent
         close_action = DelegateAction(operation="close", sub_conversation_id=sub_id)
-        observation = executor(close_action)
+        observation = executor(close_action, None)
 
     # Verify
     assert isinstance(observation, DelegateObservation)
@@ -206,7 +216,7 @@ def test_delegate_executor_spawn_missing_task():
     action = DelegateAction(operation="spawn")
 
     # Execute action
-    observation = executor(action)
+    observation = executor(action, None)
 
     # Verify
     assert isinstance(observation, DelegateObservation)
@@ -220,12 +230,12 @@ def test_delegate_executor_send_missing_params():
 
     # Test missing sub_conversation_id
     action1 = DelegateAction(operation="send", message="Hello")
-    observation1 = executor(action1)
+    observation1 = executor(action1, None)
     assert observation1.success is False
     assert "Sub-conversation ID is required" in observation1.message
 
     # Test missing message
     action2 = DelegateAction(operation="send", sub_conversation_id="sub-123")
-    observation2 = executor(action2)
+    observation2 = executor(action2, None)
     assert observation2.success is False
     assert "Message is required" in observation2.message
