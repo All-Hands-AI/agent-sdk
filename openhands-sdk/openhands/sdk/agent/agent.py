@@ -26,6 +26,11 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.llm.exceptions import FunctionCallValidationError
 from openhands.sdk.logger import get_logger
+from openhands.sdk.observability.laminar import (
+    maybe_init_laminar,
+    observe,
+    should_enable_observability,
+)
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
@@ -37,6 +42,7 @@ from openhands.sdk.tool.builtins import FinishAction, ThinkAction
 
 
 logger = get_logger(__name__)
+maybe_init_laminar()
 
 
 class Agent(AgentBase):
@@ -130,6 +136,7 @@ class Agent(AgentBase):
         for action_event in action_events:
             self._execute_action_event(state, action_event, on_event=on_event)
 
+    @observe(name="agent.step", ignore_inputs=["state", "on_event"])
     def step(
         self,
         state: ConversationState,
@@ -416,6 +423,7 @@ class Agent(AgentBase):
         on_event(action_event)
         return action_event
 
+    @observe(ignore_inputs=["state", "on_event"])
     def _execute_action_event(
         self,
         state: ConversationState,
@@ -435,7 +443,12 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        observation: Observation = tool(action_event.action)
+        if should_enable_observability():
+            observation: Observation = observe(
+                name="agent.execute_action", span_type="TOOL"
+            )(tool)(action_event.action)
+        else:
+            observation: Observation = tool(action_event.action)
         assert isinstance(observation, Observation), (
             f"Tool '{tool.name}' executor must return an Observation"
         )
