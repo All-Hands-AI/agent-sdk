@@ -238,11 +238,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             raise NotImplementedError(f"Tool '{self.name}' has no executor")
 
         # Execute
-        try:
-            result = self.executor(action, conversation)
-        except TypeError:
-            # Fallback for executors that don't accept conversation parameter
-            result = self.executor(action)
+        result = self.executor(action, conversation)
 
         # Coerce output only if we declared a model; else wrap in base Observation
         if self.observation_type:
