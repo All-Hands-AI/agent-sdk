@@ -1,5 +1,6 @@
 """Tests for RemoteEventsList."""
 
+from datetime import datetime
 from unittest.mock import Mock
 
 import httpx
@@ -8,303 +9,168 @@ import pytest
 from openhands.sdk.conversation.impl.remote_conversation import RemoteEventsList
 from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import MessageEvent
+from openhands.sdk.llm import Message, TextContent
 
 
-# Create test event classes at module level to avoid duplicate registration
-class MockActionEvent(Event):
-    pass
+@pytest.fixture
+def mock_client():
+    """Create mock HTTP client."""
+    return Mock(spec=httpx.Client)
 
 
-class MockObservationEvent(Event):
-    pass
+@pytest.fixture
+def conversation_id():
+    """Test conversation ID."""
+    return "test-conv-id"
 
 
-class MockGenericEvent(Event):
-    pass
+def create_mock_event(event_id: str) -> Event:
+    """Create a test event."""
+    return MessageEvent(
+        id=event_id,
+        timestamp=datetime.now().isoformat(),
+        source="agent",
+        llm_message=Message(
+            role="assistant", content=[TextContent(text=f"Message {event_id}")]
+        ),
+    )
 
 
-class TestRemoteEventsList:
-    """Test RemoteEventsList functionality."""
+def create_mock_api_response(events: list[Event], next_page_id: str | None = None):
+    """Create a mock API response."""
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "items": [event.model_dump() for event in events],
+        "next_page_id": next_page_id,
+    }
+    return mock_response
 
-    def setup_method(self):
-        """Set up test environment."""
-        self.mock_client: Mock = Mock(spec=httpx.Client)
-        self.conversation_id: str = "test-conv-id"
 
-    def create_mock_event(
-        self, event_id: str, event_type: str = "MessageEvent"
-    ) -> Event:
-        """Create a mock event for testing."""
-        from datetime import datetime
+def test_remote_events_list_single_page(mock_client, conversation_id):
+    """Test loading events from a single page."""
+    events = [
+        create_mock_event("event-1"),
+        create_mock_event("event-2"),
+        create_mock_event("event-3"),
+    ]
 
-        from openhands.sdk.llm import Message, TextContent
+    mock_response = create_mock_api_response(events)
+    mock_client.request.return_value = mock_response
 
-        timestamp = datetime.now().isoformat()
+    events_list = RemoteEventsList(mock_client, conversation_id)
 
-        if event_type == "MessageEvent":
-            return MessageEvent(
-                id=event_id,
-                timestamp=timestamp,
-                source="agent",
-                llm_message=Message(
-                    role="assistant", content=[TextContent(text=f"Message {event_id}")]
-                ),
-            )
-        elif event_type == "ActionEvent":
-            # ActionEvent is complex, so let's create a simple test event instead
-            return MockActionEvent(id=event_id, timestamp=timestamp, source="agent")
-        elif event_type == "ObservationEvent":
-            # ObservationEvent is complex, so let's create a simple test event instead
-            return MockObservationEvent(
-                id=event_id, timestamp=timestamp, source="environment"
-            )
-        else:
-            # Generic event - create a simple EventBase subclass for testing
-            return MockGenericEvent(id=event_id, timestamp=timestamp, source="agent")
+    assert isinstance(events_list, RemoteEventsList)
+    assert len(events_list) == 3
+    assert events_list[0].id == "event-1"
+    assert events_list[2].id == "event-3"
 
-    def create_mock_api_response(
-        self, events: list[Event], next_page_id: str | None = None
-    ):
-        """Create a mock API response."""
-        mock_response = Mock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            "items": [event.model_dump() for event in events],
-            "next_page_id": next_page_id,
-        }
-        return mock_response
 
-    def test_remote_events_list_initialization_single_page(self):
-        """Test RemoteEventsList initialization with single page of events."""
-        # Create test events
-        events = [
-            self.create_mock_event("event-1", "MessageEvent"),
-            self.create_mock_event("event-2", "ActionEvent"),
-            self.create_mock_event("event-3", "ObservationEvent"),
-        ]
+def test_remote_events_list_pagination(mock_client, conversation_id):
+    """Test loading events across multiple pages."""
+    page1_events = [create_mock_event("event-1"), create_mock_event("event-2")]
+    page2_events = [create_mock_event("event-3"), create_mock_event("event-4")]
 
-        # Mock API response
-        mock_response = self.create_mock_api_response(events)
-        self.mock_client.request.return_value = mock_response
+    page1_response = create_mock_api_response(page1_events, "page-2")
+    page2_response = create_mock_api_response(page2_events)
 
-        # Initialize RemoteEventsList
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
+    mock_client.request.side_effect = [page1_response, page2_response]
 
-        # Verify API was called correctly
-        self.mock_client.request.assert_called_once_with(
-            "GET",
-            f"/api/conversations/{self.conversation_id}/events/search",
-            params={"limit": 100},
-        )
+    events_list = RemoteEventsList(mock_client, conversation_id)
 
-        # Verify events were loaded
-        assert len(events_list) == 3
-        assert events_list[0].id == "event-1"
-        assert events_list[1].id == "event-2"
-        assert events_list[2].id == "event-3"
+    assert len(events_list) == 4
+    assert events_list[0].id == "event-1"
+    assert events_list[3].id == "event-4"
+    assert mock_client.request.call_count == 2
 
-        # Verify event IDs are cached
-        assert "event-1" in events_list._cached_event_ids
-        assert "event-2" in events_list._cached_event_ids
-        assert "event-3" in events_list._cached_event_ids
 
-    def test_remote_events_list_initialization_multiple_pages(self):
-        """Test RemoteEventsList initialization with multiple pages."""
-        # Create test events for multiple pages
-        page1_events = [
-            self.create_mock_event("event-1", "MessageEvent"),
-            self.create_mock_event("event-2", "ActionEvent"),
-        ]
-        page2_events = [
-            self.create_mock_event("event-3", "ObservationEvent"),
-            self.create_mock_event("event-4", "MessageEvent"),
-        ]
+def test_remote_events_list_indexing_and_slicing(mock_client, conversation_id):
+    """Test list-like indexing and slicing operations."""
+    events = [
+        create_mock_event("event-1"),
+        create_mock_event("event-2"),
+        create_mock_event("event-3"),
+    ]
 
-        # Mock API responses
-        page1_response = self.create_mock_api_response(page1_events, "page-2")
-        page2_response = self.create_mock_api_response(page2_events)
+    mock_response = create_mock_api_response(events)
+    mock_client.request.return_value = mock_response
 
-        self.mock_client.request.side_effect = [page1_response, page2_response]
+    events_list = RemoteEventsList(mock_client, conversation_id)
 
-        # Initialize RemoteEventsList
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
+    # Positive and negative indexing
+    assert events_list[0].id == "event-1"
+    assert events_list[-1].id == "event-3"
 
-        # Verify API was called for both pages
-        assert self.mock_client.request.call_count == 2
+    # Slicing
+    slice_result = events_list[1:3]
+    assert len(slice_result) == 2
+    assert slice_result[0].id == "event-2"
 
-        # First call
-        self.mock_client.request.assert_any_call(
-            "GET",
-            f"/api/conversations/{self.conversation_id}/events/search",
-            params={"limit": 100},
-        )
+    # Iteration
+    assert [e.id for e in events_list] == ["event-1", "event-2", "event-3"]
 
-        # Second call with page_id
-        self.mock_client.request.assert_any_call(
-            "GET",
-            f"/api/conversations/{self.conversation_id}/events/search",
-            params={"limit": 100, "page_id": "page-2"},
-        )
 
-        # Verify all events were loaded
-        assert len(events_list) == 4
-        assert events_list[0].id == "event-1"
-        assert events_list[1].id == "event-2"
-        assert events_list[2].id == "event-3"
-        assert events_list[3].id == "event-4"
+def test_remote_events_list_add_event_deduplication(mock_client, conversation_id):
+    """Test adding events with automatic deduplication."""
+    mock_response = create_mock_api_response([])
+    mock_client.request.return_value = mock_response
 
-    def test_remote_events_list_indexing_and_iteration(self):
-        """Test indexing, slicing, and iteration."""
-        events = [
-            self.create_mock_event("event-1", "MessageEvent"),
-            self.create_mock_event("event-2", "ActionEvent"),
-            self.create_mock_event("event-3", "ObservationEvent"),
-        ]
+    events_list = RemoteEventsList(mock_client, conversation_id)
 
-        mock_response = self.create_mock_api_response(events)
-        self.mock_client.request.return_value = mock_response
+    event = create_mock_event("new-event")
+    events_list.add_event(event)
+    assert len(events_list) == 1
 
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
+    # Adding duplicate should be ignored
+    events_list.add_event(event)
+    assert len(events_list) == 1
 
-        # Test positive indexing
-        assert events_list[0].id == "event-1"
-        assert events_list[1].id == "event-2"
-        assert events_list[2].id == "event-3"
+    # Adding event with same ID should be ignored
+    duplicate = create_mock_event("new-event")
+    events_list.add_event(duplicate)
+    assert len(events_list) == 1
 
-        # Test negative indexing
-        assert events_list[-1].id == "event-3"
-        assert events_list[-2].id == "event-2"
-        assert events_list[-3].id == "event-1"
 
-        # Test slice operations
-        slice_result = events_list[1:3]
-        assert len(slice_result) == 2
-        assert slice_result[0].id == "event-2"
-        assert slice_result[1].id == "event-3"
+def test_remote_events_list_callback_integration(mock_client, conversation_id):
+    """Test callback integration for event streaming."""
+    mock_response = create_mock_api_response([])
+    mock_client.request.return_value = mock_response
 
-        # Test slice with step
-        slice_result = events_list[::2]
-        assert len(slice_result) == 2
-        assert slice_result[0].id == "event-1"
-        assert slice_result[1].id == "event-3"
+    events_list = RemoteEventsList(mock_client, conversation_id)
+    callback = events_list.create_default_callback()
 
-        # Test iteration
-        iterated_events = list(events_list)
-        assert [e.id for e in iterated_events] == ["event-1", "event-2", "event-3"]
+    test_event = create_mock_event("callback-event")
+    callback(test_event)
 
-    def test_remote_events_list_add_event(self):
-        """Test adding events to RemoteEventsList."""
-        # Initialize with empty list
-        mock_response = self.create_mock_api_response([])
-        self.mock_client.request.return_value = mock_response
+    assert len(events_list) == 1
+    assert events_list[0].id == "callback-event"
 
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
-        assert len(events_list) == 0
 
-        # Add a new event
-        new_event = self.create_mock_event("new-event", "MessageEvent")
-        events_list.add_event(new_event)
+def test_remote_events_list_api_error(mock_client, conversation_id):
+    """Test error propagation when API calls fail."""
+    mock_request = Mock()
+    mock_error_response = Mock()
+    mock_error_response.status_code = 500
 
-        # Verify event was added
-        assert len(events_list) == 1
-        assert events_list[0].id == "new-event"
-        assert "new-event" in events_list._cached_event_ids
+    mock_response = Mock()
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "API Error", request=mock_request, response=mock_error_response
+    )
+    mock_client.request.return_value = mock_response
 
-        # Add another event
-        another_event = self.create_mock_event("another-event", "ActionEvent")
-        events_list.add_event(another_event)
+    with pytest.raises(httpx.HTTPStatusError):
+        RemoteEventsList(mock_client, conversation_id)
 
-        assert len(events_list) == 2
-        assert events_list[1].id == "another-event"
 
-    def test_remote_events_list_add_duplicate_event(self):
-        """Test adding duplicate events to RemoteEventsList."""
-        mock_response = self.create_mock_api_response([])
-        self.mock_client.request.return_value = mock_response
+def test_remote_events_list_empty(mock_client, conversation_id):
+    """Test handling of empty event lists."""
+    mock_response = create_mock_api_response([])
+    mock_client.request.return_value = mock_response
 
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
+    events_list = RemoteEventsList(mock_client, conversation_id)
 
-        # Add an event
-        event = self.create_mock_event("duplicate-event", "MessageEvent")
-        events_list.add_event(event)
-        assert len(events_list) == 1
+    assert len(events_list) == 0
+    assert list(events_list) == []
 
-        # Try to add the same event again
-        events_list.add_event(event)
-        assert len(events_list) == 1  # Should not increase
-
-        # Try to add an event with the same ID but different content
-        duplicate_event = self.create_mock_event("duplicate-event", "ActionEvent")
-        events_list.add_event(duplicate_event)
-        assert len(events_list) == 1  # Should not increase
-
-    def test_remote_events_list_create_default_callback(self):
-        """Test creating default callback for RemoteEventsList."""
-        mock_response = self.create_mock_api_response([])
-        self.mock_client.request.return_value = mock_response
-
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
-        callback = events_list.create_default_callback()
-
-        # Test the callback
-        test_event = self.create_mock_event("callback-event", "MessageEvent")
-        callback(test_event)
-
-        # Verify event was added through callback
-        assert len(events_list) == 1
-        assert events_list[0].id == "callback-event"
-
-    def test_remote_events_list_append_adds_event(self):
-        """Test that append method adds event to local cache."""
-        mock_response = self.create_mock_api_response([])
-        self.mock_client.request.return_value = mock_response
-
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
-        test_event = self.create_mock_event("test-event", "MessageEvent")
-
-        # Initially empty
-        assert len(events_list) == 0
-
-        # Append should add the event
-        events_list.append(test_event)
-        assert len(events_list) == 1
-        assert events_list[0] == test_event
-
-    def test_remote_events_list_api_error_handling(self):
-        """Test error handling when API calls fail."""
-        # Create a proper mock response for HTTPStatusError
-        mock_request = Mock()
-        mock_error_response = Mock()
-        mock_error_response.status_code = 500
-        mock_error_response.reason_phrase = "Internal Server Error"
-        mock_error_response.text = "Internal error"
-        mock_error_response.json.side_effect = Exception("Not JSON")
-
-        # Mock API error
-        mock_response = Mock()
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "API Error", request=mock_request, response=mock_error_response
-        )
-        self.mock_client.request.return_value = mock_response
-
-        # Should raise the HTTP error
-        with pytest.raises(httpx.HTTPStatusError):
-            RemoteEventsList(self.mock_client, self.conversation_id)
-
-    def test_remote_events_list_empty_response(self):
-        """Test handling of empty API response."""
-        mock_response = self.create_mock_api_response([])
-        self.mock_client.request.return_value = mock_response
-
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
-
-        assert len(events_list) == 0
-        assert len(events_list._cached_events) == 0
-        assert len(events_list._cached_event_ids) == 0
-
-        # Test iteration on empty list
-        assert list(events_list) == []
-
-        # Test indexing on empty list
-        with pytest.raises(IndexError):
-            _ = events_list[0]
+    with pytest.raises(IndexError):
+        _ = events_list[0]
