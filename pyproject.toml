@@ -67,15 +67,7 @@ asyncio_mode = "auto"
 
 # basedpyright configuration
 [tool.basedpyright]
-include = [
-    "openhands-sdk/openhands",
-    "openhands-tools/openhands",
-    "openhands-workspace/openhands",
-    "openhands-agent-server/openhands",
-    "tests",
-    "examples",
-    "scripts"
-]
+include = ["openhands-sdk", "openhands-tools", "openhands-workspace", "openhands-agent-server", "tests", "examples", "scripts"]
 exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
 venvPath = "."
 venv = ".venv"
@@ -96,74 +88,9 @@ reportExplicitAny = false  # Allow Any for generic type parameters
 
 # Configure execution environments to handle the workspace structure
 [[tool.basedpyright.executionEnvironments]]
-root = "openhands-sdk"
+root = "."
 pythonVersion = "3.12"
-extraPaths = [
-    "openhands-sdk",
-    "openhands-tools",
-    "openhands-workspace",
-    "openhands-agent-server"
-]
-
-[[tool.basedpyright.executionEnvironments]]
-root = "openhands-tools"
-pythonVersion = "3.12"
-extraPaths = [
-    "openhands-sdk",
-    "openhands-tools",
-    "openhands-workspace",
-    "openhands-agent-server"
-]
-
-[[tool.basedpyright.executionEnvironments]]
-root = "openhands-workspace"
-pythonVersion = "3.12"
-extraPaths = [
-    "openhands-sdk",
-    "openhands-tools",
-    "openhands-workspace",
-    "openhands-agent-server"
-]
-
-[[tool.basedpyright.executionEnvironments]]
-root = "openhands-agent-server"
-pythonVersion = "3.12"
-extraPaths = [
-    "openhands-sdk",
-    "openhands-tools",
-    "openhands-workspace",
-    "openhands-agent-server"
-]
-
-[[tool.basedpyright.executionEnvironments]]
-root = "tests"
-pythonVersion = "3.12"
-extraPaths = [
-    "openhands-sdk",
-    "openhands-tools",
-    "openhands-workspace",
-    "openhands-agent-server"
-]
-
-[[tool.basedpyright.executionEnvironments]]
-root = "examples"
-pythonVersion = "3.12"
-extraPaths = [
-    "openhands-sdk",
-    "openhands-tools",
-    "openhands-workspace",
-    "openhands-agent-server"
-]
-
-[[tool.basedpyright.executionEnvironments]]
-root = "scripts"
-pythonVersion = "3.12"
-extraPaths = [
-    "openhands-sdk",
-    "openhands-tools",
-    "openhands-workspace",
-    "openhands-agent-server"
-]
+extraPaths = ["openhands-sdk", "openhands-tools", "openhands-workspace", "openhands-agent-server"]
 
 [[tool.uv.index]]
 name = "testpypi"
