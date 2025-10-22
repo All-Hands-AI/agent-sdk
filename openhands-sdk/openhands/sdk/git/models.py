@@ -14,3 +14,8 @@ class GitChangeStatus(Enum):
 class GitChange(BaseModel):
     status: GitChangeStatus
     path: Path
+
+
+class GitDiff(BaseModel):
+    modified: str | None
+    original: str | None

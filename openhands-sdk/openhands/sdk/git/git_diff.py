@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Get git diff in a single git file for the closest git repo in the file system
-NOTE: Since this is run as a script, there should be no imports from project files!
-"""
+"""Get git diff in a single git file for the closest git repo in the file system"""
 
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+from openhands.sdk.git.models import GitDiff
 
 
 MAX_FILE_SIZE_FOR_GIT_DIFF = 1024 * 1024  # 1 Mb
@@ -76,7 +76,7 @@ def get_valid_ref(repo_dir: str) -> str | None:
     return None
 
 
-def get_git_diff(relative_file_path: str) -> dict[str, str]:
+def get_git_diff(relative_file_path: str) -> GitDiff:
     path = Path(os.getcwd(), relative_file_path).resolve()
     if os.path.getsize(path) > MAX_FILE_SIZE_FOR_GIT_DIFF:
         raise ValueError("file_to_large")
@@ -96,10 +96,10 @@ def get_git_diff(relative_file_path: str) -> dict[str, str]:
             modified = "\n".join(f.read().splitlines())
     except FileNotFoundError:
         modified = ""
-    return {
-        "modified": modified,
-        "original": original,
-    }
+    return GitDiff(
+        modified=modified,
+        original=original,
+    )
 
 
 if __name__ == "__main__":
