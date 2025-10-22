@@ -9,7 +9,7 @@ from openhands.sdk import (
     Agent,
     Conversation,
 )
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.state import ConversationExecutionStatus
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.file_editor import FileEditorTool
@@ -54,8 +54,8 @@ thread.start()
 try:
     # Main loop - similar to the user's sample script
     while (
-        conversation.state.agent_status != AgentExecutionStatus.FINISHED
-        and conversation.state.agent_status != AgentExecutionStatus.PAUSED
+        conversation.state.execution_status != ConversationExecutionStatus.FINISHED
+        and conversation.state.execution_status != ConversationExecutionStatus.PAUSED
     ):
         # Send encouraging messages periodically
         conversation.send_message("keep going! you can do it!")
@@ -65,4 +65,4 @@ except KeyboardInterrupt:
 
 thread.join()
 
-print(f"Agent status: {conversation.state.agent_status}")
+print(f"Agent status: {conversation.state.execution_status}")

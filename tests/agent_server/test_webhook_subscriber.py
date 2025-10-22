@@ -993,7 +993,7 @@ class TestConversationWebhookSubscriber:
             ConversationWebhookSubscriber,
         )
         from openhands.agent_server.models import ConversationInfo
-        from openhands.sdk.conversation.state import AgentExecutionStatus
+        from openhands.sdk.conversation.state import ConversationExecutionStatus
 
         # Setup mock client
         mock_client = AsyncMock()
@@ -1013,7 +1013,7 @@ class TestConversationWebhookSubscriber:
             workspace=mock_event_service.stored.workspace,
             created_at=utc_now(),
             updated_at=utc_now(),
-            agent_status=AgentExecutionStatus.RUNNING,
+            agent_status=ConversationExecutionStatus.RUNNING,
         )
 
         await subscriber.post_conversation_info(conversation_info)
@@ -1040,7 +1040,7 @@ class TestConversationWebhookSubscriber:
             ConversationWebhookSubscriber,
         )
         from openhands.agent_server.models import ConversationInfo
-        from openhands.sdk.conversation.state import AgentExecutionStatus
+        from openhands.sdk.conversation.state import ConversationExecutionStatus
 
         # Setup mock client
         mock_client = AsyncMock()
@@ -1061,7 +1061,7 @@ class TestConversationWebhookSubscriber:
             workspace=mock_event_service.stored.workspace,
             created_at=utc_now(),
             updated_at=utc_now(),
-            agent_status=AgentExecutionStatus.PAUSED,
+            agent_status=ConversationExecutionStatus.PAUSED,
         )
 
         await subscriber.post_conversation_info(conversation_info)
@@ -1089,7 +1089,7 @@ class TestConversationWebhookSubscriber:
             ConversationWebhookSubscriber,
         )
         from openhands.agent_server.models import ConversationInfo
-        from openhands.sdk.conversation.state import AgentExecutionStatus
+        from openhands.sdk.conversation.state import ConversationExecutionStatus
 
         subscriber = ConversationWebhookSubscriber(
             spec=webhook_spec,
@@ -1102,7 +1102,7 @@ class TestConversationWebhookSubscriber:
             workspace=mock_event_service.stored.workspace,
             created_at=utc_now(),
             updated_at=utc_now(),
-            agent_status=AgentExecutionStatus.FINISHED,
+            agent_status=ConversationExecutionStatus.FINISHED,
         )
 
         # Track retry attempts

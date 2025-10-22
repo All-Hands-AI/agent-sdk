@@ -12,7 +12,10 @@ from openhands.agent_server.models import (
     StoredConversation,
 )
 from openhands.sdk import LLM, Agent, Conversation, Message
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.state import (
+    ConversationExecutionStatus,
+    ConversationState,
+)
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.workspace import LocalWorkspace
@@ -368,7 +371,7 @@ class TestEventServiceSendMessage:
         # Mock conversation and its methods
         conversation = MagicMock()
         state = MagicMock()
-        state.agent_status = AgentExecutionStatus.IDLE
+        state.execution_status = ConversationExecutionStatus.IDLE
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
         conversation.state = state
@@ -432,7 +435,7 @@ class TestEventServiceSendMessage:
         # Mock conversation and its methods
         conversation = MagicMock()
         state = MagicMock()
-        state.agent_status = AgentExecutionStatus.RUNNING
+        state.execution_status = ConversationExecutionStatus.RUNNING
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
         conversation.state = state
@@ -464,7 +467,7 @@ class TestEventServiceSendMessage:
         # Mock conversation and its methods
         conversation = MagicMock()
         state = MagicMock()
-        state.agent_status = AgentExecutionStatus.IDLE
+        state.execution_status = ConversationExecutionStatus.IDLE
         state.__enter__ = MagicMock(return_value=state)
         state.__exit__ = MagicMock(return_value=None)
         conversation.state = state
