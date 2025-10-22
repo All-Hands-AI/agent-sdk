@@ -74,7 +74,8 @@ include = [
     "openhands-workspace",
     "openhands-agent-server",
     "examples",
-    "tests"
+    "tests",
+    "scripts"
 ]
 extraPaths = [
     "openhands-sdk",
