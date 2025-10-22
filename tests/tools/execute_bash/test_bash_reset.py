@@ -208,7 +208,7 @@ def test_bash_reset_with_is_input_validation():
             ValueError, match="Cannot use reset=True with is_input=True"
         ):
             conversation = create_mock_conversation()
-        tool(action, conversation)
+            tool(action, conversation)
 
 
 def test_bash_reset_only_with_empty_command():
