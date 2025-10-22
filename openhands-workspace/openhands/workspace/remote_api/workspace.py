@@ -96,8 +96,10 @@ class APIRemoteWorkspace(RemoteWorkspace):
         self._wait_until_runtime_alive()
         logger.info(f"Runtime ready at {self._runtime_url}")
         self.host = self._runtime_url.rstrip("/")
-        # Update the api_key from the session API key received from runtime
-        object.__setattr__(self, "api_key", self._session_api_key)
+        # Update the api_key field (inherited from parent) with session key from runtime
+        # Basedpyright mistakenly thinks this is defining a new attribute rather than
+        # assigning to an existing Pydantic field, hence the ignore
+        self.api_key = self._session_api_key  # type: ignore[reportUnannotatedClassAttribute]
 
     def _check_existing_runtime(self) -> bool:
         """Check if there's an existing runtime for this session."""

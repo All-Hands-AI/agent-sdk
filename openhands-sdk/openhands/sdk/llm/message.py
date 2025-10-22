@@ -387,18 +387,18 @@ class Message(BaseModel):
 
         if self.role == "assistant":
             # Emit prior assistant content as a single message item using output_text
-            # TODO(openhands) We want content_items typed
-            # a list of dict[str, type], where type is not Any
-            content_items = []
+            assistant_content_items: list[dict[str, Any]] = []
             for c in self.content:
                 if isinstance(c, TextContent) and c.text:
-                    content_items.append({"type": "output_text", "text": c.text})
-            if content_items:
+                    assistant_content_items.append(
+                        {"type": "output_text", "text": c.text}
+                    )
+            if assistant_content_items:
                 items.append(
                     {
                         "type": "message",
                         "role": "assistant",
-                        "content": content_items,
+                        "content": assistant_content_items,
                     }
                 )
             # Include prior turn's reasoning item exactly as received (if any)
