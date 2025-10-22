@@ -225,7 +225,6 @@ class Agent(AgentBase):
             action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(message.tool_calls):
                 action_event = self._get_action_event(
-                    str(state.id),
                     tool_call,
                     llm_response_id=llm_response.id,
                     on_event=on_event,
@@ -303,7 +302,6 @@ class Agent(AgentBase):
 
     def _get_action_event(
         self,
-        conversation_id: str,
         tool_call: MessageToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
@@ -365,9 +363,6 @@ class Agent(AgentBase):
             assert "security_risk" not in arguments, (
                 "Unexpected 'security_risk' key found in tool arguments"
             )
-
-            # Add id to arguments for agent delegation tools
-            arguments["conversation_id"] = conversation_id
 
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:

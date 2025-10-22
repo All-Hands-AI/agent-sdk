@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any, ClassVar, TypeVar
-from uuid import UUID
 
 from pydantic import ConfigDict, Field, create_model
 from rich.text import Text
@@ -109,11 +108,8 @@ class Schema(DiscriminatedUnionMixin):
         # so it is fully compatible with MCP tool schema
         result = _process_schema_node(full_schema, full_schema.get("$defs", {}))
 
-        # Remove 'kind' and 'conversation_id' from properties if present
-        # (discriminator field and internal context field, not for LLM)
-        EXCLUDE_FIELDS = list(DiscriminatedUnionMixin.model_fields.keys()) + [
-            "conversation_id"
-        ]
+        # Remove 'kind' from properties if present (discriminator field, not for LLM)
+        EXCLUDE_FIELDS = DiscriminatedUnionMixin.model_fields.keys()
         for f in EXCLUDE_FIELDS:
             if "properties" in result and f in result["properties"]:
                 result["properties"].pop(f)
@@ -167,13 +163,6 @@ class Schema(DiscriminatedUnionMixin):
 
 class Action(Schema, ABC):
     """Base schema for input action."""
-
-    # Internal field for conversation context (not exposed to LLM)
-    # This field is automatically injected by the agent during execution
-    conversation_id: UUID | None = Field(
-        default=None,
-        description="Internal conversation ID (auto-injected, not for LLM)",
-    )
 
     @property
     def visualize(self) -> Text:
