@@ -162,7 +162,9 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
             self._load_tasks()
 
     def __call__(
-        self, action: TaskTrackerAction, conversation
+        self,
+        action: TaskTrackerAction,
+        conversation,  # noqa: ARG002
     ) -> TaskTrackerObservation:
         """Execute the task tracker action."""
         if action.command == "plan":

@@ -14,8 +14,9 @@ from openhands.sdk.tool.tool import (
     ToolDefinition,
 )
 
+
 if TYPE_CHECKING:
-    from openhands.tools.delegate.impl import DelegateExecutor
+    pass
 
 
 class DelegateAction(Action):
@@ -118,10 +119,11 @@ This tool allows the main agent to spawn, communicate with, and manage sub-agent
 - Always close sub-agents when their work is complete to free resources
 """
 
+
 def _get_delegation_tool():
     """Lazy initialization of DelegationTool to avoid circular imports."""
     from openhands.tools.delegate.impl import DelegateExecutor
-    
+
     return ToolDefinition(
         name="delegate",
         action_type=DelegateAction,

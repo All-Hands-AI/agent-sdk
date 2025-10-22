@@ -68,7 +68,7 @@ conversation.run()
 time.sleep(4)
 # Wait for all delegation work to complete (with timeout)
 # Access the executor through the agent's tools
-executor = conversation.agent.tools_map['delegate'].executor
+executor = conversation.agent.tools_map["delegate"].executor
 max_wait = 180  # 3 minutes to account for LLM processing time
 start_time = time.time()
 

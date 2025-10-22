@@ -10,8 +10,8 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolExecutor
 from openhands.sdk.workspace import LocalWorkspace
 
+
 if TYPE_CHECKING:
-    from openhands.sdk.agent.base import AgentBase
     from openhands.sdk.conversation.base import BaseConversation
     from openhands.tools.delegate.definition import (
         DelegateAction,
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 
 class DelegateExecutor(ToolExecutor):
     """Executor for delegation operations.
-    
+
     This class handles:
     - Creating sub-agents and their conversations
     - Tracking parent-child relationships in memory
@@ -32,7 +32,7 @@ class DelegateExecutor(ToolExecutor):
     """
 
     def __init__(self):
-        self.conversations: dict[str, "BaseConversation"] = {}
+        self.conversations: dict[str, BaseConversation] = {}
         self.child_to_parent: dict[str, str] = {}
         self.sub_agent_threads: dict[str, threading.Thread] = {}
         self.parent_threads: dict[str, list[threading.Thread]] = {}
@@ -157,12 +157,17 @@ class DelegateExecutor(ToolExecutor):
                                 parent_conversation.run()
                             except Exception as e:
                                 logger.error(
-                                    "Error running parent conversation from sub-agent: %s",
+                                    (
+                                        "Error running parent conversation "
+                                        "from sub-agent: %s"
+                                    ),
                                     e,
                                     exc_info=True,
                                 )
 
-                        parent_thread = threading.Thread(target=run_parent, daemon=False)
+                        parent_thread = threading.Thread(
+                            target=run_parent, daemon=False
+                        )
                         parent_thread.start()
 
                         parent_id = str(parent_conversation.id)
@@ -194,22 +199,29 @@ class DelegateExecutor(ToolExecutor):
 
             def run_sub_agent():
                 try:
+                    # action.task is guaranteed to be not None due to check at line 93
+                    assert action.task is not None
                     logger.info(
-                        f"Sub-agent {sub_conversation_id[:8]} starting with task: {action.task[:100]}..."
+                        f"Sub-agent {sub_conversation_id[:8]} starting with task: "
+                        f"{action.task[:100]}..."
                     )
                     sub_conversation.send_message(action.task)
                     sub_conversation.run()
                     logger.info(f"Sub-agent {sub_conversation_id[:8]} completed")
                 except Exception as e:
                     logger.error(
-                        f"Sub-agent {sub_conversation_id[:8]} failed: {e}", exc_info=True
+                        f"Sub-agent {sub_conversation_id[:8]} failed: {e}",
+                        exc_info=True,
                     )
                     parent_conversation.send_message(
                         Message(
                             role="user",
                             content=[
                                 TextContent(
-                                    text=f"[Sub-agent {sub_conversation_id[:8]} ERROR]: {str(e)}"
+                                    text=(
+                                        f"[Sub-agent {sub_conversation_id[:8]} ERROR]: "
+                                        f"{str(e)}"
+                                    )
                                 )
                             ],
                         )
@@ -219,8 +231,11 @@ class DelegateExecutor(ToolExecutor):
             self.sub_agent_threads[sub_conversation_id] = thread
             thread.start()
 
+            # action.task is guaranteed to be not None due to check at line 93
+            assert action.task is not None
             logger.info(
-                f"Spawned sub-agent {sub_conversation_id[:8]} with task: {action.task[:100]}..."
+                f"Spawned sub-agent {sub_conversation_id[:8]} with task: "
+                f"{action.task[:100]}..."
             )
 
             return DelegateObservation(
@@ -228,7 +243,8 @@ class DelegateExecutor(ToolExecutor):
                 success=True,
                 sub_conversation_id=sub_conversation_id,
                 message=(
-                    f"Sub-agent {sub_conversation_id} created and running asynchronously"
+                    f"Sub-agent {sub_conversation_id} created and running "
+                    "asynchronously"
                 ),
             )
 
@@ -265,13 +281,16 @@ class DelegateExecutor(ToolExecutor):
                 operation="send",
                 success=False,
                 sub_conversation_id=action.sub_conversation_id,
-                message=f"Failed to send message to sub-agent {action.sub_conversation_id}",
+                message=(
+                    f"Failed to send message to sub-agent {action.sub_conversation_id}"
+                ),
             )
 
         try:
             sub_conversation.send_message(action.message)
             logger.debug(
-                f"Sent message to sub-agent {action.sub_conversation_id}: {action.message[:100]}..."
+                f"Sent message to sub-agent {action.sub_conversation_id}: "
+                f"{action.message[:100]}..."
             )
             return DelegateObservation(
                 operation="send",
@@ -287,7 +306,9 @@ class DelegateExecutor(ToolExecutor):
                 operation="send",
                 success=False,
                 sub_conversation_id=action.sub_conversation_id,
-                message=f"Failed to send message to sub-agent {action.sub_conversation_id}",
+                message=(
+                    f"Failed to send message to sub-agent {action.sub_conversation_id}"
+                ),
             )
 
     def _close_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":

@@ -32,7 +32,7 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
         if not self._ripgrep_available:
             _log_ripgrep_fallback_warning("grep", "regular grep command")
 
-    def __call__(self, action: GrepAction, conversation) -> GrepObservation:
+    def __call__(self, action: GrepAction, conversation) -> GrepObservation:  # noqa: ARG002
         """Execute grep content search using ripgrep or fallback to regular grep.
 
         Args:

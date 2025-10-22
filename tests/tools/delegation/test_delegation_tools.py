@@ -8,8 +8,8 @@ from pydantic import SecretStr
 from openhands.sdk.llm import LLM
 from openhands.tools.delegate import (
     DelegateAction,
-    DelegateObservation,
     DelegateExecutor,
+    DelegateObservation,
 )
 
 

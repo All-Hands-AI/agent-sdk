@@ -29,7 +29,7 @@ class FileEditorExecutor(ToolExecutor):
             else None
         )
 
-    def __call__(self, action: FileEditorAction, conversation) -> FileEditorObservation:
+    def __call__(self, action: FileEditorAction, conversation) -> FileEditorObservation:  # noqa: ARG002
         # Enforce allowed_edits_files restrictions
         if self.allowed_edits_files is not None and action.command != "view":
             action_path = Path(action.path).resolve()

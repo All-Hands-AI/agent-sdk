@@ -34,7 +34,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
         if not self._ripgrep_available:
             _log_ripgrep_fallback_warning("glob", "Python glob module")
 
-    def __call__(self, action: GlobAction, conversation) -> GlobObservation:
+    def __call__(self, action: GlobAction, conversation) -> GlobObservation:  # noqa: ARG002
         """Execute glob pattern matching using ripgrep or fallback to Python glob.
 
         Args:
