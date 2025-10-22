@@ -61,7 +61,10 @@ task_message = (
     "Activities: what are the top 5 must-see attractions and hidden gems? "
     "Please delegate each issue to a sub-agent for analysis, then merge both "
     "analyses into a single consolidated report. Use your own knowledge, don't "
-    "rely on internet access. Keep it short."
+    "rely on internet access. Keep it short. "
+    "After spawning the sub-agents, use FinishAction to "
+    "pause and wait for their results. "
+    "The sub-agents will send their analysis back to you when complete.\n\n"
 )
 
 conversation.send_message(task_message)

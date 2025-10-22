@@ -70,12 +70,13 @@ class ToolExecutor[ActionT, ObservationT](ABC):
     """Executor function type for a Tool."""
 
     @abstractmethod
-    def __call__(self, action: ActionT) -> ObservationT:
+    def __call__(self, action: ActionT, conversation) -> ObservationT:
         """Execute the tool with the given action and return an observation.
 
         Args:
             action: The action to execute, containing the parameters and context
                    needed for the tool operation.
+            conversation: The conversation context for the tool execution.
 
         Returns:
             An observation containing the results of the tool execution.
@@ -101,7 +102,7 @@ class ExecutableTool(Protocol):
     name: str
     executor: ToolExecutor[Any, Any]  # Non-optional executor
 
-    def __call__(self, action: Action) -> Observation:
+    def __call__(self, action: Action, conversation) -> Observation:
         """Execute the tool with the given action."""
         ...
 
@@ -217,7 +218,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         """
         return self.action_type.model_validate(arguments)
 
-    def __call__(self, action: ActionT) -> Observation:
+    def __call__(self, action: ActionT, conversation) -> Observation:
         """Validate input, execute, and coerce output.
 
         We always return some Observation subclass, but not always the
@@ -227,7 +228,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             raise NotImplementedError(f"Tool '{self.name}' has no executor")
 
         # Execute
-        result = self.executor(action)
+        result = self.executor(action, conversation)
 
         # Coerce output only if we declared a model; else wrap in base Observation
         if self.observation_type:

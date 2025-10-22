@@ -70,7 +70,7 @@ The tool simply logs your thought process for better transparency and does not e
 
 
 class ThinkExecutor(ToolExecutor):
-    def __call__(self, _: ThinkAction) -> ThinkObservation:
+    def __call__(self, _: ThinkAction, conversation) -> ThinkObservation:
         return ThinkObservation()
 
 

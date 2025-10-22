@@ -161,7 +161,7 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
         if self.save_dir:
             self._load_tasks()
 
-    def __call__(self, action: TaskTrackerAction) -> TaskTrackerObservation:
+    def __call__(self, action: TaskTrackerAction, conversation) -> TaskTrackerObservation:
         """Execute the task tracker action."""
         if action.command == "plan":
             # Update the task list

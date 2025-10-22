@@ -22,7 +22,7 @@ DELEGATION_MANAGER = DelegationManager()
 class DelegateExecutor(ToolExecutor):
     """Executor for delegation operations."""
 
-    def __call__(self, action: "DelegateAction") -> "DelegateObservation":
+    def __call__(self, action: "DelegateAction", conversation) -> "DelegateObservation":
         """Execute a delegation action."""
         from openhands.sdk.tool.delegation.delegate.definition import (
             DelegateObservation,

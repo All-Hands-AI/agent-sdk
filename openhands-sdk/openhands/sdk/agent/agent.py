@@ -33,7 +33,6 @@ from openhands.sdk.tool import (
     Observation,
 )
 from openhands.sdk.tool.builtins import FinishAction, ThinkAction
-from openhands.sdk.tool.delegation import WaitWhileDelegationTool
 
 
 logger = get_logger(__name__)
@@ -123,18 +122,19 @@ class Agent(AgentBase):
 
     def _execute_actions(
         self,
-        state: ConversationState,
+        conversation,
         action_events: list[ActionEvent],
         on_event: ConversationCallbackType,
     ):
         for action_event in action_events:
-            self._execute_action_event(state, action_event, on_event=on_event)
+            self._execute_action_event(conversation, action_event, on_event=on_event)
 
     def step(
         self,
-        state: ConversationState,
+        conversation,
         on_event: ConversationCallbackType,
     ) -> None:
+        state = conversation.state
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = ConversationState.get_unmatched_actions(state.events)
@@ -143,7 +143,7 @@ class Agent(AgentBase):
                 "Confirmation mode: Executing %d pending action(s)",
                 len(pending_actions),
             )
-            self._execute_actions(state, pending_actions, on_event)
+            self._execute_actions(conversation, pending_actions, on_event)
             return
 
         # If a condenser is registered with the agent, we need to give it an
@@ -249,7 +249,7 @@ class Agent(AgentBase):
                 return
 
             if action_events:
-                self._execute_actions(state, action_events, on_event)
+                self._execute_actions(conversation, action_events, on_event)
 
         else:
             logger.info("LLM produced a message response - awaits user input")
@@ -414,7 +414,7 @@ class Agent(AgentBase):
 
     def _execute_action_event(
         self,
-        state: ConversationState,
+        conversation,
         action_event: ActionEvent,
         on_event: ConversationCallbackType,
     ):
@@ -423,6 +423,7 @@ class Agent(AgentBase):
         It will call the tool's executor and update the state & call callback fn
         with the observation.
         """
+        state = conversation.state
         tool = self.tools_map.get(action_event.tool_name, None)
         if tool is None:
             raise RuntimeError(
@@ -431,7 +432,7 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        observation: Observation = tool(action_event.action)
+        observation: Observation = tool(action_event.action, conversation)
         assert isinstance(observation, Observation), (
             f"Tool '{tool.name}' executor must return an Observation"
         )
@@ -446,8 +447,5 @@ class Agent(AgentBase):
 
         # Set conversation state
         if tool.name == FinishTool.name:
-            state.agent_status = AgentExecutionStatus.FINISHED
-        elif tool.name == WaitWhileDelegationTool.name:
-            # WaitWhileDelegationTool also sets status to FINISHED to pause main agent
             state.agent_status = AgentExecutionStatus.FINISHED
         return obs_event

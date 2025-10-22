@@ -25,7 +25,7 @@ class PlanningFileEditorExecutor(ToolExecutor):
         )
 
     def __call__(
-        self, action: PlanningFileEditorAction
+        self, action: PlanningFileEditorAction, conversation
     ) -> PlanningFileEditorObservation:
         """Execute the planning file editor action.
 

@@ -6,12 +6,6 @@ from openhands.sdk.tool.delegation.delegate import (
     DelegateObservation,
     DelegationTool,
 )
-from openhands.sdk.tool.delegation.wait_while_delegation import (
-    WaitWhileDelegationAction,
-    WaitWhileDelegationExecutor,
-    WaitWhileDelegationObservation,
-    WaitWhileDelegationTool,
-)
 
 
 __all__ = [
@@ -19,8 +13,4 @@ __all__ = [
     "DelegateObservation",
     "DelegateExecutor",
     "DelegationTool",
-    "WaitWhileDelegationAction",
-    "WaitWhileDelegationObservation",
-    "WaitWhileDelegationExecutor",
-    "WaitWhileDelegationTool",
 ]

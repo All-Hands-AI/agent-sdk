@@ -54,7 +54,7 @@ The message should include:
 
 
 class FinishExecutor(ToolExecutor):
-    def __call__(self, action: FinishAction) -> FinishObservation:
+    def __call__(self, action: FinishAction, conversation) -> FinishObservation:
         return FinishObservation(message=action.message)
 
 
