@@ -84,9 +84,9 @@ class ConversationState(OpenHandsModel):
     agent_status: AgentExecutionStatus = Field(default=AgentExecutionStatus.IDLE)
     confirmation_policy: ConfirmationPolicyBase = NeverConfirm()
 
-    activated_knowledge_microagents: list[str] = Field(
+    activated_knowledge_skills: list[str] = Field(
         default_factory=list,
-        description="List of activated knowledge microagents name",
+        description="List of activated knowledge skills name",
     )
 
     # Conversation statistics for LLM usage tracking
