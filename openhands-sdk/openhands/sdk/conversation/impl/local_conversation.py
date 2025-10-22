@@ -169,10 +169,7 @@ class LocalConversation(BaseConversation):
             "Only user messages are allowed to be sent to the agent."
         )
         with self._state:
-            if self._state.agent_status in [
-                AgentExecutionStatus.FINISHED,
-                AgentExecutionStatus.WAITING_WHILE_DELEGATION,
-            ]:
+            if self._state.agent_status == AgentExecutionStatus.FINISHED:
                 self._state.agent_status = (
                     AgentExecutionStatus.IDLE
                 )  # now we have a new message
@@ -239,7 +236,6 @@ class LocalConversation(BaseConversation):
                         AgentExecutionStatus.FINISHED,
                         AgentExecutionStatus.PAUSED,
                         AgentExecutionStatus.STUCK,
-                        AgentExecutionStatus.WAITING_WHILE_DELEGATION,
                     ]:
                         break
 

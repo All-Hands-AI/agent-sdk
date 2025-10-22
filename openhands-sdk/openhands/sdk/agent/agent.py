@@ -448,5 +448,6 @@ class Agent(AgentBase):
         if tool.name == FinishTool.name:
             state.agent_status = AgentExecutionStatus.FINISHED
         elif tool.name == WaitWhileDelegationTool.name:
-            state.agent_status = AgentExecutionStatus.WAITING_WHILE_DELEGATION
+            # WaitWhileDelegationTool also sets status to FINISHED to pause main agent
+            state.agent_status = AgentExecutionStatus.FINISHED
         return obs_event

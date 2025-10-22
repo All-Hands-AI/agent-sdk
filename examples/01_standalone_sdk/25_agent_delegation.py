@@ -17,7 +17,6 @@ from openhands.sdk import (
     Conversation,
     get_logger,
 )
-from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.delegation.manager import DelegationManager
 from openhands.tools.preset.default import get_default_agent
 
@@ -70,8 +69,21 @@ conversation.run()
 
 
 time.sleep(4)
-while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
+# Wait for all delegation work to complete (with timeout)
+max_wait = 180  # 3 minutes to account for LLM processing time
+start_time = time.time()
+
+while delegation_manager.is_task_in_progress(str(conversation.id)):
+    elapsed = time.time() - start_time
+    if elapsed >= max_wait:
+        print(f"⏰ Timeout after {max_wait}s - task still in progress")
+        break
+
+    # Check every 2 seconds
     time.sleep(2)
     print("   ⏳ Task still in progress...")
 
-print("✅ All delegation work completed successfully!")
+if not delegation_manager.is_task_in_progress(str(conversation.id)):
+    print("✅ All delegation work completed successfully!")
+else:
+    print("⚠️  Some threads still running after timeout")
