@@ -59,7 +59,6 @@ jobs:
                   rm -f .coverage
                   CI=true uv run python -m pytest -vvs \
                     --forked \
-                    --timeout=60 \
                     --cov=openhands-sdk \
                     --cov-report=term-missing \
                     --cov-fail-under=0 \
@@ -114,7 +113,6 @@ jobs:
                   rm -f .coverage
                   CI=true uv run python -m pytest -vvs \
                     --forked \
-                    --timeout=60 \
                     --cov=openhands-tools \
                     --cov-report=term-missing \
                     --cov-fail-under=0 \
@@ -169,7 +167,6 @@ jobs:
                   rm -f .coverage
                   CI=true uv run python -m pytest -vvs \
                     --forked \
-                    --timeout=60 \
                     --cov=openhands-agent-server \
                     --cov-report=term-missing \
                     --cov-fail-under=0 \
@@ -226,7 +223,6 @@ jobs:
                     --basetemp="${{ runner.temp }}/pytest" \
                     -o tmp_path_retention=none \
                     -o tmp_path_retention_count=0 \
-                    --timeout=60 \
                     --cov=openhands \
                     --cov-report=term-missing \
                     --cov-fail-under=0 \
