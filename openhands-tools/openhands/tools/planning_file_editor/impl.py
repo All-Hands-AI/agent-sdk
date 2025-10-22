@@ -33,7 +33,7 @@ class PlanningFileEditorExecutor(ToolExecutor):
     def __call__(
         self,
         action: PlanningFileEditorAction,
-        conversation: "BaseConversation",  # noqa: ARG002
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> PlanningFileEditorObservation:
         """Execute the planning file editor action.
 

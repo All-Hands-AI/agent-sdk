@@ -166,7 +166,7 @@ class BrowserToolExecutor(ToolExecutor[BrowserAction, BrowserObservation]):
         self._initialized = False
         self._async_executor = AsyncExecutor()
 
-    def __call__(self, action):
+    def __call__(self, action, conversation=None):  # noqa: ARG002
         """Submit an action to run in the background loop and wait for result."""
         return self._async_executor.run_async(
             self._execute_action, action, timeout=300.0

@@ -210,13 +210,13 @@ def test_delegate_executor_close():
 
 def test_delegate_executor_spawn_missing_task():
     """Test DelegateExecutor spawn without task."""
-    executor = DelegateExecutor()
+    executor, parent_conversation = create_test_executor_and_parent()
 
     # Create spawn action without task
     action = DelegateAction(operation="spawn")
 
     # Execute action
-    observation = executor(action, None)
+    observation = executor(action, parent_conversation)
 
     # Verify
     assert isinstance(observation, DelegateObservation)

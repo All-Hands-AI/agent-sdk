@@ -127,7 +127,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
     def __call__(
         self,
         action: ExecuteBashAction,
-        conversation: "BaseConversation",  # noqa: ARG002
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> ExecuteBashObservation:
         # Validate field combinations
         if action.reset and action.is_input:

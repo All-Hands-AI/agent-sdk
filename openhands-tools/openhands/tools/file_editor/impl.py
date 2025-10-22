@@ -37,7 +37,7 @@ class FileEditorExecutor(ToolExecutor):
     def __call__(
         self,
         action: FileEditorAction,
-        conversation: "BaseConversation",  # noqa: ARG002
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> FileEditorObservation:
         # Enforce allowed_edits_files restrictions
         if self.allowed_edits_files is not None and action.command != "view":

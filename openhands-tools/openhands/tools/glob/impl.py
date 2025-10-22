@@ -42,7 +42,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
     def __call__(
         self,
         action: GlobAction,
-        conversation: "BaseConversation",  # noqa: ARG002
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> GlobObservation:
         """Execute glob pattern matching using ripgrep or fallback to Python glob.
 

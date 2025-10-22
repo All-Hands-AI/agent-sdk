@@ -40,7 +40,7 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
     def __call__(
         self,
         action: GrepAction,
-        conversation: "BaseConversation",  # noqa: ARG002
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> GrepObservation:
         """Execute grep content search using ripgrep or fallback to regular grep.
 
