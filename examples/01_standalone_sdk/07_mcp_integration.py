@@ -24,7 +24,7 @@ assert api_key is not None, "LLM_API_KEY environment variable is not set."
 model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
 base_url = os.getenv("LLM_BASE_URL")
 llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
@@ -72,7 +72,7 @@ conversation = Conversation(
 
 logger.info("Starting conversation with MCP integration...")
 conversation.send_message(
-    "Read https://github.com/All-Hands-AI/OpenHands and write 3 facts "
+    "Read https://github.com/OpenHands/OpenHands and write 3 facts "
     "about the project into FACTS.txt."
 )
 conversation.run()
