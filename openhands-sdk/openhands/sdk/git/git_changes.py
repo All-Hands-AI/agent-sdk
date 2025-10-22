@@ -10,6 +10,21 @@ import os
 import subprocess
 from pathlib import Path
 
+from openhands.sdk.git.models import GitChange, GitChangeStatus
+
+
+def _map_git_status_to_enum(status: str) -> GitChangeStatus:
+    """Map git status codes to GitChangeStatus enum values."""
+    status_mapping = {
+        "M": GitChangeStatus.UPDATED,
+        "A": GitChangeStatus.ADDED,
+        "D": GitChangeStatus.DELETED,
+        "U": GitChangeStatus.UPDATED,  # Unmerged files are treated as updated
+    }
+    if status not in status_mapping:
+        raise ValueError(f"Unknown git status: {status}")
+    return status_mapping[status]
+
 
 def run(cmd: str, cwd: str) -> str:
     result = subprocess.run(args=cmd, shell=True, cwd=cwd, capture_output=True)
@@ -64,7 +79,7 @@ def get_valid_ref(repo_dir: str) -> str | None:
     return None
 
 
-def get_changes_in_repo(repo_dir: str) -> list[dict[str, str]]:
+def get_changes_in_repo(repo_dir: str) -> list[GitChange]:
     # Gets the status relative to the origin default branch
     # Not the same as `git status`
 
@@ -99,16 +114,16 @@ def get_changes_in_repo(repo_dir: str) -> list[dict[str, str]]:
             old_path = parts[1].strip()
             new_path = parts[2].strip()
             changes.append(
-                {
-                    "status": "D",
-                    "path": old_path,
-                }
+                GitChange(
+                    status=GitChangeStatus.DELETED,
+                    path=Path(old_path),
+                )
             )
             changes.append(
-                {
-                    "status": "A",
-                    "path": new_path,
-                }
+                GitChange(
+                    status=GitChangeStatus.ADDED,
+                    path=Path(new_path),
+                )
             )
             continue
 
@@ -118,10 +133,10 @@ def get_changes_in_repo(repo_dir: str) -> list[dict[str, str]]:
             # Copy: only add the new path (original remains)
             new_path = parts[2].strip()
             changes.append(
-                {
-                    "status": "A",
-                    "path": new_path,
-                }
+                GitChange(
+                    status=GitChangeStatus.ADDED,
+                    path=Path(new_path),
+                )
             )
             continue
 
@@ -139,10 +154,10 @@ def get_changes_in_repo(repo_dir: str) -> list[dict[str, str]]:
         # Check for valid single-character status codes
         if status in {"M", "A", "D", "U"}:
             changes.append(
-                {
-                    "status": status,
-                    "path": path,
-                }
+                GitChange(
+                    status=_map_git_status_to_enum(status),
+                    path=Path(path),
+                )
             )
         else:
             raise RuntimeError(f"unexpected_status_in_git_diff:{changed_files}")
@@ -153,12 +168,17 @@ def get_changes_in_repo(repo_dir: str) -> list[dict[str, str]]:
     ).splitlines()
     for path in untracked_files:
         if path:
-            changes.append({"status": "A", "path": path})
+            changes.append(
+                GitChange(
+                    status=GitChangeStatus.ADDED,
+                    path=Path(path),
+                )
+            )
 
     return changes
 
 
-def get_git_changes(cwd: str) -> list[dict[str, str]]:
+def get_git_changes(cwd: str) -> list[GitChange]:
     git_dirs = {
         os.path.dirname(f)[2:]
         for f in glob.glob("./*/.git", root_dir=cwd, recursive=True)
@@ -172,7 +192,9 @@ def get_git_changes(cwd: str) -> list[dict[str, str]]:
         change
         for change in changes
         if next(
-            iter(git_dir for git_dir in git_dirs if change["path"].startswith(git_dir)),
+            iter(
+                git_dir for git_dir in git_dirs if str(change.path).startswith(git_dir)
+            ),
             None,
         )
         is None
@@ -182,10 +204,14 @@ def get_git_changes(cwd: str) -> list[dict[str, str]]:
     for git_dir in git_dirs:
         git_dir_changes = get_changes_in_repo(str(Path(cwd, git_dir)))
         for change in git_dir_changes:
-            change["path"] = git_dir + "/" + change["path"]
-            changes.append(change)
+            # Create a new GitChange with the updated path
+            updated_change = GitChange(
+                status=change.status,
+                path=Path(git_dir) / change.path,
+            )
+            changes.append(updated_change)
 
-    changes.sort(key=lambda change: change["path"])
+    changes.sort(key=lambda change: str(change.path))
 
     return changes
 
@@ -193,6 +219,14 @@ def get_git_changes(cwd: str) -> list[dict[str, str]]:
 if __name__ == "__main__":
     try:
         changes = get_git_changes(os.getcwd())
-        print(json.dumps(changes))
+        # Convert GitChange objects to dictionaries for JSON serialization
+        changes_dict = [
+            {
+                "status": change.status.value,
+                "path": str(change.path),
+            }
+            for change in changes
+        ]
+        print(json.dumps(changes_dict))
     except Exception as e:
         print(json.dumps({"error": str(e)}))

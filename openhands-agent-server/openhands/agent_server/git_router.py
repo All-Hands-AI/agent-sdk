@@ -29,7 +29,15 @@ async def git_changes(
 ) -> list[dict[str, str]]:
     conversation_info = await conversation_service.get_conversation(conversation_id)
     assert conversation_info is not None
-    result = get_git_changes(conversation_info.workspace.working_dir)
+    git_change_objects = get_git_changes(conversation_info.workspace.working_dir)
+    # Convert GitChange objects to dictionaries for API response
+    result = [
+        {
+            "status": change.status.value,
+            "path": str(change.path),
+        }
+        for change in git_change_objects
+    ]
     return result
 
 
