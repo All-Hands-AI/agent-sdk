@@ -14,6 +14,13 @@ from openhands.sdk.workspace import LocalWorkspace
 from openhands.tools.grep import GrepAction, GrepObservation, GrepTool
 
 
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    from unittest.mock import Mock
+
+    return Mock()
+
+
 def _create_test_conv_state(temp_dir: str) -> ConversationState:
     """Helper to create a test conversation state."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
@@ -60,7 +67,8 @@ def test_grep_tool_basic_search():
 
         action = GrepAction(pattern="print")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert isinstance(observation, GrepObservation)
         assert observation.error is None
@@ -87,7 +95,8 @@ def test_grep_tool_case_insensitive():
 
         action = GrepAction(pattern="print")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 1
@@ -105,7 +114,8 @@ def test_grep_tool_include_filter():
 
         action = GrepAction(pattern="test", include="*.py")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 1
@@ -126,7 +136,8 @@ def test_grep_tool_specific_directory():
 
         action = GrepAction(pattern="print", path=str(src_dir))
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 1
@@ -145,7 +156,8 @@ def test_grep_tool_no_matches():
 
         action = GrepAction(pattern="nonexistent")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 0
@@ -161,7 +173,8 @@ def test_grep_tool_invalid_regex():
 
         action = GrepAction(pattern="[invalid")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is not None
         assert "Invalid regex pattern" in observation.error
@@ -176,7 +189,8 @@ def test_grep_tool_invalid_directory():
 
         action = GrepAction(pattern="test", path="/nonexistent/path")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is not None
         assert "not a valid directory" in observation.error
@@ -194,7 +208,8 @@ def test_grep_tool_hidden_files_excluded():
 
         action = GrepAction(pattern="test")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 1
@@ -212,7 +227,8 @@ def test_grep_tool_to_llm_content():
 
         action = GrepAction(pattern="test")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         content = observation.to_llm_content
         assert len(content) == 1
@@ -232,7 +248,8 @@ def test_grep_tool_to_llm_content_with_include():
 
         action = GrepAction(pattern="test", include="*.py")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         content = observation.to_llm_content
         text = content[0].text
@@ -250,7 +267,8 @@ def test_grep_tool_to_llm_content_no_matches():
 
         action = GrepAction(pattern="nonexistent")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         content = observation.to_llm_content
         text = content[0].text
@@ -266,7 +284,8 @@ def test_grep_tool_to_llm_content_error():
 
         action = GrepAction(pattern="[invalid")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         content = observation.to_llm_content
         text = content[0].text
@@ -287,7 +306,8 @@ def test_grep_tool_truncation():
 
         action = GrepAction(pattern="test")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 100

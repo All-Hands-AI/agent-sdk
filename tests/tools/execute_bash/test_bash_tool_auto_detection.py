@@ -2,7 +2,7 @@
 
 import tempfile
 import uuid
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from pydantic import SecretStr
 
@@ -18,6 +18,11 @@ from openhands.tools.execute_bash.terminal import (
     TerminalSession,
     TmuxTerminal,
 )
+
+
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    return Mock()
 
 
 def _create_conv_state(working_dir: str) -> ConversationState:
@@ -51,7 +56,8 @@ def test_default_auto_detection():
 
         # Test that it works
         action = ExecuteBashAction(command="echo 'Auto-detection test'")
-        obs = executor(action)
+        conversation = create_mock_conversation()
+        obs = executor(action, conversation)
         assert "Auto-detection test" in obs.output
 
 
@@ -71,7 +77,8 @@ def test_forced_terminal_types():
 
         # Test basic functionality
         action = ExecuteBashAction(command="echo 'Subprocess test'")
-        obs = tool.executor(action)
+        conversation = create_mock_conversation()
+        obs = tool.executor(action, conversation)
         assert obs.metadata.exit_code == 0
 
 
@@ -137,7 +144,8 @@ def test_backward_compatibility():
 
         assert tool.executor is not None
         action = ExecuteBashAction(command="echo 'Backward compatibility test'")
-        obs = tool.executor(action)
+        conversation = create_mock_conversation()
+        obs = tool.executor(action, conversation)
         assert "Backward compatibility test" in obs.output
         assert obs.metadata.exit_code == 0
 
@@ -170,7 +178,8 @@ def test_session_lifecycle():
 
         # Should be able to execute commands
         action = ExecuteBashAction(command="echo 'Lifecycle test'")
-        obs = executor(action)
+        conversation = create_mock_conversation()
+        obs = executor(action, conversation)
         assert obs.metadata.exit_code == 0
 
         # Manual cleanup should work

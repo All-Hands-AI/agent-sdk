@@ -1,9 +1,15 @@
 """Tests for automatic secrets masking in BashExecutor."""
 
 import tempfile
+from unittest.mock import Mock
 
 from openhands.tools.execute_bash import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
+
+
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    return Mock()
 
 
 def test_bash_executor_with_env_provider_automatic_masking():
@@ -34,7 +40,8 @@ def test_bash_executor_with_env_provider_automatic_masking():
             action = ExecuteBashAction(
                 command="echo 'Token: secret-value-123, Key: another-secret-456'"
             )
-            result = executor(action)
+            conversation = create_mock_conversation()
+            result = executor(action, conversation)
 
             # Check that both secrets were masked in the output
             assert "secret-value-123" not in result.output
@@ -55,7 +62,8 @@ def test_bash_executor_without_env_provider():
         try:
             # Execute a command that outputs a secret value
             action = ExecuteBashAction(command="echo 'The secret is: secret-value-123'")
-            result = executor(action)
+            conversation = create_mock_conversation()
+            result = executor(action, conversation)
 
             # Check that the output is not masked
             assert "secret-value-123" in result.output

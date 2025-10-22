@@ -16,6 +16,13 @@ from openhands.tools.execute_bash import (
 )
 
 
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    from unittest.mock import Mock
+
+    return Mock()
+
+
 def _create_test_conv_state(temp_dir: str) -> ConversationState:
     """Helper to create a test conversation state."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
@@ -64,7 +71,8 @@ def test_bash_tool_execution():
         action = ExecuteBashAction(command="echo 'Hello, World!'")
 
         # Execute the action
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
 
         # Check the result
         assert result is not None
@@ -83,7 +91,8 @@ def test_bash_tool_working_directory():
         action = ExecuteBashAction(command="pwd")
 
         # Execute the action
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
 
         # Check that the working directory is correct
         assert isinstance(result, ExecuteBashObservation)

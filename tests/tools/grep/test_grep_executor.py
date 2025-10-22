@@ -17,6 +17,13 @@ from openhands.tools.grep.impl import GrepExecutor
 from openhands.tools.utils import _check_ripgrep_available
 
 
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    from unittest.mock import Mock
+
+    return Mock()
+
+
 def test_grep_executor_initialization():
     """Test that GrepExecutor initializes correctly."""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -35,7 +42,8 @@ def test_grep_executor_basic_search():
 
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="print")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 2  # Two files containing "print"
@@ -57,7 +65,8 @@ def test_grep_executor_case_insensitive():
 
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="print")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 1  # File contains pattern (case-insensitive)
@@ -73,7 +82,8 @@ def test_grep_executor_include_filter():
 
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="test", include="*.py")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 1
@@ -90,7 +100,8 @@ def test_grep_executor_custom_path():
 
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="print", path=str(sub_dir))
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 1
@@ -103,7 +114,8 @@ def test_grep_executor_invalid_path():
     with tempfile.TemporaryDirectory() as temp_dir:
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="test", path="/nonexistent/path")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is not None
         assert "not a valid directory" in observation.error
@@ -116,7 +128,8 @@ def test_grep_executor_no_matches():
 
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="nonexistent")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 0
@@ -130,7 +143,8 @@ def test_grep_executor_hidden_files_excluded():
 
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="test")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 1
@@ -153,7 +167,8 @@ def test_grep_executor_sorting():
 
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="test")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 2
@@ -171,7 +186,8 @@ def test_grep_executor_truncation():
 
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="test")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.matches) == 100
@@ -183,7 +199,8 @@ def test_grep_executor_invalid_regex():
     with tempfile.TemporaryDirectory() as temp_dir:
         executor = GrepExecutor(working_dir=temp_dir)
         action = GrepAction(pattern="[invalid")
-        observation = executor(action)
+        conversation = create_mock_conversation()
+        observation = executor(action, conversation)
 
         assert observation.error is not None
         assert "Invalid regex pattern" in observation.error

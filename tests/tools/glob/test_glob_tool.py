@@ -14,6 +14,13 @@ from openhands.sdk.workspace import LocalWorkspace
 from openhands.tools.glob import GlobAction, GlobObservation, GlobTool
 
 
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    from unittest.mock import Mock
+
+    return Mock()
+
+
 def _create_test_conv_state(temp_dir: str) -> ConversationState:
     """Helper to create a test conversation state."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
@@ -82,7 +89,8 @@ def test_glob_tool_find_files():
         action = GlobAction(pattern="**/*.py")
         assert tool.executor is not None
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert isinstance(observation, GlobObservation)
         assert observation.error is None
@@ -117,7 +125,8 @@ def test_glob_tool_specific_directory():
         # Test searching only in src directory
         action = GlobAction(pattern="*.py", path=str(src_dir))
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.files) == 2  # app.py, utils.py
@@ -141,7 +150,8 @@ def test_glob_tool_no_matches():
         # Search for Python files (should find none)
         action = GlobAction(pattern="**/*.py")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.files) == 0
@@ -159,7 +169,8 @@ def test_glob_tool_invalid_directory():
         # Search in non-existent directory
         action = GlobAction(pattern="*.py", path="/nonexistent/directory")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is not None
         assert "is not a valid directory" in observation.error
@@ -189,7 +200,8 @@ def test_glob_tool_complex_patterns():
         # Test pattern for config files
         action = GlobAction(pattern="config.*")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.files) == 4  # All config files
@@ -216,7 +228,8 @@ def test_glob_tool_directories_excluded():
         # Search for everything
         action = GlobAction(pattern="*")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         # Should find all files recursively, but not directories
@@ -244,7 +257,8 @@ def test_glob_tool_to_llm_content():
         # Test successful search
         action = GlobAction(pattern="*.py")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         content = observation.to_llm_content
         assert len(content) == 1
@@ -265,7 +279,8 @@ def test_glob_tool_to_llm_content_no_matches():
         # Search for non-existent files
         action = GlobAction(pattern="*.nonexistent")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         content = observation.to_llm_content
         assert len(content) == 1
@@ -284,7 +299,8 @@ def test_glob_tool_to_llm_content_error():
         # Search in invalid directory
         action = GlobAction(pattern="*.py", path="/invalid/path")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         content = observation.to_llm_content
         assert len(content) == 1
@@ -307,7 +323,8 @@ def test_glob_tool_truncation():
         # Search for all text files
         action = GlobAction(pattern="*.txt")
         assert tool.executor is not None
-        observation = tool.executor(action)
+        conversation = create_mock_conversation()
+        observation = tool.executor(action, conversation)
 
         assert observation.error is None
         assert len(observation.files) == 100  # Truncated to 100

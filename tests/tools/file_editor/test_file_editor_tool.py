@@ -17,6 +17,13 @@ from openhands.tools.file_editor import (
 )
 
 
+def create_mock_conversation():
+    """Create a mock conversation for testing."""
+    from unittest.mock import Mock
+
+    return Mock()
+
+
 def _create_test_conv_state(temp_dir: str) -> ConversationState:
     """Helper to create a test conversation state."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
@@ -58,7 +65,8 @@ def test_file_editor_tool_create_file():
         )
 
         # Execute the action
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
 
         # Check the result
         assert result is not None
@@ -89,7 +97,8 @@ def test_file_editor_tool_view_file():
         action = FileEditorAction(command="view", path=test_file)
 
         # Execute the action
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
 
         # Check the result
         assert result is not None
@@ -122,7 +131,8 @@ def test_file_editor_tool_str_replace():
         )
 
         # Execute the action
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
 
         # Check the result
         assert result is not None
@@ -172,7 +182,8 @@ def test_file_editor_tool_view_directory():
         action = FileEditorAction(command="view", path=temp_dir)
 
         # Execute the action
-        result = tool(action)
+        conversation = create_mock_conversation()
+        result = tool(action, conversation)
 
         # Check the result
         assert result is not None

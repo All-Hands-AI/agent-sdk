@@ -230,12 +230,12 @@ def test_mask_secrets(
 
     try:
         action = ExecuteBashAction(command="echo $API_KEY")
-        result = bash_executor(action)
+        result = bash_executor(action, conversation)
         assert "test-api-key" not in result.output
         assert "<secret-hidden>" in result.output
 
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
-        result = bash_executor(action)
+        result = bash_executor(action, conversation)
         assert "dynamic-secret" not in result.output
         assert "<secret-hidden>" in result.output
 
@@ -261,12 +261,12 @@ def test_mask_changing_secrets(
 
     try:
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
-        result = bash_executor(action)
+        result = bash_executor(action, conversation)
         assert "changing-secret" not in result.output
         assert "<secret-hidden>" in result.output
 
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
-        result = bash_executor(action)
+        result = bash_executor(action, conversation)
         assert "changing-secret" not in result.output
         assert "<secret-hidden>" in result.output
 
@@ -298,13 +298,13 @@ def test_masking_persists(
 
     try:
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
-        result = bash_executor(action)
+        result = bash_executor(action, conversation)
         print(result)
         assert "changing-secret" not in result.output
         assert "<secret-hidden>" in result.output
 
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
-        result = bash_executor(action)
+        result = bash_executor(action, conversation)
         assert "changing-secret" not in result.output
         assert "<secret-hidden>" in result.output
         assert dynamic_secret.raised_on_second
