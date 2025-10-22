@@ -73,7 +73,8 @@ include = [
     "openhands-workspace/openhands",
     "openhands-agent-server/openhands",
     "tests",
-    "examples"
+    "examples",
+    "scripts"
 ]
 exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
 venvPath = "."
@@ -146,6 +147,16 @@ extraPaths = [
 
 [[tool.basedpyright.executionEnvironments]]
 root = "examples"
+pythonVersion = "3.12"
+extraPaths = [
+    "openhands-sdk",
+    "openhands-tools",
+    "openhands-workspace",
+    "openhands-agent-server"
+]
+
+[[tool.basedpyright.executionEnvironments]]
+root = "scripts"
 pythonVersion = "3.12"
 extraPaths = [
     "openhands-sdk",

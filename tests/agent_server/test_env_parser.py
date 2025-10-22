@@ -40,9 +40,9 @@ from openhands.agent_server.env_parser import (
     merge,
     to_env,
 )
+from openhands.sdk.security.risk import SecurityRisk
 
 from ..sdk.utils.test_discriminated_union import Animal, Dog
-from openhands.sdk.security.risk import SecurityRisk
 
 
 class NodeModel(BaseModel):

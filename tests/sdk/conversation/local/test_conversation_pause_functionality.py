@@ -26,7 +26,7 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation, LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import ActionEvent, MessageEvent, PauseEvent
+from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
@@ -266,7 +266,7 @@ class TestPauseFunctionality:
         agent_messages = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, ActionEvent) and event.source == "agent"
+            if isinstance(event, Action) and event.source == "agent"
         ]
         assert len(agent_messages) == 0
 
