@@ -28,7 +28,6 @@ from openhands.workspace import APIRemoteWorkspace
 
 logger = get_logger(__name__)
 
-
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key, "LITELLM_API_KEY required"
 
@@ -43,7 +42,6 @@ runtime_api_key = os.getenv("RUNTIME_API_KEY")
 if not runtime_api_key:
     logger.error("RUNTIME_API_KEY required")
     exit(1)
-
 
 with APIRemoteWorkspace(
     runtime_api_url="https://runtime.eval.all-hands.dev",

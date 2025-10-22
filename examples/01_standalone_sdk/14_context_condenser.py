@@ -18,10 +18,10 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
+from openhands.sdk.tool import Tool
+from openhands.tools.execute_bash import BashTool  # noqa: F401
+from openhands.tools.file_editor import FileEditorTool  # noqa: F401
+from openhands.tools.task_tracker import TaskTrackerTool  # noqa: F401
 
 
 logger = get_logger(__name__)
@@ -40,9 +40,6 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
-register_tool("TaskTrackerTool", TaskTrackerTool)
 tools = [
     Tool(
         name="BashTool",
@@ -105,7 +102,6 @@ conversation.send_message(
 )
 conversation.run()
 
-
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
 for i, message in enumerate(llm_messages):
@@ -128,7 +124,6 @@ conversation = Conversation(
 print("Sending message to deserialized conversation...")
 conversation.send_message("Finally, clean up by deleting both files.")
 conversation.run()
-
 
 print("=" * 100)
 print("Conversation finished with LLM Summarizing Condenser.")

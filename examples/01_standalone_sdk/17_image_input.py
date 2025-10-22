@@ -19,11 +19,10 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.sdk.tool.registry import register_tool
 from openhands.sdk.tool.spec import Tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
+from openhands.tools.execute_bash import BashTool  # noqa: F401
+from openhands.tools.file_editor import FileEditorTool  # noqa: F401
+from openhands.tools.task_tracker import TaskTrackerTool  # noqa: F401
 
 
 logger = get_logger(__name__)
@@ -42,10 +41,6 @@ llm = LLM(
 assert llm.vision_is_active(), "The selected LLM model does not support vision input."
 
 cwd = os.getcwd()
-
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
-register_tool("TaskTrackerTool", TaskTrackerTool)
 
 agent = Agent(
     llm=llm,
@@ -92,7 +87,6 @@ conversation.send_message(
     "Great! Please save your description and caption into image_report.md."
 )
 conversation.run()
-
 
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")

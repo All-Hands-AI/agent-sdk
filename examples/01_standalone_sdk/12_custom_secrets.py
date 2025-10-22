@@ -8,9 +8,9 @@ from openhands.sdk import (
     Conversation,
 )
 from openhands.sdk.conversation.secret_source import SecretSource
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
+from openhands.sdk.tool import Tool
+from openhands.tools.execute_bash import BashTool  # noqa: F401
+from openhands.tools.file_editor import FileEditorTool  # noqa: F401
 
 
 # Configure LLM
@@ -26,8 +26,6 @@ llm = LLM(
 )
 
 # Tools
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
 tools = [
     Tool(name="BashTool"),
     Tool(name="FileEditorTool"),

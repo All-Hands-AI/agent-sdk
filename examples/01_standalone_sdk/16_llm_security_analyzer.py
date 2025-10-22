@@ -14,9 +14,9 @@ from openhands.sdk import LLM, Agent, BaseConversation, Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import ConfirmRisky
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
+from openhands.sdk.tool import Tool
+from openhands.tools.execute_bash import BashTool  # noqa: F401
+from openhands.tools.file_editor import FileEditorTool  # noqa: F401
 
 
 # Clean ^C exit: no stack trace noise
@@ -101,8 +101,6 @@ llm = LLM(
 )
 
 # Tools
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
 tools = [
     Tool(
         name="BashTool",

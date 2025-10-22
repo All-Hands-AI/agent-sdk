@@ -10,10 +10,10 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.browser_use import BrowserToolSet
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
+from openhands.sdk.tool import Tool
+from openhands.tools.browser_use import BrowserToolSet  # noqa: F401
+from openhands.tools.execute_bash import BashTool  # noqa: F401
+from openhands.tools.file_editor import FileEditorTool  # noqa: F401
 
 
 logger = get_logger(__name__)
@@ -32,9 +32,6 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
-register_tool("BrowserToolSet", BrowserToolSet)
 tools = [
     Tool(
         name="BashTool",
@@ -67,7 +64,6 @@ conversation.send_message(
     "points of the latest blog?"
 )
 conversation.run()
-
 
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
