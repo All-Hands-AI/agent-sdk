@@ -387,6 +387,8 @@ class Message(BaseModel):
 
         if self.role == "assistant":
             # Emit prior assistant content as a single message item using output_text
+            # TODO(openhands) We want content_items typed
+            # a list of dict[str, type], where type is not Any
             content_items = []
             for c in self.content:
                 if isinstance(c, TextContent) and c.text:
