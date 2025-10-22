@@ -4,8 +4,6 @@ This validates RemoteConversation against actual REST + WebSocket endpoints,
 while keeping the LLM deterministic via monkeypatching.
 """
 
-from __future__ import annotations
-
 import json
 import threading
 import time
