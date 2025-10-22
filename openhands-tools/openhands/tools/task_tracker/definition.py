@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field, ValidationError
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
-from typing import ClassVar
 
 from rich.text import Text
 
@@ -405,8 +404,6 @@ task_tracker_tool = ToolDefinition(
 
 class TaskTrackerTool(ToolDefinition[TaskTrackerAction, TaskTrackerObservation]):
     """A ToolDefinition subclass that automatically initializes a TaskTrackerExecutor."""  # noqa: E501
-
-    tool_name: ClassVar[str] = "TaskTrackerTool"
 
     @classmethod
     def create(cls, conv_state: "ConversationState") -> Sequence["TaskTrackerTool"]:

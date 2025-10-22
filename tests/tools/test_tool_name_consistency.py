@@ -1,4 +1,4 @@
-"""Test that tool_name class variables are consistent with registration and usage."""
+"""Test that tool_name class variables are consistent with automatic naming."""
 
 from openhands.tools.browser_use import BrowserToolSet
 from openhands.tools.execute_bash import BashTool
@@ -28,21 +28,26 @@ def test_tool_name_attributes_exist():
         assert isinstance(tool_class.tool_name, str), (
             f"{tool_class.__name__}.tool_name is not a string"
         )
-        assert tool_class.tool_name == tool_class.__name__, (
-            f"{tool_class.__name__}.tool_name should equal class name"
+        # tool_name should be snake_case version of class name
+        assert tool_class.tool_name.islower(), (
+            f"{tool_class.__name__}.tool_name should be snake_case"
+        )
+        assert "_" in tool_class.tool_name or len(tool_class.tool_name) <= 4, (
+            f"{tool_class.__name__}.tool_name should contain underscores for "
+            "multi-word names"
         )
 
 
 def test_tool_name_consistency():
-    """Test that tool_name matches the expected class name."""
+    """Test that tool_name matches the expected snake_case conversion."""
     expected_names = {
-        BashTool: "BashTool",
-        FileEditorTool: "FileEditorTool",
-        TaskTrackerTool: "TaskTrackerTool",
-        BrowserToolSet: "BrowserToolSet",
-        GrepTool: "GrepTool",
-        GlobTool: "GlobTool",
-        PlanningFileEditorTool: "PlanningFileEditorTool",
+        BashTool: "bash_tool",
+        FileEditorTool: "file_editor_tool",
+        TaskTrackerTool: "task_tracker_tool",
+        BrowserToolSet: "browser_tool_set",
+        GrepTool: "grep_tool",
+        GlobTool: "glob_tool",
+        PlanningFileEditorTool: "planning_file_editor_tool",
     }
 
     for tool_class, expected_name in expected_names.items():
@@ -53,11 +58,11 @@ def test_tool_name_consistency():
 
 def test_tool_name_accessible_at_class_level():
     """Test that tool_name can be accessed at the class level without instantiation."""
-    # This should not raise any errors
-    assert BashTool.tool_name == "BashTool"
-    assert FileEditorTool.tool_name == "FileEditorTool"
-    assert TaskTrackerTool.tool_name == "TaskTrackerTool"
-    assert BrowserToolSet.tool_name == "BrowserToolSet"
-    assert GrepTool.tool_name == "GrepTool"
-    assert GlobTool.tool_name == "GlobTool"
-    assert PlanningFileEditorTool.tool_name == "PlanningFileEditorTool"
+    # This should not raise any errors and should return snake_case names
+    assert BashTool.tool_name == "bash_tool"
+    assert FileEditorTool.tool_name == "file_editor_tool"
+    assert TaskTrackerTool.tool_name == "task_tracker_tool"
+    assert BrowserToolSet.tool_name == "browser_tool_set"
+    assert GrepTool.tool_name == "grep_tool"
+    assert GlobTool.tool_name == "glob_tool"
+    assert PlanningFileEditorTool.tool_name == "planning_file_editor_tool"

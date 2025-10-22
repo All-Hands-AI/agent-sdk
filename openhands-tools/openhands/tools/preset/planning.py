@@ -112,10 +112,15 @@ def get_planning_tools() -> list[Tool]:
     """
     register_planning_tools()
 
+    # Import tools to access their name attributes
+    from openhands.tools.glob import GlobTool
+    from openhands.tools.grep import GrepTool
+    from openhands.tools.planning_file_editor import PlanningFileEditorTool
+
     return [
-        Tool(name="GlobTool"),
-        Tool(name="GrepTool"),
-        Tool(name="PlanningFileEditorTool"),
+        Tool(name=GlobTool.tool_name),
+        Tool(name=GrepTool.tool_name),
+        Tool(name=PlanningFileEditorTool.tool_name),
     ]
 
 

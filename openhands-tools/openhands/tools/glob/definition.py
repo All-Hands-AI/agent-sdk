@@ -10,8 +10,6 @@ from pydantic import Field
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
-from typing import ClassVar
-
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import (
     Action,
@@ -92,8 +90,6 @@ Examples:
 
 class GlobTool(ToolDefinition[GlobAction, GlobObservation]):
     """A ToolDefinition subclass that automatically initializes a GlobExecutor."""
-
-    tool_name: ClassVar[str] = "GlobTool"
 
     @classmethod
     def create(

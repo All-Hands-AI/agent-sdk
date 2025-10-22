@@ -10,8 +10,6 @@ from pydantic import Field
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
-from typing import ClassVar
-
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import (
     Action,
@@ -105,8 +103,6 @@ TOOL_DESCRIPTION = """Fast content search tool.
 
 class GrepTool(ToolDefinition[GrepAction, GrepObservation]):
     """A ToolDefinition subclass that automatically initializes a GrepExecutor."""
-
-    tool_name: ClassVar[str] = "GrepTool"
 
     @classmethod
     def create(

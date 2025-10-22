@@ -8,9 +8,9 @@ def test_bash_tool_automatic_registration():
     # Import the module to trigger registration
     import openhands.tools.execute_bash.definition  # noqa: F401
 
-    # Check that the tool is registered
+    # Check that the tool is registered with snake_case name
     registered_tools = list_registered_tools()
-    assert "BashTool" in registered_tools
+    assert "bash_tool" in registered_tools
 
 
 def test_file_editor_tool_automatic_registration():
@@ -18,9 +18,9 @@ def test_file_editor_tool_automatic_registration():
     # Import the module to trigger registration
     import openhands.tools.file_editor.definition  # noqa: F401
 
-    # Check that the tool is registered
+    # Check that the tool is registered with snake_case name
     registered_tools = list_registered_tools()
-    assert "FileEditorTool" in registered_tools
+    assert "file_editor_tool" in registered_tools
 
 
 def test_task_tracker_tool_automatic_registration():
@@ -28,9 +28,9 @@ def test_task_tracker_tool_automatic_registration():
     # Import the module to trigger registration
     import openhands.tools.task_tracker.definition  # noqa: F401
 
-    # Check that the tool is registered
+    # Check that the tool is registered with snake_case name
     registered_tools = list_registered_tools()
-    assert "TaskTrackerTool" in registered_tools
+    assert "task_tracker_tool" in registered_tools
 
 
 def test_browser_tool_automatic_registration():
@@ -38,9 +38,9 @@ def test_browser_tool_automatic_registration():
     # Import the module to trigger registration
     import openhands.tools.browser_use.definition  # noqa: F401
 
-    # Check that the tool is registered
+    # Check that the tool is registered with snake_case name
     registered_tools = list_registered_tools()
-    assert "BrowserToolSet" in registered_tools
+    assert "browser_tool_set" in registered_tools
 
 
 def test_grep_tool_automatic_registration():
@@ -48,9 +48,9 @@ def test_grep_tool_automatic_registration():
     # Import the module to trigger registration
     import openhands.tools.grep.definition  # noqa: F401
 
-    # Check that the tool is registered
+    # Check that the tool is registered with snake_case name
     registered_tools = list_registered_tools()
-    assert "GrepTool" in registered_tools
+    assert "grep_tool" in registered_tools
 
 
 def test_glob_tool_automatic_registration():
@@ -58,9 +58,9 @@ def test_glob_tool_automatic_registration():
     # Import the module to trigger registration
     import openhands.tools.glob.definition  # noqa: F401
 
-    # Check that the tool is registered
+    # Check that the tool is registered with snake_case name
     registered_tools = list_registered_tools()
-    assert "GlobTool" in registered_tools
+    assert "glob_tool" in registered_tools
 
 
 def test_planning_file_editor_tool_automatic_registration():
@@ -68,9 +68,9 @@ def test_planning_file_editor_tool_automatic_registration():
     # Import the module to trigger registration
     import openhands.tools.planning_file_editor.definition  # noqa: F401
 
-    # Check that the tool is registered
+    # Check that the tool is registered with snake_case name
     registered_tools = list_registered_tools()
-    assert "PlanningFileEditorTool" in registered_tools
+    assert "planning_file_editor_tool" in registered_tools
 
 
 def test_import_from_init_triggers_registration():
@@ -78,9 +78,9 @@ def test_import_from_init_triggers_registration():
     # Import from the __init__.py file
     from openhands.tools.execute_bash import BashTool  # noqa: F401
 
-    # Check that the tool is registered
+    # Check that the tool is registered with snake_case name
     registered_tools = list_registered_tools()
-    assert "BashTool" in registered_tools
+    assert "bash_tool" in registered_tools
 
 
 def test_tool_can_be_resolved_after_automatic_registration():
@@ -99,8 +99,8 @@ def test_tool_can_be_resolved_after_automatic_registration():
     mock_workspace.working_dir = "/tmp"
     mock_conv_state.workspace = mock_workspace
 
-    # Try to resolve the tool
-    tool_spec = Tool(name="BashTool")
+    # Try to resolve the tool using snake_case name
+    tool_spec = Tool(name="bash_tool")
     resolved_tools = resolve_tool(tool_spec, mock_conv_state)
 
     # Should successfully resolve

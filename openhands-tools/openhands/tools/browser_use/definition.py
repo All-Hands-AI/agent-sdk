@@ -1,7 +1,7 @@
 """Browser-use tool implementation for web automation."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, ClassVar, Literal, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from pydantic import Field
 
@@ -610,8 +610,6 @@ class BrowserToolSet(ToolBase[BrowserAction, BrowserObservation]):
     The toolset automatically checks for Chromium availability
     when created and automatically installs it if missing.
     """
-
-    tool_name: ClassVar[str] = "BrowserToolSet"
 
     @classmethod
     def create(
