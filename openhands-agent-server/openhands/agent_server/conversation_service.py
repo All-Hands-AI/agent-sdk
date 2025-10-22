@@ -171,12 +171,7 @@ class ConversationService:
         self, request: StartConversationRequest
     ) -> tuple[ConversationInfo, bool]:
         """Start a local event_service and return its id."""
-        logger.info(
-            f"start_conversation called with request: agent={request.agent}, "
-            f"workspace={request.workspace}"
-        )
         if self._event_services is None:
-            logger.error("start_conversation: event_services is None")
             raise ValueError("inactive_service")
         conversation_id = request.conversation_id or uuid4()
 
@@ -192,16 +187,13 @@ class ConversationService:
         event_service = await self._start_event_service(stored)
         initial_message = request.initial_message
         if initial_message:
-            logger.info(f"Sending initial message: {initial_message}")
             message = Message(
                 role=initial_message.role, content=initial_message.content
             )
             await event_service.send_message(message, True)
 
-        logger.info("Getting conversation state")
         state = await event_service.get_state()
         conversation_info = _compose_conversation_info(event_service.stored, state)
-        logger.info(f"Conversation info created: {conversation_info.id}")
 
         # Notify conversation webhooks about the started conversation
         await self._notify_conversation_webhooks(conversation_info)
