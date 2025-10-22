@@ -46,7 +46,6 @@ with DockerWorkspace(
     server_image="ghcr.io/openhands/agent-server:latest-python",
     host_port=8010,
     platform=detect_platform(),
-    forward_env=["LLM_API_KEY"],  # Forward API key to container
 ) as workspace:
     # 3) Create agent
     agent = get_default_agent(
