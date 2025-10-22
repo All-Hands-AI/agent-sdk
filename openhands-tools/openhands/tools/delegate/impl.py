@@ -68,18 +68,12 @@ class DelegateExecutor(ToolExecutor):
         return False
 
     def __call__(
-        self, action: "DelegateAction", conversation: "BaseConversation | None" = None
+        self, action: "DelegateAction", conversation: "BaseConversation"
     ) -> "DelegateObservation":
         """Execute a delegation action."""
         from openhands.tools.delegate.definition import DelegateObservation
 
         if action.operation == "spawn":
-            if conversation is None:
-                return DelegateObservation(
-                    operation=action.operation,
-                    success=False,
-                    message="Spawn operation requires a conversation context",
-                )
             return self._spawn_sub_agent(action, conversation)
         elif action.operation == "send":
             return self._send_to_sub_agent(action)

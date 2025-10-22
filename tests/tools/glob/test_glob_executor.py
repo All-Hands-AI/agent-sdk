@@ -7,13 +7,6 @@ from openhands.tools.glob import GlobAction
 from openhands.tools.glob.impl import GlobExecutor
 
 
-def create_mock_conversation():
-    """Create a mock conversation for testing."""
-    from unittest.mock import Mock
-
-    return Mock()
-
-
 def test_glob_executor_initialization():
     """Test that GlobExecutor initializes correctly."""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -31,8 +24,7 @@ def test_glob_executor_basic_pattern():
 
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*.py")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 2
@@ -55,8 +47,7 @@ def test_glob_executor_recursive_pattern():
 
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="**/*.py")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 2
@@ -77,8 +68,7 @@ def test_glob_executor_custom_path():
 
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*.txt", path=str(sub_dir))
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 2
@@ -91,8 +81,7 @@ def test_glob_executor_invalid_path():
     with tempfile.TemporaryDirectory() as temp_dir:
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*.py", path="/nonexistent/path")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is not None
         assert "is not a valid directory" in observation.error
@@ -108,8 +97,7 @@ def test_glob_executor_no_matches():
 
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*.py")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 0
@@ -126,8 +114,7 @@ def test_glob_executor_directories_excluded():
 
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         # Should only find the file, not directories
@@ -154,8 +141,7 @@ def test_glob_executor_sorting():
 
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*.txt")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 3
@@ -174,8 +160,7 @@ def test_glob_executor_truncation():
 
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*.txt")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 100
@@ -202,8 +187,7 @@ def test_glob_executor_complex_patterns():
 
         # Test wildcard pattern for config files
         action = GlobAction(pattern="config.*")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 4  # All config files
@@ -219,8 +203,7 @@ def test_glob_executor_exception_handling():
         # Create action with problematic path that might cause issues
         # This tests the general exception handling in the executor
         action = GlobAction(pattern="*.py", path=temp_dir)
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         # Should not raise exception, even if there are no matches
         assert observation.error is None or isinstance(observation.error, str)
@@ -235,8 +218,7 @@ def test_glob_executor_absolute_paths():
 
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*.py")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 1
@@ -252,8 +234,7 @@ def test_glob_executor_empty_directory():
     with tempfile.TemporaryDirectory() as temp_dir:
         executor = GlobExecutor(working_dir=temp_dir)
         action = GlobAction(pattern="*")
-        conversation = create_mock_conversation()
-        observation = executor(action, conversation)
+        observation = executor(action)
 
         assert observation.error is None
         assert len(observation.files) == 0
