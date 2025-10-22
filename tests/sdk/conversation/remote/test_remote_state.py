@@ -19,8 +19,8 @@ class TestRemoteState:
 
     def setup_method(self):
         """Set up test environment."""
-        self.mock_client = Mock(spec=httpx.Client)
-        self.conversation_id = str(uuid.uuid4())
+        self.mock_client: Mock = Mock(spec=httpx.Client)
+        self.conversation_id: str = str(uuid.uuid4())
 
     def create_mock_conversation_info(self, **overrides):
         """Create mock conversation info response."""
@@ -32,7 +32,7 @@ class TestRemoteState:
             "id": self.conversation_id,
             "agent_status": "running",
             "confirmation_policy": {"kind": "NeverConfirm"},
-            "activated_knowledge_microagents": [],
+            "activated_knowledge_skills": [],
             "agent": agent.model_dump(mode="json"),
         }
         default_info.update(overrides)
@@ -51,7 +51,7 @@ class TestRemoteState:
         mock_events_response = Mock()
         mock_events_response.raise_for_status.return_value = None
         mock_events_response.json.return_value = {"items": [], "next_page_id": None}
-        self.mock_client.get.return_value = mock_events_response
+        self.mock_client.request.return_value = mock_events_response
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -60,7 +60,8 @@ class TestRemoteState:
         assert hasattr(state, "_events")
 
         # Verify events API was called during initialization
-        self.mock_client.get.assert_called_with(
+        self.mock_client.request.assert_called_with(
+            "GET",
             f"/api/conversations/{self.conversation_id}/events/search",
             params={"limit": 100},
         )
@@ -71,7 +72,7 @@ class TestRemoteState:
         mock_events_response = Mock()
         mock_events_response.raise_for_status.return_value = None
         mock_events_response.json.return_value = {"items": [], "next_page_id": None}
-        self.mock_client.get.return_value = mock_events_response
+        self.mock_client.request.return_value = mock_events_response
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -85,7 +86,7 @@ class TestRemoteState:
         mock_events_response = Mock()
         mock_events_response.raise_for_status.return_value = None
         mock_events_response.json.return_value = {"items": [], "next_page_id": None}
-        self.mock_client.get.return_value = mock_events_response
+        self.mock_client.request.return_value = mock_events_response
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -105,7 +106,10 @@ class TestRemoteState:
         conversation_info = self.create_mock_conversation_info(agent_status="running")
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
         agent_status = state.agent_status
@@ -113,8 +117,8 @@ class TestRemoteState:
         assert agent_status == AgentExecutionStatus.RUNNING
 
         # Verify conversation info API was called
-        self.mock_client.get.assert_any_call(
-            f"/api/conversations/{self.conversation_id}"
+        self.mock_client.request.assert_any_call(
+            "GET", f"/api/conversations/{self.conversation_id}"
         )
 
     def test_remote_state_agent_status_different_values(self):
@@ -129,11 +133,11 @@ class TestRemoteState:
         for status in test_statuses:
             # Reset mock
             self.mock_client.reset_mock()
-            self.mock_client.get.side_effect = None
+            self.mock_client.request.side_effect = None
 
             conversation_info = self.create_mock_conversation_info(agent_status=status)
             mock_info_response = self.create_mock_api_response(conversation_info)
-            self.mock_client.get.side_effect = [
+            self.mock_client.request.side_effect = [
                 mock_events_response,
                 mock_info_response,
             ]
@@ -155,7 +159,10 @@ class TestRemoteState:
         del conversation_info["agent_status"]
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -170,7 +177,7 @@ class TestRemoteState:
         mock_events_response = Mock()
         mock_events_response.raise_for_status.return_value = None
         mock_events_response.json.return_value = {"items": [], "next_page_id": None}
-        self.mock_client.get.return_value = mock_events_response
+        self.mock_client.request.return_value = mock_events_response
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -193,7 +200,10 @@ class TestRemoteState:
         )
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
         policy = state.confirmation_policy
@@ -212,7 +222,10 @@ class TestRemoteState:
         del conversation_info["confirmation_policy"]
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -221,8 +234,8 @@ class TestRemoteState:
         ):
             _ = state.confirmation_policy
 
-    def test_remote_state_activated_knowledge_microagents_property(self):
-        """Test RemoteState activated_knowledge_microagents property."""
+    def test_remote_state_activated_knowledge_skills_property(self):
+        """Test RemoteState activated_knowledge_skills property."""
         # Mock events API call
         mock_events_response = Mock()
         mock_events_response.raise_for_status.return_value = None
@@ -231,19 +244,22 @@ class TestRemoteState:
         # Mock conversation info with microagents
         microagents = ["agent1", "agent2", "agent3"]
         conversation_info = self.create_mock_conversation_info(
-            activated_knowledge_microagents=microagents
+            activated_knowledge_skills=microagents
         )
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
-        result = state.activated_knowledge_microagents
+        result = state.activated_knowledge_skills
 
         assert result == microagents
 
-    def test_remote_state_activated_knowledge_microagents_empty(self):
-        """Test RemoteState activated_knowledge_microagents when empty."""
+    def test_remote_state_activated_knowledge_skills_empty(self):
+        """Test RemoteState activated_knowledge_skills when empty."""
         # Mock events API call
         mock_events_response = Mock()
         mock_events_response.raise_for_status.return_value = None
@@ -253,10 +269,13 @@ class TestRemoteState:
         conversation_info = self.create_mock_conversation_info()
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
-        result = state.activated_knowledge_microagents
+        result = state.activated_knowledge_skills
 
         assert result == []
 
@@ -271,7 +290,10 @@ class TestRemoteState:
         conversation_info = self.create_mock_conversation_info()
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
         agent = state.agent
@@ -290,7 +312,10 @@ class TestRemoteState:
         del conversation_info["agent"]
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -308,7 +333,10 @@ class TestRemoteState:
         conversation_info = self.create_mock_conversation_info()
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
         result = state.model_dump()
@@ -326,7 +354,10 @@ class TestRemoteState:
         conversation_info = self.create_mock_conversation_info()
         mock_info_response = self.create_mock_api_response(conversation_info)
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -340,7 +371,7 @@ class TestRemoteState:
         mock_events_response = Mock()
         mock_events_response.raise_for_status.return_value = None
         mock_events_response.json.return_value = {"items": [], "next_page_id": None}
-        self.mock_client.get.return_value = mock_events_response
+        self.mock_client.request.return_value = mock_events_response
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -358,12 +389,21 @@ class TestRemoteState:
         mock_events_response.json.return_value = {"items": [], "next_page_id": None}
 
         # Mock conversation info API call (failure)
+        mock_request = Mock()
+        mock_request.url = "http://test.com/api/conversations/test-id"
+        mock_error_response = Mock()
+        mock_error_response.status_code = 500
+        mock_error_response.text = "Internal Server Error"
+
         mock_info_response = Mock()
         mock_info_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "API Error", request=Mock(), response=Mock()
+            "API Error", request=mock_request, response=mock_error_response
         )
 
-        self.mock_client.get.side_effect = [mock_events_response, mock_info_response]
+        self.mock_client.request.side_effect = [
+            mock_events_response,
+            mock_info_response,
+        ]
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
@@ -383,7 +423,7 @@ class TestRemoteState:
         mock_info_response = self.create_mock_api_response(conversation_info)
 
         # Set up side effects for multiple calls
-        self.mock_client.get.side_effect = [
+        self.mock_client.request.side_effect = [
             mock_events_response,  # Initial events call
             mock_info_response,  # First info call
             mock_info_response,  # Second info call
@@ -397,4 +437,4 @@ class TestRemoteState:
 
         # Should have made 2 API calls total
         # (1 for events, 1 for info which gets cached)
-        assert self.mock_client.get.call_count == 2
+        assert self.mock_client.request.call_count == 2

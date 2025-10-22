@@ -13,8 +13,8 @@ class TestWebSocketCallbackClient:
 
     def setup_method(self):
         """Set up test environment."""
-        self.received_events = []
-        self.callback_calls = []
+        self.received_events: list[Event] = []
+        self.callback_calls: list[Event] = []
 
     def event_callback(self, event: Event):
         """Test callback to capture events."""

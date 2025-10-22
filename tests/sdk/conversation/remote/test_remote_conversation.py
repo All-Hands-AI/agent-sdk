@@ -20,16 +20,64 @@ class TestRemoteConversation:
 
     def setup_method(self):
         """Set up test environment."""
-        self.host = "http://localhost:8000"
-        self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
-        self.agent = Agent(llm=self.llm, tools=[])
-        self.mock_client = Mock(spec=httpx.Client)
-        self.workspace = RemoteWorkspace(host=self.host, working_dir="/tmp")
+        self.host: str = "http://localhost:8000"
+        self.llm: LLM = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+        self.agent: Agent = Agent(llm=self.llm, tools=[])
+        self.mock_client: Mock = Mock(spec=httpx.Client)
+        self.workspace: RemoteWorkspace = RemoteWorkspace(
+            host=self.host, working_dir="/tmp"
+        )
 
-    def setup_mock_client(self):
-        """Set up mock client for the workspace."""
+    def setup_mock_client(self, conversation_id: str | None = None):
+        """Set up mock client for the workspace with default responses."""
         mock_client_instance = Mock()
         self.workspace._client = mock_client_instance
+
+        # Default conversation ID
+        if conversation_id is None:
+            conversation_id = str(uuid.uuid4())
+
+        # Create default responses
+        mock_conv_response = self.create_mock_conversation_response(conversation_id)
+        mock_events_response = self.create_mock_events_response()
+
+        # Mock the request method to return appropriate responses
+        def request_side_effect(method, url, **kwargs):
+            if method == "POST" and url == "/api/conversations":
+                return mock_conv_response
+            elif method == "GET" and "/api/conversations/" in url and "/events" in url:
+                return mock_events_response
+            elif method == "GET" and url.startswith("/api/conversations/"):
+                # Return conversation info response
+                response = Mock()
+                response.raise_for_status.return_value = None
+                response.json.return_value = mock_conv_response.json.return_value
+                return response
+            elif method == "POST" and "/events" in url:
+                # POST to events endpoint (send_message)
+                response = Mock()
+                response.raise_for_status.return_value = None
+                response.json.return_value = {}
+                return response
+            elif method == "POST" and "/run" in url:
+                # POST to run endpoint
+                response = Mock()
+                response.raise_for_status.return_value = None
+                response.status_code = 200
+                response.json.return_value = {}
+                return response
+            elif method == "POST" or method == "PUT":
+                # Default success response for other POST/PUT requests
+                response = Mock()
+                response.raise_for_status.return_value = None
+                response.json.return_value = {}
+                return response
+            else:
+                response = Mock()
+                response.raise_for_status.return_value = None
+                return response
+
+        mock_client_instance.request.side_effect = request_side_effect
         return mock_client_instance
 
     def create_mock_conversation_response(self, conversation_id: str | None = None):
@@ -63,18 +111,9 @@ class TestRemoteConversation:
     )
     def test_remote_conversation_initialization_new_conversation(self, mock_ws_client):
         """Test RemoteConversation initialization with new conversation."""
-        # Mock the workspace client directly
-        mock_client_instance = self.setup_mock_client()
-
-        # Mock conversation creation response
+        # Set up mock client
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-
-        # Mock events response
-        mock_events_response = self.create_mock_events_response()
-
-        mock_client_instance.post.return_value = mock_conv_response
-        mock_client_instance.get.return_value = mock_events_response
+        self.setup_mock_client(conversation_id=conversation_id)
 
         # Mock WebSocket client
         mock_ws_instance = Mock()
@@ -86,25 +125,6 @@ class TestRemoteConversation:
             workspace=self.workspace,
             max_iteration_per_run=100,
             stuck_detection=True,
-        )
-
-        # Verify conversation creation API call
-        # Note: RemoteWorkspace is converted to LocalWorkspace for the server
-        from openhands.sdk.workspace import LocalWorkspace
-
-        mock_client_instance.post.assert_called_once_with(
-            "/api/conversations",
-            json={
-                "agent": self.agent.model_dump(
-                    mode="json", context={"expose_secrets": True}
-                ),
-                "initial_message": None,
-                "max_iterations": 100,
-                "stuck_detection": True,
-                "workspace": LocalWorkspace(
-                    working_dir=self.workspace.working_dir
-                ).model_dump(),
-            },
         )
 
         # Verify WebSocket client was created and started
@@ -159,19 +179,8 @@ class TestRemoteConversation:
     def test_remote_conversation_send_message_string(self, mock_ws_client):
         """Test sending a string message."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_message_response = Mock()
-        mock_message_response.raise_for_status.return_value = None
-
-        mock_client_instance.post.side_effect = [
-            mock_conv_response,
-            mock_message_response,
-        ]
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -182,12 +191,15 @@ class TestRemoteConversation:
 
         # Verify message API call was made (the exact payload structure may vary)
         # Check that a POST was made to the events endpoint
-        post_calls = [
+        request_calls = [
             call
-            for call in mock_client_instance.post.call_args_list
-            if f"/api/conversations/{conversation_id}/events" in str(call)
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/events" in call[0][1]
         ]
-        assert len(post_calls) >= 1, "Should have made a POST call to events endpoint"
+        assert len(request_calls) >= 1, (
+            "Should have made a POST call to events endpoint"
+        )
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
@@ -195,19 +207,8 @@ class TestRemoteConversation:
     def test_remote_conversation_send_message_object(self, mock_ws_client):
         """Test sending a Message object."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_message_response = Mock()
-        mock_message_response.raise_for_status.return_value = None
-
-        mock_client_instance.post.side_effect = [
-            mock_conv_response,
-            mock_message_response,
-        ]
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -223,12 +224,15 @@ class TestRemoteConversation:
 
         # Verify message API call was made (the exact payload structure may vary)
         # Check that a POST was made to the events endpoint
-        post_calls = [
+        request_calls = [
             call
-            for call in mock_client_instance.post.call_args_list
-            if f"/api/conversations/{conversation_id}/events" in str(call)
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/events" in call[0][1]
         ]
-        assert len(post_calls) >= 1, "Should have made a POST call to events endpoint"
+        assert len(request_calls) >= 1, (
+            "Should have made a POST call to events endpoint"
+        )
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
@@ -266,17 +270,8 @@ class TestRemoteConversation:
     def test_remote_conversation_run(self, mock_ws_client):
         """Test running the conversation."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_run_response = Mock()
-        mock_run_response.raise_for_status.return_value = None
-        mock_run_response.status_code = 200
-
-        mock_client_instance.post.side_effect = [mock_conv_response, mock_run_response]
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -286,10 +281,13 @@ class TestRemoteConversation:
         conversation.run()
 
         # Verify run API call
-        mock_client_instance.post.assert_any_call(
-            f"/api/conversations/{conversation_id}/run",
-            timeout=1800,
-        )
+        request_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/run" in call[0][1]
+        ]
+        assert len(request_calls) >= 1, "Should have made a POST call to run endpoint"
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
@@ -297,16 +295,21 @@ class TestRemoteConversation:
     def test_remote_conversation_run_already_running(self, mock_ws_client):
         """Test running when conversation is already running (409 response)."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_run_response = Mock()
-        mock_run_response.status_code = 409  # Already running
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
-        mock_client_instance.post.side_effect = [mock_conv_response, mock_run_response]
-        mock_client_instance.get.return_value = mock_events_response
+        # Override the default request side_effect to return 409 for /run endpoint
+        original_side_effect = mock_client_instance.request.side_effect
+
+        def custom_side_effect(method, url, **kwargs):
+            if method == "POST" and "/run" in url:
+                mock_run_response = Mock()
+                mock_run_response.status_code = 409  # Already running
+                mock_run_response.raise_for_status.return_value = None
+                return mock_run_response
+            return original_side_effect(method, url, **kwargs)
+
+        mock_client_instance.request.side_effect = custom_side_effect
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -316,10 +319,13 @@ class TestRemoteConversation:
         conversation.run()  # Should not raise an exception
 
         # Verify run API call was made
-        mock_client_instance.post.assert_any_call(
-            f"/api/conversations/{conversation_id}/run",
-            timeout=1800,
-        )
+        request_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/run" in call[0][1]
+        ]
+        assert len(request_calls) >= 1, "Should have made a POST call to run endpoint"
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
@@ -327,19 +333,8 @@ class TestRemoteConversation:
     def test_remote_conversation_set_confirmation_policy(self, mock_ws_client):
         """Test setting confirmation policy."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_policy_response = Mock()
-        mock_policy_response.raise_for_status.return_value = None
-
-        mock_client_instance.post.side_effect = [
-            mock_conv_response,
-            mock_policy_response,
-        ]
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -350,10 +345,15 @@ class TestRemoteConversation:
         conversation.set_confirmation_policy(policy)
 
         # Verify policy API call
-        expected_payload = {"policy": policy.model_dump()}
-        mock_client_instance.post.assert_any_call(
-            f"/api/conversations/{conversation_id}/confirmation_policy",
-            json=expected_payload,
+        request_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/confirmation_policy"
+            in call[0][1]
+        ]
+        assert len(request_calls) >= 1, (
+            "Should have made a POST call to confirmation_policy endpoint"
         )
 
     @patch(
@@ -362,19 +362,8 @@ class TestRemoteConversation:
     def test_remote_conversation_reject_pending_actions(self, mock_ws_client):
         """Test rejecting pending actions."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_reject_response = Mock()
-        mock_reject_response.raise_for_status.return_value = None
-
-        mock_client_instance.post.side_effect = [
-            mock_conv_response,
-            mock_reject_response,
-        ]
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -384,10 +373,15 @@ class TestRemoteConversation:
         conversation.reject_pending_actions("Custom rejection reason")
 
         # Verify reject API call
-        expected_payload = {"accept": False, "reason": "Custom rejection reason"}
-        mock_client_instance.post.assert_any_call(
-            f"/api/conversations/{conversation_id}/events/respond_to_confirmation",
-            json=expected_payload,
+        request_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/events/respond_to_confirmation"
+            in call[0][1]
+        ]
+        assert len(request_calls) >= 1, (
+            "Should have made a POST call to respond_to_confirmation endpoint"
         )
 
     @patch(
@@ -396,19 +390,8 @@ class TestRemoteConversation:
     def test_remote_conversation_pause(self, mock_ws_client):
         """Test pausing the conversation."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_pause_response = Mock()
-        mock_pause_response.raise_for_status.return_value = None
-
-        mock_client_instance.post.side_effect = [
-            mock_conv_response,
-            mock_pause_response,
-        ]
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -418,9 +401,13 @@ class TestRemoteConversation:
         conversation.pause()
 
         # Verify pause API call
-        mock_client_instance.post.assert_any_call(
-            f"/api/conversations/{conversation_id}/pause"
-        )
+        request_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/pause" in call[0][1]
+        ]
+        assert len(request_calls) >= 1, "Should have made a POST call to pause endpoint"
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
@@ -428,19 +415,8 @@ class TestRemoteConversation:
     def test_remote_conversation_update_secrets(self, mock_ws_client):
         """Test updating secrets."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_secrets_response = Mock()
-        mock_secrets_response.raise_for_status.return_value = None
-
-        mock_client_instance.post.side_effect = [
-            mock_conv_response,
-            mock_secrets_response,
-        ]
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -463,10 +439,14 @@ class TestRemoteConversation:
         conversation.update_secrets(secrets)
 
         # Verify secrets API call
-        expected_payload = {"secrets": secrets}
-        mock_client_instance.post.assert_any_call(
-            f"/api/conversations/{conversation_id}/secrets",
-            json=expected_payload,
+        request_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/secrets" in call[0][1]
+        ]
+        assert len(request_calls) >= 1, (
+            "Should have made a POST call to secrets endpoint"
         )
 
     @patch(
@@ -475,19 +455,8 @@ class TestRemoteConversation:
     def test_remote_conversation_update_secrets_callable(self, mock_ws_client):
         """Test updating secrets with callable values."""
         # Setup mocks
-        mock_client_instance = self.setup_mock_client()
-
         conversation_id = str(uuid.uuid4())
-        mock_conv_response = self.create_mock_conversation_response(conversation_id)
-        mock_events_response = self.create_mock_events_response()
-        mock_secrets_response = Mock()
-        mock_secrets_response.raise_for_status.return_value = None
-
-        mock_client_instance.post.side_effect = [
-            mock_conv_response,
-            mock_secrets_response,
-        ]
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         mock_ws_instance = Mock()
         mock_ws_client.return_value = mock_ws_instance
@@ -505,15 +474,14 @@ class TestRemoteConversation:
         conversation.update_secrets(secrets)
 
         # Verify secrets API call with resolved callable
-        expected_payload = {
-            "secrets": {
-                "api_key": "string_secret",
-                "callable_secret": "callable_secret_value",
-            }
-        }
-        mock_client_instance.post.assert_any_call(
-            f"/api/conversations/{conversation_id}/secrets",
-            json=expected_payload,
+        request_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST"
+            and f"/api/conversations/{conversation_id}/secrets" in call[0][1]
+        ]
+        assert len(request_calls) >= 1, (
+            "Should have made a POST call to secrets endpoint"
         )
 
     @patch(

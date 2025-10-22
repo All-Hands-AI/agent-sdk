@@ -20,7 +20,7 @@ from pydantic import SecretStr
 from openhands.sdk import LLM, Agent, Conversation
 from openhands.sdk.conversation import RemoteConversation
 from openhands.sdk.workspace import RemoteWorkspace
-from openhands.sdk.workspace.remote.docker import find_available_tcp_port
+from openhands.workspace.docker.workspace import find_available_tcp_port
 
 
 @pytest.fixture

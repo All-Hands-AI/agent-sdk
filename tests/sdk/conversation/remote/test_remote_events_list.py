@@ -28,8 +28,8 @@ class TestRemoteEventsList:
 
     def setup_method(self):
         """Set up test environment."""
-        self.mock_client = Mock(spec=httpx.Client)
-        self.conversation_id = "test-conv-id"
+        self.mock_client: Mock = Mock(spec=httpx.Client)
+        self.conversation_id: str = "test-conv-id"
 
     def create_mock_event(
         self, event_id: str, event_type: str = "MessageEvent"
@@ -85,13 +85,14 @@ class TestRemoteEventsList:
 
         # Mock API response
         mock_response = self.create_mock_api_response(events)
-        self.mock_client.get.return_value = mock_response
+        self.mock_client.request.return_value = mock_response
 
         # Initialize RemoteEventsList
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
 
         # Verify API was called correctly
-        self.mock_client.get.assert_called_once_with(
+        self.mock_client.request.assert_called_once_with(
+            "GET",
             f"/api/conversations/{self.conversation_id}/events/search",
             params={"limit": 100},
         )
@@ -123,22 +124,24 @@ class TestRemoteEventsList:
         page1_response = self.create_mock_api_response(page1_events, "page-2")
         page2_response = self.create_mock_api_response(page2_events)
 
-        self.mock_client.get.side_effect = [page1_response, page2_response]
+        self.mock_client.request.side_effect = [page1_response, page2_response]
 
         # Initialize RemoteEventsList
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
 
         # Verify API was called for both pages
-        assert self.mock_client.get.call_count == 2
+        assert self.mock_client.request.call_count == 2
 
         # First call
-        self.mock_client.get.assert_any_call(
+        self.mock_client.request.assert_any_call(
+            "GET",
             f"/api/conversations/{self.conversation_id}/events/search",
             params={"limit": 100},
         )
 
         # Second call with page_id
-        self.mock_client.get.assert_any_call(
+        self.mock_client.request.assert_any_call(
+            "GET",
             f"/api/conversations/{self.conversation_id}/events/search",
             params={"limit": 100, "page_id": "page-2"},
         )
@@ -159,7 +162,7 @@ class TestRemoteEventsList:
         ]
 
         mock_response = self.create_mock_api_response(events)
-        self.mock_client.get.return_value = mock_response
+        self.mock_client.request.return_value = mock_response
 
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
 
@@ -193,7 +196,7 @@ class TestRemoteEventsList:
         """Test adding events to RemoteEventsList."""
         # Initialize with empty list
         mock_response = self.create_mock_api_response([])
-        self.mock_client.get.return_value = mock_response
+        self.mock_client.request.return_value = mock_response
 
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
         assert len(events_list) == 0
@@ -217,7 +220,7 @@ class TestRemoteEventsList:
     def test_remote_events_list_add_duplicate_event(self):
         """Test adding duplicate events to RemoteEventsList."""
         mock_response = self.create_mock_api_response([])
-        self.mock_client.get.return_value = mock_response
+        self.mock_client.request.return_value = mock_response
 
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
 
@@ -238,7 +241,7 @@ class TestRemoteEventsList:
     def test_remote_events_list_create_default_callback(self):
         """Test creating default callback for RemoteEventsList."""
         mock_response = self.create_mock_api_response([])
-        self.mock_client.get.return_value = mock_response
+        self.mock_client.request.return_value = mock_response
 
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
         callback = events_list.create_default_callback()
@@ -254,7 +257,7 @@ class TestRemoteEventsList:
     def test_remote_events_list_append_adds_event(self):
         """Test that append method adds event to local cache."""
         mock_response = self.create_mock_api_response([])
-        self.mock_client.get.return_value = mock_response
+        self.mock_client.request.return_value = mock_response
 
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
         test_event = self.create_mock_event("test-event", "MessageEvent")
@@ -269,12 +272,20 @@ class TestRemoteEventsList:
 
     def test_remote_events_list_api_error_handling(self):
         """Test error handling when API calls fail."""
+        # Create a proper mock response for HTTPStatusError
+        mock_request = Mock()
+        mock_error_response = Mock()
+        mock_error_response.status_code = 500
+        mock_error_response.reason_phrase = "Internal Server Error"
+        mock_error_response.text = "Internal error"
+        mock_error_response.json.side_effect = Exception("Not JSON")
+
         # Mock API error
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "API Error", request=Mock(), response=Mock()
+            "API Error", request=mock_request, response=mock_error_response
         )
-        self.mock_client.get.return_value = mock_response
+        self.mock_client.request.return_value = mock_response
 
         # Should raise the HTTP error
         with pytest.raises(httpx.HTTPStatusError):
@@ -283,7 +294,7 @@ class TestRemoteEventsList:
     def test_remote_events_list_empty_response(self):
         """Test handling of empty API response."""
         mock_response = self.create_mock_api_response([])
-        self.mock_client.get.return_value = mock_response
+        self.mock_client.request.return_value = mock_response
 
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
 
