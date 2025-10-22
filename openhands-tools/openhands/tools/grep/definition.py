@@ -11,7 +11,13 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinition
+from openhands.sdk.tool import (
+    Action,
+    Observation,
+    ToolAnnotations,
+    ToolDefinition,
+    register_tool,
+)
 
 
 class GrepAction(Action):
@@ -144,3 +150,7 @@ class GrepTool(ToolDefinition[GrepAction, GrepObservation]):
                 executor=executor,
             )
         ]
+
+
+# Automatically register the tool when this module is imported
+register_tool("GrepTool", GrepTool)

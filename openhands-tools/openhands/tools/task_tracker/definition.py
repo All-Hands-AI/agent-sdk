@@ -18,6 +18,7 @@ from openhands.sdk.tool import (
     ToolAnnotations,
     ToolDefinition,
     ToolExecutor,
+    register_tool,
 )
 
 
@@ -425,3 +426,7 @@ class TaskTrackerTool(ToolDefinition[TaskTrackerAction, TaskTrackerObservation])
                 executor=executor,
             )
         ]
+
+
+# Automatically register the tool when this module is imported
+register_tool("TaskTrackerTool", TaskTrackerTool)

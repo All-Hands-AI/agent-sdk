@@ -16,6 +16,7 @@ from openhands.sdk.tool import (
     Observation,
     ToolAnnotations,
     ToolDefinition,
+    register_tool,
 )
 from openhands.tools.file_editor.utils.diff import visualize_diff
 
@@ -244,3 +245,7 @@ class FileEditorTool(ToolDefinition[FileEditorAction, FileEditorObservation]):
                 executor=executor,
             )
         ]
+
+
+# Automatically register the tool when this module is imported
+register_tool("FileEditorTool", FileEditorTool)

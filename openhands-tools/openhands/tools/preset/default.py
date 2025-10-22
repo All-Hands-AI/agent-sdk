@@ -8,7 +8,7 @@ from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import Tool, register_tool
+from openhands.sdk.tool import Tool
 
 
 logger = get_logger(__name__)
@@ -16,21 +16,18 @@ logger = get_logger(__name__)
 
 def register_default_tools(enable_browser: bool = True) -> None:
     """Register the default set of tools."""
-    from openhands.tools.execute_bash import BashTool
-    from openhands.tools.file_editor import FileEditorTool
-    from openhands.tools.task_tracker import TaskTrackerTool
+    # Tools are now automatically registered when imported
+    from openhands.tools.execute_bash import BashTool  # noqa: F401
+    from openhands.tools.file_editor import FileEditorTool  # noqa: F401
+    from openhands.tools.task_tracker import TaskTrackerTool  # noqa: F401
 
-    register_tool("BashTool", BashTool)
     logger.debug("Tool: BashTool registered.")
-    register_tool("FileEditorTool", FileEditorTool)
     logger.debug("Tool: FileEditorTool registered.")
-    register_tool("TaskTrackerTool", TaskTrackerTool)
     logger.debug("Tool: TaskTrackerTool registered.")
 
     if enable_browser:
-        from openhands.tools.browser_use import BrowserToolSet
+        from openhands.tools.browser_use import BrowserToolSet  # noqa: F401
 
-        register_tool("BrowserToolSet", BrowserToolSet)
         logger.debug("Tool: BrowserToolSet registered.")
 
 
