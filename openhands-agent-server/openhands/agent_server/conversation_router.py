@@ -1,6 +1,5 @@
 """Conversation router for OpenHands SDK."""
 
-import logging
 from typing import Annotated
 from uuid import UUID
 
@@ -26,8 +25,6 @@ from openhands.sdk import LLM, Agent, TextContent, Tool
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.workspace import LocalWorkspace
 
-
-logger = logging.getLogger(__name__)
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
