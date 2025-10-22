@@ -8,8 +8,8 @@ from fastapi import APIRouter
 
 from openhands.agent_server.bash_service import get_default_bash_event_service
 from openhands.agent_server.conversation_service import get_default_conversation_service
-from openhands.sdk.cmd.git_changes import get_git_changes
-from openhands.sdk.cmd.git_diff import get_git_diff
+from openhands.sdk.git.git_changes import get_git_changes
+from openhands.sdk.git.git_diff import get_git_diff
 
 
 git_router = APIRouter(prefix="/git", tags=["Git"])
