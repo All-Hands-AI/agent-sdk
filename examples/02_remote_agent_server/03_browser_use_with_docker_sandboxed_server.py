@@ -39,7 +39,6 @@ with DockerWorkspace(
     # TODO: Change this to your platform if not linux/arm64
     platform=detect_platform(),
     extra_ports=True,  # Expose extra ports for VSCode and VNC
-    forward_env=["LLM_API_KEY"],  # Forward API key to container
 ) as workspace:
     """Extra ports allows you to check localhost:8012 for VNC"""
 
