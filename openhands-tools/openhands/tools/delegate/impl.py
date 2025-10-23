@@ -1,8 +1,8 @@
 """Implementation of delegate tool executor."""
 
+import queue
 import threading
 import time
-import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -59,26 +59,43 @@ class DelegateExecutor(ToolExecutor):
     - Managing sub-agent lifecycle with proper synchronization
     """
 
-    def __init__(self):
+    def __init__(self, max_children: int = 10):
         # Thread-safe storage for all state
         self._lock: threading.RLock = threading.RLock()
         self._parent_conversation: BaseConversation | None = None
         self._sub_agents: dict[str, SubAgentInfo] = {}
-        self._pending_parent_messages: list[Message] = []
+        self._pending_parent_messages: queue.Queue[Message] = queue.Queue(maxsize=1000)
+        self._parent_running: bool = False  # Single-flight guard for parent runs
+        self._max_children: int = max_children  # Limit concurrent sub-agents
 
-    def __del__(self):
-        """Cleanup when executor is destroyed."""
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensure cleanup."""
         self.shutdown()
+        return False
 
     def shutdown(self):
         """Shutdown the executor and clean up all resources."""
+        # Get list of sub-agents to cancel (outside lock to avoid deadlock)
         with self._lock:
-            # Cancel all sub-agents
-            for sub_agent in list(self._sub_agents.values()):
-                self._cancel_sub_agent_unsafe(sub_agent.conversation_id)
+            sub_agent_ids = list(self._sub_agents.keys())
 
+        # Cancel all sub-agents (this will join threads outside lock)
+        for sub_agent_id in sub_agent_ids:
+            self._cancel_sub_agent(sub_agent_id)
+
+        with self._lock:
             # Clear pending messages
-            self._pending_parent_messages.clear()
+            while not self._pending_parent_messages.empty():
+                try:
+                    self._pending_parent_messages.get_nowait()
+                except queue.Empty:
+                    break
+
+            self._parent_conversation = None
 
     def register_conversation(self, conversation: "BaseConversation") -> None:
         """Register the parent conversation with the delegation executor."""
@@ -167,11 +184,16 @@ class DelegateExecutor(ToolExecutor):
         - Lower latency than fixed debounce: run as soon as parent flips to idle
         - Cost control: at most one extra parent run per idle transition
         """
+        # Check conditions and collect messages under lock
         with self._lock:
             if not self._parent_conversation:
                 return
 
-            if not self._pending_parent_messages:
+            if self._pending_parent_messages.empty():
+                return
+
+            # Single-flight guard - prevent concurrent parent runs
+            if self._parent_running:
                 return
 
             # Check if parent is idle (FINISHED state)
@@ -179,39 +201,54 @@ class DelegateExecutor(ToolExecutor):
                 if hasattr(self._parent_conversation, "state") and hasattr(
                     self._parent_conversation.state, "agent_status"
                 ):
-                    if self._parent_conversation.state.agent_status == "FINISHED":
-                        # Parent is idle and we have pending messages - trigger one run
-                        messages_to_send = self._pending_parent_messages.copy()
-                        self._pending_parent_messages.clear()
+                    if self._parent_conversation.state.agent_status != "FINISHED":
+                        return
 
-                        # Send all pending messages to parent
-                        for message in messages_to_send:
-                            try:
-                                self._parent_conversation.send_message(message)
-                                logger.debug(
-                                    f"Sent message to parent "
-                                    f"{self._parent_conversation.id}"
-                                )
-                            except Exception as e:
-                                logger.error(
-                                    f"Failed to send message to parent "
-                                    f"{self._parent_conversation.id}: {e}"
-                                )
-
-                        # Trigger exactly one parent run to process all messages
+                    # Parent is idle, we have messages, and no run in progress
+                    # Set running flag and drain queue
+                    self._parent_running = True
+                    messages_to_send = []
+                    while not self._pending_parent_messages.empty():
                         try:
-                            self._parent_conversation.run()
-                            logger.debug(
-                                f"Triggered parent conversation run for "
-                                f"{self._parent_conversation.id}"
+                            messages_to_send.append(
+                                self._pending_parent_messages.get_nowait()
                             )
-                        except Exception as e:
-                            logger.error(
-                                f"Failed to trigger parent conversation run: {e}"
-                            )
+                        except queue.Empty:
+                            break
+
+                    parent_conversation = self._parent_conversation
+                else:
+                    return
 
             except Exception as e:
                 logger.error(f"Error checking parent status: {e}")
+                return
+
+        # Send messages and trigger parent run outside of lock
+        try:
+            # Send all pending messages to parent
+            for message in messages_to_send:
+                try:
+                    parent_conversation.send_message(message)
+                    logger.debug(f"Sent message to parent {parent_conversation.id}")
+                except Exception as e:
+                    logger.error(
+                        f"Failed to send message to parent "
+                        f"{parent_conversation.id}: {e}"
+                    )
+
+            # Trigger exactly one parent run to process all messages
+            try:
+                parent_conversation.run()
+                logger.debug(
+                    f"Triggered parent conversation run for {parent_conversation.id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to trigger parent conversation run: {e}")
+        finally:
+            # Always clear the running flag
+            with self._lock:
+                self._parent_running = False
 
     def _spawn_sub_agent(
         self, action: "DelegateAction", conversation: "BaseConversation"
@@ -232,6 +269,22 @@ class DelegateExecutor(ToolExecutor):
                 if self._parent_conversation is None:
                     self.register_conversation(conversation)
                 parent_conversation = self._parent_conversation
+
+                # Check max_children limit
+                active_count = sum(
+                    1
+                    for sub_agent in self._sub_agents.values()
+                    if sub_agent.state in (SubAgentState.CREATED, SubAgentState.RUNNING)
+                )
+                if active_count >= self._max_children:
+                    return DelegateObservation(
+                        operation="spawn",
+                        success=False,
+                        message=(
+                            f"Maximum number of sub-agents ({self._max_children}) "
+                            "reached"
+                        ),
+                    )
 
             from openhands.tools.preset.default import get_default_agent
 
@@ -256,9 +309,25 @@ class DelegateExecutor(ToolExecutor):
 
             visualize = getattr(parent_conversation, "visualize", True)
 
-            # Generate unique sub-conversation ID
-            sub_conversation_id = str(uuid.uuid4())
+            workspace = parent_conversation.state.workspace
+            # Handle workspace path safely - avoid stringifying non-path objects
+            if isinstance(workspace, LocalWorkspace):
+                workspace_path = workspace.working_dir
+            elif hasattr(workspace, "working_dir"):
+                workspace_path = workspace.working_dir
+            else:
+                # Fallback for other workspace types
+                workspace_path = getattr(workspace, "path", "/tmp")
 
+            sub_conversation = LocalConversation(
+                agent=worker_agent,
+                workspace=workspace_path,
+                visualize=visualize,
+                callbacks=[],  # Will add callback after we have the ID
+            )
+
+            # Use the sub_conversation's ID instead of generating UUID
+            sub_conversation_id = str(sub_conversation.id)
             stop_event = threading.Event()
 
             def sub_agent_completion_callback(event):
@@ -290,24 +359,17 @@ class DelegateExecutor(ToolExecutor):
                                 role="user",
                                 content=[TextContent(text=parent_message)],
                             )
-                            self._pending_parent_messages.append(message)
+                            try:
+                                self._pending_parent_messages.put_nowait(message)
+                                # Trigger parent if it's idle
+                                self._trigger_parent_if_idle()
+                            except queue.Full:
+                                logger.warning(
+                                    "Parent message queue is full, dropping message"
+                                )
 
-                            # Trigger parent if it's idle
-                            self._trigger_parent_if_idle()
-
-            workspace = parent_conversation.state.workspace
-            workspace_path = (
-                workspace.working_dir
-                if isinstance(workspace, LocalWorkspace)
-                else str(workspace)
-            )
-
-            sub_conversation = LocalConversation(
-                agent=worker_agent,
-                workspace=workspace_path,
-                visualize=visualize,
-                callbacks=[sub_agent_completion_callback],
-            )
+            # Add the callback now that we have the ID
+            sub_conversation.callbacks.append(sub_agent_completion_callback)
 
             def run_sub_agent():
                 """Sub-agent thread function with proper error handling and state management."""  # noqa: E501
@@ -379,10 +441,14 @@ class DelegateExecutor(ToolExecutor):
                         role="user",
                         content=[TextContent(text=error_message)],
                     )
-                    with self._lock:
-                        self._pending_parent_messages.append(message)
+                    try:
+                        self._pending_parent_messages.put_nowait(message)
                         # Trigger parent if it's idle
                         self._trigger_parent_if_idle()
+                    except queue.Full:
+                        logger.warning(
+                            "Parent message queue is full, dropping error message"
+                        )
 
                     with self._lock:
                         if sub_conversation_id in self._sub_agents:
@@ -394,11 +460,11 @@ class DelegateExecutor(ToolExecutor):
                                 sub_conversation_id
                             ].completed_at = time.time()
 
-            # Create and start thread
+            # Create and start thread (daemon=True for automatic cleanup)
             thread = threading.Thread(
                 target=run_sub_agent,
                 name=f"SubAgent-{sub_conversation_id[:8]}",
-                daemon=False,
+                daemon=True,
             )
 
             # Create sub-agent info and register it
@@ -532,7 +598,7 @@ class DelegateExecutor(ToolExecutor):
                 )
 
         try:
-            return self._cancel_sub_agent_unsafe(action.sub_conversation_id)
+            return self._cancel_sub_agent(action.sub_conversation_id)
         except Exception as e:
             logger.error(f"Failed to close sub-agent {action.sub_conversation_id}: {e}")
             return DelegateObservation(
@@ -542,39 +608,40 @@ class DelegateExecutor(ToolExecutor):
                 message=f"Failed to close sub-agent {action.sub_conversation_id}: {e}",
             )
 
-    def _cancel_sub_agent_unsafe(
-        self, sub_conversation_id: str
-    ) -> "DelegateObservation":
-        """Cancel a sub-agent. Must be called with lock held."""
+    def _cancel_sub_agent(self, sub_conversation_id: str) -> "DelegateObservation":
+        """Cancel a sub-agent with proper thread joining outside lock."""
         from openhands.tools.delegate.definition import DelegateObservation
 
-        sub_agent = self._sub_agents.get(sub_conversation_id)
-        if sub_agent is None:
-            return DelegateObservation(
-                operation="close",
-                success=False,
-                sub_conversation_id=sub_conversation_id,
-                message=f"Sub-agent {sub_conversation_id} not found",
-            )
+        # Get sub-agent info and signal stop under lock
+        with self._lock:
+            sub_agent = self._sub_agents.get(sub_conversation_id)
+            if sub_agent is None:
+                return DelegateObservation(
+                    operation="close",
+                    success=False,
+                    sub_conversation_id=sub_conversation_id,
+                    message=f"Sub-agent {sub_conversation_id} not found",
+                )
 
-        # Signal the sub-agent to stop
-        sub_agent.stop_event.set()
-        sub_agent.state = SubAgentState.CANCELLED
-        sub_agent.completed_at = time.time()
+            # Signal the sub-agent to stop and update state
+            sub_agent.stop_event.set()
+            sub_agent.state = SubAgentState.CANCELLED
+            sub_agent.completed_at = time.time()
 
-        # Wait for thread to finish (with timeout)
-        if sub_agent.thread.is_alive():
+            # Detach callbacks to avoid stray events
+            if hasattr(sub_agent.conversation, "callbacks"):
+                sub_agent.conversation.callbacks.clear()
+
+            thread = sub_agent.thread
+
+        # Wait for thread to finish outside of lock
+        if thread.is_alive():
             logger.info(f"Waiting for sub-agent {sub_conversation_id[:8]} to stop...")
-            # Release lock temporarily to avoid deadlock
-            self._lock.release()
-            try:
-                sub_agent.thread.join(timeout=10.0)
-                if sub_agent.thread.is_alive():
-                    logger.warning(
-                        f"Sub-agent {sub_conversation_id[:8]} did not stop gracefully"
-                    )
-            finally:
-                self._lock.acquire()
+            thread.join(timeout=10.0)
+            if thread.is_alive():
+                logger.warning(
+                    f"Sub-agent {sub_conversation_id[:8]} did not stop gracefully"
+                )
 
         logger.info(f"Closed sub-agent {sub_conversation_id[:8]}")
         return DelegateObservation(
@@ -583,3 +650,23 @@ class DelegateExecutor(ToolExecutor):
             sub_conversation_id=sub_conversation_id,
             message=f"Sub-agent {sub_conversation_id} closed successfully",
         )
+
+    def _cancel_sub_agent_unsafe(
+        self, sub_conversation_id: str
+    ) -> "DelegateObservation":
+        """Cancel a sub-agent. Must be called with lock held.
+
+        DEPRECATED - use _cancel_sub_agent instead.
+        """
+        # For backward compatibility, check if lock is held and handle appropriately
+        lock_was_held = self._lock._count > 0  # Check if RLock is held
+        if lock_was_held:
+            # Release lock and call the safe version
+            self._lock.release()
+            try:
+                return self._cancel_sub_agent(sub_conversation_id)
+            finally:
+                self._lock.acquire()
+        else:
+            # Lock not held, just call the safe version directly
+            return self._cancel_sub_agent(sub_conversation_id)
