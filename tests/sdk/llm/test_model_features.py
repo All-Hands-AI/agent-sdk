@@ -30,10 +30,14 @@ def test_model_matches(name, pattern, expected):
         ("claude-3-5-sonnet", True),
         ("claude-3-7-sonnet", True),
         ("gemini-2.5-pro", True),
-        # AWS Bedrock models
+        # AWS Bedrock model ids (provider-prefixed)
         ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
         ("bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0", True),
         ("bedrock/anthropic.claude-sonnet-4-20250514-v1:0", True),
+        # User-facing model names (no provider prefix)
+        ("anthropic.claude-3-5-sonnet-20241022", True),
+        ("anthropic.claude-3-7-sonnet-20250219", True),
+        ("anthropic.claude-sonnet-4-20250514", True),
         (
             "llama-3.1-70b",
             False,
@@ -71,10 +75,14 @@ def test_reasoning_effort_support(model, expected_reasoning):
         ("claude-3-7-sonnet", True),
         ("claude-3-haiku-20240307", True),
         ("claude-3-opus-20240229", True),
-        # AWS Bedrock models
+        # AWS Bedrock model ids (provider-prefixed)
         ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
         ("bedrock/anthropic.claude-3-haiku-20240307-v1:0", True),
         ("bedrock/anthropic.claude-3-opus-20240229-v1:0", True),
+        # User-facing model names (no provider prefix)
+        ("anthropic.claude-3-5-sonnet-20241022", True),
+        ("anthropic.claude-3-haiku-20240307", True),
+        ("anthropic.claude-3-opus-20240229", True),
         ("gpt-4o", False),  # OpenAI doesn't support explicit prompt caching
         ("gemini-1.5-pro", False),
         ("unknown-model", False),
