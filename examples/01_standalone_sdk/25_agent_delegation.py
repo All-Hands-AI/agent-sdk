@@ -14,10 +14,14 @@ from pydantic import SecretStr
 
 from openhands.sdk import (
     LLM,
+    Agent,
     Conversation,
+    Tool,
     get_logger,
 )
-from openhands.tools.preset.default import get_default_agent
+from openhands.sdk.tool import register_tool
+from openhands.tools.delegate import DelegationTool
+from openhands.tools.preset.default import get_default_tools
 
 
 logger = get_logger(__name__)
@@ -39,7 +43,15 @@ cwd = os.getcwd()
 
 
 # Initialize main agent with delegation capabilities
-main_agent = get_default_agent(llm=llm, enable_delegation=True, cli_mode=True)
+# Get default tools and explicitly add delegation tool
+register_tool("DelegationTool", DelegationTool)
+tools = get_default_tools(enable_browser=False)  # CLI mode - no browser
+tools.append(Tool(name="DelegationTool"))
+
+main_agent = Agent(
+    llm=llm,
+    tools=tools,
+)
 
 # Create conversation with the main agent
 conversation = Conversation(

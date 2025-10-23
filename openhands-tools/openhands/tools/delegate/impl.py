@@ -92,11 +92,11 @@ class DelegateExecutor(ToolExecutor):
         """Spawn a new sub-agent that runs asynchronously."""
         from openhands.tools.delegate.definition import DelegateObservation
 
-        if not action.task:
+        if not action.message:
             return DelegateObservation(
                 operation="spawn",
                 success=False,
-                message="Task is required for spawn operation",
+                message="Message is required for spawn operation",
             )
 
         try:
@@ -108,9 +108,16 @@ class DelegateExecutor(ToolExecutor):
 
             from openhands.tools.preset.default import get_default_agent
 
-            parent_llm = parent_conversation.agent.llm  # type: ignore[attr-defined]
+            # Ensure parent conversation has agent attribute
+            assert hasattr(parent_conversation, "agent"), (
+                "Parent conversation must have agent attribute"
+            )
+            parent_agent = parent_conversation.agent
+            assert hasattr(parent_agent, "llm"), "Parent agent must have llm attribute"
+
+            parent_llm = parent_agent.llm
             cli_mode = getattr(
-                parent_conversation.agent,  # type: ignore[attr-defined]
+                parent_agent,
                 "cli_mode",
                 False,
             ) or not hasattr(parent_conversation, "workspace")
@@ -118,7 +125,6 @@ class DelegateExecutor(ToolExecutor):
             worker_agent = get_default_agent(
                 llm=parent_llm.model_copy(update={"service_id": "sub_agent"}),
                 cli_mode=cli_mode,
-                enable_delegation=False,
             )
 
             visualize = getattr(parent_conversation, "visualize", True)
@@ -201,13 +207,13 @@ class DelegateExecutor(ToolExecutor):
 
             def run_sub_agent():
                 try:
-                    # action.task is guaranteed to be not None due to check at line 93
-                    assert action.task is not None
+                    # action.message is guaranteed to be not None due to check above
+                    assert action.message is not None
                     logger.info(
                         f"Sub-agent {sub_conversation_id[:8]} starting with task: "
-                        f"{action.task[:100]}..."
+                        f"{action.message[:100]}..."
                     )
-                    sub_conversation.send_message(action.task)
+                    sub_conversation.send_message(action.message)
                     sub_conversation.run()
                     logger.info(f"Sub-agent {sub_conversation_id[:8]} completed")
                 except Exception as e:
@@ -233,11 +239,11 @@ class DelegateExecutor(ToolExecutor):
             self.sub_agent_threads[sub_conversation_id] = thread
             thread.start()
 
-            # action.task is guaranteed to be not None due to check at line 93
-            assert action.task is not None
+            # action.message is guaranteed to be not None due to check at line 95
+            assert action.message is not None
             logger.info(
                 f"Spawned sub-agent {sub_conversation_id[:8]} with task: "
-                f"{action.task[:100]}..."
+                f"{action.message[:100]}..."
             )
 
             return DelegateObservation(

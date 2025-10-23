@@ -42,11 +42,10 @@ def create_test_executor_and_parent():
 def test_delegate_action_creation():
     """Test creating DelegateAction instances."""
     # Test spawn action
-    spawn_action = DelegateAction(operation="spawn", task="Analyze code quality")
+    spawn_action = DelegateAction(operation="spawn", message="Analyze code quality")
     assert spawn_action.operation == "spawn"
-    assert spawn_action.task == "Analyze code quality"
+    assert spawn_action.message == "Analyze code quality"
     assert spawn_action.sub_conversation_id is None
-    assert spawn_action.message is None
 
     # Test send action
     send_action = DelegateAction(
@@ -55,7 +54,6 @@ def test_delegate_action_creation():
     assert send_action.operation == "send"
     assert send_action.sub_conversation_id == "sub-123"
     assert send_action.message == "Hello"
-    assert send_action.task is None
 
 
 def test_delegate_observation_creation():
@@ -77,7 +75,7 @@ def test_delegate_executor_spawn():
     executor, parent_conversation = create_test_executor_and_parent()
 
     # Create spawn action with conversation_id
-    action = DelegateAction(operation="spawn", task="Analyze code quality")
+    action = DelegateAction(operation="spawn", message="Analyze code quality")
     action = action.model_copy(update={"conversation_id": parent_conversation.id})
 
     # Mock the executor's private _spawn_sub_agent method
@@ -121,7 +119,7 @@ def test_delegate_executor_send():
             message="Sub-agent created",
             sub_conversation_id=sub_id,
         )
-        spawn_action = DelegateAction(operation="spawn", task="Test task")
+        spawn_action = DelegateAction(operation="spawn", message="Test task")
         spawn_action = spawn_action.model_copy(
             update={"conversation_id": parent_conversation.id}
         )
@@ -182,7 +180,7 @@ def test_delegate_executor_close():
             message="Sub-agent created",
             sub_conversation_id=sub_id,
         )
-        spawn_action = DelegateAction(operation="spawn", task="Test task")
+        spawn_action = DelegateAction(operation="spawn", message="Test task")
         spawn_action = spawn_action.model_copy(
             update={"conversation_id": parent_conversation.id}
         )
@@ -221,7 +219,7 @@ def test_delegate_executor_spawn_missing_task():
     # Verify
     assert isinstance(observation, DelegateObservation)
     assert observation.success is False
-    assert "Task is required for spawn operation" in observation.message
+    assert "Message is required for spawn operation" in observation.message
 
 
 def test_delegate_executor_send_missing_params():
