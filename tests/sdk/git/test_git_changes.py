@@ -211,18 +211,22 @@ def test_get_changes_in_repo_staged_and_unstaged():
 
 def test_get_changes_in_repo_non_git_directory():
     """Test get_changes_in_repo with a non-git directory."""
+    from openhands.sdk.git.exceptions import GitRepositoryError
+
     with tempfile.TemporaryDirectory() as temp_dir:
         # Don't initialize git repo
         (Path(temp_dir) / "file.txt").write_text("Content")
 
-        changes = get_changes_in_repo(temp_dir)
-        assert changes == []
+        with pytest.raises(GitRepositoryError):
+            get_changes_in_repo(temp_dir)
 
 
 def test_get_changes_in_repo_nonexistent_directory():
     """Test get_changes_in_repo with a nonexistent directory."""
+    from openhands.sdk.git.exceptions import GitRepositoryError
+
     # The function will raise an exception for nonexistent directories
-    with pytest.raises((FileNotFoundError, RuntimeError)):
+    with pytest.raises(GitRepositoryError):
         get_changes_in_repo("/nonexistent/directory")
 
 

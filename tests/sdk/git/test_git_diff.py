@@ -98,8 +98,10 @@ def test_get_git_diff_deleted_file():
         # Delete the file
         os.remove(test_file)
 
-        # The function will raise FileNotFoundError for deleted files
-        with pytest.raises(FileNotFoundError):
+        # The function will raise GitPathError for deleted files
+        from openhands.sdk.git.exceptions import GitPathError
+
+        with pytest.raises(GitPathError):
             run_in_directory(temp_dir, get_git_diff, "deleted_file.txt")
 
 
@@ -141,7 +143,9 @@ def test_get_git_diff_no_repository():
         test_file = Path(temp_dir) / "file.txt"
         test_file.write_text("Content")
 
-        with pytest.raises(ValueError, match="no_repository"):
+        from openhands.sdk.git.exceptions import GitRepositoryError
+
+        with pytest.raises(GitRepositoryError):
             run_in_directory(temp_dir, get_git_diff, "file.txt")
 
 
@@ -150,7 +154,9 @@ def test_get_git_diff_nonexistent_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         setup_git_repo(temp_dir)
 
-        with pytest.raises(FileNotFoundError):
+        from openhands.sdk.git.exceptions import GitPathError
+
+        with pytest.raises(GitPathError):
             run_in_directory(temp_dir, get_git_diff, "nonexistent.txt")
 
 
@@ -271,5 +277,7 @@ def test_git_diff_large_file_error():
         large_content = "x" * (1024 * 1024 + 1)  # 1MB + 1 byte
         test_file.write_text(large_content)
 
-        with pytest.raises(ValueError, match="file_to_large"):
+        from openhands.sdk.git.exceptions import GitPathError
+
+        with pytest.raises(GitPathError):
             run_in_directory(temp_dir, get_git_diff, "large_file.txt")

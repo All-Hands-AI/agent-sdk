@@ -106,8 +106,8 @@ async def test_git_diff_success(client):
         assert response_data["modified"] == expected_diff.modified
         assert response_data["original"] == expected_diff.original
 
-        # Verify the mock was called correctly
-        mock_git_diff.assert_called_once_with(test_path)
+        # Verify the mock was called correctly (now expects Path object)
+        mock_git_diff.assert_called_once_with(Path(test_path))
 
 
 @pytest.mark.asyncio
@@ -163,8 +163,8 @@ async def test_git_diff_nested_path(client):
 
         assert response.status_code == 200
 
-        # Verify the correct path was passed
-        mock_git_diff.assert_called_once_with(test_path)
+        # Verify the correct path was passed (now expects Path object)
+        mock_git_diff.assert_called_once_with(Path(test_path))
 
 
 @pytest.mark.asyncio

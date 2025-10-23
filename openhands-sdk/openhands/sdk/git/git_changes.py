@@ -5,11 +5,20 @@ if possible.
 
 import glob
 import json
+import logging
 import os
 from pathlib import Path
 
+from openhands.sdk.git.exceptions import GitCommandError
 from openhands.sdk.git.models import GitChange, GitChangeStatus
-from openhands.sdk.git.utils import get_valid_ref, run
+from openhands.sdk.git.utils import (
+    get_valid_ref,
+    run_git_command,
+    validate_git_repository,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 def _map_git_status_to_enum(status: str) -> GitChangeStatus:
@@ -26,21 +35,45 @@ def _map_git_status_to_enum(status: str) -> GitChangeStatus:
 
 
 def get_changes_in_repo(repo_dir: str | Path) -> list[GitChange]:
-    # Gets the status relative to the origin default branch
-    # Not the same as `git status`
+    """Get git changes in a repository relative to the origin default branch.
 
-    ref = get_valid_ref(repo_dir)
+    This is different from `git status` as it compares against the remote branch
+    rather than the staging area.
+
+    Args:
+        repo_dir: Path to the git repository
+
+    Returns:
+        List of GitChange objects representing the changes
+
+    Raises:
+        GitRepositoryError: If the directory is not a valid git repository
+        GitCommandError: If git commands fail
+    """
+    # Validate the repository first
+    validated_repo = validate_git_repository(repo_dir)
+
+    ref = get_valid_ref(validated_repo)
     if not ref:
+        logger.warning(f"No valid git reference found for {validated_repo}")
         return []
 
-    # Get changed files
-    changed_files = run(
-        f"git --no-pager diff --name-status {ref}", repo_dir
-    ).splitlines()
+    # Get changed files using secure git command
+    try:
+        changed_files_output = run_git_command(
+            ["git", "--no-pager", "diff", "--name-status", ref], validated_repo
+        )
+        changed_files = (
+            changed_files_output.splitlines() if changed_files_output else []
+        )
+    except GitCommandError as e:
+        logger.error(f"Failed to get git diff for {validated_repo}: {e}")
+        raise
     changes = []
     for line in changed_files:
         if not line.strip():
-            raise RuntimeError(f"unexpected_value_in_git_diff:{changed_files}")
+            logger.warning("Empty line in git diff output, skipping")
+            continue
 
         # Handle different output formats from git diff --name-status
         # Depending on git config, format can be either:
@@ -49,7 +82,13 @@ def get_changes_in_repo(repo_dir: str | Path) -> list[GitChange]:
         # * "R100    old_file.txt    new_file.txt" (rename with similarity percentage)
         parts = line.split()
         if len(parts) < 2:
-            raise RuntimeError(f"unexpected_value_in_git_diff:{changed_files}")
+            logger.error(f"Unexpected git diff line format: {line}")
+            raise GitCommandError(
+                message=f"Unexpected git diff output format: {line}",
+                command=["git", "diff", "--name-status"],
+                exit_code=0,
+                stderr="Invalid output format",
+            )
 
         status = parts[0].strip()
 
@@ -71,6 +110,7 @@ def get_changes_in_repo(repo_dir: str | Path) -> list[GitChange]:
                     path=Path(new_path),
                 )
             )
+            logger.debug(f"Found git rename: {old_path} -> {new_path}")
             continue
 
         # Handle copy operations (status starts with 'C' followed by
@@ -84,13 +124,20 @@ def get_changes_in_repo(repo_dir: str | Path) -> list[GitChange]:
                     path=Path(new_path),
                 )
             )
+            logger.debug(f"Found git copy: -> {new_path}")
             continue
 
         # Handle regular operations (M, A, D, etc.)
         elif len(parts) == 2:
             path = parts[1].strip()
         else:
-            raise RuntimeError(f"unexpected_value_in_git_diff:{changed_files}")
+            logger.error(f"Unexpected git diff line format: {line}")
+            raise GitCommandError(
+                message=f"Unexpected git diff output format: {line}",
+                command=["git", "diff", "--name-status"],
+                exit_code=0,
+                stderr="Invalid output format",
+            )
 
         if status == "??":
             status = "A"
@@ -99,28 +146,52 @@ def get_changes_in_repo(repo_dir: str | Path) -> list[GitChange]:
 
         # Check for valid single-character status codes
         if status in {"M", "A", "D", "U"}:
-            changes.append(
-                GitChange(
-                    status=_map_git_status_to_enum(status),
-                    path=Path(path),
+            try:
+                changes.append(
+                    GitChange(
+                        status=_map_git_status_to_enum(status),
+                        path=Path(path),
+                    )
                 )
-            )
+                logger.debug(f"Found git change: {status} {path}")
+            except ValueError as e:
+                logger.error(f"Unknown git status '{status}' for file {path}")
+                raise GitCommandError(
+                    message=f"Unknown git status: {status}",
+                    command=["git", "diff", "--name-status"],
+                    exit_code=0,
+                    stderr=f"Unknown status code: {status}",
+                ) from e
         else:
-            raise RuntimeError(f"unexpected_status_in_git_diff:{changed_files}")
+            logger.error(f"Unexpected git status '{status}' for file {path}")
+            raise GitCommandError(
+                message=f"Unexpected git status: {status}",
+                command=["git", "diff", "--name-status"],
+                exit_code=0,
+                stderr=f"Unexpected status code: {status}",
+            )
 
     # Get untracked files
-    untracked_files = run(
-        "git --no-pager ls-files --others --exclude-standard", repo_dir
-    ).splitlines()
+    try:
+        untracked_output = run_git_command(
+            ["git", "--no-pager", "ls-files", "--others", "--exclude-standard"],
+            validated_repo,
+        )
+        untracked_files = untracked_output.splitlines() if untracked_output else []
+    except GitCommandError as e:
+        logger.error(f"Failed to get untracked files for {validated_repo}: {e}")
+        untracked_files = []
     for path in untracked_files:
-        if path:
+        if path.strip():
             changes.append(
                 GitChange(
                     status=GitChangeStatus.ADDED,
-                    path=Path(path),
+                    path=Path(path.strip()),
                 )
             )
+            logger.debug(f"Found untracked file: {path}")
 
+    logger.info(f"Found {len(changes)} total git changes in {validated_repo}")
     return changes
 
 
