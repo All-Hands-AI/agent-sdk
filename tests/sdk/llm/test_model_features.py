@@ -30,10 +30,16 @@ def test_model_matches(name, pattern, expected):
         ("claude-3-5-sonnet", True),
         ("claude-3-7-sonnet", True),
         ("gemini-2.5-pro", True),
+        # Anthropic 4.5 variants (dash and dot)
+        ("claude-sonnet-4-5", True),
+        ("claude-sonnet-4.5", True),
         # AWS Bedrock model ids (provider-prefixed)
         ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
         ("bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0", True),
         ("bedrock/anthropic.claude-sonnet-4-20250514-v1:0", True),
+        # Dotted vendor prefixes without provider
+        ("us.anthropic.claude-sonnet-4-5-20250929-v1", True),
+        ("us.anthropic.claude-sonnet-4.5-20250929-v1", True),
         # User-facing model names (no provider prefix)
         ("anthropic.claude-3-5-sonnet-20241022", True),
         ("anthropic.claude-3-7-sonnet-20250219", True),
@@ -79,6 +85,9 @@ def test_reasoning_effort_support(model, expected_reasoning):
         ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
         ("bedrock/anthropic.claude-3-haiku-20240307-v1:0", True),
         ("bedrock/anthropic.claude-3-opus-20240229-v1:0", True),
+        # Anthropic 4.5 variants (dash and dot)
+        ("claude-sonnet-4-5", True),
+        ("claude-sonnet-4.5", True),
         # User-facing model names (no provider prefix)
         ("anthropic.claude-3-5-sonnet-20241022", True),
         ("anthropic.claude-3-haiku-20240307", True),
