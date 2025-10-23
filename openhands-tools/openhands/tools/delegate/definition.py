@@ -21,17 +21,17 @@ class DelegateAction(Action):
     operation: Literal["spawn", "send", "close"] = Field(
         description="The delegation operation to perform"
     )
-    sub_conversation_id: str | None = Field(
-        default=None,
-        description=(
-            "ID of the sub-conversation (only supported for send/close operations)"
-        ),
-    )
     message: str | None = Field(
         default=None,
         description=(
             "Message content: for spawn operation, this is the task description; "
             "for send operation, this is the message to send to sub-agent"
+        ),
+    )
+    sub_conversation_id: str | None = Field(
+        default=None,
+        description=(
+            "ID of the sub-conversation (only supported for send/close operations)"
         ),
     )
 
