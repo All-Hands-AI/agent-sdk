@@ -58,7 +58,7 @@ class TestTool:
         """Test tool creation with executor function."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(self, action, conversation=None) -> ToolMockObservation:
                 return ToolMockObservation(result=f"Executed: {action.command}")
 
         tool = ToolDefinition(
@@ -164,7 +164,7 @@ class TestTool:
         """Test calling tool with executor."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(self, action, conversation=None) -> ToolMockObservation:
                 return ToolMockObservation(result=f"Processed: {action.command}")
 
         tool = ToolDefinition(
@@ -214,7 +214,7 @@ class TestTool:
         """Test that observation type is properly validated."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(self, action, conversation=None) -> ToolMockObservation:
                 return ToolMockObservation(result="success")
 
         tool = ToolDefinition(
@@ -236,7 +236,7 @@ class TestTool:
         """Test observation with additional fields."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(self, action, conversation=None) -> ToolMockObservation:
                 return ToolMockObservation(result="test", extra_field="extra_data")
 
         tool = ToolDefinition(
@@ -316,7 +316,7 @@ class TestTool:
 
         # Create executor first
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(self, action, conversation=None) -> ToolMockObservation:
                 return ToolMockObservation(result=f"Attached: {action.command}")
 
         executor = MockExecutor()
@@ -370,7 +370,7 @@ class TestTool:
                 return [TextContent(text=f"Data: {self.data}, Count: {self.count}")]
 
         class MockComplexExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ComplexObservation:
+            def __call__(self, action, conversation=None) -> ComplexObservation:
                 return ComplexObservation(
                     data={"processed": action.command, "timestamp": 12345},
                     count=len(action.command) if hasattr(action, "command") else 0,
@@ -395,7 +395,7 @@ class TestTool:
         """Test error handling when executor raises exceptions."""
 
         class FailingExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(self, action, conversation=None) -> ToolMockObservation:
                 raise RuntimeError("Executor failed")
 
         tool = ToolDefinition(
@@ -422,7 +422,7 @@ class TestTool:
                 return [TextContent(text=f"{self.message}: {self.value}")]
 
         class ValidExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> StrictObservation:
+            def __call__(self, action, conversation=None) -> StrictObservation:
                 return StrictObservation(message="success", value=42)
 
         tool = ToolDefinition(
@@ -709,7 +709,7 @@ class TestTool:
         """Test as_executable() method with a tool that has an executor."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: ToolMockAction) -> ToolMockObservation:
+            def __call__(self, action, conversation=None) -> ToolMockObservation:
                 return ToolMockObservation(result=f"Executed: {action.command}")
 
         executor = MockExecutor()
