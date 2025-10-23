@@ -123,20 +123,33 @@ class DelegateExecutor(ToolExecutor):
                 not self._parent_conversation
                 or str(self._parent_conversation.id) != conversation_id
             ):
+                logger.info(f"Not our parent conversation: {conversation_id}")
                 return False
+
+            logger.info(
+                f"Checking task progress for {len(self._sub_agents)} sub-agents"
+            )
 
             # Clean up dead threads first
             self._cleanup_completed_sub_agents_unsafe()
 
             # Check for active sub-agents
             active_count = 0
-            for sub_agent in self._sub_agents.values():
+            completed_count = 0
+            for sub_id, sub_agent in self._sub_agents.items():
+                logger.info(
+                    f"Sub-agent {sub_id[:8]}: state={sub_agent.state}, "
+                    f"thread_alive={sub_agent.thread.is_alive()}, "
+                    f"created_at={sub_agent.created_at:.1f}, "
+                    f"completed_at={getattr(sub_agent, 'completed_at', None)}"
+                )
+
                 if sub_agent.state in (
                     SubAgentState.CREATED,
                     SubAgentState.RUNNING,
                 ):
                     active_count += 1
-                    logger.debug(
+                    logger.info(
                         f"Sub-agent {sub_agent.conversation_id[:8]} "
                         f"still active in state: {sub_agent.state}"
                     )
@@ -145,25 +158,31 @@ class DelegateExecutor(ToolExecutor):
                     SubAgentState.FAILED,
                     SubAgentState.CANCELLED,
                 ):
+                    completed_count += 1
                     # Check if thread is still alive - if not, we can clean it up
                     if not sub_agent.thread.is_alive():
-                        logger.debug(
+                        logger.info(
                             f"Sub-agent {sub_agent.conversation_id[:8]} "
                             f"completed with state: {sub_agent.state}, "
                             f"thread dead - will be cleaned up"
                         )
                     else:
-                        logger.debug(
+                        logger.info(
                             f"Sub-agent {sub_agent.conversation_id[:8]} "
                             f"completed with state: {sub_agent.state}, "
                             f"but thread still alive"
                         )
 
-            logger.debug(f"Active sub-agents: {active_count}")
+            total_agents = len(self._sub_agents)
+            logger.info(
+                f"Active sub-agents: {active_count}, "
+                f"Completed: {completed_count}, Total: {total_agents}"
+            )
             return active_count > 0
 
     def _cleanup_completed_sub_agents_unsafe(self):
         """Clean up completed sub-agents. Must be called with lock held."""
+        logger.info(f"Starting cleanup of {len(self._sub_agents)} sub-agents")
         to_remove = []
         for sub_id, sub_agent in self._sub_agents.items():
             if sub_agent.state in (
@@ -171,15 +190,20 @@ class DelegateExecutor(ToolExecutor):
                 SubAgentState.FAILED,
                 SubAgentState.CANCELLED,
             ):
+                logger.info(
+                    f"Checking cleanup for {sub_id[:8]} in state {sub_agent.state}"
+                )
                 # Try to join the thread with a short timeout
                 if sub_agent.thread.is_alive():
                     try:
+                        logger.info(f"Attempting to join thread for {sub_id[:8]}")
                         sub_agent.thread.join(timeout=0.1)  # 100ms timeout
                     except Exception as e:
-                        logger.debug(f"Error joining thread for {sub_id[:8]}: {e}")
+                        logger.info(f"Error joining thread for {sub_id[:8]}: {e}")
 
                 # If thread is now dead or was already dead, clean it up
                 if not sub_agent.thread.is_alive():
+                    logger.info(f"Thread for {sub_id[:8]} is dead, marking for removal")
                     to_remove.append(sub_id)
                 else:
                     # Thread is still alive but sub-agent is completed
@@ -189,15 +213,17 @@ class DelegateExecutor(ToolExecutor):
                         f"Sub-agent {sub_id[:8]} is {sub_agent.state} "
                         f"but thread is still alive after {runtime:.1f}s"
                     )
-                    # If it's been more than 30 seconds, force cleanup
-                    if time.time() - sub_agent.created_at > 30:
+                    # If it's been more than 10 seconds, force cleanup
+                    if time.time() - sub_agent.created_at > 10:
                         logger.warning(
-                            f"Force cleaning up stuck sub-agent {sub_id[:8]}"
+                            f"Force cleaning up stuck sub-agent {sub_id[:8]} "
+                            f"after {runtime:.1f}s"
                         )
                         to_remove.append(sub_id)
 
+        logger.info(f"Removing {len(to_remove)} completed sub-agents")
         for sub_id in to_remove:
-            logger.debug(f"Cleaning up completed sub-agent {sub_id[:8]}")
+            logger.info(f"Cleaning up completed sub-agent {sub_id[:8]}")
             del self._sub_agents[sub_id]
 
     def __call__(
@@ -466,34 +492,50 @@ class DelegateExecutor(ToolExecutor):
                             if hasattr(sub_conversation, "state") and hasattr(
                                 sub_conversation.state, "agent_status"
                             ):
-                                status = sub_conversation.state.agent_status
-                                logger.debug(
-                                    f"Sub-agent {sub_conversation_id[:8]} "
-                                    f"status: {status}"
+                                from openhands.sdk.conversation.state import (
+                                    AgentExecutionStatus,
                                 )
 
-                                if status == "FINISHED":
+                                status = sub_conversation.state.agent_status
+                                logger.info(
+                                    f"Sub-agent {sub_conversation_id[:8]} "
+                                    f"status: {status} (type: {type(status)})"
+                                )
+
+                                # Check for terminal states
+                                if status == AgentExecutionStatus.FINISHED:
                                     logger.info(
                                         f"Sub-agent {sub_conversation_id[:8]} "
                                         f"reached FINISHED state"
                                     )
                                     break
-                                elif status in ["PAUSED", "STUCK", "ERROR"]:
+                                elif status in [
+                                    AgentExecutionStatus.PAUSED,
+                                    AgentExecutionStatus.STUCK,
+                                    AgentExecutionStatus.ERROR,
+                                ]:
                                     logger.info(
                                         f"Sub-agent {sub_conversation_id[:8]} "
                                         f"reached terminal state: {status}"
                                     )
                                     break
-                                elif status == "IDLE":
-                                    # Agent is idle - might be waiting for more input
-                                    # or finished. Check if there are any recent events
-                                    # that suggest completion
+                                elif status == AgentExecutionStatus.IDLE:
+                                    # Agent is idle - typically means completed
+                                    # its current task and is waiting for more input
                                     logger.info(
                                         f"Sub-agent {sub_conversation_id[:8]} is IDLE"
-                                        f" - checking for completion"
+                                        f" - treating as completion"
                                     )
-                                    # For now, treat IDLE as completion after run
                                     break
+                                elif status == AgentExecutionStatus.RUNNING:
+                                    # Still running, continue the loop
+                                    logger.info(
+                                        f"Sub-agent {sub_conversation_id[:8]} "
+                                        f"still RUNNING"
+                                    )
+                                    # Small delay to avoid busy waiting
+                                    time.sleep(0.1)
+                                    continue
                             else:
                                 # Fallback: if we can't check state, assume completion
                                 # after run()
