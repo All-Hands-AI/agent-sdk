@@ -390,12 +390,64 @@ class DelegateExecutor(ToolExecutor):
                     # Send initial message and run
                     sub_conversation.send_message(action.message)
 
-                    # Run with cancellation support
+                    # Run with cancellation support and timeout
+                    start_time = time.time()
+                    max_runtime = 300  # 5 minutes max per sub-agent
+
                     while not stop_event.is_set():
                         try:
-                            # Run conversation step with timeout
+                            # Check for timeout
+                            if time.time() - start_time > max_runtime:
+                                logger.warning(
+                                    f"Sub-agent {sub_conversation_id[:8]} timed out "
+                                    f"after {max_runtime}s"
+                                )
+                                break
+
+                            # Run conversation step
                             sub_conversation.run()
-                            break  # Conversation completed normally
+
+                            # Check if conversation has finished
+                            if hasattr(sub_conversation, "state") and hasattr(
+                                sub_conversation.state, "agent_status"
+                            ):
+                                status = sub_conversation.state.agent_status
+                                logger.debug(
+                                    f"Sub-agent {sub_conversation_id[:8]} "
+                                    f"status: {status}"
+                                )
+
+                                if status == "FINISHED":
+                                    logger.info(
+                                        f"Sub-agent {sub_conversation_id[:8]} "
+                                        f"reached FINISHED state"
+                                    )
+                                    break
+                                elif status in ["PAUSED", "STUCK", "ERROR"]:
+                                    logger.info(
+                                        f"Sub-agent {sub_conversation_id[:8]} "
+                                        f"reached terminal state: {status}"
+                                    )
+                                    break
+                                elif status == "IDLE":
+                                    # Agent is idle - might be waiting for more input
+                                    # or finished. Check if there are any recent events
+                                    # that suggest completion
+                                    logger.info(
+                                        f"Sub-agent {sub_conversation_id[:8]} is IDLE"
+                                        f" - checking for completion"
+                                    )
+                                    # For now, treat IDLE as completion after run
+                                    break
+                            else:
+                                # Fallback: if we can't check state, assume completion
+                                # after run()
+                                logger.info(
+                                    f"Sub-agent {sub_conversation_id[:8]} run() "
+                                    f"completed (no state check available)"
+                                )
+                                break
+
                         except Exception as e:
                             if stop_event.is_set():
                                 logger.info(
