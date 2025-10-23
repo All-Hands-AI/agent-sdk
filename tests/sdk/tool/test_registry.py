@@ -34,7 +34,7 @@ class _HelloObservation(Observation):
 
 
 class _HelloExec(ToolExecutor[_HelloAction, _HelloObservation]):
-    def __call__(self, action: _HelloAction) -> _HelloObservation:
+    def __call__(self, action: _HelloAction, conversation=None) -> _HelloObservation:
         return _HelloObservation(message=f"Hello, {action.name}!")
 
 
