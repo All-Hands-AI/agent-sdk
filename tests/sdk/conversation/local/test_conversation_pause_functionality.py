@@ -27,7 +27,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation, LocalConversation
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import MessageEvent, PauseEvent
+from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent, PauseEvent
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
@@ -266,7 +266,6 @@ class TestPauseFunctionality:
         )
 
         # Action did not execute (no ObservationEvent should be recorded)
-        from openhands.sdk.event import ActionEvent, ObservationEvent
 
         observations = [
             event
