@@ -319,15 +319,16 @@ class DelegateExecutor(ToolExecutor):
                 # Fallback for other workspace types
                 workspace_path = getattr(workspace, "path", "/tmp")
 
-            sub_conversation = LocalConversation(
+            # Create a temporary conversation to get the ID first
+            temp_conversation = LocalConversation(
                 agent=worker_agent,
                 workspace=workspace_path,
-                visualize=visualize,
-                callbacks=[],  # Will add callback after we have the ID
+                visualize=False,  # No visualization for temp conversation
+                callbacks=[],
             )
 
-            # Use the sub_conversation's ID instead of generating UUID
-            sub_conversation_id = str(sub_conversation.id)
+            # Use the temp_conversation's ID
+            sub_conversation_id = str(temp_conversation.id)
             stop_event = threading.Event()
 
             def sub_agent_completion_callback(event):
@@ -368,8 +369,14 @@ class DelegateExecutor(ToolExecutor):
                                     "Parent message queue is full, dropping message"
                                 )
 
-            # Add the callback now that we have the ID
-            sub_conversation.callbacks.append(sub_agent_completion_callback)
+            # Now create the real conversation with the callback
+            sub_conversation = LocalConversation(
+                agent=worker_agent,
+                workspace=workspace_path,
+                visualize=visualize,
+                callbacks=[sub_agent_completion_callback],
+                conversation_id=temp_conversation.id,  # Use the same ID
+            )
 
             def run_sub_agent():
                 """Sub-agent thread function with proper error handling and state management."""  # noqa: E501
@@ -680,9 +687,8 @@ class DelegateExecutor(ToolExecutor):
             sub_agent.state = SubAgentState.CANCELLED
             sub_agent.completed_at = time.time()
 
-            # Detach callbacks to avoid stray events
-            if hasattr(sub_agent.conversation, "callbacks"):
-                sub_agent.conversation.callbacks.clear()
+            # Note: Callbacks cannot be detached from LocalConversation after creation
+            # The sub-agent will stop generating events when the thread terminates
 
             thread = sub_agent.thread
 
