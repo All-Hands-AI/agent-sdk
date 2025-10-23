@@ -116,6 +116,10 @@ class Config(BaseModel):
         default=False,
         description="Whether to enable VNC desktop functionality",
     )
+    working_dir: Path = Field(
+        default=Path("workspace/project"),
+        description="The working directory for the agent",
+    )
     model_config: ClassVar[ConfigDict] = {"frozen": True}
 
 

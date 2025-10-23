@@ -1,39 +1,37 @@
 """Command router for OpenHands SDK."""
 
+import asyncio
 import logging
 from pathlib import Path
-from uuid import UUID
 
 from fastapi import APIRouter
 
-from openhands.agent_server.bash_service import get_default_bash_event_service
-from openhands.agent_server.conversation_service import get_default_conversation_service
-from openhands.sdk.git.git_changes import get_git_changes
-from openhands.sdk.git.git_diff import get_git_diff
+from openhands.agent_server.config import get_default_config
 from openhands.sdk.git.models import GitChange, GitDiff
+from openhands.sdk.workspace.local import LocalWorkspace
 
 
 git_router = APIRouter(prefix="/git", tags=["Git"])
 logger = logging.getLogger(__name__)
-bash_event_service = get_default_bash_event_service()
-conversation_service = get_default_conversation_service()
+config = get_default_config()
 
 
 @git_router.get("/changes/{path:path}")
 async def git_changes(
     path: Path,
 ) -> list[GitChange]:
-    return get_git_changes(path)
+    workspace = LocalWorkspace(working_dir=str(config.working_dir))
+    loop = asyncio.get_running_loop()
+    changes = await loop.run_in_executor(None, workspace.git_changes, path)
+    return changes
 
 
 # bash event routes
-@git_router.get("/diff/{conversation_id}/{path:path}")
+@git_router.get("/diff/{path:path}")
 async def git_diff(
-    conversation_id: UUID,
     path: str,
 ) -> GitDiff:
-    conversation_info = await conversation_service.get_conversation(conversation_id)
-    assert conversation_info is not None
-    file_path = Path(conversation_info.workspace.working_dir) / path
-    result = get_git_diff(str(file_path))
-    return result
+    workspace = LocalWorkspace(working_dir=str(config.working_dir))
+    loop = asyncio.get_running_loop()
+    diff = await loop.run_in_executor(None, workspace.git_diff, path)
+    return diff
