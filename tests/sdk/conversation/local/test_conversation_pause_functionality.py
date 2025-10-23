@@ -27,7 +27,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation, LocalConversation
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import ActionEvent, MessageEvent, PauseEvent
+from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
@@ -265,13 +265,15 @@ class TestPauseFunctionality:
             == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
         )
 
-        # Action did not execute
-        agent_messages = [
+        # Action did not execute (no ObservationEvent should be recorded)
+        from openhands.sdk.event import ObservationEvent
+
+        observations = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, ActionEvent) and event.source == "agent"
+            if isinstance(event, ObservationEvent)
         ]
-        assert len(agent_messages) == 0
+        assert len(observations) == 0
 
     def test_multiple_pause_calls_create_one_event(self):
         """Test that multiple successive pause calls only create one PauseEvent."""
