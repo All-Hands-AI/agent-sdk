@@ -6227,7 +6227,7 @@ wheels = [
 [[package]]
 name = "tom-swe"
 version = "1.0.0"
-source = { git = "https://github.com/all-hands-ai/ToM-SWE.git?rev=main#7d89264cded684a931d2ad60d325695979017166" }
+source = { git = "https://github.com/all-hands-ai/ToM-SWE.git?rev=main#a256a08d16885186604a4e13938ae20cf765c707" }
 dependencies = [
     { name = "aiofiles" },
     { name = "bm25s" },

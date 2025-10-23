@@ -2,6 +2,9 @@
 
 from typing import TYPE_CHECKING, Any
 
+from tom_swe.tom_agent import create_tom_agent
+
+from openhands.sdk.event import ActionEvent, LLMConvertibleEvent, ObservationEvent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import StatefulToolExecutor
 from openhands.tools.tom_consult.action import ConsultTomAction
@@ -49,25 +52,14 @@ class TomConsultExecutor(StatefulToolExecutor[ConsultTomAction, ConsultTomObserv
     def _get_tom_agent(self):
         """Lazy initialization of Tom agent."""
         if self._tom_agent is None:
-            try:
-                from tom_swe.tom_agent import create_tom_agent
-
-                self._tom_agent = create_tom_agent(
-                    file_store=self.file_store,
-                    enable_rag=self.enable_rag,
-                    llm_model=self.llm_model,
-                    api_key=self.api_key,
-                    api_base=self.api_base,
-                    skip_memory_collection=False,
-                )
-                logger.info("Tom agent initialized successfully")
-            except ImportError as e:
-                logger.error(f"Failed to import tom-swe: {e}")
-                logger.error("Please install tom-swe package: pip install tom-swe")
-                raise
-            except Exception as e:
-                logger.error(f"Failed to initialize Tom agent: {e}")
-                raise
+            self._tom_agent = create_tom_agent(
+                file_store=self.file_store,
+                enable_rag=self.enable_rag,
+                llm_model=self.llm_model,
+                api_key=self.api_key,
+                api_base=self.api_base,
+            )
+        logger.info("Tom agent initialized successfully")
         return self._tom_agent
 
     def __call__(
@@ -99,12 +91,6 @@ class TomConsultExecutor(StatefulToolExecutor[ConsultTomAction, ConsultTomObserv
             # Get conversation history from state if available
             formatted_messages = []
             if state is not None:
-                from openhands.sdk.event import (
-                    ActionEvent,
-                    LLMConvertibleEvent,
-                    ObservationEvent,
-                )
-
                 # Get only completed action-observation pairs
                 # (exclude pending actions without observations)
                 matched_action_ids = {
