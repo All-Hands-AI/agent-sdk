@@ -67,7 +67,7 @@ class BlockingExecutor(
         self.step_entered: bool = step_entered
 
     def __call__(
-        self, action: PauseFunctionalityMockAction
+        self, action: PauseFunctionalityMockAction, conversation=None
     ) -> PauseFunctionalityMockObservation:
         # Signal we've entered tool execution for this step
         self.step_entered.set()
@@ -90,7 +90,7 @@ class TestPauseFunctionality:
             ]
         ):
             def __call__(
-                self, action: PauseFunctionalityMockAction
+                self, action: PauseFunctionalityMockAction, conversation=None
             ) -> PauseFunctionalityMockObservation:
                 return PauseFunctionalityMockObservation(
                     result=f"Executed: {action.command}"
