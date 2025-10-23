@@ -127,14 +127,38 @@ class DelegateExecutor(ToolExecutor):
             self._cleanup_completed_sub_agents_unsafe()
 
             # Check for active sub-agents
+            active_count = 0
             for sub_agent in self._sub_agents.values():
                 if sub_agent.state in (
                     SubAgentState.CREATED,
                     SubAgentState.RUNNING,
                 ):
-                    return True
+                    active_count += 1
+                    logger.debug(
+                        f"Sub-agent {sub_agent.conversation_id[:8]} "
+                        f"still active in state: {sub_agent.state}"
+                    )
+                elif sub_agent.state in (
+                    SubAgentState.COMPLETED,
+                    SubAgentState.FAILED,
+                    SubAgentState.CANCELLED,
+                ):
+                    # Check if thread is still alive - if not, we can clean it up
+                    if not sub_agent.thread.is_alive():
+                        logger.debug(
+                            f"Sub-agent {sub_agent.conversation_id[:8]} "
+                            f"completed with state: {sub_agent.state}, "
+                            f"thread dead - will be cleaned up"
+                        )
+                    else:
+                        logger.debug(
+                            f"Sub-agent {sub_agent.conversation_id[:8]} "
+                            f"completed with state: {sub_agent.state}, "
+                            f"but thread still alive"
+                        )
 
-            return False
+            logger.debug(f"Active sub-agents: {active_count}")
+            return active_count > 0
 
     def _cleanup_completed_sub_agents_unsafe(self):
         """Clean up completed sub-agents. Must be called with lock held."""
@@ -145,8 +169,30 @@ class DelegateExecutor(ToolExecutor):
                 SubAgentState.FAILED,
                 SubAgentState.CANCELLED,
             ):
+                # Try to join the thread with a short timeout
+                if sub_agent.thread.is_alive():
+                    try:
+                        sub_agent.thread.join(timeout=0.1)  # 100ms timeout
+                    except Exception as e:
+                        logger.debug(f"Error joining thread for {sub_id[:8]}: {e}")
+
+                # If thread is now dead or was already dead, clean it up
                 if not sub_agent.thread.is_alive():
                     to_remove.append(sub_id)
+                else:
+                    # Thread is still alive but sub-agent is completed
+                    # This might indicate a stuck thread - log it
+                    runtime = time.time() - sub_agent.created_at
+                    logger.warning(
+                        f"Sub-agent {sub_id[:8]} is {sub_agent.state} "
+                        f"but thread is still alive after {runtime:.1f}s"
+                    )
+                    # If it's been more than 30 seconds, force cleanup
+                    if time.time() - sub_agent.created_at > 30:
+                        logger.warning(
+                            f"Force cleaning up stuck sub-agent {sub_id[:8]}"
+                        )
+                        to_remove.append(sub_id)
 
         for sub_id in to_remove:
             logger.debug(f"Cleaning up completed sub-agent {sub_id[:8]}")
