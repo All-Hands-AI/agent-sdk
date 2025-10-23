@@ -174,11 +174,27 @@ class DelegateExecutor(ToolExecutor):
                         )
 
             total_agents = len(self._sub_agents)
+            pending_messages = self._pending_parent_messages.qsize()
             logger.info(
                 f"Active sub-agents: {active_count}, "
-                f"Completed: {completed_count}, Total: {total_agents}"
+                f"Completed: {completed_count}, Total: {total_agents}, "
+                f"Pending parent messages: {pending_messages}"
             )
-            return active_count > 0
+
+            # Task is in progress if there are active sub-agents OR
+            # if there are pending messages for the parent to process
+            task_in_progress = active_count > 0 or pending_messages > 0
+
+            if task_in_progress:
+                logger.info(
+                    f"Task still in progress: "
+                    f"active_agents={active_count > 0}, "
+                    f"pending_messages={pending_messages > 0}"
+                )
+            else:
+                logger.info("All sub-agents completed and no pending messages")
+
+            return task_in_progress
 
     def _cleanup_completed_sub_agents_unsafe(self):
         """Clean up completed sub-agents. Must be called with lock held."""
@@ -275,7 +291,19 @@ class DelegateExecutor(ToolExecutor):
                 if hasattr(self._parent_conversation, "state") and hasattr(
                     self._parent_conversation.state, "agent_status"
                 ):
-                    if self._parent_conversation.state.agent_status != "FINISHED":
+                    from openhands.sdk.conversation.state import AgentExecutionStatus
+
+                    status = self._parent_conversation.state.agent_status
+                    logger.info(
+                        f"Parent conversation status: {status} (type: {type(status)})"
+                    )
+
+                    # Parent should be in FINISHED state to be resumed
+                    if status != AgentExecutionStatus.FINISHED:
+                        logger.info(
+                            f"Parent not in FINISHED state ({status}), "
+                            f"not triggering run"
+                        )
                         return
 
                     # Parent is idle, we have messages, and no run in progress
@@ -313,9 +341,13 @@ class DelegateExecutor(ToolExecutor):
 
             # Trigger exactly one parent run to process all messages
             try:
+                logger.info(
+                    f"🔄 Triggering parent conversation run for "
+                    f"{parent_conversation.id} with {len(messages_to_send)} messages"
+                )
                 parent_conversation.run()
-                logger.debug(
-                    f"Triggered parent conversation run for {parent_conversation.id}"
+                logger.info(
+                    f"✅ Parent conversation run completed for {parent_conversation.id}"
                 )
             except Exception as e:
                 logger.error(f"Failed to trigger parent conversation run: {e}")
