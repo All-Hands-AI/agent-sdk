@@ -43,10 +43,9 @@ with DockerWorkspace(
     # dynamically build agent-server image
     # base_image="nikolaik/python-nodejs:python3.12-nodejs22",
     # use pre-built image for faster startup
-    server_image="ghcr.io/openhands/agent-server:latest-python",
+    server_image="ghcr.io/openhands/agent-server:main-python",
     host_port=8010,
     platform=detect_platform(),
-    forward_env=["LLM_API_KEY"],  # Forward API key to container
 ) as workspace:
     # 3) Create agent
     agent = get_default_agent(

@@ -175,34 +175,32 @@ class LocalConversation(BaseConversation):
                 )  # now we have a new message
 
             # TODO: We should add test cases for all these scenarios
-            activated_microagent_names: list[str] = []
+            activated_skill_names: list[str] = []
             extended_content: list[TextContent] = []
 
             # Handle per-turn user message (i.e., knowledge agent trigger)
             if self.agent.agent_context:
                 ctx = self.agent.agent_context.get_user_message_suffix(
                     user_message=message,
-                    # We skip microagents that were already activated
-                    skip_microagent_names=self._state.activated_knowledge_microagents,
+                    # We skip skills that were already activated
+                    skip_skill_names=self._state.activated_knowledge_skills,
                 )
                 # TODO(calvin): we need to update
-                # self._state.activated_knowledge_microagents
+                # self._state.activated_knowledge_skills
                 # so condenser can work
                 if ctx:
-                    content, activated_microagent_names = ctx
+                    content, activated_skill_names = ctx
                     logger.debug(
                         f"Got augmented user message content: {content}, "
-                        f"activated microagents: {activated_microagent_names}"
+                        f"activated skills: {activated_skill_names}"
                     )
                     extended_content.append(content)
-                    self._state.activated_knowledge_microagents.extend(
-                        activated_microagent_names
-                    )
+                    self._state.activated_knowledge_skills.extend(activated_skill_names)
 
             user_msg_event = MessageEvent(
                 source="user",
                 llm_message=message,
-                activated_microagents=activated_microagent_names,
+                activated_skills=activated_skill_names,
                 extended_content=extended_content,
             )
             self._on_event(user_msg_event)

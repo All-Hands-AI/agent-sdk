@@ -245,7 +245,7 @@ jobs:
         # Run if it's a PR and the matrix job completed (even if some variants failed)
         if: github.event_name == 'pull_request' && always() && (needs.build-and-push-image.result == 'success' || needs.build-and-push-image.result ==
             'failure')
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-4vcpu-ubuntu-2404
         outputs:
             build_summary: ${{ steps.consolidate.outputs.build_summary }}
         steps:

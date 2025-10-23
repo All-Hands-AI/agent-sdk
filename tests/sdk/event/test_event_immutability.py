@@ -162,7 +162,7 @@ def test_message_event_is_frozen():
         )
 
     with pytest.raises(Exception):
-        event.activated_microagents = ["test_microagent"]
+        event.activated_skills = ["test_skill"]
 
     with pytest.raises(Exception):
         event.extended_content = [TextContent(text="Extended content")]
