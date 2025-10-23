@@ -336,7 +336,10 @@ class DelegateExecutor(ToolExecutor):
                 operation="close",
                 success=False,
                 sub_conversation_id=action.sub_conversation_id,
-                message=f"Failed to close sub-agent {action.sub_conversation_id}",
+                message=(
+                    "Failed to close sub-agent: sub-conversation "
+                    f"{action.sub_conversation_id} not found"
+                ),
             )
 
         try:
