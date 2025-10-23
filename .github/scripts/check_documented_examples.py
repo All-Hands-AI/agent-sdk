@@ -54,6 +54,9 @@ def find_agent_sdk_examples(agent_sdk_path: Path) -> set[str]:
     """
     Find all example Python files in the agent-sdk repository.
 
+    Excludes examples/03_github_workflows/ since those examples are YAML
+    files, not Python files.
+
     Returns:
         Set of example file paths (relative to agent-sdk root)
     """
@@ -71,7 +74,14 @@ def find_agent_sdk_examples(agent_sdk_path: Path) -> set[str]:
                 file_path = Path(root) / file
                 # Get relative path from agent-sdk root
                 relative_path = file_path.relative_to(agent_sdk_path)
-                examples.add(str(relative_path))
+                relative_path_str = str(relative_path)
+
+                # Skip GitHub workflow examples (those are YAML files, Python
+                # files there are just helpers)
+                if relative_path_str.startswith("examples/03_github_workflows/"):
+                    continue
+
+                examples.add(relative_path_str)
 
     return examples
 
