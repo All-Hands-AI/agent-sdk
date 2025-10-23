@@ -6,18 +6,10 @@ def model_matches(model: str, patterns: list[str]) -> bool:
 
     Matching semantics:
     - Case-insensitive substring search on full raw model string
-    - Trailing '*' in patterns is ignored; no globbing is supported
-    - Empty patterns are skipped
     """
     raw = (model or "").strip().lower()
     for pat in patterns:
-        token = (pat or "").strip().lower()
-        if not token:
-            continue
-        if token.endswith("*"):
-            token = token[:-1]
-        if not token:
-            continue
+        token = pat.strip().lower()
         if token in raw:
             return True
     return False
