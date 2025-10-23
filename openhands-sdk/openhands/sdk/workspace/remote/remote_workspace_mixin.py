@@ -288,7 +288,7 @@ class RemoteWorkspaceMixin(BaseModel):
         }
         response.raise_for_status()
         type_adapter = TypeAdapter(list[GitChange])
-        changes = type_adapter.validate_json(response.json())
+        changes = type_adapter.validate_python(response.json())
         return changes
 
     def _git_diff_generator(
