@@ -25,6 +25,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation, LocalConversation
+from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import ActionEvent, MessageEvent, PauseEvent
 from openhands.sdk.llm import (
@@ -67,7 +68,9 @@ class BlockingExecutor(
         self.step_entered: threading.Event = step_entered
 
     def __call__(
-        self, action: PauseFunctionalityMockAction, conversation=None
+        self,
+        action: PauseFunctionalityMockAction,
+        conversation: BaseConversation | None = None,
     ) -> PauseFunctionalityMockObservation:
         # Signal we've entered tool execution for this step
         self.step_entered.set()
@@ -90,7 +93,9 @@ class TestPauseFunctionality:
             ]
         ):
             def __call__(
-                self, action: PauseFunctionalityMockAction, conversation=None
+                self,
+                action: PauseFunctionalityMockAction,
+                conversation: BaseConversation | None = None,
             ) -> PauseFunctionalityMockObservation:
                 return PauseFunctionalityMockObservation(
                     result=f"Executed: {action.command}"
