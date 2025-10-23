@@ -3,9 +3,10 @@
 import queue
 import threading
 import time
-from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
+
+from pydantic import BaseModel, ConfigDict
 
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.event import MessageEvent
@@ -35,15 +36,16 @@ class SubAgentState(Enum):
     CANCELLED = "cancelled"
 
 
-@dataclass
-class SubAgentInfo:
+class SubAgentInfo(BaseModel):
     """Information about a sub-agent."""
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
+
     conversation_id: str
-    conversation: "BaseConversation"
-    thread: threading.Thread
+    conversation: Any  # BaseConversation - using Any to avoid forward reference issues
+    thread: Any  # threading.Thread - using Any for runtime objects
     state: SubAgentState
-    stop_event: threading.Event
+    stop_event: Any  # threading.Event - using Any for runtime objects
     created_at: float
     completed_at: float | None = None
     error: str | None = None
