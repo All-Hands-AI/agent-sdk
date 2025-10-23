@@ -38,6 +38,11 @@ class APIRemoteWorkspace(RemoteWorkspace):
         description="The remote host URL for the workspace."
         " It will be set to the runtime URL after connecting.",
     )
+    api_key: str | None = Field(
+        default=None,
+        description="API key for authenticating with the remote host."
+        " It will be set after connecting to the runtime.",
+    )
 
     # Runtime API fields
     runtime_api_url: str = Field(description="Base URL of the runtime API")
@@ -96,7 +101,7 @@ class APIRemoteWorkspace(RemoteWorkspace):
         self._wait_until_runtime_alive()
         logger.info(f"Runtime ready at {self._runtime_url}")
         self.host = self._runtime_url.rstrip("/")
-        self.api_key: str = self._session_api_key
+        self.api_key = self._session_api_key
 
     def _check_existing_runtime(self) -> bool:
         """Check if there's an existing runtime for this session."""
