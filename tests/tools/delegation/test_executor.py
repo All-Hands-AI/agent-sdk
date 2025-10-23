@@ -84,7 +84,6 @@ def test_close_sub_agent_success():
 
     sub_agent_info = SubAgentInfo(
         conversation_id=test_id,
-        parent_id="parent_id",
         conversation=mock_conversation,
         thread=mock_thread,
         state=SubAgentState.RUNNING,
@@ -132,7 +131,6 @@ def test_close_sub_agent_with_parent_relationship():
 
     sub_agent_info = SubAgentInfo(
         conversation_id=child_id,
-        parent_id=parent_id,
         conversation=mock_child_conversation,
         thread=mock_thread,
         state=SubAgentState.RUNNING,

@@ -41,7 +41,6 @@ class SubAgentInfo:
     """Information about a sub-agent."""
 
     conversation_id: str
-    parent_id: str
     conversation: "BaseConversation"
     thread: threading.Thread
     state: SubAgentState
@@ -57,7 +56,7 @@ class DelegateExecutor(ToolExecutor):
 
     This class handles:
     - Creating sub-agents and their conversations
-    - Tracking parent-child relationships in memory
+    - Tracking sub-agents for a single parent conversation
     - Routing messages between parent and child agents
     - Managing sub-agent lifecycle with proper synchronization
     """
@@ -65,9 +64,9 @@ class DelegateExecutor(ToolExecutor):
     def __init__(self):
         # Thread-safe storage for all state
         self._lock: threading.RLock = threading.RLock()
-        self._parent_conversations: dict[str, BaseConversation] = {}
+        self._parent_conversation: BaseConversation | None = None
         self._sub_agents: dict[str, SubAgentInfo] = {}
-        self._parent_message_queues: dict[str, queue.Queue] = {}
+        self._parent_message_queue: queue.Queue = queue.Queue()
 
         # Background thread for processing parent messages
         self._parent_processor_stop: threading.Event = threading.Event()
@@ -97,28 +96,37 @@ class DelegateExecutor(ToolExecutor):
                 self._parent_processor_thread.join(timeout=5.0)
 
     def register_conversation(self, conversation: "BaseConversation") -> None:
-        """Register a conversation with the delegation executor."""
+        """Register the parent conversation with the delegation executor."""
         with self._lock:
-            conversation_id = str(conversation.id)
-            self._parent_conversations[conversation_id] = conversation
-            if conversation_id not in self._parent_message_queues:
-                self._parent_message_queues[conversation_id] = queue.Queue()
-            logger.debug(f"Registered conversation {conversation_id}")
+            self._parent_conversation = conversation
+            logger.debug(f"Registered parent conversation {conversation.id}")
 
     def get_conversation(self, conversation_id: str) -> "BaseConversation | None":
-        """Get a conversation by ID."""
+        """Get the parent conversation if ID matches."""
         with self._lock:
-            return self._parent_conversations.get(conversation_id)
+            if (
+                self._parent_conversation
+                and str(self._parent_conversation.id) == conversation_id
+            ):
+                return self._parent_conversation
+            return None
 
     def is_task_in_progress(self, conversation_id: str) -> bool:
-        """Check if a task started by a parent conversation is still in progress."""
+        """Check if a task started by the parent conversation is still in progress."""
         with self._lock:
+            # Only check if this is our parent conversation
+            if (
+                not self._parent_conversation
+                or str(self._parent_conversation.id) != conversation_id
+            ):
+                return False
+
             # Clean up dead threads first
             self._cleanup_completed_sub_agents_unsafe()
 
             # Check for active sub-agents
             for sub_agent in self._sub_agents.values():
-                if sub_agent.parent_id == conversation_id and sub_agent.state in (
+                if sub_agent.state in (
                     SubAgentState.CREATED,
                     SubAgentState.RUNNING,
                 ):
@@ -162,44 +170,35 @@ class DelegateExecutor(ToolExecutor):
             )
 
     def _process_parent_messages(self):
-        """Background thread to process messages to parent conversations."""
+        """Background thread to process messages to the parent conversation."""
         while not self._parent_processor_stop.is_set():
             try:
-                # Process messages for all parents
-                with self._lock:
-                    parent_queues = list(self._parent_message_queues.items())
+                # Non-blocking check for messages
+                try:
+                    message = self._parent_message_queue.get_nowait()
 
-                for parent_id, message_queue in parent_queues:
-                    try:
-                        # Non-blocking check for messages
-                        message = message_queue.get_nowait()
+                    with self._lock:
+                        parent_conversation = self._parent_conversation
 
-                        with self._lock:
-                            parent_conversation = self._parent_conversations.get(
-                                parent_id
+                    if parent_conversation:
+                        try:
+                            parent_conversation.send_message(message)
+                            logger.debug(
+                                f"Sent message to parent {parent_conversation.id}"
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to send message to parent "
+                                f"{parent_conversation.id}: {e}"
                             )
 
-                        if parent_conversation:
-                            try:
-                                parent_conversation.send_message(message)
-                                logger.debug(f"Sent message to parent {parent_id[:8]}")
-                            except Exception as e:
-                                logger.error(
-                                    f"Failed to send message to parent "
-                                    f"{parent_id[:8]}: {e}"
-                                )
+                    self._parent_message_queue.task_done()
 
-                        message_queue.task_done()
-
-                    except queue.Empty:
-                        continue
-                    except Exception as e:
-                        logger.error(
-                            f"Error processing message for parent {parent_id[:8]}: {e}"
-                        )
-
-                # Small sleep to prevent busy waiting
-                time.sleep(0.1)
+                except queue.Empty:
+                    # Small sleep to prevent busy waiting
+                    time.sleep(0.1)
+                except Exception as e:
+                    logger.error(f"Error processing parent message: {e}")
 
             except Exception as e:
                 logger.error(f"Error in parent message processor: {e}")
@@ -219,13 +218,11 @@ class DelegateExecutor(ToolExecutor):
             )
 
         try:
-            conversation_id = str(conversation.id)
-
             # Register parent conversation if not already registered
             with self._lock:
-                if conversation_id not in self._parent_conversations:
+                if self._parent_conversation is None:
                     self.register_conversation(conversation)
-                parent_conversation = self._parent_conversations[conversation_id]
+                parent_conversation = self._parent_conversation
 
             from openhands.tools.preset.default import get_default_agent
 
@@ -282,17 +279,12 @@ class DelegateExecutor(ToolExecutor):
                             )
 
                             # Queue message for parent instead of direct send
-                            with self._lock:
-                                parent_queue = self._parent_message_queues.get(
-                                    conversation_id
+                            self._parent_message_queue.put(
+                                Message(
+                                    role="user",
+                                    content=[TextContent(text=parent_message)],
                                 )
-                                if parent_queue:
-                                    parent_queue.put(
-                                        Message(
-                                            role="user",
-                                            content=[TextContent(text=parent_message)],
-                                        )
-                                    )
+                            )
 
             workspace = parent_conversation.state.workspace
             workspace_path = (
@@ -374,16 +366,14 @@ class DelegateExecutor(ToolExecutor):
                     error_message = (
                         f"[Sub-agent {sub_conversation_id[:8]} ERROR]: {str(e)}"
                     )
-                    with self._lock:
-                        parent_queue = self._parent_message_queues.get(conversation_id)
-                        if parent_queue:
-                            parent_queue.put(
-                                Message(
-                                    role="user",
-                                    content=[TextContent(text=error_message)],
-                                )
-                            )
+                    self._parent_message_queue.put(
+                        Message(
+                            role="user",
+                            content=[TextContent(text=error_message)],
+                        )
+                    )
 
+                    with self._lock:
                         if sub_conversation_id in self._sub_agents:
                             self._sub_agents[
                                 sub_conversation_id
@@ -403,7 +393,6 @@ class DelegateExecutor(ToolExecutor):
             # Create sub-agent info and register it
             sub_agent_info = SubAgentInfo(
                 conversation_id=sub_conversation_id,
-                parent_id=conversation_id,
                 conversation=sub_conversation,
                 thread=thread,
                 state=SubAgentState.CREATED,
