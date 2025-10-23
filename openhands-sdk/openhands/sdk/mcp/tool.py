@@ -2,7 +2,11 @@
 
 import re
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation import BaseConversation
 
 import mcp.types
 from litellm import ChatCompletionToolParam
@@ -68,7 +72,11 @@ class MCPToolExecutor(ToolExecutor):
                     tool_name=self.tool_name,
                 )
 
-    def __call__(self, action: MCPToolAction) -> MCPToolObservation:
+    def __call__(
+        self,
+        action: MCPToolAction,
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+    ) -> MCPToolObservation:
         """Execute an MCP tool call."""
         return self.client.call_async_from_sync(
             self.call_tool, action=action, timeout=300
@@ -110,7 +118,11 @@ class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
 
-    def __call__(self, action: Action) -> Observation:
+    def __call__(
+        self,
+        action: Action,
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+    ) -> Observation:
         """Execute the tool action using the MCP client.
 
         We dynamically create a new MCPToolAction class with
@@ -140,7 +152,7 @@ class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
                 tool_name=self.name,
             )
 
-        return super().__call__(action)
+        return super().__call__(action, conversation)
 
     def action_from_arguments(self, arguments: dict[str, Any]) -> MCPToolAction:
         """Create an MCPToolAction from parsed arguments with early validation.

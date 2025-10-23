@@ -51,7 +51,9 @@ class _ConfigurableHelloTool(ToolDefinition):
                 self._greeting: str = greeting
                 self._punctuation: str = punctuation
 
-            def __call__(self, action: _HelloAction) -> _HelloObservation:
+            def __call__(
+                self, action: _HelloAction, conversation=None
+            ) -> _HelloObservation:
                 return _HelloObservation(
                     message=f"{self._greeting}, {action.name}{self._punctuation}"
                 )
