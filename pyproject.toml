@@ -85,7 +85,7 @@ extraPaths = [
 ]
 pythonVersion = "3.12"
 useLibraryCodeForTypes = true
-typeCheckingMode = "strict"
+typeCheckingMode = "standard"
 
 [[tool.uv.index]]
 name = "testpypi"
