@@ -266,7 +266,7 @@ class TestPauseFunctionality:
         )
 
         # Action did not execute (no ObservationEvent should be recorded)
-        from openhands.sdk.event import ObservationEvent
+        from openhands.sdk.event import ActionEvent, ObservationEvent
 
         observations = [
             event
@@ -274,6 +274,14 @@ class TestPauseFunctionality:
             if isinstance(event, ObservationEvent)
         ]
         assert len(observations) == 0
+
+        # But there should be at least one ActionEvent pending confirmation
+        action_events = [
+            event
+            for event in self.conversation.state.events
+            if isinstance(event, ActionEvent)
+        ]
+        assert len(action_events) >= 1
 
     def test_multiple_pause_calls_create_one_event(self):
         """Test that multiple successive pause calls only create one PauseEvent."""
