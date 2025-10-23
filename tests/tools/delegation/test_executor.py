@@ -161,8 +161,9 @@ def test_close_sub_agent_not_found():
     action = DelegateAction(operation="close", sub_conversation_id="non-existent")
     result = manager._close_sub_agent(action)
 
-    # Verify
-    assert result.success is False
+    # Verify - missing sub-agents are treated as already cleaned up (success=True)
+    assert result.success is True
+    assert "already cleaned up" in result.message
 
     # Clean up
     manager.shutdown()

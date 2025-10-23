@@ -818,12 +818,19 @@ class DelegateExecutor(ToolExecutor):
         with self._lock:
             sub_agent = self._sub_agents.get(action.sub_conversation_id)
             if sub_agent is None:
-                logger.error(f"Sub-agent {action.sub_conversation_id} not found")
+                # Sub-agent might have been auto-cleaned up already
+                logger.info(
+                    f"Sub-agent {action.sub_conversation_id[:8]} not found - "
+                    f"likely already cleaned up"
+                )
                 return DelegateObservation(
                     operation="close",
-                    success=False,
+                    success=True,
                     sub_conversation_id=action.sub_conversation_id,
-                    message=f"Sub-agent {action.sub_conversation_id} not found",
+                    message=(
+                        f"Sub-agent {action.sub_conversation_id} already cleaned up "
+                        f"or completed"
+                    ),
                 )
 
         try:
@@ -845,11 +852,19 @@ class DelegateExecutor(ToolExecutor):
         with self._lock:
             sub_agent = self._sub_agents.get(sub_conversation_id)
             if sub_agent is None:
+                # Sub-agent might have been auto-cleaned up already
+                logger.info(
+                    f"Sub-agent {sub_conversation_id[:8]} not found - "
+                    f"likely already cleaned up"
+                )
                 return DelegateObservation(
                     operation="close",
-                    success=False,
+                    success=True,
                     sub_conversation_id=sub_conversation_id,
-                    message=f"Sub-agent {sub_conversation_id} not found",
+                    message=(
+                        f"Sub-agent {sub_conversation_id} already cleaned up "
+                        f"or completed"
+                    ),
                 )
 
             # Signal the sub-agent to stop and update state
@@ -865,10 +880,26 @@ class DelegateExecutor(ToolExecutor):
         # Wait for thread to finish outside of lock
         if thread.is_alive():
             logger.info(f"Waiting for sub-agent {sub_conversation_id[:8]} to stop...")
-            thread.join(timeout=10.0)
-            if thread.is_alive():
-                logger.warning(
-                    f"Sub-agent {sub_conversation_id[:8]} did not stop gracefully"
+            try:
+                # Check if we're trying to join the current thread
+                current_thread = threading.current_thread()
+                if thread == current_thread:
+                    logger.warning(
+                        f"Cannot join current thread for sub-agent "
+                        f"{sub_conversation_id[:8]} - thread will terminate naturally"
+                    )
+                else:
+                    thread.join(timeout=10.0)
+                    if thread.is_alive():
+                        logger.warning(
+                            f"Sub-agent {sub_conversation_id[:8]} did not stop "
+                            f"gracefully within timeout"
+                        )
+            except RuntimeError as e:
+                # Handle "cannot join current thread" and other threading errors
+                logger.info(
+                    f"Thread join not possible for sub-agent "
+                    f"{sub_conversation_id[:8]}: {e} - thread will terminate naturally"
                 )
 
         logger.info(f"Closed sub-agent {sub_conversation_id[:8]}")
