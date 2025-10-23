@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from openhands.sdk.context import (
     KeywordTrigger,
@@ -489,7 +488,7 @@ This is a repo skill with invalid MCP tools configuration.
     test_path = Path("invalid-mcp-tools.md")
 
     # Loading should raise an error (either SkillValidationError or AttributeError)
-    with pytest.raises(ValidationError) as excinfo:
+    with pytest.raises(SkillValidationError) as excinfo:
         Skill.load(test_path, file_content=skill_content)
 
     # Check that the error message contains helpful information
