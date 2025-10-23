@@ -29,10 +29,12 @@ llm = LLM(
 def detect_platform():
     """Detects the correct Docker platform string."""
     import platform
+
     machine = platform.machine().lower()
     if "arm" in machine or "aarch64" in machine:
         return "linux/arm64"
     return "linux/amd64"
+
 
 with DockerWorkspace(
     base_image="nikolaik/python-nodejs:python3.12-nodejs22",
