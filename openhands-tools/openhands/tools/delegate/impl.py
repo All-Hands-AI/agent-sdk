@@ -272,18 +272,26 @@ class DelegateExecutor(ToolExecutor):
         - Natural batching: all messages that arrive while parent is busy are
           processed together
         - Lower latency than fixed debounce: run as soon as parent flips to idle
-        - Cost control: at most one extra parent run per idle transition
+        - Cost control: at most one extra parent run per idle transitions
         """
+        logger.debug("🔍 _trigger_parent_if_idle called")
+
         # Check conditions and collect messages under lock
         with self._lock:
             if not self._parent_conversation:
+                logger.debug("❌ No parent conversation registered")
                 return
 
+            queue_size = self._pending_parent_messages.qsize()
             if self._pending_parent_messages.empty():
+                logger.debug("❌ No pending parent messages")
                 return
+
+            logger.info(f"📬 Found {queue_size} pending parent messages")
 
             # Single-flight guard - prevent concurrent parent runs
             if self._parent_running:
+                logger.info("❌ Parent already running, skipping trigger")
                 return
 
             # Check if parent is idle (FINISHED state)
@@ -295,16 +303,22 @@ class DelegateExecutor(ToolExecutor):
 
                     status = self._parent_conversation.state.agent_status
                     logger.info(
-                        f"Parent conversation status: {status} (type: {type(status)})"
+                        f"🔍 Parent conversation status: {status} "
+                        f"(type: {type(status)})"
                     )
 
                     # Parent should be in FINISHED state to be resumed
                     if status != AgentExecutionStatus.FINISHED:
                         logger.info(
-                            f"Parent not in FINISHED state ({status}), "
+                            f"❌ Parent not in FINISHED state ({status}), "
                             f"not triggering run"
                         )
                         return
+
+                    logger.info(
+                        f"✅ Parent is FINISHED with {queue_size} pending messages, "
+                        f"triggering run"
+                    )
 
                     # Parent is idle, we have messages, and no run in progress
                     # Set running flag and drain queue
@@ -355,6 +369,12 @@ class DelegateExecutor(ToolExecutor):
             # Always clear the running flag
             with self._lock:
                 self._parent_running = False
+
+            # CRITICAL: Check for additional pending messages after parent completes
+            # This handles the race condition where messages arrive while parent
+            # was running
+            logger.debug("🔄 Checking for additional pending messages after parent run")
+            self._trigger_parent_if_idle()
 
     def _spawn_sub_agent(
         self, action: "DelegateAction", conversation: "BaseConversation"
@@ -439,6 +459,12 @@ class DelegateExecutor(ToolExecutor):
 
             def sub_agent_completion_callback(event):
                 """Callback for sub-agent messages - queues them for parent."""
+                logger.debug(
+                    f"Sub-agent {sub_conversation_id[:8]} callback triggered: "
+                    f"event_type={type(event).__name__}, "
+                    f"source={getattr(event, 'source', 'N/A')}"
+                )
+
                 if isinstance(event, MessageEvent) and event.source == "agent":
                     if hasattr(event, "llm_message") and event.llm_message:
                         # Extract all content types properly
@@ -457,8 +483,8 @@ class DelegateExecutor(ToolExecutor):
                                 f"[Sub-agent {sub_conversation_id[:8]}]: {message_text}"
                             )
                             logger.info(
-                                f"Sub-agent {sub_conversation_id[:8]} sending message "
-                                f"to parent: {message_text[:100]}..."
+                                f"🔄 Sub-agent {sub_conversation_id[:8]} sending "
+                                f"message to parent: {message_text[:100]}..."
                             )
 
                             # Queue message for parent and trigger if idle
@@ -468,12 +494,34 @@ class DelegateExecutor(ToolExecutor):
                             )
                             try:
                                 self._pending_parent_messages.put_nowait(message)
+                                queue_size = self._pending_parent_messages.qsize()
+                                logger.info(
+                                    f"✅ Queued message from sub-agent "
+                                    f"{sub_conversation_id[:8]} "
+                                    f"(queue size: {queue_size})"
+                                )
                                 # Trigger parent if it's idle
                                 self._trigger_parent_if_idle()
                             except queue.Full:
                                 logger.warning(
-                                    "Parent message queue is full, dropping message"
+                                    f"❌ Parent message queue is full, dropping "
+                                    f"message from sub-agent {sub_conversation_id[:8]}"
                                 )
+                        else:
+                            logger.debug(
+                                f"Sub-agent {sub_conversation_id[:8]} sent empty "
+                                f"message, ignoring"
+                            )
+                    else:
+                        logger.debug(
+                            f"Sub-agent {sub_conversation_id[:8]} event has no "
+                            f"llm_message"
+                        )
+                else:
+                    logger.debug(
+                        f"Sub-agent {sub_conversation_id[:8]} ignoring non-agent "
+                        f"message event"
+                    )
 
             # Now create the real conversation with the callback
             sub_conversation = LocalConversation(
