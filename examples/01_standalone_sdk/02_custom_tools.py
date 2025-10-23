@@ -34,7 +34,6 @@ from openhands.tools.file_editor import FileEditorTool
 
 logger = get_logger(__name__)
 
-
 # --- Action / Observation ---
 
 
@@ -149,11 +148,10 @@ def _make_bash_and_grep_tools(conv_state) -> list[ToolDefinition]:
     return [bash_tool, grep_tool]
 
 
-register_tool("FileEditorTool", FileEditorTool)
 register_tool("BashAndGrepToolSet", _make_bash_and_grep_tools)
 
 tools = [
-    Tool(name="FileEditorTool"),
+    Tool(name=FileEditorTool.tool_name),
     Tool(name="BashAndGrepToolSet"),
 ]
 
