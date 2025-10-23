@@ -95,7 +95,9 @@ class TestConfirmationMode:
             ToolExecutor[MockConfirmationModeAction, MockConfirmationModeObservation]
         ):
             def __call__(
-                self, action: MockConfirmationModeAction
+                self,
+                action: MockConfirmationModeAction,
+                conversation=None,  # noqa: ARG002
             ) -> MockConfirmationModeObservation:
                 return MockConfirmationModeObservation(
                     result=f"Executed: {action.command}"
