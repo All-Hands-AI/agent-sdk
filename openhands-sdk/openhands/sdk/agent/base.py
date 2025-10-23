@@ -21,7 +21,7 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.state import ConversationState
+    from openhands.sdk.conversation import ConversationState, LocalConversation
     from openhands.sdk.conversation.types import (
         ConversationCallbackType,
         ConversationTokenCallbackType,
@@ -237,7 +237,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @abstractmethod
     def step(
         self,
-        state: "ConversationState",
+        conversation: "LocalConversation",
         on_event: "ConversationCallbackType",
         on_token: "ConversationTokenCallbackType | None" = None,
     ) -> None:

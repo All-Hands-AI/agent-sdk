@@ -48,7 +48,7 @@ if not runtime_api_key:
 with APIRemoteWorkspace(
     runtime_api_url="https://runtime.eval.all-hands.dev",
     runtime_api_key=runtime_api_key,
-    server_image="ghcr.io/openhands/agent-server:latest-python",
+    server_image="ghcr.io/openhands/agent-server:main-python",
 ) as workspace:
     agent = get_default_agent(llm=llm, cli_mode=True)
     received_events: list = []

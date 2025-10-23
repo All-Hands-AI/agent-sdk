@@ -1,9 +1,13 @@
 import json
 from collections.abc import Callable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import ToolExecutor
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.base import BaseConversation
 from openhands.tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,
@@ -120,7 +124,11 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             exit_code=0,
         )
 
-    def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
+    def __call__(
+        self,
+        action: ExecuteBashAction,
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+    ) -> ExecuteBashObservation:
         # Validate field combinations
         if action.reset and action.is_input:
             raise ValueError("Cannot use reset=True with is_input=True")

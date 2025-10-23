@@ -301,13 +301,13 @@ class LocalConversation(BaseConversation):
 
                     if self._on_token is not None:
                         self.agent.step(
-                            self._state,
+                            self,
                             on_event=self._on_event,
                             on_token=self._on_token,
                         )
                     else:
                         self.agent.step(
-                            self._state,
+                            self,
                             on_event=self._on_event,
                         )
                     iteration += 1
