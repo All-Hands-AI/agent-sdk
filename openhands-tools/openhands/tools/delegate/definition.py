@@ -108,7 +108,7 @@ This tool allows the main agent to spawn, communicate with, and manage sub-agent
 - Always close sub-agents when their work is complete to free resources
 - sub_conversation_id is only supported for send/close operations
 - after spawning sub-agents, use FinishAction to pause and wait for
-    their results when necessary. 
+    their results when necessary.
 """
 
 
