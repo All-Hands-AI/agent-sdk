@@ -160,7 +160,8 @@ class Skill(BaseModel):
         else:
             # No triggers, default to None (always active)
             mcp_tools = metadata_dict.get("mcp_tools")
-            assert isinstance(mcp_tools, dict | None), "MCP tools must be a dictionary"
+            if not isinstance(mcp_tools, dict | None):
+                raise SkillValidationError("mcp_tools must be a dictionary or None")
             return Skill(
                 name=agent_name,
                 content=content,

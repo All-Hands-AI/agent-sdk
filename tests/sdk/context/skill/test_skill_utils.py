@@ -494,4 +494,4 @@ This is a repo skill with invalid MCP tools configuration.
 
     # Check that the error message contains helpful information
     error_msg = str(excinfo.value)
-    assert "Input should be a valid dictionary" in error_msg
+    assert "mcp_tools must be a dictionary or None" in error_msg
