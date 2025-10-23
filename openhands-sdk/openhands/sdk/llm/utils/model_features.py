@@ -90,6 +90,9 @@ PROMPT_CACHE_PATTERNS: list[str] = [
     "claude-3-opus-20240229",
     "claude-sonnet-4",
     "claude-opus-4",
+    # Anthropic Haiku 4.5 variants (dot and dash)
+    "claude-haiku-4.5",
+    "claude-haiku-4-5",
 ]
 
 SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
