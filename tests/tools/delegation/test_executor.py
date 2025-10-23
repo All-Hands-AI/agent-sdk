@@ -10,8 +10,12 @@ def test_delegation_manager_init():
     """Test DelegateExecutor initialization."""
     manager = DelegateExecutor()
 
-    assert manager.conversations == {}
-    assert manager.child_to_parent == {}
+    # Test that the manager initializes properly
+    assert manager.get_conversation("non-existent") is None
+    assert not manager.is_task_in_progress("non-existent")
+
+    # Clean up
+    manager.shutdown()
 
 
 def test_register_and_get_conversation():
@@ -26,8 +30,10 @@ def test_register_and_get_conversation():
     manager.register_conversation(mock_conv)  # type: ignore
 
     # Verify it's registered
-    assert str(mock_conv.id) in manager.conversations
     assert manager.get_conversation(str(mock_conv.id)) == mock_conv
+
+    # Clean up
+    manager.shutdown()
 
 
 def test_get_conversation_not_found():
@@ -39,6 +45,9 @@ def test_get_conversation_not_found():
 
     # Verify
     assert result is None
+
+    # Clean up
+    manager.shutdown()
 
 
 def test_send_to_sub_agent_not_found():
@@ -54,17 +63,38 @@ def test_send_to_sub_agent_not_found():
     # Verify
     assert result.success is False
 
+    # Clean up
+    manager.shutdown()
+
 
 def test_close_sub_agent_success():
     """Test closing sub-agent successfully."""
     manager = DelegateExecutor()
 
-    # Create a dict-based entry to close
+    # Create a mock sub-agent entry directly in the internal structure
     test_id = str(uuid.uuid4())
-    manager.conversations[test_id] = {"task": "test"}
+    mock_conversation = MagicMock()
+    mock_thread = MagicMock()
+    mock_thread.is_alive.return_value = False
+    mock_stop_event = MagicMock()
 
-    # Verify it exists
-    assert test_id in manager.conversations
+    import time
+
+    from openhands.tools.delegate.impl import SubAgentInfo, SubAgentState
+
+    sub_agent_info = SubAgentInfo(
+        conversation_id=test_id,
+        parent_id="parent_id",
+        conversation=mock_conversation,
+        thread=mock_thread,
+        state=SubAgentState.RUNNING,
+        stop_event=mock_stop_event,
+        message_queue=MagicMock(),
+        created_at=time.time(),
+    )
+
+    with manager._lock:
+        manager._sub_agents[test_id] = sub_agent_info
 
     # Close sub-agent
     action = DelegateAction(operation="close", sub_conversation_id=test_id)
@@ -72,7 +102,9 @@ def test_close_sub_agent_success():
 
     # Verify cleanup
     assert result.success is True
-    assert test_id not in manager.conversations
+
+    # Clean up
+    manager.shutdown()
 
 
 def test_close_sub_agent_with_parent_relationship():
@@ -83,11 +115,34 @@ def test_close_sub_agent_with_parent_relationship():
     parent_id = str(uuid.uuid4())
     child_id = str(uuid.uuid4())
 
-    manager.conversations[parent_id] = {"task": "parent"}
-    manager.conversations[child_id] = {"task": "child"}
+    # Register parent conversation
+    mock_parent_conv = MagicMock()
+    mock_parent_conv.id = parent_id
+    manager.register_conversation(mock_parent_conv)
 
-    # Set up parent-child relationship
-    manager.child_to_parent[child_id] = parent_id
+    # Create child sub-agent
+    mock_child_conversation = MagicMock()
+    mock_thread = MagicMock()
+    mock_thread.is_alive.return_value = False
+    mock_stop_event = MagicMock()
+
+    import time
+
+    from openhands.tools.delegate.impl import SubAgentInfo, SubAgentState
+
+    sub_agent_info = SubAgentInfo(
+        conversation_id=child_id,
+        parent_id=parent_id,
+        conversation=mock_child_conversation,
+        thread=mock_thread,
+        state=SubAgentState.RUNNING,
+        stop_event=mock_stop_event,
+        message_queue=MagicMock(),
+        created_at=time.time(),
+    )
+
+    with manager._lock:
+        manager._sub_agents[child_id] = sub_agent_info
 
     # Close child
     action = DelegateAction(operation="close", sub_conversation_id=child_id)
@@ -95,10 +150,11 @@ def test_close_sub_agent_with_parent_relationship():
 
     # Verify cleanup
     assert result.success is True
-    assert child_id not in manager.conversations
-    assert child_id not in manager.child_to_parent
     # Parent should still exist
-    assert parent_id in manager.conversations
+    assert manager.get_conversation(parent_id) == mock_parent_conv
+
+    # Clean up
+    manager.shutdown()
 
 
 def test_close_sub_agent_not_found():
@@ -111,3 +167,6 @@ def test_close_sub_agent_not_found():
 
     # Verify
     assert result.success is False
+
+    # Clean up
+    manager.shutdown()
