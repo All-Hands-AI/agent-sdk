@@ -2,7 +2,7 @@ import io
 import re
 from itertools import chain
 from pathlib import Path
-from typing import Annotated, ClassVar, Union, cast
+from typing import Annotated, ClassVar, Union
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
@@ -138,7 +138,10 @@ class Skill(BaseModel):
             if trigger_keyword not in keywords:
                 keywords.append(trigger_keyword)
             inputs_raw = metadata_dict.get("inputs", [])
-            inputs: list[InputMetadata] = cast(list[InputMetadata], inputs_raw)
+            assert isinstance(inputs_raw, list), "Inputs must be a list"
+            inputs: list[InputMetadata] = [
+                InputMetadata.model_validate(i) for i in inputs_raw
+            ]
             return Skill(
                 name=agent_name,
                 content=content,
@@ -156,8 +159,8 @@ class Skill(BaseModel):
             )
         else:
             # No triggers, default to None (always active)
-            mcp_tools_raw = metadata_dict.get("mcp_tools")
-            mcp_tools: dict | None = cast(dict | None, mcp_tools_raw)
+            mcp_tools = metadata_dict.get("mcp_tools")
+            assert isinstance(mcp_tools, dict | None), "MCP tools must be a dictionary"
             return Skill(
                 name=agent_name,
                 content=content,

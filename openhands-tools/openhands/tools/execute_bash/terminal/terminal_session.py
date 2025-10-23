@@ -71,7 +71,7 @@ class TerminalSession(TerminalSessionBase):
             no_change_timeout_seconds,
         )
         self.terminal = terminal
-        self.no_change_timeout_seconds = (
+        self.no_change_timeout_seconds: int = (
             no_change_timeout_seconds or NO_CHANGE_TIMEOUT_SECONDS
         )
         # Store the last command for interactive input handling

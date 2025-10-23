@@ -24,7 +24,7 @@ TIMEOUT_MESSAGE_TEMPLATE = (
 )
 
 # How long to wait with no new output before considering it a no-change timeout
-NO_CHANGE_TIMEOUT_SECONDS = 30
+NO_CHANGE_TIMEOUT_SECONDS: int = 30
 
 # How often to poll for new output in seconds
 POLL_INTERVAL = 0.5
