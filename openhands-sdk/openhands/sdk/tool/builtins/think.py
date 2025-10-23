@@ -78,7 +78,7 @@ class ThinkExecutor(ToolExecutor):
     def __call__(
         self,
         _: ThinkAction,
-        conversation: "BaseConversation",  # noqa: ARG002
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> ThinkObservation:
         return ThinkObservation()
 
