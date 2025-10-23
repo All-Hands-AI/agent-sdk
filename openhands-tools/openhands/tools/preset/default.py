@@ -34,7 +34,9 @@ def register_default_tools(enable_browser: bool = True) -> None:
         logger.debug("Tool: BrowserToolSet registered.")
 
 
-def get_default_tools(enable_browser: bool = True) -> list[Tool]:
+def get_default_tools(
+    enable_browser: bool = True,
+) -> list[Tool]:
     """Get the default set of tool specifications for the standard experience.
 
     Args:
@@ -66,13 +68,6 @@ def get_default_agent(
     cli_mode: bool = False,
     add_security_analyzer: bool = False,
 ) -> Agent:
-    """Get the default agent.
-
-    Args:
-        llm: The LLM to use for the agent
-        cli_mode: Whether to run in CLI mode (disables browser tools)
-        add_security_analyzer: Whether to add security analyzer
-    """
     tools = get_default_tools(
         # Disable browser tools in CLI mode
         enable_browser=not cli_mode,

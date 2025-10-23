@@ -1,7 +1,7 @@
 """Delegate tool definitions for OpenHands agents."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from pydantic import Field
 from rich.text import Text
@@ -15,27 +15,23 @@ from openhands.sdk.tool.tool import (
 )
 
 
-if TYPE_CHECKING:
-    pass
-
-
 class DelegateAction(Action):
     """Action for delegating tasks to sub-agents."""
 
     operation: Literal["spawn", "send", "close"] = Field(
         description="The delegation operation to perform"
     )
-    sub_conversation_id: str | None = Field(
-        default=None,
-        description=(
-            "ID of the sub-conversation (only supported for send/close operations)"
-        ),
-    )
     message: str | None = Field(
         default=None,
         description=(
             "Message content: for spawn operation, this is the task description; "
             "for send operation, this is the message to send to sub-agent"
+        ),
+    )
+    sub_conversation_id: str | None = Field(
+        default=None,
+        description=(
+            "ID of the sub-conversation (only supported for send/close operations)"
         ),
     )
 
@@ -95,7 +91,7 @@ DELEGATE_TOOL_DESCRIPTION = """Delegate tasks to sub-agents for parallel process
 This tool allows the main agent to spawn, communicate with, and manage sub-agents:
 
 **Operations:**
-- `spawn`: Create a new sub-agent with a specific task (use message field for task)
+- `spawn`: Create a new sub-agent and send it a message (using the message field)
 - `send`: Send a message to an existing sub-agent (requires sub_conversation_id)
 - `close`: Terminate a sub-agent and clean up resources (requires sub_conversation_id)
 
@@ -111,6 +107,8 @@ This tool allows the main agent to spawn, communicate with, and manage sub-agent
 - Use spawn to create specialized agents for different aspects of complex tasks
 - Always close sub-agents when their work is complete to free resources
 - sub_conversation_id is only supported for send/close operations
+- after spawning sub-agents, use FinishAction to pause and wait for
+    their results when necessary. 
 """
 
 

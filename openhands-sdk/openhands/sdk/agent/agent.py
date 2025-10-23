@@ -5,7 +5,11 @@ from pydantic import ValidationError
 import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
-from openhands.sdk.conversation import ConversationCallbackType, ConversationState
+from openhands.sdk.conversation import (
+    ConversationCallbackType,
+    ConversationState,
+    LocalConversation,
+)
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import (
     ActionEvent,
@@ -123,7 +127,7 @@ class Agent(AgentBase):
 
     def _execute_actions(
         self,
-        conversation,
+        conversation: LocalConversation,
         action_events: list[ActionEvent],
         on_event: ConversationCallbackType,
     ):
@@ -132,7 +136,7 @@ class Agent(AgentBase):
 
     def step(
         self,
-        conversation,
+        conversation: LocalConversation,
         on_event: ConversationCallbackType,
     ) -> None:
         state = conversation.state
@@ -420,7 +424,7 @@ class Agent(AgentBase):
 
     def _execute_action_event(
         self,
-        conversation,
+        conversation: LocalConversation,
         action_event: ActionEvent,
         on_event: ConversationCallbackType,
     ):
