@@ -5,7 +5,11 @@ from pydantic import ValidationError
 import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
-from openhands.sdk.conversation import ConversationCallbackType, ConversationState
+from openhands.sdk.conversation import (
+    ConversationCallbackType,
+    ConversationState,
+    LocalConversation,
+)
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import (
     ActionEvent,
@@ -123,18 +127,19 @@ class Agent(AgentBase):
 
     def _execute_actions(
         self,
-        state: ConversationState,
+        conversation: LocalConversation,
         action_events: list[ActionEvent],
         on_event: ConversationCallbackType,
     ):
         for action_event in action_events:
-            self._execute_action_event(state, action_event, on_event=on_event)
+            self._execute_action_event(conversation, action_event, on_event=on_event)
 
     def step(
         self,
-        state: ConversationState,
+        conversation: LocalConversation,
         on_event: ConversationCallbackType,
     ) -> None:
+        state = conversation.state
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = ConversationState.get_unmatched_actions(state.events)
@@ -143,7 +148,7 @@ class Agent(AgentBase):
                 "Confirmation mode: Executing %d pending action(s)",
                 len(pending_actions),
             )
-            self._execute_actions(state, pending_actions, on_event)
+            self._execute_actions(conversation, pending_actions, on_event)
             return
 
         # If a condenser is registered with the agent, we need to give it an
@@ -258,7 +263,7 @@ class Agent(AgentBase):
                 return
 
             if action_events:
-                self._execute_actions(state, action_events, on_event)
+                self._execute_actions(conversation, action_events, on_event)
 
         else:
             logger.info("LLM produced a message response - awaits user input")
@@ -373,6 +378,7 @@ class Agent(AgentBase):
             assert "security_risk" not in arguments, (
                 "Unexpected 'security_risk' key found in tool arguments"
             )
+
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
@@ -418,7 +424,7 @@ class Agent(AgentBase):
 
     def _execute_action_event(
         self,
-        state: ConversationState,
+        conversation: LocalConversation,
         action_event: ActionEvent,
         on_event: ConversationCallbackType,
     ):
@@ -427,6 +433,7 @@ class Agent(AgentBase):
         It will call the tool's executor and update the state & call callback fn
         with the observation.
         """
+        state = conversation.state
         tool = self.tools_map.get(action_event.tool_name, None)
         if tool is None:
             raise RuntimeError(
@@ -435,7 +442,7 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        observation: Observation = tool(action_event.action)
+        observation: Observation = tool(action_event.action, conversation)
         assert isinstance(observation, Observation), (
             f"Tool '{tool.name}' executor must return an Observation"
         )
