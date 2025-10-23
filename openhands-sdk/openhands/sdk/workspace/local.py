@@ -153,6 +153,7 @@ class LocalWorkspace(BaseWorkspace):
         Raises:
             Exception: If path is not a git repository or getting changes failed
         """
+        path = Path(self.working_dir) / path
         return get_git_changes(path)
 
     def git_diff(self, path: str | Path) -> GitDiff:
@@ -167,4 +168,5 @@ class LocalWorkspace(BaseWorkspace):
         Raises:
             Exception: If path is not a git repository or getting diff failed
         """
+        path = Path(self.working_dir) / path
         return get_git_diff(path)
