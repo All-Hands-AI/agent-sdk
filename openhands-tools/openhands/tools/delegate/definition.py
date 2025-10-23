@@ -1,7 +1,7 @@
 """Delegate tool definitions for OpenHands agents."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from pydantic import Field
 from rich.text import Text
@@ -13,10 +13,6 @@ from openhands.sdk.tool.tool import (
     ToolAnnotations,
     ToolDefinition,
 )
-
-
-if TYPE_CHECKING:
-    pass
 
 
 class DelegateAction(Action):
