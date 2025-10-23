@@ -138,7 +138,8 @@ class Skill(BaseModel):
             if trigger_keyword not in keywords:
                 keywords.append(trigger_keyword)
             inputs_raw = metadata_dict.get("inputs", [])
-            assert isinstance(inputs_raw, list), "Inputs must be a list"
+            if not isinstance(inputs_raw, list):
+                raise SkillValidationError("inputs must be a list")
             inputs: list[InputMetadata] = [
                 InputMetadata.model_validate(i) for i in inputs_raw
             ]
