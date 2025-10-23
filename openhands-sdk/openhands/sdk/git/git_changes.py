@@ -25,7 +25,7 @@ def _map_git_status_to_enum(status: str) -> GitChangeStatus:
     return status_mapping[status]
 
 
-def run(cmd: str, cwd: str) -> str:
+def run(cmd: str, cwd: str | Path) -> str:
     result = subprocess.run(args=cmd, shell=True, cwd=cwd, capture_output=True)
     byte_content = result.stderr or result.stdout or b""
 
@@ -36,7 +36,7 @@ def run(cmd: str, cwd: str) -> str:
     return byte_content.decode().strip()
 
 
-def get_valid_ref(repo_dir: str) -> str | None:
+def get_valid_ref(repo_dir: str | Path) -> str | None:
     refs = []
     try:
         current_branch = run("git --no-pager rev-parse --abbrev-ref HEAD", repo_dir)
@@ -78,7 +78,7 @@ def get_valid_ref(repo_dir: str) -> str | None:
     return None
 
 
-def get_changes_in_repo(repo_dir: str) -> list[GitChange]:
+def get_changes_in_repo(repo_dir: str | Path) -> list[GitChange]:
     # Gets the status relative to the origin default branch
     # Not the same as `git status`
 
@@ -177,7 +177,7 @@ def get_changes_in_repo(repo_dir: str) -> list[GitChange]:
     return changes
 
 
-def get_git_changes(cwd: str) -> list[GitChange]:
+def get_git_changes(cwd: str | Path) -> list[GitChange]:
     git_dirs = {
         os.path.dirname(f)[2:]
         for f in glob.glob("./*/.git", root_dir=cwd, recursive=True)

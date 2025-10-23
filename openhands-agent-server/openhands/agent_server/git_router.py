@@ -19,13 +19,11 @@ bash_event_service = get_default_bash_event_service()
 conversation_service = get_default_conversation_service()
 
 
-@git_router.get("/changes/{conversation_id}")
+@git_router.get("/changes/{path:path}")
 async def git_changes(
-    conversation_id: UUID,
+    path: Path,
 ) -> list[GitChange]:
-    conversation_info = await conversation_service.get_conversation(conversation_id)
-    assert conversation_info is not None
-    return get_git_changes(conversation_info.workspace.working_dir)
+    return get_git_changes(path)
 
 
 # bash event routes

@@ -76,7 +76,7 @@ def get_valid_ref(repo_dir: str) -> str | None:
     return None
 
 
-def get_git_diff(relative_file_path: str) -> GitDiff:
+def get_git_diff(relative_file_path: str | Path) -> GitDiff:
     path = Path(os.getcwd(), relative_file_path).resolve()
     if os.path.getsize(path) > MAX_FILE_SIZE_FOR_GIT_DIFF:
         raise ValueError("file_to_large")

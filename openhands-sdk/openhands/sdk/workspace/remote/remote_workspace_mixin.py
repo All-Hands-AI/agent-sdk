@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 
+from openhands.sdk.git.models import GitChange, GitDiff
 from openhands.sdk.workspace.models import CommandResult, FileOperationResult
 
 
@@ -262,3 +263,56 @@ class RemoteWorkspaceMixin(BaseModel):
                 destination_path=str(destination),
                 error=str(e),
             )
+
+    def _git_changes_generator(
+        self,
+        path: str | Path,
+    ) -> Generator[dict[str, Any], httpx.Response, list[GitChange]]:
+        """Get the git changes for the repository at the path given.
+
+        Args:
+            path: Path to the git repository
+
+        Returns:
+            list[GitChange]: List of changes
+
+        Raises:
+            Exception: If path is not a git repository or getting changes failed
+        """
+        # Make HTTP call
+        response = yield {
+            "method": "GET",
+            "url": Path("/api/git/changes") / path,
+            "headers": self._headers,
+            "timeout": 60.0,
+        }
+        response.raise_for_status()
+        type_adapter = TypeAdapter(list[GitChange])
+        changes = type_adapter.validate_json(response.json())
+        return changes
+
+    def _git_diff_generator(
+        self,
+        path: str | Path,
+    ) -> Generator[dict[str, Any], httpx.Response, GitDiff]:
+        """Get the git diff for the file at the path given.
+
+        Args:
+            path: Path to the file
+
+        Returns:
+            GitDiff: Git diff
+
+        Raises:
+            Exception: If path is not a git repository or getting diff failed
+        """
+        # Make HTTP call
+        response = yield {
+            "method": "GET",
+            "url": Path("/api/git/diff") / path,
+            "headers": self._headers,
+            "timeout": 60.0,
+        }
+        response.raise_for_status()
+        diff = GitDiff.model_validate(response.json())
+        return diff
