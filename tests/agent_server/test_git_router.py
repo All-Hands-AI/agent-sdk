@@ -1,18 +1,14 @@
 """Tests for git_router.py endpoints."""
 
-import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from openhands.agent_server.api import create_app
 from openhands.agent_server.config import Config
-from openhands.agent_server.models import ConversationInfo
 from openhands.sdk.git.models import GitChange, GitChangeStatus, GitDiff
-from openhands.sdk.workspace import LocalWorkspace
 
 
 @pytest.fixture
@@ -22,302 +18,215 @@ def client():
     return TestClient(create_app(config), raise_server_exceptions=False)
 
 
-@pytest.fixture
-def mock_conversation_info():
-    """Create a mock conversation info for testing."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Create a mock workspace with the working_dir attribute
-        workspace = LocalWorkspace(working_dir=temp_dir)
-
-        # Create a mock ConversationInfo with required fields
-        conversation_info = MagicMock(spec=ConversationInfo)
-        conversation_info.conversation_id = uuid4()
-        conversation_info.workspace = workspace
-
-        yield conversation_info
-
-
 @pytest.mark.asyncio
-async def test_git_changes_success(client, mock_conversation_info):
+async def test_git_changes_success(client):
     """Test successful git changes endpoint."""
-    # Mock the conversation service
+    # Mock the LocalWorkspace.git_changes method
+    expected_changes = [
+        GitChange(status=GitChangeStatus.ADDED, path=Path("new_file.py")),
+        GitChange(status=GitChangeStatus.UPDATED, path=Path("existing_file.py")),
+        GitChange(status=GitChangeStatus.DELETED, path=Path("old_file.py")),
+    ]
+
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(
-            return_value=mock_conversation_info
-        )
+        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
+    ) as mock_git_changes:
+        mock_git_changes.return_value = expected_changes
 
-        # Mock the get_git_changes function
-        expected_changes = [
-            GitChange(status=GitChangeStatus.ADDED, path=Path("new_file.py")),
-            GitChange(status=GitChangeStatus.UPDATED, path=Path("existing_file.py")),
-            GitChange(status=GitChangeStatus.DELETED, path=Path("old_file.py")),
-        ]
+        test_path = "src/test_repo"
+        response = client.get(f"/api/git/changes/{test_path}")
 
-        with patch(
-            "openhands.agent_server.git_router.get_git_changes"
-        ) as mock_get_changes:
-            mock_get_changes.return_value = expected_changes
+        assert response.status_code == 200
+        response_data = response.json()
 
-            response = client.get(
-                f"/api/git/changes/{mock_conversation_info.conversation_id}"
-            )
+        # Verify the response structure
+        assert len(response_data) == 3
+        assert response_data[0]["status"] == "ADDED"
+        assert response_data[0]["path"] == "new_file.py"
+        assert response_data[1]["status"] == "UPDATED"
+        assert response_data[1]["path"] == "existing_file.py"
+        assert response_data[2]["status"] == "DELETED"
+        assert response_data[2]["path"] == "old_file.py"
 
-            assert response.status_code == 200
-            response_data = response.json()
-
-            # Verify the response structure
-            assert len(response_data) == 3
-            assert response_data[0]["status"] == "ADDED"
-            assert response_data[0]["path"] == "new_file.py"
-            assert response_data[1]["status"] == "UPDATED"
-            assert response_data[1]["path"] == "existing_file.py"
-            assert response_data[2]["status"] == "DELETED"
-            assert response_data[2]["path"] == "old_file.py"
-
-            # Verify the mocks were called correctly
-            mock_conv_service.get_conversation.assert_called_once_with(
-                mock_conversation_info.conversation_id
-            )
-            mock_get_changes.assert_called_once_with(
-                mock_conversation_info.workspace.working_dir
-            )
+        # Verify the mock was called correctly
+        mock_git_changes.assert_called_once_with(Path(test_path))
 
 
 @pytest.mark.asyncio
-async def test_git_changes_empty_result(client, mock_conversation_info):
+async def test_git_changes_empty_result(client):
     """Test git changes endpoint with no changes."""
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(
-            return_value=mock_conversation_info
-        )
+        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
+    ) as mock_git_changes:
+        mock_git_changes.return_value = []
 
-        with patch(
-            "openhands.agent_server.git_router.get_git_changes"
-        ) as mock_get_changes:
-            mock_get_changes.return_value = []
+        test_path = "src/empty_repo"
+        response = client.get(f"/api/git/changes/{test_path}")
 
-            response = client.get(
-                f"/api/git/changes/{mock_conversation_info.conversation_id}"
-            )
-
-            assert response.status_code == 200
-            assert response.json() == []
+        assert response.status_code == 200
+        assert response.json() == []
 
 
 @pytest.mark.asyncio
-async def test_git_changes_conversation_not_found(client):
-    """Test git changes endpoint when conversation is not found."""
-    conversation_id = uuid4()
-
+async def test_git_changes_with_exception(client):
+    """Test git changes endpoint when git operation fails."""
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(return_value=None)
+        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
+    ) as mock_git_changes:
+        mock_git_changes.side_effect = Exception("Git repository not found")
 
-        response = client.get(f"/api/git/changes/{conversation_id}")
+        test_path = "nonexistent/repo"
+        response = client.get(f"/api/git/changes/{test_path}")
 
-        # Should return 500 due to assertion error when conversation not found
+        # Should return 500 due to exception
         assert response.status_code == 500
-        mock_conv_service.get_conversation.assert_called_once_with(conversation_id)
 
 
 @pytest.mark.asyncio
-async def test_git_diff_success(client, mock_conversation_info):
+async def test_git_diff_success(client):
     """Test successful git diff endpoint."""
+    # Mock the LocalWorkspace.git_diff method
+    expected_diff = GitDiff(
+        modified="def new_function():\n    return 'updated'",
+        original="def old_function():\n    return 'original'",
+    )
+
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(
-            return_value=mock_conversation_info
-        )
+        "openhands.sdk.workspace.local.LocalWorkspace.git_diff"
+    ) as mock_git_diff:
+        mock_git_diff.return_value = expected_diff
 
-        # Mock the get_git_diff function
-        expected_diff = GitDiff(
-            modified="def new_function():\n    return 'updated'",
-            original="def old_function():\n    return 'original'",
-        )
+        test_path = "src/test_file.py"
+        response = client.get(f"/api/git/diff/{test_path}")
 
-        with patch("openhands.agent_server.git_router.get_git_diff") as mock_get_diff:
-            mock_get_diff.return_value = expected_diff
+        assert response.status_code == 200
+        response_data = response.json()
 
-            test_path = "src/test_file.py"
-            response = client.get(
-                f"/api/git/diff/{mock_conversation_info.conversation_id}/{test_path}"
-            )
+        # Verify the response structure
+        assert response_data["modified"] == expected_diff.modified
+        assert response_data["original"] == expected_diff.original
 
-            assert response.status_code == 200
-            response_data = response.json()
-
-            # Verify the response structure
-            assert response_data["modified"] == expected_diff.modified
-            assert response_data["original"] == expected_diff.original
-
-            # Verify the mocks were called correctly
-            mock_conv_service.get_conversation.assert_called_once_with(
-                mock_conversation_info.conversation_id
-            )
-            expected_file_path = str(
-                Path(mock_conversation_info.workspace.working_dir) / test_path
-            )
-            mock_get_diff.assert_called_once_with(expected_file_path)
+        # Verify the mock was called correctly
+        mock_git_diff.assert_called_once_with(test_path)
 
 
 @pytest.mark.asyncio
-async def test_git_diff_with_none_values(client, mock_conversation_info):
+async def test_git_diff_with_none_values(client):
     """Test git diff endpoint with None values."""
+    # Mock the LocalWorkspace.git_diff method with None values
+    expected_diff = GitDiff(modified=None, original=None)
+
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(
-            return_value=mock_conversation_info
-        )
+        "openhands.sdk.workspace.local.LocalWorkspace.git_diff"
+    ) as mock_git_diff:
+        mock_git_diff.return_value = expected_diff
 
-        # Mock the get_git_diff function with None values
-        expected_diff = GitDiff(modified=None, original=None)
+        test_path = "nonexistent_file.py"
+        response = client.get(f"/api/git/diff/{test_path}")
 
-        with patch("openhands.agent_server.git_router.get_git_diff") as mock_get_diff:
-            mock_get_diff.return_value = expected_diff
+        assert response.status_code == 200
+        response_data = response.json()
 
-            test_path = "nonexistent_file.py"
-            response = client.get(
-                f"/api/git/diff/{mock_conversation_info.conversation_id}/{test_path}"
-            )
-
-            assert response.status_code == 200
-            response_data = response.json()
-
-            # Verify the response structure
-            assert response_data["modified"] is None
-            assert response_data["original"] is None
+        # Verify the response structure
+        assert response_data["modified"] is None
+        assert response_data["original"] is None
 
 
 @pytest.mark.asyncio
-async def test_git_diff_conversation_not_found(client):
-    """Test git diff endpoint when conversation is not found."""
-    conversation_id = uuid4()
-
+async def test_git_diff_with_exception(client):
+    """Test git diff endpoint when git operation fails."""
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(return_value=None)
+        "openhands.sdk.workspace.local.LocalWorkspace.git_diff"
+    ) as mock_git_diff:
+        mock_git_diff.side_effect = Exception("Git diff failed")
 
-        response = client.get(f"/api/git/diff/{conversation_id}/test_file.py")
+        test_path = "nonexistent/file.py"
+        response = client.get(f"/api/git/diff/{test_path}")
 
-        # Should return 500 due to assertion error when conversation not found
+        # Should return 500 due to exception
         assert response.status_code == 500
-        mock_conv_service.get_conversation.assert_called_once_with(conversation_id)
 
 
 @pytest.mark.asyncio
-async def test_git_diff_nested_path(client, mock_conversation_info):
+async def test_git_diff_nested_path(client):
     """Test git diff endpoint with nested file path."""
+    expected_diff = GitDiff(modified="updated content", original="original content")
+
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(
-            return_value=mock_conversation_info
-        )
+        "openhands.sdk.workspace.local.LocalWorkspace.git_diff"
+    ) as mock_git_diff:
+        mock_git_diff.return_value = expected_diff
 
-        expected_diff = GitDiff(modified="updated content", original="original content")
+        # Test with nested path
+        test_path = "src/utils/helper.py"
+        response = client.get(f"/api/git/diff/{test_path}")
 
-        with patch("openhands.agent_server.git_router.get_git_diff") as mock_get_diff:
-            mock_get_diff.return_value = expected_diff
+        assert response.status_code == 200
 
-            # Test with nested path
-            test_path = "src/utils/helper.py"
-            response = client.get(
-                f"/api/git/diff/{mock_conversation_info.conversation_id}/{test_path}"
-            )
-
-            assert response.status_code == 200
-
-            # Verify the correct path was constructed
-            expected_file_path = str(
-                Path(mock_conversation_info.workspace.working_dir) / test_path
-            )
-            mock_get_diff.assert_called_once_with(expected_file_path)
+        # Verify the correct path was passed
+        mock_git_diff.assert_called_once_with(test_path)
 
 
 @pytest.mark.asyncio
-async def test_git_changes_with_all_status_types(client, mock_conversation_info):
+async def test_git_changes_with_all_status_types(client):
     """Test git changes endpoint with all possible GitChangeStatus values."""
+    # Test all possible status types
+    expected_changes = [
+        GitChange(status=GitChangeStatus.ADDED, path=Path("added.py")),
+        GitChange(status=GitChangeStatus.UPDATED, path=Path("updated.py")),
+        GitChange(status=GitChangeStatus.DELETED, path=Path("deleted.py")),
+        GitChange(status=GitChangeStatus.MOVED, path=Path("moved.py")),
+    ]
+
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(
-            return_value=mock_conversation_info
-        )
+        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
+    ) as mock_git_changes:
+        mock_git_changes.return_value = expected_changes
 
-        # Test all possible status types
-        expected_changes = [
-            GitChange(status=GitChangeStatus.ADDED, path=Path("added.py")),
-            GitChange(status=GitChangeStatus.UPDATED, path=Path("updated.py")),
-            GitChange(status=GitChangeStatus.DELETED, path=Path("deleted.py")),
-            GitChange(status=GitChangeStatus.MOVED, path=Path("moved.py")),
-        ]
+        test_path = "src/test_repo"
+        response = client.get(f"/api/git/changes/{test_path}")
 
-        with patch(
-            "openhands.agent_server.git_router.get_git_changes"
-        ) as mock_get_changes:
-            mock_get_changes.return_value = expected_changes
+        assert response.status_code == 200
+        response_data = response.json()
 
-            response = client.get(
-                f"/api/git/changes/{mock_conversation_info.conversation_id}"
-            )
-
-            assert response.status_code == 200
-            response_data = response.json()
-
-            assert len(response_data) == 4
-            assert response_data[0]["status"] == "ADDED"
-            assert response_data[1]["status"] == "UPDATED"
-            assert response_data[2]["status"] == "DELETED"
-            assert response_data[3]["status"] == "MOVED"
+        assert len(response_data) == 4
+        assert response_data[0]["status"] == "ADDED"
+        assert response_data[1]["status"] == "UPDATED"
+        assert response_data[2]["status"] == "DELETED"
+        assert response_data[3]["status"] == "MOVED"
 
 
 @pytest.mark.asyncio
-async def test_git_changes_with_complex_paths(client, mock_conversation_info):
+async def test_git_changes_with_complex_paths(client):
     """Test git changes endpoint with complex file paths."""
+    # Test with various path complexities
+    expected_changes = [
+        GitChange(
+            status=GitChangeStatus.ADDED,
+            path=Path("src/deep/nested/file.py"),
+        ),
+        GitChange(
+            status=GitChangeStatus.UPDATED,
+            path=Path("file with spaces.txt"),
+        ),
+        GitChange(
+            status=GitChangeStatus.DELETED,
+            path=Path("special-chars_file@123.py"),
+        ),
+    ]
+
     with patch(
-        "openhands.agent_server.git_router.conversation_service"
-    ) as mock_conv_service:
-        mock_conv_service.get_conversation = AsyncMock(
-            return_value=mock_conversation_info
-        )
+        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
+    ) as mock_git_changes:
+        mock_git_changes.return_value = expected_changes
 
-        # Test with various path complexities
-        expected_changes = [
-            GitChange(
-                status=GitChangeStatus.ADDED,
-                path=Path("src/deep/nested/file.py"),
-            ),
-            GitChange(
-                status=GitChangeStatus.UPDATED,
-                path=Path("file with spaces.txt"),
-            ),
-            GitChange(
-                status=GitChangeStatus.DELETED,
-                path=Path("special-chars_file@123.py"),
-            ),
-        ]
+        test_path = "src/complex_repo"
+        response = client.get(f"/api/git/changes/{test_path}")
 
-        with patch(
-            "openhands.agent_server.git_router.get_git_changes"
-        ) as mock_get_changes:
-            mock_get_changes.return_value = expected_changes
+        assert response.status_code == 200
+        response_data = response.json()
 
-            response = client.get(
-                f"/api/git/changes/{mock_conversation_info.conversation_id}"
-            )
-
-            assert response.status_code == 200
-            response_data = response.json()
-
-            assert len(response_data) == 3
-            assert response_data[0]["path"] == "src/deep/nested/file.py"
-            assert response_data[1]["path"] == "file with spaces.txt"
-            assert response_data[2]["path"] == "special-chars_file@123.py"
+        assert len(response_data) == 3
+        assert response_data[0]["path"] == "src/deep/nested/file.py"
+        assert response_data[1]["path"] == "file with spaces.txt"
+        assert response_data[2]["path"] == "special-chars_file@123.py"
