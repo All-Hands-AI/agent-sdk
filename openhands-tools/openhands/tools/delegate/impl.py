@@ -1,6 +1,5 @@
 """Implementation of delegate tool executor."""
 
-import queue
 import threading
 import time
 import uuid
@@ -45,7 +44,6 @@ class SubAgentInfo:
     thread: threading.Thread
     state: SubAgentState
     stop_event: threading.Event
-    message_queue: queue.Queue
     created_at: float
     completed_at: float | None = None
     error: str | None = None
@@ -66,16 +64,7 @@ class DelegateExecutor(ToolExecutor):
         self._lock: threading.RLock = threading.RLock()
         self._parent_conversation: BaseConversation | None = None
         self._sub_agents: dict[str, SubAgentInfo] = {}
-        self._parent_message_queue: queue.Queue = queue.Queue()
-
-        # Background thread for processing parent messages
-        self._parent_processor_stop: threading.Event = threading.Event()
-        self._parent_processor_thread: threading.Thread = threading.Thread(
-            target=self._process_parent_messages,
-            name="DelegateExecutor-ParentProcessor",
-            daemon=True,
-        )
-        self._parent_processor_thread.start()
+        self._pending_parent_messages: list[Message] = []
 
     def __del__(self):
         """Cleanup when executor is destroyed."""
@@ -84,16 +73,12 @@ class DelegateExecutor(ToolExecutor):
     def shutdown(self):
         """Shutdown the executor and clean up all resources."""
         with self._lock:
-            # Signal shutdown
-            self._parent_processor_stop.set()
-
             # Cancel all sub-agents
             for sub_agent in list(self._sub_agents.values()):
                 self._cancel_sub_agent_unsafe(sub_agent.conversation_id)
 
-            # Wait for parent processor to stop
-            if self._parent_processor_thread.is_alive():
-                self._parent_processor_thread.join(timeout=5.0)
+            # Clear pending messages
+            self._pending_parent_messages.clear()
 
     def register_conversation(self, conversation: "BaseConversation") -> None:
         """Register the parent conversation with the delegation executor."""
@@ -169,40 +154,64 @@ class DelegateExecutor(ToolExecutor):
                 message=f"Unknown operation: {action.operation}",
             )
 
-    def _process_parent_messages(self):
-        """Background thread to process messages to the parent conversation."""
-        while not self._parent_processor_stop.is_set():
+    def _trigger_parent_if_idle(self):
+        """
+        Core rule: If parent.state.agent_status == FINISHED and there are pending
+        child outputs queued for the parent, then trigger exactly one
+        parent_conversation.run().
+
+        This provides:
+        - No re-entrancy: only fire when parent is idle
+        - Natural batching: all messages that arrive while parent is busy are
+          processed together
+        - Lower latency than fixed debounce: run as soon as parent flips to idle
+        - Cost control: at most one extra parent run per idle transition
+        """
+        with self._lock:
+            if not self._parent_conversation:
+                return
+
+            if not self._pending_parent_messages:
+                return
+
+            # Check if parent is idle (FINISHED state)
             try:
-                # Non-blocking check for messages
-                try:
-                    message = self._parent_message_queue.get_nowait()
+                if hasattr(self._parent_conversation, "state") and hasattr(
+                    self._parent_conversation.state, "agent_status"
+                ):
+                    if self._parent_conversation.state.agent_status == "FINISHED":
+                        # Parent is idle and we have pending messages - trigger one run
+                        messages_to_send = self._pending_parent_messages.copy()
+                        self._pending_parent_messages.clear()
 
-                    with self._lock:
-                        parent_conversation = self._parent_conversation
+                        # Send all pending messages to parent
+                        for message in messages_to_send:
+                            try:
+                                self._parent_conversation.send_message(message)
+                                logger.debug(
+                                    f"Sent message to parent "
+                                    f"{self._parent_conversation.id}"
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"Failed to send message to parent "
+                                    f"{self._parent_conversation.id}: {e}"
+                                )
 
-                    if parent_conversation:
+                        # Trigger exactly one parent run to process all messages
                         try:
-                            parent_conversation.send_message(message)
+                            self._parent_conversation.run()
                             logger.debug(
-                                f"Sent message to parent {parent_conversation.id}"
+                                f"Triggered parent conversation run for "
+                                f"{self._parent_conversation.id}"
                             )
                         except Exception as e:
                             logger.error(
-                                f"Failed to send message to parent "
-                                f"{parent_conversation.id}: {e}"
+                                f"Failed to trigger parent conversation run: {e}"
                             )
 
-                    self._parent_message_queue.task_done()
-
-                except queue.Empty:
-                    # Small sleep to prevent busy waiting
-                    time.sleep(0.1)
-                except Exception as e:
-                    logger.error(f"Error processing parent message: {e}")
-
             except Exception as e:
-                logger.error(f"Error in parent message processor: {e}")
-                time.sleep(1.0)  # Longer sleep on error
+                logger.error(f"Error checking parent status: {e}")
 
     def _spawn_sub_agent(
         self, action: "DelegateAction", conversation: "BaseConversation"
@@ -250,8 +259,6 @@ class DelegateExecutor(ToolExecutor):
             # Generate unique sub-conversation ID
             sub_conversation_id = str(uuid.uuid4())
 
-            # Create message queue for this sub-agent
-            message_queue = queue.Queue()
             stop_event = threading.Event()
 
             def sub_agent_completion_callback(event):
@@ -278,13 +285,15 @@ class DelegateExecutor(ToolExecutor):
                                 f"to parent: {message_text[:100]}..."
                             )
 
-                            # Queue message for parent instead of direct send
-                            self._parent_message_queue.put(
-                                Message(
-                                    role="user",
-                                    content=[TextContent(text=parent_message)],
-                                )
+                            # Queue message for parent and trigger if idle
+                            message = Message(
+                                role="user",
+                                content=[TextContent(text=parent_message)],
                             )
+                            self._pending_parent_messages.append(message)
+
+                            # Trigger parent if it's idle
+                            self._trigger_parent_if_idle()
 
             workspace = parent_conversation.state.workspace
             workspace_path = (
@@ -366,12 +375,14 @@ class DelegateExecutor(ToolExecutor):
                     error_message = (
                         f"[Sub-agent {sub_conversation_id[:8]} ERROR]: {str(e)}"
                     )
-                    self._parent_message_queue.put(
-                        Message(
-                            role="user",
-                            content=[TextContent(text=error_message)],
-                        )
+                    message = Message(
+                        role="user",
+                        content=[TextContent(text=error_message)],
                     )
+                    with self._lock:
+                        self._pending_parent_messages.append(message)
+                        # Trigger parent if it's idle
+                        self._trigger_parent_if_idle()
 
                     with self._lock:
                         if sub_conversation_id in self._sub_agents:
@@ -397,7 +408,6 @@ class DelegateExecutor(ToolExecutor):
                 thread=thread,
                 state=SubAgentState.CREATED,
                 stop_event=stop_event,
-                message_queue=message_queue,
                 created_at=time.time(),
             )
 

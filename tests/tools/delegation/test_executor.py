@@ -88,7 +88,6 @@ def test_close_sub_agent_success():
         thread=mock_thread,
         state=SubAgentState.RUNNING,
         stop_event=mock_stop_event,
-        message_queue=MagicMock(),
         created_at=time.time(),
     )
 
@@ -135,7 +134,6 @@ def test_close_sub_agent_with_parent_relationship():
         thread=mock_thread,
         state=SubAgentState.RUNNING,
         stop_event=mock_stop_event,
-        message_queue=MagicMock(),
         created_at=time.time(),
     )
 
