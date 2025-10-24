@@ -115,87 +115,28 @@ class DelegateExecutor(ToolExecutor):
     def is_task_in_progress(self) -> bool:
         """Check if a task started by the parent conversation is still in progress."""
         with self._lock:
-            logger.info(
-                f"Checking task progress for {len(self._sub_agents)} sub-agents"
-            )
-
-            # Clean up dead threads first
             self._cleanup_completed_sub_agents_unsafe()
 
-            # Check for active sub-agents
-            active_count = 0
-            completed_count = 0
-            for sub_id, sub_agent in self._sub_agents.items():
-                logger.info(
-                    f"Sub-agent {sub_id[:8]}: state={sub_agent.state}, "
-                    f"thread_alive={sub_agent.thread.is_alive()}, "
-                    f"created_at={sub_agent.created_at:.1f}, "
-                    f"completed_at={getattr(sub_agent, 'completed_at', None)}"
-                )
-
-                if sub_agent.state in (
-                    SubAgentState.CREATED,
-                    SubAgentState.RUNNING,
-                ):
-                    active_count += 1
-                    logger.info(
-                        f"Sub-agent {sub_agent.conversation_id[:8]} "
-                        f"still active in state: {sub_agent.state}"
-                    )
-                elif sub_agent.state in (
-                    SubAgentState.COMPLETED,
-                    SubAgentState.FAILED,
-                    SubAgentState.CANCELLED,
-                ):
-                    completed_count += 1
-                    # Check if thread is still alive - if not, we can clean it up
-                    if not sub_agent.thread.is_alive():
-                        logger.info(
-                            f"Sub-agent {sub_agent.conversation_id[:8]} "
-                            f"completed with state: {sub_agent.state}, "
-                            f"thread dead - will be cleaned up"
-                        )
-                    else:
-                        logger.info(
-                            f"Sub-agent {sub_agent.conversation_id[:8]} "
-                            f"completed with state: {sub_agent.state}, "
-                            f"but thread still alive"
-                        )
-
-            total_agents = len(self._sub_agents)
-            pending_messages = self._pending_parent_messages.qsize()
-            logger.info(
-                f"Active sub-agents: {active_count}, "
-                f"Completed: {completed_count}, Total: {total_agents}, "
-                f"Pending parent messages: {pending_messages}"
+            parent_running = (
+                self.parent_conversation.state.agent_status
+                != AgentExecutionStatus.FINISHED
             )
+            if parent_running:
+                return True
 
-            # Task is in progress if there are active sub-agents OR
-            # if there are pending messages for the parent to process
-            task_in_progress = active_count > 0 or pending_messages > 0
+            pending_messages = self._pending_parent_messages.qsize()
+            if pending_messages > 0:
+                return True
 
-            if task_in_progress:
-                logger.info(
-                    f"Task still in progress: "
-                    f"active_agents={active_count > 0} (count={active_count}), "
-                    f"pending_messages={pending_messages > 0} "
-                    f"(count={pending_messages})"
-                )
-                # Log details of active sub-agents
-                for sub_id, sub_agent in self._sub_agents.items():
-                    if sub_agent.state in (
-                        SubAgentState.CREATED,
-                        SubAgentState.RUNNING,
-                    ):
-                        logger.info(
-                            f"  Active sub-agent {sub_id[:8]}: "
-                            f"state={sub_agent.state}, "
-                            f"thread_alive={sub_agent.thread.is_alive()}"
-                        )
-            else:
-                logger.info("All sub-agents completed and no pending messages")
+            active_sub_agents = sum(
+                1
+                for sub_agent in self._sub_agents.values()
+                if sub_agent.state in (SubAgentState.CREATED, SubAgentState.RUNNING)
+            )
+            if active_sub_agents > 0:
+                return True
 
-            return task_in_progress
+            return False
 
     def _cleanup_completed_sub_agents_unsafe(self):
         """Clean up completed sub-agents. Must be called with lock held."""
