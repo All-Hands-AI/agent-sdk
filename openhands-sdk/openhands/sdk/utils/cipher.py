@@ -18,6 +18,8 @@ For maximum security against determined attackers, use the OH_SECRET_KEY
 environment variable with a securely managed key.
 """
 
+import hashlib
+from base64 import b64encode
 from dataclasses import dataclass
 
 from cryptography.fernet import Fernet
@@ -82,8 +84,9 @@ class Cipher:
     def _get_fernet(self):
         fernet = self._fernet
         if fernet is None:
-            # The secret_key is now directly a Fernet-compatible base64 key
-            # No need for hashing - just use it directly
-            fernet = Fernet(self.secret_key.encode("ascii"))
+            secret_key = self.secret_key.encode()
+            # Has the key to make sure we have a 256 bit value
+            fernet_key = b64encode(hashlib.sha256(secret_key).digest())
+            fernet = Fernet(fernet_key)
             self._fernet = fernet
         return fernet
