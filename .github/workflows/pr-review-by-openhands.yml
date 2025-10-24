@@ -14,7 +14,7 @@ permissions:
 jobs:
     pr-review:
         if: github.event.label.name == 'review-this'
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-4vcpu-ubuntu-2404
         env:
             LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
             LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev

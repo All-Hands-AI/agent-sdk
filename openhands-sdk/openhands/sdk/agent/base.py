@@ -21,7 +21,7 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.state import ConversationState
+    from openhands.sdk.conversation import ConversationState, LocalConversation
     from openhands.sdk.conversation.types import ConversationCallbackType
 
 logger = get_logger(__name__)
@@ -80,7 +80,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         "the agent with specific context.",
         examples=[
             {
-                "microagents": [
+                "skills": [
                     {
                         "name": "repo.md",
                         "content": "When you see this message, you should reply like "
@@ -234,7 +234,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @abstractmethod
     def step(
         self,
-        state: "ConversationState",
+        conversation: "LocalConversation",
         on_event: "ConversationCallbackType",
     ) -> None:
         """Taking a step in the conversation.

@@ -78,7 +78,7 @@ def test_execute_command_generator_basic_flow():
     # First yield - start command
     start_kwargs = next(generator)
     assert start_kwargs["method"] == "POST"
-    assert start_kwargs["url"] == "http://localhost:8000/api/bash/execute_bash_command"
+    assert start_kwargs["url"] == "http://localhost:8000/api/bash/start_bash_command"
     assert start_kwargs["json"]["command"] == "echo hello"
     assert start_kwargs["json"]["cwd"] == "/tmp"
     assert start_kwargs["json"]["timeout"] == 30
