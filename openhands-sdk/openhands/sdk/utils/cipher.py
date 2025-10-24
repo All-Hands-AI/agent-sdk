@@ -8,8 +8,6 @@ variables, keys are stored on on the filesystem at ~/.openhands/secret_key and i
 will NOT protect against attackers with read access!
 """
 
-import hashlib
-from base64 import b64encode
 from dataclasses import dataclass
 
 from cryptography.fernet import Fernet
@@ -69,8 +67,8 @@ class Cipher:
     def _get_fernet(self):
         fernet = self._fernet
         if fernet is None:
-            secret_key = self.secret_key.encode()
-            fernet_key = b64encode(hashlib.sha256(secret_key).digest())
-            fernet = Fernet(fernet_key)
+            # The secret_key is now directly a Fernet-compatible base64 key
+            # No need for hashing - just use it directly
+            fernet = Fernet(self.secret_key.encode("ascii"))
             self._fernet = fernet
         return fernet

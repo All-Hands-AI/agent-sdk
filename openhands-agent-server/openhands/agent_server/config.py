@@ -1,4 +1,6 @@
 import os
+import stat
+from base64 import urlsafe_b64encode
 from pathlib import Path
 from typing import ClassVar
 
@@ -36,10 +38,16 @@ def default_secret_key():
         secret_key = key_file.read_text()
         return SecretStr(secret_key)
 
-    # Generate a key and store it so that it will be persisted between restarts.
-    secret_key = os.urandom(32).hex()
+    # Generate a Fernet-compatible key directly (32 bytes -> base64)
+    # This is simpler and more secure than the previous hex + hash approach
+    secret_key = urlsafe_b64encode(os.urandom(32)).decode("ascii")
+
+    # Create directory and write key with restrictive permissions
     key_file.parent.mkdir(exist_ok=True, parents=True)
     key_file.write_text(secret_key)
+
+    # Set file permissions to 600 (read/write for owner only)
+    key_file.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
     return SecretStr(secret_key)
 
