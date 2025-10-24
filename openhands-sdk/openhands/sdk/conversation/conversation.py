@@ -1,9 +1,14 @@
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Self, overload
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.conversation.types import (
+    ConversationCallbackType,
+    ConversationID,
+    StuckDetectionThresholds,
+)
 from openhands.sdk.logger import get_logger
 from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 
@@ -34,6 +39,9 @@ class Conversation:
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
+        stuck_detection_thresholds: (
+            StuckDetectionThresholds | Mapping[str, int] | None
+        ) = None,
         visualize: bool = True,
         secrets: dict[str, SecretValue] | dict[str, str] | None = None,
     ) -> "LocalConversation": ...
@@ -48,6 +56,9 @@ class Conversation:
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
+        stuck_detection_thresholds: (
+            StuckDetectionThresholds | Mapping[str, int] | None
+        ) = None,
         visualize: bool = True,
         secrets: dict[str, SecretValue] | dict[str, str] | None = None,
     ) -> "RemoteConversation": ...
@@ -62,6 +73,9 @@ class Conversation:
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
+        stuck_detection_thresholds: (
+            StuckDetectionThresholds | Mapping[str, int] | None
+        ) = None,
         visualize: bool = True,
         secrets: dict[str, SecretValue] | dict[str, str] | None = None,
     ) -> BaseConversation:
@@ -83,6 +97,7 @@ class Conversation:
                 callbacks=callbacks,
                 max_iteration_per_run=max_iteration_per_run,
                 stuck_detection=stuck_detection,
+                stuck_detection_thresholds=stuck_detection_thresholds,
                 visualize=visualize,
                 workspace=workspace,
                 secrets=secrets,
@@ -94,6 +109,7 @@ class Conversation:
             callbacks=callbacks,
             max_iteration_per_run=max_iteration_per_run,
             stuck_detection=stuck_detection,
+            stuck_detection_thresholds=stuck_detection_thresholds,
             visualize=visualize,
             workspace=workspace,
             persistence_dir=persistence_dir,
