@@ -21,16 +21,14 @@ def client():
 @pytest.mark.asyncio
 async def test_git_changes_success(client):
     """Test successful git changes endpoint."""
-    # Mock the LocalWorkspace.git_changes method
+    # Mock the get_git_changes function
     expected_changes = [
         GitChange(status=GitChangeStatus.ADDED, path=Path("new_file.py")),
         GitChange(status=GitChangeStatus.UPDATED, path=Path("existing_file.py")),
         GitChange(status=GitChangeStatus.DELETED, path=Path("old_file.py")),
     ]
 
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
-    ) as mock_git_changes:
+    with patch("openhands.agent_server.git_router.get_git_changes") as mock_git_changes:
         mock_git_changes.return_value = expected_changes
 
         test_path = "src/test_repo"
@@ -55,9 +53,7 @@ async def test_git_changes_success(client):
 @pytest.mark.asyncio
 async def test_git_changes_empty_result(client):
     """Test git changes endpoint with no changes."""
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
-    ) as mock_git_changes:
+    with patch("openhands.agent_server.git_router.get_git_changes") as mock_git_changes:
         mock_git_changes.return_value = []
 
         test_path = "src/empty_repo"
@@ -70,9 +66,7 @@ async def test_git_changes_empty_result(client):
 @pytest.mark.asyncio
 async def test_git_changes_with_exception(client):
     """Test git changes endpoint when git operation fails."""
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
-    ) as mock_git_changes:
+    with patch("openhands.agent_server.git_router.get_git_changes") as mock_git_changes:
         mock_git_changes.side_effect = Exception("Git repository not found")
 
         test_path = "nonexistent/repo"
@@ -85,15 +79,13 @@ async def test_git_changes_with_exception(client):
 @pytest.mark.asyncio
 async def test_git_diff_success(client):
     """Test successful git diff endpoint."""
-    # Mock the LocalWorkspace.git_diff method
+    # Mock the get_git_diff function
     expected_diff = GitDiff(
         modified="def new_function():\n    return 'updated'",
         original="def old_function():\n    return 'original'",
     )
 
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_diff"
-    ) as mock_git_diff:
+    with patch("openhands.agent_server.git_router.get_git_diff") as mock_git_diff:
         mock_git_diff.return_value = expected_diff
 
         test_path = "src/test_file.py"
@@ -113,12 +105,10 @@ async def test_git_diff_success(client):
 @pytest.mark.asyncio
 async def test_git_diff_with_none_values(client):
     """Test git diff endpoint with None values."""
-    # Mock the LocalWorkspace.git_diff method with None values
+    # Mock the get_git_diff function with None values
     expected_diff = GitDiff(modified=None, original=None)
 
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_diff"
-    ) as mock_git_diff:
+    with patch("openhands.agent_server.git_router.get_git_diff") as mock_git_diff:
         mock_git_diff.return_value = expected_diff
 
         test_path = "nonexistent_file.py"
@@ -135,9 +125,7 @@ async def test_git_diff_with_none_values(client):
 @pytest.mark.asyncio
 async def test_git_diff_with_exception(client):
     """Test git diff endpoint when git operation fails."""
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_diff"
-    ) as mock_git_diff:
+    with patch("openhands.agent_server.git_router.get_git_diff") as mock_git_diff:
         mock_git_diff.side_effect = Exception("Git diff failed")
 
         test_path = "nonexistent/file.py"
@@ -152,9 +140,7 @@ async def test_git_diff_nested_path(client):
     """Test git diff endpoint with nested file path."""
     expected_diff = GitDiff(modified="updated content", original="original content")
 
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_diff"
-    ) as mock_git_diff:
+    with patch("openhands.agent_server.git_router.get_git_diff") as mock_git_diff:
         mock_git_diff.return_value = expected_diff
 
         # Test with nested path
@@ -178,9 +164,7 @@ async def test_git_changes_with_all_status_types(client):
         GitChange(status=GitChangeStatus.MOVED, path=Path("moved.py")),
     ]
 
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
-    ) as mock_git_changes:
+    with patch("openhands.agent_server.git_router.get_git_changes") as mock_git_changes:
         mock_git_changes.return_value = expected_changes
 
         test_path = "src/test_repo"
@@ -215,9 +199,7 @@ async def test_git_changes_with_complex_paths(client):
         ),
     ]
 
-    with patch(
-        "openhands.sdk.workspace.local.LocalWorkspace.git_changes"
-    ) as mock_git_changes:
+    with patch("openhands.agent_server.git_router.get_git_changes") as mock_git_changes:
         mock_git_changes.return_value = expected_changes
 
         test_path = "src/complex_repo"
