@@ -3,13 +3,9 @@ Cipher utility for preventing accidental secret disclosure in conversation traje
 
 This module provides encryption/decryption functionality designed to prevent accidental
 leakage of sensitive information when serialized conversations are downloaded and
-shared. It is NOT designed to protect against attackers with full filesystem access.
-
-Key points:
-- Secrets are encrypted during serialization to prevent accidental sharing
-- When no cipher is provided during serialization, secrets are redacted (not encrypted)
-- This is a convenience feature, not a security boundary against malicious actors
-- The encryption key is stored in plaintext on the filesystem (~/.openhands/secret_key)
+shared. If it is used in conjunction with the AgentServer when not using environment
+variables, keys are stored on on the filesystem at ~/.openhands/secret_key and it
+will NOT protect against attackers with read access!
 """
 
 import hashlib
