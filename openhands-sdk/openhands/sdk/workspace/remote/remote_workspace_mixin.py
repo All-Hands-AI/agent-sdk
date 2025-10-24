@@ -67,7 +67,7 @@ class RemoteWorkspaceMixin(BaseModel):
             # Start the command
             response: httpx.Response = yield {
                 "method": "POST",
-                "url": f"{self.host}/api/bash/execute_bash_command",
+                "url": f"{self.host}/api/bash/start_bash_command",
                 "json": payload,
                 "headers": self._headers,
                 "timeout": timeout + 5.0,  # Add buffer to HTTP timeout

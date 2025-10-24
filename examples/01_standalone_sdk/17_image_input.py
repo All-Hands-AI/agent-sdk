@@ -39,6 +39,7 @@ llm = LLM(
     base_url=base_url,
     api_key=SecretStr(api_key),
 )
+assert llm.vision_is_active(), "The selected LLM model does not support vision input."
 
 cwd = os.getcwd()
 
@@ -74,7 +75,6 @@ IMAGE_URL = "https://github.com/OpenHands/OpenHands/raw/main/docs/static/img/log
 conversation.send_message(
     Message(
         role="user",
-        vision_enabled=True,
         content=[
             TextContent(
                 text=(
