@@ -148,7 +148,7 @@ class Config(BaseModel):
             "provided using the enviroment variable OH_SECRET_KEY, this will create / "
             "use a secret key stored in plaintext at ~/.openhands/secret_key. "
             "This is NOT designed to protect against attackers with full filesystem "
-            "access - the key is stored in plaintext. It is designed to hel prevent "
+            "access - the key is stored in plaintext. It is designed to prevent "
             "leaking keys in the common case where a conversation directory is shared."
         ),
     )
