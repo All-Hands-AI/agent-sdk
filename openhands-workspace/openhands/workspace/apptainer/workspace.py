@@ -198,7 +198,10 @@ class ApptainerWorkspace(RemoteWorkspace):
 
         # Set host for RemoteWorkspace to use
         object.__setattr__(self, "host", f"http://localhost:{self.host_port}")
-        object.__setattr__(self, "api_key", None)
+        # Apptainer inherits SESSION_API_KEY from environment by default
+        # We need to match it if present
+        session_api_key = os.environ.get("SESSION_API_KEY")
+        object.__setattr__(self, "api_key", session_api_key)
 
         # Wait for container to be healthy
         self._wait_for_health()
@@ -268,30 +271,15 @@ class ApptainerWorkspace(RemoteWorkspace):
                 mount_path,
             )
 
-        # Start the instance
-        # Note: Apptainer doesn't have native port mapping like Docker,
-        # so we'll run the server directly and use host networking
-        run_cmd = [
+        # Run the agent server directly using exec (no instance needed)
+        # This is more compatible with environments without systemd/FUSE
+        server_cmd = [
             "apptainer",
-            "instance",
-            "start",
+            "exec",
             "--writable-tmpfs",
             *env_args,
             *bind_args,
             self._sif_path,
-            self._instance_name,
-        ]
-        proc = execute_command(run_cmd)
-        if proc.returncode != 0:
-            raise RuntimeError(f"Failed to start apptainer instance: {proc.stderr}")
-
-        logger.info("Started Apptainer instance: %s", self._instance_name)
-
-        # Now run the agent server in the instance
-        server_cmd = [
-            "apptainer",
-            "exec",
-            f"instance://{self._instance_name}",
             "/bin/bash",
             "-c",
             f"cd /workspace && openhands-agent-server "
@@ -377,6 +365,7 @@ class ApptainerWorkspace(RemoteWorkspace):
             # Terminate the server process if running
             if self._process:
                 try:
+                    logger.info("Terminating Apptainer process...")
                     self._process.terminate()
                     self._process.wait(timeout=5)
                 except Exception as e:
@@ -386,7 +375,5 @@ class ApptainerWorkspace(RemoteWorkspace):
                     except Exception:
                         pass
 
-            # Stop and remove the instance
-            logger.info("Stopping Apptainer instance: %s", self._instance_name)
-            execute_command(["apptainer", "instance", "stop", self._instance_name])
+            self._process = None
             self._instance_name = None
