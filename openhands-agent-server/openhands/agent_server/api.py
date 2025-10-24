@@ -283,7 +283,7 @@ def create_app(config: Config | None = None) -> FastAPI:
     if config is None:
         config = get_default_config()
     app = _create_fastapi_instance()
-    # Initialize server-owned workspace root fence (read once from env)
+    # Initialize server-side workspace root fence (once)
     LocalWorkspace.set_workspace_root(os.getenv("OH_WORKSPACE_ROOT", "workspace"))
     _add_api_routes(app, config)
     _setup_static_files(app, config)
