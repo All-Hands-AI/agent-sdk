@@ -13,7 +13,6 @@ from openhands.sdk.event import MessageEvent
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolExecutor
-from openhands.sdk.workspace import LocalWorkspace
 from openhands.tools.delegate.definition import DelegateObservation
 from openhands.tools.preset.default import get_default_agent
 
@@ -72,7 +71,7 @@ class DelegateExecutor(ToolExecutor):
         logger.debug("Initialized DelegateExecutor")
 
     @property
-    def parent_conversation(self) -> "BaseConversation":
+    def parent_conversation(self) -> "LocalConversation":
         """Get the parent conversation.
 
         Raises:
@@ -83,7 +82,7 @@ class DelegateExecutor(ToolExecutor):
                 "Parent conversation not set. This should be set automatically "
                 "on the first call to the executor."
             )
-        return self._parent_conversation
+        return self._parent_conversation  # type: ignore
 
     def __enter__(self):
         """Context manager entry."""
@@ -115,11 +114,6 @@ class DelegateExecutor(ToolExecutor):
     def is_task_in_progress(self) -> bool:
         """Check if a task started by the parent conversation is still in progress."""
         with self._lock:
-            # Check if parent conversation is set
-            if self._parent_conversation is None:
-                logger.info("No parent conversation set")
-                return False
-
             logger.info(
                 f"Checking task progress for {len(self._sub_agents)} sub-agents"
             )
@@ -289,45 +283,36 @@ class DelegateExecutor(ToolExecutor):
                 logger.info("❌ Parent already running, skipping trigger")
                 return
 
-            # Check if parent is idle (FINISHED state)
+            # Check if parent is finished
             try:
-                if hasattr(self.parent_conversation, "state") and hasattr(
-                    self.parent_conversation.state, "agent_status"
-                ):
-                    status = self.parent_conversation.state.agent_status
+                status = self.parent_conversation.state.agent_status
+
+                # Parent should be in FINISHED state to be resumed
+                if status != AgentExecutionStatus.FINISHED:
                     logger.info(
-                        f"🔍 Parent conversation status: {status} "
-                        f"(type: {type(status)})"
+                        f"❌ Parent not in FINISHED state ({status}), "
+                        f"not triggering run"
                     )
-
-                    # Parent should be in FINISHED state to be resumed
-                    if status != AgentExecutionStatus.FINISHED:
-                        logger.info(
-                            f"❌ Parent not in FINISHED state ({status}), "
-                            f"not triggering run"
-                        )
-                        return
-
-                    logger.info(
-                        f"✅ Parent is FINISHED with {queue_size} pending messages, "
-                        f"triggering run"
-                    )
-
-                    # Parent is idle, we have messages, and no run in progress
-                    # Set running flag and drain queue
-                    self._parent_running = True
-                    messages_to_send = []
-                    while not self._pending_parent_messages.empty():
-                        try:
-                            messages_to_send.append(
-                                self._pending_parent_messages.get_nowait()
-                            )
-                        except queue.Empty:
-                            break
-
-                    parent_conversation = self.parent_conversation
-                else:
                     return
+
+                logger.info(
+                    f"✅ Parent is FINISHED with {queue_size} pending messages, "
+                    f"triggering run"
+                )
+
+                # Parent is idle, we have messages, and no run in progress
+                # Set running flag and drain queue
+                self._parent_running = True
+                messages_to_send = []
+                while not self._pending_parent_messages.empty():
+                    try:
+                        messages_to_send.append(
+                            self._pending_parent_messages.get_nowait()
+                        )
+                    except queue.Empty:
+                        break
+
+                parent_conversation = self.parent_conversation
 
             except Exception as e:
                 logger.error(f"Error checking parent status: {e}")
@@ -398,36 +383,15 @@ class DelegateExecutor(ToolExecutor):
                         ),
                     )
 
-            # Ensure parent conversation has agent attribute
-            assert hasattr(parent_conversation, "agent"), (
-                "Parent conversation must have agent attribute"
-            )
-            parent_agent = parent_conversation.agent
-            assert hasattr(parent_agent, "llm"), "Parent agent must have llm attribute"
-
-            parent_llm = parent_agent.llm
-            cli_mode = getattr(
-                parent_agent,
-                "cli_mode",
-                False,
-            ) or not hasattr(parent_conversation, "workspace")
+            parent_llm = parent_conversation.agent.llm
 
             worker_agent = get_default_agent(
                 llm=parent_llm.model_copy(update={"service_id": "sub_agent"}),
-                cli_mode=cli_mode,
             )
 
             visualize = getattr(parent_conversation, "visualize", True)
 
-            workspace = parent_conversation.state.workspace
-            # Handle workspace path safely - avoid stringifying non-path objects
-            if isinstance(workspace, LocalWorkspace):
-                workspace_path = workspace.working_dir
-            elif hasattr(workspace, "working_dir"):
-                workspace_path = workspace.working_dir
-            else:
-                # Fallback for other workspace types
-                workspace_path = getattr(workspace, "path", "/tmp")
+            workspace_path = parent_conversation.state.workspace.working_dir
 
             # Create a temporary conversation to get the ID first
             temp_conversation = LocalConversation(
