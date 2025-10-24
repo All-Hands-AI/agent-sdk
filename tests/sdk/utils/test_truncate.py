@@ -150,7 +150,7 @@ def test_maybe_truncate_different_content_different_files(tmp_path):
     """Test that different content creates different files."""
     content1 = "A" * 1000
     content2 = "B" * 1000
-    limit = 200
+    limit = 500
     save_dir = str(tmp_path)
 
     # First call with content1
@@ -168,6 +168,9 @@ def test_maybe_truncate_different_content_different_files(tmp_path):
     assert "<response clipped>" in result1
     assert "<response clipped>" in result2
 
+    assert len(result1) == limit
+    assert len(result2) == limit
+
     # Check that two files were created
     files = list(tmp_path.glob("test_output_*.txt"))
     assert len(files) == 2
@@ -180,7 +183,7 @@ def test_maybe_truncate_different_content_different_files(tmp_path):
 def test_maybe_truncate_same_content_different_prefix_different_files(tmp_path):
     """Test that same content with different prefixes creates different files."""
     content = "A" * 1000
-    limit = 200
+    limit = 400
     save_dir = str(tmp_path)
 
     # First call with prefix "bash"
@@ -216,7 +219,7 @@ def test_maybe_truncate_hash_based_filename(tmp_path):
     content = (
         "Test content for hashing " * 20
     )  # Make content long enough to trigger truncation
-    limit = 200  # Force truncation but allow space for truncate notice
+    limit = 300  # Force truncation but allow space for truncate notice
     save_dir = str(tmp_path)
 
     # Calculate expected hash
@@ -235,3 +238,121 @@ def test_maybe_truncate_hash_based_filename(tmp_path):
 
     # Check that the result references the correct file
     assert str(expected_file_path) in result
+
+
+def test_maybe_truncate_persist_notice_exceeds_limit(tmp_path):
+    """Test behavior when enhanced persist notice is longer than truncate limit."""
+    content = "A" * 1000
+    limit = 50  # Very small limit (enhanced notice is larger than 113 chars)
+    save_dir = str(tmp_path)
+
+    result = maybe_truncate(
+        content, truncate_after=limit, save_dir=save_dir, tool_prefix="test"
+    )
+
+    # Should truncate the base notice itself to fit within limit
+    assert len(result) == limit
+    # File is not created because base notice doesn't fit
+    # (no point saving if we can't tell user about it)
+    files = list(tmp_path.glob("test_output_*.txt"))
+    assert len(files) == 0
+
+
+def test_maybe_truncate_persist_head_char_moves_since_remaining_less_than_proposed_head(
+    tmp_path,
+):
+    """
+    Test behavior when notice fits initially, but the head char is
+    shifted due to less than remaining space
+    """
+    content = "A" * 1000
+    limit = 500  # Choose the limit around the middle will trigger the condition
+    save_dir = str(tmp_path)
+
+    result = maybe_truncate(
+        content, truncate_after=limit, save_dir=save_dir, tool_prefix="test"
+    )
+
+    assert len(result) == limit
+    files = list(tmp_path.glob("test_output_*.txt"))
+    assert len(files) == 1
+    # Should not contain any tail content since head chars took all remaining space
+    assert result.endswith("</NOTE>")
+
+
+def test_maybe_truncate_persist_notice_leaves_minimal_room(tmp_path):
+    """Test when persist notice leaves minimal room for head/tail content."""
+    content = "BEGINNING" + "X" * 1000 + "ENDING"
+    # Set limit such that persist notice leaves only a few chars for content
+    limit = 300  # Adjust based on typical persist notice length
+    save_dir = str(tmp_path)
+
+    result = maybe_truncate(
+        content, truncate_after=limit, save_dir=save_dir, tool_prefix="test"
+    )
+
+    assert len(result) == limit
+    # Should still try to include some head/tail if possible
+    assert "test_output_" in result  # File path should be in result
+    # Verify file was created
+    files = list(tmp_path.glob("test_output_*.txt"))
+    assert len(files) == 1
+    assert files[0].read_text() == content
+
+
+def test_maybe_truncate_line_number_accuracy(tmp_path):
+    """Test that line number in persist notice is accurate."""
+    import re
+
+    # Create content with known line structure
+    lines = [f"Line {i}\n" for i in range(1, 101)]
+    content = "".join(lines)
+    limit = 500  # Force truncation
+    save_dir = str(tmp_path)
+
+    result = maybe_truncate(
+        content, truncate_after=limit, save_dir=save_dir, tool_prefix="test"
+    )
+
+    # Extract line number from result
+    match = re.search(r"line (\d+)", result)
+    assert match is not None
+    line_num = int(match.group(1))
+
+    # Verify the line number is reasonable (should be somewhere in the middle)
+    assert 1 <= line_num <= len(lines)
+
+
+def test_maybe_truncate_short_content_with_persistence(tmp_path):
+    """Test that short content doesn't get persisted unnecessarily."""
+    content = "Short"
+    limit = 100  # Much larger than content
+    save_dir = str(tmp_path)
+
+    result = maybe_truncate(
+        content, truncate_after=limit, save_dir=save_dir, tool_prefix="test"
+    )
+
+    # Should return original content without truncation or saving
+    assert result == content
+    # No file should be created since truncation didn't occur
+    files = list(tmp_path.glob("test_output_*.txt"))
+    assert len(files) == 0
+
+
+def test_maybe_truncate_unicode_content_persistence(tmp_path):
+    """Test persistence with Unicode content."""
+    content = "Hello 世界 🌍 " * 100  # Mix of ASCII, Chinese, and emoji
+    limit = 200
+    save_dir = str(tmp_path)
+
+    result = maybe_truncate(
+        content, truncate_after=limit, save_dir=save_dir, tool_prefix="test"
+    )
+
+    assert len(result) == limit
+    # Verify file was created and contains correct Unicode content
+    files = list(tmp_path.glob("test_output_*.txt"))
+    assert len(files) == 1
+    saved_content = files[0].read_text(encoding="utf-8")
+    assert saved_content == content

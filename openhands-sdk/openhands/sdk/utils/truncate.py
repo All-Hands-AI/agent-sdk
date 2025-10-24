@@ -15,7 +15,7 @@ DEFAULT_TEXT_CONTENT_LIMIT = 50_000
 DEFAULT_TRUNCATE_NOTICE = (
     "<response clipped><NOTE>Due to the max output limit, only part of the full "
     "response has been shown to you.</NOTE>"
-)
+)  # 113 chars
 
 DEFAULT_TRUNCATE_NOTICE_WITH_PERSIST = (
     "<response clipped><NOTE>Due to the max output limit, only part of the full "
@@ -111,7 +111,7 @@ def maybe_truncate(
     tail_chars = remaining - head_chars  # non-negative due to previous checks
 
     return (
-        content[:proposed_head]
+        content[:head_chars]
         + final_notice
         + (content[-tail_chars:] if tail_chars > 0 else "")
     )
