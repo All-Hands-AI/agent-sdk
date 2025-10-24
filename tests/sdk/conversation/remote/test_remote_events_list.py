@@ -129,6 +129,8 @@ def test_remote_events_list_add_event_deduplication(mock_client, conversation_id
     duplicate = create_mock_event("new-event")
     events_list.add_event(duplicate)
     assert len(events_list) == 1
+    assert events_list[0] != duplicate
+    assert events_list[0] == event
 
 
 def test_remote_events_list_callback_integration(mock_client, conversation_id):
@@ -142,6 +144,7 @@ def test_remote_events_list_callback_integration(mock_client, conversation_id):
     test_event = create_mock_event("callback-event")
     callback(test_event)
 
+    # Default callback should add event to the list
     assert len(events_list) == 1
     assert events_list[0].id == "callback-event"
 
