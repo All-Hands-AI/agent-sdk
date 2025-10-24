@@ -173,6 +173,7 @@ def test_message_list_serializer_with_thinking_blocks():
         role="assistant",
         content=[TextContent(text="The answer is 42.")],
         thinking_blocks=[thinking_block],
+        extended_thinking_enabled=True,
     )
 
     serialized = message._list_serializer()
@@ -242,6 +243,7 @@ def test_multiple_thinking_blocks():
         role="assistant",
         content=[TextContent(text="Conclusion")],
         thinking_blocks=thinking_blocks,
+        extended_thinking_enabled=True,
     )
 
     assert len(message.thinking_blocks) == 2

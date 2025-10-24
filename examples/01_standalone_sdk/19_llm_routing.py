@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from pydantic import SecretStr
 
@@ -56,8 +57,14 @@ def conversation_callback(event: Event):
         llm_messages.append(event.to_llm_message())
 
 
+conversation_id = uuid.uuid4()
+
 conversation = Conversation(
-    agent=agent, callbacks=[conversation_callback], workspace=os.getcwd()
+    agent=agent,
+    callbacks=[conversation_callback],
+    conversation_id=conversation_id,
+    workspace=os.getcwd(),
+    persistence_dir="./.conversations",
 )
 
 conversation.send_message(
@@ -80,6 +87,24 @@ conversation.send_message(
     )
 )
 conversation.run()
+
+# Test conversation serialization
+print("Conversation finished. Got the following LLM messages:")
+for i, message in enumerate(llm_messages):
+    print(f"Message {i}: {str(message)[:200]}")
+
+print("Serializing conversation...")
+
+del conversation
+
+print("Deserializing conversation...")
+
+conversation = Conversation(
+    agent=agent,
+    callbacks=[conversation_callback],
+    persistence_dir="./.conversations",
+    conversation_id=conversation_id,
+)
 
 conversation.send_message(
     message=Message(

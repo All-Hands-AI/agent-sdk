@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import LLM, AgentBase, Event, ImageContent, Message, TextContent
+from openhands.sdk import AgentBase, Event, ImageContent, LLMBase, Message, TextContent
 from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
@@ -176,7 +176,7 @@ class GenerateTitleRequest(BaseModel):
     max_length: int = Field(
         default=50, ge=1, le=200, description="Maximum length of the generated title"
     )
-    llm: LLM | None = Field(
+    llm: LLMBase | None = Field(
         default=None, description="Optional LLM to use for title generation"
     )
 

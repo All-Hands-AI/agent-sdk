@@ -7,7 +7,7 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
-from openhands.sdk.llm.llm import LLM
+from openhands.sdk.llm.llm import LLMBase
 from openhands.sdk.llm.message import Message, content_to_str
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -123,7 +123,7 @@ class BaseConversation(ABC):
     def close(self) -> None: ...
 
     @abstractmethod
-    def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
+    def generate_title(self, llm: LLMBase | None = None, max_length: int = 50) -> str:
         """Generate a title for the conversation based on the first user message.
 
         Args:
