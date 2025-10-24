@@ -69,7 +69,6 @@ DELEGATE_TOOL_DESCRIPTION = """Delegate tasks to sub-agents for parallel process
 
 This tool allows the main agent to delegate tasks to sub-agents that run independently.
 
-
 **Important Notes:**
 - Sub-agents work in the same workspace as you, the main agent
 - Sub-agents will send back their findings to the main agent upon completion
