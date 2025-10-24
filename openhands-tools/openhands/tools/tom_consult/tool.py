@@ -1,20 +1,23 @@
 """Tom consultation tool definition."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, override
 
 from openhands.sdk.io import LocalFileStore
 from openhands.sdk.tool import ToolDefinition
-from openhands.tools.tom_consult.action import ConsultTomAction
+from openhands.tools.tom_consult.action import ConsultTomAction, SleeptimeComputeAction
 from openhands.tools.tom_consult.executor import TomConsultExecutor
-from openhands.tools.tom_consult.observation import ConsultTomObservation
+from openhands.tools.tom_consult.observation import (
+    ConsultTomObservation,
+    SleeptimeComputeObservation,
+)
 
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
 
-_DESCRIPTION = """Consult Tom agent for guidance when you need help \
+_CONSULT_DESCRIPTION = """Consult Tom agent for guidance when you need help \
 understanding user intent or task requirements.
 
 This tool allows you to consult Tom agent for personalized guidance \
@@ -27,11 +30,22 @@ based on user modeling. Use this when:
 By default, Tom agent will analyze the user's message. \
 Optionally, you can ask a custom question."""
 
+_SLEEPTIME_DESCRIPTION = """Index the current conversation for Tom's user modeling.
+
+This tool processes conversation history to build and update the user model. \
+Use this to:
+- Index conversations for future personalization
+- Build user preferences and patterns from conversation history
+- Update Tom's understanding of the user
+
+This is typically used at the end of a conversation or when explicitly requested."""
+
 
 class TomConsultTool(ToolDefinition[ConsultTomAction, ConsultTomObservation]):
     """Tool for consulting Tom agent."""
 
     @classmethod
+    @override
     def create(
         cls,
         conv_state: "ConversationState",
@@ -39,8 +53,8 @@ class TomConsultTool(ToolDefinition[ConsultTomAction, ConsultTomObservation]):
         llm_model: str | None = None,
         api_key: str | None = None,
         api_base: str | None = None,
-    ) -> Sequence["TomConsultTool"]:
-        """Initialize TomConsultTool with executor parameters.
+    ) -> Sequence[ToolDefinition[Any, Any]]:
+        """Initialize Tom tools with executor parameters.
 
         Args:
             conv_state: Conversation state (required by
@@ -51,13 +65,13 @@ class TomConsultTool(ToolDefinition[ConsultTomAction, ConsultTomObservation]):
             api_base: Base URL for Tom agent's LLM
 
         Returns:
-            Sequence containing the initialized TomConsultTool
+            Sequence containing TomConsultTool and SleeptimeComputeTool
         """
         # conv_state required by registry but not used - state passed at execution time
         _ = conv_state
         file_store = LocalFileStore(root="~/.openhands")
 
-        # Initialize the executor
+        # Initialize the executor (shared by both tools)
         executor = TomConsultExecutor(
             file_store=file_store,
             enable_rag=enable_rag,
@@ -66,13 +80,20 @@ class TomConsultTool(ToolDefinition[ConsultTomAction, ConsultTomObservation]):
             api_base=api_base,
         )
 
-        # Initialize the parent ToolDefinition with the executor
+        # Return both tools using the same executor
         return [
             cls(
                 name="consult_tom_agent",
-                description=_DESCRIPTION,
+                description=_CONSULT_DESCRIPTION,
                 action_type=ConsultTomAction,
                 observation_type=ConsultTomObservation,
                 executor=executor,
-            )
+            ),
+            ToolDefinition(
+                name="sleeptime_compute",
+                description=_SLEEPTIME_DESCRIPTION,
+                action_type=SleeptimeComputeAction,
+                observation_type=SleeptimeComputeObservation,
+                executor=executor,
+            ),
         ]

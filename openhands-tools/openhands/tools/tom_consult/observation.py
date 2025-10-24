@@ -1,6 +1,7 @@
 """Observation schema for Tom consultation."""
 
 from collections.abc import Sequence
+from typing import override
 
 from pydantic import Field
 
@@ -22,6 +23,7 @@ class ConsultTomObservation(Observation):
     )
 
     @property
+    @override
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Convert observation to LLM-readable content."""
         if not self.suggestions:
@@ -36,3 +38,25 @@ class ConsultTomObservation(Observation):
             content_parts.append(f"\nConfidence: {self.confidence:.0%}")
 
         return [TextContent(text="\n".join(content_parts))]
+
+
+class SleeptimeComputeObservation(Observation):
+    """Observation from sleeptime compute operation."""
+
+    message: str = Field(
+        default="", description="Result message from sleeptime compute"
+    )
+    sessions_processed: int = Field(
+        default=0, description="Number of conversation sessions indexed"
+    )
+
+    @property
+    @override
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        """Convert observation to LLM-readable content."""
+        if self.sessions_processed > 0:
+            text = f"Successfully indexed {self.sessions_processed} conversation(s) for user modeling.\n{self.message}"  # noqa: E501
+        else:
+            text = f"Sleeptime compute completed.\n{self.message}"
+
+        return [TextContent(text=text)]
