@@ -267,9 +267,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Validators
     # =========================================================================
-    @field_validator("api_key", mode="before")
+    @field_validator("api_key", "aws_access_key_id", "aws_secret_access_key")
     @classmethod
-    def _validate_api_key(cls, v):
+    def _deserialize_secrets(cls, v: str | None, info):
         """Convert empty API keys to None to allow boto3 to use alternative auth methods."""  # noqa: E501
         if v is None:
             return None
@@ -278,11 +278,16 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if isinstance(v, SecretStr):
             secret_value = v.get_secret_value()
         else:
-            secret_value = str(v)
+            secret_value = v
 
-        # If the API key is empty or whitespace-only, return None
+        # If the secret is empty or whitespace-only, return None
         if not secret_value or not secret_value.strip():
             return None
+
+        # check if a cipher is supplied
+        if info.context and info.context.get("cipher"):
+            cipher: Cipher = info.context.get("cipher")
+            return cipher.decrypt(v)
 
         return v
 
