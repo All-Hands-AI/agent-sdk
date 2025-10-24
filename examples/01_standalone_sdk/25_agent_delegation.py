@@ -90,7 +90,7 @@ while executor.is_task_in_progress():
     time.sleep(2)
     print("   ⏳ Task still in progress...")
 
-if not executor.is_task_in_progress(str(conversation.id)):
+if not executor.is_task_in_progress():
     print("✅ All delegation work completed successfully!")
 else:
     print("⚠️  Some threads still running after timeout")
