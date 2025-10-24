@@ -6,7 +6,6 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
 from pydantic import SecretStr
 
-from openhands.agent_server.config import get_default_config
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.dependencies import get_conversation_service
 from openhands.agent_server.models import (
@@ -28,8 +27,6 @@ from openhands.sdk.workspace import LocalWorkspace
 
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
-config = get_default_config()
-
 # Examples
 
 START_CONVERSATION_EXAMPLES = [
@@ -46,7 +43,7 @@ START_CONVERSATION_EXAMPLES = [
                 Tool(name="TaskTrackerTool"),
             ],
         ),
-        workspace=LocalWorkspace(working_dir=str(config.working_dir)),
+        workspace=LocalWorkspace(working_dir="workspace/project"),
         initial_message=SendMessageRequest(
             role="user", content=[TextContent(text="Flip a coin!")]
         ),

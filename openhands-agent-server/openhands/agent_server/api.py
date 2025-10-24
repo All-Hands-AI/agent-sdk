@@ -1,3 +1,4 @@
+import os
 import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -8,10 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 
 from openhands.agent_server.bash_router import bash_router
-from openhands.agent_server.config import (
-    Config,
-    get_default_config,
-)
+from openhands.agent_server.config import Config, get_default_config
 from openhands.agent_server.conversation_router import conversation_router
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
@@ -33,6 +31,7 @@ from openhands.agent_server.utils import patch_fastapi_discriminated_union_suppo
 from openhands.agent_server.vscode_router import vscode_router
 from openhands.agent_server.vscode_service import get_vscode_service
 from openhands.sdk.logger import DEBUG, get_logger
+from openhands.sdk.workspace.local import LocalWorkspace
 
 
 # Apply FastAPI patch for discriminated union support
@@ -284,6 +283,8 @@ def create_app(config: Config | None = None) -> FastAPI:
     if config is None:
         config = get_default_config()
     app = _create_fastapi_instance()
+    # Initialize server-owned workspace root fence (read once from env)
+    LocalWorkspace.set_workspace_root(os.getenv("OH_WORKSPACE_ROOT", "workspace"))
     _add_api_routes(app, config)
     _setup_static_files(app, config)
     app.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
