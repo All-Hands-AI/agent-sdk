@@ -17,6 +17,18 @@ from pydantic import SecretStr
 
 from openhands.sdk import LLM, Agent, Conversation
 from openhands.sdk.conversation import RemoteConversation
+from openhands.sdk.event import (
+    ActionEvent,
+    AgentErrorEvent,
+    CondensationSummaryEvent,
+    ConversationStateUpdateEvent,
+    Event,
+    LLMConvertibleEvent,
+    MessageEvent,
+    ObservationEvent,
+    PauseEvent,
+    SystemPromptEvent,
+)
 from openhands.sdk.workspace import RemoteWorkspace
 from openhands.workspace.docker.workspace import find_available_tcp_port
 
@@ -199,44 +211,110 @@ def test_remote_conversation_over_real_server(server_env, patched_llm):
     state = conv.state
     assert state.agent_status.value in {"finished", "idle", "running"}
 
-    # Wait for WS-delivered events; assert an agent message exists
-    found_agent = False
+    # Wait for WS-delivered events and validate them using proper type checking
+    found_system_prompt = False
+    found_state_update = False
+    found_agent_related_event = False
+
     for i in range(50):  # up to ~5s
         events = state.events
-        # Check for any agent-related events (more flexible)
-        for e in events:
-            event_source = getattr(e, "source", "")
-            event_type = type(e).__name__
-            # Look for agent messages or assistant messages
-            if (
-                event_source == "agent"
-                or (hasattr(e, "llm_message") and getattr(e, "llm_message", None))
-                or (
-                    hasattr(e, "content")
-                    and "Hello from patched LLM" in str(getattr(e, "content", ""))
-                )
-                or event_type == "MessageEvent"
-            ):
-                found_agent = True
-                break
 
-        if found_agent:
+        # Validate event types using isinstance checks (not hasattr/getattr)
+        for e in events:
+            assert isinstance(
+                e,
+                (
+                    MessageEvent,
+                    ActionEvent,
+                    ObservationEvent,
+                    AgentErrorEvent,
+                    Event,
+                    LLMConvertibleEvent,
+                    SystemPromptEvent,
+                    PauseEvent,
+                    CondensationSummaryEvent,
+                    ConversationStateUpdateEvent,
+                ),
+            ), f"Unexpected event type: {type(e).__name__}"
+
+        # Check for expected event types with proper isinstance checks
+        for e in events:
+            if isinstance(e, SystemPromptEvent) and e.source == "agent":
+                found_system_prompt = True
+                # SystemPromptEvent is an agent-related event
+                found_agent_related_event = True
+
+            if isinstance(e, ConversationStateUpdateEvent):
+                found_state_update = True
+                # Verify it has the expected structure
+                assert e.source == "environment", (
+                    "ConversationStateUpdateEvent should have source='environment'"
+                )
+
+            # Check for other agent-related events (MessageEvent or ActionEvent)
+            if isinstance(e, MessageEvent) and e.source == "agent":
+                # Verify MessageEvent has the expected structure
+                assert hasattr(e, "llm_message"), (
+                    "MessageEvent should have llm_message attribute"
+                )
+                assert e.llm_message.role in ("assistant", "user"), (
+                    f"Expected role to be assistant or user, got {e.llm_message.role}"
+                )
+                found_agent_related_event = True
+            elif isinstance(e, ActionEvent) and e.source == "agent":
+                # Verify ActionEvent has expected structure
+                assert hasattr(e, "tool_name"), (
+                    "ActionEvent should have tool_name attribute"
+                )
+                found_agent_related_event = True
+
+        # We expect at least system prompt and state update events
+        if found_system_prompt and found_state_update:
             break
         time.sleep(0.1)
 
-    # If still not found, print debug info
-    if not found_agent:
-        print(f"Debug: Found {len(state.events)} events:")
-        for i, e in enumerate(state.events):
-            print(
-                f"  Event {i}: {type(e).__name__}, source={getattr(e, 'source', 'N/A')}"
-            )
-            if hasattr(e, "content"):
-                print(f"    content: {getattr(e, 'content', 'N/A')}")
-            if hasattr(e, "llm_message"):
-                print(f"    llm_message: {getattr(e, 'llm_message', 'N/A')}")
-
-    assert found_agent
+    # Assert we got the expected events with descriptive messages
+    assert found_system_prompt, (
+        f"Expected to find SystemPromptEvent with source='agent'. "
+        f"Found {len(state.events)} events: {
+            [
+                (
+                    type(e).__name__,
+                    e.source
+                    if isinstance(e, (MessageEvent, ActionEvent, SystemPromptEvent))
+                    else 'N/A',
+                )
+                for e in state.events
+            ]
+        }"
+    )
+    assert found_state_update, (
+        f"Expected to find ConversationStateUpdateEvent. "
+        f"Found {len(state.events)} events: {[type(e).__name__ for e in state.events]}"
+    )
+    assert found_agent_related_event, (
+        f"Expected to find at least one agent-related event "
+        f"(SystemPromptEvent, MessageEvent, or ActionEvent). "
+        f"Found {len(state.events)} events: {
+            [
+                (
+                    type(e).__name__,
+                    e.source
+                    if isinstance(
+                        e,
+                        (
+                            MessageEvent,
+                            ActionEvent,
+                            SystemPromptEvent,
+                            ConversationStateUpdateEvent,
+                        ),
+                    )
+                    else 'N/A',
+                )
+                for e in state.events
+            ]
+        }"
+    )
 
     conv.close()
 
