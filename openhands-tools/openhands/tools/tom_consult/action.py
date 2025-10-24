@@ -24,3 +24,13 @@ class ConsultTomAction(Action):
             "Custom query to ask Tom agent (only used when use_user_message is False)"
         ),
     )
+
+
+class SleeptimeComputeAction(Action):
+    """Action to index existing conversations for Tom's user modeling.
+
+    This triggers Tom agent's sleeptime_compute function which processes
+    conversation history to build and update the user model.
+    """
+
+    pass

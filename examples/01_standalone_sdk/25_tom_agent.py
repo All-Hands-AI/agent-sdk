@@ -19,7 +19,7 @@ assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm: LLM = LLM(
     model="openhands/claude-sonnet-4-5-20250929",
     api_key=SecretStr(api_key),
-    service_id="agent",
+    usage_id="agent",
     drop_params=True,
 )
 
@@ -34,15 +34,27 @@ agent: Agent = get_tom_agent(
 
 # Start conversation
 cwd: str = os.getcwd()
-conversation = Conversation(agent=agent, workspace=cwd)
+PERSISTENCE_DIR = os.path.expanduser("~/.openhands")
+CONVERSATIONS_DIR = os.path.join(PERSISTENCE_DIR, "conversations")
+conversation = Conversation(
+    agent=agent, workspace=cwd, persistence_dir=CONVERSATIONS_DIR
+)
 
 # Send a potentially vague message where Tom consultation might help
 conversation.send_message(
     "I need to debug some code but I'm not sure where to start. "
-    "Can you help me figure out the best approach?"
+    + "Can you help me figure out the best approach?"
 )
 conversation.run()
 
 print("\n" + "=" * 80)
 print("Tom agent consultation example completed!")
 print("=" * 80)
+
+# Optional: Index this conversation for Tom's user modeling
+# This builds user preferences and patterns from conversation history
+# Uncomment the lines below to index the conversation:
+#
+# conversation.send_message("Please index this conversation using sleeptime_compute")
+# conversation.run()
+# print("\nConversation indexed for user modeling!")
