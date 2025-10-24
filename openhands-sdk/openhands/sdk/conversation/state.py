@@ -2,6 +2,7 @@
 import json
 from collections.abc import Sequence
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import Field, PrivateAttr
@@ -118,6 +119,13 @@ class ConversationState(OpenHandsModel):
     def secrets_manager(self) -> SecretsManager:
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
+
+    @property
+    def env_observation_persistence_dir(self) -> str | None:
+        """Directory for persisting environment observation files."""
+        if self.persistence_dir is None:
+            return None
+        return str(Path(self.persistence_dir) / "observations")
 
     def set_on_state_change(self, callback: ConversationCallbackType | None) -> None:
         """Set a callback to be called when state changes.
