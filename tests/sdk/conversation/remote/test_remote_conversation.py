@@ -113,7 +113,7 @@ class TestRemoteConversation:
         """Test RemoteConversation initialization with new conversation."""
         # Set up mock client
         conversation_id = str(uuid.uuid4())
-        self.setup_mock_client(conversation_id=conversation_id)
+        mock_client_instance = self.setup_mock_client(conversation_id=conversation_id)
 
         # Mock WebSocket client
         mock_ws_instance = Mock()
@@ -136,6 +136,29 @@ class TestRemoteConversation:
         assert conversation.workspace.host == self.host
         assert conversation.max_iteration_per_run == 100
 
+        # Verify POST was called to create the conversation
+        post_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST" and call[0][1] == "/api/conversations"
+        ]
+        assert len(post_calls) == 1, (
+            "Should have made exactly one POST call to create conversation"
+        )
+
+        # Verify GET was called to fetch events (RemoteEventsList initialization)
+        # This happens in RemoteEventsList._do_full_sync() which is called
+        # during RemoteState initialization
+        get_events_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "GET" and "/events/search" in call[0][1]
+        ]
+        assert len(get_events_calls) >= 1, (
+            "Should have made at least one GET call to /events/search "
+            "to fetch initial events"
+        )
+
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
@@ -144,17 +167,10 @@ class TestRemoteConversation:
     ):
         """Test RemoteConversation initialization with existing conversation."""
         # Mock the workspace client directly
-        mock_client_instance = self.setup_mock_client()
-
-        # Mock existing conversation validation response
         conversation_id = uuid.uuid4()
-        mock_validation_response = Mock()
-        mock_validation_response.raise_for_status.return_value = None
-
-        # Mock events response
-        mock_events_response = self.create_mock_events_response()
-
-        mock_client_instance.get.return_value = mock_events_response
+        mock_client_instance = self.setup_mock_client(
+            conversation_id=str(conversation_id)
+        )
 
         # Mock WebSocket client
         mock_ws_instance = Mock()
@@ -167,11 +183,40 @@ class TestRemoteConversation:
             conversation_id=conversation_id,
         )
 
-        # Verify no POST call was made (no new conversation created)
-        mock_client_instance.post.assert_not_called()
-
         # Verify conversation ID is set correctly
         assert conversation.id == conversation_id
+
+        # Verify no POST call was made to create a new conversation
+        post_create_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "POST" and call[0][1] == "/api/conversations"
+        ]
+        assert len(post_create_calls) == 0, (
+            "Should not create a new conversation when ID is provided"
+        )
+
+        # Verify GET call was made to validate existing conversation
+        get_conversation_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "GET"
+            and call[0][1] == f"/api/conversations/{conversation_id}"
+        ]
+        assert len(get_conversation_calls) == 1, (
+            "Should have made exactly one GET call to validate existing conversation"
+        )
+
+        # Verify GET was called to fetch events (RemoteEventsList initialization)
+        get_events_calls = [
+            call
+            for call in mock_client_instance.request.call_args_list
+            if call[0][0] == "GET" and "/events/search" in call[0][1]
+        ]
+        assert len(get_events_calls) >= 1, (
+            "Should have made at least one GET call to /events/search "
+            "to fetch initial events"
+        )
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
