@@ -285,7 +285,7 @@ class RemoteWorkspaceMixin(BaseModel):
         # Make HTTP call
         response = yield {
             "method": "GET",
-            "url": Path("/api/git/changes") / path,
+            "url": Path("/api/git/changes") / self.working_dir / path,
             "headers": self._headers,
             "timeout": 60.0,
         }
@@ -312,7 +312,7 @@ class RemoteWorkspaceMixin(BaseModel):
         # Make HTTP call
         response = yield {
             "method": "GET",
-            "url": Path("/api/git/diff") / path,
+            "url": Path("/api/git/diff") / self.working_dir / path,
             "headers": self._headers,
             "timeout": 60.0,
         }
