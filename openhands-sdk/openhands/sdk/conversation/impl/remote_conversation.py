@@ -159,8 +159,6 @@ class RemoteEventsList(EventsListBase):
 
     _client: httpx.Client
     _conversation_id: str
-    _cached_events: list[Event]
-    _cached_event_ids: set[str]
     _lock: threading.RLock
 
     def __init__(self, client: httpx.Client, conversation_id: str):

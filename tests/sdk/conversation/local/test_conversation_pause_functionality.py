@@ -24,7 +24,7 @@ from litellm.types.utils import (
 from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
-from openhands.sdk.conversation import Conversation
+from openhands.sdk.conversation import Conversation, LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import (
@@ -64,7 +64,7 @@ class BlockingExecutor(
     ToolExecutor[PauseFunctionalityMockAction, PauseFunctionalityMockObservation]
 ):
     def __init__(self, step_entered: threading.Event):
-        self.step_entered: bool = step_entered
+        self.step_entered: threading.Event = step_entered
 
     def __call__(
         self, action: PauseFunctionalityMockAction, conversation=None
@@ -113,7 +113,9 @@ class TestPauseFunctionality:
             llm=self.llm,
             tools=[Tool(name="test_tool")],
         )
-        self.conversation: Conversation = Conversation(agent=self.agent)
+        conv = Conversation(agent=self.agent)
+        assert isinstance(conv, LocalConversation)
+        self.conversation: LocalConversation = conv
 
     def test_pause_basic_functionality(self):
         """Test basic pause operations."""
@@ -313,8 +315,9 @@ class TestPauseFunctionality:
         conversation = Conversation(agent=agent, stuck_detection=False)
 
         # Swap them in for this test only
-        self.agent: Agent = agent
-        self.conversation: Conversation = conversation
+        assert isinstance(conversation, LocalConversation)
+        self.agent = agent
+        self.conversation = conversation
 
         # LLM continuously emits actions (no finish)
         tool_call = ChatCompletionMessageToolCall(

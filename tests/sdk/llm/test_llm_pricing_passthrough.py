@@ -3,7 +3,8 @@ from unittest.mock import patch
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM, Message, TextContent
-from tests.conftest import create_mock_litellm_response
+
+from ...conftest import create_mock_litellm_response
 
 
 def test_llm_pricing_passthrough_custom_rates():

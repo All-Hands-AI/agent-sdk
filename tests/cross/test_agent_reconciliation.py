@@ -210,7 +210,7 @@ def test_conversation_with_same_agent_succeeds():
 @patch("openhands.sdk.llm.llm.litellm_completion")
 def test_conversation_persistence_lifecycle(mock_completion):
     """Test full conversation persistence lifecycle similar to examples/10_persistence.py."""  # noqa: E501
-    from tests.conftest import create_mock_litellm_response
+    from ..conftest import create_mock_litellm_response
 
     # Mock the LLM completion call
     mock_response = create_mock_litellm_response(

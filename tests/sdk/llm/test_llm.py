@@ -12,7 +12,7 @@ from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
 
 # Import common test utilities
-from tests.conftest import create_mock_litellm_response
+from ...conftest import create_mock_litellm_response
 
 
 @pytest.fixture

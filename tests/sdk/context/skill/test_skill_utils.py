@@ -81,6 +81,7 @@ def test_knowledge_agent():
     assert agent.match_trigger("running a testing") == "testing"
     assert agent.match_trigger("using pytest") == "pytest"
     assert agent.match_trigger("no match here") is None
+    assert isinstance(agent.trigger, KeywordTrigger)
     assert agent.trigger.keywords == ["testing", "pytest"]
 
 
