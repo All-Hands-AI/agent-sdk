@@ -3,6 +3,7 @@
 import queue
 import threading
 import time
+import uuid
 from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -366,6 +367,211 @@ class DelegateExecutor(ToolExecutor):
             logger.debug("🔄 Checking for additional pending messages after parent run")
             self._trigger_parent_if_idle()
 
+    def _create_sub_agent_callback(self, sub_conversation_id: str):
+        """Create a callback for routing sub-agent messages to the parent.
+
+        Args:
+            sub_conversation_id: The ID of the sub-agent conversation
+
+        Returns:
+            A callback function that processes sub-agent events
+        """
+
+        def callback(event):
+            """Callback for sub-agent messages - queues them for parent."""
+            logger.debug(
+                f"Sub-agent {sub_conversation_id[:8]} callback triggered: "
+                f"event_type={type(event).__name__}, "
+                f"source={getattr(event, 'source', 'N/A')}"
+            )
+
+            if not (isinstance(event, MessageEvent) and event.source == "agent"):
+                logger.debug(
+                    f"Sub-agent {sub_conversation_id[:8]} ignoring non-agent "
+                    f"message event"
+                )
+                return
+
+            if not (hasattr(event, "llm_message") and event.llm_message):
+                logger.debug(
+                    f"Sub-agent {sub_conversation_id[:8]} event has no llm_message"
+                )
+                return
+
+            message_parts = []
+            for content in event.llm_message.content:
+                if isinstance(content, TextContent):
+                    message_parts.append(content.text)
+                else:
+                    message_parts.append(f"[{type(content).__name__}]")
+
+            message_text = " ".join(message_parts)
+
+            if not message_text.strip():
+                logger.debug(
+                    f"Sub-agent {sub_conversation_id[:8]} sent empty message, ignoring"
+                )
+                return
+
+            parent_message = f"[Sub-agent {sub_conversation_id[:8]}]: {message_text}"
+            logger.info(
+                f"🔄 Sub-agent {sub_conversation_id[:8]} sending "
+                f"message to parent: {message_text[:100]}..."
+            )
+
+            message = Message(
+                role="user",
+                content=[TextContent(text=parent_message)],
+            )
+            try:
+                self._pending_parent_messages.put_nowait(message)
+                queue_size = self._pending_parent_messages.qsize()
+                logger.info(
+                    f"✅ Queued message from sub-agent "
+                    f"{sub_conversation_id[:8]} "
+                    f"(queue size: {queue_size})"
+                )
+                self._trigger_parent_if_idle()
+            except queue.Full:
+                logger.warning(
+                    f"❌ Parent message queue is full, dropping "
+                    f"message from sub-agent {sub_conversation_id[:8]}"
+                )
+
+        return callback
+
+    def _run_sub_agent(
+        self,
+        sub_conversation_id: str,
+        sub_conversation: "LocalConversation",
+        initial_message: str,
+        stop_event: threading.Event,
+    ):
+        """Run a sub-agent in a separate thread.
+
+        Args:
+            sub_conversation_id: The ID of the sub-agent conversation
+            sub_conversation: The conversation object for the sub-agent
+            initial_message: The initial message to send to the sub-agent
+            stop_event: Event to signal cancellation
+        """
+        try:
+            with self._lock:
+                if sub_conversation_id in self._sub_agents:
+                    self._sub_agents[sub_conversation_id].state = SubAgentState.RUNNING
+
+            logger.info(
+                f"Sub-agent {sub_conversation_id[:8]} starting with task: "
+                f"{initial_message[:100]}..."
+            )
+
+            sub_conversation.send_message(initial_message)
+
+            start_time = time.time()
+            max_runtime = 300
+
+            while not stop_event.is_set():
+                try:
+                    if time.time() - start_time > max_runtime:
+                        logger.warning(
+                            f"Sub-agent {sub_conversation_id[:8]} timed out "
+                            f"after {max_runtime}s"
+                        )
+                        break
+
+                    sub_conversation.run()
+
+                    if hasattr(sub_conversation, "state") and hasattr(
+                        sub_conversation.state, "agent_status"
+                    ):
+                        status = sub_conversation.state.agent_status
+                        logger.info(
+                            f"Sub-agent {sub_conversation_id[:8]} "
+                            f"status: {status} (type: {type(status)})"
+                        )
+
+                        if status == AgentExecutionStatus.FINISHED:
+                            logger.info(
+                                f"Sub-agent {sub_conversation_id[:8]} "
+                                f"reached FINISHED state"
+                            )
+                            break
+                        elif status in [
+                            AgentExecutionStatus.PAUSED,
+                            AgentExecutionStatus.STUCK,
+                            AgentExecutionStatus.ERROR,
+                        ]:
+                            logger.info(
+                                f"Sub-agent {sub_conversation_id[:8]} "
+                                f"reached terminal state: {status}"
+                            )
+                            break
+                        elif status == AgentExecutionStatus.IDLE:
+                            logger.info(
+                                f"Sub-agent {sub_conversation_id[:8]} is IDLE"
+                                f" - treating as completion"
+                            )
+                            break
+                        elif status == AgentExecutionStatus.RUNNING:
+                            logger.info(
+                                f"Sub-agent {sub_conversation_id[:8]} still RUNNING"
+                            )
+                            time.sleep(0.1)
+                            continue
+                    else:
+                        logger.info(
+                            f"Sub-agent {sub_conversation_id[:8]} run() "
+                            f"completed (no state check available)"
+                        )
+                        break
+
+                except Exception as e:
+                    if stop_event.is_set():
+                        logger.info(f"Sub-agent {sub_conversation_id[:8]} cancelled")
+                        break
+                    raise e
+
+            if not stop_event.is_set():
+                logger.info(
+                    f"Sub-agent {sub_conversation_id[:8]} completed successfully"
+                )
+                with self._lock:
+                    if sub_conversation_id in self._sub_agents:
+                        self._sub_agents[
+                            sub_conversation_id
+                        ].state = SubAgentState.COMPLETED
+                        self._sub_agents[sub_conversation_id].completed_at = time.time()
+            else:
+                with self._lock:
+                    if sub_conversation_id in self._sub_agents:
+                        self._sub_agents[
+                            sub_conversation_id
+                        ].state = SubAgentState.CANCELLED
+                        self._sub_agents[sub_conversation_id].completed_at = time.time()
+
+        except Exception as e:
+            logger.error(
+                f"Sub-agent {sub_conversation_id[:8]} failed: {e}",
+                exc_info=True,
+            )
+
+            error_message = f"[Sub-agent {sub_conversation_id[:8]} ERROR]: {str(e)}"
+            message = Message(
+                role="user",
+                content=[TextContent(text=error_message)],
+            )
+            try:
+                self._pending_parent_messages.put_nowait(message)
+                self._trigger_parent_if_idle()
+            except queue.Full:
+                logger.warning("Parent message queue is full, dropping error message")
+
+            with self._lock:
+                if sub_conversation_id in self._sub_agents:
+                    self._sub_agents[sub_conversation_id].state = SubAgentState.FAILED
+                    self._sub_agents[sub_conversation_id].error = str(e)
+                    self._sub_agents[sub_conversation_id].completed_at = time.time()
+
     def _spawn_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Spawn a new sub-agent that runs asynchronously."""
         if not action.message:
@@ -379,7 +585,6 @@ class DelegateExecutor(ToolExecutor):
             with self._lock:
                 parent_conversation = self.parent_conversation
 
-                # Check max_children limit
                 active_count = sum(
                     1
                     for sub_agent in self._sub_agents.values()
@@ -396,263 +601,37 @@ class DelegateExecutor(ToolExecutor):
                     )
 
             parent_llm = parent_conversation.agent.llm
-
             worker_agent = get_default_agent(
                 llm=parent_llm.model_copy(update={"service_id": "sub_agent"}),
             )
-
             visualize = getattr(parent_conversation, "visualize", True)
-
             workspace_path = parent_conversation.state.workspace.working_dir
 
-            # Create a temporary conversation to get the ID first
-            temp_conversation = LocalConversation(
-                agent=worker_agent,
-                workspace=workspace_path,
-                visualize=False,  # No visualization for temp conversation
-                callbacks=[],
-            )
-
-            # Use the temp_conversation's ID
-            sub_conversation_id = str(temp_conversation.id)
+            sub_conversation_id = str(uuid.uuid4())
             stop_event = threading.Event()
 
-            def sub_agent_completion_callback(event):
-                """Callback for sub-agent messages - queues them for parent."""
-                logger.debug(
-                    f"Sub-agent {sub_conversation_id[:8]} callback triggered: "
-                    f"event_type={type(event).__name__}, "
-                    f"source={getattr(event, 'source', 'N/A')}"
-                )
+            callback = self._create_sub_agent_callback(sub_conversation_id)
 
-                if isinstance(event, MessageEvent) and event.source == "agent":
-                    if hasattr(event, "llm_message") and event.llm_message:
-                        # Extract all content types properly
-                        message_parts = []
-                        for content in event.llm_message.content:
-                            if isinstance(content, TextContent):
-                                message_parts.append(content.text)
-                            else:
-                                # Handle other content types
-                                message_parts.append(f"[{type(content).__name__}]")
-
-                        message_text = " ".join(message_parts)
-
-                        if message_text.strip():
-                            parent_message = (
-                                f"[Sub-agent {sub_conversation_id[:8]}]: {message_text}"
-                            )
-                            logger.info(
-                                f"🔄 Sub-agent {sub_conversation_id[:8]} sending "
-                                f"message to parent: {message_text[:100]}..."
-                            )
-
-                            # Queue message for parent and trigger if idle
-                            message = Message(
-                                role="user",
-                                content=[TextContent(text=parent_message)],
-                            )
-                            try:
-                                self._pending_parent_messages.put_nowait(message)
-                                queue_size = self._pending_parent_messages.qsize()
-                                logger.info(
-                                    f"✅ Queued message from sub-agent "
-                                    f"{sub_conversation_id[:8]} "
-                                    f"(queue size: {queue_size})"
-                                )
-                                # Trigger parent if it's idle
-                                self._trigger_parent_if_idle()
-                            except queue.Full:
-                                logger.warning(
-                                    f"❌ Parent message queue is full, dropping "
-                                    f"message from sub-agent {sub_conversation_id[:8]}"
-                                )
-                        else:
-                            logger.debug(
-                                f"Sub-agent {sub_conversation_id[:8]} sent empty "
-                                f"message, ignoring"
-                            )
-                    else:
-                        logger.debug(
-                            f"Sub-agent {sub_conversation_id[:8]} event has no "
-                            f"llm_message"
-                        )
-                else:
-                    logger.debug(
-                        f"Sub-agent {sub_conversation_id[:8]} ignoring non-agent "
-                        f"message event"
-                    )
-
-            # Now create the real conversation with the callback
             sub_conversation = LocalConversation(
                 agent=worker_agent,
                 workspace=workspace_path,
                 visualize=visualize,
-                callbacks=[sub_agent_completion_callback],
-                conversation_id=temp_conversation.id,  # Use the same ID
+                callbacks=[callback],
+                conversation_id=sub_conversation_id,
             )
 
-            def run_sub_agent():
-                """Sub-agent thread function with proper error handling and state management."""  # noqa: E501
-                try:
-                    with self._lock:
-                        if sub_conversation_id in self._sub_agents:
-                            self._sub_agents[
-                                sub_conversation_id
-                            ].state = SubAgentState.RUNNING
-
-                    # action.message is guaranteed to be not None due to check above
-                    assert action.message is not None
-                    logger.info(
-                        f"Sub-agent {sub_conversation_id[:8]} starting with task: "
-                        f"{action.message[:100]}..."
-                    )
-
-                    # Send initial message and run
-                    sub_conversation.send_message(action.message)
-
-                    # Run with cancellation support and timeout
-                    start_time = time.time()
-                    max_runtime = 300  # 5 minutes max per sub-agent
-
-                    while not stop_event.is_set():
-                        try:
-                            # Check for timeout
-                            if time.time() - start_time > max_runtime:
-                                logger.warning(
-                                    f"Sub-agent {sub_conversation_id[:8]} timed out "
-                                    f"after {max_runtime}s"
-                                )
-                                break
-
-                            # Run conversation step
-                            sub_conversation.run()
-
-                            # Check if conversation has finished
-                            if hasattr(sub_conversation, "state") and hasattr(
-                                sub_conversation.state, "agent_status"
-                            ):
-                                status = sub_conversation.state.agent_status
-                                logger.info(
-                                    f"Sub-agent {sub_conversation_id[:8]} "
-                                    f"status: {status} (type: {type(status)})"
-                                )
-
-                                # Check for terminal states
-                                if status == AgentExecutionStatus.FINISHED:
-                                    logger.info(
-                                        f"Sub-agent {sub_conversation_id[:8]} "
-                                        f"reached FINISHED state"
-                                    )
-                                    break
-                                elif status in [
-                                    AgentExecutionStatus.PAUSED,
-                                    AgentExecutionStatus.STUCK,
-                                    AgentExecutionStatus.ERROR,
-                                ]:
-                                    logger.info(
-                                        f"Sub-agent {sub_conversation_id[:8]} "
-                                        f"reached terminal state: {status}"
-                                    )
-                                    break
-                                elif status == AgentExecutionStatus.IDLE:
-                                    # Agent is idle - typically means completed
-                                    # its current task and is waiting for more input
-                                    logger.info(
-                                        f"Sub-agent {sub_conversation_id[:8]} is IDLE"
-                                        f" - treating as completion"
-                                    )
-                                    break
-                                elif status == AgentExecutionStatus.RUNNING:
-                                    # Still running, continue the loop
-                                    logger.info(
-                                        f"Sub-agent {sub_conversation_id[:8]} "
-                                        f"still RUNNING"
-                                    )
-                                    # Small delay to avoid busy waiting
-                                    time.sleep(0.1)
-                                    continue
-                            else:
-                                # Fallback: if we can't check state, assume completion
-                                # after run()
-                                logger.info(
-                                    f"Sub-agent {sub_conversation_id[:8]} run() "
-                                    f"completed (no state check available)"
-                                )
-                                break
-
-                        except Exception as e:
-                            if stop_event.is_set():
-                                logger.info(
-                                    f"Sub-agent {sub_conversation_id[:8]} cancelled"
-                                )
-                                break
-                            raise e
-
-                    if not stop_event.is_set():
-                        logger.info(
-                            f"Sub-agent {sub_conversation_id[:8]} completed "
-                            "successfully"
-                        )
-                        with self._lock:
-                            if sub_conversation_id in self._sub_agents:
-                                self._sub_agents[
-                                    sub_conversation_id
-                                ].state = SubAgentState.COMPLETED
-                                self._sub_agents[
-                                    sub_conversation_id
-                                ].completed_at = time.time()
-                    else:
-                        with self._lock:
-                            if sub_conversation_id in self._sub_agents:
-                                self._sub_agents[
-                                    sub_conversation_id
-                                ].state = SubAgentState.CANCELLED
-                                self._sub_agents[
-                                    sub_conversation_id
-                                ].completed_at = time.time()
-
-                except Exception as e:
-                    logger.error(
-                        f"Sub-agent {sub_conversation_id[:8]} failed: {e}",
-                        exc_info=True,
-                    )
-
-                    # Send error message to parent
-                    error_message = (
-                        f"[Sub-agent {sub_conversation_id[:8]} ERROR]: {str(e)}"
-                    )
-                    message = Message(
-                        role="user",
-                        content=[TextContent(text=error_message)],
-                    )
-                    try:
-                        self._pending_parent_messages.put_nowait(message)
-                        # Trigger parent if it's idle
-                        self._trigger_parent_if_idle()
-                    except queue.Full:
-                        logger.warning(
-                            "Parent message queue is full, dropping error message"
-                        )
-
-                    with self._lock:
-                        if sub_conversation_id in self._sub_agents:
-                            self._sub_agents[
-                                sub_conversation_id
-                            ].state = SubAgentState.FAILED
-                            self._sub_agents[sub_conversation_id].error = str(e)
-                            self._sub_agents[
-                                sub_conversation_id
-                            ].completed_at = time.time()
-
-            # Create and start thread (daemon=True for automatic cleanup)
             thread = threading.Thread(
-                target=run_sub_agent,
+                target=self._run_sub_agent,
+                args=(
+                    sub_conversation_id,
+                    sub_conversation,
+                    action.message,
+                    stop_event,
+                ),
                 name=f"SubAgent-{sub_conversation_id[:8]}",
                 daemon=True,
             )
 
-            # Create sub-agent info and register it
             sub_agent_info = SubAgentInfo(
                 conversation_id=sub_conversation_id,
                 conversation=sub_conversation,
