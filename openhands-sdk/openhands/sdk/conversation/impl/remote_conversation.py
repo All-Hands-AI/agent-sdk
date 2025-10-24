@@ -343,10 +343,10 @@ class RemoteState(ConversationStateProtocol):
         return ConfirmationPolicyBase.model_validate(policy_data)
 
     @property
-    def activated_knowledge_microagents(self) -> list[str]:
-        """List of activated knowledge microagents."""
+    def activated_knowledge_skills(self) -> list[str]:
+        """List of activated knowledge skills."""
         info = self._get_conversation_info()
-        return info.get("activated_knowledge_microagents", [])
+        return info.get("activated_knowledge_skills", [])
 
     @property
     def agent(self):

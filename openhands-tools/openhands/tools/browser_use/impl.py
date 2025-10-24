@@ -6,7 +6,11 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation import BaseConversation
 
 from openhands.sdk.logger import DEBUG, get_logger
 from openhands.sdk.tool import ToolExecutor
@@ -166,7 +170,11 @@ class BrowserToolExecutor(ToolExecutor[BrowserAction, BrowserObservation]):
         self._initialized = False
         self._async_executor = AsyncExecutor()
 
-    def __call__(self, action):
+    def __call__(
+        self,
+        action: BrowserAction,
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+    ):
         """Submit an action to run in the background loop and wait for result."""
         return self._async_executor.run_async(
             self._execute_action, action, timeout=300.0

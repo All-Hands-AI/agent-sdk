@@ -197,7 +197,7 @@ def test_event_deserialize():
             function_calling_enabled=False,
             force_string_serializer=False,
         ),
-        activated_microagents=[],
+        activated_skills=[],
         extended_content=[],
     )
     dumped = original.model_dump_json()

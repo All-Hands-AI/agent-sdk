@@ -45,8 +45,8 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def activated_knowledge_microagents(self) -> list[str]:
-        """List of activated knowledge microagents."""
+    def activated_knowledge_skills(self) -> list[str]:
+        """List of activated knowledge skills."""
         ...
 
     @property

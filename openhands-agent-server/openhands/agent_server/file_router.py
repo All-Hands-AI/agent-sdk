@@ -21,7 +21,7 @@ file_router = APIRouter(prefix="/file", tags=["Files"])
 config = get_default_config()
 
 
-@file_router.post("/upload/{path}")
+@file_router.post("/upload/{path:path}")
 async def upload_file(
     path: Annotated[str, FastApiPath(alias="path", description="Absolute file path.")],
     file: UploadFile = File(...),
@@ -54,7 +54,7 @@ async def upload_file(
         )
 
 
-@file_router.get("/download/{path}")
+@file_router.get("/download/{path:path}")
 async def download_file(
     path: Annotated[str, FastApiPath(description="Absolute file path.")],
 ) -> FileResponse:
