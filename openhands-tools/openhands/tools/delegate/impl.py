@@ -33,7 +33,6 @@ class SubAgentState(Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
-    CANCELLED = "cancelled"
 
 
 class SubAgentInfo(BaseModel):
@@ -45,7 +44,6 @@ class SubAgentInfo(BaseModel):
     conversation: Any  # BaseConversation - using Any to avoid forward reference issues
     thread: Any  # threading.Thread - using Any for runtime objects
     state: SubAgentState
-    stop_event: Any  # threading.Event - using Any for runtime objects
     created_at: float
     completed_at: float | None = None
     error: str | None = None
@@ -96,13 +94,21 @@ class DelegateExecutor(ToolExecutor):
 
     def shutdown(self):
         """Shutdown the executor and clean up all resources."""
-        # Get list of sub-agents to cancel (outside lock to avoid deadlock)
+        # Get list of threads to wait for (outside lock to avoid deadlock)
         with self._lock:
-            sub_agent_ids = list(self._sub_agents.keys())
+            threads = [
+                sub_agent.thread
+                for sub_agent in self._sub_agents.values()
+                if sub_agent.thread.is_alive()
+            ]
 
-        # Cancel all sub-agents (this will join threads outside lock)
-        for sub_agent_id in sub_agent_ids:
-            self._cancel_sub_agent(sub_agent_id)
+        # Wait for all threads to complete
+        for thread in threads:
+            try:
+                if thread != threading.current_thread():
+                    thread.join(timeout=10.0)
+            except RuntimeError:
+                pass
 
         with self._lock:
             # Clear pending messages
@@ -111,6 +117,8 @@ class DelegateExecutor(ToolExecutor):
                     self._pending_parent_messages.get_nowait()
                 except queue.Empty:
                     break
+            # Clear all sub-agents
+            self._sub_agents.clear()
 
     def is_task_in_progress(self) -> bool:
         """Check if a task started by the parent conversation is still in progress."""
@@ -139,7 +147,6 @@ class DelegateExecutor(ToolExecutor):
             if sub_agent.state in (
                 SubAgentState.COMPLETED,
                 SubAgentState.FAILED,
-                SubAgentState.CANCELLED,
             ):
                 logger.info(
                     f"Checking cleanup for {sub_id[:8]} in state {sub_agent.state}"
@@ -192,8 +199,6 @@ class DelegateExecutor(ToolExecutor):
             return self._spawn_sub_agent(action)
         elif action.operation == "send":
             return self._send_to_sub_agent(action)
-        elif action.operation == "close":
-            return self._close_sub_agent(action)
         else:
             return DelegateObservation(
                 operation=action.operation,
@@ -379,7 +384,6 @@ class DelegateExecutor(ToolExecutor):
         sub_conversation_id: str,
         sub_conversation: "LocalConversation",
         initial_message: str,
-        stop_event: threading.Event,
     ):
         """Run a sub-agent in a separate thread.
 
@@ -387,7 +391,6 @@ class DelegateExecutor(ToolExecutor):
             sub_conversation_id: The ID of the sub-agent conversation
             sub_conversation: The conversation object for the sub-agent
             initial_message: The initial message to send to the sub-agent
-            stop_event: Event to signal cancellation
         """
         try:
             with self._lock:
@@ -400,79 +403,24 @@ class DelegateExecutor(ToolExecutor):
             )
 
             sub_conversation.send_message(initial_message)
+            sub_conversation.run()
 
-            start_time = time.time()
-            max_runtime = 300
+            status = sub_conversation.state.agent_status
+            logger.info(
+                f"Sub-agent {sub_conversation_id[:8]} completed with status: {status}"
+            )
 
-            while not stop_event.is_set():
-                try:
-                    if time.time() - start_time > max_runtime:
-                        logger.warning(
-                            f"Sub-agent {sub_conversation_id[:8]} timed out "
-                            f"after {max_runtime}s"
-                        )
-                        break
-
-                    sub_conversation.run()
-
-                    status = sub_conversation.state.agent_status
-                    logger.info(
-                        f"Sub-agent {sub_conversation_id[:8]} "
-                        f"status: {status} (type: {type(status)})"
-                    )
-
+            with self._lock:
+                if sub_conversation_id in self._sub_agents:
                     if status == AgentExecutionStatus.FINISHED:
-                        logger.info(
-                            f"Sub-agent {sub_conversation_id[:8]} "
-                            f"reached FINISHED state"
-                        )
-                        break
-                    elif status in [
-                        AgentExecutionStatus.PAUSED,
-                        AgentExecutionStatus.STUCK,
-                        AgentExecutionStatus.ERROR,
-                    ]:
-                        logger.info(
-                            f"Sub-agent {sub_conversation_id[:8]} "
-                            f"reached terminal state: {status}"
-                        )
-                        break
-                    elif status == AgentExecutionStatus.IDLE:
-                        logger.info(
-                            f"Sub-agent {sub_conversation_id[:8]} is IDLE"
-                            f" - treating as completion"
-                        )
-                        break
-                    elif status == AgentExecutionStatus.RUNNING:
-                        logger.info(
-                            f"Sub-agent {sub_conversation_id[:8]} still RUNNING"
-                        )
-                        time.sleep(0.1)
-                        continue
-
-                except Exception as e:
-                    if stop_event.is_set():
-                        logger.info(f"Sub-agent {sub_conversation_id[:8]} cancelled")
-                        break
-                    raise e
-
-            if not stop_event.is_set():
-                logger.info(
-                    f"Sub-agent {sub_conversation_id[:8]} completed successfully"
-                )
-                with self._lock:
-                    if sub_conversation_id in self._sub_agents:
                         self._sub_agents[
                             sub_conversation_id
                         ].state = SubAgentState.COMPLETED
-                        self._sub_agents[sub_conversation_id].completed_at = time.time()
-            else:
-                with self._lock:
-                    if sub_conversation_id in self._sub_agents:
+                    else:
                         self._sub_agents[
                             sub_conversation_id
-                        ].state = SubAgentState.CANCELLED
-                        self._sub_agents[sub_conversation_id].completed_at = time.time()
+                        ].state = SubAgentState.FAILED
+                    self._sub_agents[sub_conversation_id].completed_at = time.time()
 
         except Exception as e:
             logger.error(
@@ -533,7 +481,6 @@ class DelegateExecutor(ToolExecutor):
             workspace_path = parent_conversation.state.workspace.working_dir
 
             sub_conversation_id = str(uuid.uuid4())
-            stop_event = threading.Event()
 
             callback = self._create_sub_agent_callback(sub_conversation_id)
 
@@ -551,7 +498,6 @@ class DelegateExecutor(ToolExecutor):
                     sub_conversation_id,
                     sub_conversation,
                     action.message,
-                    stop_event,
                 ),
                 name=f"SubAgent-{sub_conversation_id[:8]}",
                 daemon=True,
@@ -562,7 +508,6 @@ class DelegateExecutor(ToolExecutor):
                 conversation=sub_conversation,
                 thread=thread,
                 state=SubAgentState.CREATED,
-                stop_event=stop_event,
                 created_at=time.time(),
             )
 
@@ -661,126 +606,3 @@ class DelegateExecutor(ToolExecutor):
                     f"{action.sub_conversation_id}: {e}"
                 ),
             )
-
-    def _close_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
-        """Close a sub-agent properly with thread cleanup."""
-        if not action.sub_conversation_id:
-            return DelegateObservation(
-                operation="close",
-                success=False,
-                message="Sub-conversation ID is required for close operation",
-            )
-
-        with self._lock:
-            sub_agent = self._sub_agents.get(action.sub_conversation_id)
-            if sub_agent is None:
-                # Sub-agent might have been auto-cleaned up already
-                logger.info(
-                    f"Sub-agent {action.sub_conversation_id[:8]} not found - "
-                    f"likely already cleaned up"
-                )
-                return DelegateObservation(
-                    operation="close",
-                    success=True,
-                    sub_conversation_id=action.sub_conversation_id,
-                    message=(
-                        f"Sub-agent {action.sub_conversation_id} already cleaned up "
-                        f"or completed"
-                    ),
-                )
-
-        try:
-            return self._cancel_sub_agent(action.sub_conversation_id)
-        except Exception as e:
-            logger.error(f"Failed to close sub-agent {action.sub_conversation_id}: {e}")
-            return DelegateObservation(
-                operation="close",
-                success=False,
-                sub_conversation_id=action.sub_conversation_id,
-                message=f"Failed to close sub-agent {action.sub_conversation_id}: {e}",
-            )
-
-    def _cancel_sub_agent(self, sub_conversation_id: str) -> "DelegateObservation":
-        """Cancel a sub-agent with proper thread joining outside lock."""
-        # Get sub-agent info and signal stop under lock
-        with self._lock:
-            sub_agent = self._sub_agents.get(sub_conversation_id)
-            if sub_agent is None:
-                # Sub-agent might have been auto-cleaned up already
-                logger.info(
-                    f"Sub-agent {sub_conversation_id[:8]} not found - "
-                    f"likely already cleaned up"
-                )
-                return DelegateObservation(
-                    operation="close",
-                    success=True,
-                    sub_conversation_id=sub_conversation_id,
-                    message=(
-                        f"Sub-agent {sub_conversation_id} already cleaned up "
-                        f"or completed"
-                    ),
-                )
-
-            # Signal the sub-agent to stop and update state
-            sub_agent.stop_event.set()
-            sub_agent.state = SubAgentState.CANCELLED
-            sub_agent.completed_at = time.time()
-
-            # Note: Callbacks cannot be detached from LocalConversation after creation
-            # The sub-agent will stop generating events when the thread terminates
-
-            thread = sub_agent.thread
-
-        # Wait for thread to finish outside of lock
-        if thread.is_alive():
-            logger.info(f"Waiting for sub-agent {sub_conversation_id[:8]} to stop...")
-            try:
-                # Check if we're trying to join the current thread
-                current_thread = threading.current_thread()
-                if thread == current_thread:
-                    logger.warning(
-                        f"Cannot join current thread for sub-agent "
-                        f"{sub_conversation_id[:8]} - thread will terminate naturally"
-                    )
-                else:
-                    thread.join(timeout=10.0)
-                    if thread.is_alive():
-                        logger.warning(
-                            f"Sub-agent {sub_conversation_id[:8]} did not stop "
-                            f"gracefully within timeout"
-                        )
-            except RuntimeError as e:
-                # Handle "cannot join current thread" and other threading errors
-                logger.info(
-                    f"Thread join not possible for sub-agent "
-                    f"{sub_conversation_id[:8]}: {e} - thread will terminate naturally"
-                )
-
-        logger.info(f"Closed sub-agent {sub_conversation_id[:8]}")
-
-        return DelegateObservation(
-            operation="close",
-            success=True,
-            sub_conversation_id=sub_conversation_id,
-            message=f"Sub-agent {sub_conversation_id} closed successfully",
-        )
-
-    def _cancel_sub_agent_unsafe(
-        self, sub_conversation_id: str
-    ) -> "DelegateObservation":
-        """Cancel a sub-agent. Must be called with lock held.
-
-        DEPRECATED - use _cancel_sub_agent instead.
-        """
-        # For backward compatibility, check if lock is held and handle appropriately
-        lock_was_held = self._lock._count > 0  # Check if RLock is held
-        if lock_was_held:
-            # Release lock and call the safe version
-            self._lock.release()
-            try:
-                return self._cancel_sub_agent(sub_conversation_id)
-            finally:
-                self._lock.acquire()
-        else:
-            # Lock not held, just call the safe version directly
-            return self._cancel_sub_agent(sub_conversation_id)

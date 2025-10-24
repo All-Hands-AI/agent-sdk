@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class DelegateAction(Action):
     """Action for delegating tasks to sub-agents."""
 
-    operation: Literal["spawn", "send", "close"] = Field(
+    operation: Literal["spawn", "send"] = Field(
         description="The delegation operation to perform"
     )
     message: str | None = Field(
@@ -34,9 +34,7 @@ class DelegateAction(Action):
     )
     sub_conversation_id: str | None = Field(
         default=None,
-        description=(
-            "ID of the sub-conversation (only supported for send/close operations)"
-        ),
+        description="ID of the sub-conversation (only supported for send operation)",
     )
 
     @property
@@ -49,8 +47,6 @@ class DelegateAction(Action):
             content.append(f"Task: {self.message}")
         elif self.operation == "send" and self.message and self.sub_conversation_id:
             content.append(f"To {self.sub_conversation_id}: {self.message}")
-        elif self.operation == "close" and self.sub_conversation_id:
-            content.append(f"Sub-agent: {self.sub_conversation_id}")
 
         return content
 
@@ -58,12 +54,12 @@ class DelegateAction(Action):
 class DelegateObservation(Observation):
     """Observation from delegation operations."""
 
-    operation: Literal["spawn", "send", "close"] = Field(
+    operation: Literal["spawn", "send"] = Field(
         description="The delegation operation that was performed"
     )
     success: bool = Field(description="Whether the operation was successful")
     sub_conversation_id: str | None = Field(
-        default=None, description="ID of the sub-conversation (for spawn/send/close)"
+        default=None, description="ID of the sub-conversation (for spawn/send)"
     )
     message: str = Field(description="Result message from the operation")
 
@@ -92,26 +88,24 @@ class DelegateObservation(Observation):
 
 DELEGATE_TOOL_DESCRIPTION = """Delegate tasks to sub-agents for parallel processing.
 
-This tool allows the main agent to spawn, communicate with, and manage sub-agents:
+This tool allows the main agent to spawn and communicate with sub-agents:
 
 **Operations:**
 - `spawn`: Create a new sub-agent and send it a message (using the message field)
 - `send`: Send a message to an existing sub-agent (requires sub_conversation_id)
-- `close`: Terminate a sub-agent and clean up resources (requires sub_conversation_id)
 
 **Usage Examples:**
 1. Spawn a sub-agent: `{"operation": "spawn", "message": "Analyze the code for bugs"}`
 2. Send message: `{"operation": "send", "sub_conversation_id": "sub_123", `
    `"message": "Please focus on security issues"}`
-3. Close sub-agent: `{"operation": "close", "sub_conversation_id": "sub_123"}`
 
 **Important Notes:**
 - Sub-agents work in the same workspace as the main agent
 - Sub-agents can only communicate with the main agent (no sub-to-sub communication)
 - Use spawn to create specialized agents for different aspects of complex tasks
-- Always close sub-agents when their work is complete to free resources
-- sub_conversation_id is only supported for send/close operations
-- after spawning sub-agents, use FinishAction to pause and wait for
+- Sub-agents are automatically cleaned up when they complete their tasks
+- sub_conversation_id is only supported for send operations
+- After spawning sub-agents, use FinishAction to pause and wait for
     their results when necessary.
 """
 
