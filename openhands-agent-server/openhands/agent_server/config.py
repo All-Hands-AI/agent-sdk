@@ -39,7 +39,6 @@ def default_secret_key():
         return SecretStr(secret_key)
 
     # Generate a Fernet-compatible key directly (32 bytes -> base64)
-    # This is simpler and more secure than the previous hex + hash approach
     secret_key = urlsafe_b64encode(os.urandom(32)).decode("ascii")
 
     # Create directory and write key with restrictive permissions
