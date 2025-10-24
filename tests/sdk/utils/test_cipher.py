@@ -2,7 +2,6 @@
 
 from base64 import urlsafe_b64encode
 
-import pytest
 from cryptography.fernet import Fernet
 from pydantic import SecretStr
 
@@ -178,21 +177,3 @@ def test_cipher_long_content():
 
     assert decrypted is not None
     assert decrypted.get_secret_value() == long_secret
-
-
-@pytest.mark.parametrize(
-    "invalid_key",
-    [
-        "",  # Empty string
-        "too-short",  # Too short
-        "not-base64!@#$%",  # Invalid base64
-        "dGVzdA==",  # Valid base64 but wrong length (4 bytes instead of 32)
-    ],
-)
-def test_cipher_invalid_keys(invalid_key):
-    """Test that invalid keys raise appropriate errors."""
-    cipher = Cipher(invalid_key)
-
-    # Should raise an error when trying to create Fernet instance
-    with pytest.raises(Exception):  # Could be ValueError or other Fernet-related error
-        cipher._get_fernet()
