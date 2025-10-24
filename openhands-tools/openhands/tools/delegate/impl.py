@@ -300,10 +300,7 @@ class DelegateExecutor(ToolExecutor):
                 status = self.parent_conversation.state.agent_status
 
                 # Parent should be in FINISHED or IDLE state to be resumed
-                if status not in (
-                    AgentExecutionStatus.FINISHED,
-                    AgentExecutionStatus.IDLE,
-                ):
+                if status not in (AgentExecutionStatus.FINISHED,):
                     logger.info(
                         f"❌ Parent not in FINISHED/IDLE state ({status}), "
                         f"not triggering run"
@@ -856,29 +853,6 @@ class DelegateExecutor(ToolExecutor):
                 )
 
         logger.info(f"Closed sub-agent {sub_conversation_id[:8]}")
-
-        # After closing a sub-agent, check if all sub-agents are done and trigger parent
-        # This ensures the main agent continues after all sub-agents are closed
-        with self._lock:
-            active_count = sum(
-                1
-                for sub in self._sub_agents.values()
-                if sub.state in (SubAgentState.CREATED, SubAgentState.RUNNING)
-            )
-            pending_messages = self._pending_parent_messages.qsize()
-
-        logger.info(
-            f"After close: active_count={active_count}, "
-            f"pending_messages={pending_messages}"
-        )
-
-        # If no active sub-agents and no pending messages, trigger parent to continue
-        if active_count == 0 and pending_messages == 0:
-            logger.info(
-                "All sub-agents closed and no pending messages - "
-                "triggering parent to continue"
-            )
-            self._trigger_parent_if_idle()
 
         return DelegateObservation(
             operation="close",
