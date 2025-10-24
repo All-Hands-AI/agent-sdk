@@ -17,16 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_and_enforce(path: Path) -> Path:
-    root = LocalWorkspace.get_workspace_root()
-    target = (root / path).resolve()
     try:
-        target.relative_to(root)
+        return LocalWorkspace.resolve(path)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="path_outside_workspace_root",
         )
-    return target
 
 
 @git_router.get("/changes/{path:path}")

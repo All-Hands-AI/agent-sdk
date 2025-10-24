@@ -51,6 +51,23 @@ class LocalWorkspace(BaseWorkspace):
             raise ValueError("path_outside_workspace_root") from e
         return target
 
+    @classmethod
+    def resolve(cls, path: str | Path) -> Path:
+        """Resolve a path under the server-owned workspace root.
+
+        - If `path` is absolute, it must still be within the root.
+        - If `path` is relative, it is resolved from the root.
+        - Raises ValueError("path_outside_workspace_root") if the resolved path
+          is not within the root.
+        """
+        root = cls.get_workspace_root()
+        target = (root / Path(path)).resolve()
+        try:
+            target.relative_to(root)
+        except ValueError as e:
+            raise ValueError("path_outside_workspace_root") from e
+        return target
+
     def execute_command(
         self,
         command: str,
