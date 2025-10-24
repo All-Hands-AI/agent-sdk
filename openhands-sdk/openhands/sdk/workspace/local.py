@@ -15,7 +15,14 @@ logger = get_logger(__name__)
 
 
 class LocalWorkspace(BaseWorkspace):
-    """Mixin providing local workspace operations."""
+    """Mixin providing local workspace operations.
+
+    Server-owned fence:
+    - Only applies to LocalWorkspace; RemoteWorkspace has no client-side fence and
+      relies on server enforcement.
+    - Set programmatically via LocalWorkspace.set_workspace_root(...).
+    - Defaults to Path("workspace").resolve() if not set.
+    """
 
     # Server-owned workspace fence for local operations.
     # Can be set programmatically via LocalWorkspace.set_workspace_root(...).
@@ -65,10 +72,9 @@ class LocalWorkspace(BaseWorkspace):
                 timeout_occurred
         """
         logger.debug(f"Executing local bash command: {command} in {cwd}")
-        cwd_str = str(cwd) if cwd is not None else str(self.working_dir)
         result = execute_command(
             command,
-            cwd=cwd_str,
+            cwd=str(cwd) if cwd is not None else str(self.working_dir),
             timeout=timeout,
             print_output=True,
         )
@@ -103,14 +109,19 @@ class LocalWorkspace(BaseWorkspace):
         logger.debug(f"Local file upload: {source} -> {destination}")
 
         try:
+            # Ensure destination directory exists
             destination.parent.mkdir(parents=True, exist_ok=True)
+
+            # Copy the file with metadata preservation
             shutil.copy2(source, destination)
+
             return FileOperationResult(
                 success=True,
                 source_path=str(source),
                 destination_path=str(destination),
                 file_size=destination.stat().st_size,
             )
+
         except Exception as e:
             logger.error(f"Local file upload failed: {e}")
             return FileOperationResult(
@@ -143,14 +154,19 @@ class LocalWorkspace(BaseWorkspace):
         logger.debug(f"Local file download: {source} -> {destination}")
 
         try:
+            # Ensure destination directory exists
             destination.parent.mkdir(parents=True, exist_ok=True)
+
+            # Copy the file with metadata preservation
             shutil.copy2(source, destination)
+
             return FileOperationResult(
                 success=True,
                 source_path=str(source),
                 destination_path=str(destination),
                 file_size=destination.stat().st_size,
             )
+
         except Exception as e:
             logger.error(f"Local file download failed: {e}")
             return FileOperationResult(
@@ -163,19 +179,29 @@ class LocalWorkspace(BaseWorkspace):
     def git_changes(self, path: str | Path) -> list[GitChange]:
         """Get the git changes for the repository at the path given.
 
-        Note: This method uses the workspace's working_dir and does not enforce
-        LocalWorkspace._workspace_root; server routes enforce the fence for
-        remote calls.
+        Args:
+            path: Path to the git repository
+
+        Returns:
+            list[GitChange]: List of changes
+
+        Raises:
+            Exception: If path is not a git repository or getting changes failed
         """
-        target = (Path(self.working_dir) / path).resolve()
-        return get_git_changes(target)
+        path = Path(self.working_dir) / path
+        return get_git_changes(path)
 
     def git_diff(self, path: str | Path) -> GitDiff:
         """Get the git diff for the file at the path given.
 
-        Note: This method uses the workspace's working_dir and does not enforce
-        LocalWorkspace._workspace_root; server routes enforce the fence for
-        remote calls.
+        Args:
+            path: Path to the file
+
+        Returns:
+            GitDiff: Git diff
+
+        Raises:
+            Exception: If path is not a git repository or getting diff failed
         """
-        target = (Path(self.working_dir) / path).resolve()
-        return get_git_diff(target)
+        path = Path(self.working_dir) / path
+        return get_git_diff(path)
