@@ -1,7 +1,7 @@
 """Delegate tool definitions for OpenHands agents."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 from rich.text import Text
@@ -22,53 +22,32 @@ if TYPE_CHECKING:
 class DelegateAction(Action):
     """Action for delegating tasks to sub-agents."""
 
-    operation: Literal["spawn", "send"] = Field(
-        description="The delegation operation to perform"
-    )
-    message: str | None = Field(
-        default=None,
-        description=(
-            "Message content: for spawn operation, this is the task description; "
-            "for send operation, this is the message to send to sub-agent"
-        ),
-    )
-    sub_conversation_id: str | None = Field(
-        default=None,
-        description="ID of the sub-conversation (only supported for send operation)",
-    )
+    task: str = Field(description="The task description to delegate to a sub-agent")
 
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this action."""
         content = Text()
-        content.append(f"Delegate {self.operation}:\n", style="bold blue")
-
-        if self.operation == "spawn" and self.message:
-            content.append(f"Task: {self.message}")
-        elif self.operation == "send" and self.message and self.sub_conversation_id:
-            content.append(f"To {self.sub_conversation_id}: {self.message}")
-
+        content.append("Delegate Task:\n", style="bold blue")
+        content.append(f"Task: {self.task}")
         return content
 
 
 class DelegateObservation(Observation):
     """Observation from delegation operations."""
 
-    operation: Literal["spawn", "send"] = Field(
-        description="The delegation operation that was performed"
-    )
-    success: bool = Field(description="Whether the operation was successful")
+    success: bool = Field(description="Whether the action was successful")
     sub_conversation_id: str | None = Field(
-        default=None, description="ID of the sub-conversation (for spawn/send)"
+        default=None, description="ID of the sub-conversation created"
     )
-    message: str = Field(description="Result message from the operation")
+    message: str = Field(description="Result message from the action")
 
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this observation."""
         content = Text()
         status = "✅" if self.success else "❌"
-        content.append(f"{status} Delegate {self.operation}: ", style="bold")
+        content.append(f"{status} Delegate: ", style="bold")
         content.append(self.message)
         return content
 
@@ -88,24 +67,13 @@ class DelegateObservation(Observation):
 
 DELEGATE_TOOL_DESCRIPTION = """Delegate tasks to sub-agents for parallel processing.
 
-This tool allows the main agent to spawn and communicate with sub-agents:
+This tool allows the main agent to delegate tasks to sub-agents that run independently.
 
-**Operations:**
-- `spawn`: Create a new sub-agent and send it a message (using the message field)
-- `send`: Send a message to an existing sub-agent (requires sub_conversation_id)
-
-**Usage Examples:**
-1. Spawn a sub-agent: `{"operation": "spawn", "message": "Analyze the code for bugs"}`
-2. Send message: `{"operation": "send", "sub_conversation_id": "sub_123", `
-   `"message": "Please focus on security issues"}`
 
 **Important Notes:**
 - Sub-agents work in the same workspace as the main agent
-- Sub-agents can only communicate with the main agent (no sub-to-sub communication)
-- Use spawn to create specialized agents for different aspects of complex tasks
-- Sub-agents are automatically cleaned up when they complete their tasks
-- sub_conversation_id is only supported for send operations
-- After spawning sub-agents, use FinishAction to pause and wait for
+- Sub-agents will send back their findings to the main agent upon completion
+- After delegating tasks to sub-agents, use FinishAction to pause and wait for
     their results when necessary.
 """
 

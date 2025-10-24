@@ -59,7 +59,7 @@ class DelegateExecutor(ToolExecutor):
     - Managing sub-agent lifecycle with proper synchronization
     """
 
-    def __init__(self, max_children: int = 10):
+    def __init__(self, max_children: int = 5):
         # Thread-safe storage for all state
         self._lock: threading.RLock = threading.RLock()
         self._parent_conversation: BaseConversation | None = None
@@ -86,8 +86,6 @@ class DelegateExecutor(ToolExecutor):
     def is_task_in_progress(self) -> bool:
         """Check if a task started by the parent conversation is still in progress."""
         with self._lock:
-            self._cleanup_completed_sub_agents_unsafe()
-
             parent_running = (
                 self.parent_conversation.state.agent_status
                 != AgentExecutionStatus.FINISHED
@@ -102,51 +100,6 @@ class DelegateExecutor(ToolExecutor):
 
             return parent_running or pending_messages or active_sub_agents
 
-    def _cleanup_completed_sub_agents_unsafe(self):
-        """Clean up completed sub-agents. Must be called with lock held."""
-        logger.info(f"Starting cleanup of {len(self._sub_agents)} sub-agents")
-        to_remove = []
-        for sub_id, sub_agent in self._sub_agents.items():
-            if sub_agent.state in (
-                SubAgentState.COMPLETED,
-                SubAgentState.FAILED,
-            ):
-                logger.info(
-                    f"Checking cleanup for {sub_id[:8]} in state {sub_agent.state}"
-                )
-                # Try to join the thread with a short timeout
-                if sub_agent.thread.is_alive():
-                    try:
-                        logger.info(f"Attempting to join thread for {sub_id[:8]}")
-                        sub_agent.thread.join(timeout=0.1)  # 100ms timeout
-                    except Exception as e:
-                        logger.info(f"Error joining thread for {sub_id[:8]}: {e}")
-
-                # If thread is now dead or was already dead, clean it up
-                if not sub_agent.thread.is_alive():
-                    logger.info(f"Thread for {sub_id[:8]} is dead, marking for removal")
-                    to_remove.append(sub_id)
-                else:
-                    # Thread is still alive but sub-agent is completed
-                    # This might indicate a stuck thread - log it
-                    runtime = time.time() - sub_agent.created_at
-                    logger.warning(
-                        f"Sub-agent {sub_id[:8]} is {sub_agent.state} "
-                        f"but thread is still alive after {runtime:.1f}s"
-                    )
-                    # If it's been more than 10 seconds, force cleanup
-                    if time.time() - sub_agent.created_at > 10:
-                        logger.warning(
-                            f"Force cleaning up stuck sub-agent {sub_id[:8]} "
-                            f"after {runtime:.1f}s"
-                        )
-                        to_remove.append(sub_id)
-
-        logger.info(f"Removing {len(to_remove)} completed sub-agents")
-        for sub_id in to_remove:
-            logger.info(f"Cleaning up completed sub-agent {sub_id[:8]}")
-            del self._sub_agents[sub_id]
-
     def __call__(
         self, action: "DelegateAction", conversation: "BaseConversation"
     ) -> "DelegateObservation":
@@ -158,16 +111,7 @@ class DelegateExecutor(ToolExecutor):
                 f"Set parent conversation {conversation.id} on DelegateExecutor"
             )
 
-        if action.operation == "spawn":
-            return self._spawn_sub_agent(action)
-        elif action.operation == "send":
-            return self._send_to_sub_agent(action)
-        else:
-            return DelegateObservation(
-                operation=action.operation,
-                success=False,
-                message=f"Unknown operation: {action.operation}",
-            )
+        return self._delegate_task(action)
 
     def _trigger_parent_if_idle(self):
         """
@@ -179,8 +123,6 @@ class DelegateExecutor(ToolExecutor):
         - No re-entrancy: only fire when parent is idle
         - Natural batching: all messages that arrive while parent is busy are
           processed together
-        - Lower latency than fixed debounce: run as soon as parent flips to idle
-        - Cost control: at most one extra parent run per idle transitions
         """
         logger.debug("🔍 _trigger_parent_if_idle called")
 
@@ -400,13 +342,12 @@ class DelegateExecutor(ToolExecutor):
                     self._sub_agents[sub_conversation_id].error = str(e)
                     self._sub_agents[sub_conversation_id].completed_at = time.time()
 
-    def _spawn_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
-        """Spawn a new sub-agent that runs asynchronously."""
-        if not action.message:
+    def _delegate_task(self, action: "DelegateAction") -> "DelegateObservation":
+        """Delegate a task to a new sub-agent that runs asynchronously."""
+        if not action.task:
             return DelegateObservation(
-                operation="spawn",
                 success=False,
-                message="Message is required for spawn operation",
+                message="Task is required for delegate action",
             )
 
         try:
@@ -420,7 +361,6 @@ class DelegateExecutor(ToolExecutor):
                 )
                 if active_count >= self._max_children:
                     return DelegateObservation(
-                        operation="spawn",
                         success=False,
                         message=(
                             f"Maximum number of sub-agents ({self._max_children}) "
@@ -451,7 +391,7 @@ class DelegateExecutor(ToolExecutor):
                 target=self._run_sub_agent,
                 args=(
                     sub_conversation,
-                    action.message,
+                    action.task,
                 ),
                 name=f"SubAgent-{sub_conversation_id[:8]}",
                 daemon=True,
@@ -471,12 +411,11 @@ class DelegateExecutor(ToolExecutor):
             thread.start()
 
             logger.info(
-                f"Spawned sub-agent {sub_conversation_id[:8]} with task: "
-                f"{action.message[:100]}..."
+                f"Delegated task to sub-agent {sub_conversation_id[:8]}: "
+                f"{action.task[:100]}..."
             )
 
             return DelegateObservation(
-                operation="spawn",
                 success=True,
                 sub_conversation_id=sub_conversation_id,
                 message=(
@@ -486,77 +425,8 @@ class DelegateExecutor(ToolExecutor):
             )
 
         except Exception as e:
-            logger.error(f"Failed to spawn sub-agent: {e}", exc_info=True)
+            logger.error(f"Failed to delegate task: {e}", exc_info=True)
             return DelegateObservation(
-                operation="spawn",
                 success=False,
-                message=f"Failed to spawn sub-agent: {str(e)}",
-            )
-
-    def _send_to_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
-        """Send a message to a sub-agent."""
-        if not action.sub_conversation_id:
-            return DelegateObservation(
-                operation="send",
-                success=False,
-                message="Sub-conversation ID is required for send operation",
-            )
-
-        if not action.message:
-            return DelegateObservation(
-                operation="send",
-                success=False,
-                message="Message is required for send operation",
-            )
-
-        with self._lock:
-            sub_agent = self._sub_agents.get(action.sub_conversation_id)
-            if sub_agent is None:
-                logger.error(f"Sub-agent {action.sub_conversation_id} not found")
-                return DelegateObservation(
-                    operation="send",
-                    success=False,
-                    sub_conversation_id=action.sub_conversation_id,
-                    message=(
-                        f"Failed to send message to sub-agent "
-                        f"{action.sub_conversation_id}"
-                    ),
-                )
-
-            if sub_agent.state not in (SubAgentState.CREATED, SubAgentState.RUNNING):
-                return DelegateObservation(
-                    operation="send",
-                    success=False,
-                    sub_conversation_id=action.sub_conversation_id,
-                    message=(
-                        f"Sub-agent {action.sub_conversation_id} is not active "
-                        f"(state: {sub_agent.state.value})"
-                    ),
-                )
-
-        try:
-            # Send message to sub-agent's conversation
-            sub_agent.conversation.send_message(action.message)
-            logger.debug(
-                f"Sent message to sub-agent {action.sub_conversation_id}: "
-                f"{action.message[:100]}..."
-            )
-            return DelegateObservation(
-                operation="send",
-                success=True,
-                sub_conversation_id=action.sub_conversation_id,
-                message=f"Message sent to sub-agent {action.sub_conversation_id}",
-            )
-        except Exception as e:
-            logger.error(
-                f"Failed to send message to sub-agent {action.sub_conversation_id}: {e}"
-            )
-            return DelegateObservation(
-                operation="send",
-                success=False,
-                sub_conversation_id=action.sub_conversation_id,
-                message=(
-                    f"Failed to send message to sub-agent "
-                    f"{action.sub_conversation_id}: {e}"
-                ),
+                message=f"Failed to delegate task: {str(e)}",
             )
