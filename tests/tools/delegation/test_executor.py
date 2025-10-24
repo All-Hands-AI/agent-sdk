@@ -16,10 +16,14 @@ def create_mock_conversation():
 def test_delegation_manager_init():
     """Test DelegateExecutor initialization."""
     mock_conv = create_mock_conversation()
-    manager = DelegateExecutor(mock_conv)
+    manager = DelegateExecutor()
 
     # Test that the manager initializes properly
-    assert not manager.is_task_in_progress("non-existent")
+    assert not manager.is_task_in_progress()
+
+    # Set parent conversation manually (normally done on first call)
+    manager._parent_conversation = mock_conv
+
     # Test that parent conversation is set
     assert manager.parent_conversation == mock_conv
     assert str(manager.parent_conversation.id) == str(mock_conv.id)
@@ -91,7 +95,10 @@ def test_close_sub_agent_with_parent_relationship():
     parent_id = str(uuid.uuid4())
     mock_parent_conv = MagicMock()
     mock_parent_conv.id = parent_id
-    manager = DelegateExecutor(mock_parent_conv)
+    manager = DelegateExecutor()
+
+    # Set parent conversation manually (normally done on first call)
+    manager._parent_conversation = mock_parent_conv
 
     # Create child sub-agent
     child_id = str(uuid.uuid4())

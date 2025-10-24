@@ -235,7 +235,7 @@ class DelegateExecutor(ToolExecutor):
     ) -> "DelegateObservation":
         """Execute a delegation action."""
         # Set parent conversation once on first call
-        if self._parent_conversation is None:
+        if self._parent_conversation is None and conversation is not None:
             self._parent_conversation = conversation
             logger.debug(
                 f"Set parent conversation {conversation.id} on DelegateExecutor"
