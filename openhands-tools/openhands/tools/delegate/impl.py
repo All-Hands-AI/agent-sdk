@@ -121,22 +121,15 @@ class DelegateExecutor(ToolExecutor):
                 self.parent_conversation.state.agent_status
                 != AgentExecutionStatus.FINISHED
             )
-            if parent_running:
-                return True
 
-            pending_messages = self._pending_parent_messages.qsize()
-            if pending_messages > 0:
-                return True
+            pending_messages = self._pending_parent_messages.qsize() > 0
 
-            active_sub_agents = sum(
-                1
+            active_sub_agents = any(
+                sub_agent.state in (SubAgentState.CREATED, SubAgentState.RUNNING)
                 for sub_agent in self._sub_agents.values()
-                if sub_agent.state in (SubAgentState.CREATED, SubAgentState.RUNNING)
             )
-            if active_sub_agents > 0:
-                return True
 
-            return False
+            return parent_running or pending_messages or active_sub_agents
 
     def _cleanup_completed_sub_agents_unsafe(self):
         """Clean up completed sub-agents. Must be called with lock held."""
