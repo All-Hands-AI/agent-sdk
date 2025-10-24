@@ -92,5 +92,10 @@ while executor.is_task_in_progress():
 
 if not executor.is_task_in_progress():
     print("✅ All delegation work completed successfully!")
+
+    # Continue the conversation to allow the main agent to produce the final report
+    print("🔄 Continuing conversation for final report...")
+    conversation.run()
+    print("✅ Final report completed!")
 else:
     print("⚠️  Some threads still running after timeout")
