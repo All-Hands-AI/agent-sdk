@@ -22,9 +22,13 @@ def _default_session_api_keys():
     return result
 
 
-def _default_secret_key():
-    # If this function was called, the environment has already been checked for
-    # OH_SECRET_KEY and no key was found
+def default_secret_key():
+    """Load / store a default secret key. If this function was called,
+    the environment has already been checked for OH_SECRET_KEY and no key
+    was found. In this case, the objective is not to secure the file
+    system against being read by a malicious attacker, but rather to prevent
+    accidental leakage of keys in the common case where serialized conversations
+    are downloaded and shared."""
 
     # Check ~/.openhands/ for a previously generated key
     key_file = Path.home() / ".openhands" / "secret_key"
@@ -136,15 +140,16 @@ class Config(BaseModel):
         description="Whether to enable VNC desktop functionality",
     )
     secret_key: SecretStr = Field(
-        default_factory=_default_secret_key,
+        default_factory=default_secret_key,
         description=(
             "Secret key used for encrypting sensitive values in conversation "
             "trajectories. This prevents accidental disclosure of API keys and secrets "
-            "when conversations are downloaded and shared. WARNING: This is NOT "
-            "designed to protect against attackers with full filesystem access - the "
-            "key is stored in plaintext at ~/.openhands/secret_key. Values are "
-            "redacted (not encrypted) when no cipher context is provided during "
-            "serialization."
+            "when conversations are downloaded and shared. WARNING: If no value is"
+            "provided using the enviroment variable OH_SECRET_KEY, this will create / "
+            "use a secret key stored in plaintext at ~/.openhands/secret_key. "
+            "This is NOT designed to protect against attackers with full filesystem "
+            "access - the key is stored in plaintext. It is designed to hel prevent "
+            "leaking keys in the common case where a conversation directory is shared."
         ),
     )
     model_config: ClassVar[ConfigDict] = {"frozen": True}
