@@ -355,7 +355,6 @@ class ConversationService:
         event_service = EventService(
             stored=stored,
             conversations_dir=self.conversations_dir,
-            working_dir=Path(stored.workspace.working_dir),
             cipher=self.cipher,
         )
         # Create subscribers...

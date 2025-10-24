@@ -34,7 +34,6 @@ class EventService:
 
     stored: StoredConversation
     conversations_dir: Path
-    working_dir: Path
     cipher: Cipher | None = None
     _conversation: LocalConversation | None = field(default=None, init=False)
     _pub_sub: PubSub[Event] = field(default_factory=lambda: PubSub[Event](), init=False)
@@ -63,6 +62,11 @@ class EventService:
                 }
             )
         )
+
+    def get_conversation(self):
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        return self._conversation
 
     async def get_event(self, event_id: str) -> Event | None:
         if not self._conversation:
@@ -197,12 +201,10 @@ class EventService:
 
         # self.stored contains an Agent configuration we can instantiate
         self.conversation_dir.mkdir(parents=True, exist_ok=True)
-        self.working_dir.mkdir(parents=True, exist_ok=True)
-        agent = Agent.model_validate(self.stored.agent.model_dump())
-        # Convert workspace to LocalWorkspace if needed
         workspace = self.stored.workspace
-        if not isinstance(workspace, LocalWorkspace):
-            workspace = LocalWorkspace(working_dir=workspace.working_dir)
+        assert isinstance(workspace, LocalWorkspace)
+        Path(workspace.working_dir).mkdir(parents=True, exist_ok=True)
+        agent = Agent.model_validate(self.stored.agent.model_dump())
         conversation = LocalConversation(
             agent=agent,
             workspace=workspace,
