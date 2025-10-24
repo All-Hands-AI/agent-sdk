@@ -26,6 +26,7 @@ from pydantic.json_schema import SkipJsonSchema
 if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
     from openhands.sdk.tool.tool import ToolBase
 
+from openhands.sdk.utils.cipher import Cipher
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
@@ -380,6 +381,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
         if v is None:
             return None
+
+        # check if a cipher is supplied
+        if info.context and info.context.get("cipher"):
+            cipher: Cipher = info.context.get("cipher")
+            return cipher.encrypt(v)
 
         # Check if the 'expose_secrets' flag is in the serialization context
         if info.context and info.context.get("expose_secrets"):

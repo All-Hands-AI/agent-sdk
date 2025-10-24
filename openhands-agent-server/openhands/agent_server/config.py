@@ -2,9 +2,10 @@ import os
 from pathlib import Path
 from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from openhands.agent_server.env_parser import from_env
+from openhands.sdk.utils.cipher import Cipher
 
 
 # Environment variable constants
@@ -19,6 +20,24 @@ def _default_session_api_keys():
     if session_api_key:
         result.append(session_api_key)
     return result
+
+
+def _default_secret_key():
+    # If this function was called, the environment has already been checked for
+    # OH_SECRET_KEY and no key was found
+
+    # Check ~/.openhands/ for a previously generated key
+    key_file = Path.home() / ".openhands" / "secret_key"
+    if key_file.exists():
+        secret_key = key_file.read_text()
+        return SecretStr(secret_key)
+
+    # Generate a key and store it so that it will be persisted between restarts.
+    secret_key = os.urandom(32).hex()
+    key_file.parent.mkdir(exist_ok=True, parents=True)
+    key_file.write_text(secret_key)
+
+    return SecretStr(secret_key)
 
 
 class WebhookSpec(BaseModel):
@@ -116,7 +135,24 @@ class Config(BaseModel):
         default=False,
         description="Whether to enable VNC desktop functionality",
     )
+    secret_key: SecretStr = Field(
+        default_factory=_default_secret_key,
+        description=(
+            "Secret key to use for encrypting values. Since this may be stored in "
+            "the local filesystem it is not designed to thwart an attacker with full "
+            "read access, but rather to prevent accidental secret disclosure due to "
+            "sharing a conversation trajectory."
+        ),
+    )
     model_config: ClassVar[ConfigDict] = {"frozen": True}
+
+    @property
+    def cipher(self) -> Cipher:
+        cipher = getattr(self, "_cipher", None)
+        if cipher is None:
+            cipher = Cipher(self.secret_key.get_secret_value())
+            setattr(self, "_cipher", cipher)
+        return cipher
 
 
 _default_config: Config | None = None
