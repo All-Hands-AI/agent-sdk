@@ -71,35 +71,47 @@ def maybe_truncate(
         Original content if under limit, or truncated content with head and tail
         preserved and reference to saved file if applicable
     """
-    # Early returns for cases where no truncation is needed
+    # 1) Early exits: no truncation requested, or content already within limit
     if not truncate_after or len(content) <= truncate_after or truncate_after < 0:
         return content
 
-    # Edge case: truncate_after is too small to fit any content
+    # 2) If even the base notice doesn't fit, return a slice of it
     if len(truncate_notice) >= truncate_after:
         return truncate_notice[:truncate_after]
 
-    # Calculate head size based on original notice (for consistent line number calc)
+    # 3) Calculate proposed head size based on base notice
+    # (for consistent line number calc)
     available_chars = truncate_after - len(truncate_notice)
-    half_chars = available_chars // 2
-    head_chars = half_chars + (available_chars % 2)  # Give extra char to head if odd
+    # Prefer giving the "extra" char to head (ceil split)
+    proposed_head = available_chars // 2 + (available_chars % 2)
 
-    # Determine final notice by saving file first if requested
+    # 4) Optionally save full content, then construct the final notice
     final_notice = truncate_notice
     if save_dir:
         saved_file_path = _save_full_content(content, save_dir, tool_prefix)
         if saved_file_path:
             # Calculate line number where truncation happens (using head_chars)
-            head_content_lines = len(content[:head_chars].splitlines())
+            head_content_lines = len(content[:proposed_head].splitlines())
 
             final_notice = DEFAULT_TRUNCATE_NOTICE_WITH_PERSIST.format(
                 file_path=saved_file_path,
                 line_num=head_content_lines + 1,  # +1 to indicate next line
             )
 
-    # Calculate tail size based on final notice (head_chars stays consistent)
-    final_available_chars = truncate_after - len(final_notice)
-    tail_chars = max(0, final_available_chars - head_chars)
+    # 5) If the final notice (with persist info) alone fills the
+    # budget, return a slice of it
+    if len(final_notice) >= truncate_after:
+        return final_notice[:truncate_after]
 
-    # Assemble final result
-    return content[:head_chars] + final_notice + content[-tail_chars:]
+    # 6) Allocate remaining budget to head/tail
+    remaining = truncate_after - len(final_notice)
+    head_chars = min(
+        proposed_head, remaining
+    )  # Ensure head_chars doesn't exceed remaining
+    tail_chars = remaining - head_chars  # non-negative due to previous checks
+
+    return (
+        content[:proposed_head]
+        + final_notice
+        + (content[-tail_chars:] if tail_chars > 0 else "")
+    )
