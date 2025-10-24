@@ -415,49 +415,40 @@ class DelegateExecutor(ToolExecutor):
 
                     sub_conversation.run()
 
-                    if hasattr(sub_conversation, "state") and hasattr(
-                        sub_conversation.state, "agent_status"
-                    ):
-                        status = sub_conversation.state.agent_status
+                    status = sub_conversation.state.agent_status
+                    logger.info(
+                        f"Sub-agent {sub_conversation_id[:8]} "
+                        f"status: {status} (type: {type(status)})"
+                    )
+
+                    if status == AgentExecutionStatus.FINISHED:
                         logger.info(
                             f"Sub-agent {sub_conversation_id[:8]} "
-                            f"status: {status} (type: {type(status)})"
-                        )
-
-                        if status == AgentExecutionStatus.FINISHED:
-                            logger.info(
-                                f"Sub-agent {sub_conversation_id[:8]} "
-                                f"reached FINISHED state"
-                            )
-                            break
-                        elif status in [
-                            AgentExecutionStatus.PAUSED,
-                            AgentExecutionStatus.STUCK,
-                            AgentExecutionStatus.ERROR,
-                        ]:
-                            logger.info(
-                                f"Sub-agent {sub_conversation_id[:8]} "
-                                f"reached terminal state: {status}"
-                            )
-                            break
-                        elif status == AgentExecutionStatus.IDLE:
-                            logger.info(
-                                f"Sub-agent {sub_conversation_id[:8]} is IDLE"
-                                f" - treating as completion"
-                            )
-                            break
-                        elif status == AgentExecutionStatus.RUNNING:
-                            logger.info(
-                                f"Sub-agent {sub_conversation_id[:8]} still RUNNING"
-                            )
-                            time.sleep(0.1)
-                            continue
-                    else:
-                        logger.info(
-                            f"Sub-agent {sub_conversation_id[:8]} run() "
-                            f"completed (no state check available)"
+                            f"reached FINISHED state"
                         )
                         break
+                    elif status in [
+                        AgentExecutionStatus.PAUSED,
+                        AgentExecutionStatus.STUCK,
+                        AgentExecutionStatus.ERROR,
+                    ]:
+                        logger.info(
+                            f"Sub-agent {sub_conversation_id[:8]} "
+                            f"reached terminal state: {status}"
+                        )
+                        break
+                    elif status == AgentExecutionStatus.IDLE:
+                        logger.info(
+                            f"Sub-agent {sub_conversation_id[:8]} is IDLE"
+                            f" - treating as completion"
+                        )
+                        break
+                    elif status == AgentExecutionStatus.RUNNING:
+                        logger.info(
+                            f"Sub-agent {sub_conversation_id[:8]} still RUNNING"
+                        )
+                        time.sleep(0.1)
+                        continue
 
                 except Exception as e:
                     if stop_event.is_set():
