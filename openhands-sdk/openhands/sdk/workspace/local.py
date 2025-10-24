@@ -15,18 +15,11 @@ logger = get_logger(__name__)
 
 
 class LocalWorkspace(BaseWorkspace):
-    """Local workspace operations with an optional server-owned root fence.
+    """Mixin providing local workspace operations."""
 
-    Notes:
-    - The workspace root fence is a class-level setting owned by the server.
-      It can be set programmatically via `LocalWorkspace.set_workspace_root(...)`.
-    - There is no equivalent in RemoteWorkspace; remote calls rely on the
-      server's configured fence and cannot widen it.
-    - By default, if not set explicitly, the root resolves to
-      `Path("workspace").resolve()`.
-    """
-
-    # Server-owned fence for local path operations. Only applies to LocalWorkspace.
+    # Server-owned workspace fence for local operations.
+    # Can be set programmatically via LocalWorkspace.set_workspace_root(...).
+    # Not present in RemoteWorkspace; remote calls rely on the server-side fence.
     _workspace_root: ClassVar[Path | None] = None
 
     @classmethod
@@ -92,7 +85,11 @@ class LocalWorkspace(BaseWorkspace):
         source_path: str | Path,
         destination_path: str | Path,
     ) -> FileOperationResult:
-        """Upload (copy) a file locally using shutil.copy2."""
+        """Upload (copy) a file locally.
+
+        For local systems, implemented as a file copy using shutil.copy2 to
+        preserve metadata.
+        """
         source = Path(source_path)
         destination = Path(destination_path)
 
@@ -121,7 +118,11 @@ class LocalWorkspace(BaseWorkspace):
         source_path: str | Path,
         destination_path: str | Path,
     ) -> FileOperationResult:
-        """Download (copy) a file locally using shutil.copy2."""
+        """Download (copy) a file locally.
+
+        For local systems, implemented as a file copy using shutil.copy2 to
+        preserve metadata.
+        """
         source = Path(source_path)
         destination = Path(destination_path)
 
@@ -146,11 +147,21 @@ class LocalWorkspace(BaseWorkspace):
             )
 
     def git_changes(self, path: str | Path) -> list[GitChange]:
-        """Get the git changes for the repository at the path given."""
+        """Get the git changes for the repository at the path given.
+
+        Note: This method uses the workspace's working_dir and does not enforce
+        LocalWorkspace._workspace_root; server routes enforce the fence for
+        remote calls.
+        """
         target = (Path(self.working_dir) / path).resolve()
         return get_git_changes(target)
 
     def git_diff(self, path: str | Path) -> GitDiff:
-        """Get the git diff for the file at the path given."""
+        """Get the git diff for the file at the path given.
+
+        Note: This method uses the workspace's working_dir and does not enforce
+        LocalWorkspace._workspace_root; server routes enforce the fence for
+        remote calls.
+        """
         target = (Path(self.working_dir) / path).resolve()
         return get_git_diff(target)
