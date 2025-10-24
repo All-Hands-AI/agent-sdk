@@ -100,7 +100,7 @@ class DelegateTool(ToolDefinition[DelegateAction, DelegateObservation]):
     def create(
         cls,
         conv_state: "ConversationState",  # noqa: ARG003
-        max_children: int = 10,
+        max_children: int = 5,
     ) -> Sequence["DelegateTool"]:
         """Initialize DelegateTool with executor parameters.
 
