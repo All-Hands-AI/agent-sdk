@@ -344,7 +344,6 @@ class DelegateExecutor(ToolExecutor):
 
     def _run_sub_agent(
         self,
-        sub_conversation_id: str,
         sub_conversation: "LocalConversation",
         initial_message: str,
     ):
@@ -355,6 +354,7 @@ class DelegateExecutor(ToolExecutor):
             sub_conversation: The conversation object for the sub-agent
             initial_message: The initial message to send to the sub-agent
         """
+        sub_conversation_id = str(sub_conversation.id)
         try:
             with self._lock:
                 if sub_conversation_id in self._sub_agents:
@@ -450,7 +450,6 @@ class DelegateExecutor(ToolExecutor):
             thread = threading.Thread(
                 target=self._run_sub_agent,
                 args=(
-                    sub_conversation_id,
                     sub_conversation,
                     action.message,
                 ),
