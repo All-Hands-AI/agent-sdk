@@ -1,12 +1,25 @@
 # Apptainer Workspace Test Log
 
-This document demonstrates the functionality of the ApptainerWorkspace implementation for issue #891.
+This document demonstrates the validation and testing of the ApptainerWorkspace implementation for issue #891.
 
 ## Test Environment
 
 - Python version: 3.12
-- Apptainer version: 1.3.0 (simulated)
-- OS: Linux (Ubuntu 22.04)
+- Testing environment: OpenHands development container
+- **Note**: Apptainer is not installed in the test environment, so tests focus on code structure validation rather than runtime execution
+
+## Testing Limitations
+
+⚠️ **Important**: Full end-to-end testing requires Apptainer to be installed on the system. The tests in this document validate:
+- ✅ Code structure and imports
+- ✅ Type checking and validation
+- ✅ API compatibility with RemoteWorkspace
+- ❌ Actual container execution (requires Apptainer installation)
+
+To fully test the implementation, users should:
+1. Install Apptainer on their system
+2. Run the example: `python examples/02_remote_agent_server/05_convo_with_apptainer_sandboxed_server.py`
+3. Verify container creation and execution
 
 ## Test 1: Import and Basic Validation
 

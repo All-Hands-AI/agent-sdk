@@ -145,6 +145,18 @@ See `examples/02_remote_agent_server/05_convo_with_apptainer_sandboxed_server.py
 - File operations in the sandboxed environment
 - Proper cleanup
 
+**To test the example:**
+```bash
+# Make sure Apptainer is installed
+apptainer --version
+
+# Run the example
+cd examples/02_remote_agent_server
+python 05_convo_with_apptainer_sandboxed_server.py
+```
+
+**Note**: The implementation has been validated for code structure, type correctness, and API compatibility. Full runtime testing requires Apptainer to be installed on your system.
+
 ## Performance Notes
 
 - **First run**: Slower due to image download and SIF conversion
