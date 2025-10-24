@@ -4,43 +4,35 @@ import asyncio
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from openhands.agent_server.config import get_default_config
+from openhands.agent_server.dependencies import get_event_service
+from openhands.agent_server.event_service import EventService
 from openhands.sdk.git.models import GitChange, GitDiff
-from openhands.sdk.workspace.local import LocalWorkspace
 
 
 git_router = APIRouter(prefix="/git", tags=["Git"])
 logger = logging.getLogger(__name__)
-config = get_default_config()
-workspace = LocalWorkspace(working_dir=str(config.working_dir))
 
 
-@git_router.get("/changes/{path:path}")
+@git_router.get("{conversation_id}/changes")
 async def git_changes(
     path: Path,
+    event_service: EventService = Depends(get_event_service),
 ) -> list[GitChange]:
-    assert (
-        (config.working_dir / path)
-        .resolve()
-        .is_relative_to(config.working_dir.resolve())
-    )
+    workspace = event_service.get_conversation().workspace
     loop = asyncio.get_running_loop()
     changes = await loop.run_in_executor(None, workspace.git_changes, path)
     return changes
 
 
 # bash event routes
-@git_router.get("/diff/{path:path}")
+@git_router.get("{conversation_id}/diff/{path:path}")
 async def git_diff(
     path: Path,
+    event_service: EventService = Depends(get_event_service),
 ) -> GitDiff:
-    assert (
-        (config.working_dir / path)
-        .resolve()
-        .is_relative_to(config.working_dir.resolve())
-    )
+    workspace = event_service.get_conversation().workspace
     loop = asyncio.get_running_loop()
-    diff = await loop.run_in_executor(None, workspace.git_diff, path)
-    return diff
+    changes = await loop.run_in_executor(None, workspace.git_diff, path)
+    return changes
