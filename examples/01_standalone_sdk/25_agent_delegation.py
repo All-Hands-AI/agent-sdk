@@ -80,7 +80,7 @@ executor = conversation.agent.tools_map["delegate"].executor
 max_wait = 180  # 3 minutes to account for LLM processing time
 start_time = time.time()
 
-while executor.is_task_in_progress(str(conversation.id)):
+while executor.is_task_in_progress():
     elapsed = time.time() - start_time
     if elapsed >= max_wait:
         print(f"⏰ Timeout after {max_wait}s - task still in progress")

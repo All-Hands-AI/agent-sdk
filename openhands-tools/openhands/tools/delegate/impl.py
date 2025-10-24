@@ -112,15 +112,12 @@ class DelegateExecutor(ToolExecutor):
                 except queue.Empty:
                     break
 
-    def is_task_in_progress(self, conversation_id: str) -> bool:
+    def is_task_in_progress(self) -> bool:
         """Check if a task started by the parent conversation is still in progress."""
         with self._lock:
-            # Only check if this is our parent conversation
-            if (
-                self._parent_conversation is None
-                or str(self.parent_conversation.id) != conversation_id
-            ):
-                logger.info(f"Not our parent conversation: {conversation_id}")
+            # Check if parent conversation is set
+            if self._parent_conversation is None:
+                logger.info("No parent conversation set")
                 return False
 
             logger.info(
@@ -251,7 +248,7 @@ class DelegateExecutor(ToolExecutor):
             )
 
         if action.operation == "spawn":
-            return self._spawn_sub_agent(action, conversation)
+            return self._spawn_sub_agent(action)
         elif action.operation == "send":
             return self._send_to_sub_agent(action)
         elif action.operation == "close":
@@ -372,9 +369,7 @@ class DelegateExecutor(ToolExecutor):
             logger.debug("🔄 Checking for additional pending messages after parent run")
             self._trigger_parent_if_idle()
 
-    def _spawn_sub_agent(
-        self, action: "DelegateAction", conversation: "BaseConversation"
-    ) -> "DelegateObservation":
+    def _spawn_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Spawn a new sub-agent that runs asynchronously."""
         if not action.message:
             return DelegateObservation(
