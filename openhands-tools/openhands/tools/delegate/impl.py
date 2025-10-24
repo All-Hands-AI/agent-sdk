@@ -56,7 +56,6 @@ class DelegateExecutor(ToolExecutor):
     - Creating sub-agents and their conversations
     - Tracking sub-agents for a single parent conversation
     - Routing messages between parent and child agents
-    - Managing sub-agent lifecycle with proper synchronization
     """
 
     def __init__(self, max_children: int = 5):
@@ -130,76 +129,50 @@ class DelegateExecutor(ToolExecutor):
         with self._lock:
             queue_size = self._pending_parent_messages.qsize()
             if self._pending_parent_messages.empty():
-                logger.debug("❌ No pending parent messages")
+                logger.debug("No pending parent messages")
                 return
 
             logger.info(f"📬 Found {queue_size} pending parent messages")
 
             # Single-flight guard - prevent concurrent parent runs
             if self._parent_running:
-                logger.info("❌ Parent already running, skipping trigger")
+                logger.info("Parent already running, skipping trigger")
                 return
 
-            # Check if parent is finished
-            try:
-                status = self.parent_conversation.state.agent_status
-
-                # Parent should be in FINISHED or IDLE state to be resumed
-                if status not in (AgentExecutionStatus.FINISHED,):
-                    logger.info(
-                        f"❌ Parent not in FINISHED/IDLE state ({status}), "
-                        f"not triggering run"
-                    )
-                    return
-
+            status = self.parent_conversation.state.agent_status
+            # Parent should be in FINISHED state to be resumed
+            if status != AgentExecutionStatus.FINISHED:
                 logger.info(
-                    f"✅ Parent is {status} with {queue_size} pending messages, "
-                    f"triggering run"
+                    f"Parent not in FINISHED/IDLE state ({status}), not triggering run"
                 )
-
-                # Parent is idle, we have messages, and no run in progress
-                # Set running flag and drain queue
-                self._parent_running = True
-                messages_to_send = []
-                while not self._pending_parent_messages.empty():
-                    try:
-                        messages_to_send.append(
-                            self._pending_parent_messages.get_nowait()
-                        )
-                    except queue.Empty:
-                        break
-
-                parent_conversation = self.parent_conversation
-
-            except Exception as e:
-                logger.error(f"Error checking parent status: {e}")
                 return
+
+            logger.info(
+                f"✅ Parent is {status} with {queue_size} pending messages, "
+                f"triggering run"
+            )
+
+            # Parent is finished, we have messages, and no run in progress
+            # Set running flag and drain queue
+            self._parent_running = True
+            messages_to_send = []
+            while True:
+                try:
+                    messages_to_send.append(self._pending_parent_messages.get_nowait())
+                except queue.Empty:
+                    break
+
+            parent_conversation = self.parent_conversation
 
         # Send messages and trigger parent run outside of lock
         try:
             # Send all pending messages to parent
             for message in messages_to_send:
-                try:
-                    parent_conversation.send_message(message)
-                    logger.debug(f"Sent message to parent {parent_conversation.id}")
-                except Exception as e:
-                    logger.error(
-                        f"Failed to send message to parent "
-                        f"{parent_conversation.id}: {e}"
-                    )
-
-            # Trigger exactly one parent run to process all messages
-            try:
-                logger.info(
-                    f"🔄 Triggering parent conversation run for "
-                    f"{parent_conversation.id} with {len(messages_to_send)} messages"
-                )
-                parent_conversation.run()
-                logger.info(
-                    f"✅ Parent conversation run completed for {parent_conversation.id}"
-                )
-            except Exception as e:
-                logger.error(f"Failed to trigger parent conversation run: {e}")
+                parent_conversation.send_message(message)
+            parent_conversation.run()
+            logger.info(
+                f"Parent conversation run completed for {parent_conversation.id}"
+            )
         finally:
             # Always clear the running flag
             with self._lock:
