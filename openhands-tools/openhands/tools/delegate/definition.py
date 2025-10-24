@@ -71,7 +71,7 @@ This tool allows the main agent to delegate tasks to sub-agents that run indepen
 
 
 **Important Notes:**
-- Sub-agents work in the same workspace as the main agent
+- Sub-agents work in the same workspace as you, the main agent
 - Sub-agents will send back their findings to the main agent upon completion
 - After delegating tasks to sub-agents, use FinishAction to pause and wait for
     their results when necessary.
