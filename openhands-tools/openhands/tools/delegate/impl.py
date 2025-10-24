@@ -83,43 +83,6 @@ class DelegateExecutor(ToolExecutor):
             )
         return self._parent_conversation  # type: ignore
 
-    def __enter__(self):
-        """Context manager entry."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit - ensure cleanup."""
-        self.shutdown()
-        return False
-
-    def shutdown(self):
-        """Shutdown the executor and clean up all resources."""
-        # Get list of threads to wait for (outside lock to avoid deadlock)
-        with self._lock:
-            threads = [
-                sub_agent.thread
-                for sub_agent in self._sub_agents.values()
-                if sub_agent.thread.is_alive()
-            ]
-
-        # Wait for all threads to complete
-        for thread in threads:
-            try:
-                if thread != threading.current_thread():
-                    thread.join(timeout=10.0)
-            except RuntimeError:
-                pass
-
-        with self._lock:
-            # Clear pending messages
-            while not self._pending_parent_messages.empty():
-                try:
-                    self._pending_parent_messages.get_nowait()
-                except queue.Empty:
-                    break
-            # Clear all sub-agents
-            self._sub_agents.clear()
-
     def is_task_in_progress(self) -> bool:
         """Check if a task started by the parent conversation is still in progress."""
         with self._lock:
@@ -405,21 +368,13 @@ class DelegateExecutor(ToolExecutor):
             sub_conversation.send_message(initial_message)
             sub_conversation.run()
 
-            status = sub_conversation.state.agent_status
-            logger.info(
-                f"Sub-agent {sub_conversation_id[:8]} completed with status: {status}"
-            )
+            logger.info(f"Sub-agent {sub_conversation_id[:8]} completed")
 
             with self._lock:
                 if sub_conversation_id in self._sub_agents:
-                    if status == AgentExecutionStatus.FINISHED:
-                        self._sub_agents[
-                            sub_conversation_id
-                        ].state = SubAgentState.COMPLETED
-                    else:
-                        self._sub_agents[
-                            sub_conversation_id
-                        ].state = SubAgentState.FAILED
+                    self._sub_agents[
+                        sub_conversation_id
+                    ].state = SubAgentState.COMPLETED
                     self._sub_agents[sub_conversation_id].completed_at = time.time()
 
         except Exception as e:
