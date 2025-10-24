@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import Field
 
+from openhands.sdk.git.models import GitChange, GitDiff
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.workspace.models import CommandResult, FileOperationResult
@@ -109,3 +110,31 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
             Exception: If file download fails
         """
         ...
+
+    @abstractmethod
+    def git_changes(self, path: str | Path) -> list[GitChange]:
+        """Get the git changes for the repository at the path given.
+
+        Args:
+            path: Path to the git repository
+
+        Returns:
+            list[GitChange]: List of changes
+
+        Raises:
+            Exception: If path is not a git repository or getting changes failed
+        """
+
+    @abstractmethod
+    def git_diff(self, path: str | Path) -> GitDiff:
+        """Get the git diff for the file at the path given.
+
+        Args:
+            path: Path to the file
+
+        Returns:
+            GitDiff: Git diff
+
+        Raises:
+            Exception: If path is not a git repository or getting diff failed
+        """

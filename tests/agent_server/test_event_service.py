@@ -39,7 +39,6 @@ def event_service(sample_stored_conversation):
     service = EventService(
         stored=sample_stored_conversation,
         conversations_dir=Path("test_conversation_dir"),
-        working_dir=Path("test_working_dir"),
     )
     return service
 
