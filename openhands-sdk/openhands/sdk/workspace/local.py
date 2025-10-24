@@ -1,4 +1,3 @@
-import os
 import shutil
 from pathlib import Path
 from typing import ClassVar
@@ -16,8 +15,18 @@ logger = get_logger(__name__)
 
 
 class LocalWorkspace(BaseWorkspace):
-    """Local workspace operations with an optional server-owned root fence."""
+    """Local workspace operations with an optional server-owned root fence.
 
+    Notes:
+    - The workspace root fence is a class-level setting owned by the server.
+      It can be set programmatically via `LocalWorkspace.set_workspace_root(...)`.
+    - There is no equivalent in RemoteWorkspace; remote calls rely on the
+      server's configured fence and cannot widen it.
+    - By default, if not set explicitly, the root resolves to
+      `Path("workspace").resolve()`.
+    """
+
+    # Server-owned fence for local path operations. Only applies to LocalWorkspace.
     _workspace_root: ClassVar[Path | None] = None
 
     @classmethod
@@ -27,8 +36,7 @@ class LocalWorkspace(BaseWorkspace):
     @classmethod
     def get_workspace_root(cls) -> Path:
         if cls._workspace_root is None:
-            env = os.getenv("OH_WORKSPACE_ROOT", "workspace")
-            cls._workspace_root = Path(env).resolve()
+            cls._workspace_root = Path("workspace").resolve()
         return cls._workspace_root
 
     def _resolve_under_root(self, rel: str | Path) -> Path:
