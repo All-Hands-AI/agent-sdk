@@ -138,10 +138,13 @@ class Config(BaseModel):
     secret_key: SecretStr = Field(
         default_factory=_default_secret_key,
         description=(
-            "Secret key to use for encrypting values. Since this may be stored in "
-            "the local filesystem it is not designed to thwart an attacker with full "
-            "read access, but rather to prevent accidental secret disclosure due to "
-            "sharing a conversation trajectory."
+            "Secret key used for encrypting sensitive values in conversation "
+            "trajectories. This prevents accidental disclosure of API keys and secrets "
+            "when conversations are downloaded and shared. WARNING: This is NOT "
+            "designed to protect against attackers with full filesystem access - the "
+            "key is stored in plaintext at ~/.openhands/secret_key. Values are "
+            "redacted (not encrypted) when no cipher context is provided during "
+            "serialization."
         ),
     )
     model_config: ClassVar[ConfigDict] = {"frozen": True}

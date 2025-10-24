@@ -270,7 +270,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     @field_validator("api_key", "aws_access_key_id", "aws_secret_access_key")
     @classmethod
     def _deserialize_secrets(cls, v: SecretStr | None, info):
-        """Convert empty API keys to None to allow boto3 to use alternative auth methods."""  # noqa: E501
+        """
+        Deserialize secret fields, handling encryption and empty values.
+
+        - Empty API keys are converted to None to allow boto3 to use alternative auth methods
+        - If a cipher is provided in context, attempts to decrypt the value
+        - If decryption fails, the cipher returns None and a warning is logged
+        - This gracefully handles conversations encrypted with different keys
+        """  # noqa: E501
         if v is None:
             return None
 
@@ -383,7 +390,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="always"
     )
     def _serialize_secrets(self, v: SecretStr | None, info):
-        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
+        """
+        Serialize secret fields with encryption or redaction.
+
+        - If a cipher is provided in context, encrypts the secret value
+        - If expose_secrets flag is True in context, exposes the actual value
+        - Otherwise, lets Pydantic handle default masking (redaction)
+        - This prevents accidental secret disclosure when sharing conversations
+        """  # noqa: E501
         if v is None:
             return None
 
