@@ -3,6 +3,7 @@ Local Event router for OpenHands SDK.
 """
 
 import logging
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -33,7 +34,29 @@ event_router = APIRouter(
 conversation_service = get_default_conversation_service()
 logger = logging.getLogger(__name__)
 
+
 # Read methods
+
+
+def normalize_datetime_to_server_timezone(dt: datetime) -> datetime:
+    """
+    Normalize datetime to server timezone for consistent comparison.
+
+    If the datetime has timezone info, convert to server native timezone.
+    If it's naive (no timezone), assume it's already in server timezone.
+
+    Args:
+        dt: Input datetime (may be timezone-aware or naive)
+
+    Returns:
+        Datetime in server native timezone (timezone-aware)
+    """
+    if dt.tzinfo is not None:
+        # Timezone-aware: convert to server native timezone
+        return dt.astimezone(None)
+    else:
+        # Naive datetime: assume it's already in server timezone
+        return dt
 
 
 @event_router.get("/search", responses={404: {"description": "Conversation not found"}})
@@ -57,6 +80,14 @@ async def search_conversation_events(
         EventSortOrder,
         Query(title="Sort order for events"),
     ] = EventSortOrder.TIMESTAMP,
+    timestamp__gte: Annotated[
+        datetime | None,
+        Query(title="Filter: event timestamp >= this datetime"),
+    ] = None,
+    timestamp__lt: Annotated[
+        datetime | None,
+        Query(title="Filter: event timestamp < this datetime"),
+    ] = None,
 ) -> EventPage:
     """Search / List local events"""
     assert limit > 0
@@ -64,7 +95,20 @@ async def search_conversation_events(
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    return await event_service.search_events(page_id, limit, kind, sort_order)
+
+    # Normalize timezone-aware datetimes to server timezone
+    normalized_gte = (
+        normalize_datetime_to_server_timezone(timestamp__gte)
+        if timestamp__gte
+        else None
+    )
+    normalized_lt = (
+        normalize_datetime_to_server_timezone(timestamp__lt) if timestamp__lt else None
+    )
+
+    return await event_service.search_events(
+        page_id, limit, kind, sort_order, normalized_gte, normalized_lt
+    )
 
 
 @event_router.get("/count", responses={404: {"description": "Conversation not found"}})
@@ -76,12 +120,31 @@ async def count_conversation_events(
             title="Optional filter by event kind/type (e.g., ActionEvent, MessageEvent)"
         ),
     ] = None,
+    timestamp__gte: Annotated[
+        datetime | None,
+        Query(title="Filter: event timestamp >= this datetime"),
+    ] = None,
+    timestamp__lt: Annotated[
+        datetime | None,
+        Query(title="Filter: event timestamp < this datetime"),
+    ] = None,
 ) -> int:
     """Count local events matching the given filters"""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    count = await event_service.count_events(kind)
+
+    # Normalize timezone-aware datetimes to server timezone
+    normalized_gte = (
+        normalize_datetime_to_server_timezone(timestamp__gte)
+        if timestamp__gte
+        else None
+    )
+    normalized_lt = (
+        normalize_datetime_to_server_timezone(timestamp__lt) if timestamp__lt else None
+    )
+
+    count = await event_service.count_events(kind, normalized_gte, normalized_lt)
     return count
 
 
