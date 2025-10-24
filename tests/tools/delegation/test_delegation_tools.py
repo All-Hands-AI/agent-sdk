@@ -15,9 +15,6 @@ from openhands.tools.delegate import (
 
 def create_test_executor_and_parent():
     """Helper to create test executor and parent conversation."""
-    # Create executor (singleton pattern)
-    executor = DelegateExecutor()
-
     # Create a real LLM object
     llm = LLM(
         model="openai/gpt-4o",
@@ -33,8 +30,8 @@ def create_test_executor_and_parent():
     parent_conversation.state.workspace = "/tmp"
     parent_conversation.visualize = False  # Disable visualization for tests
 
-    # Register the parent conversation
-    executor.register_conversation(parent_conversation)
+    # Create executor with parent conversation (auto-registered in __init__)
+    executor = DelegateExecutor(parent_conversation)
 
     return executor, parent_conversation
 
@@ -149,7 +146,7 @@ def test_delegate_executor_send():
 
 def test_delegate_executor_send_invalid_id():
     """Test DelegateExecutor send with invalid sub-agent ID."""
-    executor = DelegateExecutor()
+    executor, _ = create_test_executor_and_parent()
 
     # Send message to non-existent sub-agent
     action = DelegateAction(
@@ -224,7 +221,7 @@ def test_delegate_executor_spawn_missing_task():
 
 def test_delegate_executor_send_missing_params():
     """Test DelegateExecutor send with missing parameters."""
-    executor = DelegateExecutor()
+    executor, _ = create_test_executor_and_parent()
 
     # Test missing sub_conversation_id
     action1 = DelegateAction(operation="send", message="Hello")

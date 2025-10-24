@@ -20,7 +20,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool import register_tool
-from openhands.tools.delegate import DelegationTool
+from openhands.tools.delegate import DelegateTool
 from openhands.tools.preset.default import get_default_tools
 
 
@@ -39,12 +39,9 @@ llm = LLM(
 
 cwd = os.getcwd()
 
-
-# Initialize main agent with delegation capabilities
-# Get default tools and explicitly add delegation tool
-register_tool("DelegationTool", DelegationTool)
-tools = get_default_tools(enable_browser=False)  # CLI mode - no browser
-tools.append(Tool(name="DelegationTool"))
+register_tool("DelegateTool", DelegateTool)
+tools = get_default_tools(enable_browser=False)
+tools.append(Tool(name="DelegateTool"))
 
 main_agent = Agent(
     llm=llm,

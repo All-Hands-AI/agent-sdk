@@ -1,7 +1,7 @@
 """Delegate tool definitions for OpenHands agents."""
 
 from collections.abc import Sequence
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 from rich.text import Text
@@ -13,6 +13,10 @@ from openhands.sdk.tool.tool import (
     ToolAnnotations,
     ToolDefinition,
 )
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 
 
 class DelegateAction(Action):
@@ -112,24 +116,53 @@ This tool allows the main agent to spawn, communicate with, and manage sub-agent
 """
 
 
-def _get_delegation_tool():
-    """Lazy initialization of DelegationTool to avoid circular imports."""
-    from openhands.tools.delegate.impl import DelegateExecutor
-
-    return ToolDefinition(
-        name="delegate",
-        action_type=DelegateAction,
-        observation_type=DelegateObservation,
-        description=DELEGATE_TOOL_DESCRIPTION,
-        executor=DelegateExecutor(),
-        annotations=ToolAnnotations(
-            title="delegate",
-            readOnlyHint=False,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
-        ),
-    )
+delegate_tool = ToolDefinition(
+    name="delegate",
+    action_type=DelegateAction,
+    observation_type=DelegateObservation,
+    description=DELEGATE_TOOL_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="delegate",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 
 
-DelegationTool = _get_delegation_tool()
+class DelegateTool(ToolDefinition[DelegateAction, DelegateObservation]):
+    """A ToolDefinition subclass that automatically initializes a DelegateExecutor."""
+
+    @classmethod
+    def create(
+        cls,
+        conv_state: "ConversationState",  # noqa: ARG003
+        max_children: int = 10,
+    ) -> Sequence["DelegateTool"]:
+        """Initialize DelegateTool with executor parameters.
+
+        The parent conversation will be injected later when the tool is first used.
+
+        Args:
+            conv_state: Conversation state (not used, but required by tool registry)
+            max_children: Maximum number of concurrent sub-agents (default: 10)
+        """
+        # Import here to avoid circular imports
+        from openhands.tools.delegate.impl import DelegateExecutor
+
+        # Initialize the executor without parent conversation
+        # (will be set on first call)
+        executor = DelegateExecutor(max_children=max_children)
+
+        # Initialize the parent ToolDefinition with the executor
+        return [
+            cls(
+                name=delegate_tool.name,
+                description=DELEGATE_TOOL_DESCRIPTION,
+                action_type=DelegateAction,
+                observation_type=DelegateObservation,
+                annotations=delegate_tool.annotations,
+                executor=executor,
+            )
+        ]

@@ -14,14 +14,14 @@ from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolExecutor
 from openhands.sdk.workspace import LocalWorkspace
+from openhands.tools.delegate.definition import DelegateObservation
+from openhands.tools.preset.default import get_default_agent
 
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.base import BaseConversation
-    from openhands.tools.delegate.definition import (
-        DelegateAction,
-        DelegateObservation,
-    )
+    from openhands.sdk.conversation.state import AgentExecutionStatus
+    from openhands.tools.delegate.definition import DelegateAction
 
 logger = get_logger(__name__)
 
@@ -69,6 +69,21 @@ class DelegateExecutor(ToolExecutor):
         self._pending_parent_messages: queue.Queue[Message] = queue.Queue(maxsize=1000)
         self._parent_running: bool = False  # Single-flight guard for parent runs
         self._max_children: int = max_children  # Limit concurrent sub-agents
+        logger.debug("Initialized DelegateExecutor")
+
+    @property
+    def parent_conversation(self) -> "BaseConversation":
+        """Get the parent conversation.
+
+        Raises:
+            RuntimeError: If parent conversation has not been set yet.
+        """
+        if self._parent_conversation is None:
+            raise RuntimeError(
+                "Parent conversation not set. This should be set automatically "
+                "on the first call to the executor."
+            )
+        return self._parent_conversation
 
     def __enter__(self):
         """Context manager entry."""
@@ -97,31 +112,13 @@ class DelegateExecutor(ToolExecutor):
                 except queue.Empty:
                     break
 
-            self._parent_conversation = None
-
-    def register_conversation(self, conversation: "BaseConversation") -> None:
-        """Register the parent conversation with the delegation executor."""
-        with self._lock:
-            self._parent_conversation = conversation
-            logger.debug(f"Registered parent conversation {conversation.id}")
-
-    def get_conversation(self, conversation_id: str) -> "BaseConversation | None":
-        """Get the parent conversation if ID matches."""
-        with self._lock:
-            if (
-                self._parent_conversation
-                and str(self._parent_conversation.id) == conversation_id
-            ):
-                return self._parent_conversation
-            return None
-
     def is_task_in_progress(self, conversation_id: str) -> bool:
         """Check if a task started by the parent conversation is still in progress."""
         with self._lock:
             # Only check if this is our parent conversation
             if (
-                not self._parent_conversation
-                or str(self._parent_conversation.id) != conversation_id
+                self._parent_conversation is None
+                or str(self.parent_conversation.id) != conversation_id
             ):
                 logger.info(f"Not our parent conversation: {conversation_id}")
                 return False
@@ -246,7 +243,12 @@ class DelegateExecutor(ToolExecutor):
         self, action: "DelegateAction", conversation: "BaseConversation"
     ) -> "DelegateObservation":
         """Execute a delegation action."""
-        from openhands.tools.delegate.definition import DelegateObservation
+        # Set parent conversation once on first call
+        if self._parent_conversation is None:
+            self._parent_conversation = conversation
+            logger.debug(
+                f"Set parent conversation {conversation.id} on DelegateExecutor"
+            )
 
         if action.operation == "spawn":
             return self._spawn_sub_agent(action, conversation)
@@ -278,10 +280,6 @@ class DelegateExecutor(ToolExecutor):
 
         # Check conditions and collect messages under lock
         with self._lock:
-            if not self._parent_conversation:
-                logger.debug("❌ No parent conversation registered")
-                return
-
             queue_size = self._pending_parent_messages.qsize()
             if self._pending_parent_messages.empty():
                 logger.debug("❌ No pending parent messages")
@@ -296,12 +294,10 @@ class DelegateExecutor(ToolExecutor):
 
             # Check if parent is idle (FINISHED state)
             try:
-                if hasattr(self._parent_conversation, "state") and hasattr(
-                    self._parent_conversation.state, "agent_status"
+                if hasattr(self.parent_conversation, "state") and hasattr(
+                    self.parent_conversation.state, "agent_status"
                 ):
-                    from openhands.sdk.conversation.state import AgentExecutionStatus
-
-                    status = self._parent_conversation.state.agent_status
+                    status = self.parent_conversation.state.agent_status
                     logger.info(
                         f"🔍 Parent conversation status: {status} "
                         f"(type: {type(status)})"
@@ -332,7 +328,7 @@ class DelegateExecutor(ToolExecutor):
                         except queue.Empty:
                             break
 
-                    parent_conversation = self._parent_conversation
+                    parent_conversation = self.parent_conversation
                 else:
                     return
 
@@ -380,8 +376,6 @@ class DelegateExecutor(ToolExecutor):
         self, action: "DelegateAction", conversation: "BaseConversation"
     ) -> "DelegateObservation":
         """Spawn a new sub-agent that runs asynchronously."""
-        from openhands.tools.delegate.definition import DelegateObservation
-
         if not action.message:
             return DelegateObservation(
                 operation="spawn",
@@ -390,11 +384,8 @@ class DelegateExecutor(ToolExecutor):
             )
 
         try:
-            # Register parent conversation if not already registered
             with self._lock:
-                if self._parent_conversation is None:
-                    self.register_conversation(conversation)
-                parent_conversation = self._parent_conversation
+                parent_conversation = self.parent_conversation
 
                 # Check max_children limit
                 active_count = sum(
@@ -411,8 +402,6 @@ class DelegateExecutor(ToolExecutor):
                             "reached"
                         ),
                     )
-
-            from openhands.tools.preset.default import get_default_agent
 
             # Ensure parent conversation has agent attribute
             assert hasattr(parent_conversation, "agent"), (
@@ -572,10 +561,6 @@ class DelegateExecutor(ToolExecutor):
                             if hasattr(sub_conversation, "state") and hasattr(
                                 sub_conversation.state, "agent_status"
                             ):
-                                from openhands.sdk.conversation.state import (
-                                    AgentExecutionStatus,
-                                )
-
                                 status = sub_conversation.state.agent_status
                                 logger.info(
                                     f"Sub-agent {sub_conversation_id[:8]} "
@@ -736,8 +721,6 @@ class DelegateExecutor(ToolExecutor):
 
     def _send_to_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Send a message to a sub-agent."""
-        from openhands.tools.delegate.definition import DelegateObservation
-
         if not action.sub_conversation_id:
             return DelegateObservation(
                 operation="send",
@@ -806,8 +789,6 @@ class DelegateExecutor(ToolExecutor):
 
     def _close_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
         """Close a sub-agent properly with thread cleanup."""
-        from openhands.tools.delegate.definition import DelegateObservation
-
         if not action.sub_conversation_id:
             return DelegateObservation(
                 operation="close",
@@ -846,8 +827,6 @@ class DelegateExecutor(ToolExecutor):
 
     def _cancel_sub_agent(self, sub_conversation_id: str) -> "DelegateObservation":
         """Cancel a sub-agent with proper thread joining outside lock."""
-        from openhands.tools.delegate.definition import DelegateObservation
-
         # Get sub-agent info and signal stop under lock
         with self._lock:
             sub_agent = self._sub_agents.get(sub_conversation_id)

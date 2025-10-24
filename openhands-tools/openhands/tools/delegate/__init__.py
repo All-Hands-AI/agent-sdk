@@ -3,7 +3,8 @@
 from openhands.tools.delegate.definition import (
     DelegateAction,
     DelegateObservation,
-    DelegationTool,
+    DelegateTool,
+    delegate_tool,
 )
 from openhands.tools.delegate.impl import DelegateExecutor
 
@@ -12,5 +13,6 @@ __all__ = [
     "DelegateAction",
     "DelegateObservation",
     "DelegateExecutor",
-    "DelegationTool",
+    "DelegateTool",
+    "delegate_tool",
 ]

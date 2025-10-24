@@ -6,45 +6,23 @@ from unittest.mock import MagicMock
 from openhands.tools.delegate import DelegateAction, DelegateExecutor
 
 
-def test_delegation_manager_init():
-    """Test DelegateExecutor initialization."""
-    manager = DelegateExecutor()
-
-    # Test that the manager initializes properly
-    assert manager.get_conversation("non-existent") is None
-    assert not manager.is_task_in_progress("non-existent")
-
-    # Clean up
-    manager.shutdown()
-
-
-def test_register_and_get_conversation():
-    """Test registering and retrieving conversations."""
-    manager = DelegateExecutor()
-
-    # Create a mock conversation object with an ID
+def create_mock_conversation():
+    """Helper to create a mock conversation."""
     mock_conv = MagicMock()
     mock_conv.id = str(uuid.uuid4())
-
-    # Register the conversation
-    manager.register_conversation(mock_conv)  # type: ignore
-
-    # Verify it's registered
-    assert manager.get_conversation(str(mock_conv.id)) == mock_conv
-
-    # Clean up
-    manager.shutdown()
+    return mock_conv
 
 
-def test_get_conversation_not_found():
-    """Test getting a non-existent conversation."""
-    manager = DelegateExecutor()
+def test_delegation_manager_init():
+    """Test DelegateExecutor initialization."""
+    mock_conv = create_mock_conversation()
+    manager = DelegateExecutor(mock_conv)
 
-    # Try to get non-existent conversation
-    result = manager.get_conversation("non-existent")
-
-    # Verify
-    assert result is None
+    # Test that the manager initializes properly
+    assert not manager.is_task_in_progress("non-existent")
+    # Test that parent conversation is set
+    assert manager.parent_conversation == mock_conv
+    assert str(manager.parent_conversation.id) == str(mock_conv.id)
 
     # Clean up
     manager.shutdown()
@@ -52,7 +30,8 @@ def test_get_conversation_not_found():
 
 def test_send_to_sub_agent_not_found():
     """Test sending message to non-existent sub-agent."""
-    manager = DelegateExecutor()
+    mock_conv = create_mock_conversation()
+    manager = DelegateExecutor(mock_conv)
 
     # Send message to non-existent sub-agent
     action = DelegateAction(
@@ -69,7 +48,8 @@ def test_send_to_sub_agent_not_found():
 
 def test_close_sub_agent_success():
     """Test closing sub-agent successfully."""
-    manager = DelegateExecutor()
+    mock_conv = create_mock_conversation()
+    manager = DelegateExecutor(mock_conv)
 
     # Create a mock sub-agent entry directly in the internal structure
     test_id = str(uuid.uuid4())
@@ -107,18 +87,14 @@ def test_close_sub_agent_success():
 
 def test_close_sub_agent_with_parent_relationship():
     """Test closing sub-agent that has parent-child relationships."""
-    manager = DelegateExecutor()
-
-    # Create parent and child entries
+    # Create parent
     parent_id = str(uuid.uuid4())
-    child_id = str(uuid.uuid4())
-
-    # Register parent conversation
     mock_parent_conv = MagicMock()
     mock_parent_conv.id = parent_id
-    manager.register_conversation(mock_parent_conv)
+    manager = DelegateExecutor(mock_parent_conv)
 
     # Create child sub-agent
+    child_id = str(uuid.uuid4())
     mock_child_conversation = MagicMock()
     mock_thread = MagicMock()
     mock_thread.is_alive.return_value = False
@@ -147,7 +123,8 @@ def test_close_sub_agent_with_parent_relationship():
     # Verify cleanup
     assert result.success is True
     # Parent should still exist
-    assert manager.get_conversation(parent_id) == mock_parent_conv
+    assert manager.parent_conversation == mock_parent_conv
+    assert str(manager.parent_conversation.id) == parent_id
 
     # Clean up
     manager.shutdown()
@@ -155,7 +132,8 @@ def test_close_sub_agent_with_parent_relationship():
 
 def test_close_sub_agent_not_found():
     """Test closing non-existent sub-agent."""
-    manager = DelegateExecutor()
+    mock_conv = create_mock_conversation()
+    manager = DelegateExecutor(mock_conv)
 
     # Close non-existent sub-agent
     action = DelegateAction(operation="close", sub_conversation_id="non-existent")
