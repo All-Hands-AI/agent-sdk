@@ -87,8 +87,15 @@ class LocalWorkspace(BaseWorkspace):
     ) -> FileOperationResult:
         """Upload (copy) a file locally.
 
-        For local systems, implemented as a file copy using shutil.copy2 to
-        preserve metadata.
+        For local systems, file upload is implemented as a file copy operation
+        using shutil.copy2 to preserve metadata.
+
+        Args:
+            source_path: Path to the source file
+            destination_path: Path where the file should be copied
+
+        Returns:
+            FileOperationResult: Result with success status and file information
         """
         source = Path(source_path)
         destination = Path(destination_path)
@@ -120,8 +127,15 @@ class LocalWorkspace(BaseWorkspace):
     ) -> FileOperationResult:
         """Download (copy) a file locally.
 
-        For local systems, implemented as a file copy using shutil.copy2 to
-        preserve metadata.
+        For local systems, file download is implemented as a file copy operation
+        using shutil.copy2 to preserve metadata.
+
+        Args:
+            source_path: Path to the source file
+            destination_path: Path where the file should be copied
+
+        Returns:
+            FileOperationResult: Result with success status and file information
         """
         source = Path(source_path)
         destination = Path(destination_path)
