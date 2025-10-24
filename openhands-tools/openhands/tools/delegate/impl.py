@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from pydantic import BaseModel, ConfigDict
 
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
@@ -19,7 +20,6 @@ from openhands.tools.preset.default import get_default_agent
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.base import BaseConversation
-    from openhands.sdk.conversation.state import AgentExecutionStatus
     from openhands.tools.delegate.definition import DelegateAction
 
 logger = get_logger(__name__)
