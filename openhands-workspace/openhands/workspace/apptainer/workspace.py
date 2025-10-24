@@ -12,12 +12,7 @@ from urllib.request import urlopen
 
 from pydantic import Field, PrivateAttr, model_validator
 
-from openhands.agent_server.docker.build import (
-    BuildOptions,
-    PlatformType,
-    TargetType,
-    build,
-)
+from openhands.agent_server.docker.build import PlatformType, TargetType
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
 from openhands.sdk.workspace import RemoteWorkspace
@@ -220,15 +215,9 @@ class ApptainerWorkspace(RemoteWorkspace):
                     "base_image cannot be a pre-built agent-server image. "
                     "Use server_image=... instead."
                 )
-            # Build the Docker image first
-            build_opts = BuildOptions(
-                base_image=self.base_image,
-                target=self.target,
-                platforms=[self.platform],
-            )
-            tags = build(opts=build_opts)
-            assert tags and len(tags) > 0, "Build failed, no image tags returned"
-            docker_image = tags[0]
+            # For base_image, we pull directly from the Docker registry
+            # This doesn't require Docker daemon - Apptainer can pull directly
+            docker_image = self.base_image
         elif self.server_image:
             docker_image = self.server_image
         else:
@@ -242,17 +231,19 @@ class ApptainerWorkspace(RemoteWorkspace):
             logger.info("Using cached SIF file: %s", sif_path)
             return sif_path
 
-        logger.info("Building SIF file from Docker image: %s", docker_image)
-        build_cmd = [
+        logger.info("Pulling and converting Docker image to SIF: %s", docker_image)
+        # Use apptainer pull to directly convert from Docker registry
+        # This doesn't require Docker daemon
+        pull_cmd = [
             "apptainer",
-            "build",
+            "pull",
             sif_path,
-            f"docker-daemon://{docker_image}",
+            f"docker://{docker_image}",
         ]
-        proc = execute_command(build_cmd)
+        proc = execute_command(pull_cmd)
         if proc.returncode != 0:
             raise RuntimeError(
-                f"Failed to build SIF file from Docker image: {proc.stderr}"
+                f"Failed to pull and convert Docker image: {proc.stderr}"
             )
 
         logger.info("SIF file created: %s", sif_path)

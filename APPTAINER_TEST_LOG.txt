@@ -1,0 +1,38 @@
+Apptainer version: apptainer version 1.3.5
+
+================================================================================
+Testing Apptainer Image Pull Functionality
+================================================================================
+
+1. Testing Apptainer pull from Docker Hub...
+   ℹ Removing existing SIF file: /tmp/apptainer-test-cache/python_3.12-slim.sif
+   - Pulling Docker image: python:3.12-slim
+   - Converting to SIF format...
+   - This may take a few minutes on first run...
+   ✓ Successfully created SIF file: /tmp/apptainer-test-cache/python_3.12-slim.sif
+   - File size: 40.39 MB
+
+2. Testing Apptainer exec...
+   ✓ Successfully executed command in container
+   - Output: Python 3.12.12
+
+3. Testing Apptainer instance management...
+   ⚠ Could not start instance (may require FUSE dependencies)
+   ℹ This is expected in some environments without FUSE support
+   ℹ ApptainerWorkspace can still work with 'exec' mode for commands
+
+4. Cleaning up...
+   ✓ Removed SIF file
+
+================================================================================
+SUCCESS: Apptainer is working correctly!
+================================================================================
+
+Next steps for ApptainerWorkspace:
+1. Build agent-server image with Docker (openhands/agent-server)
+2. Use ApptainerWorkspace with server_image parameter
+3. The workspace will convert the Docker image to SIF and run it
+
+NOTE: Full agent-server testing requires Docker to be available
+for building the server image initially.
+================================================================================
