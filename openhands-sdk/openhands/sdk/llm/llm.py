@@ -462,6 +462,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             formatted_messages, kwargs = self.pre_request_prompt_mock(
                 formatted_messages, cc_tools or [], kwargs
             )
+            logger.debug(
+                f"Formatted messages after prompt-mock conversion: "
+                f"{json.dumps(formatted_messages, indent=2)}"
+            )
 
         # 3) normalize provider params
         # Only pass tools when native FC is active

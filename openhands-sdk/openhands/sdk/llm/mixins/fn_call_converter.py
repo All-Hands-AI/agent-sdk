@@ -432,6 +432,12 @@ def convert_tool_call_to_string(tool_call: dict) -> str:
     try:
         args = json.loads(tool_call["function"]["arguments"])
     except json.JSONDecodeError as e:
+        # Use the raw arguments without parsing if already in XML-like format
+        if tool_call["function"]["arguments"].strip().startswith("<parameter"):
+            ret += tool_call["function"]["arguments"] + "\n"
+            ret += "</function>"
+            return ret
+
         raise FunctionCallConversionError(
             f"Failed to parse arguments as JSON. "
             f"Arguments: {tool_call['function']['arguments']}"
@@ -601,7 +607,7 @@ def convert_fncall_messages_to_non_fncall_messages(
                     tool_content = convert_tool_call_to_string(message["tool_calls"][0])
                 except FunctionCallConversionError as e:
                     raise FunctionCallConversionError(
-                        f"Failed to convert tool call to string.\n"
+                        f"Failed to convert tool call to string: {e.message}\n"
                         f"Current tool call: {message['tool_calls'][0]}.\n"
                         f"Raw messages: {json.dumps(messages, indent=2)}"
                     ) from e
@@ -625,7 +631,11 @@ def convert_fncall_messages_to_non_fncall_messages(
         elif role == "tool":
             # Convert tool result as user message
             tool_name = message.get("name", "function")
-            prefix = f"EXECUTION RESULT of [{tool_name}]:\n"
+            tool_call_id = message.get("tool_call_id", "unknown_id")
+            if tool_call_id.startswith("toolu_invalid_"):
+                prefix = "ERROR: "
+            else:
+                prefix = f"EXECUTION RESULT of [{tool_name}]:\n"
             # and omit "tool_call_id" AND "name"
             if isinstance(content, str):
                 content = prefix + content
@@ -664,6 +674,8 @@ def _extract_and_validate_params(
     matching_tool: ChatCompletionToolParamFunctionChunk,
     param_matches: Iterable[re.Match],
     fn_name: str,
+    raw_content: str | None = None,
+    fn_body: str | None = None,
 ) -> dict:
     params = {}
     # Parse and validate parameters
@@ -692,7 +704,10 @@ def _extract_and_validate_params(
         if allowed_params and param_name not in allowed_params:
             raise FunctionCallValidationError(
                 f"Parameter '{param_name}' is not allowed for function '{fn_name}'. "
-                f"Allowed parameters: {allowed_params}"
+                f"Allowed parameters: {allowed_params}",
+                raw_content=raw_content,
+                fn_name=fn_name,
+                fn_body=fn_body,
             )
 
         # Validate and convert parameter type
@@ -703,14 +718,20 @@ def _extract_and_validate_params(
                     param_value = int(param_value)
                 except ValueError:
                     raise FunctionCallValidationError(
-                        f"Parameter '{param_name}' is expected to be an integer."
+                        f"Parameter '{param_name}' is expected to be an integer.",
+                        raw_content=raw_content,
+                        fn_name=fn_name,
+                        fn_body=fn_body,
                     )
             elif param_name_to_type[param_name] == "array":
                 try:
                     param_value = json.loads(param_value)
                 except json.JSONDecodeError:
                     raise FunctionCallValidationError(
-                        f"Parameter '{param_name}' is expected to be an array."
+                        f"Parameter '{param_name}' is expected to be an array.",
+                        raw_content=raw_content,
+                        fn_name=fn_name,
+                        fn_body=fn_body,
                     )
             else:
                 # string
@@ -727,7 +748,10 @@ def _extract_and_validate_params(
             ):
                 raise FunctionCallValidationError(
                     f"Parameter '{param_name}' is expected to be one of "
-                    f"{matching_tool['parameters']['properties'][param_name]['enum']}."
+                    f"{matching_tool['parameters']['properties'][param_name]['enum']}.",
+                    raw_content=raw_content,
+                    fn_name=fn_name,
+                    fn_body=fn_body,
                 )
 
         params[param_name] = param_value
@@ -737,7 +761,10 @@ def _extract_and_validate_params(
     missing_params = required_params - found_params
     if missing_params:
         raise FunctionCallValidationError(
-            f"Missing required parameters for function '{fn_name}': {missing_params}"
+            f"Missing required parameters for function '{fn_name}': {missing_params}",
+            raw_content=raw_content,
+            fn_name=fn_name,
+            fn_body=fn_body,
         )
     return params
 
@@ -900,6 +927,9 @@ def convert_non_fncall_messages_to_fncall_messages(
 
         # Handle assistant messages
         elif role == "assistant":
+            # Store raw content before modifications
+            raw_content = str(content)
+
             if isinstance(content, str):
                 content = _fix_stopword(content)
                 fn_match = re.search(FN_REGEX_PATTERN, content, re.DOTALL)
@@ -949,13 +979,16 @@ def convert_non_fncall_messages_to_fncall_messages(
                     ]
                     raise FunctionCallValidationError(
                         f"Function '{fn_name}' not found in available tools: "
-                        f"{available_tools}"
+                        f"{available_tools}",
+                        raw_content=raw_content,
+                        fn_name=fn_name,
+                        fn_body=fn_body,
                     )
 
                 # Parse parameters
                 param_matches = re.finditer(FN_PARAM_REGEX_PATTERN, fn_body, re.DOTALL)
                 params = _extract_and_validate_params(
-                    matching_tool, param_matches, fn_name
+                    matching_tool, param_matches, fn_name, raw_content, fn_body
                 )
 
                 # Create tool call with unique ID

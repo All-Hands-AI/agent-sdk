@@ -82,8 +82,17 @@ class FunctionCallValidationError(LLMError):
     parameter names / values.
     """
 
-    def __init__(self, message: str) -> None:
+    def __init__(
+        self,
+        message: str,
+        raw_content: str | None = None,
+        fn_name: str | None = None,
+        fn_body: str | None = None,
+    ) -> None:
         super().__init__(message)
+        self.raw_content: str | None = raw_content
+        self.fn_name: str | None = fn_name
+        self.fn_body: str | None = fn_body
 
 
 class FunctionCallNotExistsError(LLMError):

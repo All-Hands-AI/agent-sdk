@@ -1,4 +1,5 @@
 import json
+import time
 
 from pydantic import ValidationError
 
@@ -193,14 +194,44 @@ class Agent(AgentBase):
                 )
         except FunctionCallValidationError as e:
             logger.warning(f"LLM generated malformed function call: {e}")
-            error_message = MessageEvent(
-                source="user",
-                llm_message=Message(
-                    role="user",
-                    content=[TextContent(text=str(e))],
-                ),
-            )
-            on_event(error_message)
+            # Create minimal tool call from raw content to preserve in trajectory
+            if e.raw_content and e.fn_name:
+                cur_time = int(time.time())
+                tool_call_id = "toolu_invalid_" + str(cur_time)
+                tool_call = MessageToolCall(
+                    id=tool_call_id,
+                    name=e.fn_name,
+                    arguments=e.fn_body or "",
+                    origin="completion",
+                )
+                # Persist assistant function_call so trajectory has the malformed call
+                tc_event = ActionEvent(
+                    source="agent",
+                    thought=[],
+                    tool_call=tool_call,
+                    tool_name=e.fn_name,
+                    tool_call_id=tool_call_id,
+                    llm_response_id="llm_response_invalid_00",
+                    action=None,
+                )
+                on_event(tc_event)
+                # Send error as observation
+                error_event = AgentErrorEvent(
+                    error=str(e),
+                    tool_name=e.fn_name,
+                    tool_call_id=tool_call_id,
+                )
+                on_event(error_event)
+            else:
+                # Fallback for errors without raw content (shouldn't happen)
+                error_message = MessageEvent(
+                    source="user",
+                    llm_message=Message(
+                        role="user",
+                        content=[TextContent(text=str(e))],
+                    ),
+                )
+                on_event(error_message)
             return
         except Exception as e:
             # If there is a condenser registered and the exception is a context window
