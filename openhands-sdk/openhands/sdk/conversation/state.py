@@ -91,7 +91,7 @@ class ConversationState(OpenHandsModel):
         description="Conversation statistics for tracking LLM metrics",
     )
 
-    # Secrets manager for handling sensitive data
+    # Secrets manager for handling sensitive data (changed from private attribute)
     secrets_manager: SecretsManager = Field(
         default_factory=SecretsManager,
         description="Manager for handling secrets and sensitive data",
