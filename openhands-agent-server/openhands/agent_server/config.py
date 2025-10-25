@@ -24,6 +24,13 @@ def _default_session_api_keys():
     return result
 
 
+def _default_secret_key() -> SecretStr | None:
+    session_api_key = os.getenv(SESSION_API_KEY_ENV)
+    if session_api_key:
+        return SecretStr(session_api_key)
+    return None
+
+
 class WebhookSpec(BaseModel):
     """Spec to create a webhook. All webhook requests use POST method."""
 
@@ -120,7 +127,7 @@ class Config(BaseModel):
         description="Whether to enable VNC desktop functionality",
     )
     secret_key: SecretStr | None = Field(
-        default=None,
+        default_factory=_default_secret_key,
         description=(
             "Secret key used for encrypting sensitive values in all serialized data. "
             "If missing, any sensitive data is redacted, meaning full state cannot"
