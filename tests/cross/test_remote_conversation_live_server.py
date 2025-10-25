@@ -322,3 +322,48 @@ def test_remote_conversation_over_real_server(server_env, patched_llm):
     cwd_conversations = Path("workspace/conversations")
     if cwd_conversations.exists():
         shutil.rmtree(cwd_conversations)
+
+
+def test_bash_command_endpoint_with_live_server(server_env):
+    """Integration test for bash command execution through live server.
+
+    This test validates that the /api/bash/start_bash_command endpoint works
+    correctly end-to-end by:
+    1. Starting a real FastAPI server with bash endpoints
+    2. Creating a RemoteWorkspace pointing to that server
+    3. Executing a real bash command
+    4. Verifying the actual command output
+
+    This is a regression test for issue #866 where bash execution was broken
+    due to using the wrong endpoint URL.
+    """
+    # Create a RemoteWorkspace pointing to the live server
+    workspace = RemoteWorkspace(
+        host=server_env["host"], working_dir="/tmp/test_workspace"
+    )
+
+    # Execute a bash command that produces verifiable output
+    # Test multiple commands to ensure command chaining works
+    command = "echo 'Hello from live bash endpoint!' && echo 'Line 2' && expr 5 + 3"
+    result = workspace.execute_command(command, timeout=10.0)
+
+    # Verify the command executed successfully
+    assert result.exit_code == 0, (
+        f"Command failed with exit code {result.exit_code}. "
+        f"stdout: {result.stdout}, stderr: {result.stderr}"
+    )
+    assert result.timeout_occurred is False, (
+        "Command timed out - this suggests the endpoint is not working correctly"
+    )
+
+    # Verify the actual output contains all our expected text
+    assert "Hello from live bash endpoint!" in result.stdout, (
+        f"Expected 'Hello from live bash endpoint!' not found in stdout: "
+        f"{result.stdout}"
+    )
+    assert "Line 2" in result.stdout, (
+        f"Expected 'Line 2' not found in stdout: {result.stdout}"
+    )
+    assert "8" in result.stdout, (
+        f"Expected '8' (result of 5+3) not found in stdout: {result.stdout}"
+    )
