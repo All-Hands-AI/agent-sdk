@@ -537,7 +537,7 @@ class TestSafeJsonFunction:
         class TestObj:
             def __init__(self):
                 self.attr1: str = "value1"
-                self.attr2: str = 42
+                self.attr2: int = 42
 
         obj = TestObj()
         result = _safe_json(obj)

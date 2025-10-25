@@ -27,7 +27,7 @@ def mock_tool():
     """Create a mock tool for testing."""
 
     class MockExecutor(ToolExecutor):
-        def __call__(self, action):
+        def __call__(self, action, conversation=None):
             return MagicMock(output="mock output", metadata=MagicMock(exit_code=0))
 
     # Create a simple mock tool without complex dependencies
