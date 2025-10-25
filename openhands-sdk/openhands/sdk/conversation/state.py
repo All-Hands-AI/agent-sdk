@@ -2,7 +2,7 @@
 import json
 from collections.abc import Sequence
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Self
+from typing import Any, Self
 
 from pydantic import Field, PrivateAttr
 
@@ -40,10 +40,6 @@ class AgentExecutionStatus(str, Enum):
     FINISHED = "finished"  # Agent has completed the current task
     ERROR = "error"  # Agent encountered an error (optional for future use)
     STUCK = "stuck"  # Agent is stuck in a loop or unable to proceed
-
-
-if TYPE_CHECKING:
-    from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
 class ConversationState(OpenHandsModel):
@@ -95,8 +91,13 @@ class ConversationState(OpenHandsModel):
         description="Conversation statistics for tracking LLM metrics",
     )
 
+    # Secrets manager for handling sensitive data (changed from private attribute)
+    secrets_manager: SecretsManager = Field(
+        default_factory=SecretsManager,
+        description="Manager for handling secrets and sensitive data",
+    )
+
     # ===== Private attrs (NOT Fields) =====
-    _secrets_manager: "SecretsManager" = PrivateAttr(default_factory=SecretsManager)
     _fs: FileStore = PrivateAttr()  # filestore for persistence
     _events: EventLog = PrivateAttr()  # now the storage for events
     _autosave_enabled: bool = PrivateAttr(
@@ -113,11 +114,6 @@ class ConversationState(OpenHandsModel):
     @property
     def events(self) -> EventLog:
         return self._events
-
-    @property
-    def secrets_manager(self) -> SecretsManager:
-        """Public accessor for the SecretsManager (stored as a private attr)."""
-        return self._secrets_manager
 
     def set_on_state_change(self, callback: ConversationCallbackType | None) -> None:
         """Set a callback to be called when state changes.
