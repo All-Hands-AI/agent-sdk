@@ -353,6 +353,9 @@ class LocalConversation(BaseConversation):
         secrets_manager.update_secrets(secrets)
         logger.info(f"Added {len(secrets)} secrets to conversation")
 
+        # Export the updated secrets to bash session
+        secrets_manager._export_secrets_to_bash(self.agent)
+
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
