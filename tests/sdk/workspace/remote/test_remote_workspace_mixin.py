@@ -552,7 +552,7 @@ def test_start_bash_command_endpoint_used():
     The correct endpoint is /api/bash/start_bash_command which starts a command
     asynchronously and returns immediately with a command ID that can be polled.
     """
-    mixin = TestRemoteWorkspaceMixin(host="http://localhost:8000", api_key="test-key")
+    mixin = RemoteWorkspaceMixinHelper(host="http://localhost:8000", api_key="test-key")
 
     # Mock response for successful command start
     start_response = Mock()
