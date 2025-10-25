@@ -73,7 +73,7 @@ class LookupSecret(SecretSource):
                 result[key] = value
 
 
-_SECRET_HEADERS = ["AUTHORIZATION", "KEY"]
+_SECRET_HEADERS = ["AUTHORIZATION", "KEY", "SECRET"]
 
 
 def _is_secret_header(key: str):
