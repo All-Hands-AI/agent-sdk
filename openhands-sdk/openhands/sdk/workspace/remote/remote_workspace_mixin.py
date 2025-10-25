@@ -21,6 +21,9 @@ class RemoteWorkspaceMixin(BaseModel):
     api_key: str | None = Field(
         default=None, description="API key for authenticating with the remote host."
     )
+    working_dir: str = Field(
+        description="The working directory for agent operations and tool execution."
+    )
 
     def model_post_init(self, context: Any) -> None:
         # Set up remote host
