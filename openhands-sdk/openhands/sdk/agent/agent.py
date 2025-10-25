@@ -8,6 +8,7 @@ from openhands.sdk.context.view import View
 from openhands.sdk.conversation import (
     ConversationCallbackType,
     ConversationState,
+    ConversationTokenCallbackType,
     LocalConversation,
 )
 from openhands.sdk.conversation.state import AgentExecutionStatus
@@ -138,6 +139,7 @@ class Agent(AgentBase):
         self,
         conversation: LocalConversation,
         on_event: ConversationCallbackType,
+        on_token: ConversationTokenCallbackType | None = None,
     ) -> None:
         state = conversation.state
         # Check for pending actions (implicit confirmation)
@@ -188,6 +190,7 @@ class Agent(AgentBase):
                     store=False,
                     add_security_risk_prediction=self._add_security_risk_prediction,
                     metadata=self.llm.metadata,
+                    on_token=on_token,
                 )
             else:
                 llm_response = self.llm.completion(
@@ -195,6 +198,7 @@ class Agent(AgentBase):
                     tools=list(self.tools_map.values()),
                     extra_body={"metadata": self.llm.metadata},
                     add_security_risk_prediction=self._add_security_risk_prediction,
+                    on_token=on_token,
                 )
         except FunctionCallValidationError as e:
             logger.warning(f"LLM generated malformed function call: {e}")
