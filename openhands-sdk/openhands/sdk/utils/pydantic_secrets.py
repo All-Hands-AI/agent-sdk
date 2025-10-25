@@ -10,7 +10,7 @@ def serialize_secret(v: SecretStr | None, info):
     - If a cipher is provided in context, encrypts the secret value
     - If expose_secrets flag is True in context, exposes the actual value
     - Otherwise, lets Pydantic handle default masking (redaction)
-    - This prevents accidental secret disclosure when sharing conversations
+    - This prevents accidental secret disclosure
     """  # noqa: E501
     if v is None:
         return None
@@ -32,10 +32,10 @@ def validate_secret(v: SecretStr | None, info):
     """
     Deserialize secret fields, handling encryption and empty values.
 
-    - Empty API keys are converted to None to allow boto3 to use alternative auth methods
+    - Empty secrets are converted to None
     - If a cipher is provided in context, attempts to decrypt the value
     - If decryption fails, the cipher returns None and a warning is logged
-    - This gracefully handles conversations encrypted with different keys
+    - This gracefully handles conversations encrypted with different keys or were redacted
     """  # noqa: E501
     if v is None:
         return None
@@ -46,8 +46,8 @@ def validate_secret(v: SecretStr | None, info):
     else:
         secret_value = v
 
-    # If the secret is empty or whitespace-only, return None
-    if not secret_value or not secret_value.strip():
+    # If the secret is empty, whitespace-only or redacted - return None
+    if not secret_value or not secret_value.strip() or secret_value == "**********":
         return None
 
     # check if a cipher is supplied

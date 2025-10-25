@@ -26,9 +26,9 @@ class SecretsManager(OpenHandsModel):
     environment variables.
 
     Secret sources will redact / encrypt their sensitive values as appropriate when
-    serializing, depending on the content of the context. If the context is present
-    and contains a cipher object, this is used for encryption. If it contains a
-    boolean 'expose_secrets' flag set to true, secrets are dunped in plain text.
+    serializing, depending on the content of the context. If a context is present
+    and contains a 'cipher' object, this is used for encryption. If it contains a
+    boolean 'expose_secrets' flag set to True, secrets are dunped in plain text.
     Otherwise secrets are redacted.
 
     Additionally, it tracks the latest exported values to enable consistent masking

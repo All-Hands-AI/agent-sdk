@@ -123,7 +123,7 @@ class Config(BaseModel):
         default=None,
         description=(
             "Secret key used for encrypting sensitive values in all serialized data. "
-            "If missing any sensitive data is redacted, meaning full state cannot"
+            "If missing, any sensitive data is redacted, meaning full state cannot"
             "be restored between restarts."
         ),
     )
@@ -135,7 +135,8 @@ class Config(BaseModel):
         if cipher is None:
             if self.secret_key is None:
                 _logger.warning(
-                    "⚠️ OH_SECRET_KEY was not defined. Secrets will not be persisted"
+                    "⚠️ OH_SECRET_KEY was not defined. Secrets will not "
+                    "be persisted between restarts."
                 )
                 cipher = None
             else:
