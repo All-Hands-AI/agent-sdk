@@ -1,3 +1,4 @@
+import os
 import re
 from typing import TYPE_CHECKING
 
@@ -5,6 +6,10 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
+from openhands.sdk.conversation.token_display import (
+    compute_token_display,
+    get_default_mode_from_env,
+)
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
@@ -228,19 +233,29 @@ class ConversationVisualizer:
             )
 
     def _format_metrics_subtitle(self) -> str | None:
-        """Format LLM metrics as a visually appealing subtitle string with icons,
-        colors, and k/m abbreviations using conversation stats."""
+        """Format LLM metrics subtitle based on conversation stats.
+
+        Uses TokenDisplay utility to compute values and supports env-configured
+        mode (per-context vs accumulated) and optional since-last delta.
+        """
+        display_mode = get_default_mode_from_env()
+        include_since_last = (
+            os.environ.get("OPENHANDS_VIZ_TOKENS_DELTA", "false").lower()
+            in {"1", "true", "yes"}
+        )
+
         if not self._conversation_stats:
             return None
 
-        combined_metrics = self._conversation_stats.get_combined_metrics()
-        if not combined_metrics or not combined_metrics.token_usages:
+        data = compute_token_display(
+            stats=self._conversation_stats,
+            mode=display_mode,
+            include_since_last=include_since_last,
+        )
+        if not data:
             return None
 
-        latest_usage = combined_metrics.token_usages[-1]
-        cost = combined_metrics.accumulated_cost or 0.0
-
-        def abbr(n: int | float) -> str:  # helper: 1234 -> "1.2K", 1200000 -> "1.2M"
+        def abbr(n: int | float) -> str:
             n = int(n or 0)
             if n >= 1_000_000_000:
                 s = f"{n / 1_000_000_000:.2f}B"
@@ -252,22 +267,22 @@ class ConversationVisualizer:
                 return str(n)
             return s.replace(".0", "")
 
-        input_tokens = latest_usage.prompt_tokens or 0
-        output_tokens = latest_usage.completion_tokens or 0
-        cache_read = latest_usage.cache_read_tokens or 0
         cache_rate = (
-            f"{(cache_read / input_tokens * 100):.2f}%" if input_tokens > 0 else "N/A"
+            f"{(data.cache_hit_rate * 100):.2f}%" if data.cache_hit_rate is not None else "N/A"
         )
-        reasoning_tokens = latest_usage.reasoning_tokens or 0
-
-        cost_str = f"{cost:.4f}"
+        cost_str = f"{data.total_cost:.4f}"
 
         parts: list[str] = []
-        parts.append(f"[cyan]↑ input {abbr(input_tokens)}[/cyan]")
+        input_part = f"[cyan]↑ input {abbr(data.input_tokens)}"
+        if include_since_last and data.since_last_input_tokens is not None:
+            input_part += f" (+{abbr(data.since_last_input_tokens)})"
+        input_part += "[/cyan]"
+        parts.append(input_part)
+
         parts.append(f"[magenta]cache hit {cache_rate}[/magenta]")
-        if reasoning_tokens > 0:
-            parts.append(f"[yellow] reasoning {abbr(reasoning_tokens)}[/yellow]")
-        parts.append(f"[blue]↓ output {abbr(output_tokens)}[/blue]")
+        if data.reasoning_tokens > 0:
+            parts.append(f"[yellow] reasoning {abbr(data.reasoning_tokens)}[/yellow]")
+        parts.append(f"[blue]↓ output {abbr(data.output_tokens)}[/blue]")
         parts.append(f"[green]$ {cost_str} (total)[/green]")
 
         return "Tokens: " + " • ".join(parts)
