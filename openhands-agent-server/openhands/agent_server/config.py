@@ -1,6 +1,5 @@
+import logging
 import os
-import stat
-from base64 import urlsafe_b64encode
 from pathlib import Path
 from typing import ClassVar
 
@@ -13,6 +12,7 @@ from openhands.sdk.utils.cipher import Cipher
 # Environment variable constants
 SESSION_API_KEY_ENV = "SESSION_API_KEY"
 ENVIRONMENT_VARIABLE_PREFIX = "OH"
+_logger = logging.getLogger(__name__)
 
 
 def _default_session_api_keys():
@@ -22,33 +22,6 @@ def _default_session_api_keys():
     if session_api_key:
         result.append(session_api_key)
     return result
-
-
-def default_secret_key():
-    """Load / store a default secret key. If this function was called,
-    the environment has already been checked for OH_SECRET_KEY and no key
-    was found. In this case, the objective is not to secure the file
-    system against being read by a malicious attacker, but rather to prevent
-    accidental leakage of keys in the common case where serialized conversations
-    are downloaded and shared."""
-
-    # Check ~/.openhands/ for a previously generated key
-    key_file = Path.home() / ".openhands" / "secret_key"
-    if key_file.exists():
-        secret_key = key_file.read_text()
-        return SecretStr(secret_key)
-
-    # Generate a Fernet-compatible key directly (32 bytes -> base64)
-    secret_key = urlsafe_b64encode(os.urandom(32)).decode("ascii")
-
-    # Create directory and write key with restrictive permissions
-    key_file.parent.mkdir(exist_ok=True, parents=True)
-    key_file.write_text(secret_key)
-
-    # Set file permissions to 600 (read/write for owner only)
-    key_file.chmod(stat.S_IRUSR | stat.S_IWUSR)
-
-    return SecretStr(secret_key)
 
 
 class WebhookSpec(BaseModel):
@@ -146,26 +119,27 @@ class Config(BaseModel):
         default=False,
         description="Whether to enable VNC desktop functionality",
     )
-    secret_key: SecretStr = Field(
-        default_factory=default_secret_key,
+    secret_key: SecretStr | None = Field(
+        default=None,
         description=(
-            "Secret key used for encrypting sensitive values in conversation "
-            "trajectories. This prevents accidental disclosure of API keys and secrets "
-            "when conversations are downloaded and shared. WARNING: If no value is"
-            "provided using the enviroment variable OH_SECRET_KEY, this will create / "
-            "use a secret key stored in plaintext at ~/.openhands/secret_key. "
-            "This is NOT designed to protect against attackers with full filesystem "
-            "access - the key is stored in plaintext. It is designed to prevent "
-            "leaking keys in the common case where a conversation directory is shared."
+            "Secret key used for encrypting sensitive values in all serialized data. "
+            "If missing any sensitive data is redacted, meaning full state cannot"
+            "be restored between restarts."
         ),
     )
     model_config: ClassVar[ConfigDict] = {"frozen": True}
 
     @property
-    def cipher(self) -> Cipher:
+    def cipher(self) -> Cipher | None:
         cipher = getattr(self, "_cipher", None)
         if cipher is None:
-            cipher = Cipher(self.secret_key.get_secret_value())
+            if self.secret_key is None:
+                _logger.warning(
+                    "⚠️ OH_SECRET_KEY was not defined. Secrets will not be persisted"
+                )
+                cipher = None
+            else:
+                cipher = Cipher(self.secret_key.get_secret_value())
             setattr(self, "_cipher", cipher)
         return cipher
 
