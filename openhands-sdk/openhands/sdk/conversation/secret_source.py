@@ -60,6 +60,7 @@ class LookupSecret(SecretSource):
                 result[key] = secret_value.get_secret_value()
             else:
                 result[key] = value
+        return result
 
     @field_serializer("headers", when_used="always")
     def _serialize_secrets(self, headers: dict[str, str], info):
@@ -71,6 +72,7 @@ class LookupSecret(SecretSource):
                 result[key] = secret_value
             else:
                 result[key] = value
+        return result
 
 
 _SECRET_HEADERS = ["AUTHORIZATION", "KEY", "SECRET"]
