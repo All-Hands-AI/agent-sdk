@@ -48,3 +48,37 @@ class LookupSecret(SecretSource):
         response = httpx.get(self.url, headers=self.headers)
         response.raise_for_status()
         return response.text
+
+    @field_validator("headers")
+    @classmethod
+    def _validate_secrets(cls, headers: dict[str, str], info):
+        result = {}
+        for key, value in headers.items():
+            if _is_secret_header(key):
+                secret_value = validate_secret(SecretStr(value), info)
+                assert secret_value is not None
+                result[key] = secret_value.get_secret_value()
+            else:
+                result[key] = value
+
+    @field_serializer("headers", when_used="always")
+    def _serialize_secrets(self, headers: dict[str, str], info):
+        result = {}
+        for key, value in headers.items():
+            if _is_secret_header(key):
+                secret_value = serialize_secret(SecretStr(value), info)
+                assert secret_value is not None
+                result[key] = secret_value
+            else:
+                result[key] = value
+
+
+_SECRET_HEADERS = ["AUTHORIZATION", "KEY"]
+
+
+def _is_secret_header(key: str):
+    key = key.upper()
+    for secret in _SECRET_HEADERS:
+        if secret in key:
+            return True
+    return False

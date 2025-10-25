@@ -129,6 +129,9 @@ def test_cipher_multiple_encryptions_different():
     decrypted1 = cipher.decrypt(encrypted1)
     decrypted2 = cipher.decrypt(encrypted2)
 
+    assert decrypted1 is not None
+    assert decrypted2 is not None
+
     assert decrypted1.get_secret_value() == secret.get_secret_value()
     assert decrypted2.get_secret_value() == secret.get_secret_value()
 
