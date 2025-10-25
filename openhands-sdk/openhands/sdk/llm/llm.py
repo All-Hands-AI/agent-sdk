@@ -1015,7 +1015,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Copy allowed fields from runtime llm into the persisted llm
         llm_updates = {}
-        persisted_dump = persisted.model_dump(exclude_none=True)
+        persisted_dump = persisted.model_dump(context={"expose_secrets": True})
         for field in self.OVERRIDE_ON_SERIALIZE:
             if field in persisted_dump.keys():
                 llm_updates[field] = getattr(self, field)
@@ -1024,9 +1024,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         else:
             reconciled = persisted
 
-        if self.model_dump(exclude_none=True) != reconciled.model_dump(
-            exclude_none=True
-        ):
+        dump = self.model_dump(context={"expose_secrets": True})
+        reconciled_dump = reconciled.model_dump(context={"expose_secrets": True})
+        if dump != reconciled_dump:
             raise ValueError(
                 "The LLM provided is different from the one in persisted state.\n"
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
