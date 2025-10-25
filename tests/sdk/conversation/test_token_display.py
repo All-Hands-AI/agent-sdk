@@ -1,12 +1,10 @@
-import os
-
 import pytest
 
-from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation import (
     TokenDisplayMode,
     compute_token_display,
 )
+from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
 from openhands.sdk.llm.utils.metrics import Metrics
 

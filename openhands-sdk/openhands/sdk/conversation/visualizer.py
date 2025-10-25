@@ -243,10 +243,9 @@ class ConversationVisualizer:
         mode (per-context vs accumulated) and optional since-last delta.
         """
         display_mode = get_default_mode_from_env()
-        include_since_last = (
-            os.environ.get("OH_TOKENS_VIEW_DELTA", "false").lower()
-            in {"1", "true", "yes"}
-        )
+        include_since_last = os.environ.get(
+            "OH_TOKENS_VIEW_DELTA", "false"
+        ).lower() in {"1", "true", "yes"}
 
         if not self._conversation_stats:
             return None
@@ -272,7 +271,9 @@ class ConversationVisualizer:
             return s.replace(".0", "")
 
         cache_rate = (
-            f"{(data.cache_hit_rate * 100):.2f}%" if data.cache_hit_rate is not None else "N/A"
+            f"{(data.cache_hit_rate * 100):.2f}%"
+            if data.cache_hit_rate is not None
+            else "N/A"
         )
         cost_str = f"{data.total_cost:.4f}"
 

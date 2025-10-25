@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
@@ -14,7 +13,7 @@ class TokenDisplayMode(str, Enum):
     ACCUMULATED = "accumulated"  # show accumulated tokens across all requests
 
     @classmethod
-    def from_str(cls, value: str | None) -> "TokenDisplayMode":
+    def from_str(cls, value: str | None) -> TokenDisplayMode:
         if not value:
             return cls.PER_CONTEXT
         v = value.strip().lower().replace("-", "_")
@@ -35,14 +34,14 @@ class TokenDisplay:
     reasoning_tokens: int
     context_window: int
     # Rate [0.0, 1.0] or None if undefined
-    cache_hit_rate: Optional[float]
+    cache_hit_rate: float | None
     # Total accumulated cost in USD
     total_cost: float
     # Optional delta of input tokens compared to previous request
-    since_last_input_tokens: Optional[int] = None
+    since_last_input_tokens: int | None = None
 
 
-def _get_combined_metrics(stats: ConversationStats | None) -> Optional[Metrics]:
+def _get_combined_metrics(stats: ConversationStats | None) -> Metrics | None:
     if not stats:
         return None
     try:
@@ -55,7 +54,7 @@ def compute_token_display(
     stats: ConversationStats | None,
     mode: TokenDisplayMode = TokenDisplayMode.PER_CONTEXT,
     include_since_last: bool = False,
-) -> Optional[TokenDisplay]:
+) -> TokenDisplay | None:
     """Compute token display values from conversation stats.
 
     Args:
@@ -87,7 +86,7 @@ def compute_token_display(
         reasoning_tokens = usage.reasoning_tokens or 0
         context_window = usage.context_window or 0
         cache_hit_rate = (cache_read / input_tokens) if input_tokens > 0 else None
-        since_last: Optional[int] = None
+        since_last: int | None = None
     else:  # PER_CONTEXT
         usage = combined.token_usages[-1]
         input_tokens = usage.prompt_tokens or 0
