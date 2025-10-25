@@ -4,7 +4,7 @@ import copy
 import json
 import os
 import warnings
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, get_args, get_origin
 
@@ -16,8 +16,11 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
     field_serializer,
     field_validator,
+    model_serializer,
     model_validator,
 )
 from pydantic.json_schema import SkipJsonSchema
@@ -75,6 +78,7 @@ from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
+from openhands.sdk.persistence.settings import INLINE_CONTEXT_KEY
 
 
 logger = get_logger(__name__)
@@ -216,6 +220,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
+    profile_id: str | None = Field(
+        default=None,
+        description="Optional profile id (filename under ~/.openhands/llm-profiles).",
+    )
     usage_id: str = Field(
         default="default",
         validation_alias=AliasChoices("usage_id", "service_id"),
@@ -262,6 +270,31 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", arbitrary_types_allowed=True
     )
+
+    @model_serializer(mode="wrap", when_used="json")
+    def _serialize_with_profiles(
+        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
+    ) -> Mapping[str, Any]:
+        """Scope LLM serialization to either inline payloads or profile refs.
+
+        We default to inlining the full LLM payload, but when the persistence
+        layer explicitly opts out (by passing ``inline_llm_persistence=False`` in
+        ``context``) we strip the payload down to just ``{"profile_id": ...}`` so
+        the conversation state can round-trip a profile reference without
+        exposing secrets.
+        """
+
+        inline_pref = None
+        if info.context is not None and INLINE_CONTEXT_KEY in info.context:
+            inline_pref = info.context[INLINE_CONTEXT_KEY]
+        if inline_pref is None:
+            inline_pref = True
+
+        data = handler(self)
+        profile_id = data.get("profile_id") if isinstance(data, dict) else None
+        if not inline_pref and profile_id:
+            return {"profile_id": profile_id}
+        return data
 
     # =========================================================================
     # Validators
