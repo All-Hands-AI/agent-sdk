@@ -22,9 +22,9 @@ api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    base_url=os.getenv("LLM_BASE_URL"),
     api_key=SecretStr(api_key),
 )
 
@@ -43,10 +43,9 @@ with DockerWorkspace(
     # dynamically build agent-server image
     # base_image="nikolaik/python-nodejs:python3.12-nodejs22",
     # use pre-built image for faster startup
-    server_image="ghcr.io/all-hands-ai/agent-server:latest-python",
+    server_image="ghcr.io/openhands/agent-server:main-python",
     host_port=8010,
     platform=detect_platform(),
-    forward_env=["LLM_API_KEY"],  # Forward API key to container
 ) as workspace:
     # 3) Create agent
     agent = get_default_agent(

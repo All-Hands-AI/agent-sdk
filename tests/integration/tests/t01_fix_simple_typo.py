@@ -28,11 +28,11 @@ logger = get_logger(__name__)
 class TypoFixTest(BaseIntegrationTest):
     """Test that an agent can fix typos in a text file."""
 
-    INSTRUCTION = INSTRUCTION
+    INSTRUCTION: str = INSTRUCTION
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.document_path = os.path.join(self.workspace, "document.txt")
+        self.document_path: str = os.path.join(self.workspace, "document.txt")
 
     @property
     def tools(self) -> list[Tool]:

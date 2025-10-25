@@ -23,7 +23,7 @@ def sample_stored_conversation():
     """Create a sample StoredConversation for testing."""
     return StoredConversation(
         id=uuid4(),
-        agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+        agent=Agent(llm=LLM(model="gpt-4", usage_id="test-llm"), tools=[]),
         workspace=LocalWorkspace(working_dir="workspace/project"),
         confirmation_policy=NeverConfirm(),
         initial_message=None,
@@ -39,7 +39,6 @@ def event_service(sample_stored_conversation):
     service = EventService(
         stored=sample_stored_conversation,
         conversations_dir=Path("test_conversation_dir"),
-        working_dir=Path("test_working_dir"),
     )
     return service
 
