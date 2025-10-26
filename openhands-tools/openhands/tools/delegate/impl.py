@@ -21,12 +21,17 @@ class DelegateExecutor(ToolExecutor):
     """Simplified executor for delegation operations.
 
     This class handles:
-    - Spawning sub-agents with specific IDs
+    - Spawning sub-agents with meaningful string identifiers (e.g., 'lodging')
     - Delegating tasks to sub-agents and waiting for results (blocking)
+    - Managing the mapping between user-friendly identifiers and internal conversations
+
+    The main agent works with interpretable string identifiers, while this executor
+    handles the internal conversation management and UUID mapping.
     """
 
     def __init__(self, max_children: int = 5):
         self._parent_conversation: BaseConversation | None = None
+        # Map from user-friendly identifier to conversation
         self._sub_agents: dict[str, LocalConversation] = {}
         self._max_children: int = max_children
         logger.debug("Initialized DelegateExecutor")
@@ -68,7 +73,15 @@ class DelegateExecutor(ToolExecutor):
             raise ValueError(f"Unsupported action type: {type(action)}")
 
     def _spawn_agents(self, action: "SpawnAction") -> "SpawnObservation":
-        """Spawn sub-agents with the given IDs."""
+        """Spawn sub-agents with user-friendly identifiers.
+
+        Args:
+            action: SpawnAction containing list of string identifiers 
+                   (e.g., ['lodging', 'activities'])
+
+        Returns:
+            SpawnObservation indicating success/failure and which agents were spawned
+        """
         if not action.ids:
             return SpawnObservation(
                 success=False,
@@ -128,7 +141,16 @@ class DelegateExecutor(ToolExecutor):
             )
 
     def _delegate_tasks(self, action: "DelegateAction") -> "DelegateObservation":
-        """Delegate tasks to sub-agents and wait for results (blocking)."""
+        """Delegate tasks to sub-agents using user-friendly identifiers 
+        and wait for results (blocking).
+
+        Args:
+            action: DelegateAction with tasks dict mapping identifiers to tasks
+                   (e.g., {'lodging': 'Find hotels', 'activities': 'List attractions'})
+
+        Returns:
+            DelegateObservation with consolidated results from all sub-agents
+        """
         if not action.tasks:
             return DelegateObservation(
                 success=False,

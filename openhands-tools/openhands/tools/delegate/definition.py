@@ -126,29 +126,34 @@ class DelegateObservation(Observation):
 
 
 SPAWN_TOOL_DESCRIPTION = (
-    "Spawn sub-agents with specific IDs for later task delegation.\n"
+    "Spawn sub-agents with meaningful string identifiers for later task delegation.\n"
     "\n"
-    "This tool initializes sub-conversations/agents with the provided IDs.\n"
+    "This tool initializes sub-conversations/agents with user-friendly identifiers "
+    "(e.g., 'lodging', 'activities', 'research').\n"
     "\n"
     "**Usage:**\n"
-    "- Use this to create sub-agents before delegating tasks to them\n"
-    "- Each ID will create a separate sub-agent conversation"
+    "- Use descriptive identifiers that make sense for your use case\n"
+    "- Each identifier creates a separate sub-agent conversation\n"
+    "- Identifiers should be meaningful strings, not random IDs"
 )
 
 DELEGATE_TOOL_DESCRIPTION = (
-    "Delegate tasks to specific sub-agents and wait for results.\n"
+    "Delegate tasks to specific sub-agents using meaningful identifiers "
+    "and wait for results.\n"
     "\n"
-    "This tool sends tasks to specific sub-agents by ID, runs them in parallel, "
-    "and waits for all to complete.\n"
+    "This tool sends tasks to specific sub-agents by their user-friendly identifiers, "
+    "runs them in parallel, and waits for all to complete.\n"
     "\n"
     "**Usage:**\n"
-    "- Use a dictionary mapping sub-agent IDs to task descriptions\n"
+    "- Use a dictionary mapping sub-agent identifiers to task descriptions\n"
     "- Example: {'lodging': 'Find budget hotels', 'activities': 'List attractions'}\n"
+    "- Identifiers must match those used in the spawn action\n"
     "\n"
     "**Important Notes:**\n"
     "- Sub-agents work in the same workspace as you, the main agent\n"
     "- This is a blocking operation - it waits for all sub-agents to complete\n"
-    "- Returns a single observation containing results from all sub-agents"
+    "- Returns a single observation containing results from all sub-agents\n"
+    "- No need to deal with internal conversation IDs - use your meaningful identifiers"
 )
 
 spawn_tool = ToolDefinition(
