@@ -57,10 +57,15 @@ class DelegateExecutor(ToolExecutor):
             )
 
         # Route to appropriate handler based on action type
-        if hasattr(action, "ids"):  # SpawnAction
-            return self._spawn_agents(action)  # type: ignore
-        else:  # DelegateAction
-            return self._delegate_tasks(action)  # type: ignore
+        # Import here to avoid circular imports
+        from openhands.tools.delegate.definition import DelegateAction, SpawnAction
+
+        if isinstance(action, SpawnAction):
+            return self._spawn_agents(action)
+        elif isinstance(action, DelegateAction):
+            return self._delegate_tasks(action)
+        else:
+            raise ValueError(f"Unsupported action type: {type(action)}")
 
     def _spawn_agents(self, action: "SpawnAction") -> "SpawnObservation":
         """Spawn sub-agents with the given IDs."""
