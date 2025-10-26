@@ -23,7 +23,7 @@ class SpawnAction(Action):
     """Action for spawning sub-agents with specific IDs."""
 
     ids: list[str] = Field(
-        description="List of meaningful identifiers to initialize sub-agents with"
+        description="List of identifiers to initialize sub-agents with"
     )
 
     @property
@@ -39,9 +39,7 @@ class DelegateAction(Action):
     """Action for delegating tasks to sub-agents and waiting for results."""
 
     tasks: dict[str, str] = Field(
-        description=(
-            "Dictionary mapping meaningful sub-agent identifiers to task descriptions"
-        )
+        description=("Dictionary mapping sub-agent identifiers to task descriptions")
     )
 
     @property
@@ -128,34 +126,33 @@ class DelegateObservation(Observation):
 
 
 SPAWN_TOOL_DESCRIPTION = (
-    "Spawn sub-agents with meaningful string identifiers for later task delegation.\n"
+    "Spawn sub-agents with string identifiers for later task delegation.\n"
     "\n"
-    "This tool initializes sub-conversations/agents with user-friendly identifiers "
-    "(e.g., 'lodging', 'activities', 'research').\n"
+    "This tool initializes sub-conversations/agents with identifiers "
+    "(e.g., 'refactoring', 'run_tests', 'research').\n"
     "\n"
     "**Usage:**\n"
     "- Use descriptive identifiers that make sense for your use case\n"
     "- Each identifier creates a separate sub-agent conversation\n"
-    "- Identifiers should be meaningful strings, not random IDs"
 )
 
 DELEGATE_TOOL_DESCRIPTION = (
-    "Delegate tasks to specific sub-agents using meaningful identifiers "
+    "Delegate tasks to specific sub-agents using their identifiers "
     "and wait for results.\n"
     "\n"
-    "This tool sends tasks to specific sub-agents by their user-friendly identifiers, "
+    "This tool sends tasks to specific sub-agents by, "
     "runs them in parallel, and waits for all to complete.\n"
     "\n"
     "**Usage:**\n"
     "- Use a dictionary mapping sub-agent identifiers to task descriptions\n"
-    "- Example: {'lodging': 'Find budget hotels', 'activities': 'List attractions'}\n"
+    "- Example: {'refactor': 'Refactor class MyClass', "
+    " 'research': 'How is async used in that file? '}\n"
     "- Identifiers must match those used in the spawn action\n"
     "\n"
     "**Important Notes:**\n"
     "- Sub-agents work in the same workspace as you, the main agent\n"
     "- This is a blocking operation - it waits for all sub-agents to complete\n"
     "- Returns a single observation containing results from all sub-agents\n"
-    "- No need to deal with internal conversation IDs - use your meaningful identifiers"
 )
 
 spawn_tool = ToolDefinition(

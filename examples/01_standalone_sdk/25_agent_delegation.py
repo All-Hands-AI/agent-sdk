@@ -46,34 +46,21 @@ main_agent = Agent(
     llm=llm,
     tools=tools,
 )
-
-# Create conversation with the main agent
 conversation = Conversation(
     agent=main_agent,
     workspace=cwd,
 )
 
-# Send the high-level task to the main agent
 task_message = (
     "Forget about coding. Let's switch to travel planning. "
     "Let's plan a trip to London. I have two issues I need to solve: "
     "Lodging: what are the best areas to stay at while keeping budget in mind? "
     "Activities: what are the top 5 must-see attractions and hidden gems? "
-    "Please use the new delegation system: "
-    "1. First use the 'spawn' action to create two sub-agents with IDs "
-    "'lodging' and 'activities' "
-    "2. Then use the 'delegate' action with a dictionary mapping agent IDs to tasks: "
-    "{'lodging': 'Find budget areas', 'activities': 'List top attractions'} "
-    "The delegate action will run both sub-agents in parallel and return results. "
-    "Sub-agents should use their own knowledge and should NOT rely on internet access. "
+    "Please use the delegation tools to handle these two tasks in parallel. "
+    "Make sure the sub-agents use their own knowledge "
+    "and dont rely on internet access. "
     "They should keep it short. After getting the results, merge both analyses "
     "into a single consolidated report.\n\n"
 )
-
 conversation.send_message(task_message)
 conversation.run()
-
-
-# With the new blocking delegation system, all work is completed
-# when the conversation.run() finishes, so no need to wait
-print("✅ All delegation work completed successfully!")
