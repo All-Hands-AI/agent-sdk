@@ -62,7 +62,7 @@ class FinishExecutor(ToolExecutor):
     def __call__(
         self,
         action: FinishAction,
-        conversation: "BaseConversation",  # noqa: ARG002
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> FinishObservation:
         return FinishObservation(message=action.message)
 

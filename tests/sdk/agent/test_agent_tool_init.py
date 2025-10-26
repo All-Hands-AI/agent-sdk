@@ -23,7 +23,7 @@ class _Obs(Observation):
 
 
 class _Exec(ToolExecutor[_Action, _Obs]):
-    def __call__(self, action: _Action) -> _Obs:
+    def __call__(self, action: _Action, conversation=None) -> _Obs:
         return _Obs(out=action.text.upper())
 
 
