@@ -19,26 +19,45 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
 
-class DelegateAction(Action):
-    """Action for delegating tasks to sub-agents."""
+class SpawnAction(Action):
+    """Action for spawning sub-agents with specific IDs."""
 
-    task: str = Field(description="The task description to delegate to a sub-agent")
+    ids: list[str] = Field(
+        description="List of IDs to initialize sub-conversations/agents with"
+    )
 
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this action."""
         content = Text()
-        content.append("Delegate Task:\n", style="bold blue")
-        content.append(f"Task: {self.task}")
+        content.append("Spawn Sub-agents:\n", style="bold green")
+        content.append(f"IDs: {', '.join(self.ids)}")
         return content
 
 
-class DelegateObservation(Observation):
-    """Observation from delegation operations."""
+class DelegateAction(Action):
+    """Action for delegating tasks to sub-agents and waiting for results."""
 
-    success: bool = Field(description="Whether the action was successful")
-    sub_conversation_id: str | None = Field(
-        default=None, description="ID of the sub-conversation created"
+    tasks: list[str] = Field(
+        description="List of task descriptions to delegate to sub-agents"
+    )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this action."""
+        content = Text()
+        content.append("Delegate Tasks:\n", style="bold blue")
+        for i, task in enumerate(self.tasks, 1):
+            content.append(f"Task {i}: {task}\n")
+        return content
+
+
+class SpawnObservation(Observation):
+    """Observation from spawn operations."""
+
+    success: bool = Field(description="Whether the spawn action was successful")
+    spawned_ids: list[str] = Field(
+        default_factory=list, description="List of spawned sub-agent IDs"
     )
     message: str = Field(description="Result message from the action")
 
@@ -47,7 +66,7 @@ class DelegateObservation(Observation):
         """Return Rich Text representation of this observation."""
         content = Text()
         status = "✅" if self.success else "❌"
-        content.append(f"{status} Delegate: ", style="bold")
+        content.append(f"{status} Spawn: ", style="bold")
         content.append(self.message)
         return content
 
@@ -65,17 +84,82 @@ class DelegateObservation(Observation):
         return [TextContent(text=self.message)]
 
 
-DELEGATE_TOOL_DESCRIPTION = """Delegate tasks to sub-agents for parallel processing.
+class DelegateObservation(Observation):
+    """Observation from delegation operations."""
 
-This tool allows the main agent to delegate tasks to sub-agents that run independently.
+    success: bool = Field(description="Whether the delegation was successful")
+    results: list[str] = Field(
+        default_factory=list, description="Results from all sub-agents"
+    )
+    message: str = Field(description="Summary message from the delegation")
 
-**Important Notes:**
-- Sub-agents work in the same workspace as you, the main agent
-- Sub-agents will send back their findings to the main agent upon completion
-- After delegating tasks to sub-agents, use FinishAction to pause and wait for
-    their results when necessary.
-"""
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this observation."""
+        content = Text()
+        status = "✅" if self.success else "❌"
+        content.append(f"{status} Delegate: ", style="bold")
+        content.append(self.message)
+        if self.results:
+            content.append("\n\nResults:\n", style="bold")
+            for i, result in enumerate(self.results, 1):
+                content.append(f"{i}. {result}\n")
+        return content
 
+    def to_text(self) -> str:
+        """Convert observation to plain text."""
+        if self.results:
+            results_text = "\n".join(
+                f"{i}. {result}" for i, result in enumerate(self.results, 1)
+            )
+            return f"{self.message}\n\nResults:\n{results_text}"
+        return self.message
+
+    def to_rich_text(self) -> Text:
+        """Convert observation to rich text representation."""
+        return Text(self.to_text())
+
+    @property
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        """Get the observation content to show to the agent."""
+        return [TextContent(text=self.to_text())]
+
+
+SPAWN_TOOL_DESCRIPTION = (
+    "Spawn sub-agents with specific IDs for later task delegation.\n"
+    "\n"
+    "This tool initializes sub-conversations/agents with the provided IDs.\n"
+    "\n"
+    "**Usage:**\n"
+    "- Use this to create sub-agents before delegating tasks to them\n"
+    "- Each ID will create a separate sub-agent conversation"
+)
+
+DELEGATE_TOOL_DESCRIPTION = (
+    "Delegate tasks to sub-agents and wait for results.\n"
+    "\n"
+    "This tool sends tasks to sub-agents, runs them in parallel, "
+    "and waits for all to complete.\n"
+    "\n"
+    "**Important Notes:**\n"
+    "- Sub-agents work in the same workspace as you, the main agent\n"
+    "- This is a blocking operation - it waits for all sub-agents to complete\n"
+    "- Returns a single observation containing results from all sub-agents"
+)
+
+spawn_tool = ToolDefinition(
+    name="spawn",
+    action_type=SpawnAction,
+    observation_type=SpawnObservation,
+    description=SPAWN_TOOL_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="spawn",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 
 delegate_tool = ToolDefinition(
     name="delegate",
@@ -92,38 +176,63 @@ delegate_tool = ToolDefinition(
 )
 
 
+class SpawnTool(ToolDefinition[SpawnAction, SpawnObservation]):
+    """Tool definition for spawning sub-agents."""
+
+    pass
+
+
 class DelegateTool(ToolDefinition[DelegateAction, DelegateObservation]):
-    """A ToolDefinition subclass that automatically initializes a DelegateExecutor."""
+    """Tool definition for delegating tasks to sub-agents."""
 
-    @classmethod
-    def create(
-        cls,
-        conv_state: "ConversationState",  # noqa: ARG003
-        max_children: int = 5,
-    ) -> Sequence["DelegateTool"]:
-        """Initialize DelegateTool with executor parameters.
+    pass
 
-        The parent conversation will be injected later when the tool is first used.
 
-        Args:
-            conv_state: Conversation state (not used, but required by tool registry)
-            max_children: Maximum number of concurrent sub-agents (default: 10)
-        """
-        # Import here to avoid circular imports
-        from openhands.tools.delegate.impl import DelegateExecutor
+def create_delegation_tools(
+    conv_state: "ConversationState",  # noqa: ARG001
+    max_children: int = 5,
+) -> Sequence[ToolDefinition]:
+    """Create both spawn and delegate tools with shared executor.
 
-        # Initialize the executor without parent conversation
-        # (will be set on first call)
-        executor = DelegateExecutor(max_children=max_children)
+    Args:
+        conv_state: Conversation state (not used, but required by tool registry)
+        max_children: Maximum number of concurrent sub-agents (default: 5)
 
-        # Initialize the parent ToolDefinition with the executor
-        return [
-            cls(
-                name=delegate_tool.name,
-                description=DELEGATE_TOOL_DESCRIPTION,
-                action_type=DelegateAction,
-                observation_type=DelegateObservation,
-                annotations=delegate_tool.annotations,
-                executor=executor,
-            )
-        ]
+    Returns:
+        List containing both spawn and delegate tool definitions
+    """
+    # Import here to avoid circular imports
+    from openhands.tools.delegate.impl import DelegateExecutor
+
+    # Initialize the executor without parent conversation
+    # (will be set on first call)
+    executor = DelegateExecutor(max_children=max_children)
+
+    # Create both tools with the same executor
+    spawn_tool_instance = SpawnTool(
+        name=spawn_tool.name,
+        description=SPAWN_TOOL_DESCRIPTION,
+        action_type=SpawnAction,
+        observation_type=SpawnObservation,
+        annotations=spawn_tool.annotations,
+        executor=executor,
+    )
+
+    delegate_tool_instance = DelegateTool(
+        name=delegate_tool.name,
+        description=DELEGATE_TOOL_DESCRIPTION,
+        action_type=DelegateAction,
+        observation_type=DelegateObservation,
+        annotations=delegate_tool.annotations,
+        executor=executor,
+    )
+
+    return [spawn_tool_instance, delegate_tool_instance]
+
+
+# For backward compatibility, keep the old DelegateTool.create method
+def _create_delegate_tools(cls, conv_state, max_children=5):  # noqa: ARG001
+    return create_delegation_tools(conv_state, max_children)
+
+
+DelegateTool.create = classmethod(_create_delegate_tools)

@@ -8,7 +8,6 @@ which then merges both analyses into a single consolidated report.
 """
 
 import os
-import time
 
 from pydantic import SecretStr
 
@@ -60,37 +59,20 @@ task_message = (
     "Let's plan a trip to London. I have two issues I need to solve: "
     "Lodging: what are the best areas to stay at while keeping budget in mind? "
     "Activities: what are the top 5 must-see attractions and hidden gems? "
-    "Please delegate each issue to a sub-agent for analysis, then merge both "
-    "analyses into a single consolidated report. "
-    "Subagents should use their own knowledge and should NOT "
-    "rely on internet access. They should keep it short. "
-    "After spawning the sub-agents, use FinishAction to "
-    "pause and wait for their results. "
-    "The sub-agents will send their analysis back to you when complete.\n\n"
+    "Please use the new delegation system: "
+    "1. First use the 'spawn' action to create two sub-agents with IDs "
+    "'lodging' and 'activities' "
+    "2. Then use the 'delegate' action to send the two tasks to these sub-agents "
+    "The delegate action will run both sub-agents in parallel and return results. "
+    "Sub-agents should use their own knowledge and should NOT rely on internet access. "
+    "They should keep it short. After getting the results, merge both analyses "
+    "into a single consolidated report.\n\n"
 )
 
 conversation.send_message(task_message)
 conversation.run()
 
 
-time.sleep(4)
-# Wait for all delegation work to complete (with timeout)
-# Access the executor through the agent's tools
-executor = conversation.agent.tools_map["delegate"].executor
-max_wait = 180  # 3 minutes to account for LLM processing time
-start_time = time.time()
-
-while executor.is_task_in_progress():
-    elapsed = time.time() - start_time
-    if elapsed >= max_wait:
-        print(f"⏰ Timeout after {max_wait}s - task still in progress")
-        break
-
-    # Check every 2 seconds
-    time.sleep(2)
-    print("   ⏳ Task still in progress...")
-
-if not executor.is_task_in_progress():
-    print("✅ All delegation work completed successfully!")
-else:
-    print("⚠️  Some threads still running after timeout")
+# With the new blocking delegation system, all work is completed
+# when the conversation.run() finishes, so no need to wait
+print("✅ All delegation work completed successfully!")

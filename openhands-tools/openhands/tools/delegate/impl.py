@@ -1,75 +1,38 @@
 """Implementation of delegate tool executor."""
 
-import queue
 import threading
-import time
-import uuid
-from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar
-
-from pydantic import BaseModel, ConfigDict
+from typing import TYPE_CHECKING
 
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import MessageEvent
-from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolExecutor
-from openhands.tools.delegate.definition import DelegateObservation
+from openhands.tools.delegate.definition import DelegateObservation, SpawnObservation
 from openhands.tools.preset.default import get_default_agent
 
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.base import BaseConversation
-    from openhands.tools.delegate.definition import DelegateAction
+    from openhands.tools.delegate.definition import DelegateAction, SpawnAction
 
 logger = get_logger(__name__)
 
 
-class SubAgentState(Enum):
-    """States for sub-agent lifecycle."""
-
-    CREATED = "created"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class SubAgentInfo(BaseModel):
-    """Information about a sub-agent."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
-
-    conversation_id: str
-    conversation: Any  # BaseConversation - using Any to avoid forward reference issues
-    thread: Any  # threading.Thread - using Any for runtime objects
-    state: SubAgentState
-    created_at: float
-    completed_at: float | None = None
-    error: str | None = None
-
-
 class DelegateExecutor(ToolExecutor):
-    """Executor for delegation operations.
+    """Simplified executor for delegation operations.
 
     This class handles:
-    - Creating sub-agents and their conversations
-    - Tracking sub-agents for a single parent conversation
-    - Routing messages between parent and child agents
+    - Spawning sub-agents with specific IDs
+    - Delegating tasks to sub-agents and waiting for results (blocking)
     """
 
     def __init__(self, max_children: int = 5):
-        # Thread-safe storage for all state
-        self._lock: threading.RLock = threading.RLock()
         self._parent_conversation: BaseConversation | None = None
-        self._sub_agents: dict[str, SubAgentInfo] = {}
-        self._pending_parent_messages: queue.Queue[Message] = queue.Queue(maxsize=1000)
-        self._parent_running: bool = False  # Single-flight guard for parent runs
-        self._max_children: int = max_children  # Limit concurrent sub-agents
+        self._sub_agents: dict[str, LocalConversation] = {}
+        self._max_children: int = max_children
         logger.debug("Initialized DelegateExecutor")
 
     @property
-    def parent_conversation(self) -> "LocalConversation":
+    def parent_conversation(self) -> "BaseConversation":
         """Get the parent conversation.
 
         Raises:
@@ -80,29 +43,12 @@ class DelegateExecutor(ToolExecutor):
                 "Parent conversation not set. This should be set automatically "
                 "on the first call to the executor."
             )
-        return self._parent_conversation  # type: ignore
-
-    def is_task_in_progress(self) -> bool:
-        """Check if a task started by the parent conversation is still in progress."""
-        with self._lock:
-            parent_running = (
-                self.parent_conversation.state.agent_status
-                != AgentExecutionStatus.FINISHED
-            )
-
-            pending_messages = self._pending_parent_messages.qsize() > 0
-
-            active_sub_agents = any(
-                sub_agent.state in (SubAgentState.CREATED, SubAgentState.RUNNING)
-                for sub_agent in self._sub_agents.values()
-            )
-
-            return parent_running or pending_messages or active_sub_agents
+        return self._parent_conversation
 
     def __call__(
-        self, action: "DelegateAction", conversation: "BaseConversation"
-    ) -> "DelegateObservation":
-        """Execute a delegation action."""
+        self, action: "SpawnAction | DelegateAction", conversation: "BaseConversation"
+    ) -> "SpawnObservation | DelegateObservation":
+        """Execute a spawn or delegate action."""
         # Set parent conversation once on first call
         if self._parent_conversation is None and conversation is not None:
             self._parent_conversation = conversation
@@ -110,296 +56,168 @@ class DelegateExecutor(ToolExecutor):
                 f"Set parent conversation {conversation.id} on DelegateExecutor"
             )
 
-        return self._delegate_task(action)
+        # Route to appropriate handler based on action type
+        if hasattr(action, "ids"):  # SpawnAction
+            return self._spawn_agents(action)  # type: ignore
+        else:  # DelegateAction
+            return self._delegate_tasks(action)  # type: ignore
 
-    def _trigger_parent_if_idle(self):
-        """
-        Core rule: If parent.state.agent_status == FINISHED and there are pending
-        child outputs queued for the parent, then trigger exactly one
-        parent_conversation.run().
-
-        This provides:
-        - No re-entrancy: only fire when parent is idle
-        - Natural batching: all messages that arrive while parent is busy are
-          processed together
-        """
-        logger.debug("🔍 _trigger_parent_if_idle called")
-
-        # Check conditions and collect messages under lock
-        with self._lock:
-            queue_size = self._pending_parent_messages.qsize()
-            if self._pending_parent_messages.empty():
-                logger.debug("No pending parent messages")
-                return
-
-            logger.info(f"📬 Found {queue_size} pending parent messages")
-
-            # Single-flight guard - prevent concurrent parent runs
-            if self._parent_running:
-                logger.info("Parent already running, skipping trigger")
-                return
-
-            status = self.parent_conversation.state.agent_status
-            # Parent should be in FINISHED state to be resumed
-            if status != AgentExecutionStatus.FINISHED:
-                logger.info(
-                    f"Parent not in FINISHED/IDLE state ({status}), not triggering run"
-                )
-                return
-
-            logger.info(
-                f"✅ Parent is {status} with {queue_size} pending messages, "
-                f"triggering run"
-            )
-
-            # Parent is finished, we have messages, and no run in progress
-            # Set running flag and drain queue
-            self._parent_running = True
-            messages_to_send = []
-            while True:
-                try:
-                    messages_to_send.append(self._pending_parent_messages.get_nowait())
-                except queue.Empty:
-                    break
-
-            parent_conversation = self.parent_conversation
-
-        # Send messages and trigger parent run outside of lock
-        try:
-            # Send all pending messages to parent
-            for message in messages_to_send:
-                parent_conversation.send_message(message)
-            parent_conversation.run()
-            logger.info(
-                f"Parent conversation run completed for {parent_conversation.id}"
-            )
-        finally:
-            # Always clear the running flag
-            with self._lock:
-                self._parent_running = False
-
-            # CRITICAL: Check for additional pending messages after parent completes
-            # This handles the race condition where messages arrive while parent
-            # was running
-            logger.debug("🔄 Checking for additional pending messages after parent run")
-            self._trigger_parent_if_idle()
-
-    def _create_sub_agent_callback(self, sub_conversation_id: str):
-        """Create a callback for routing sub-agent messages to the parent.
-
-        Args:
-            sub_conversation_id: The ID of the sub-agent conversation
-
-        Returns:
-            A callback function that processes sub-agent events
-        """
-
-        def callback(event):
-            """Callback for sub-agent messages - queues them for parent."""
-            logger.debug(
-                f"Sub-agent {sub_conversation_id[:8]} callback triggered: "
-                f"event_type={type(event).__name__}, "
-                f"source={getattr(event, 'source', 'N/A')}"
-            )
-
-            if not (isinstance(event, MessageEvent) and event.source == "agent"):
-                logger.debug(
-                    f"Sub-agent {sub_conversation_id[:8]} ignoring non-agent "
-                    f"message event"
-                )
-                return
-
-            if not (hasattr(event, "llm_message") and event.llm_message):
-                logger.debug(
-                    f"Sub-agent {sub_conversation_id[:8]} event has no llm_message"
-                )
-                return
-
-            message_parts = []
-            for content in event.llm_message.content:
-                if isinstance(content, TextContent):
-                    message_parts.append(content.text)
-                else:
-                    message_parts.append(f"[{type(content).__name__}]")
-
-            message_text = " ".join(message_parts)
-
-            if not message_text.strip():
-                logger.debug(
-                    f"Sub-agent {sub_conversation_id[:8]} sent empty message, ignoring"
-                )
-                return
-
-            parent_message = f"[Sub-agent {sub_conversation_id[:8]}]: {message_text}"
-            logger.info(
-                f"🔄 Sub-agent {sub_conversation_id[:8]} sending "
-                f"message to parent: {message_text[:100]}..."
-            )
-
-            message = Message(
-                role="user",
-                content=[TextContent(text=parent_message)],
-            )
-            try:
-                self._pending_parent_messages.put_nowait(message)
-                queue_size = self._pending_parent_messages.qsize()
-                logger.info(
-                    f"✅ Queued message from sub-agent "
-                    f"{sub_conversation_id[:8]} "
-                    f"(queue size: {queue_size})"
-                )
-                self._trigger_parent_if_idle()
-            except queue.Full:
-                logger.warning(
-                    f"❌ Parent message queue is full, dropping "
-                    f"message from sub-agent {sub_conversation_id[:8]}"
-                )
-
-        return callback
-
-    def _run_sub_agent(
-        self,
-        sub_conversation: "LocalConversation",
-        initial_message: str,
-    ):
-        """Run a sub-agent in a separate thread.
-
-        Args:
-            sub_conversation_id: The ID of the sub-agent conversation
-            sub_conversation: The conversation object for the sub-agent
-            initial_message: The initial message to send to the sub-agent
-        """
-        sub_conversation_id = str(sub_conversation.id)
-        try:
-            with self._lock:
-                if sub_conversation_id in self._sub_agents:
-                    self._sub_agents[sub_conversation_id].state = SubAgentState.RUNNING
-
-            logger.info(
-                f"Sub-agent {sub_conversation_id[:8]} starting with task: "
-                f"{initial_message[:100]}..."
-            )
-
-            sub_conversation.send_message(initial_message)
-            sub_conversation.run()
-
-            logger.info(f"Sub-agent {sub_conversation_id[:8]} completed")
-
-            with self._lock:
-                if sub_conversation_id in self._sub_agents:
-                    self._sub_agents[
-                        sub_conversation_id
-                    ].state = SubAgentState.COMPLETED
-                    self._sub_agents[sub_conversation_id].completed_at = time.time()
-
-        except Exception as e:
-            logger.error(
-                f"Sub-agent {sub_conversation_id[:8]} failed: {e}",
-                exc_info=True,
-            )
-
-            error_message = f"[Sub-agent {sub_conversation_id[:8]} ERROR]: {str(e)}"
-            message = Message(
-                role="user",
-                content=[TextContent(text=error_message)],
-            )
-            try:
-                self._pending_parent_messages.put_nowait(message)
-                self._trigger_parent_if_idle()
-            except queue.Full:
-                logger.warning("Parent message queue is full, dropping error message")
-
-            with self._lock:
-                if sub_conversation_id in self._sub_agents:
-                    self._sub_agents[sub_conversation_id].state = SubAgentState.FAILED
-                    self._sub_agents[sub_conversation_id].error = str(e)
-                    self._sub_agents[sub_conversation_id].completed_at = time.time()
-
-    def _delegate_task(self, action: "DelegateAction") -> "DelegateObservation":
-        """Delegate a task to a new sub-agent that runs asynchronously."""
-        if not action.task:
-            return DelegateObservation(
+    def _spawn_agents(self, action: "SpawnAction") -> "SpawnObservation":
+        """Spawn sub-agents with the given IDs."""
+        if not action.ids:
+            return SpawnObservation(
                 success=False,
-                message="Task is required for delegate action",
+                message="At least one ID is required for spawn action",
+            )
+
+        if len(action.ids) > self._max_children:
+            return SpawnObservation(
+                success=False,
+                message=(
+                    f"Cannot spawn {len(action.ids)} agents, "
+                    f"maximum is {self._max_children}"
+                ),
             )
 
         try:
-            with self._lock:
-                parent_conversation = self.parent_conversation
-
-                active_count = sum(
-                    1
-                    for sub_agent in self._sub_agents.values()
-                    if sub_agent.state in (SubAgentState.CREATED, SubAgentState.RUNNING)
-                )
-                if active_count >= self._max_children:
-                    return DelegateObservation(
-                        success=False,
-                        message=(
-                            f"Maximum number of sub-agents ({self._max_children}) "
-                            "reached"
-                        ),
-                    )
-
+            parent_conversation = self.parent_conversation
             parent_llm = parent_conversation.agent.llm
-            worker_agent = get_default_agent(
-                llm=parent_llm.model_copy(update={"service_id": "sub_agent"}),
-            )
             visualize = getattr(parent_conversation, "visualize", True)
             workspace_path = parent_conversation.state.workspace.working_dir
 
-            sub_conversation_id = str(uuid.uuid4())
+            spawned_ids = []
+            for agent_id in action.ids:
+                # Create a sub-agent with the specified ID
+                worker_agent = get_default_agent(
+                    llm=parent_llm.model_copy(
+                        update={"service_id": f"sub_agent_{agent_id}"}
+                    ),
+                )
 
-            callback = self._create_sub_agent_callback(sub_conversation_id)
+                sub_conversation = LocalConversation(
+                    agent=worker_agent,
+                    workspace=workspace_path,
+                    visualize=visualize,
+                    conversation_id=agent_id,
+                )
 
-            sub_conversation = LocalConversation(
-                agent=worker_agent,
-                workspace=workspace_path,
-                visualize=visualize,
-                callbacks=[callback],
-                conversation_id=sub_conversation_id,
-            )
+                self._sub_agents[agent_id] = sub_conversation
+                spawned_ids.append(agent_id)
+                logger.info(f"Spawned sub-agent with ID: {agent_id}")
 
-            thread = threading.Thread(
-                target=self._run_sub_agent,
-                args=(
-                    sub_conversation,
-                    action.task,
-                ),
-                name=f"SubAgent-{sub_conversation_id[:8]}",
-                daemon=True,
-            )
-
-            sub_agent_info = SubAgentInfo(
-                conversation_id=sub_conversation_id,
-                conversation=sub_conversation,
-                thread=thread,
-                state=SubAgentState.CREATED,
-                created_at=time.time(),
-            )
-
-            with self._lock:
-                self._sub_agents[sub_conversation_id] = sub_agent_info
-
-            thread.start()
-
-            logger.info(
-                f"Delegated task to sub-agent {sub_conversation_id[:8]}: "
-                f"{action.task[:100]}..."
-            )
-
-            return DelegateObservation(
+            agent_list = ", ".join(spawned_ids)
+            message = f"Successfully spawned {len(spawned_ids)} sub-agents: {agent_list}"
+            return SpawnObservation(
                 success=True,
-                sub_conversation_id=sub_conversation_id,
-                message=(
-                    f"Sub-agent {sub_conversation_id} created and running "
-                    "asynchronously"
-                ),
+                spawned_ids=spawned_ids,
+                message=message,
             )
 
         except Exception as e:
-            logger.error(f"Failed to delegate task: {e}", exc_info=True)
+            logger.error(f"Failed to spawn agents: {e}", exc_info=True)
+            return SpawnObservation(
+                success=False,
+                message=f"Failed to spawn agents: {str(e)}",
+            )
+
+    def _delegate_tasks(self, action: "DelegateAction") -> "DelegateObservation":
+        """Delegate tasks to sub-agents and wait for results (blocking)."""
+        if not action.tasks:
             return DelegateObservation(
                 success=False,
-                message=f"Failed to delegate task: {str(e)}",
+                message="At least one task is required for delegate action",
             )
+
+        if len(action.tasks) > len(self._sub_agents):
+            return DelegateObservation(
+                success=False,
+                message=(
+                    f"Cannot delegate {len(action.tasks)} tasks to "
+                    f"{len(self._sub_agents)} sub-agents. Spawn more agents first."
+                ),
+            )
+
+        try:
+            # Get available sub-agents
+            available_agents = list(self._sub_agents.items())[: len(action.tasks)]
+
+            # Create threads to run tasks in parallel
+            threads = []
+            results = {}
+            errors = {}
+
+            def run_task(agent_id: str, conversation: LocalConversation, task: str):
+                """Run a single task on a sub-agent."""
+                try:
+                    logger.info(f"Sub-agent {agent_id} starting task: {task[:100]}...")
+                    conversation.send_message(task)
+                    conversation.run()
+
+                    # Extract the final response using agent_final_response
+                    final_response = conversation.agent_final_response
+                    if final_response:
+                        results[agent_id] = final_response
+                        logger.info(f"Sub-agent {agent_id} completed successfully")
+                    else:
+                        results[agent_id] = "No response from sub-agent"
+                        logger.warning(
+                            f"Sub-agent {agent_id} completed but no final response"
+                        )
+
+                except Exception as e:
+                    error_msg = f"Sub-agent {agent_id} failed: {str(e)}"
+                    errors[agent_id] = error_msg
+                    logger.error(error_msg, exc_info=True)
+
+            # Start all tasks in parallel
+            for i, (agent_id, conversation) in enumerate(available_agents):
+                task = action.tasks[i]
+                thread = threading.Thread(
+                    target=run_task,
+                    args=(agent_id, conversation, task),
+                    name=f"Task-{agent_id}",
+                )
+                threads.append(thread)
+                thread.start()
+
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.join()
+
+            # Collect results
+            all_results = []
+            success = True
+
+            for i, (agent_id, _) in enumerate(available_agents):
+                if agent_id in results:
+                    all_results.append(f"Agent {agent_id}: {results[agent_id]}")
+                elif agent_id in errors:
+                    all_results.append(f"Agent {agent_id} ERROR: {errors[agent_id]}")
+                    success = False
+                else:
+                    all_results.append(f"Agent {agent_id}: No result")
+                    success = False
+
+            message = f"Completed delegation of {len(action.tasks)} tasks"
+            if errors:
+                message += f" with {len(errors)} errors"
+
+            return DelegateObservation(
+                success=success,
+                results=all_results,
+                message=message,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to delegate tasks: {e}", exc_info=True)
+            return DelegateObservation(
+                success=False,
+                message=f"Failed to delegate tasks: {str(e)}",
+            )
+
+    def is_task_in_progress(self) -> bool:
+        """Check if any tasks are in progress.
+
+        Always False for blocking implementation.
+        """
+        return False
