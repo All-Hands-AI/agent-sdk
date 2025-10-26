@@ -9,7 +9,9 @@ from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+from openhands.sdk.llm.options.responses_options import select_responses_options
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
+from openhands.sdk.llm.utils.telemetry import Telemetry
 
 # Import common test utilities
 from tests.conftest import create_mock_litellm_response
@@ -506,11 +508,6 @@ def test_token_usage_context_window():
 
 def test_telemetry_cost_calculation_header_exception():
     """Test telemetry cost calculation handles header parsing exceptions."""
-    from unittest.mock import Mock, patch
-
-    from openhands.sdk.llm.utils.metrics import Metrics
-    from openhands.sdk.llm.utils.telemetry import Telemetry
-
     # Create a mock response with headers that will cause an exception
     mock_response = Mock()
     mock_response.headers = {"x-litellm-cost": "invalid-float"}
@@ -551,8 +548,6 @@ def test_gpt5_enable_encrypted_reasoning_default():
     assert llm.enable_encrypted_reasoning is False
 
     # Test that the normalization actually enables it
-    from openhands.sdk.llm.options.responses_options import select_responses_options
-
     normalized = select_responses_options(llm, {}, include=None, store=None)
     assert "include" in normalized
     assert "reasoning.encrypted_content" in normalized["include"]
