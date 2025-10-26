@@ -1,9 +1,9 @@
-Title: Workspace Secrets (Issue #909) – SDK-only implementation linking to BashTool
+Title: Workspace Secrets (Issue #909) – SDK-only implementation (singleton bucket) linking to BashTool
 
 Scope
-- Implement workspace-scoped, ephemeral secrets in SDK only (no server changes in this PR)
-- Link BashTool/BashExecutor to workspace secrets so it works without Agent._configure_bash_tools_env_provider
-- Keep Conversation.update_secrets working by writing into workspace secrets (and optionally the existing conversation-level manager for temporary compatibility)
+- Implement a single, process-wide, ephemeral secrets bucket (singleton) in the SDK (no server changes in this PR)
+- Wire BashTool/BashExecutor to use the singleton by default; eliminate Agent-level env wiring
+- Keep Conversation.update_secrets as a convenience wrapper that writes into the singleton
 
 Non-goals
 - No agent-server model changes in this PR
@@ -11,46 +11,55 @@ Non-goals
 - No encryption at rest
 
 Design Overview
-- WorkspaceSecrets: in-memory secret store bound to a workspace instance
-  - update_secrets(secrets: Mapping[str, SecretValue]) -> None
-  - get_env_vars_for_command(command: str) -> dict[str, str]
-    - Detect exact references to $KEY and ${KEY}
-    - For each referenced key, resolve value via SecretSource.get_value() or Static string
-    - Cache last exported values for masking
-  - mask_output(output: str) -> str
-    - Replace any of the exported values with <secret-hidden>
+- Global secrets facade (singleton): openhands.sdk.secrets
+  - A single in-memory bucket per sandbox process. All conversations in this sandbox share this bucket (there is only one user per sandbox).
+  - API:
+    - update(secrets: Mapping[str, SecretValue]) -> None
+    - env_for_command(command: str) -> dict[str, str]
+      - Detect $KEY and ${KEY} references
+      - Resolve values via SecretSource.get_value() or static strings (JIT)
+    - mask_output(text: str) -> str (mask any exported/seen values with <secret-hidden>)
+    - get_value(key: str) -> str | None (for tools that need direct access, not only env)
+    - list_names() -> set[str]
+    - clear() -> None (for tests)
+  - Thread/async safety: simple locking for updates/reads if needed
+
+- Underlying implementation
+  - Reuse WorkspaceSecrets internally to implement resolution and masking logic, but expose it as a singleton bucket (not bound per workspace instance).
+  - LLM is only informed of secret names; values are never exposed.
 
 - Integration points
-  - BaseWorkspace gets a PrivateAttr _secrets and a secrets property returning a WorkspaceSecrets instance
-  - BashExecutor: if env_provider/env_masker are not supplied, it queries conversation.workspace.secrets for JIT envs and masking
-  - LocalConversation.update_secrets writes into workspace.secrets; retain existing state.secrets_manager write for compatibility (to be removed later in #852)
+  - BaseWorkspace.secrets returns the singleton (for familiarity/convenience)
+  - BashExecutor defaults to use the singleton facade:
+    - env_provider = secrets.env_for_command
+    - env_masker = secrets.mask_output
+    - No Agent._configure_bash_tools_env_provider
+  - Conversation.update_secrets calls secrets.update(...)
 
 API Changes
-- New: openhands.sdk.workspace.secrets.WorkspaceSecrets (internal)
-- New: BaseWorkspace.secrets property (runtime only)
-- No changes to public Conversation API; update_secrets still exists
+- New: openhands.sdk.secrets facade (public)
+- Remove: ConversationState.secrets_manager (breaking change)
+- Remove: Agent._configure_bash_tools_env_provider (breaking change)
 
 Implementation Steps
-1) Create WorkspaceSecrets in openhands-sdk/openhands/sdk/workspace/secrets.py
-   - Types: reuse SecretValue, SecretSource, StaticSecret
-   - Implement update_secrets, get_env_vars_for_command (regex), mask_output, exported_values cache
-2) Add secrets PrivateAttr to BaseWorkspace and secrets property to access/create it
-3) Modify BashExecutor to accept optional conversation, and fallback to conversation.state.workspace.secrets when env_provider/env_masker are None
-   - Alternative: wire in via BashTool.create by setting env_provider/env_masker from conv_state.workspace.secrets
-   - Choose: wire in via BashTool.create for simplicity and testability
-4) Update BashTool.create to set env_provider and env_masker based on conv_state.workspace.secrets
-5) Update LocalConversation.update_secrets to also call workspace.secrets.update_secrets
+1) Add secrets facade module openhands-sdk/openhands/sdk/secrets.py
+   - Implement update, env_for_command, mask_output, get_value, list_names, clear
+   - Internally delegate to a single WorkspaceSecrets instance
+2) Refactor BashExecutor to default to the secrets facade (no per-tool/provider wiring necessary)
+3) Remove ConversationState.secrets_manager and Agent._configure_bash_tools_env_provider
+4) Update Conversation.update_secrets to call secrets.update
+5) Make BaseWorkspace.secrets return the singleton facade for convenience
 6) Tests
-   - New test: tests/tools/execute_bash/test_workspace_secrets.py
-     - Create LocalConversation with LocalWorkspace; call conversation.update_secrets with {"API_KEY": "secret"}; construct BashTool; run ExecuteBashAction printing $API_KEY; expect masked output and export behavior
-   - Keep existing tests intact (env_provider path still works)
+   - Update existing secrets-related tests to rely on the singleton
+   - Ensure masking and env injection work without Agent wiring
 
 Acceptance Criteria
-- BashTool masks and exports secrets when only workspace secrets are present (no Agent wiring)
-- Secrets are never written to disk (no changes in meta/state dumps)
-- update_secrets with both str and SecretSource supported
+- BashTool exports and masks secrets via the singleton without any Agent wiring
+- Secrets never written to disk
+- Both static strings and SecretSource (LookupSecret) supported
+- ConversationState.secrets_manager and Agent env wiring removed
 
 Follow-ups (not in this PR)
-- Issue #852: remove ConversationState.secrets_manager and Agent._configure_bash_tools_env_provider once all tools use workspace.secrets
-- Server changes to accept dict[str, str | SecretSource] and stop persisting secrets at rest (#900)
-- Improve secret detection to support Windows-style %KEY% if needed
+- (#900) Server API: accept dict[str, str | SecretSource] and keep secrets only in memory (per sandbox); only expose names to LLM
+- Optional: support Windows-style %KEY% detection
+- Optional: TTL/refresh policies for dynamic secrets; optional scoped-injection mode (unset after command)
