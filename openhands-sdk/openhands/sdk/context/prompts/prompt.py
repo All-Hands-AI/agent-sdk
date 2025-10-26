@@ -65,6 +65,9 @@ def render_template(prompt_dir: str, template_name: str, **ctx) -> str:
     """
     # If template_name is an absolute path, extract directory and filename
     if os.path.isabs(template_name):
+        # Check if the file exists before trying to load it
+        if not os.path.isfile(template_name):
+            raise FileNotFoundError(f"Prompt file {template_name} not found")
         actual_dir = os.path.dirname(template_name)
         actual_filename = os.path.basename(template_name)
         tpl = _get_template(actual_dir, actual_filename)
