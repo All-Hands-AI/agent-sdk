@@ -38,8 +38,8 @@ class SpawnAction(Action):
 class DelegateAction(Action):
     """Action for delegating tasks to sub-agents and waiting for results."""
 
-    tasks: list[str] = Field(
-        description="List of task descriptions to delegate to sub-agents"
+    tasks: dict[str, str] = Field(
+        description="Dictionary mapping sub-agent IDs to task descriptions"
     )
 
     @property
@@ -47,8 +47,8 @@ class DelegateAction(Action):
         """Return Rich Text representation of this action."""
         content = Text()
         content.append("Delegate Tasks:\n", style="bold blue")
-        for i, task in enumerate(self.tasks, 1):
-            content.append(f"Task {i}: {task}\n")
+        for agent_id, task in self.tasks.items():
+            content.append(f"Agent {agent_id}: {task}\n")
         return content
 
 
@@ -136,10 +136,14 @@ SPAWN_TOOL_DESCRIPTION = (
 )
 
 DELEGATE_TOOL_DESCRIPTION = (
-    "Delegate tasks to sub-agents and wait for results.\n"
+    "Delegate tasks to specific sub-agents and wait for results.\n"
     "\n"
-    "This tool sends tasks to sub-agents, runs them in parallel, "
+    "This tool sends tasks to specific sub-agents by ID, runs them in parallel, "
     "and waits for all to complete.\n"
+    "\n"
+    "**Usage:**\n"
+    "- Use a dictionary mapping sub-agent IDs to task descriptions\n"
+    "- Example: {'lodging': 'Find budget hotels', 'activities': 'List attractions'}\n"
     "\n"
     "**Important Notes:**\n"
     "- Sub-agents work in the same workspace as you, the main agent\n"

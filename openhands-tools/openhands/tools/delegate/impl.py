@@ -106,7 +106,9 @@ class DelegateExecutor(ToolExecutor):
                 logger.info(f"Spawned sub-agent with ID: {agent_id}")
 
             agent_list = ", ".join(spawned_ids)
-            message = f"Successfully spawned {len(spawned_ids)} sub-agents: {agent_list}"
+            message = (
+                f"Successfully spawned {len(spawned_ids)} sub-agents: {agent_list}"
+            )
             return SpawnObservation(
                 success=True,
                 spawned_ids=spawned_ids,
@@ -128,19 +130,18 @@ class DelegateExecutor(ToolExecutor):
                 message="At least one task is required for delegate action",
             )
 
-        if len(action.tasks) > len(self._sub_agents):
+        # Check that all requested agent IDs exist
+        missing_agents = set(action.tasks.keys()) - set(self._sub_agents.keys())
+        if missing_agents:
             return DelegateObservation(
                 success=False,
                 message=(
-                    f"Cannot delegate {len(action.tasks)} tasks to "
-                    f"{len(self._sub_agents)} sub-agents. Spawn more agents first."
+                    f"Sub-agents not found: {', '.join(missing_agents)}. "
+                    f"Available agents: {', '.join(self._sub_agents.keys())}"
                 ),
             )
 
         try:
-            # Get available sub-agents
-            available_agents = list(self._sub_agents.items())[: len(action.tasks)]
-
             # Create threads to run tasks in parallel
             threads = []
             results = {}
@@ -170,8 +171,8 @@ class DelegateExecutor(ToolExecutor):
                     logger.error(error_msg, exc_info=True)
 
             # Start all tasks in parallel
-            for i, (agent_id, conversation) in enumerate(available_agents):
-                task = action.tasks[i]
+            for agent_id, task in action.tasks.items():
+                conversation = self._sub_agents[agent_id]
                 thread = threading.Thread(
                     target=run_task,
                     args=(agent_id, conversation, task),
@@ -184,11 +185,11 @@ class DelegateExecutor(ToolExecutor):
             for thread in threads:
                 thread.join()
 
-            # Collect results
+            # Collect results in the same order as the input tasks
             all_results = []
             success = True
 
-            for i, (agent_id, _) in enumerate(available_agents):
+            for agent_id in action.tasks.keys():
                 if agent_id in results:
                     all_results.append(f"Agent {agent_id}: {results[agent_id]}")
                 elif agent_id in errors:
