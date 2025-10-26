@@ -73,9 +73,11 @@ class Agent(AgentBase):
             if tool.name == "execute_bash":
                 try:
                     executable_tool = tool.as_executable()
-                    # Wire the env provider and env masker for the bash executor
-                    setattr(executable_tool.executor, "env_provider", env_for_cmd)
-                    setattr(executable_tool.executor, "env_masker", env_masker)
+                    # Only wire if not already provided by the tool (e.g., workspace)
+                    if getattr(executable_tool.executor, "env_provider", None) is None:
+                        setattr(executable_tool.executor, "env_provider", env_for_cmd)
+                    if getattr(executable_tool.executor, "env_masker", None) is None:
+                        setattr(executable_tool.executor, "env_masker", env_masker)
                     execute_bash_exists = True
                 except NotImplementedError:
                     # Tool has no executor, skip it
