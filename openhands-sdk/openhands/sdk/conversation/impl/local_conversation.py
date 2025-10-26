@@ -338,17 +338,20 @@ class LocalConversation(BaseConversation):
                 logger.info("Agent execution pause requested")
 
     def update_secrets(self, secrets: Mapping[str, SecretValue]) -> None:
-        """Add secrets to the conversation.
+        """Add secrets to the conversation and workspace.
 
         Args:
-            secrets: Dictionary mapping secret keys to values or no-arg callables.
-                     SecretValue = str | Callable[[], str]. Callables are invoked lazily
-                     when a command references the secret key.
+            secrets: Dictionary mapping secret keys to values or SecretSource.
         """
 
-        secrets_manager = self._state.secrets_manager
-        secrets_manager.update_secrets(secrets)
-        logger.info(f"Added {len(secrets)} secrets to conversation")
+        # Backward-compat: still update conversation-level manager
+        self._state.secrets_manager.update_secrets(secrets)
+        # New: update workspace-scoped, ephemeral secrets
+        try:
+            self.workspace.secrets.update_secrets(secrets)
+        except Exception as e:
+            logger.warning(f"Failed to update workspace secrets: {e}")
+        logger.info(f"Added {len(secrets)} secrets to conversation/workspace")
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""

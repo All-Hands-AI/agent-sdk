@@ -2,11 +2,12 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.workspace.models import CommandResult, FileOperationResult
+from openhands.sdk.workspace.secrets import WorkspaceSecrets
 
 
 logger = get_logger(__name__)
@@ -25,6 +26,15 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
     working_dir: str = Field(
         description="The working directory for agent operations and tool execution."
     )
+
+    # Runtime-only secrets manager for this workspace (not persisted)
+    _secrets: WorkspaceSecrets | None = PrivateAttr(default=None)
+
+    @property
+    def secrets(self) -> WorkspaceSecrets:
+        if self._secrets is None:
+            self._secrets = WorkspaceSecrets()
+        return self._secrets
 
     def __enter__(self) -> "BaseWorkspace":
         """Enter the workspace context.
