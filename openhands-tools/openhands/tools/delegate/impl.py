@@ -76,7 +76,7 @@ class DelegateExecutor(ToolExecutor):
         """Spawn sub-agents with user-friendly identifiers.
 
         Args:
-            action: SpawnAction containing list of string identifiers 
+            action: SpawnAction containing list of string identifiers
                    (e.g., ['lodging', 'activities'])
 
         Returns:
@@ -103,7 +103,6 @@ class DelegateExecutor(ToolExecutor):
             visualize = getattr(parent_conversation, "visualize", True)
             workspace_path = parent_conversation.state.workspace.working_dir
 
-            spawned_ids = []
             for agent_id in action.ids:
                 # Create a sub-agent with the specified ID
                 worker_agent = get_default_agent(
@@ -116,20 +115,16 @@ class DelegateExecutor(ToolExecutor):
                     agent=worker_agent,
                     workspace=workspace_path,
                     visualize=visualize,
-                    conversation_id=agent_id,
                 )
 
                 self._sub_agents[agent_id] = sub_conversation
-                spawned_ids.append(agent_id)
                 logger.info(f"Spawned sub-agent with ID: {agent_id}")
 
-            agent_list = ", ".join(spawned_ids)
-            message = (
-                f"Successfully spawned {len(spawned_ids)} sub-agents: {agent_list}"
-            )
+            agent_list = ", ".join(action.ids)
+            message = f"Successfully spawned {len(action.ids)} sub-agents: {agent_list}"
             return SpawnObservation(
                 success=True,
-                spawned_ids=spawned_ids,
+                spawned_ids=action.ids,
                 message=message,
             )
 
@@ -141,7 +136,7 @@ class DelegateExecutor(ToolExecutor):
             )
 
     def _delegate_tasks(self, action: "DelegateAction") -> "DelegateObservation":
-        """Delegate tasks to sub-agents using user-friendly identifiers 
+        """Delegate tasks to sub-agents using user-friendly identifiers
         and wait for results (blocking).
 
         Args:
@@ -242,10 +237,3 @@ class DelegateExecutor(ToolExecutor):
                 success=False,
                 message=f"Failed to delegate tasks: {str(e)}",
             )
-
-    def is_task_in_progress(self) -> bool:
-        """Check if any tasks are in progress.
-
-        Always False for blocking implementation.
-        """
-        return False
