@@ -622,7 +622,9 @@ def test_unmapped_model_with_logging_enabled(mock_transport):
         mock_transport.return_value = mock_response
 
         # This should not raise a validation error
-        response = llm.completion(messages=[Message(role="user", content="test")])
+        response = llm.completion(
+            messages=[Message(role="user", content=[TextContent(text="test")])]
+        )
 
         assert response is not None
         assert isinstance(response, LLMResponse)
