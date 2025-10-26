@@ -26,10 +26,10 @@ def create_test_executor_and_parent():
     parent_conversation.id = uuid.uuid4()
     parent_conversation.agent.llm = llm
     parent_conversation.agent.cli_mode = True
-    parent_conversation.state.workspace = "/tmp"
+    parent_conversation.state.workspace.working_dir = "/tmp"
     parent_conversation.visualize = False
 
-    executor = DelegateExecutor(parent_conversation)
+    executor = DelegateExecutor()
 
     return executor, parent_conversation
 
@@ -44,62 +44,102 @@ def create_mock_conversation():
 
 def test_delegate_action_creation():
     """Test creating DelegateAction instances."""
-    delegate_action = DelegateAction(task="Analyze code quality")
-    assert delegate_action.task == "Analyze code quality"
+    # Test spawn action
+    spawn_action = DelegateAction(command="spawn", ids=["agent1", "agent2"])
+    assert spawn_action.command == "spawn"
+    assert spawn_action.ids == ["agent1", "agent2"]
+    assert spawn_action.tasks is None
+
+    # Test delegate action
+    delegate_action = DelegateAction(
+        command="delegate",
+        tasks={"agent1": "Analyze code quality", "agent2": "Write tests"},
+    )
+    assert delegate_action.command == "delegate"
+    assert delegate_action.tasks == {
+        "agent1": "Analyze code quality",
+        "agent2": "Write tests",
+    }
+    assert delegate_action.ids is None
 
 
 def test_delegate_observation_creation():
     """Test creating DelegateObservation instances."""
-    observation = DelegateObservation(
+    # Test spawn observation
+    spawn_observation = DelegateObservation(
+        command="spawn",
         success=True,
-        sub_conversation_id="sub-123",
-        message="Sub-agent created successfully",
+        message="Sub-agents created successfully",
     )
-    assert observation.sub_conversation_id == "sub-123"
-    assert observation.success is True
-    assert observation.message == "Sub-agent created successfully"
+    assert spawn_observation.command == "spawn"
+    assert spawn_observation.success is True
+    assert spawn_observation.message == "Sub-agents created successfully"
+    assert spawn_observation.results is None
+
+    # Test delegate observation
+    delegate_observation = DelegateObservation(
+        command="delegate",
+        success=True,
+        message="Tasks completed successfully",
+        results=["Result 1", "Result 2"],
+    )
+    assert delegate_observation.command == "delegate"
+    assert delegate_observation.success is True
+    assert delegate_observation.message == "Tasks completed successfully"
+    assert delegate_observation.results == ["Result 1", "Result 2"]
 
 
 def test_delegate_executor_delegate():
     """Test DelegateExecutor delegate operation."""
     executor, parent_conversation = create_test_executor_and_parent()
 
-    action = DelegateAction(task="Analyze code quality")
-    action = action.model_copy(update={"conversation_id": parent_conversation.id})
+    # First spawn some agents
+    spawn_action = DelegateAction(command="spawn", ids=["agent1", "agent2"])
+    spawn_observation = executor(spawn_action, parent_conversation)
+    assert spawn_observation.success is True
 
-    with patch.object(executor, "_delegate_task") as mock_delegate:
+    # Then delegate tasks to them
+    delegate_action = DelegateAction(
+        command="delegate",
+        tasks={"agent1": "Analyze code quality", "agent2": "Write tests"},
+    )
+
+    with patch.object(executor, "_delegate_tasks") as mock_delegate:
         mock_observation = DelegateObservation(
+            command="delegate",
             success=True,
-            message="Sub-agent created successfully",
-            sub_conversation_id="sub-123",
+            message="Tasks completed successfully",
+            results=[
+                "Agent agent1: Code analysis complete",
+                "Agent agent2: Tests written",
+            ],
         )
         mock_delegate.return_value = mock_observation
 
-        observation = executor(action, parent_conversation)
+        observation = executor(delegate_action, parent_conversation)
 
     assert isinstance(observation, DelegateObservation)
-    assert observation.sub_conversation_id is not None
+    assert observation.command == "delegate"
     assert observation.success is True
-    assert "Sub-agent" in observation.message and (
-        "created" in observation.message
-        or "running" in observation.message
-        or "asynchronously" in observation.message
-    )
+    assert observation.results is not None
+    assert len(observation.results) == 2
 
 
 def test_delegate_executor_missing_task():
-    """Test DelegateExecutor delegate with empty task string."""
+    """Test DelegateExecutor delegate with empty tasks dict."""
     executor, parent_conversation = create_test_executor_and_parent()
 
-    action = DelegateAction(task="")
+    # Test delegate action with no tasks
+    action = DelegateAction(command="delegate", tasks={})
 
     observation = executor(action, parent_conversation)
 
     assert isinstance(observation, DelegateObservation)
+    assert observation.command == "delegate"
     assert observation.success is False
     assert (
-        "Task is required" in observation.message
-        or "task" in observation.message.lower()
+        "task is required" in observation.message.lower()
+        or "at least one task" in observation.message.lower()
     )
 
 
@@ -110,7 +150,9 @@ def test_delegation_manager_init():
 
     manager._parent_conversation = mock_conv
 
-    assert not manager.is_task_in_progress()
-
+    # Test that we can access the parent conversation
     assert manager.parent_conversation == mock_conv
     assert str(manager.parent_conversation.id) == str(mock_conv.id)
+
+    # Test that sub-agents dict is empty initially
+    assert len(manager._sub_agents) == 0
