@@ -23,7 +23,7 @@ class SpawnAction(Action):
     """Action for spawning sub-agents with specific IDs."""
 
     ids: list[str] = Field(
-        description="List of IDs to initialize sub-conversations/agents with"
+        description="List of meaningful identifiers to initialize sub-agents with"
     )
 
     @property
@@ -39,7 +39,9 @@ class DelegateAction(Action):
     """Action for delegating tasks to sub-agents and waiting for results."""
 
     tasks: dict[str, str] = Field(
-        description="Dictionary mapping sub-agent IDs to task descriptions"
+        description=(
+            "Dictionary mapping meaningful sub-agent identifiers to task descriptions"
+        )
     )
 
     @property
