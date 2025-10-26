@@ -64,3 +64,8 @@ task_message = (
 )
 conversation.send_message(task_message)
 conversation.run()
+
+conversation.send_message(
+    "Ask the lodging sub-agent what it thinks about Covent Garden."
+)
+conversation.run()

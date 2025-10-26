@@ -174,7 +174,7 @@ class DelegateExecutor(ToolExecutor):
                     conversation.run()
 
                     # Extract the final response using agent_final_response
-                    final_response = conversation.agent_final_response
+                    final_response = conversation.agent_final_response()
                     if final_response:
                         results[agent_id] = final_response
                         logger.info(f"Sub-agent {agent_id} completed successfully")
