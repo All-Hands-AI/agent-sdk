@@ -73,7 +73,7 @@ class TestToolImmutability:
             ToolExecutor[ToolImmutabilityMockAction, ToolImmutabilityMockObservation]
         ):
             def __call__(
-                self, action: ToolImmutabilityMockAction
+                self, action: ToolImmutabilityMockAction, conversation=None
             ) -> ToolImmutabilityMockObservation:
                 return ToolImmutabilityMockObservation(result="new_result")
 

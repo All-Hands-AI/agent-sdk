@@ -32,7 +32,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     Agents are stateless and should be fully defined by their configuration.
     """
 
-    model_config: ConfigDict = ConfigDict(
+    model_config = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,
     )
