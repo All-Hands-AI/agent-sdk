@@ -227,6 +227,7 @@ class ApptainerWorkspace(RemoteWorkspace):
             raise RuntimeError("Unreachable: one of base_image or server_image is set")
 
         # Convert Docker image to SIF
+        assert self.cache_dir is not None, "cache_dir must be set in model_post_init"
         sif_name = docker_image.replace(":", "_").replace("/", "_") + ".sif"
         sif_path = os.path.join(self.cache_dir, sif_name)
 
