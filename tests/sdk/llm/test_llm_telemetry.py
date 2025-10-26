@@ -206,6 +206,21 @@ class TestTelemetryTokenUsage:
         assert token_usage.prompt_tokens == 0
         assert token_usage.completion_tokens == 0
 
+    def test_record_usage_with_none_context_window(self, basic_telemetry):
+        """Test token usage recording with None context_window.
+
+        This tests issue #905 where unmapped models have
+        max_input_tokens=None. The fix ensures that None values
+        are handled by converting them to 0 before reaching telemetry.
+        """
+        usage = Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+
+        # Simulate the case where context_window is None (unmapped model)
+        # This should raise a validation error at the telemetry level
+        # The fix is applied at the LLM level before calling _record_usage
+        with pytest.raises(ValidationError, match="Input should be a valid integer"):
+            basic_telemetry._record_usage(usage, "test-id", None)  # type: ignore[arg-type]
+
 
 class TestTelemetryCostCalculation:
     """Test cost calculation functionality."""

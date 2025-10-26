@@ -596,4 +596,49 @@ def test_gpt5_enable_encrypted_reasoning_default():
     assert "reasoning.encrypted_content" not in normalized_gpt4_store.get("include", [])
 
 
+@patch("openhands.sdk.llm.llm.LLM._transport_call")
+def test_unmapped_model_with_logging_enabled(mock_transport):
+    """Test that unmapped models with logging enabled don't cause validation errors.
+
+    This is an integration test for issue #905 where unmapped models
+    (those not in LiteLLM's model_prices_and_context_window.json)
+    have max_input_tokens=None, which causes validation errors when
+    logging is enabled because the context_window gets set to None.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create an LLM with an unmapped model and logging enabled
+        llm = LLM(
+            model="openai/UnmappedTestModel",
+            api_key=SecretStr("test-key"),
+            base_url="https://test.example.com/v1",
+            log_completions=True,
+            log_completions_folder=tmpdir,
+        )
+
+        # Verify max_input_tokens is None (unmapped model)
+        assert llm.max_input_tokens is None
+
+        # Mock the transport call
+        mock_response = create_mock_litellm_response(
+            "Test response", model="UnmappedTestModel"
+        )
+        mock_transport.return_value = mock_response
+
+        # This should not raise a validation error
+        response = llm.completion(messages=[Message(role="user", content="test")])
+
+        assert response is not None
+        assert isinstance(response, LLMResponse)
+
+        # Verify token usage was recorded correctly with context_window=0
+        metrics = llm.metrics.get()
+        assert len(metrics["token_usages"]) == 1
+        token_usage = metrics["token_usages"][0]
+        assert isinstance(token_usage["context_window"], int)
+        # Should default to 0 when max_input_tokens is None
+        assert token_usage["context_window"] == 0
+
+
 # LLM Registry Tests
