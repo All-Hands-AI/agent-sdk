@@ -4,7 +4,6 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
-from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
@@ -41,21 +40,6 @@ class DelegateAction(Action):
         ),
     )
 
-    @property
-    def visualize(self) -> Text:
-        """Return Rich Text representation of this action."""
-        content = Text()
-        if self.command == "spawn":
-            content.append("Spawn Sub-agents:\n", style="bold green")
-            if self.ids:
-                content.append(f"IDs: {', '.join(self.ids)}")
-        elif self.command == "delegate":
-            content.append("Delegate Tasks:\n", style="bold blue")
-            if self.tasks:
-                for agent_id, task in self.tasks.items():
-                    content.append(f"Agent {agent_id}: {task}\n")
-        return content
-
 
 class DelegateObservation(Observation):
     """Observation from delegation operations."""
@@ -73,40 +57,16 @@ class DelegateObservation(Observation):
     )
 
     @property
-    def visualize(self) -> Text:
-        """Return Rich Text representation of this observation."""
-        content = Text()
-        status = "✅" if self.success else "❌"
-
-        if self.command == "spawn":
-            content.append(f"{status} Spawn: ", style="bold")
-            content.append(self.message)
-        elif self.command == "delegate":
-            content.append(f"{status} Delegate: ", style="bold")
-            content.append(self.message)
-            if self.results:
-                content.append("\n\nResults:\n", style="bold")
-                for i, result in enumerate(self.results, 1):
-                    content.append(f"{i}. {result}\n")
-        return content
-
-    def to_text(self) -> str:
-        """Convert observation to plain text."""
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        """Get the observation content to show to the agent."""
         if self.command == "delegate" and self.results:
             results_text = "\n".join(
                 f"{i}. {result}" for i, result in enumerate(self.results, 1)
             )
-            return f"{self.message}\n\nResults:\n{results_text}"
-        return self.message
-
-    def to_rich_text(self) -> Text:
-        """Convert observation to rich text representation."""
-        return Text(self.to_text())
-
-    @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        """Get the observation content to show to the agent."""
-        return [TextContent(text=self.to_text())]
+            text = f"{self.message}\n\nResults:\n{results_text}"
+        else:
+            text = self.message
+        return [TextContent(text=text)]
 
 
 TOOL_DESCRIPTION = (
