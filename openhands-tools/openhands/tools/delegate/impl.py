@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolExecutor
-from openhands.tools.delegate.definition import DelegateObservation, SpawnObservation
+from openhands.tools.delegate.definition import DelegateObservation
 from openhands.tools.preset.default import get_default_agent
 
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.base import BaseConversation
-    from openhands.tools.delegate.definition import DelegateAction, SpawnAction
+    from openhands.tools.delegate.definition import DelegateAction
 
 logger = get_logger(__name__)
 
@@ -51,8 +51,8 @@ class DelegateExecutor(ToolExecutor):
         return self._parent_conversation
 
     def __call__(
-        self, action: "SpawnAction | DelegateAction", conversation: "BaseConversation"
-    ) -> "SpawnObservation | DelegateObservation":
+        self, action: "DelegateAction", conversation: "BaseConversation"
+    ) -> "DelegateObservation":
         """Execute a spawn or delegate action."""
         # Set parent conversation once on first call
         if self._parent_conversation is None and conversation is not None:
@@ -61,35 +61,34 @@ class DelegateExecutor(ToolExecutor):
                 f"Set parent conversation {conversation.id} on DelegateExecutor"
             )
 
-        # Route to appropriate handler based on action type
-        # Import here to avoid circular imports
-        from openhands.tools.delegate.definition import DelegateAction, SpawnAction
-
-        if isinstance(action, SpawnAction):
+        # Route to appropriate handler based on command
+        if action.command == "spawn":
             return self._spawn_agents(action)
-        elif isinstance(action, DelegateAction):
+        elif action.command == "delegate":
             return self._delegate_tasks(action)
         else:
-            raise ValueError(f"Unsupported action type: {type(action)}")
+            raise ValueError(f"Unsupported command: {action.command}")
 
-    def _spawn_agents(self, action: "SpawnAction") -> "SpawnObservation":
+    def _spawn_agents(self, action: "DelegateAction") -> "DelegateObservation":
         """Spawn sub-agents with user-friendly identifiers.
 
         Args:
-            action: SpawnAction containing list of string identifiers
-                   (e.g., ['lodging', 'activities'])
+            action: DelegateAction with command="spawn" containing list of string
+                   identifiers (e.g., ['lodging', 'activities'])
 
         Returns:
-            SpawnObservation indicating success/failure and which agents were spawned
+            DelegateObservation indicating success/failure and which agents were spawned
         """
         if not action.ids:
-            return SpawnObservation(
+            return DelegateObservation(
+                command="spawn",
                 success=False,
                 message="At least one ID is required for spawn action",
             )
 
         if len(action.ids) > self._max_children:
-            return SpawnObservation(
+            return DelegateObservation(
+                command="spawn",
                 success=False,
                 message=(
                     f"Cannot spawn {len(action.ids)} agents, "
@@ -122,7 +121,8 @@ class DelegateExecutor(ToolExecutor):
 
             agent_list = ", ".join(action.ids)
             message = f"Successfully spawned {len(action.ids)} sub-agents: {agent_list}"
-            return SpawnObservation(
+            return DelegateObservation(
+                command="spawn",
                 success=True,
                 spawned_ids=action.ids,
                 message=message,
@@ -130,7 +130,8 @@ class DelegateExecutor(ToolExecutor):
 
         except Exception as e:
             logger.error(f"Failed to spawn agents: {e}", exc_info=True)
-            return SpawnObservation(
+            return DelegateObservation(
+                command="spawn",
                 success=False,
                 message=f"Failed to spawn agents: {str(e)}",
             )
@@ -148,6 +149,7 @@ class DelegateExecutor(ToolExecutor):
         """
         if not action.tasks:
             return DelegateObservation(
+                command="delegate",
                 success=False,
                 message="At least one task is required for delegate action",
             )
@@ -156,6 +158,7 @@ class DelegateExecutor(ToolExecutor):
         missing_agents = set(action.tasks.keys()) - set(self._sub_agents.keys())
         if missing_agents:
             return DelegateObservation(
+                command="delegate",
                 success=False,
                 message=(
                     f"Sub-agents not found: {', '.join(missing_agents)}. "
@@ -226,6 +229,7 @@ class DelegateExecutor(ToolExecutor):
                 message += f" with {len(errors)} errors"
 
             return DelegateObservation(
+                command="delegate",
                 success=success,
                 results=all_results,
                 message=message,
@@ -234,6 +238,7 @@ class DelegateExecutor(ToolExecutor):
         except Exception as e:
             logger.error(f"Failed to delegate tasks: {e}", exc_info=True)
             return DelegateObservation(
+                command="delegate",
                 success=False,
                 message=f"Failed to delegate tasks: {str(e)}",
             )
