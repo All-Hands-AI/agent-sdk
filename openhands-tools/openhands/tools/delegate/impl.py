@@ -17,15 +17,11 @@ logger = get_logger(__name__)
 
 
 class DelegateExecutor(ToolExecutor):
-    """Simplified executor for delegation operations.
+    """Executor for delegation operations.
 
     This class handles:
-    - Spawning sub-agents with meaningful string identifiers (e.g., 'lodging')
+    - Spawning sub-agents with meaningful string identifiers (e.g., 'refactor_module')
     - Delegating tasks to sub-agents and waiting for results (blocking)
-    - Managing the mapping between user-friendly identifiers and internal conversations
-
-    The main agent works with interpretable string identifiers, while this executor
-    handles the internal conversation management and UUID mapping.
     """
 
     def __init__(self, max_children: int = 5):
@@ -33,7 +29,6 @@ class DelegateExecutor(ToolExecutor):
         # Map from user-friendly identifier to conversation
         self._sub_agents: dict[str, LocalConversation] = {}
         self._max_children: int = max_children
-        logger.debug("Initialized DelegateExecutor")
 
     @property
     def parent_conversation(self) -> LocalConversation:
