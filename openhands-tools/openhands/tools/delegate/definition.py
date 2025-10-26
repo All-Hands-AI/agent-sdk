@@ -69,31 +69,26 @@ class DelegateObservation(Observation):
         return [TextContent(text=text)]
 
 
-TOOL_DESCRIPTION = (
-    "Delegation tool for spawning sub-agents and delegating tasks to them.\n"
-    "\n"
-    "This tool provides two commands:\n"
-    "\n"
-    "**spawn**: Initialize sub-agents with meaningful identifiers\n"
-    "- Use descriptive identifiers that make sense for your use case "
-    "(e.g., 'refactoring', 'run_tests', 'research')\n"
-    "- Each identifier creates a separate sub-agent conversation\n"
-    '- Example: `{"command": "spawn", "ids": ["research", "implementation", '
-    '"testing"]}`\n'
-    "\n"
-    "**delegate**: Send tasks to specific sub-agents and wait for results\n"
-    "- Use a dictionary mapping sub-agent identifiers to task descriptions\n"
-    "- This is a blocking operation - waits for all sub-agents to complete\n"
-    "- Returns a single observation containing results from all sub-agents\n"
-    '- Example: `{"command": "delegate", "tasks": {"research": '
-    '"Find best practices for async code", "implementation": '
-    '"Refactor the MyClass class"}}`\n'
-    "\n"
-    "**Important Notes:**\n"
-    "- Sub-agents work in the same workspace as the main agent\n"
-    "- Identifiers used in delegate must match those used in spawn\n"
-    "- All operations are blocking and return comprehensive results\n"
-)
+TOOL_DESCRIPTION = """Delegation tool for spawning sub-agents and delegating tasks to them.
+
+This tool provides two commands:
+
+**spawn**: Initialize sub-agents with meaningful identifiers
+- Use descriptive identifiers that make sense for your use case (e.g., 'refactoring', 'run_tests', 'research')
+- Each identifier creates a separate sub-agent conversation
+- Example: `{{"command": "spawn", "ids": ["research", "implementation", "testing"]}}`
+
+**delegate**: Send tasks to specific sub-agents and wait for results
+- Use a dictionary mapping sub-agent identifiers to task descriptions
+- This is a blocking operation - waits for all sub-agents to complete
+- Returns a single observation containing results from all sub-agents
+- Example: `{{"command": "delegate", "tasks": {{"research": "Find best practices for async code", "implementation": "Refactor the MyClass class"}}}}`
+
+**Important Notes:**
+- Identifiers used in delegate must match those used in spawn
+- All operations are blocking and return comprehensive results
+- Sub-agents work in the same workspace as the main agent: {workspace_path}
+"""  # noqa
 
 delegate_tool = ToolDefinition(
     name="delegate",
@@ -116,13 +111,13 @@ class DelegateTool(ToolDefinition[DelegateAction, DelegateObservation]):
     @classmethod
     def create(
         cls,
-        conv_state: "ConversationState",  # noqa: ARG003
+        conv_state: "ConversationState",
         max_children: int = 5,
     ) -> Sequence["DelegateTool"]:
         """Initialize DelegateTool with a DelegateExecutor.
 
         Args:
-            conv_state: Conversation state (not used, but required by tool registry)
+            conv_state: Conversation state (used to get workspace location)
             max_children: Maximum number of concurrent sub-agents (default: 5)
 
         Returns:
@@ -130,6 +125,11 @@ class DelegateTool(ToolDefinition[DelegateAction, DelegateObservation]):
         """
         # Import here to avoid circular imports
         from openhands.tools.delegate.impl import DelegateExecutor
+
+        # Create dynamic description with workspace info
+        tool_description = TOOL_DESCRIPTION.format(
+            workspace_path=conv_state.workspace.working_dir
+        )
 
         # Initialize the executor without parent conversation
         # (will be set on first call)
@@ -139,7 +139,7 @@ class DelegateTool(ToolDefinition[DelegateAction, DelegateObservation]):
         return [
             cls(
                 name=delegate_tool.name,
-                description=TOOL_DESCRIPTION,
+                description=tool_description,
                 action_type=DelegateAction,
                 observation_type=DelegateObservation,
                 annotations=delegate_tool.annotations,
