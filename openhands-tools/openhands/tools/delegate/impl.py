@@ -11,7 +11,6 @@ from openhands.tools.preset.default import get_default_agent
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
     from openhands.tools.delegate.definition import DelegateAction
 
 logger = get_logger(__name__)
@@ -30,14 +29,14 @@ class DelegateExecutor(ToolExecutor):
     """
 
     def __init__(self, max_children: int = 5):
-        self._parent_conversation: BaseConversation | None = None
+        self._parent_conversation: LocalConversation | None = None
         # Map from user-friendly identifier to conversation
         self._sub_agents: dict[str, LocalConversation] = {}
         self._max_children: int = max_children
         logger.debug("Initialized DelegateExecutor")
 
     @property
-    def parent_conversation(self) -> "BaseConversation":
+    def parent_conversation(self) -> LocalConversation:
         """Get the parent conversation.
 
         Raises:
@@ -50,16 +49,12 @@ class DelegateExecutor(ToolExecutor):
             )
         return self._parent_conversation
 
-    def __call__(
-        self, action: "DelegateAction", conversation: "BaseConversation"
-    ) -> "DelegateObservation":
+    def __call__(  # type: ignore[override]
+        self, action: "DelegateAction", conversation: LocalConversation
+    ) -> DelegateObservation:
         """Execute a spawn or delegate action."""
-        # Set parent conversation once on first call
-        if self._parent_conversation is None and conversation is not None:
+        if self._parent_conversation is None:
             self._parent_conversation = conversation
-            logger.debug(
-                f"Set parent conversation {conversation.id} on DelegateExecutor"
-            )
 
         # Route to appropriate handler based on command
         if action.command == "spawn":
@@ -67,9 +62,13 @@ class DelegateExecutor(ToolExecutor):
         elif action.command == "delegate":
             return self._delegate_tasks(action)
         else:
-            raise ValueError(f"Unsupported command: {action.command}")
+            return DelegateObservation(
+                command=action.command,
+                success=False,
+                message=f"Unsupported command: {action.command}",
+            )
 
-    def _spawn_agents(self, action: "DelegateAction") -> "DelegateObservation":
+    def _spawn_agents(self, action: "DelegateAction") -> DelegateObservation:
         """Spawn sub-agents with user-friendly identifiers.
 
         Args:
