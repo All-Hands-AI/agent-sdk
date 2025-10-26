@@ -36,6 +36,7 @@ from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
 from openhands.sdk.tool import (
     Action,
     Observation,
+    Tool,
     ToolDefinition,
     ToolExecutor,
     register_tool,
@@ -151,7 +152,7 @@ def test_agent_status_is_running_during_execution_from_idle(mock_completion):
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")
     agent = Agent(
         llm=llm,
-        tools=[{"name": "test_tool"}],
+        tools=[Tool(name="test_tool")],
     )
     conversation = Conversation(agent=agent)
 
@@ -216,7 +217,7 @@ def test_agent_status_is_running_during_execution_from_idle(mock_completion):
     # Run in a separate thread so we can check status during execution
     status_checked = threading.Event()
     run_complete = threading.Event()
-    status_during_run = [None]
+    status_during_run: list[AgentExecutionStatus | None] = [None]
 
     def run_agent():
         conversation.run()
@@ -304,7 +305,7 @@ def test_agent_status_transitions_from_waiting_for_confirmation(mock_completion)
 
     register_tool("test_tool", _make_tool)
 
-    agent = Agent(llm=llm, tools=[{"name": "test_tool"}])
+    agent = Agent(llm=llm, tools=[Tool(name="test_tool")])
     conversation = Conversation(agent=agent)
     conversation.set_confirmation_policy(AlwaysConfirm())
 

@@ -24,6 +24,7 @@ from openhands.sdk.tool import (
     ToolExecutor,
 )
 from openhands.sdk.tool.schema import Schema
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 logger = get_logger(__name__)
@@ -178,7 +179,10 @@ class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
         mcp_action_type = _create_mcp_action_type(self.mcp_tool)
         validated = mcp_action_type.model_validate(prefiltered_args)
         # Use exclude_none to avoid injecting nulls back to the call
-        sanitized = validated.model_dump(exclude_none=True)
+        # Exclude DiscriminatedUnionMixin fields (e.g., 'kind') as they're
+        # internal to OpenHands and not part of the MCP tool schema
+        exclude_fields = set(DiscriminatedUnionMixin.model_fields.keys())
+        sanitized = validated.model_dump(exclude_none=True, exclude=exclude_fields)
         return MCPToolAction(data=sanitized)
 
     @classmethod
