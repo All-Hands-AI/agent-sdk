@@ -14,7 +14,7 @@ from cryptography.fernet import Fernet
 from pydantic import SecretStr
 
 
-@dataclass
+@dataclass(frozen=True)
 class Cipher:
     """
     Simple encryption utility for preventing accidental secret disclosure.
@@ -65,5 +65,5 @@ class Cipher:
             # Hash the key to make sure we have a 256 bit value
             fernet_key = b64encode(hashlib.sha256(secret_key).digest())
             fernet = Fernet(fernet_key)
-            self._fernet = fernet
+            object.__setattr__(self, "_fernet", fernet)
         return fernet
