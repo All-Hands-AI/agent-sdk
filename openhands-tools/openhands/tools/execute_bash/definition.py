@@ -272,16 +272,18 @@ class BashTool(ToolDefinition[ExecuteBashAction, ExecuteBashObservation]):
         if not os.path.isdir(working_dir):
             raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
 
-        # If not provided, derive providers from workspace.secrets
+        # If not provided, default to global secrets facade
         if env_provider is None:
+            from openhands.sdk import secrets as global_secrets
 
             def env_provider(cmd: str) -> dict[str, str]:
-                return conv_state.workspace.secrets.get_env_vars_for_command(cmd)
+                return global_secrets.env_for_command(cmd)
 
         if env_masker is None:
+            from openhands.sdk import secrets as global_secrets
 
             def env_masker(s: str) -> str:
-                return conv_state.workspace.secrets.mask_output(s)
+                return global_secrets.mask_output(s)
 
         # Initialize the executor
         executor = BashExecutor(

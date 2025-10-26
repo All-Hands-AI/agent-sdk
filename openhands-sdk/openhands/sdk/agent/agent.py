@@ -48,44 +48,6 @@ class Agent(AgentBase):
     def _add_security_risk_prediction(self) -> bool:
         return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
 
-    def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
-        """
-        Configure bash tool with reference to secrets manager.
-        Updated secrets automatically propagate.
-        """
-
-        secrets_manager = state.secrets_manager
-
-        def env_for_cmd(cmd: str) -> dict[str, str]:
-            try:
-                return secrets_manager.get_secrets_as_env_vars(cmd)
-            except Exception:
-                return {}
-
-        def env_masker(output: str) -> str:
-            try:
-                return secrets_manager.mask_secrets_in_output(output)
-            except Exception:
-                return ""
-
-        execute_bash_exists = False
-        for tool in self.tools_map.values():
-            if tool.name == "execute_bash":
-                try:
-                    executable_tool = tool.as_executable()
-                    # Only wire if not already provided by the tool (e.g., workspace)
-                    if getattr(executable_tool.executor, "env_provider", None) is None:
-                        setattr(executable_tool.executor, "env_provider", env_for_cmd)
-                    if getattr(executable_tool.executor, "env_masker", None) is None:
-                        setattr(executable_tool.executor, "env_masker", env_masker)
-                    execute_bash_exists = True
-                except NotImplementedError:
-                    # Tool has no executor, skip it
-                    continue
-
-        if not execute_bash_exists:
-            logger.warning("Skipped wiring SecretsManager: missing bash tool")
-
     def init_state(
         self,
         state: ConversationState,
@@ -107,8 +69,7 @@ class Agent(AgentBase):
                 "policy is set to NeverConfirm"
             )
 
-        # Configure bash tools with env provider
-        self._configure_bash_tools_env_provider(state)
+        # Secrets provided to Bash via global facade defaults
 
         llm_convertible_messages = [
             event for event in state.events if isinstance(event, LLMConvertibleEvent)

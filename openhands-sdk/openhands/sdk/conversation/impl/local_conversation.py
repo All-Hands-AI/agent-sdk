@@ -344,14 +344,14 @@ class LocalConversation(BaseConversation):
             secrets: Dictionary mapping secret keys to values or SecretSource.
         """
 
-        # Backward-compat: still update conversation-level manager
-        self._state.secrets_manager.update_secrets(secrets)
-        # New: update workspace-scoped, ephemeral secrets
+        # Update the process-wide secrets facade only
+        from openhands.sdk import secrets as global_secrets
+
         try:
-            self.workspace.secrets.update_secrets(secrets)
+            global_secrets.update(secrets)
         except Exception as e:
-            logger.warning(f"Failed to update workspace secrets: {e}")
-        logger.info(f"Added {len(secrets)} secrets to conversation/workspace")
+            logger.warning(f"Failed to update secrets: {e}")
+        logger.info(f"Added {len(secrets)} secrets to global store")
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""

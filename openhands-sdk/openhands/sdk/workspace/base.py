@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import Field, PrivateAttr
 
+from openhands.sdk import secrets as global_secrets
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.workspace.models import CommandResult, FileOperationResult
@@ -32,9 +33,9 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
 
     @property
     def secrets(self) -> WorkspaceSecrets:
-        if self._secrets is None:
-            self._secrets = WorkspaceSecrets()
-        return self._secrets
+        # Return the process-wide singleton store via facade
+        # Keep attribute for backward compatibility but unused here
+        return global_secrets.get_store()
 
     def __enter__(self) -> "BaseWorkspace":
         """Enter the workspace context.

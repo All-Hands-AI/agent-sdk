@@ -20,6 +20,9 @@ class WorkspaceSecrets:
     - update_secrets: register/overwrite secrets by name
     - get_env_vars_for_command: detect $KEY or ${KEY} usage and resolve values
     - mask_output: replace exported values with <secret-hidden>
+    - get_value: resolve a single key and track it for masking
+    - names: return all known secret names
+    - clear: remove all stored secrets and exported values
     """
 
     def __init__(self) -> None:
@@ -41,17 +44,30 @@ class WorkspaceSecrets:
             return {}
         env: dict[str, str] = {}
         for key in keys:
-            src = self._sources.get(key)
-            if not src:
-                continue
-            try:
-                val = src.get_value()
-                if val:
-                    env[key] = val
-                    self._exported_values[key] = val
-            except Exception as e:  # pragma: no cover - defensive
-                logger.error(f"Failed to resolve secret '{key}': {e}")
+            val = self.get_value(key)
+            if val:
+                env[key] = val
         return env
+
+    def get_value(self, key: str) -> str | None:
+        src = self._sources.get(key)
+        if not src:
+            return None
+        try:
+            val = src.get_value()
+            if val:
+                self._exported_values[key] = val
+            return val
+        except Exception as e:  # pragma: no cover - defensive
+            logger.error(f"Failed to resolve secret '{key}': {e}")
+            return None
+
+    def names(self) -> set[str]:
+        return set(self._sources.keys())
+
+    def clear(self) -> None:
+        self._sources.clear()
+        self._exported_values.clear()
 
     def mask_output(self, text: str) -> str:
         if not text:
