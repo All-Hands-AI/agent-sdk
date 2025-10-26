@@ -7,11 +7,11 @@ from openhands.sdk.context.prompts import render_template
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLMBase, Message, TextContent
 
 
 class LLMSummarizingCondenser(RollingCondenser):
-    llm: LLM
+    llm: LLMBase
     max_size: int = Field(default=120, gt=0)
     keep_first: int = Field(default=4, ge=0)
 

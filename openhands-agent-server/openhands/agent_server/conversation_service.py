@@ -20,7 +20,7 @@ from openhands.agent_server.models import (
 from openhands.agent_server.pub_sub import Subscriber
 from openhands.agent_server.server_details_router import update_last_execution_time
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import LLM, Event, Message
+from openhands.sdk import Event, LLMBase, Message
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 
 
@@ -276,7 +276,7 @@ class ConversationService:
         return self._event_services.get(conversation_id)
 
     async def generate_conversation_title(
-        self, conversation_id: UUID, max_length: int = 50, llm: LLM | None = None
+        self, conversation_id: UUID, max_length: int = 50, llm: LLMBase | None = None
     ) -> str | None:
         """Generate a title for the conversation using LLM."""
         if self._event_services is None:

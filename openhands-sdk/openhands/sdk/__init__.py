@@ -19,6 +19,7 @@ from openhands.sdk.io import FileStore, LocalFileStore
 from openhands.sdk.llm import (
     LLM,
     ImageContent,
+    LLMBase,
     LLMRegistry,
     Message,
     RedactedThinkingBlock,
@@ -56,6 +57,7 @@ except PackageNotFoundError:
     __version__ = "0.0.0"  # fallback for editable/unbuilt environments
 
 __all__ = [
+    "LLMBase",
     "LLM",
     "LLMRegistry",
     "ConversationStats",

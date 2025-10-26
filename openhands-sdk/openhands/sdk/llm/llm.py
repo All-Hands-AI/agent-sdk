@@ -4,6 +4,7 @@ import copy
 import json
 import os
 import warnings
+from abc import abstractmethod
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, get_args, get_origin
@@ -26,6 +27,7 @@ from pydantic.json_schema import SkipJsonSchema
 if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
     from openhands.sdk.tool.tool import ToolBase
 
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
@@ -79,7 +81,7 @@ from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 logger = get_logger(__name__)
 
-__all__ = ["LLM"]
+__all__ = ["LLM", "LLMBase"]
 
 
 # Exceptions we retry on
@@ -98,7 +100,7 @@ SERVICE_ID_DEPRECATION_MSG = (
 )
 
 
-class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
+class LLMBase(DiscriminatedUnionMixin, RetryMixin, NonNativeToolCallingMixin):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
 
     # =========================================================================
@@ -420,6 +422,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Only used by ConversationStats to seed metrics
         self._metrics = metrics
 
+    @abstractmethod
     def completion(
         self,
         messages: list[Message],
@@ -432,111 +435,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         Normalize → (maybe) mock tools → transport → postprocess.
         """
-        # Check if streaming is requested
-        if kwargs.get("stream", False):
-            raise ValueError("Streaming is not supported")
-
-        # 1) serialize messages
-        formatted_messages = self.format_messages_for_llm(messages)
-
-        # 2) choose function-calling strategy
-        use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(formatted_messages)
-
-        # Convert Tool objects to ChatCompletionToolParam once here
-        cc_tools: list[ChatCompletionToolParam] = []
-        if tools:
-            cc_tools = [
-                t.to_openai_tool(
-                    add_security_risk_prediction=add_security_risk_prediction
-                )
-                for t in tools
-            ]
-
-        use_mock_tools = self.should_mock_tool_calls(cc_tools)
-        if use_mock_tools:
-            logger.debug(
-                "LLM.completion: mocking function-calling via prompt "
-                f"for model {self.model}"
-            )
-            formatted_messages, kwargs = self.pre_request_prompt_mock(
-                formatted_messages, cc_tools or [], kwargs
-            )
-
-        # 3) normalize provider params
-        # Only pass tools when native FC is active
-        kwargs["tools"] = cc_tools if (bool(cc_tools) and use_native_fc) else None
-        has_tools_flag = bool(cc_tools) and use_native_fc
-        # Behavior-preserving: delegate to select_chat_options
-        call_kwargs = select_chat_options(self, kwargs, has_tools=has_tools_flag)
-
-        # 4) optional request logging context (kept small)
-        assert self._telemetry is not None
-        log_ctx = None
-        if self._telemetry.log_enabled:
-            log_ctx = {
-                "messages": formatted_messages[:],  # already simple dicts
-                "tools": tools,
-                "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
-            }
-            if tools and not use_native_fc:
-                log_ctx["raw_messages"] = original_fncall_msgs
-        self._telemetry.on_request(log_ctx=log_ctx)
-
-        # 5) do the call with retries
-        @self.retry_decorator(
-            num_retries=self.num_retries,
-            retry_exceptions=LLM_RETRY_EXCEPTIONS,
-            retry_min_wait=self.retry_min_wait,
-            retry_max_wait=self.retry_max_wait,
-            retry_multiplier=self.retry_multiplier,
-            retry_listener=self.retry_listener,
-        )
-        def _one_attempt(**retry_kwargs) -> ModelResponse:
-            assert self._telemetry is not None
-            # Merge retry-modified kwargs (like temperature) with call_kwargs
-            final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=formatted_messages, **final_kwargs)
-            raw_resp: ModelResponse | None = None
-            if use_mock_tools:
-                raw_resp = copy.deepcopy(resp)
-                resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=formatted_messages, tools=cc_tools
-                )
-            # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
-
-            # Ensure at least one choice
-            if not resp.get("choices") or len(resp["choices"]) < 1:
-                raise LLMNoResponseError(
-                    "Response choices is less than 1. Response: " + str(resp)
-                )
-
-            return resp
-
-        try:
-            resp = _one_attempt()
-
-            # Convert the first choice to an OpenHands Message
-            first_choice = resp["choices"][0]
-            message = Message.from_llm_chat_message(first_choice["message"])
-
-            # Get current metrics snapshot
-            metrics_snapshot = MetricsSnapshot(
-                model_name=self.metrics.model_name,
-                accumulated_cost=self.metrics.accumulated_cost,
-                max_budget_per_task=self.metrics.max_budget_per_task,
-                accumulated_token_usage=self.metrics.accumulated_token_usage,
-            )
-
-            # Create and return LLMResponse
-            return LLMResponse(
-                message=message, metrics=metrics_snapshot, raw_response=resp
-            )
-        except Exception as e:
-            self._telemetry.on_error(e)
-            raise
+        pass
 
     # =========================================================================
     # Responses API (non-stream, v1)
@@ -886,6 +785,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
             message.function_calling_enabled = self.is_function_calling_active()
+            message.extended_thinking_enabled = get_features(
+                self.model
+            ).supports_extended_thinking
             if "deepseek" in self.model or (
                 "kimi-k2-instruct" in self.model and "groq" in self.model
             ):
@@ -958,13 +860,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Serialization helpers
     # =========================================================================
     @classmethod
-    def load_from_json(cls, json_path: str) -> LLM:
+    def load_from_json(cls, json_path: str) -> LLMBase:
         with open(json_path) as f:
             data = json.load(f)
         return cls(**data)
 
     @classmethod
-    def load_from_env(cls, prefix: str = "LLM_") -> LLM:
+    def load_from_env(cls, prefix: str = "LLM_") -> LLMBase:
         TRUTHY = {"true", "1", "yes", "on"}
 
         def _unwrap_type(t: Any) -> Any:
@@ -1018,7 +920,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 data[field_name] = v
         return cls(**data)
 
-    def resolve_diff_from_deserialized(self, persisted: LLM) -> LLM:
+    @abstractmethod
+    def resolve_diff_from_deserialized(self, persisted: LLMBase) -> LLMBase:
         """Resolve differences between a deserialized LLM and the current instance.
 
         This is due to fields like api_key being serialized to "****" in dumps,
@@ -1028,31 +931,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Return a new LLM instance equivalent to `persisted` but with
         explicitly whitelisted fields (e.g. api_key) taken from `self`.
         """
-        if persisted.__class__ is not self.__class__:
-            raise ValueError(
-                f"Cannot resolve_diff_from_deserialized between {self.__class__} "
-                f"and {persisted.__class__}"
-            )
-
-        # Copy allowed fields from runtime llm into the persisted llm
-        llm_updates = {}
-        persisted_dump = persisted.model_dump(exclude_none=True)
-        for field in self.OVERRIDE_ON_SERIALIZE:
-            if field in persisted_dump.keys():
-                llm_updates[field] = getattr(self, field)
-        if llm_updates:
-            reconciled = persisted.model_copy(update=llm_updates)
-        else:
-            reconciled = persisted
-
-        if self.model_dump(exclude_none=True) != reconciled.model_dump(
-            exclude_none=True
-        ):
-            raise ValueError(
-                "The LLM provided is different from the one in persisted state.\n"
-                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
-            )
-        return reconciled
+        pass
 
     @staticmethod
     def is_context_window_exceeded_exception(exception: Exception) -> bool:
@@ -1101,3 +980,146 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # window exceeded error, we'll have to assume it's not and rely on the call-site
         # context to handle it appropriately.
         return False
+
+
+class LLM(LLMBase):
+    def completion(
+        self,
+        messages: list[Message],
+        tools: Sequence[ToolBase] | None = None,
+        _return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
+        **kwargs,
+    ) -> LLMResponse:
+        # Check if streaming is requested
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported")
+
+        # 1) serialize messages
+        formatted_messages = self.format_messages_for_llm(messages)
+
+        # 2) choose function-calling strategy
+        use_native_fc = self.is_function_calling_active()
+        original_fncall_msgs = copy.deepcopy(formatted_messages)
+
+        # Convert Tool objects to ChatCompletionToolParam once here
+        cc_tools: list[ChatCompletionToolParam] = []
+        if tools:
+            cc_tools = [
+                t.to_openai_tool(
+                    add_security_risk_prediction=add_security_risk_prediction
+                )
+                for t in tools
+            ]
+
+        use_mock_tools = self.should_mock_tool_calls(cc_tools)
+        if use_mock_tools:
+            logger.debug(
+                "LLM.completion: mocking function-calling via prompt "
+                f"for model {self.model}"
+            )
+            formatted_messages, kwargs = self.pre_request_prompt_mock(
+                formatted_messages, cc_tools or [], kwargs
+            )
+
+        # 3) normalize provider params
+        # Only pass tools when native FC is active
+        kwargs["tools"] = cc_tools if (bool(cc_tools) and use_native_fc) else None
+        has_tools_flag = bool(cc_tools) and use_native_fc
+        # Behavior-preserving: delegate to select_chat_options
+        call_kwargs = select_chat_options(self, kwargs, has_tools=has_tools_flag)
+
+        # 4) optional request logging context (kept small)
+        assert self._telemetry is not None
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "messages": formatted_messages[:],  # already simple dicts
+                "tools": tools,
+                "kwargs": {k: v for k, v in call_kwargs.items()},
+                "context_window": self.max_input_tokens,
+            }
+            if tools and not use_native_fc:
+                log_ctx["raw_messages"] = original_fncall_msgs
+        self._telemetry.on_request(log_ctx=log_ctx)
+
+        # 5) do the call with retries
+        @self.retry_decorator(
+            num_retries=self.num_retries,
+            retry_exceptions=LLM_RETRY_EXCEPTIONS,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
+            retry_listener=self.retry_listener,
+        )
+        def _one_attempt(**retry_kwargs) -> ModelResponse:
+            assert self._telemetry is not None
+            # Merge retry-modified kwargs (like temperature) with call_kwargs
+            final_kwargs = {**call_kwargs, **retry_kwargs}
+            resp = self._transport_call(messages=formatted_messages, **final_kwargs)
+            raw_resp: ModelResponse | None = None
+            if use_mock_tools:
+                raw_resp = copy.deepcopy(resp)
+                resp = self.post_response_prompt_mock(
+                    resp, nonfncall_msgs=formatted_messages, tools=cc_tools
+                )
+            # 6) telemetry
+            self._telemetry.on_response(resp, raw_resp=raw_resp)
+
+            # Ensure at least one choice
+            if not resp.get("choices") or len(resp["choices"]) < 1:
+                raise LLMNoResponseError(
+                    "Response choices is less than 1. Response: " + str(resp)
+                )
+
+            return resp
+
+        try:
+            resp = _one_attempt()
+
+            # Convert the first choice to an OpenHands Message
+            first_choice = resp["choices"][0]
+            message = Message.from_llm_chat_message(first_choice["message"])
+
+            # Get current metrics snapshot
+            metrics_snapshot = MetricsSnapshot(
+                model_name=self.metrics.model_name,
+                accumulated_cost=self.metrics.accumulated_cost,
+                max_budget_per_task=self.metrics.max_budget_per_task,
+                accumulated_token_usage=self.metrics.accumulated_token_usage,
+            )
+
+            # Create and return LLMResponse
+            return LLMResponse(
+                message=message, metrics=metrics_snapshot, raw_response=resp
+            )
+        except Exception as e:
+            self._telemetry.on_error(e)
+            raise
+
+    def resolve_diff_from_deserialized(self, persisted: LLMBase) -> LLMBase:
+        if persisted.__class__ is not self.__class__:
+            raise ValueError(
+                f"Cannot resolve_diff_from_deserialized between {self.__class__} "
+                f"and {persisted.__class__}"
+            )
+
+        # Copy allowed fields from runtime llm into the persisted llm
+        llm_updates = {}
+        persisted_dump = persisted.model_dump(exclude_none=True)
+        for field in self.OVERRIDE_ON_SERIALIZE:
+            if field in persisted_dump.keys():
+                llm_updates[field] = getattr(self, field)
+        if llm_updates:
+            reconciled = persisted.model_copy(update=llm_updates)
+        else:
+            reconciled = persisted
+
+        if self.model_dump(exclude_none=True) != reconciled.model_dump(
+            exclude_none=True
+        ):
+            raise ValueError(
+                "The LLM provided is different from the one in persisted state.\n"
+                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
+            )
+        return reconciled

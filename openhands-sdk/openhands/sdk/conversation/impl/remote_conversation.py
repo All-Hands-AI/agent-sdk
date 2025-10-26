@@ -26,7 +26,7 @@ from openhands.sdk.event.conversation_state import (
     FULL_STATE_KEY,
     ConversationStateUpdateEvent,
 )
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLMBase, Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -601,7 +601,7 @@ class RemoteConversation(BaseConversation):
             self._client, "POST", f"/api/conversations/{self._id}/secrets", json=payload
         )
 
-    def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
+    def generate_title(self, llm: LLMBase | None = None, max_length: int = 50) -> str:
         """Generate a title for the conversation based on the first user message.
 
         Args:

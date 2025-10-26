@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from openhands.sdk.event import MessageEvent
 from openhands.sdk.event.base import Event
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLMBase, Message, TextContent
 from openhands.sdk.logger import get_logger
 
 
@@ -56,7 +56,9 @@ def extract_first_user_message(events: Sequence[Event]) -> str | None:
     return None
 
 
-def generate_title_with_llm(message: str, llm: LLM, max_length: int = 50) -> str | None:
+def generate_title_with_llm(
+    message: str, llm: LLMBase, max_length: int = 50
+) -> str | None:
     """Generate a conversation title using LLM.
 
     Args:
@@ -155,7 +157,7 @@ def generate_fallback_title(message: str, max_length: int = 50) -> str:
 
 
 def generate_conversation_title(
-    events: Sequence[Event], llm: LLM | None = None, max_length: int = 50
+    events: Sequence[Event], llm: LLMBase | None = None, max_length: int = 50
 ) -> str:
     """Generate a title for a conversation based on the first user message.
 
