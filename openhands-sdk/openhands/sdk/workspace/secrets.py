@@ -28,8 +28,11 @@ class WorkspaceSecrets:
     def __init__(self) -> None:
         self._sources: dict[str, SecretSource] = {}
         self._exported_values: dict[str, str] = {}
-        # Match $KEY or ${KEY}, where KEY matches [A-Z][A-Z0-9_]*
-        self._pattern: re.Pattern[str] = re.compile(r"\$(?:\{)?([A-Z][A-Z0-9_]*)\}?\b")
+        # Match $KEY or ${KEY}
+        # - Names follow [A-Za-z_][A-Za-z0-9_]* (lowercase and underscores allowed)
+        self._pattern: re.Pattern[str] = re.compile(
+            r"\$(?:\{)?([A-Za-z_][A-Za-z0-9_]*)\}?\b"
+        )
 
     def update_secrets(self, secrets: Mapping[str, SecretValue]) -> None:
         sources = {k: _to_source(v) for k, v in secrets.items()}

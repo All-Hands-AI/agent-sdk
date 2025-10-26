@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 from pydantic import SecretStr
 
+from openhands.sdk import secrets as global_secrets
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
@@ -15,6 +16,13 @@ from openhands.sdk.llm import LLM
 from openhands.sdk.workspace import RemoteWorkspace
 
 from .conftest import create_mock_http_client
+
+
+@pytest.fixture(autouse=True)
+def _reset_secrets_singleton():
+    global_secrets.clear()
+    yield
+    global_secrets.clear()
 
 
 def create_test_agent() -> Agent:
@@ -42,19 +50,20 @@ def test_local_conversation_constructor_with_secrets():
         # Verify it's a LocalConversation
         assert isinstance(conv, LocalConversation)
 
-        # Verify secrets were initialized
-        secrets_manager = conv.state.secrets_manager
-        assert secrets_manager is not None
+        # Verify secrets were initialized into global facade
+        assert "API_KEY" in global_secrets.list_names()
+        assert "DATABASE_URL" in global_secrets.list_names()
+        assert "AUTH_TOKEN" in global_secrets.list_names()
 
-        # Verify secrets are accessible through the secrets manager
-        env_vars = secrets_manager.get_secrets_as_env_vars("echo $API_KEY")
+        # Verify env_for_command returns only referenced secrets
+        env_vars = global_secrets.env_for_command("echo $API_KEY")
         assert env_vars == {"API_KEY": "test-api-key-123"}
 
-        env_vars = secrets_manager.get_secrets_as_env_vars("echo $DATABASE_URL")
+        env_vars = global_secrets.env_for_command("echo $DATABASE_URL")
         assert env_vars == {"DATABASE_URL": "postgresql://localhost/test"}
 
         # Test multiple secrets in one command
-        env_vars = secrets_manager.get_secrets_as_env_vars(
+        env_vars = global_secrets.env_for_command(
             "export API_KEY=$API_KEY && export AUTH_TOKEN=$AUTH_TOKEN"
         )
         assert env_vars == {
@@ -89,16 +98,14 @@ def test_local_conversation_constructor_with_callable_secrets():
         # Verify it's a LocalConversation
         assert isinstance(conv, LocalConversation)
 
-        # Verify callable secrets work
-        secrets_manager = conv.state.secrets_manager
-
-        env_vars = secrets_manager.get_secrets_as_env_vars("echo $DYNAMIC_TOKEN")
+        # Verify callable secrets work via global facade
+        env_vars = global_secrets.env_for_command("echo $DYNAMIC_TOKEN")
         assert env_vars == {"DYNAMIC_TOKEN": "dynamic-token-789"}
 
-        env_vars = secrets_manager.get_secrets_as_env_vars("echo $API_KEY")
+        env_vars = global_secrets.env_for_command("echo $API_KEY")
         assert env_vars == {"API_KEY": "callable-api-key"}
 
-        env_vars = secrets_manager.get_secrets_as_env_vars("echo $STATIC_KEY")
+        env_vars = global_secrets.env_for_command("echo $STATIC_KEY")
         assert env_vars == {"STATIC_KEY": "static-value"}
 
 
@@ -117,12 +124,8 @@ def test_local_conversation_constructor_without_secrets():
         # Verify it's a LocalConversation
         assert isinstance(conv, LocalConversation)
 
-        # Verify secrets manager exists but is empty
-        secrets_manager = conv.state.secrets_manager
-        assert secrets_manager is not None
-
-        # Should return empty dict for any command
-        env_vars = secrets_manager.get_secrets_as_env_vars("echo $API_KEY")
+        # Should return empty dict for any command via global facade
+        env_vars = global_secrets.env_for_command("echo $API_KEY")
         assert env_vars == {}
 
 
@@ -141,12 +144,8 @@ def test_local_conversation_constructor_with_empty_secrets():
         # Verify it's a LocalConversation
         assert isinstance(conv, LocalConversation)
 
-        # Verify secrets manager exists but is empty
-        secrets_manager = conv.state.secrets_manager
-        assert secrets_manager is not None
-
-        # Should return empty dict for any command
-        env_vars = secrets_manager.get_secrets_as_env_vars("echo $API_KEY")
+        # Should return empty dict for any command via global facade
+        env_vars = global_secrets.env_for_command("echo $API_KEY")
         assert env_vars == {}
 
 
