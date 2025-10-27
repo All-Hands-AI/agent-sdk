@@ -67,7 +67,7 @@ The documentation includes:
 - [Getting Started Guide](https://docs.openhands.dev/sdk/getting-started) - Installation and setup
 - [Architecture & Core Concepts](https://docs.openhands.dev/sdk/arch/overview) - Agents, tools, workspaces, and more
 - [Guides](https://docs.openhands.dev/sdk/guides/hello-world) - Hello World, custom tools, MCP, skills, and more
-- [API Reference](https://github.com/OpenHands/agent-sdk/tree/main/openhands-sdk/openhands/sdk) - Complete SDK API and source code
+- [API Reference](https://docs.openhands.dev/sdk/guides/agent-server/api-reference/server-details/alive) - Agent Server REST API documentation
 
 ## Examples
 
