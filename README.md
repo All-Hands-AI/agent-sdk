@@ -18,44 +18,23 @@ The OpenHands SDK allows you to build applications with agents that write softwa
 
 ## Quick Start
 
-### Prerequisites
+Here's what building with the SDK looks like:
 
-- Python 3.12+
-- `uv` package manager (version 0.8.13+)
+```python
+from openhands.sdk import LLM, Conversation
+from openhands.tools.preset.default import get_default_agent
 
-### Installation
+# Configure LLM and create agent
+llm = LLM(model="openhands/claude-sonnet-4-5-20250929", api_key=api_key)
+agent = get_default_agent(llm=llm)
 
-Install via PyPI:
-
-```bash
-pip install openhands-sdk        # Core SDK
-pip install openhands-tools      # Built-in tools
-pip install openhands-workspace  # Optional: sandboxed workspaces
-pip install openhands-agent-server  # Optional: remote agent server
+# Start a conversation
+conversation = Conversation(agent=agent, workspace="/path/to/project")
+conversation.send_message("Write 3 facts about this project into FACTS.txt.")
+conversation.run()
 ```
 
-Or install from source:
-
-```bash
-git clone https://github.com/OpenHands/agent-sdk.git
-cd agent-sdk
-make build
-```
-
-### Get an API Key
-
-Sign up for [OpenHands Cloud](https://app.all-hands.dev) and get your API key from the [API Keys page](https://app.all-hands.dev/settings/api-keys), or use any [LiteLLM-supported provider](https://docs.litellm.ai/docs/providers).
-
-```bash
-export LLM_API_KEY=your-api-key-here
-```
-
-### Run Your First Agent
-
-```bash
-# Try the hello world example
-uv run python examples/01_standalone_sdk/01_hello_world.py
-```
+For installation instructions and detailed setup, see the [Getting Started Guide](https://docs.openhands.dev/sdk/getting-started).
 
 ## Documentation
 
