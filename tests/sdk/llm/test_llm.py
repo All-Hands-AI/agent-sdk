@@ -9,7 +9,9 @@ from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+from openhands.sdk.llm.options.responses_options import select_responses_options
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
+from openhands.sdk.llm.utils.telemetry import Telemetry
 
 # Import common test utilities
 from tests.conftest import create_mock_litellm_response
@@ -506,11 +508,6 @@ def test_token_usage_context_window():
 
 def test_telemetry_cost_calculation_header_exception():
     """Test telemetry cost calculation handles header parsing exceptions."""
-    from unittest.mock import Mock, patch
-
-    from openhands.sdk.llm.utils.metrics import Metrics
-    from openhands.sdk.llm.utils.telemetry import Telemetry
-
     # Create a mock response with headers that will cause an exception
     mock_response = Mock()
     mock_response.headers = {"x-litellm-cost": "invalid-float"}
@@ -551,8 +548,6 @@ def test_gpt5_enable_encrypted_reasoning_default():
     assert llm.enable_encrypted_reasoning is False
 
     # Test that the normalization actually enables it
-    from openhands.sdk.llm.options.responses_options import select_responses_options
-
     normalized = select_responses_options(llm, {}, include=None, store=None)
     assert "include" in normalized
     assert "reasoning.encrypted_content" in normalized["include"]
@@ -594,6 +589,53 @@ def test_gpt5_enable_encrypted_reasoning_default():
         llm_gpt4, {}, include=None, store=True
     )
     assert "reasoning.encrypted_content" not in normalized_gpt4_store.get("include", [])
+
+
+@patch("openhands.sdk.llm.llm.LLM._transport_call")
+def test_unmapped_model_with_logging_enabled(mock_transport):
+    """Test that unmapped models with logging enabled don't cause validation errors.
+
+    This is an integration test for issue #905 where unmapped models
+    (those not in LiteLLM's model_prices_and_context_window.json)
+    have max_input_tokens=None, which causes validation errors when
+    logging is enabled because the context_window gets set to None.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create an LLM with an unmapped model and logging enabled
+        llm = LLM(
+            model="openai/UnmappedTestModel",
+            api_key=SecretStr("test-key"),
+            base_url="https://test.example.com/v1",
+            log_completions=True,
+            log_completions_folder=tmpdir,
+        )
+
+        # Verify max_input_tokens is None (unmapped model)
+        assert llm.max_input_tokens is None
+
+        # Mock the transport call
+        mock_response = create_mock_litellm_response(
+            "Test response", model="UnmappedTestModel"
+        )
+        mock_transport.return_value = mock_response
+
+        # This should not raise a validation error
+        response = llm.completion(
+            messages=[Message(role="user", content=[TextContent(text="test")])]
+        )
+
+        assert response is not None
+        assert isinstance(response, LLMResponse)
+
+        # Verify token usage was recorded correctly with context_window=0
+        metrics = llm.metrics.get()
+        assert len(metrics["token_usages"]) == 1
+        token_usage = metrics["token_usages"][0]
+        assert isinstance(token_usage["context_window"], int)
+        # Should default to 0 when max_input_tokens is None
+        assert token_usage["context_window"] == 0
 
 
 # LLM Registry Tests
