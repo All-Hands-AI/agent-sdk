@@ -83,6 +83,13 @@ class ToolExecutor[ActionT, ObservationT](ABC):
             action: The action to execute, containing the parameters and context
                    needed for the tool operation.
             conversation: The conversation context for the tool execution.
+                         Note: This is typed as LocalConversation (not
+                         BaseConversation) because all tool executions happen
+                         within a LocalConversation context. Even when tools are
+                         invoked via RemoteConversation, the remote agent server
+                         creates a LocalConversation instance to handle the actual
+                         tool execution. See https://github.com/OpenHands/agent-sdk/pull/925
+                         for more details.
 
         Returns:
             An observation containing the results of the tool execution.
