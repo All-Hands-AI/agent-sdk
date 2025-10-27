@@ -199,7 +199,10 @@ class ConversationVisualizer:
             }
             role_color = role_colors.get(event.llm_message.role, "white")
 
-            title_text = f"[bold {role_color}]Message from "
+            # Use "to" for user messages (user sending to agent)
+            # and "from" for assistant messages
+            direction = "to" if event.llm_message.role == "user" else "from"
+            title_text = f"[bold {role_color}]Message {direction} "
             if self._name_for_visualization:
                 title_text += f"{self._name_for_visualization} Agent"
             else:
