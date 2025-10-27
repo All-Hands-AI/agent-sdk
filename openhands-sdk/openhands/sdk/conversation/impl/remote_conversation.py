@@ -414,6 +414,7 @@ class RemoteConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = False,
+        name_for_visualization: str | None = None,
         secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
     ) -> None:
@@ -421,15 +422,15 @@ class RemoteConversation(BaseConversation):
 
         Args:
             agent: Agent configuration (will be sent to the server)
-            host: Base URL of the agent server (e.g., http://localhost:3000)
             workspace: The working directory for agent operations and tool execution.
-            api_key: Optional API key for authentication (sent as X-Session-API-Key
-                header)
             conversation_id: Optional existing conversation id to attach to
             callbacks: Optional callbacks to receive events (not yet streamed)
             max_iteration_per_run: Max iterations configured on server
             stuck_detection: Whether to enable stuck detection on server
             visualize: Whether to enable the default visualizer callback
+            name_for_visualization: Optional name to prefix in panel titles to identify
+                                  which agent/conversation is speaking.
+            secrets: Optional secrets to initialize the conversation with
         """
         self.agent = agent
         self._callbacks = callbacks or []
@@ -480,7 +481,9 @@ class RemoteConversation(BaseConversation):
 
         # Add default visualizer callback if requested
         if visualize:
-            self._visualizer = create_default_visualizer()
+            self._visualizer = create_default_visualizer(
+                name_for_visualization=name_for_visualization,
+            )
             if self._visualizer is not None:
                 self._callbacks.append(self._visualizer.on_event)
         else:

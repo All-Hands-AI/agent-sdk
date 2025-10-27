@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation import BaseConversation
+    from openhands.sdk.conversation import LocalConversation
 
 from openhands.sdk.logger import DEBUG, get_logger
 from openhands.sdk.tool import ToolExecutor
@@ -173,7 +173,7 @@ class BrowserToolExecutor(ToolExecutor[BrowserAction, BrowserObservation]):
     def __call__(
         self,
         action: BrowserAction,
-        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+        conversation: "LocalConversation | None" = None,  # noqa: ARG002
     ):
         """Submit an action to run in the background loop and wait for result."""
         return self._async_executor.run_async(
