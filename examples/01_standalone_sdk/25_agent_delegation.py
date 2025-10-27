@@ -33,6 +33,7 @@ model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
 llm = LLM(
     model=model,
     api_key=SecretStr(api_key),
+    base_url=os.environ.get('LLM_BASE_URL', None),
     usage_id="agent",
 )
 
