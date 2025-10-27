@@ -5,9 +5,6 @@ from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
-from openhands.sdk.conversation.response_utils import (
-    agent_final_response as get_agent_final_response,
-)
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.llm.llm import LLM
@@ -148,18 +145,6 @@ class BaseConversation(ABC):
     ) -> str:
         """Get the persistence directory for the conversation."""
         return str(Path(persistence_base_dir) / conversation_id.hex)
-
-    def agent_final_response(self) -> str:
-        """Extract the final response from the agent.
-
-        An agent can end a conversation in two ways:
-        1. By calling the finish tool
-        2. By returning a text message with no tool calls
-
-        Returns:
-            The final response message from the agent, or empty string if not found.
-        """
-        return get_agent_final_response(self.state.events)
 
     @staticmethod
     def compose_callbacks(
