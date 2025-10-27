@@ -200,7 +200,7 @@ class ConversationVisualizer:
             role_color = role_colors.get(event.llm_message.role, "white")
 
             title_text = f"[bold {role_color}]Message from "
-            if self._name_for_visualization and event.llm_message.role == "user":
+            if self._name_for_visualization:
                 title_text += f"{self._name_for_visualization} Agent"
             else:
                 title_text += event.source.capitalize()
