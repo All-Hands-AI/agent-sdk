@@ -70,7 +70,6 @@ class MCPToolExecutor(ToolExecutor):
                 return MCPToolObservation(
                     content=[TextContent(text=error_msg)],
                     error=error_msg,
-                    is_error=True,
                     tool_name=self.tool_name,
                 )
 
@@ -151,7 +150,6 @@ class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
             return MCPToolObservation(
                 content=[TextContent(text=error_msg)],
                 error=error_msg,
-                is_error=True,
                 tool_name=self.name,
             )
 

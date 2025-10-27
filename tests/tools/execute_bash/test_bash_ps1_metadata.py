@@ -288,15 +288,19 @@ def test_cmd_output_observation_properties():
     # Test with failed command
     metadata = CmdOutputMetadata(exit_code=1, pid=456)
     obs = ExecuteBashObservation(
-        command="invalid", output="error", exit_code=1, error=True, metadata=metadata
+        command="invalid",
+        output="error",
+        exit_code=1,
+        error="Command failed",
+        metadata=metadata,
     )
     assert obs.command_id == 456
     assert obs.exit_code == 1
-    assert obs.error
+    assert obs.has_error
     assert len(obs.to_llm_content) == 1
     assert isinstance(obs.to_llm_content[0], TextContent)
     assert "exit code 1" in obs.to_llm_content[0].text
-    assert obs.error
+    assert obs.has_error
 
 
 def test_ps1_metadata_empty_fields():

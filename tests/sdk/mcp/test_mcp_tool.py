@@ -40,7 +40,7 @@ class TestMCPToolObservation:
         assert len(observation.content) == 1
         assert isinstance(observation.content[0], TextContent)
         assert observation.content[0].text == "Operation completed successfully"
-        assert observation.is_error is False
+        assert observation.has_error is False
 
     def test_from_call_tool_result_error(self):
         """Test creating observation from error MCP result."""
@@ -57,7 +57,7 @@ class TestMCPToolObservation:
         assert len(observation.content) == 1
         assert isinstance(observation.content[0], TextContent)
         assert observation.content[0].text == "Operation failed"
-        assert observation.is_error is True
+        assert observation.has_error is True
 
     def test_from_call_tool_result_with_image(self):
         """Test creating observation from MCP result with image content."""
@@ -81,14 +81,14 @@ class TestMCPToolObservation:
         assert observation.content[0].text == "Here's the image:"
         # Second content should be ImageContent
         assert hasattr(observation.content[1], "image_urls")
-        assert observation.is_error is False
+        assert observation.has_error is False
 
     def test_to_llm_content_success(self):
         """Test agent observation formatting for success."""
         observation = MCPToolObservation(
             tool_name="test_tool",
             content=[TextContent(text="Success result")],
-            is_error=False,
+            error=None,
         )
 
         agent_obs = observation.to_llm_content
@@ -104,7 +104,7 @@ class TestMCPToolObservation:
         observation = MCPToolObservation(
             tool_name="test_tool",
             content=[TextContent(text="Error occurred")],
-            is_error=True,
+            error="execution failed",
         )
 
         agent_obs = observation.to_llm_content
@@ -151,7 +151,7 @@ class TestMCPToolExecutor:
 
         assert isinstance(observation, MCPToolObservation)
         assert observation.tool_name == "test_tool"
-        assert observation.is_error is False
+        assert observation.has_error is False
 
     def test_call_tool_error(self):
         """Test tool execution with error."""
@@ -178,7 +178,7 @@ class TestMCPToolExecutor:
 
         assert isinstance(observation, MCPToolObservation)
         assert observation.tool_name == "test_tool"
-        assert observation.is_error is True
+        assert observation.has_error is True
 
     def test_call_tool_exception(self):
         """Test tool execution with exception."""
@@ -194,7 +194,7 @@ class TestMCPToolExecutor:
                         text="Error calling MCP tool test_tool: Connection failed"
                     )
                 ],
-                is_error=True,
+                error="execution failed",
                 tool_name="test_tool",
             )
 
@@ -205,7 +205,7 @@ class TestMCPToolExecutor:
         assert isinstance(observation, MCPToolObservation)
         assert isinstance(observation.content[0], TextContent)
         assert observation.tool_name == "test_tool"
-        assert observation.is_error is True
+        assert observation.has_error is True
         assert "Connection failed" in observation.content[0].text
 
 

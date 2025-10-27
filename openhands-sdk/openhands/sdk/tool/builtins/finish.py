@@ -31,11 +31,6 @@ class FinishAction(Action):
 class FinishObservation(Observation):
     output: str = Field(default="", description="Final message sent to the user.")
 
-    # Backward compatibility: expose `message` alias for older tests/integrations
-    @property
-    def message(self) -> str:  # pragma: no cover - alias for backward compatibility
-        return self.output
-
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation - empty since action shows the message."""

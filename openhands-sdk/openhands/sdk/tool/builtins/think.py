@@ -49,11 +49,6 @@ class ThinkObservation(Observation):
         default="Your thought has been logged.", description="Confirmation message."
     )
 
-    # Backward compatibility: expose `content` alias for older tests/integrations
-    @property
-    def content(self) -> str:  # pragma: no cover - alias for backward compatibility
-        return self.output
-
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation - empty since action shows the thought."""

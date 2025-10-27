@@ -26,16 +26,16 @@ class _HelloAction(Action):
 
 
 class _HelloObservation(Observation):
-    message: str
+    output: str = ""
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.message)]
+        return [TextContent(text=self.output)]
 
 
 class _HelloExec(ToolExecutor[_HelloAction, _HelloObservation]):
     def __call__(self, action: _HelloAction, conversation=None) -> _HelloObservation:
-        return _HelloObservation(message=f"Hello, {action.name}!")
+        return _HelloObservation(output=f"Hello, {action.name}!")
 
 
 class _ConfigurableHelloTool(ToolDefinition):
@@ -55,7 +55,7 @@ class _ConfigurableHelloTool(ToolDefinition):
                 self, action: _HelloAction, conversation=None
             ) -> _HelloObservation:
                 return _HelloObservation(
-                    message=f"{self._greeting}, {action.name}{self._punctuation}"
+                    output=f"{self._greeting}, {action.name}{self._punctuation}"
                 )
 
         return [
@@ -133,4 +133,4 @@ def test_register_tool_type_uses_create_params():
 
     observation = tool(_HelloAction(name="Alice"))
     assert isinstance(observation, _HelloObservation)
-    assert observation.message == "Howdy, Alice?"
+    assert observation.output == "Howdy, Alice?"

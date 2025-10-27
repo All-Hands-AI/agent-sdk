@@ -20,7 +20,7 @@ def test_execute_bash_observation_truncation_under_limit():
     observation = ExecuteBashObservation(
         output="Short output",
         metadata=metadata,
-        error=False,
+        error=None,
     )
 
     result = observation.to_llm_content
@@ -54,7 +54,7 @@ def test_execute_bash_observation_truncation_over_limit():
     observation = ExecuteBashObservation(
         output=long_output,
         metadata=metadata,
-        error=False,
+        error=None,
     )
 
     result = observation.to_llm_content
@@ -91,7 +91,7 @@ def test_execute_bash_observation_truncation_with_error():
     observation = ExecuteBashObservation(
         output=long_output,
         metadata=metadata,
-        error=True,
+        error="Command failed",
     )
 
     result = observation.to_llm_content
@@ -134,7 +134,7 @@ def test_execute_bash_observation_truncation_exact_limit():
     observation = ExecuteBashObservation(
         output=exact_output,
         metadata=metadata,
-        error=False,
+        error=None,
     )
 
     result = observation.to_llm_content
@@ -164,7 +164,7 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
     observation = ExecuteBashObservation(
         output=long_output,
         metadata=metadata,
-        error=False,
+        error=None,
     )
 
     result = observation.to_llm_content

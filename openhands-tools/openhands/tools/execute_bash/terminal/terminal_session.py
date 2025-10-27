@@ -315,12 +315,12 @@ class TerminalSession(TerminalSessionBase):
             if command == "":
                 return ExecuteBashObservation(
                     output="ERROR: No previous running command to retrieve logs from.",
-                    error=True,
+                    error="No previous running command to retrieve logs from.",
                 )
             if is_input:
                 return ExecuteBashObservation(
                     output="ERROR: No previous running command to interact with.",
-                    error=True,
+                    error="No previous running command to interact with.",
                 )
 
         # Check if the command is a single command or multiple commands
@@ -333,7 +333,7 @@ class TerminalSession(TerminalSessionBase):
                     f"command via && or ;\nProvided commands:\n"
                     f"{'\n'.join(f'({i + 1}) {cmd}' for i, cmd in enumerate(splited_commands))}"  # noqa: E501
                 ),
-                error=True,
+                error="Cannot execute multiple commands at once",
             )
 
         # Get initial state before sending command
