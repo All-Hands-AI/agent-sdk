@@ -119,7 +119,6 @@ class DelegateExecutor(ToolExecutor):
             return DelegateObservation(
                 command="spawn",
                 success=True,
-                spawned_ids=action.ids,
                 message=message,
             )
 

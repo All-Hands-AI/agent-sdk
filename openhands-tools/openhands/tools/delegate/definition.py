@@ -49,9 +49,6 @@ class DelegateObservation(Observation):
     )
     success: bool = Field(description="Whether the operation was successful")
     message: str = Field(description="Result message from the operation")
-    spawned_ids: list[str] | None = Field(
-        default=None, description="List of spawned sub-agent IDs (spawn command only)"
-    )
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
