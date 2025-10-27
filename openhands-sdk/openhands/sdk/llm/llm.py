@@ -608,6 +608,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             with self._litellm_modify_params_ctx(self.modify_params):
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=DeprecationWarning)
+                    # Suppress Pydantic serializer warnings from litellm
+                    warnings.filterwarnings(
+                        "ignore", message="Pydantic serializer warnings"
+                    )
                     typed_input: ResponseInputParam | str = (
                         cast(ResponseInputParam, input_items) if input_items else ""
                     )
@@ -682,6 +686,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 warnings.filterwarnings(
                     "ignore",
                     category=UserWarning,
+                )
+                # Suppress Pydantic serializer warnings from litellm
+                warnings.filterwarnings(
+                    "ignore", message="Pydantic serializer warnings"
                 )
                 # Some providers need renames handled in _normalize_call_kwargs.
                 ret = litellm_completion(
