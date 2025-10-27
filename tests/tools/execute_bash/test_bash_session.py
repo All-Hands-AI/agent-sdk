@@ -317,7 +317,7 @@ def test_empty_command_error(terminal_type):
     # Test empty command without previous command
     obs = session.execute(ExecuteBashAction(command=""))
 
-    assert obs.error is True
+    assert obs.has_error is True
     assert obs.output == "ERROR: No previous running command to retrieve logs from."
     assert len(obs.to_llm_content) == 1
     assert isinstance(obs.to_llm_content[0], TextContent)
@@ -715,7 +715,7 @@ world""",
 
             # First test that running multiple commands at once fails
             obs = _run_bash_action(session, joined_cmds)
-            assert obs.error is True
+            assert obs.has_error is True
             assert "Cannot execute multiple commands at once" in obs.output
 
             # Now run each command individually and verify they work
