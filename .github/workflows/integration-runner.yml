@@ -2,7 +2,9 @@
 name: Run Integration Tests
 
 on:
-    pull_request:
+    # Use pull_request_target to access secrets even on fork PRs
+    # This is safe because we only run when the 'integration-test' label is added by a maintainer
+    pull_request_target:
         types:
             - labeled
             - synchronize
@@ -20,7 +22,14 @@ env:
 
 jobs:
     run-integration-tests:
-        if: github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        # Security: Only run when 'integration-test' label is present, via workflow_dispatch, or on schedule
+        # This prevents automatic execution on fork PRs without maintainer approval
+        # For 'synchronize' events, check if the PR has the 'integration-test' label
+        if: |
+            github.event.label.name == 'integration-test' || 
+            github.event_name == 'workflow_dispatch' || 
+            github.event_name == 'schedule' ||
+            (github.event_name == 'pull_request_target' && github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'integration-test'))
         runs-on: blacksmith-4vcpu-ubuntu-2204
         permissions:
             contents: read
@@ -47,6 +56,10 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5
+              with:
+                  # When using pull_request_target, explicitly checkout the PR branch
+                  # This ensures we test the actual PR code, not the base branch
+                  ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
             - name: Install uv
               uses: astral-sh/setup-uv@v7
@@ -55,7 +68,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
 
             - name: Comment on PR if 'integration-test' label is present
-              if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
+              if: github.event_name == 'pull_request_target' && github.event.label.name == 'integration-test'
               uses: KeisukeYamashita/create-comment@v1
               with:
                   unique: false
@@ -144,6 +157,10 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5
+              with:
+                  # When using pull_request_target, explicitly checkout the PR branch
+                  # This ensures we use the scripts from the actual PR code
+                  ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
             - name: Install uv
               uses: astral-sh/setup-uv@v7
@@ -197,7 +214,7 @@ jobs:
                   path: consolidated_report.md
 
             - name: Create consolidated PR comment
-              if: github.event_name == 'pull_request'
+              if: github.event_name == 'pull_request_target'
               run: |
                   COMMENT_BODY=$(cat consolidated_report.md)
                   # Use GitHub CLI to create comment with explicit PR number
