@@ -83,6 +83,8 @@ extraPaths = [
     "openhands-workspace",
     "openhands-agent-server"
 ]
+venvPath = "."
+venv = ".venv"
 pythonVersion = "3.12"
 useLibraryCodeForTypes = true
 typeCheckingMode = "standard"
