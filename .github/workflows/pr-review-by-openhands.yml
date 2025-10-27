@@ -92,7 +92,7 @@ jobs:
                   uv run python ../agent-sdk/examples/03_github_workflows/02_pr_review/agent_script.py
 
             - name: Upload logs as artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               if: always()
               with:
                   name: openhands-pr-review-logs
