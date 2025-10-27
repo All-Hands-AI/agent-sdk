@@ -1078,6 +1078,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         known_exception_patterns: list[str] = [
             "contextwindowexceedederror",
             "prompt is too long",
+            # Anthropic error from OpenHands/benchmarks#45
             "input length and `max_tokens` exceed context limit",
             "please reduce the length of",
             "the request exceeds the available context size",
