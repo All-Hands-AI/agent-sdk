@@ -4,6 +4,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.response_utils import get_agent_final_response
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolExecutor
 from openhands.tools.delegate.definition import DelegateObservation
@@ -166,8 +167,8 @@ class DelegateExecutor(ToolExecutor):
                     conversation.send_message(task)
                     conversation.run()
 
-                    # Extract the final response using agent_final_response
-                    final_response = conversation.agent_final_response()
+                    # Extract the final response using get_agent_final_response
+                    final_response = get_agent_final_response(conversation.state.events)
                     if final_response:
                         results[agent_id] = final_response
                         logger.info(f"Sub-agent {agent_id} completed successfully")
