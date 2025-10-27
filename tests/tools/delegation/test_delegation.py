@@ -74,19 +74,19 @@ def test_delegate_observation_creation():
     assert spawn_observation.command == "spawn"
     assert spawn_observation.success is True
     assert spawn_observation.message == "Sub-agents created successfully"
-    assert spawn_observation.results is None
+    # spawn observation doesn't have results field anymore
 
     # Test delegate observation
     delegate_observation = DelegateObservation(
         command="delegate",
         success=True,
-        message="Tasks completed successfully",
-        results=["Result 1", "Result 2"],
+        message="Tasks completed successfully\n\nResults:\n1. Result 1\n2. Result 2",
     )
     assert delegate_observation.command == "delegate"
     assert delegate_observation.success is True
-    assert delegate_observation.message == "Tasks completed successfully"
-    assert delegate_observation.results == ["Result 1", "Result 2"]
+    assert "Tasks completed successfully" in delegate_observation.message
+    assert "Result 1" in delegate_observation.message
+    assert "Result 2" in delegate_observation.message
 
 
 def test_delegate_executor_delegate():
@@ -108,11 +108,11 @@ def test_delegate_executor_delegate():
         mock_observation = DelegateObservation(
             command="delegate",
             success=True,
-            message="Tasks completed successfully",
-            results=[
-                "Agent agent1: Code analysis complete",
-                "Agent agent2: Tests written",
-            ],
+            message=(
+                "Tasks completed successfully\n\nResults:\n"
+                "1. Agent agent1: Code analysis complete\n"
+                "2. Agent agent2: Tests written"
+            ),
         )
         mock_delegate.return_value = mock_observation
 
@@ -121,8 +121,8 @@ def test_delegate_executor_delegate():
     assert isinstance(observation, DelegateObservation)
     assert observation.command == "delegate"
     assert observation.success is True
-    assert observation.results is not None
-    assert len(observation.results) == 2
+    assert "Agent agent1: Code analysis complete" in observation.message
+    assert "Agent agent2: Tests written" in observation.message
 
 
 def test_delegate_executor_missing_task():

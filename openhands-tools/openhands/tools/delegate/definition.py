@@ -52,21 +52,11 @@ class DelegateObservation(Observation):
     spawned_ids: list[str] | None = Field(
         default=None, description="List of spawned sub-agent IDs (spawn command only)"
     )
-    results: list[str] | None = Field(
-        default=None, description="Results from all sub-agents (delegate command only)"
-    )
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation content to show to the agent."""
-        if self.command == "delegate" and self.results:
-            results_text = "\n".join(
-                f"{i}. {result}" for i, result in enumerate(self.results, 1)
-            )
-            text = f"{self.message}\n\nResults:\n{results_text}"
-        else:
-            text = self.message
-        return [TextContent(text=text)]
+        return [TextContent(text=self.message)]
 
 
 TOOL_DESCRIPTION = """Delegation tool for spawning sub-agents and delegating tasks to them.

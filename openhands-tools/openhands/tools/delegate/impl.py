@@ -219,14 +219,20 @@ class DelegateExecutor(ToolExecutor):
                     all_results.append(f"Agent {agent_id}: No result")
                     success = False
 
+            # Create comprehensive message with results
             message = f"Completed delegation of {len(action.tasks)} tasks"
             if errors:
                 message += f" with {len(errors)} errors"
 
+            if all_results:
+                results_text = "\n".join(
+                    f"{i}. {result}" for i, result in enumerate(all_results, 1)
+                )
+                message += f"\n\nResults:\n{results_text}"
+
             return DelegateObservation(
                 command="delegate",
                 success=success,
-                results=all_results,
                 message=message,
             )
 
