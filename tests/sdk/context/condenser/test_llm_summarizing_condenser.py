@@ -43,6 +43,7 @@ def mock_llm() -> LLM:
         )
         # Create a mock ModelResponse
         raw_response = MagicMock(spec=ModelResponse)
+        raw_response.id = "mock-llm-response-id"
         return LLMResponse(message=message, metrics=metrics, raw_response=raw_response)
 
     mock_llm.completion.return_value = create_completion_result(
