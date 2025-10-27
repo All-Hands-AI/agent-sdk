@@ -14,10 +14,7 @@ from openhands.sdk.conversation.base import BaseConversation, ConversationStateP
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.exceptions import ConversationRunError
-from openhands.sdk.conversation.secrets_manager import (
-    SecretsManager,
-    SecretValue,
-)
+from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import (
@@ -379,15 +376,6 @@ class RemoteState(ConversationStateProtocol):
                 "persistence_dir missing in conversation info: " + str(info)
             )
         return persistence_dir
-
-    @property
-    def secrets_manager(self) -> SecretsManager:
-        """The secrets manager (not supported for remote conversations).
-
-        For remote conversations, secrets are managed server-side.
-        This returns an empty SecretsManager for protocol compatibility.
-        """
-        return SecretsManager()
 
     def model_dump(self, **_kwargs):
         """Get a dictionary representation of the remote state."""
