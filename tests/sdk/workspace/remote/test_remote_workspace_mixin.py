@@ -9,7 +9,7 @@ from openhands.sdk.workspace.models import CommandResult, FileOperationResult
 from openhands.sdk.workspace.remote.remote_workspace_mixin import RemoteWorkspaceMixin
 
 
-class TestRemoteWorkspaceMixin(RemoteWorkspaceMixin):
+class RemoteWorkspaceMixinHelper(RemoteWorkspaceMixin):
     """Test implementation of RemoteWorkspaceMixin for testing purposes."""
 
     def __init__(self, **kwargs):
@@ -18,7 +18,7 @@ class TestRemoteWorkspaceMixin(RemoteWorkspaceMixin):
 
 def test_remote_workspace_mixin_initialization():
     """Test RemoteWorkspaceMixin can be initialized with required parameters."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", api_key="test-key", working_dir="workspace"
     )
 
@@ -28,7 +28,7 @@ def test_remote_workspace_mixin_initialization():
 
 def test_remote_workspace_mixin_initialization_without_api_key():
     """Test RemoteWorkspaceMixin can be initialized without API key."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -39,7 +39,7 @@ def test_remote_workspace_mixin_initialization_without_api_key():
 def test_host_normalization_in_post_init():
     """Test that host URL is normalized by removing trailing slash in
     model_post_init."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000/", working_dir="workspace"
     )
 
@@ -48,7 +48,7 @@ def test_host_normalization_in_post_init():
 
 def test_headers_property_with_api_key():
     """Test _headers property includes API key when present."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", api_key="test-key", working_dir="workspace"
     )
 
@@ -58,7 +58,7 @@ def test_headers_property_with_api_key():
 
 def test_headers_property_without_api_key():
     """Test _headers property is empty when no API key."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -68,7 +68,7 @@ def test_headers_property_without_api_key():
 
 def test_execute_command_generator_basic_flow():
     """Test _execute_command_generator basic successful flow."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", api_key="test-key", working_dir="workspace"
     )
 
@@ -117,7 +117,7 @@ def test_execute_command_generator_basic_flow():
 
 def test_execute_command_generator_without_cwd():
     """Test _execute_command_generator works without cwd parameter."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -130,7 +130,7 @@ def test_execute_command_generator_without_cwd():
 
 def test_execute_command_generator_with_path_cwd():
     """Test _execute_command_generator works with Path object for cwd."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -145,7 +145,7 @@ def test_execute_command_generator_with_path_cwd():
 @patch("time.time")
 def test_execute_command_generator_polling_loop(mock_time, mock_sleep):
     """Test _execute_command_generator polling loop behavior."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -207,7 +207,7 @@ def test_execute_command_generator_polling_loop(mock_time, mock_sleep):
 @patch("openhands.sdk.workspace.remote.remote_workspace_mixin.time")
 def test_execute_command_generator_timeout(mock_time):
     """Test _execute_command_generator handles timeout correctly."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -257,7 +257,7 @@ def test_execute_command_generator_timeout(mock_time):
 
 def test_execute_command_generator_exception_handling():
     """Test _execute_command_generator handles exceptions correctly."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -285,7 +285,7 @@ def test_execute_command_generator_exception_handling():
 
 def test_file_upload_generator_basic_flow(temp_file):
     """Test _file_upload_generator basic successful flow."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", api_key="test-key", working_dir="workspace"
     )
 
@@ -319,7 +319,7 @@ def test_file_upload_generator_basic_flow(temp_file):
 
 def test_file_upload_generator_with_path_objects(temp_file):
     """Test _file_upload_generator works with Path objects."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -335,7 +335,7 @@ def test_file_upload_generator_with_path_objects(temp_file):
 
 def test_file_upload_generator_file_not_found():
     """Test _file_upload_generator handles file not found error."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -357,7 +357,7 @@ def test_file_upload_generator_file_not_found():
 
 def test_file_upload_generator_http_error():
     """Test _file_upload_generator handles HTTP errors."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -384,7 +384,7 @@ def test_file_upload_generator_http_error():
 
 def test_file_download_generator_basic_flow(temp_dir):
     """Test _file_download_generator basic successful flow."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", api_key="test-key", working_dir="workspace"
     )
 
@@ -422,7 +422,7 @@ def test_file_download_generator_basic_flow(temp_dir):
 
 def test_file_download_generator_with_path_objects(temp_dir):
     """Test _file_download_generator works with Path objects."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -439,7 +439,7 @@ def test_file_download_generator_with_path_objects(temp_dir):
 
 def test_file_download_generator_creates_directories(temp_dir):
     """Test _file_download_generator creates parent directories."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -466,7 +466,7 @@ def test_file_download_generator_creates_directories(temp_dir):
 
 def test_file_download_generator_http_error():
     """Test _file_download_generator handles HTTP errors."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -494,7 +494,7 @@ def test_file_download_generator_http_error():
 
 def test_multiple_bash_output_events():
     """Test handling multiple BashOutput events in polling."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -544,7 +544,7 @@ def test_multiple_bash_output_events():
 
 def test_non_bash_output_events_ignored():
     """Test that non-BashOutput events are ignored during polling."""
-    mixin = TestRemoteWorkspaceMixin(
+    mixin = RemoteWorkspaceMixinHelper(
         host="http://localhost:8000", working_dir="workspace"
     )
 
@@ -584,3 +584,71 @@ def test_non_bash_output_events_ignored():
         result = e.value
         assert result.stdout == "actual output\n"
         assert result.exit_code == 0
+
+
+def test_start_bash_command_endpoint_used():
+    """Test that the correct /api/bash/start_bash_command endpoint is used.
+
+    This is a regression test for issue #866 where the wrong endpoint
+    (/api/bash/execute_bash_command) was being used, causing commands to timeout.
+    The correct endpoint is /api/bash/start_bash_command which starts a command
+    asynchronously and returns immediately with a command ID that can be polled.
+    """
+    mixin = RemoteWorkspaceMixinHelper(
+        host="http://localhost:8000", api_key="test-key", working_dir="workspace"
+    )
+
+    # Mock response for successful command start
+    start_response = Mock()
+    start_response.raise_for_status = Mock()
+    start_response.json.return_value = {"id": "cmd-456"}
+
+    # Mock response for polling
+    poll_response = Mock()
+    poll_response.raise_for_status = Mock()
+    poll_response.json.return_value = {
+        "items": [
+            {
+                "kind": "BashOutput",
+                "stdout": "Hello from sandboxed environment!\n/workspace\n",
+                "stderr": "",
+                "exit_code": 0,
+            }
+        ]
+    }
+
+    # Create generator for command similar to the one in issue #866
+    command = "echo 'Hello from sandboxed environment!' && pwd"
+    generator = mixin._execute_command_generator(command, None, 30.0)
+
+    # Verify the correct endpoint is used for starting the command
+    start_kwargs = next(generator)
+    assert start_kwargs["method"] == "POST"
+    # This is the critical check - must use start_bash_command, not execute_bash_command
+    assert start_kwargs["url"] == "http://localhost:8000/api/bash/start_bash_command"
+    assert "start_bash_command" in start_kwargs["url"], (
+        "Must use /api/bash/start_bash_command endpoint. "
+        "The /api/bash/execute_bash_command endpoint does not exist and causes "
+        "timeouts."
+    )
+    assert start_kwargs["json"]["command"] == command
+    assert start_kwargs["json"]["timeout"] == 30
+    assert start_kwargs["headers"] == {"X-Session-API-Key": "test-key"}
+    # Verify HTTP timeout has buffer added
+    assert start_kwargs["timeout"] == 35.0
+
+    # Verify polling works correctly
+    poll_kwargs = generator.send(start_response)
+    assert poll_kwargs["method"] == "GET"
+    assert poll_kwargs["url"] == "http://localhost:8000/api/bash/bash_events/search"
+
+    # Verify command completes successfully
+    try:
+        generator.send(poll_response)
+        assert False, "Generator should have stopped"
+    except StopIteration as e:
+        result = e.value
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert "Hello from sandboxed environment!" in result.stdout
+        assert result.timeout_occurred is False

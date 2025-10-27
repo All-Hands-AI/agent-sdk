@@ -219,7 +219,10 @@ class LocalConversation(BaseConversation):
         """
 
         with self._state:
-            if self._state.agent_status == AgentExecutionStatus.PAUSED:
+            if self._state.agent_status in [
+                AgentExecutionStatus.IDLE,
+                AgentExecutionStatus.PAUSED,
+            ]:
                 self._state.agent_status = AgentExecutionStatus.RUNNING
 
         iteration = 0

@@ -86,7 +86,7 @@ def test_batch_atomicity_partial_batch_forgotten() -> None:
     E47 is also forgotten to prevent thinking blocks from being separated.
     """
     # Create a batch of 4 actions from the same LLM response
-    thinking_blocks = [
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [
         ThinkingBlock(
             type="thinking", thinking="Extended thinking...", signature="sig1"
         )
@@ -143,7 +143,7 @@ def test_batch_atomicity_partial_batch_forgotten() -> None:
 
 def test_batch_atomicity_complete_batch_forgotten() -> None:
     """Test that when all events in a batch are forgotten, they're all removed."""
-    thinking_blocks = [
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [
         ThinkingBlock(
             type="thinking", thinking="Extended thinking...", signature="sig1"
         )
@@ -182,7 +182,7 @@ def test_batch_atomicity_complete_batch_forgotten() -> None:
 
 def test_batch_atomicity_no_forgetting_preserves_batch() -> None:
     """Test that when no events in a batch are forgotten, all are preserved."""
-    thinking_blocks = [
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [
         ThinkingBlock(
             type="thinking", thinking="Extended thinking...", signature="sig1"
         )
@@ -225,7 +225,7 @@ def test_batch_atomicity_no_forgetting_preserves_batch() -> None:
 
 def test_batch_atomicity_multiple_batches() -> None:
     """Test that batch atomicity works correctly with multiple separate batches."""
-    thinking_blocks = [
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [
         ThinkingBlock(
             type="thinking", thinking="Extended thinking...", signature="sig1"
         )
@@ -285,7 +285,7 @@ def test_batch_atomicity_multiple_batches() -> None:
 
 def test_batch_atomicity_single_action_batch() -> None:
     """Test that batches with a single action work correctly."""
-    thinking_blocks = [
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [
         ThinkingBlock(
             type="thinking", thinking="Extended thinking...", signature="sig1"
         )
