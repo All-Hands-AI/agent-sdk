@@ -69,9 +69,9 @@ class LocalConversation(BaseConversation):
             visualize: Whether to enable default visualization. If True, adds
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
-            stuck_detection: Whether to enable stuck detection
             name_for_visualization: Optional name to prefix in panel titles to identify
                                   which agent/conversation is speaking.
+            stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
         if isinstance(workspace, str):

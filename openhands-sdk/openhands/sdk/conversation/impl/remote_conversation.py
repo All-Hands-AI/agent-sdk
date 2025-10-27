@@ -428,9 +428,9 @@ class RemoteConversation(BaseConversation):
             max_iteration_per_run: Max iterations configured on server
             stuck_detection: Whether to enable stuck detection on server
             visualize: Whether to enable the default visualizer callback
-            secrets: Optional secrets to initialize the conversation with
             name_for_visualization: Optional name to prefix in panel titles to identify
                                   which agent/conversation is speaking.
+            secrets: Optional secrets to initialize the conversation with
         """
         self.agent = agent
         self._callbacks = callbacks or []
