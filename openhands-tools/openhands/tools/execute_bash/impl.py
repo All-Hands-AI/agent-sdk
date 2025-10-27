@@ -76,8 +76,10 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
         env_vars = {}
         if conversation is not None:
             try:
-                secrets_manager = conversation.state.secrets_manager
-                env_vars = secrets_manager.get_secrets_as_env_vars(action.command)
+                # Access secrets_manager with hasattr check for type safety
+                if hasattr(conversation.state, "secrets_manager"):
+                    secrets_manager = conversation.state.secrets_manager
+                    env_vars = secrets_manager.get_secrets_as_env_vars(action.command)
             except Exception:
                 env_vars = {}
         elif self.env_provider:
@@ -177,10 +179,12 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             masked_output = None
             if conversation is not None:
                 try:
-                    secrets_manager = conversation.state.secrets_manager
-                    masked_output = secrets_manager.mask_secrets_in_output(
-                        observation.output
-                    )
+                    # Access secrets_manager with hasattr check for type safety
+                    if hasattr(conversation.state, "secrets_manager"):
+                        secrets_manager = conversation.state.secrets_manager
+                        masked_output = secrets_manager.mask_secrets_in_output(
+                            observation.output
+                        )
                 except Exception:
                     masked_output = None
             elif self.env_masker:
