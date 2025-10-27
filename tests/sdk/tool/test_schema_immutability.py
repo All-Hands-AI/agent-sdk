@@ -44,13 +44,17 @@ class SchemaImmutabilityMockObservation(Observation):
     """Mock observation class for testing."""
 
     result: str = Field(description="Result of the action")
-    status: str = Field(default="success", description="Status of the operation")
+    operation_status: str = Field(
+        default="success", description="Status of the operation"
+    )
     data: dict[str, Any | None] | None = Field(default=None, description="Result data")
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""
-        return [TextContent(text=f"Result: {self.result}, Status: {self.status}")]
+        return [
+            TextContent(text=f"Result: {self.result}, Status: {self.operation_status}")
+        ]
 
 
 def test_schema_is_frozen():
@@ -98,7 +102,7 @@ def test_mcp_action_base_is_frozen():
 def test_observation_base_is_frozen():
     """Test that Observation instances are frozen and cannot be modified."""
     observation = SchemaImmutabilityMockObservation(
-        result="test_result", status="completed"
+        result="test_result", operation_status="completed"
     )
 
     # Test that we cannot modify any field
@@ -106,7 +110,7 @@ def test_observation_base_is_frozen():
         observation.result = "modified_result"
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        observation.status = "failed"
+        observation.operation_status = "failed"
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
         observation.data = {"new": "data"}
@@ -179,21 +183,21 @@ def test_observation_model_copy_creates_new_instance():
     Creates a new instance with updated fields.
     """
     original = SchemaImmutabilityMockObservation(
-        result="original_result", status="pending"
+        result="original_result", operation_status="pending"
     )
 
     # Create a copy with updated fields
     updated = original.model_copy(
-        update={"result": "updated_result", "status": "completed"}
+        update={"result": "updated_result", "operation_status": "completed"}
     )
 
     # Verify original is unchanged
     assert original.result == "original_result"
-    assert original.status == "pending"
+    assert original.operation_status == "pending"
 
     # Verify updated instance has new values
     assert updated.result == "updated_result"
-    assert updated.status == "completed"
+    assert updated.operation_status == "completed"
 
     # Verify they are different instances
     assert original is not updated

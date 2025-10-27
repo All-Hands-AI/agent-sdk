@@ -70,6 +70,7 @@ class TaskTrackerAction(Action):
 class TaskTrackerObservation(Observation):
     """This data class represents the result of a task tracking operation."""
 
+    # Override output field to use 'content' naming for consistency with existing usage
     content: str = Field(
         default="", description="The formatted task list or status message"
     )
@@ -77,9 +78,11 @@ class TaskTrackerObservation(Observation):
     task_list: list[TaskItem] = Field(
         default_factory=list, description="The current task list"
     )
+    # Inherits: error: str | None from base class (not used by this tool)
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        # TaskTracker doesn't use errors, so we can use content directly
         return [TextContent(text=self.content)]
 
     @property

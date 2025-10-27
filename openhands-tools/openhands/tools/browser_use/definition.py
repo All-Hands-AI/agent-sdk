@@ -28,16 +28,15 @@ MAX_BROWSER_OUTPUT_SIZE = 50000
 class BrowserObservation(Observation):
     """Base observation for browser operations."""
 
-    output: str = Field(description="The output message from the browser operation")
-    error: str | None = Field(default=None, description="Error message if any")
+    # Inherits: output: str and error: str | None from base class
     screenshot_data: str | None = Field(
         default=None, description="Base64 screenshot data if available"
     )
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        if self.error:
-            return [TextContent(text=f"Error: {self.error}")]
+        if self.has_error:
+            return [self._format_error()]
 
         content: list[TextContent | ImageContent] = [
             TextContent(text=maybe_truncate(self.output, MAX_BROWSER_OUTPUT_SIZE))

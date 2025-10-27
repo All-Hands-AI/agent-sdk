@@ -1,5 +1,6 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any, ClassVar, TypeVar
 
 from pydantic import ConfigDict, Field, create_model
@@ -187,13 +188,50 @@ class Action(Schema, ABC):
         return content
 
 
+class ObservationStatus(str, Enum):
+    """Enumeration of observation status values."""
+
+    SUCCESS = "success"
+    ERROR = "error"
+
+
 class Observation(Schema, ABC):
     """Base schema for output observation."""
 
+    # Standardized error field - can be overridden by subclasses with different types
+    error: Any = Field(default=None, description="Error message if operation failed")
+
+    # Standardized primary output field - can be overridden by subclasses
+    output: str = Field(
+        default="", description="Primary text output from the tool operation"
+    )
+
     @property
-    @abstractmethod
+    def has_error(self) -> bool:
+        """Check if observation represents an error."""
+        return self.error is not None
+
+    @property
+    def status(self) -> ObservationStatus:
+        """Compute observation status."""
+        if self.has_error:
+            return ObservationStatus.ERROR
+        return ObservationStatus.SUCCESS
+
+    def _format_error(self) -> TextContent:
+        """Standard error formatting."""
+        return TextContent(text=f"Error: {self.error}")
+
+    @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        """Get the observation string to show to the agent."""
+        """Get the observation content to show to the agent.
+
+        Base implementation handles standard error-first pattern.
+        Subclasses can override for custom behavior.
+        """
+        if self.has_error:
+            return [self._format_error()]
+        return [TextContent(text=self.output)]
 
     @property
     def visualize(self) -> Text:

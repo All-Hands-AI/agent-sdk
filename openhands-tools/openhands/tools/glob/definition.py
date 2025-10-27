@@ -40,13 +40,14 @@ class GlobObservation(Observation):
     truncated: bool = Field(
         default=False, description="Whether results were truncated to 100 files"
     )
-    error: str | None = Field(default=None, description="Error message if any")
+    # Inherits: error: str | None from base class
+    # Note: output field is not used directly, overridden in to_llm_content
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Convert observation to LLM content."""
-        if self.error:
-            return [TextContent(text=f"Error: {self.error}")]
+        if self.has_error:
+            return [self._format_error()]
 
         if not self.files:
             content = (

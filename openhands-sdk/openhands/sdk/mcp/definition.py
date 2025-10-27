@@ -51,13 +51,15 @@ class MCPToolAction(Action):
 class MCPToolObservation(Observation):
     """Observation from MCP tool execution."""
 
+    # Override error field to use 'is_error' naming for consistency with MCP
+    is_error: bool = Field(
+        default=False, description="Whether the call resulted in an error"
+    )
+    # Override output field to use 'content' list for rich content support
     content: list[TextContent | ImageContent] = Field(
         default_factory=list,
         description="Content returned from the MCP tool converted "
         "to LLM Ready TextContent or ImageContent",
-    )
-    is_error: bool = Field(
-        default=False, description="Whether the call resulted in an error"
     )
     tool_name: str = Field(description="Name of the tool that was called")
 
@@ -88,11 +90,26 @@ class MCPToolObservation(Observation):
         )
 
     @property
+    def has_error(self) -> bool:
+        """Check if observation represents an error."""
+        return self.is_error
+
+    def _format_error(self) -> TextContent:
+        """Standard error formatting for MCP tools."""
+        return TextContent(
+            text=(
+                f"[Tool '{self.tool_name}' executed.]\n"
+                "[An error occurred during execution.]"
+            )
+        )
+
+    @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Format the observation for agent display."""
+        if self.has_error:
+            return [self._format_error()] + self.content
+
         initial_message = f"[Tool '{self.tool_name}' executed.]\n"
-        if self.is_error:
-            initial_message += "[An error occurred during execution.]\n"
         return [TextContent(text=initial_message)] + self.content
 
     @property

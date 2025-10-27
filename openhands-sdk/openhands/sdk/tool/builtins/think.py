@@ -47,12 +47,15 @@ class ThinkAction(Action):
 class ThinkObservation(Observation):
     """Observation returned after logging a thought."""
 
+    # Override output field to use 'content' naming for consistency with existing usage
     content: str = Field(
         default="Your thought has been logged.", description="Confirmation message."
     )
+    # Inherits: error: str | None from base class (not used by this tool)
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        # Think doesn't use errors, so we can use content directly
         return [TextContent(text=self.content)]
 
     @property

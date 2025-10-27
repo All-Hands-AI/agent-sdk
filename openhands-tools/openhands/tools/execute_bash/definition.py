@@ -79,7 +79,12 @@ class ExecuteBashAction(Action):
 class ExecuteBashObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
-    output: str = Field(description="The raw output from the tool.")
+    # Inherits: output: str from base class
+    # Override error field to use boolean instead of string
+    error: bool = Field(
+        default=False,
+        description="Whether there was an error during command execution.",
+    )
     command: str | None = Field(
         default=None,
         description="The bash command that was executed. Can be empty string if the observation is from a previous command that hit soft timeout and is not yet finished.",  # noqa
@@ -87,10 +92,6 @@ class ExecuteBashObservation(Observation):
     exit_code: int | None = Field(
         default=None,
         description="The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",  # noqa
-    )
-    error: bool = Field(
-        default=False,
-        description="Whether there was an error during command execution.",
     )
     timeout: bool = Field(
         default=False, description="Whether the command execution timed out."
@@ -106,7 +107,29 @@ class ExecuteBashObservation(Observation):
         return self.metadata.pid
 
     @property
+    def has_error(self) -> bool:
+        """Check if observation represents an error."""
+        return self.error
+
+    def _format_error(self) -> TextContent:
+        """Standard error formatting for bash execution."""
+        return TextContent(text="[There was an error during command execution.]")
+
+    @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        if self.has_error:
+            # For bash errors, include the output with error prefix
+            ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
+            if self.metadata.working_dir:
+                ret += f"\n[Current working directory: {self.metadata.working_dir}]"
+            if self.metadata.py_interpreter_path:
+                ret += f"\n[Python interpreter: {self.metadata.py_interpreter_path}]"
+            if self.metadata.exit_code != -1:
+                ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
+            ret = f"[There was an error during command execution.]\n{ret}"
+            return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
+
+        # Success case
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
@@ -114,8 +137,6 @@ class ExecuteBashObservation(Observation):
             ret += f"\n[Python interpreter: {self.metadata.py_interpreter_path}]"
         if self.metadata.exit_code != -1:
             ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
-        if self.error:
-            ret = f"[There was an error during command execution.]\n{ret}"
         return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
 
     @property

@@ -31,10 +31,13 @@ class FinishAction(Action):
 
 
 class FinishObservation(Observation):
+    # Override output field to use 'message' naming for consistency with existing usage
     message: str = Field(description="Final message sent to the user.")
+    # Inherits: error: str | None from base class (not used by this tool)
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        # Finish doesn't use errors, so we can use message directly
         return [TextContent(text=self.message)]
 
     @property

@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
-from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import (
     Action,
     Observation,
@@ -70,9 +69,7 @@ class FileEditorObservation(Observation):
         description="The commands to run. Allowed options are: `view`, `create`, "
         "`str_replace`, `insert`, `undo_edit`."
     )
-    output: str = Field(
-        default="", description="The output message from the tool for the LLM to see."
-    )
+    # Inherits: output: str and error: str | None from base class
     path: str | None = Field(default=None, description="The file path that was edited.")
     prev_exist: bool = Field(
         default=True,
@@ -84,15 +81,10 @@ class FileEditorObservation(Observation):
     new_content: str | None = Field(
         default=None, description="The content of the file after the edit."
     )
-    error: str | None = Field(default=None, description="Error message if any.")
 
     _diff_cache: Text | None = PrivateAttr(default=None)
 
-    @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        if self.error:
-            return [TextContent(text=self.error)]
-        return [TextContent(text=self.output)]
+    # Uses base class to_llm_content implementation
 
     @property
     def visualize(self) -> Text:
