@@ -48,6 +48,8 @@ jobs:
                   # - 08_mcp_with_oauth.py: requires OAuth setup
                   # - 15_browser_use.py: requires browser setup
                   # - 16_llm_security_analyzer.py: requires user input
+                  # - 04_convo_with_api_sandboxed_server.py: requires sandbox API keys
+                  # - 04_vscode_with_docker_sandboxed_server.py: requires VSCode setup
                   EXAMPLES=(
                     #   "examples/01_standalone_sdk/01_hello_world.py"
                     #   "examples/01_standalone_sdk/02_custom_tools.py"
@@ -71,8 +73,6 @@ jobs:
                       "examples/02_remote_agent_server/01_convo_with_local_agent_server.py"
                       "examples/02_remote_agent_server/02_convo_with_docker_sandboxed_server.py"
                       "examples/02_remote_agent_server/03_browser_use_with_docker_sandboxed_server.py"
-                      "examples/02_remote_agent_server/04_convo_with_api_sandboxed_server.py"
-                      "examples/02_remote_agent_server/04_vscode_with_docker_sandboxed_server.py"
                   )
 
                   # GitHub API setup
