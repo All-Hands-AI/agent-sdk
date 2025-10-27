@@ -5,10 +5,13 @@ from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
+from openhands.sdk.conversation.response_utils import (
+    agent_final_response as get_agent_final_response,
+)
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.llm.llm import LLM
-from openhands.sdk.llm.message import Message, content_to_str
+from openhands.sdk.llm.message import Message
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
@@ -156,35 +159,7 @@ class BaseConversation(ABC):
         Returns:
             The final response message from the agent, or empty string if not found.
         """
-        # Find the last finish action or message event from the agent
-        for event in reversed(self.state.events):
-            # Case 1: finish tool call
-            if (
-                type(event).__name__ == "ActionEvent"
-                and hasattr(event, "source")
-                and getattr(event, "source") == "agent"
-                and hasattr(event, "tool_name")
-                and getattr(event, "tool_name") == "finish"
-            ):
-                # Extract message from finish tool call
-                if hasattr(event, "action") and hasattr(
-                    getattr(event, "action"), "message"
-                ):
-                    message = getattr(getattr(event, "action"), "message")
-                    return message
-                else:
-                    break
-            # Case 2: text message with no tool calls (MessageEvent)
-            elif (
-                type(event).__name__ == "MessageEvent"
-                and hasattr(event, "source")
-                and getattr(event, "source") == "agent"
-                and hasattr(event, "llm_message")
-            ):
-                llm_message = getattr(event, "llm_message")
-                text_parts = content_to_str(llm_message.content)
-                return "".join(text_parts)
-        return ""
+        return get_agent_final_response(self.state.events)
 
     @staticmethod
     def compose_callbacks(
