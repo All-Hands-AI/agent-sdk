@@ -1,5 +1,4 @@
 import json
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
 from openhands.sdk.logger import get_logger
@@ -21,8 +20,6 @@ logger = get_logger(__name__)
 
 class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
     session: TerminalSession
-    env_provider: Callable[[str], dict[str, str]] | None
-    env_masker: Callable[[str], str] | None
 
     def __init__(
         self,
@@ -30,8 +27,6 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
-        env_provider: Callable[[str], dict[str, str]] | None = None,
-        env_masker: Callable[[str], str] | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
 
@@ -42,11 +37,6 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             terminal_type: Force a specific session type:
                          ('tmux', 'subprocess').
                          If None, auto-detect based on system capabilities
-            env_provider: Optional function mapping a command string to env vars
-                          that should be exported for that command.
-            env_masker: Optional function that returns current secret values
-                        for masking purposes. This ensures consistent masking
-                        even when env_provider calls fail.
         """
         self.session = create_terminal_session(
             work_dir=working_dir,
@@ -55,8 +45,6 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             terminal_type=terminal_type,
         )
         self.session.initialize()
-        self.env_provider = env_provider
-        self.env_masker = env_masker
         logger.info(
             f"BashExecutor initialized with working_dir: {working_dir}, "
             f"username: {username}, "
@@ -72,7 +60,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
         if action.is_input:
             return
 
-        # Try to get secrets from conversation first, then fall back to env_provider
+        # Get secrets from conversation
         env_vars = {}
         if conversation is not None:
             try:
@@ -80,8 +68,6 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                 env_vars = secrets_manager.get_secrets_as_env_vars(action.command)
             except Exception:
                 env_vars = {}
-        elif self.env_provider:
-            env_vars = self.env_provider(action.command)
 
         if not env_vars:
             return
@@ -172,23 +158,17 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             observation = self.session.execute(action)
 
         # Apply automatic secrets masking
-        # Try conversation first, then fall back to env_masker
-        if observation.output:
-            masked_output = None
-            if conversation is not None:
-                try:
-                    secrets_manager = conversation.state.secrets_manager
-                    masked_output = secrets_manager.mask_secrets_in_output(
-                        observation.output
-                    )
-                except Exception:
-                    masked_output = None
-            elif self.env_masker:
-                masked_output = self.env_masker(observation.output)
-
-            if masked_output:
-                data = observation.model_dump(exclude={"output"})
-                return ExecuteBashObservation(**data, output=masked_output)
+        if observation.output and conversation is not None:
+            try:
+                secrets_manager = conversation.state.secrets_manager
+                masked_output = secrets_manager.mask_secrets_in_output(
+                    observation.output
+                )
+                if masked_output:
+                    data = observation.model_dump(exclude={"output"})
+                    return ExecuteBashObservation(**data, output=masked_output)
+            except Exception:
+                pass
 
         return observation
 
