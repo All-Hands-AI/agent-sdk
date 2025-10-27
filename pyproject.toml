@@ -86,6 +86,8 @@ extraPaths = [
 pythonVersion = "3.12"
 useLibraryCodeForTypes = true
 typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
 
 [[tool.uv.index]]
 name = "testpypi"
