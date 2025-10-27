@@ -63,16 +63,26 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             f"terminal_type: {terminal_type or self.session.__class__.__name__}"
         )
 
-    def _export_envs(self, action: ExecuteBashAction) -> None:
-        if not self.env_provider:
-            return
+    def _export_envs(
+        self, action: ExecuteBashAction, conversation: "BaseConversation | None" = None
+    ) -> None:
         if not action.command.strip():
             return
 
         if action.is_input:
             return
 
-        env_vars = self.env_provider(action.command)
+        # Try to get secrets from conversation first, then fall back to env_provider
+        env_vars = {}
+        if conversation is not None:
+            try:
+                secrets_manager = conversation.state.secrets_manager
+                env_vars = secrets_manager.get_secrets_as_env_vars(action.command)
+            except Exception:
+                env_vars = {}
+        elif self.env_provider:
+            env_vars = self.env_provider(action.command)
+
         if not env_vars:
             return
 
@@ -127,7 +137,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
     def __call__(
         self,
         action: ExecuteBashAction,
-        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+        conversation: "BaseConversation | None" = None,
     ) -> ExecuteBashObservation:
         # Validate field combinations
         if action.reset and action.is_input:
@@ -143,7 +153,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                     timeout=action.timeout,
                     is_input=False,  # is_input validated to be False when reset=True
                 )
-                self._export_envs(command_action)
+                self._export_envs(command_action, conversation)
                 command_result = self.session.execute(command_action)
                 observation = command_result.model_copy(
                     update={
@@ -158,14 +168,27 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                 observation = reset_result
         else:
             # If env keys detected, export env values to bash as a separate action first
-            self._export_envs(action)
+            self._export_envs(action, conversation)
             observation = self.session.execute(action)
 
-        # Apply automatic secrets masking using env_masker
-        if self.env_masker and observation.output:
-            masked_output = self.env_masker(observation.output)
-            data = observation.model_dump(exclude={"output"})
-            return ExecuteBashObservation(**data, output=masked_output)
+        # Apply automatic secrets masking
+        # Try conversation first, then fall back to env_masker
+        if observation.output:
+            masked_output = None
+            if conversation is not None:
+                try:
+                    secrets_manager = conversation.state.secrets_manager
+                    masked_output = secrets_manager.mask_secrets_in_output(
+                        observation.output
+                    )
+                except Exception:
+                    masked_output = None
+            elif self.env_masker:
+                masked_output = self.env_masker(observation.output)
+
+            if masked_output:
+                data = observation.model_dump(exclude={"output"})
+                return ExecuteBashObservation(**data, output=masked_output)
 
         return observation
 
