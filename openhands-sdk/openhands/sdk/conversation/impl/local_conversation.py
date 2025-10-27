@@ -51,8 +51,8 @@ class LocalConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
-        secrets: Mapping[str, SecretValue] | None = None,
         name_for_visualization: str | None = None,
+        secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
     ):
         """Initialize the conversation.
