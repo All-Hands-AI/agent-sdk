@@ -126,13 +126,13 @@ assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 llm = LLM(
     usage_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
+    model=os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929"),
     base_url=os.getenv("LLM_BASE_URL"),
     api_key=SecretStr(api_key),
 )
 title_gen_llm = LLM(
     usage_id="title-gen-llm",
-    model="litellm_proxy/openai/gpt-5-mini",
+    model=os.getenv("LLM_MODEL", "openhands/gpt-5-mini-2025-08-07"),
     base_url=os.getenv("LLM_BASE_URL"),
     api_key=SecretStr(api_key),
 )
