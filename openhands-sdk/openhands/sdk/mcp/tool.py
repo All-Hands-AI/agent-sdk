@@ -69,6 +69,7 @@ class MCPToolExecutor(ToolExecutor):
                 logger.error(error_msg, exc_info=True)
                 return MCPToolObservation(
                     content=[TextContent(text=error_msg)],
+                    error=error_msg,
                     is_error=True,
                     tool_name=self.tool_name,
                 )
@@ -149,6 +150,7 @@ class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
             logger.error(error_msg, exc_info=True)
             return MCPToolObservation(
                 content=[TextContent(text=error_msg)],
+                error=error_msg,
                 is_error=True,
                 tool_name=self.name,
             )

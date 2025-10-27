@@ -61,6 +61,11 @@ class MCPToolObservation(Observation):
     )
     tool_name: str = Field(description="Name of the tool that was called")
 
+    @property
+    def has_error(self) -> bool:  # type: ignore[override]
+        # Consider both base error string and is_error boolean for compatibility
+        return bool(self.error) or bool(self.is_error)
+
     @classmethod
     def from_call_tool_result(
         cls, tool_name: str, result: mcp.types.CallToolResult
@@ -83,7 +88,8 @@ class MCPToolObservation(Observation):
                 )
         return cls(
             content=convrted_content,
-            is_error=result.isError,
+            error=("MCP tool error" if result.isError else None),
+            is_error=bool(result.isError),
             tool_name=tool_name,
         )
 
@@ -91,7 +97,7 @@ class MCPToolObservation(Observation):
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Format the observation for agent display."""
         initial_message = f"[Tool '{self.tool_name}' executed.]\n"
-        if self.is_error:
+        if self.has_error:
             initial_message += "[An error occurred during execution.]\n"
         return [TextContent(text=initial_message)] + self.content
 
@@ -100,7 +106,7 @@ class MCPToolObservation(Observation):
         """Return Rich Text representation of this observation."""
         content = Text()
         content.append(f"[MCP Tool '{self.tool_name}' Observation]\n", style="bold")
-        if self.is_error:
+        if self.has_error:
             content.append("[Error during execution]\n", style="bold red")
         for block in self.content:
             if isinstance(block, TextContent):

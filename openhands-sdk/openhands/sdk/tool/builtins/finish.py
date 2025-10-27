@@ -1,10 +1,8 @@
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
@@ -31,11 +29,12 @@ class FinishAction(Action):
 
 
 class FinishObservation(Observation):
-    message: str = Field(description="Final message sent to the user.")
+    output: str = Field(default="", description="Final message sent to the user.")
 
+    # Backward compatibility: expose `message` alias for older tests/integrations
     @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.message)]
+    def message(self) -> str:  # pragma: no cover - alias for backward compatibility
+        return self.output
 
     @property
     def visualize(self) -> Text:
@@ -64,7 +63,7 @@ class FinishExecutor(ToolExecutor):
         action: FinishAction,
         conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> FinishObservation:
-        return FinishObservation(message=action.message)
+        return FinishObservation(output=action.message)
 
 
 FinishTool = ToolDefinition(

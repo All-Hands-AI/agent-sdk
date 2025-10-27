@@ -91,7 +91,7 @@ class FileEditorObservation(Observation):
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
-            return [TextContent(text=self.error)]
+            return [TextContent(text=f"Error: {self.error}")]
         return [TextContent(text=self.output)]
 
     @property

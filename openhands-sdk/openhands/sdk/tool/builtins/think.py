@@ -1,10 +1,8 @@
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
@@ -47,13 +45,14 @@ class ThinkAction(Action):
 class ThinkObservation(Observation):
     """Observation returned after logging a thought."""
 
-    content: str = Field(
+    output: str = Field(
         default="Your thought has been logged.", description="Confirmation message."
     )
 
+    # Backward compatibility: expose `content` alias for older tests/integrations
     @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.content)]
+    def content(self) -> str:  # pragma: no cover - alias for backward compatibility
+        return self.output
 
     @property
     def visualize(self) -> Text:
