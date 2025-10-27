@@ -27,7 +27,7 @@ from openhands.sdk.utils.models import (
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
+    from openhands.sdk.conversation import LocalConversation
 
 
 ActionT = TypeVar("ActionT", bound=Action)
@@ -75,7 +75,7 @@ class ToolExecutor[ActionT, ObservationT](ABC):
 
     @abstractmethod
     def __call__(
-        self, action: ActionT, conversation: "BaseConversation | None" = None
+        self, action: ActionT, conversation: "LocalConversation | None" = None
     ) -> ObservationT:
         """Execute the tool with the given action and return an observation.
 
@@ -109,7 +109,7 @@ class ExecutableTool(Protocol):
     executor: ToolExecutor[Any, Any]  # Non-optional executor
 
     def __call__(
-        self, action: Action, conversation: "BaseConversation | None" = None
+        self, action: Action, conversation: "LocalConversation | None" = None
     ) -> Observation:
         """Execute the tool with the given action."""
         ...
@@ -227,7 +227,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         return self.action_type.model_validate(arguments)
 
     def __call__(
-        self, action: ActionT, conversation: "BaseConversation | None" = None
+        self, action: ActionT, conversation: "LocalConversation | None" = None
     ) -> Observation:
         """Validate input, execute, and coerce output.
 
