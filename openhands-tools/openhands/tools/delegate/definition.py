@@ -47,12 +47,13 @@ class DelegateObservation(Observation):
     command: CommandLiteral = Field(
         description="The command that was executed. Either `spawn` or `delegate`."
     )
-    message: str = Field(description="Result message from the operation")
+    output: str = Field(default="", description="Result message from the operation")
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation content to show to the agent."""
-        return [TextContent(text=self.message)]
+        # Use standardized base behavior by prioritizing error then output
+        return super().to_llm_content
 
 
 TOOL_DESCRIPTION = """Delegation tool for spawning sub-agents and delegating tasks to them.
