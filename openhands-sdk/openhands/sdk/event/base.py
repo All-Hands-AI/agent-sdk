@@ -31,6 +31,17 @@ class Event(DiscriminatedUnionMixin, ABC):
     )  # consistent with V1
     source: SourceType = Field(..., description="The source of this event")
 
+    llm_response_id: EventID = Field(
+        default="",
+        description=(
+            "Completion or Response ID of the LLM response that generated this event"
+            "If the event is not LLM generated, this field is an empty string"
+            "E.g., Can be used to group related actions from same LLM response. "
+            "This helps in tracking and managing results of parallel function calling "
+            "from the same LLM response."
+        ),
+    )
+
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this event.

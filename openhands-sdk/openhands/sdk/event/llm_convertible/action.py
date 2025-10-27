@@ -4,7 +4,7 @@ from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
-from openhands.sdk.event.types import EventID, SourceType, ToolCallID
+from openhands.sdk.event.types import SourceType, ToolCallID
 from openhands.sdk.llm import (
     Message,
     MessageToolCall,
@@ -49,14 +49,6 @@ class ActionEvent(LLMConvertibleEvent):
             "This could be different from `action`: e.g., `tool_call` may contain "
             "`security_risk` field predicted by LLM when LLM risk analyzer is enabled"
             ", while `action` does not."
-        ),
-    )
-    llm_response_id: EventID = Field(
-        ...,
-        description=(
-            "Groups related actions from same LLM response. This helps in tracking "
-            "and managing results of parallel function calling from the same LLM "
-            "response."
         ),
     )
 

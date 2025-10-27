@@ -210,6 +210,7 @@ class View(BaseModel):
         # If we have a summary, insert it at the specified offset.
         summary: str | None = None
         summary_offset: int | None = None
+        summary_llm_response_id: EventID = ""
 
         # The relevant summary is always in the last condensation event (i.e., the most
         # recent one).
@@ -218,12 +219,15 @@ class View(BaseModel):
                 if event.summary is not None and event.summary_offset is not None:
                     summary = event.summary
                     summary_offset = event.summary_offset
+                    summary_llm_response_id = event.llm_response_id
                     break
 
         if summary is not None and summary_offset is not None:
             logger.debug(f"Inserting summary at offset {summary_offset}")
 
-            _new_summary_event = CondensationSummaryEvent(summary=summary)
+            _new_summary_event = CondensationSummaryEvent(
+                summary=summary, llm_response_id=summary_llm_response_id
+            )
             kept_events.insert(summary_offset, _new_summary_event)
 
         # Check for an unhandled condensation request -- these are events closer to the
