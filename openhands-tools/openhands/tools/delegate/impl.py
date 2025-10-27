@@ -79,11 +79,12 @@ class DelegateExecutor(ToolExecutor):
                 message="Error: at least one ID is required for spawn action",
             )
 
-        if len(action.ids) > self._max_children:
+        if len(self._sub_agents) + len(action.ids) > self._max_children:
             return DelegateObservation(
                 command="spawn",
                 message=(
-                    f"Error: cannot spawn {len(action.ids)} agents, "
+                    f"Cannot spawn {len(action.ids)} agents. "
+                    f"Already have {len(self._sub_agents)} agents, "
                     f"maximum is {self._max_children}"
                 ),
             )
