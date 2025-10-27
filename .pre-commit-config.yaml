@@ -32,8 +32,8 @@ repos:
             always_run: false
           - id: pyright
             name: Type check with pyright
-            entry: uv
-            args: [run, pyright]
+            entry: bash
+            args: [-c, PYTHONPATH=.venv/lib/python3.12/site-packages uv run pyright "$@", --]
             language: system
             types: [python]
             pass_filenames: true
