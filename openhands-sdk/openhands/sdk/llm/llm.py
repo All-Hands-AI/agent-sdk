@@ -22,6 +22,8 @@ from pydantic import (
 )
 from pydantic.json_schema import SkipJsonSchema
 
+from openhands.sdk.utils.pydantic_secrets import serialize_secret, validate_secret
+
 
 if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
     from openhands.sdk.tool.tool import ToolBase
@@ -266,24 +268,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Validators
     # =========================================================================
-    @field_validator("api_key", mode="before")
+    @field_validator("api_key", "aws_access_key_id", "aws_secret_access_key")
     @classmethod
-    def _validate_api_key(cls, v):
-        """Convert empty API keys to None to allow boto3 to use alternative auth methods."""  # noqa: E501
-        if v is None:
-            return None
-
-        # Handle both SecretStr and string inputs
-        if isinstance(v, SecretStr):
-            secret_value = v.get_secret_value()
-        else:
-            secret_value = str(v)
-
-        # If the API key is empty or whitespace-only, return None
-        if not secret_value or not secret_value.strip():
-            return None
-
-        return v
+    def _validate_secrets(cls, v: SecretStr | None, info):
+        return validate_secret(v, info)
 
     @model_validator(mode="before")
     @classmethod
@@ -377,16 +365,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="always"
     )
     def _serialize_secrets(self, v: SecretStr | None, info):
-        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
-        if v is None:
-            return None
-
-        # Check if the 'expose_secrets' flag is in the serialization context
-        if info.context and info.context.get("expose_secrets"):
-            return v.get_secret_value()
-
-        # Let Pydantic handle the default masking
-        return v
+        return serialize_secret(v, info)
 
     # =========================================================================
     # Public API
@@ -1036,7 +1015,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Copy allowed fields from runtime llm into the persisted llm
         llm_updates = {}
-        persisted_dump = persisted.model_dump(exclude_none=True)
+        persisted_dump = persisted.model_dump(context={"expose_secrets": True})
         for field in self.OVERRIDE_ON_SERIALIZE:
             if field in persisted_dump.keys():
                 llm_updates[field] = getattr(self, field)
@@ -1045,9 +1024,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         else:
             reconciled = persisted
 
-        if self.model_dump(exclude_none=True) != reconciled.model_dump(
-            exclude_none=True
-        ):
+        dump = self.model_dump(context={"expose_secrets": True})
+        reconciled_dump = reconciled.model_dump(context={"expose_secrets": True})
+        if dump != reconciled_dump:
             raise ValueError(
                 "The LLM provided is different from the one in persisted state.\n"
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
