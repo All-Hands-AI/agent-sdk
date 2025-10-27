@@ -56,28 +56,9 @@ The `examples/` directory contains comprehensive usage examples:
 - **Remote Agent Server** (`examples/02_remote_agent_server/`) - Client-server architecture and WebSocket connections
 - **GitHub Workflows** (`examples/03_github_workflows/`) - CI/CD integration and automated workflows
 
-## Development
+## Contributing
 
-### Setup
-
-```bash
-make build  # Install dependencies and setup development environment
-```
-
-### Code Quality
-
-```bash
-make format  # Format code
-make lint    # Lint code
-uv run pre-commit run --all-files  # Run pre-commit hooks
-```
-
-### Testing
-
-```bash
-uv run pytest  # Run all tests
-uv run pytest tests/sdk/  # Run specific test suite
-```
+For development setup, testing, and contribution guidelines, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Community
 
