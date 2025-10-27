@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from logging import getLogger
-from typing import overload
+from typing import cast, overload
 
 from pydantic import BaseModel
 
@@ -102,7 +102,7 @@ class View(BaseModel):
         batches: dict[EventID, list[EventID]] = {}
         for event in events:
             if isinstance(event, ActionEvent):
-                llm_response_id = event.llm_response_id
+                llm_response_id = cast(EventID, event.llm_response_id)
                 if llm_response_id not in batches:
                     batches[llm_response_id] = []
                 batches[llm_response_id].append(event.id)
@@ -210,7 +210,7 @@ class View(BaseModel):
         # If we have a summary, insert it at the specified offset.
         summary: str | None = None
         summary_offset: int | None = None
-        summary_llm_response_id: EventID = ""
+        summary_llm_response_id: EventID | None = None
 
         # The relevant summary is always in the last condensation event (i.e., the most
         # recent one).
