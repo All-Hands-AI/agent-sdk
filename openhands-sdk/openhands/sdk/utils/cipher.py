@@ -8,20 +8,19 @@ SECURITY WARNINGS:
 
 import hashlib
 from base64 import b64encode
-from dataclasses import dataclass
 
 from cryptography.fernet import Fernet
 from pydantic import SecretStr
 
 
-@dataclass(frozen=True)
 class Cipher:
     """
     Simple encryption utility for preventing accidental secret disclosure.
     """
 
-    secret_key: str
-    _fernet: Fernet | None = None
+    def __init__(self, secret_key: str):
+        self.secret_key = secret_key
+        self._fernet: Fernet | None = None
 
     def encrypt(self, secret: SecretStr | None) -> str | None:
         if secret is None:
