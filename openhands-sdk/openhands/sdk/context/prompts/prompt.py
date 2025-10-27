@@ -4,14 +4,7 @@ import re
 import sys
 from functools import lru_cache
 
-from jinja2 import (
-    Environment,
-    FileSystemBytecodeCache,
-    FileSystemLoader,
-    Template,
-    TemplateNotFound,
-)
-from platformdirs import user_cache_dir
+from jinja2 import Environment, FileSystemBytecodeCache, FileSystemLoader, Template
 
 
 def refine(text: str) -> str:
@@ -29,23 +22,13 @@ def refine(text: str) -> str:
 def _get_env(prompt_dir: str) -> Environment:
     if not prompt_dir:
         raise ValueError("prompt_dir is required")
-
-    # Use a safe per-user cache directory for bytecode cache
-    # This avoids permission issues with read-only prompt directories
-    bytecode_cache = None
-    try:
-        cache_root = user_cache_dir("openhands", "openhands-ai")
-        cache_folder = os.path.join(cache_root, "jinja_cache")
-        os.makedirs(cache_folder, exist_ok=True)
-        bytecode_cache = FileSystemBytecodeCache(directory=cache_folder)
-    except OSError:
-        # If we can't create the cache directory, disable caching
-        # This allows the code to work in read-only environments
-        bytecode_cache = None
-
+    # BytecodeCache avoids reparsing templates across processes
+    cache_folder = os.path.join(prompt_dir, ".jinja_cache")
+    os.makedirs(cache_folder, exist_ok=True)
+    bcc = FileSystemBytecodeCache(directory=cache_folder)
     env = Environment(
         loader=FileSystemLoader(prompt_dir),
-        bytecode_cache=bytecode_cache,
+        bytecode_cache=bcc,
         autoescape=False,
     )
     # Optional: expose refine as a filter so templates can use {{ text|refine }}
@@ -58,12 +41,10 @@ def _get_template(prompt_dir: str, template_name: str) -> Template:
     env = _get_env(prompt_dir)
     try:
         return env.get_template(template_name)
-    except TemplateNotFound as e:
-        # Only map TemplateNotFound to FileNotFoundError
+    except Exception:
         raise FileNotFoundError(
             f"Prompt file {os.path.join(prompt_dir, template_name)} not found"
-        ) from e
-    # Other exceptions (permission errors, syntax errors, etc.) are re-raised as-is
+        )
 
 
 def render_template(prompt_dir: str, template_name: str, **ctx) -> str:
