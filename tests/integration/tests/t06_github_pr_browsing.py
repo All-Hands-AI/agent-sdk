@@ -1,7 +1,7 @@
 """Test that an agent can browse a GitHub PR and extract information."""
 
 from openhands.sdk import get_logger
-from openhands.sdk.conversation import agent_final_response
+from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.file_editor import FileEditorTool
@@ -39,7 +39,7 @@ class GitHubPRBrowsingTest(BaseIntegrationTest):
         """Verify that the agent successfully browsed the GitHub PR."""
 
         # Get the agent's final answer/response to the instruction
-        agent_answer = agent_final_response(self.conversation.state.events)
+        agent_answer = get_agent_final_response(self.conversation.state.events)
 
         if not agent_answer:
             return TestResult(

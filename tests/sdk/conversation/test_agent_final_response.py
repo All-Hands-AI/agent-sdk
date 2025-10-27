@@ -1,12 +1,12 @@
-"""Tests for the agent_final_response utility function."""
+"""Tests for the get_agent_final_response utility function."""
 
-from openhands.sdk.conversation.response_utils import agent_final_response
+from openhands.sdk.conversation.response_utils import get_agent_final_response
 from openhands.sdk.event import ActionEvent, MessageEvent
 from openhands.sdk.llm import Message, MessageToolCall, TextContent
 from openhands.sdk.tool.builtins.finish import FinishAction
 
 
-def test_agent_final_response_with_finish_action():
+def test_get_agent_final_response_with_finish_action():
     """Test extracting final response from a finish action."""
     # Create a finish action event
     finish_action = FinishAction(message="Task completed successfully!")
@@ -24,12 +24,12 @@ def test_agent_final_response_with_finish_action():
     )
 
     events = [action_event]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     assert result == "Task completed successfully!"
 
 
-def test_agent_final_response_with_message_event():
+def test_get_agent_final_response_with_message_event():
     """Test extracting final response from a message event."""
     # Create a message event
     message_event = MessageEvent(
@@ -40,12 +40,12 @@ def test_agent_final_response_with_message_event():
     )
 
     events = [message_event]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     assert result == "Here is my response"
 
 
-def test_agent_final_response_with_multiple_events():
+def test_get_agent_final_response_with_multiple_events():
     """Test extracting final response when there are multiple events."""
     # Create multiple events - the last agent event should be returned
     user_message = MessageEvent(
@@ -68,13 +68,13 @@ def test_agent_final_response_with_multiple_events():
     )
 
     events = [user_message, agent_message1, agent_message2]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     # Should return the last agent message
     assert result == "Final response"
 
 
-def test_agent_final_response_finish_action_takes_precedence():
+def test_get_agent_final_response_finish_action_takes_precedence():
     """Test that finish action takes precedence over message events."""
     # Create a message event
     agent_message = MessageEvent(
@@ -100,21 +100,21 @@ def test_agent_final_response_finish_action_takes_precedence():
     )
 
     events = [agent_message, action_event]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     # Should return the finish action message (comes last)
     assert result == "Finished!"
 
 
-def test_agent_final_response_empty_events():
+def test_get_agent_final_response_empty_events():
     """Test handling of empty events list."""
     events = []
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     assert result == ""
 
 
-def test_agent_final_response_no_agent_events():
+def test_get_agent_final_response_no_agent_events():
     """Test handling when there are no agent events."""
     # Create only user events
     user_message = MessageEvent(
@@ -123,12 +123,12 @@ def test_agent_final_response_no_agent_events():
     )
 
     events = [user_message]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     assert result == ""
 
 
-def test_agent_final_response_with_none_action():
+def test_get_agent_final_response_with_none_action():
     """Test handling of finish tool call with None action."""
     # Create an action event with tool_name="finish" but action=None
     tool_call = MessageToolCall(
@@ -145,13 +145,13 @@ def test_agent_final_response_with_none_action():
     )
 
     events = [action_event]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     # Should return empty string when action is None
     assert result == ""
 
 
-def test_agent_final_response_with_multiple_content_parts():
+def test_get_agent_final_response_with_multiple_content_parts():
     """Test extracting final response with multiple content parts."""
     # Create a message event with multiple text content parts
     message_event = MessageEvent(
@@ -167,12 +167,12 @@ def test_agent_final_response_with_multiple_content_parts():
     )
 
     events = [message_event]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     assert result == "Part 1. Part 2. Part 3."
 
 
-def test_agent_final_response_ignores_non_agent_finish():
+def test_get_agent_final_response_ignores_non_agent_finish():
     """Test that finish actions from non-agent sources are ignored."""
     # Create a finish action from user (shouldn't happen but test edge case)
     finish_action = FinishAction(message="User finish")
@@ -198,13 +198,13 @@ def test_agent_final_response_ignores_non_agent_finish():
     )
 
     events = [action_event, agent_message]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     # Should return the agent message, not the user finish action
     assert result == "Agent response"
 
 
-def test_agent_final_response_with_non_finish_action():
+def test_get_agent_final_response_with_non_finish_action():
     """Test that non-finish actions are ignored."""
     # Create a non-finish action event (e.g., read_file)
     tool_call = MessageToolCall(
@@ -229,7 +229,7 @@ def test_agent_final_response_with_non_finish_action():
     )
 
     events = [action_event, agent_message]
-    result = agent_final_response(events)
+    result = get_agent_final_response(events)
 
     # Should return the agent message
     assert result == "File contents"

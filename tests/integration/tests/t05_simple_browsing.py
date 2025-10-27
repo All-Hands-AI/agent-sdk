@@ -6,7 +6,7 @@ import subprocess
 import time
 
 from openhands.sdk import get_logger
-from openhands.sdk.conversation import agent_final_response
+from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.file_editor import FileEditorTool
@@ -138,7 +138,7 @@ class SimpleBrowsingTest(BaseIntegrationTest):
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully browsed the page and found the answer."""
         # Use the utility function to get the agent's final response
-        agent_response = agent_final_response(self.conversation.state.events)
+        agent_response = get_agent_final_response(self.conversation.state.events)
 
         logger.info(f"Agent final response to analyze: {agent_response[:500]}...")
 

@@ -8,7 +8,7 @@ from openhands.sdk.llm.message import content_to_str
 from openhands.sdk.tool.builtins.finish import FinishAction
 
 
-def agent_final_response(events: Sequence[Event]) -> str:
+def get_agent_final_response(events: Sequence[Event]) -> str:
     """Extract the final response from the agent.
 
     An agent can end a conversation in two ways:
