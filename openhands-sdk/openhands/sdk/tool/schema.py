@@ -1,5 +1,6 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any, ClassVar, TypeVar
 
 from pydantic import ConfigDict, Field, create_model
@@ -187,20 +188,54 @@ class Action(Schema, ABC):
         return content
 
 
+class ObservationStatus(str, Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+
+
 class Observation(Schema, ABC):
     """Base schema for output observation."""
 
+    # Standardized primary output and error handling
+    output: str = Field(
+        default="", description="Primary text output from the tool operation"
+    )
+    error: str | None = Field(
+        default=None, description="Error message if operation failed"
+    )
+
     @property
-    @abstractmethod
+    def has_error(self) -> bool:
+        # Support both string and boolean-style error flags across subclasses.
+        # Using bool() handles: None/""/False -> False; non-empty str/True -> True.
+        return bool(self.error)
+
+    @property
+    def result_status(self) -> ObservationStatus:
+        return ObservationStatus.ERROR if self.has_error else ObservationStatus.SUCCESS
+
+    def _format_error(self) -> TextContent:
+        return TextContent(text=f"Error: {self.error}")
+
+    @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        """Get the observation string to show to the agent."""
+        """Default content formatting prioritizing error then output.
+
+        Subclasses can override to provide richer content (e.g., images, diffs),
+        but should preserve the error-first convention.
+        """
+        if self.error:
+            return [self._format_error()]
+        if self.output:
+            return [TextContent(text=self.output)]
+        return []
 
     @property
     def visualize(self) -> Text:
-        """Return Rich Text representation of this action.
+        """Return Rich Text representation of this observation.
 
-        This method can be overridden by subclasses to customize visualization.
-        The base implementation displays all action fields systematically.
+        Subclasses can override for custom visualization; by default we show the
+        same text that would be sent to the LLM.
         """
         content = Text()
         text_parts = content_to_str(self.to_llm_content)
