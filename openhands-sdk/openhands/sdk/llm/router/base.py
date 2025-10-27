@@ -68,7 +68,7 @@ class RouterLLM(LLM):
         return self.active_llm.completion(
             messages=messages,
             tools=tools,
-            return_metrics=return_metrics,
+            _return_metrics=return_metrics,
             add_security_risk_prediction=add_security_risk_prediction,
             **kwargs,
         )

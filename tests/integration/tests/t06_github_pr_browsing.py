@@ -8,7 +8,7 @@ from tests.integration.base import BaseIntegrationTest, TestResult
 
 
 INSTRUCTION = (
-    "Look at https://github.com/All-Hands-AI/OpenHands/pull/8, and tell me "
+    "Look at https://github.com/OpenHands/OpenHands/pull/8, and tell me "
     "what is happening there and what did @asadm suggest. "
 )
 

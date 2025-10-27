@@ -67,7 +67,7 @@ class RemoteWorkspaceMixin(BaseModel):
             # Start the command
             response: httpx.Response = yield {
                 "method": "POST",
-                "url": f"{self.host}/api/bash/execute_bash_command",
+                "url": f"{self.host}/api/bash/start_bash_command",
                 "json": payload,
                 "headers": self._headers,
                 "timeout": timeout + 5.0,  # Add buffer to HTTP timeout
@@ -90,7 +90,8 @@ class RemoteWorkspaceMixin(BaseModel):
                     "method": "GET",
                     "url": f"{self.host}/api/bash/bash_events/search",
                     "params": {
-                        "command_id__eqsort_order": "TIMESTAMP",
+                        "command_id__eq": command_id,
+                        "sort_order": "TIMESTAMP",
                         "limit": 100,
                     },
                     "headers": self._headers,

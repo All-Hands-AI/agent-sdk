@@ -90,7 +90,7 @@ class SleepExecutor(ToolExecutor):
     test_start_time: float | None = None
     test_instance: "TestMessageWhileFinishing | None" = None
 
-    def __call__(self, action: SleepAction) -> SleepObservation:
+    def __call__(self, action: SleepAction, conversation=None) -> SleepObservation:  # noqa: ARG002
         start_time = time.time()
         test_start_time = getattr(self, "test_start_time", None)
         if test_start_time is None:
