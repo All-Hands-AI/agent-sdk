@@ -65,9 +65,9 @@ For detailed documentation, tutorials, and API reference, visit:
 
 The documentation includes:
 - [Getting Started Guide](https://docs.openhands.dev/sdk/getting-started) - Installation and setup
-- [Core Concepts](https://docs.openhands.dev/sdk/core-concepts) - Agents, tools, conversations, and context
-- [API Reference](https://docs.openhands.dev/sdk/api-reference) - Complete API documentation
-- [Examples](https://docs.openhands.dev/sdk/examples) - Standalone SDK, remote execution, and GitHub workflows
+- [Architecture & Core Concepts](https://docs.openhands.dev/sdk/arch/overview) - Agents, tools, workspaces, and more
+- [Guides](https://docs.openhands.dev/sdk/guides/hello-world) - Hello World, custom tools, MCP, skills, and more
+- [API Reference](https://github.com/OpenHands/agent-sdk/tree/main/openhands-sdk/openhands/sdk) - Complete SDK API and source code
 
 ## Examples
 
@@ -102,7 +102,7 @@ uv run pytest tests/sdk/  # Run specific test suite
 
 ## Community
 
-- [Slack Workspace](https://join.slack.com/t/openhands-ai/shared_invite/zt-2wkh4pklz-AILZ0gF3kBl~Eqd54NqYag) - Join the community
+- [Join Slack](https://openhands.dev/joinslack) - Connect with the OpenHands community
 - [GitHub Repository](https://github.com/OpenHands/agent-sdk) - Source code and issues
 - [Documentation](https://docs.openhands.dev/sdk) - Complete documentation
 
