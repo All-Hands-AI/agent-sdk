@@ -50,6 +50,7 @@ main_agent = Agent(
 conversation = Conversation(
     agent=main_agent,
     workspace=cwd,
+    name_for_visualization="Delegator",
 )
 
 task_message = (
