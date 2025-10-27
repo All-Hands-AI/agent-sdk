@@ -7,7 +7,7 @@ from openhands.sdk.tool import ToolExecutor
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
+    from openhands.sdk.conversation import LocalConversation
 from openhands.tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,
@@ -64,7 +64,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
         )
 
     def _export_envs(
-        self, action: ExecuteBashAction, conversation: "BaseConversation | None" = None
+        self, action: ExecuteBashAction, conversation: "LocalConversation | None" = None
     ) -> None:
         if not action.command.strip():
             return
@@ -137,7 +137,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
     def __call__(
         self,
         action: ExecuteBashAction,
-        conversation: "BaseConversation | None" = None,
+        conversation: "LocalConversation | None" = None,
     ) -> ExecuteBashObservation:
         # Validate field combinations
         if action.reset and action.is_input:
