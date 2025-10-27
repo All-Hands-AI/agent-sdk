@@ -482,7 +482,6 @@ class RemoteConversation(BaseConversation):
         # Add default visualizer callback if requested
         if visualize:
             self._visualizer = create_default_visualizer(
-                conversation_stats=None,  # Will be set lazily when needed
                 name_for_visualization=name_for_visualization,
             )
             if self._visualizer is not None:
