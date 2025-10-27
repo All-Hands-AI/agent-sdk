@@ -478,7 +478,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "messages": formatted_messages[:],  # already simple dicts
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
+                "context_window": self.max_input_tokens or 0,
             }
             if tools and not use_native_fc:
                 log_ctx["raw_messages"] = original_fncall_msgs
@@ -590,7 +590,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "input": input_items[:],
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
+                "context_window": self.max_input_tokens or 0,
             }
         self._telemetry.on_request(log_ctx=log_ctx)
 
