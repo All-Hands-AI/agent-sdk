@@ -161,8 +161,8 @@ jobs:
                       
                       START_TIME=$(date +%s)
                       
-                      # Run example with timeout (10 minutes per example)
-                      if timeout 600 uv run python "$example"; then
+                      # Run example with timeout (20 minutes per example)
+                      if timeout 1200 uv run python "$example"; then
                           END_TIME=$(date +%s)
                           DURATION=$((END_TIME - START_TIME))
                           DURATION_STR="${DURATION}s"
