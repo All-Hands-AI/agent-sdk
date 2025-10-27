@@ -68,22 +68,18 @@ def test_delegate_observation_creation():
     # Test spawn observation
     spawn_observation = DelegateObservation(
         command="spawn",
-        success=True,
         message="Sub-agents created successfully",
     )
     assert spawn_observation.command == "spawn"
-    assert spawn_observation.success is True
     assert spawn_observation.message == "Sub-agents created successfully"
     # spawn observation doesn't have results field anymore
 
     # Test delegate observation
     delegate_observation = DelegateObservation(
         command="delegate",
-        success=True,
         message="Tasks completed successfully\n\nResults:\n1. Result 1\n2. Result 2",
     )
     assert delegate_observation.command == "delegate"
-    assert delegate_observation.success is True
     assert "Tasks completed successfully" in delegate_observation.message
     assert "Result 1" in delegate_observation.message
     assert "Result 2" in delegate_observation.message
@@ -96,7 +92,7 @@ def test_delegate_executor_delegate():
     # First spawn some agents
     spawn_action = DelegateAction(command="spawn", ids=["agent1", "agent2"])
     spawn_observation = executor(spawn_action, parent_conversation)
-    assert spawn_observation.success is True
+    assert "Successfully spawned" in spawn_observation.message
 
     # Then delegate tasks to them
     delegate_action = DelegateAction(
@@ -107,7 +103,6 @@ def test_delegate_executor_delegate():
     with patch.object(executor, "_delegate_tasks") as mock_delegate:
         mock_observation = DelegateObservation(
             command="delegate",
-            success=True,
             message=(
                 "Tasks completed successfully\n\nResults:\n"
                 "1. Agent agent1: Code analysis complete\n"
@@ -120,7 +115,6 @@ def test_delegate_executor_delegate():
 
     assert isinstance(observation, DelegateObservation)
     assert observation.command == "delegate"
-    assert observation.success is True
     assert "Agent agent1: Code analysis complete" in observation.message
     assert "Agent agent2: Tests written" in observation.message
 
@@ -136,7 +130,6 @@ def test_delegate_executor_missing_task():
 
     assert isinstance(observation, DelegateObservation)
     assert observation.command == "delegate"
-    assert observation.success is False
     assert (
         "task is required" in observation.message.lower()
         or "at least one task" in observation.message.lower()

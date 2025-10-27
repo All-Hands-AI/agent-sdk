@@ -47,7 +47,6 @@ class DelegateObservation(Observation):
     command: CommandLiteral = Field(
         description="The command that was executed. Either `spawn` or `delegate`."
     )
-    success: bool = Field(description="Whether the operation was successful")
     message: str = Field(description="Result message from the operation")
 
     @property
