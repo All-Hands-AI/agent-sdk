@@ -536,6 +536,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             )
         except Exception as e:
             self._telemetry.on_error(e)
+            # Convert detected context window exceeded errors to
+            # ContextWindowExceededError for consistent handling upstream
+            if self.is_context_window_exceeded_exception(e):
+                raise ContextWindowExceededError(
+                    message=str(e),
+                    model=self.model,
+                    llm_provider=self.custom_llm_provider or "unknown",
+                ) from e
             raise
 
     # =========================================================================
@@ -655,6 +663,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             )
         except Exception as e:
             self._telemetry.on_error(e)
+            # Convert detected context window exceeded errors to
+            # ContextWindowExceededError for consistent handling upstream
+            if self.is_context_window_exceeded_exception(e):
+                raise ContextWindowExceededError(
+                    message=str(e),
+                    model=self.model,
+                    llm_provider=self.custom_llm_provider or "unknown",
+                ) from e
             raise
 
     # =========================================================================
