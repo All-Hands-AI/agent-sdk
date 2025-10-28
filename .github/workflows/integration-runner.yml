@@ -43,7 +43,7 @@ jobs:
                     - name: Devstral Small 2507
                       run-suffix: devstral_run
                       llm-config:
-                          model: openhands/devstral-small-2507
+                          model: openhands/devstral-medium-2507
                           temperature: 1.0
         steps:
             - name: Checkout repository
