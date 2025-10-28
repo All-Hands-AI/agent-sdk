@@ -716,7 +716,8 @@ world""",
             # First test that running multiple commands at once fails
             obs = _run_bash_action(session, joined_cmds)
             assert obs.has_error is True
-            assert "Cannot execute multiple commands at once" in obs.output
+            assert obs.error is not None
+            assert "Cannot execute multiple commands at once" in obs.error
 
             # Now run each command individually and verify they work
             results = []

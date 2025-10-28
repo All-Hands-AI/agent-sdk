@@ -326,14 +326,15 @@ class TerminalSession(TerminalSessionBase):
         # Check if the command is a single command or multiple commands
         splited_commands = split_bash_commands(command)
         if len(splited_commands) > 1:
+            commands_list = "\n".join(
+                f"({i + 1}) {cmd}" for i, cmd in enumerate(splited_commands)
+            )
             return ExecuteBashObservation(
-                output=(
-                    f"ERROR: Cannot execute multiple commands at once.\n"
-                    f"Please run each command separately OR chain them into a single "
-                    f"command via && or ;\nProvided commands:\n"
-                    f"{'\n'.join(f'({i + 1}) {cmd}' for i, cmd in enumerate(splited_commands))}"  # noqa: E501
+                error=(
+                    "ERROR: Cannot execute multiple commands at once.\n"
+                    "Please run each command separately OR chain them into a single "
+                    f"command via && or ;\nProvided commands:\n{commands_list}"
                 ),
-                error="Cannot execute multiple commands at once",
             )
 
         # Get initial state before sending command
