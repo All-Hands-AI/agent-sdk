@@ -1,17 +1,17 @@
 """Glob tool implementation for fast file pattern matching."""
 
 import os
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from pydantic import Field
 
+from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinition
+
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.state import ConversationState
+    from collections.abc import Sequence
 
-from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinition
+    from openhands.sdk.conversation.state import ConversationState
 
 
 class GlobAction(Action):
@@ -40,32 +40,6 @@ class GlobObservation(Observation):
     truncated: bool = Field(
         default=False, description="Whether results were truncated to 100 files"
     )
-    error: str | None = Field(default=None, description="Error message if any")
-
-    @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        """Convert observation to LLM content."""
-        if self.error:
-            return [TextContent(text=f"Error: {self.error}")]
-
-        if not self.files:
-            content = (
-                f"No files found matching pattern '{self.pattern}' "
-                f"in directory '{self.search_path}'"
-            )
-        else:
-            file_list = "\n".join(self.files)
-            content = (
-                f"Found {len(self.files)} file(s) matching pattern "
-                f"'{self.pattern}' in '{self.search_path}':\n{file_list}"
-            )
-            if self.truncated:
-                content += (
-                    "\n\n[Results truncated to first 100 files. "
-                    "Consider using a more specific pattern.]"
-                )
-
-        return [TextContent(text=content)]
 
 
 TOOL_DESCRIPTION = """Fast file pattern matching tool.

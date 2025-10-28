@@ -79,11 +79,30 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
             else:
                 files, truncated = self._execute_with_glob(pattern, search_path)
 
+            # Format output message
+            if not files:
+                output = (
+                    f"No files found matching pattern '{original_pattern}' "
+                    f"in directory '{search_path}'"
+                )
+            else:
+                file_list = "\n".join(files)
+                output = (
+                    f"Found {len(files)} file(s) matching pattern "
+                    f"'{original_pattern}' in '{search_path}':\n{file_list}"
+                )
+                if truncated:
+                    output += (
+                        "\n\n[Results truncated to first 100 files. "
+                        "Consider using a more specific pattern.]"
+                    )
+
             return GlobObservation(
                 files=files,
                 pattern=original_pattern,
                 search_path=str(search_path),
                 truncated=truncated,
+                output=output,
             )
 
         except Exception as e:

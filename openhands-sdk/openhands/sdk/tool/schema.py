@@ -203,6 +203,9 @@ class Observation(Schema, ABC):
     error: str | None = Field(
         default=None, description="Error message if operation failed"
     )
+    command: str | None = Field(
+        default=None, description="The command that was executed, if applicable"
+    )
 
     @property
     def has_error(self) -> bool:
@@ -224,10 +227,14 @@ class Observation(Schema, ABC):
         Subclasses can override to provide richer content (e.g., images, diffs),
         but should preserve the error-first convention.
         """
+        # Prepend command if present
+        command_prefix = f"Command: {self.command}\n\n" if self.command else ""
+
         if self.error:
-            return [self._format_error()]
-        if self.output:
-            return [TextContent(text=self.output)]
+            error_text = self._format_error().text
+            return [TextContent(text=command_prefix + error_text)]
+        elif self.output:
+            return [TextContent(text=command_prefix + self.output)]
         return []
 
     @property

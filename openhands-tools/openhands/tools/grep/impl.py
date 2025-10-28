@@ -100,6 +100,37 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
                 error=str(e),
             )
 
+    def _format_output(
+        self,
+        matches: list[str],
+        pattern: str,
+        search_path: str,
+        include_pattern: str | None,
+        truncated: bool,
+    ) -> str:
+        """Format the grep observation output message."""
+        if not matches:
+            include_info = (
+                f" (filtered by '{include_pattern}')" if include_pattern else ""
+            )
+            return (
+                f"No files found containing pattern '{pattern}' "
+                f"in directory '{search_path}'{include_info}"
+            )
+
+        include_info = f" (filtered by '{include_pattern}')" if include_pattern else ""
+        file_list = "\n".join(matches)
+        output = (
+            f"Found {len(matches)} file(s) containing pattern "
+            f"'{pattern}' in '{search_path}'{include_info}:\n{file_list}"
+        )
+        if truncated:
+            output += (
+                "\n\n[Results truncated to first 100 files. "
+                "Consider using a more specific pattern.]"
+            )
+        return output
+
     def _execute_with_ripgrep(
         self, action: GrepAction, search_path: Path
     ) -> GrepObservation:
@@ -135,12 +166,21 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
 
         truncated = len(matches) >= 100
 
+        output = self._format_output(
+            matches=matches,
+            pattern=action.pattern,
+            search_path=str(search_path),
+            include_pattern=action.include,
+            truncated=truncated,
+        )
+
         return GrepObservation(
             matches=matches,
             pattern=action.pattern,
             search_path=str(search_path),
             include_pattern=action.include,
             truncated=truncated,
+            output=output,
         )
 
     def _execute_with_grep(
@@ -189,10 +229,19 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
 
         truncated = len(matches) >= 100
 
+        output = self._format_output(
+            matches=matches,
+            pattern=action.pattern,
+            search_path=str(search_path),
+            include_pattern=action.include,
+            truncated=truncated,
+        )
+
         return GrepObservation(
             matches=matches,
             pattern=action.pattern,
             search_path=str(search_path),
             include_pattern=action.include,
             truncated=truncated,
+            output=output,
         )
