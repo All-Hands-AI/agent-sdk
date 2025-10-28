@@ -19,8 +19,22 @@ env:
     N_PROCESSES: 4 # Global configuration for number of parallel processes for evaluation
 
 jobs:
+    post-initial-comment:
+        if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
+        runs-on: ubuntu-latest
+        permissions:
+            pull-requests: write
+        steps:
+            - name: Comment on PR
+              uses: KeisukeYamashita/create-comment@v1
+              with:
+                  unique: false
+                  comment: |
+                      Hi! I started running the integration tests on your PR. You will receive a comment with the results shortly.
+
     run-integration-tests:
-        if: github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        if: always() && (github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        needs: [post-initial-comment]
         runs-on: blacksmith-4vcpu-ubuntu-2204
         permissions:
             contents: read
@@ -53,14 +67,6 @@ jobs:
               with:
                   version: latest
                   python-version: ${{ matrix.python-version }}
-
-            - name: Comment on PR if 'integration-test' label is present
-              if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
-              uses: KeisukeYamashita/create-comment@v1
-              with:
-                  unique: false
-                  comment: |
-                      Hi! I started running the integration tests on your PR. You will receive a comment with the results shortly.
 
             - name: Install Python dependencies using uv
               run: |
