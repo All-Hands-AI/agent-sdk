@@ -35,15 +35,11 @@ jobs:
                       run-suffix: sonnet_run
                       llm-config:
                           model: openhands/claude-sonnet-4-5-20250929
-                    - name: GPT-5 Mini
-                      run-suffix: gpt5_mini_run
+                    - name: Devstral Small 2507
+                      run-suffix: devstral_run
                       llm-config:
-                          model: openhands/gpt-5-mini
+                          model: openhands/devstral-small-2507
                           temperature: 1.0
-                    - name: Qwen3 Coder 480B
-                      run-suffix: qwen3_run
-                      llm-config:
-                          model: openhands/qwen3-coder-480b
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5
