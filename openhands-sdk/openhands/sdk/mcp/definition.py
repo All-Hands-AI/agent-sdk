@@ -1,7 +1,6 @@
 """MCPTool definition and implementation."""
 
 import json
-from collections.abc import Sequence
 from typing import Any
 
 import mcp.types
@@ -66,12 +65,12 @@ class MCPToolObservation(Observation):
     ) -> "MCPToolObservation":
         """Create an MCPToolObservation from a CallToolResult."""
         content: list[mcp.types.ContentBlock] = result.content
-        convrted_content = []
+        converted_content = []
         for block in content:
             if isinstance(block, mcp.types.TextContent):
-                convrted_content.append(TextContent(text=block.text))
+                converted_content.append(TextContent(text=block.text))
             elif isinstance(block, mcp.types.ImageContent):
-                convrted_content.append(
+                converted_content.append(
                     ImageContent(
                         image_urls=[f"data:{block.mimeType};base64,{block.data}"],
                     )
@@ -80,19 +79,32 @@ class MCPToolObservation(Observation):
                 logger.warning(
                     f"Unsupported MCP content block type: {type(block)}. Ignoring."
                 )
-        return cls(
-            content=convrted_content,
-            error=("MCP tool error" if result.isError else None),
-            tool_name=tool_name,
-        )
 
-    @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        """Format the observation for agent display."""
-        initial = f"[Tool '{self.tool_name}' executed.]\n"
-        if self.has_error:
-            initial += "[An error occurred during execution.]\n"
-        return [TextContent(text=initial)] + self.content
+        # Convert content to string for output/error field
+        content_str = ""
+        for block in converted_content:
+            if isinstance(block, TextContent):
+                content_str += block.text + "\n"
+            elif isinstance(block, ImageContent):
+                content_str += f"[Image with {len(block.image_urls)} URLs]\n"
+
+        header = f"[Tool '{tool_name}' executed.]\n"
+
+        # Populate error or output field based on result status
+        if result.isError:
+            error_msg = header + "[An error occurred during execution.]\n" + content_str
+            return cls(
+                content=converted_content,
+                error=error_msg,
+                tool_name=tool_name,
+            )
+        else:
+            output_msg = header + content_str
+            return cls(
+                content=converted_content,
+                output=output_msg,
+                tool_name=tool_name,
+            )
 
     @property
     def visualize(self) -> Text:

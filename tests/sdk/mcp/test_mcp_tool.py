@@ -88,32 +88,34 @@ class TestMCPToolObservation:
         observation = MCPToolObservation(
             tool_name="test_tool",
             content=[TextContent(text="Success result")],
-            error=None,
+            output="[Tool 'test_tool' executed.]\nSuccess result\n",
         )
 
         agent_obs = observation.to_llm_content
-        assert len(agent_obs) == 2
+        assert len(agent_obs) == 1
         assert isinstance(agent_obs[0], TextContent)
         assert "[Tool 'test_tool' executed.]" in agent_obs[0].text
+        assert "Success result" in agent_obs[0].text
         assert "[An error occurred during execution.]" not in agent_obs[0].text
-        assert isinstance(agent_obs[1], TextContent)
-        assert agent_obs[1].text == "Success result"
 
     def test_to_llm_content_error(self):
         """Test agent observation formatting for error."""
         observation = MCPToolObservation(
             tool_name="test_tool",
             content=[TextContent(text="Error occurred")],
-            error="execution failed",
+            error=(
+                "[Tool 'test_tool' executed.]\n"
+                "[An error occurred during execution.]\n"
+                "Error occurred\n"
+            ),
         )
 
         agent_obs = observation.to_llm_content
-        assert len(agent_obs) == 2
+        assert len(agent_obs) == 1
         assert isinstance(agent_obs[0], TextContent)
-        assert isinstance(agent_obs[1], TextContent)
         assert "[Tool 'test_tool' executed.]" in agent_obs[0].text
         assert "[An error occurred during execution.]" in agent_obs[0].text
-        assert agent_obs[1].text == "Error occurred"
+        assert "Error occurred" in agent_obs[0].text
 
 
 class TestMCPToolExecutor:
