@@ -43,7 +43,7 @@ class DelegateAction(Action):
 class DelegateObservation(Observation):
     """Observation from delegation operations."""
 
-    output: str = Field(default="", description="Result message from the operation")
+    pass
 
 
 TOOL_DESCRIPTION = """Delegation tool for spawning sub-agents and delegating tasks to them.

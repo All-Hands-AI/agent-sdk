@@ -28,8 +28,6 @@ MAX_BROWSER_OUTPUT_SIZE = 50000
 class BrowserObservation(Observation):
     """Base observation for browser operations."""
 
-    output: str = Field(description="The output message from the browser operation")
-    error: str | None = Field(default=None, description="Error message if any")
     screenshot_data: str | None = Field(
         default=None, description="Base64 screenshot data if available"
     )

@@ -79,11 +79,6 @@ class ExecuteBashAction(Action):
 class ExecuteBashObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
-    output: str = Field(default="", description="The raw output from the tool.")
-    command: str | None = Field(
-        default=None,
-        description="The bash command that was executed. Can be empty string if the observation is from a previous command that hit soft timeout and is not yet finished.",  # noqa
-    )
     exit_code: int | None = Field(
         default=None,
         description="The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",  # noqa

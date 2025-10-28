@@ -1,6 +1,7 @@
 """MCPTool definition and implementation."""
 
 import json
+from collections.abc import Sequence
 from typing import Any
 
 import mcp.types
@@ -50,12 +51,9 @@ class MCPToolAction(Action):
 class MCPToolObservation(Observation):
     """Observation from MCP tool execution."""
 
-    content: list[TextContent | ImageContent] = Field(
+    images: list[ImageContent] = Field(
         default_factory=list,
-        description=(
-            "Content returned from the MCP tool converted to LLM Ready TextContent "
-            "or ImageContent"
-        ),
+        description="Image content returned from the MCP tool",
     )
     tool_name: str = Field(description="Name of the tool that was called")
 
@@ -65,12 +63,14 @@ class MCPToolObservation(Observation):
     ) -> "MCPToolObservation":
         """Create an MCPToolObservation from a CallToolResult."""
         content: list[mcp.types.ContentBlock] = result.content
-        converted_content = []
+        text_parts = []
+        images = []
+
         for block in content:
             if isinstance(block, mcp.types.TextContent):
-                converted_content.append(TextContent(text=block.text))
+                text_parts.append(block.text)
             elif isinstance(block, mcp.types.ImageContent):
-                converted_content.append(
+                images.append(
                     ImageContent(
                         image_urls=[f"data:{block.mimeType};base64,{block.data}"],
                     )
@@ -80,48 +80,66 @@ class MCPToolObservation(Observation):
                     f"Unsupported MCP content block type: {type(block)}. Ignoring."
                 )
 
-        # Convert content to string for output/error field
-        content_str = ""
-        for block in converted_content:
-            if isinstance(block, TextContent):
-                content_str += block.text + "\n"
-            elif isinstance(block, ImageContent):
-                content_str += f"[Image with {len(block.image_urls)} URLs]\n"
-
-        header = f"[Tool '{tool_name}' executed.]\n"
+        header = f"[Tool '{tool_name}' executed.]"
+        text_content = "\n".join(text_parts) if text_parts else ""
 
         # Populate error or output field based on result status
         if result.isError:
-            error_msg = header + "[An error occurred during execution.]\n" + content_str
+            error_msg = (
+                f"{header}\n[An error occurred during execution.]\n{text_content}"
+            )
+            # When there is an error, don't populate output
             return cls(
-                content=converted_content,
                 error=error_msg,
+                images=images,
                 tool_name=tool_name,
             )
         else:
-            output_msg = header + content_str
+            # When success, don't populate error
+            output_msg = f"{header}\n{text_content}" if text_content else header
             return cls(
-                content=converted_content,
                 output=output_msg,
+                images=images,
                 tool_name=tool_name,
             )
+
+    @property
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        """Return structured content with images for LLM consumption.
+
+        Overrides base to preserve image content alongside text.
+        """
+        result: list[TextContent | ImageContent] = []
+
+        if self.error:
+            result.append(self._format_error())
+        elif self.output:
+            result.append(TextContent(text=self.output))
+
+        # Append images
+        result.extend(self.images)
+        return result
 
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this observation."""
         content = Text()
         content.append(f"[MCP Tool '{self.tool_name}' Observation]\n", style="bold")
+
         if self.has_error:
             content.append("[Error during execution]\n", style="bold red")
-        for block in self.content:
-            if isinstance(block, TextContent):
-                # try to see if block.text is a JSON
-                try:
-                    parsed = json.loads(block.text)
-                    content.append(display_dict(parsed))
-                    continue
-                except (json.JSONDecodeError, TypeError):
-                    content.append(block.text + "\n")
-            elif isinstance(block, ImageContent):
-                content.append(f"[Image with {len(block.image_urls)} URLs]\n")
+            if self.error:
+                content.append(self.error + "\n")
+        elif self.output:
+            # Try to parse as JSON for better display
+            try:
+                parsed = json.loads(self.output)
+                content.append(display_dict(parsed))
+            except (json.JSONDecodeError, TypeError):
+                content.append(self.output + "\n")
+
+        # Show images if present
+        for image in self.images:
+            content.append(f"[Image with {len(image.image_urls)} URLs]\n")
+
         return content

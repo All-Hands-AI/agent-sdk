@@ -65,12 +65,11 @@ class FileEditorAction(Action):
 class FileEditorObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
-    command: CommandLiteral = Field(
-        description="The commands to run. Allowed options are: `view`, `create`, "
-        "`str_replace`, `insert`, `undo_edit`."
-    )
-    output: str = Field(
-        default="", description="The output message from the tool for the LLM to see."
+    command: CommandLiteral = Field(  # type: ignore[assignment]
+        description=(
+            "The command that was run: `view`, `create`, `str_replace`, "
+            "`insert`, or `undo_edit`."
+        )
     )
     path: str | None = Field(default=None, description="The file path that was edited.")
     prev_exist: bool = Field(
@@ -83,7 +82,6 @@ class FileEditorObservation(Observation):
     new_content: str | None = Field(
         default=None, description="The content of the file after the edit."
     )
-    error: str | None = Field(default=None, description="Error message if any.")
 
     _diff_cache: Text | None = PrivateAttr(default=None)
 
