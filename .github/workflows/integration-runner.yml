@@ -40,7 +40,7 @@ jobs:
                       llm-config:
                           model: openhands/gpt-5-mini-2025-08-07
                           temperature: 1.0
-                    - name: Devstral Small 2507
+                    - name: Devstral Medium 2507
                       run-suffix: devstral_run
                       llm-config:
                           model: openhands/devstral-medium-2507
