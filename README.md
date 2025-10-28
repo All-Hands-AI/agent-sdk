@@ -6,7 +6,7 @@ The OpenHands SDK allows you to build things with agents that write software. Fo
 2. An SRE system that reads your server logs and your codebase, then uses this info to debug new errors that are appearing in prod
 3. A customer onboarding system that takes all of their documents in unstructured format and enters information into your database
 
-This SDK also powers [OpenHands](https://github.com/All-Hands-AI/OpenHands), an all-batteries-included coding agent that you can access through a GUI, CLI, or API.
+This SDK also powers [OpenHands](https://github.com/OpenHands/OpenHands), an all-batteries-included coding agent that you can access through a GUI, CLI, or API.
 
 ## Hello World Example
 
@@ -63,7 +63,7 @@ Once this is done, run the following to do a Hello World example.
 
 ```bash
 # Clone the repository
-git clone https://github.com/All-Hands-AI/agent-sdk.git
+git clone https://github.com/OpenHands/agent-sdk.git
 cd agent-sdk
 
 # Install dependencies and setup development environment
@@ -193,28 +193,31 @@ The context system manages agent state, environment, and conversation history.
 
 Context is automatically managed but you can customize your context with:
 
-1. [Repo Microagents](https://docs.all-hands.dev/usage/prompting/microagents-repo) that provide agent with context of your repository.
-2. [Knowledge Microagents](https://docs.all-hands.dev/usage/prompting/microagents-keyword) that provide agent with context when user mentioned certain keywords
+1. [Repo Skills](https://docs.all-hands.dev/usage/prompting/skills-repo) that provide agent with context of your repository.
+2. [Knowledge Skills](https://docs.all-hands.dev/usage/prompting/skills-keyword) that provide agent with context when user mentioned certain keywords
 3. Providing custom suffix for system and user prompt.
 
 ```python
 from openhands.sdk import AgentContext
-from openhands.sdk.context import RepoMicroagent, KnowledgeMicroagent
+from openhands.sdk.context import KeywordTrigger, Skill
 
 context = AgentContext(
-    microagents=[
-        RepoMicroagent(
+    skills=[
+        Skill(
             name="repo.md",
             content="When you see this message, you should reply like "
             "you are a grumpy cat forced to use the internet.",
+            source="repo.md",
+            trigger=None,  # Always-active skill
         ),
-        KnowledgeMicroagent(
+        Skill(
             name="flarglebargle",
             content=(
                 'IMPORTANT! The user has said the magic word "flarglebargle". '
                 "You must only respond with a message telling them how smart they are"
             ),
-            triggers=["flarglebargle"],
+            source="flarglebargle.md",
+            trigger=KeywordTrigger(keywords=["flarglebargle"]),
         ),
     ],
     system_message_suffix="Always finish your response with the word 'yay!'",
