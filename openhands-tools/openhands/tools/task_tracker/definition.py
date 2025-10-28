@@ -72,7 +72,6 @@ class TaskTrackerObservation(Observation):
     output: str = Field(
         default="", description="The formatted task list or status message"
     )
-    command: str = Field(default="", description="The command that was executed")
     task_list: list[TaskItem] = Field(
         default_factory=list, description="The current task list"
     )
@@ -91,12 +90,8 @@ class TaskTrackerObservation(Observation):
             done_count = sum(1 for task in self.task_list if task.status == "done")
 
             # Show status summary
-            if self.command == "plan":
-                content.append("✅ ", style="green")
-                content.append("Task list updated: ", style="green")
-            else:  # view command
-                content.append("📋 ", style="blue")
-                content.append("Current task list: ", style="blue")
+            content.append("📋 ", style="blue")
+            content.append("Task list: ", style="blue")
 
             # Status counts
             status_parts = []
@@ -170,28 +165,30 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
             if self.save_dir:
                 self._save_tasks()
             return TaskTrackerObservation(
-                output="Task list has been updated with "
-                + f"{len(self._task_list)} item(s).",
-                command=action.command,
+                output=(
+                    f"plan: Task list has been updated with "
+                    f"{len(self._task_list)} item(s)."
+                ),
                 task_list=self._task_list,
             )
         elif action.command == "view":
             # Return the current task list
             if not self._task_list:
                 return TaskTrackerObservation(
-                    output='No task list found. Use the "plan" command to create one.',
-                    command=action.command,
+                    output=(
+                        'view: No task list found. Use the "plan" command to '
+                        "create one."
+                    ),
                     task_list=[],
                 )
             content = self._format_task_list(self._task_list)
-            return TaskTrackerObservation(
-                output=content, command=action.command, task_list=self._task_list
-            )
+            return TaskTrackerObservation(output=content, task_list=self._task_list)
         else:
             return TaskTrackerObservation(
-                output=f"Unknown command: {action.command}. "
-                + 'Supported commands are "view" and "plan".',
-                command=action.command,
+                error=(
+                    f"Unknown command: {action.command}. "
+                    'Supported commands are "view" and "plan".'
+                ),
                 task_list=[],
             )
 

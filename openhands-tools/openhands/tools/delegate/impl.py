@@ -59,8 +59,7 @@ class DelegateExecutor(ToolExecutor):
             return self._delegate_tasks(action)
         else:
             return DelegateObservation(
-                command=action.command,
-                output=f"Unsupported command: {action.command}",
+                error=f"Unsupported command: {action.command}",
             )
 
     def _spawn_agents(self, action: "DelegateAction") -> DelegateObservation:
@@ -75,15 +74,13 @@ class DelegateExecutor(ToolExecutor):
         """
         if not action.ids:
             return DelegateObservation(
-                command="spawn",
-                output="Error: at least one ID is required for spawn action",
+                error="spawn: at least one ID is required for spawn action",
             )
 
         if len(self._sub_agents) + len(action.ids) > self._max_children:
             return DelegateObservation(
-                command="spawn",
-                output=(
-                    f"Cannot spawn {len(action.ids)} agents. "
+                error=(
+                    f"spawn: Cannot spawn {len(action.ids)} agents. "
                     f"Already have {len(self._sub_agents)} agents, "
                     f"maximum is {self._max_children}"
                 ),
@@ -114,17 +111,18 @@ class DelegateExecutor(ToolExecutor):
                 logger.info(f"Spawned sub-agent with ID: {agent_id}")
 
             agent_list = ", ".join(action.ids)
-            message = f"Successfully spawned {len(action.ids)} sub-agents: {agent_list}"
+            message = (
+                f"spawn: Successfully spawned {len(action.ids)} sub-agents: "
+                f"{agent_list}"
+            )
             return DelegateObservation(
-                command="spawn",
                 output=message,
             )
 
         except Exception as e:
             logger.error(f"Error: failed to spawn agents: {e}", exc_info=True)
             return DelegateObservation(
-                command="spawn",
-                output=f"Error: failed to spawn agents: {str(e)}",
+                error=f"spawn: failed to spawn agents: {str(e)}",
             )
 
     def _delegate_tasks(self, action: "DelegateAction") -> "DelegateObservation":
@@ -140,17 +138,15 @@ class DelegateExecutor(ToolExecutor):
         """
         if not action.tasks:
             return DelegateObservation(
-                command="delegate",
-                output="Error: at least one task is required for delegate action",
+                error="delegate: at least one task is required for delegate action",
             )
 
         # Check that all requested agent IDs exist
         missing_agents = set(action.tasks.keys()) - set(self._sub_agents.keys())
         if missing_agents:
             return DelegateObservation(
-                command="delegate",
-                output=(
-                    f"Error: sub-agents not found: {', '.join(missing_agents)}. "
+                error=(
+                    f"delegate: sub-agents not found: {', '.join(missing_agents)}. "
                     f"Available agents: {', '.join(self._sub_agents.keys())}"
                 ),
             )
@@ -211,7 +207,7 @@ class DelegateExecutor(ToolExecutor):
                     all_results.append(f"Agent {agent_id}: No result")
 
             # Create comprehensive message with results
-            message = f"Completed delegation of {len(action.tasks)} tasks"
+            message = f"delegate: Completed delegation of {len(action.tasks)} tasks"
             if errors:
                 message += f" with {len(errors)} errors"
 
@@ -222,13 +218,11 @@ class DelegateExecutor(ToolExecutor):
                 message += f"\n\nResults:\n{results_text}"
 
             return DelegateObservation(
-                command="delegate",
                 output=message,
             )
 
         except Exception as e:
             logger.error(f"Failed to delegate tasks: {e}", exc_info=True)
             return DelegateObservation(
-                command="delegate",
-                output=f"Error: failed to delegate tasks: {str(e)}",
+                error=f"delegate: failed to delegate tasks: {str(e)}",
             )

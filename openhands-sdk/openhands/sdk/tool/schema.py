@@ -215,7 +215,7 @@ class Observation(Schema, ABC):
         return ObservationStatus.ERROR if self.has_error else ObservationStatus.SUCCESS
 
     def _format_error(self) -> TextContent:
-        return TextContent(text=f"Error: {self.error}")
+        return TextContent(text=f"Tool Execution Error: {self.error}")
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
