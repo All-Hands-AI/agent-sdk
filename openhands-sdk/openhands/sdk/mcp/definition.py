@@ -58,14 +58,13 @@ class MCPToolObservation(Observation):
     ) -> "MCPToolObservation":
         """Create an MCPToolObservation from a CallToolResult."""
         content: list[mcp.types.ContentBlock] = result.content
-        text_parts = []
-        output_content: list[TextContent | ImageContent] = []
+        converted_content: list[TextContent | ImageContent] = []
 
         for block in content:
             if isinstance(block, mcp.types.TextContent):
-                text_parts.append(block.text)
+                converted_content.append(TextContent(text=block.text))
             elif isinstance(block, mcp.types.ImageContent):
-                output_content.append(
+                converted_content.append(
                     ImageContent(
                         image_urls=[f"data:{block.mimeType};base64,{block.data}"],
                     )
@@ -75,30 +74,31 @@ class MCPToolObservation(Observation):
                     f"Unsupported MCP content block type: {type(block)}. Ignoring."
                 )
 
-        header = f"[Tool '{tool_name}' executed.]"
-        text_content = "\n".join(text_parts) if text_parts else ""
+        # Build initial message
+        initial_message = f"[Tool '{tool_name}' executed.]"
+        if result.isError:
+            initial_message += "\n[An error occurred during execution.]"
+
+        # Prepend initial message to content
+        content_with_header = [TextContent(text=initial_message)] + converted_content
 
         # Populate error or output field based on result status
         if result.isError:
-            error_msg = (
-                f"{header}\n[An error occurred during execution.]\n{text_content}"
-            )
-            # When there is an error, don't populate output
+            # When there is an error, populate error field only with all content
             return cls(
-                error=error_msg,
+                error="\n".join(
+                    [initial_message]
+                    + [
+                        c.text if isinstance(c, TextContent) else "[Image]"
+                        for c in converted_content
+                    ]
+                ),
                 tool_name=tool_name,
             )
         else:
-            # When success, don't populate error
-            # Combine text and images in output
-            if text_content:
-                output_msg = f"{header}\n{text_content}"
-                output_content.insert(0, TextContent(text=output_msg))
-            else:
-                output_content.insert(0, TextContent(text=header))
-
+            # When success, populate output field only
             return cls(
-                output=output_content,
+                output=content_with_header,
                 tool_name=tool_name,
             )
 

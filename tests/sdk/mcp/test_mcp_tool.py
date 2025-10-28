@@ -38,10 +38,11 @@ class TestMCPToolObservation:
 
         assert observation.tool_name == "test_tool"
         assert observation.output is not None
-        assert len(observation.output) == 1
+        assert len(observation.output) == 2
         assert isinstance(observation.output[0], TextContent)
-        assert "[Tool 'test_tool' executed.]" in observation.output[0].text
-        assert "Operation completed successfully" in observation.output[0].text
+        assert observation.output[0].text == "[Tool 'test_tool' executed.]"
+        assert isinstance(observation.output[1], TextContent)
+        assert observation.output[1].text == "Operation completed successfully"
         assert observation.has_error is False
 
     def test_from_call_tool_result_error(self):
@@ -81,14 +82,16 @@ class TestMCPToolObservation:
 
         assert observation.tool_name == "test_tool"
         assert observation.output is not None
-        assert len(observation.output) == 2
-        # First item is text
+        assert len(observation.output) == 3
+        # First item is header
         assert isinstance(observation.output[0], TextContent)
-        assert "[Tool 'test_tool' executed.]" in observation.output[0].text
-        assert "Here's the image:" in observation.output[0].text
-        # Second item is image
-        assert isinstance(observation.output[1], ImageContent)
-        assert hasattr(observation.output[1], "image_urls")
+        assert observation.output[0].text == "[Tool 'test_tool' executed.]"
+        # Second item is text
+        assert isinstance(observation.output[1], TextContent)
+        assert observation.output[1].text == "Here's the image:"
+        # Third item is image
+        assert isinstance(observation.output[2], ImageContent)
+        assert hasattr(observation.output[2], "image_urls")
         assert observation.has_error is False
 
     def test_to_llm_content_success(self):
