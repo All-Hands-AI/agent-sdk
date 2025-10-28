@@ -29,13 +29,11 @@ class FinishAction(Action):
 
 
 class FinishObservation(Observation):
-    output: str = Field(default="", description="Final message sent to the user.")
-
-    @property
-    def visualize(self) -> Text:
-        """Return Rich Text representation - empty since action shows the message."""
-        # Don't duplicate the finish message display - action already shows it
-        return Text()
+    """
+    Observation returned after finishing a task.
+    The FinishAction itself contains the message sent to the user so no
+    extra fields are needed here.
+    """
 
 
 TOOL_DESCRIPTION = """Signals the completion of the current task or conversation.
@@ -55,10 +53,10 @@ The message should include:
 class FinishExecutor(ToolExecutor):
     def __call__(
         self,
-        action: FinishAction,
+        action: FinishAction,  # noqa: ARG002
         conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> FinishObservation:
-        return FinishObservation(output=action.message)
+        return FinishObservation()
 
 
 FinishTool = ToolDefinition(

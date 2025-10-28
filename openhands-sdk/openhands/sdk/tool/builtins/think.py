@@ -43,17 +43,11 @@ class ThinkAction(Action):
 
 
 class ThinkObservation(Observation):
-    """Observation returned after logging a thought."""
-
-    output: str = Field(
-        default="Your thought has been logged.", description="Confirmation message."
-    )
-
-    @property
-    def visualize(self) -> Text:
-        """Return Rich Text representation - empty since action shows the thought."""
-        # Don't duplicate the thought display - action already shows it
-        return Text()
+    """
+    Observation returned after logging a thought.
+    The ThinkAction itself contains the thought logged so no extra
+    fields are needed here.
+    """
 
 
 THINK_DESCRIPTION = """Use the tool to think about something. It will not obtain new information or make any changes to the repository, but just log the thought. Use it when complex reasoning or brainstorming is needed.
