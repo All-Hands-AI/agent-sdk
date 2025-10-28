@@ -34,16 +34,17 @@ jobs:
                     - name: Claude Sonnet 4.5
                       run-suffix: sonnet_run
                       llm-config:
-                          model: litellm_proxy/anthropic/claude-sonnet-4-5-20250929
-                    - name: GPT-5 Mini
+                          model: openhands/claude-sonnet-4-5-20250929
+                    - name: GPT-5 Mini 2025-08-07
                       run-suffix: gpt5_mini_run
                       llm-config:
-                          model: litellm_proxy/openai/gpt-5-mini
+                          model: openhands/gpt-5-mini-2025-08-07
                           temperature: 1.0
-                    - name: DeepSeek Chat
-                      run-suffix: deepseek_run
+                    - name: Devstral Medium 2507
+                      run-suffix: devstral_run
                       llm-config:
-                          model: litellm_proxy/deepseek/deepseek-chat
+                          model: openhands/devstral-medium-2507
+                          temperature: 1.0
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5
