@@ -34,17 +34,16 @@ jobs:
                     - name: Claude Sonnet 4.5
                       run-suffix: sonnet_run
                       llm-config:
-                          model: openhands/claude-sonnet-4-5-20250929
+                          model: litellm_proxy/claude-sonnet-4-5-20250929
                     - name: GPT-5 Mini 2025-08-07
                       run-suffix: gpt5_mini_run
                       llm-config:
-                          model: openhands/gpt-5-mini-2025-08-07
+                          model: litellm_proxy/gpt-5-mini-2025-08-07
                           temperature: 1.0
                     - name: Devstral Medium 2507
                       run-suffix: devstral_run
                       llm-config:
-                          model: openhands/devstral-medium-2507
-                          temperature: 1.0
+                          model: litellm_proxy/deepseek/deepseek-chat
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5
@@ -73,7 +72,7 @@ jobs:
               env:
                   LLM_CONFIG: ${{ toJson(matrix.job-config.llm-config) }}
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-                  LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+                  LLM_BASE_URL: llm-proxy.app.all-hands.dev
               run: |
                   set -eo pipefail
 
