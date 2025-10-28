@@ -68,7 +68,7 @@ class ThinkExecutor(ToolExecutor):
         _: ThinkAction,
         conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> ThinkObservation:
-        return ThinkObservation()
+        return ThinkObservation(output="Your thought has been logged.")
 
 
 ThinkTool = ToolDefinition(

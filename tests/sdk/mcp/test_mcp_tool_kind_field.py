@@ -85,11 +85,15 @@ def test_real_mcp_tool_execution_without_kind_field(fetch_tool):
     observation = fetch_tool(action)
 
     # Verify we got a valid response (not an error about 'kind')
-    assert observation.content is not None
-    assert len(observation.content) > 0
+    # Check output if no error, otherwise check error message
+    if observation.has_error:
+        assert observation.error is not None
+        content_str = observation.error
+    else:
+        assert observation.output is not None
+        content_str = observation.output
 
     # Check that the response doesn't contain validation error about 'kind'
-    content_str = str(observation.content)
     if "error" in content_str.lower():
         # If there's an error, make sure it's not about 'kind' field
         assert "kind" not in content_str.lower(), (

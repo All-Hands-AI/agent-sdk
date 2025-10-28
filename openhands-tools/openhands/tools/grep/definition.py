@@ -1,6 +1,7 @@
 """Grep tool implementation for fast content search."""
 
 import os
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from pydantic import Field
@@ -9,8 +10,6 @@ from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinit
 
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from openhands.sdk.conversation.state import ConversationState
 
 
