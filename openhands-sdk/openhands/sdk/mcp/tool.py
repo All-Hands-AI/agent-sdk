@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation import BaseConversation
+    from openhands.sdk.conversation import LocalConversation
 
 import mcp.types
 from litellm import ChatCompletionToolParam
@@ -76,7 +76,7 @@ class MCPToolExecutor(ToolExecutor):
     def __call__(
         self,
         action: MCPToolAction,
-        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+        conversation: "LocalConversation | None" = None,  # noqa: ARG002
     ) -> MCPToolObservation:
         """Execute an MCP tool call."""
         return self.client.call_async_from_sync(
@@ -122,7 +122,7 @@ class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
     def __call__(
         self,
         action: Action,
-        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+        conversation: "LocalConversation | None" = None,  # noqa: ARG002
     ) -> Observation:
         """Execute the tool action using the MCP client.
 
