@@ -1,3 +1,4 @@
+import atexit
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
@@ -40,6 +41,7 @@ class LocalConversation(BaseConversation):
     max_iteration_per_run: int
     _stuck_detector: StuckDetector | None
     llm_registry: LLMRegistry
+    _cleanup_initiated: bool
 
     def __init__(
         self,
@@ -132,6 +134,9 @@ class LocalConversation(BaseConversation):
             # Convert dict[str, str] to dict[str, SecretValue]
             secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
             self.update_secrets(secret_values)
+
+        self._cleanup_initiated = False
+        atexit.register(self.close)
 
     @property
     def id(self) -> ConversationID:
@@ -359,6 +364,9 @@ class LocalConversation(BaseConversation):
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
+        if self._cleanup_initiated:
+            return
+        self._cleanup_initiated = True
         logger.debug("Closing conversation and cleaning up tool executors")
         for tool in self.agent.tools_map.values():
             try:
