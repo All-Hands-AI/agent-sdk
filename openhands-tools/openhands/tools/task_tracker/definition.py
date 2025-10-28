@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
+from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     Action,
@@ -69,12 +70,17 @@ class TaskTrackerAction(Action):
 class TaskTrackerObservation(Observation):
     """This data class represents the result of a task tracking operation."""
 
-    output: str = Field(
+    content: str = Field(
         default="", description="The formatted task list or status message"
     )
+    command: str = Field(default="", description="The command that was executed")
     task_list: list[TaskItem] = Field(
         default_factory=list, description="The current task list"
     )
+
+    @property
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.content)]
 
     @property
     def visualize(self) -> Text:
@@ -90,8 +96,12 @@ class TaskTrackerObservation(Observation):
             done_count = sum(1 for task in self.task_list if task.status == "done")
 
             # Show status summary
-            content.append("📋 ", style="blue")
-            content.append("Task list: ", style="blue")
+            if self.command == "plan":
+                content.append("✅ ", style="green")
+                content.append("Task list updated: ", style="green")
+            else:  # view command
+                content.append("📋 ", style="blue")
+                content.append("Current task list: ", style="blue")
 
             # Status counts
             status_parts = []
@@ -165,30 +175,35 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
             if self.save_dir:
                 self._save_tasks()
             return TaskTrackerObservation(
-                output=(
+                content=(
                     f"plan: Task list has been updated with "
                     f"{len(self._task_list)} item(s)."
                 ),
+                command=action.command,
                 task_list=self._task_list,
             )
         elif action.command == "view":
             # Return the current task list
             if not self._task_list:
                 return TaskTrackerObservation(
-                    output=(
+                    content=(
                         'view: No task list found. Use the "plan" command to '
                         "create one."
                     ),
+                    command=action.command,
                     task_list=[],
                 )
             content = self._format_task_list(self._task_list)
-            return TaskTrackerObservation(output=content, task_list=self._task_list)
+            return TaskTrackerObservation(
+                content=content, command=action.command, task_list=self._task_list
+            )
         else:
             return TaskTrackerObservation(
                 error=(
                     f"Unknown command: {action.command}. "
                     'Supported commands are "view" and "plan".'
                 ),
+                command=action.command,
                 task_list=[],
             )
 
