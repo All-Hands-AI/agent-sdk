@@ -340,6 +340,43 @@ def test_metrics_formatting():
     assert "0.0234" in subtitle  # Cost
 
 
+def test_metrics_formatting_zero_cost():
+    """Test metrics subtitle formatting with zero cost to ensure no double $."""
+    from openhands.sdk.conversation.conversation_stats import ConversationStats
+    from openhands.sdk.llm.utils.metrics import Metrics
+
+    # Create conversation stats with metrics
+    conversation_stats = ConversationStats()
+
+    # Create metrics with zero cost
+    metrics = Metrics(model_name="test-model")
+    metrics.add_token_usage(
+        prompt_tokens=1000,
+        completion_tokens=200,
+        cache_read_tokens=0,
+        cache_write_tokens=0,
+        reasoning_tokens=0,
+        context_window=8000,
+        response_id="test_response",
+    )
+
+    # Add metrics to conversation stats
+    conversation_stats.usage_to_metrics["test_usage"] = metrics
+
+    # Create visualizer with conversation stats
+    visualizer = ConversationVisualizer(conversation_stats=conversation_stats)
+
+    # Test the metrics subtitle formatting
+    subtitle = visualizer._format_metrics_subtitle()
+    assert subtitle is not None
+    assert "10K" in subtitle  # Input tokens abbreviated (1000 -> 1.00K -> 10K)
+    assert "200" in subtitle  # Output tokens
+    # The main test: ensure there's no double dollar sign
+    assert "$$" not in subtitle
+    # And that the cost is displayed correctly with a single $
+    assert "$ 0.00" in subtitle
+
+
 def test_event_base_fallback_visualize():
     """Test that Event provides fallback visualization."""
     from openhands.sdk.event.base import Event
