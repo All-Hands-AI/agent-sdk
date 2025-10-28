@@ -74,8 +74,8 @@ jobs:
                 [Automatic Post]: I have assigned {reviewer} as a reviewer based on git blame information.
                 Thanks in advance for the help!
 
-            LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
+            LLM_MODEL: <YOUR_LLM_MODEL>
+            LLM_BASE_URL: <YOUR_LLM_BASE_URL>
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5

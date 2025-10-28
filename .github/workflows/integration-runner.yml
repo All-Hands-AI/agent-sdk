@@ -211,3 +211,25 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
 
+            - name: Read consolidated report for tracker issue
+              if: github.event_name == 'schedule'
+              id: read_report
+              run: |
+                  # Read the report and set as output
+                  REPORT_CONTENT=$(cat consolidated_report.md)
+                  echo "report<<EOF" >> $GITHUB_OUTPUT
+                  echo "$REPORT_CONTENT" >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+
+            - name: Comment with results on tracker issue
+              if: github.event_name == 'schedule'
+              uses: KeisukeYamashita/create-comment@v1
+              with:
+                  number: 939
+                  unique: false
+                  comment: |
+                      **Trigger:** Nightly Scheduled Run
+                      **Commit:** ${{ github.sha }}
+
+                      ${{ steps.read_report.outputs.report }}
+
