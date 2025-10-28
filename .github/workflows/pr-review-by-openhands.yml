@@ -17,7 +17,7 @@ jobs:
         runs-on: blacksmith-4vcpu-ubuntu-2404
         env:
             LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
+            LLM_BASE_URL: https://llm-proxy.app.all-hands.dev
             # PR context will be automatically provided by the agent script
             PR_NUMBER: ${{ github.event.pull_request.number }}
             PR_TITLE: ${{ github.event.pull_request.title }}
