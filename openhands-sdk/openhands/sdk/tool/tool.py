@@ -27,7 +27,7 @@ from openhands.sdk.utils.models import (
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
+    from openhands.sdk.conversation import LocalConversation
 
 
 ActionT = TypeVar("ActionT", bound=Action)
@@ -75,7 +75,7 @@ class ToolExecutor[ActionT, ObservationT](ABC):
 
     @abstractmethod
     def __call__(
-        self, action: ActionT, conversation: "BaseConversation | None" = None
+        self, action: ActionT, conversation: "LocalConversation | None" = None
     ) -> ObservationT:
         """Execute the tool with the given action and return an observation.
 
@@ -83,6 +83,13 @@ class ToolExecutor[ActionT, ObservationT](ABC):
             action: The action to execute, containing the parameters and context
                    needed for the tool operation.
             conversation: The conversation context for the tool execution.
+                         Note: This is typed as LocalConversation (not
+                         BaseConversation) because all tool executions happen
+                         within a LocalConversation context. Even when tools are
+                         invoked via RemoteConversation, the remote agent server
+                         creates a LocalConversation instance to handle the actual
+                         tool execution. See https://github.com/OpenHands/agent-sdk/pull/925
+                         for more details.
 
         Returns:
             An observation containing the results of the tool execution.
@@ -109,7 +116,7 @@ class ExecutableTool(Protocol):
     executor: ToolExecutor[Any, Any]  # Non-optional executor
 
     def __call__(
-        self, action: Action, conversation: "BaseConversation | None" = None
+        self, action: Action, conversation: "LocalConversation | None" = None
     ) -> Observation:
         """Execute the tool with the given action."""
         ...
@@ -227,7 +234,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         return self.action_type.model_validate(arguments)
 
     def __call__(
-        self, action: ActionT, conversation: "BaseConversation | None" = None
+        self, action: ActionT, conversation: "LocalConversation | None" = None
     ) -> Observation:
         """Validate input, execute, and coerce output.
 
