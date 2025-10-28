@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, Mock
 
 import mcp.types
 
-from openhands.sdk.llm import TextContent
+from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolObservation
 from openhands.sdk.mcp.tool import MCPToolDefinition, MCPToolExecutor
@@ -38,9 +38,10 @@ class TestMCPToolObservation:
 
         assert observation.tool_name == "test_tool"
         assert observation.output is not None
-        assert "[Tool 'test_tool' executed.]" in observation.output
-        assert "Operation completed successfully" in observation.output
-        assert len(observation.images) == 0
+        assert len(observation.output) == 1
+        assert isinstance(observation.output[0], TextContent)
+        assert "[Tool 'test_tool' executed.]" in observation.output[0].text
+        assert "Operation completed successfully" in observation.output[0].text
         assert observation.has_error is False
 
     def test_from_call_tool_result_error(self):
@@ -59,7 +60,7 @@ class TestMCPToolObservation:
         assert "[Tool 'test_tool' executed.]" in observation.error
         assert "[An error occurred during execution.]" in observation.error
         assert "Operation failed" in observation.error
-        assert len(observation.images) == 0
+        assert len(observation.output) == 0
         assert observation.has_error is True
 
     def test_from_call_tool_result_with_image(self):
@@ -80,17 +81,21 @@ class TestMCPToolObservation:
 
         assert observation.tool_name == "test_tool"
         assert observation.output is not None
-        assert "[Tool 'test_tool' executed.]" in observation.output
-        assert "Here's the image:" in observation.output
-        assert len(observation.images) == 1
-        assert hasattr(observation.images[0], "image_urls")
+        assert len(observation.output) == 2
+        # First item is text
+        assert isinstance(observation.output[0], TextContent)
+        assert "[Tool 'test_tool' executed.]" in observation.output[0].text
+        assert "Here's the image:" in observation.output[0].text
+        # Second item is image
+        assert isinstance(observation.output[1], ImageContent)
+        assert hasattr(observation.output[1], "image_urls")
         assert observation.has_error is False
 
     def test_to_llm_content_success(self):
         """Test agent observation formatting for success."""
         observation = MCPToolObservation(
             tool_name="test_tool",
-            output="[Tool 'test_tool' executed.]\nSuccess result",
+            output=[TextContent(text="[Tool 'test_tool' executed.]\nSuccess result")],
         )
 
         agent_obs = observation.to_llm_content

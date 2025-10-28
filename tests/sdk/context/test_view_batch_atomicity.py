@@ -57,7 +57,7 @@ def create_observation_event(
 ) -> ObservationEvent:
     """Helper to create an ObservationEvent."""
     observation = MCPToolObservation(
-        output=content,
+        output=[TextContent(text=content)],
         tool_name=tool_name,
     )
     return ObservationEvent(

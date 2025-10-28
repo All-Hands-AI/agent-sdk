@@ -318,12 +318,13 @@ def test_empty_command_error(terminal_type):
     obs = session.execute(ExecuteBashAction(command=""))
 
     assert obs.has_error is True
-    assert obs.output == "ERROR: No previous running command to retrieve logs from."
+    assert obs.output == ""  # When there's an error, output should not be populated
+    assert obs.error == "No previous running command to retrieve logs from."
     assert len(obs.to_llm_content) == 1
     assert isinstance(obs.to_llm_content[0], TextContent)
-    assert "There was an error during command execution." in obs.to_llm_content[0].text
+    assert "Tool Execution Error:" in obs.to_llm_content[0].text
     assert (
-        "ERROR: No previous running command to retrieve logs from."
+        "No previous running command to retrieve logs from."
         in obs.to_llm_content[0].text
     )
     assert obs.metadata.exit_code == -1

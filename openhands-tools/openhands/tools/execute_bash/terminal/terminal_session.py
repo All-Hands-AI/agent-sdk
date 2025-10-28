@@ -188,7 +188,6 @@ class TerminalSession(TerminalSessionBase):
         self._ready_for_next_command()
         return ExecuteBashObservation(
             output=command_output,
-            command=command,
             metadata=metadata,
         )
 
@@ -222,7 +221,6 @@ class TerminalSession(TerminalSessionBase):
         )
         return ExecuteBashObservation(
             output=command_output,
-            command=command,
             metadata=metadata,
         )
 
@@ -255,10 +253,8 @@ class TerminalSession(TerminalSessionBase):
             metadata,
             continue_prefix="[Below is the output of the previous command.]\n",
         )
-
         return ExecuteBashObservation(
             output=command_output,
-            command=command,
             metadata=metadata,
         )
 
@@ -314,12 +310,10 @@ class TerminalSession(TerminalSessionBase):
         }:
             if command == "":
                 return ExecuteBashObservation(
-                    output="ERROR: No previous running command to retrieve logs from.",
                     error="No previous running command to retrieve logs from.",
                 )
             if is_input:
                 return ExecuteBashObservation(
-                    output="ERROR: No previous running command to interact with.",
                     error="No previous running command to interact with.",
                 )
 
@@ -331,7 +325,7 @@ class TerminalSession(TerminalSessionBase):
             )
             return ExecuteBashObservation(
                 error=(
-                    "ERROR: Cannot execute multiple commands at once.\n"
+                    "Cannot execute multiple commands at once.\n"
                     "Please run each command separately OR chain them into a single "
                     f"command via && or ;\nProvided commands:\n{commands_list}"
                 ),
@@ -387,7 +381,6 @@ class TerminalSession(TerminalSessionBase):
             )
             obs = ExecuteBashObservation(
                 output=command_output,
-                command=command,
                 metadata=metadata,
             )
             logger.debug(f"RETURNING OBSERVATION (previous-command): {obs}")

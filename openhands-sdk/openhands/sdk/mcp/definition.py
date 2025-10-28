@@ -1,7 +1,6 @@
 """MCPTool definition and implementation."""
 
 import json
-from collections.abc import Sequence
 from typing import Any
 
 import mcp.types
@@ -51,10 +50,6 @@ class MCPToolAction(Action):
 class MCPToolObservation(Observation):
     """Observation from MCP tool execution."""
 
-    images: list[ImageContent] = Field(
-        default_factory=list,
-        description="Image content returned from the MCP tool",
-    )
     tool_name: str = Field(description="Name of the tool that was called")
 
     @classmethod
@@ -64,13 +59,13 @@ class MCPToolObservation(Observation):
         """Create an MCPToolObservation from a CallToolResult."""
         content: list[mcp.types.ContentBlock] = result.content
         text_parts = []
-        images = []
+        output_content: list[TextContent | ImageContent] = []
 
         for block in content:
             if isinstance(block, mcp.types.TextContent):
                 text_parts.append(block.text)
             elif isinstance(block, mcp.types.ImageContent):
-                images.append(
+                output_content.append(
                     ImageContent(
                         image_urls=[f"data:{block.mimeType};base64,{block.data}"],
                     )
@@ -91,34 +86,21 @@ class MCPToolObservation(Observation):
             # When there is an error, don't populate output
             return cls(
                 error=error_msg,
-                images=images,
                 tool_name=tool_name,
             )
         else:
             # When success, don't populate error
-            output_msg = f"{header}\n{text_content}" if text_content else header
+            # Combine text and images in output
+            if text_content:
+                output_msg = f"{header}\n{text_content}"
+                output_content.insert(0, TextContent(text=output_msg))
+            else:
+                output_content.insert(0, TextContent(text=header))
+
             return cls(
-                output=output_msg,
-                images=images,
+                output=output_content,
                 tool_name=tool_name,
             )
-
-    @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        """Return structured content with images for LLM consumption.
-
-        Overrides base to preserve image content alongside text.
-        """
-        result: list[TextContent | ImageContent] = []
-
-        if self.error:
-            result.append(self._format_error())
-        elif self.output:
-            result.append(TextContent(text=self.output))
-
-        # Append images
-        result.extend(self.images)
-        return result
 
     @property
     def visualize(self) -> Text:
@@ -131,15 +113,16 @@ class MCPToolObservation(Observation):
             if self.error:
                 content.append(self.error + "\n")
         elif self.output:
-            # Try to parse as JSON for better display
-            try:
-                parsed = json.loads(self.output)
-                content.append(display_dict(parsed))
-            except (json.JSONDecodeError, TypeError):
-                content.append(self.output + "\n")
-
-        # Show images if present
-        for image in self.images:
-            content.append(f"[Image with {len(image.image_urls)} URLs]\n")
+            # Display all content blocks
+            for block in self.output:
+                if isinstance(block, TextContent):
+                    # Try to parse as JSON for better display
+                    try:
+                        parsed = json.loads(block.text)
+                        content.append(display_dict(parsed))
+                    except (json.JSONDecodeError, TypeError):
+                        content.append(block.text + "\n")
+                elif isinstance(block, ImageContent):
+                    content.append(f"[Image with {len(block.image_urls)} URLs]\n")
 
         return content

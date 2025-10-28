@@ -79,6 +79,7 @@ class ExecuteBashAction(Action):
 class ExecuteBashObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
+    output: str = ""  # type: ignore[assignment]
     exit_code: int | None = Field(
         default=None,
         description="The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",  # noqa
@@ -98,6 +99,10 @@ class ExecuteBashObservation(Observation):
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
+        if self.error:
+            # When there's an error, format it appropriately
+            return [TextContent(text=f"Tool Execution Error: {self.error}")]
+
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
@@ -105,8 +110,6 @@ class ExecuteBashObservation(Observation):
             ret += f"\n[Python interpreter: {self.metadata.py_interpreter_path}]"
         if self.metadata.exit_code != -1:
             ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
-        if self.error:
-            ret = f"[There was an error during command execution.]\n{ret}"
         return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
 
     @property

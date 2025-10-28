@@ -197,14 +197,15 @@ class Observation(Schema, ABC):
     """Base schema for output observation."""
 
     # Standardized primary output and error handling
-    output: str = Field(
-        default="", description="Primary text output from the tool operation"
+    output: list[TextContent | ImageContent] = Field(
+        default_factory=list,
+        description=(
+            "Output returned from the tool converted to LLM Ready "
+            "TextContent or ImageContent"
+        ),
     )
     error: str | None = Field(
         default=None, description="Error message if operation failed"
-    )
-    command: str | None = Field(
-        default=None, description="The command that was executed, if applicable"
     )
 
     @property
@@ -217,8 +218,8 @@ class Observation(Schema, ABC):
     def result_status(self) -> ObservationStatus:
         return ObservationStatus.ERROR if self.has_error else ObservationStatus.SUCCESS
 
-    def _format_error(self) -> TextContent:
-        return TextContent(text=f"Tool Execution Error: {self.error}")
+    def _format_error(self) -> list[TextContent | ImageContent]:
+        return [TextContent(text=f"Tool Execution Error: {self.error}")]
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
@@ -227,15 +228,9 @@ class Observation(Schema, ABC):
         Subclasses can override to provide richer content (e.g., images, diffs),
         but should preserve the error-first convention.
         """
-        # Prepend command if present
-        command_prefix = f"Command: {self.command}\n\n" if self.command else ""
-
         if self.error:
-            error_text = self._format_error().text
-            return [TextContent(text=command_prefix + error_text)]
-        elif self.output:
-            return [TextContent(text=command_prefix + self.output)]
-        return []
+            return self._format_error()
+        return self.output
 
     @property
     def visualize(self) -> Text:
