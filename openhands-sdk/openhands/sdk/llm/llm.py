@@ -179,15 +179,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     gateway_token_header: str | None = Field(
         default=None,
         description=(
-            "Header name used to forward the gateway token "
-            "(defaults to Authorization)."
+            "Header name used to forward the gateway token (defaults to Authorization)."
         ),
     )
     gateway_token_prefix: str = Field(
         default="Bearer ",
         description=(
-            "Prefix prepended to the gateway token when constructing "
-            "the header value."
+            "Prefix prepended to the gateway token when constructing the header value."
         ),
     )
     gateway_auth_verify_ssl: bool = Field(
@@ -1156,7 +1154,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             token_value = self._extract_from_path(payload, token_path)
             if not isinstance(token_value, str) or not token_value.strip():
                 raise ValueError(
-                    f'Gateway auth response did not contain token at path '
+                    f"Gateway auth response did not contain token at path "
                     f'"{token_path}".'
                 )
 
