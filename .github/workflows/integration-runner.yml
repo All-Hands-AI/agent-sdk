@@ -71,12 +71,20 @@ jobs:
                       llm-config:
                           model: litellm_proxy/deepseek/deepseek-chat
         steps:
-            - name: Checkout repository
+            # For pull_request_target: checkout fork PR code (requires explicit repository)
+            - name: Checkout PR head (fork-safe)
+              if: github.event_name == 'pull_request_target'
               uses: actions/checkout@v5
               with:
-                  # When using pull_request_target, explicitly checkout the PR branch
-                  # This ensures we test the actual PR code, not the base branch
-                  ref: ${{ github.event.pull_request.head.sha || github.ref }}
+                  repository: ${{ github.event.pull_request.head.repo.full_name }}
+                  ref: ${{ github.event.pull_request.head.sha }}
+                  persist-credentials: false
+                  fetch-depth: 1
+
+            # For non-PR events (workflow_dispatch, schedule): checkout normally
+            - name: Checkout repository (non-PR events)
+              if: github.event_name != 'pull_request_target'
+              uses: actions/checkout@v5
 
             - name: Install uv
               uses: astral-sh/setup-uv@v7
