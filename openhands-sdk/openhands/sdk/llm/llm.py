@@ -166,23 +166,35 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     )
     gateway_auth_expires_in_path: str | None = Field(
         default=None,
-        description="Dot path to the expires_in value in the identity provider response.",
+        description=(
+            "Dot path to the expires_in value in the identity provider response."
+        ),
     )
     gateway_auth_token_ttl: int | None = Field(
         default=None,
-        description="Fallback token TTL (seconds) if the response does not include expiry.",
+        description=(
+            "Fallback token TTL (seconds) if the response does not include expiry."
+        ),
     )
     gateway_token_header: str | None = Field(
         default=None,
-        description="Header name used to forward the gateway token (defaults to Authorization).",
+        description=(
+            "Header name used to forward the gateway token "
+            "(defaults to Authorization)."
+        ),
     )
     gateway_token_prefix: str = Field(
         default="Bearer ",
-        description="Prefix prepended to the gateway token when constructing the header value.",
+        description=(
+            "Prefix prepended to the gateway token when constructing "
+            "the header value."
+        ),
     )
     gateway_auth_verify_ssl: bool = Field(
         default=True,
-        description="Whether to verify TLS certificates when calling the identity provider.",
+        description=(
+            "Whether to verify TLS certificates when calling the identity provider."
+        ),
     )
     max_input_tokens: int | None = Field(
         default=None,
@@ -1142,7 +1154,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             token_value = self._extract_from_path(payload, token_path)
             if not isinstance(token_value, str) or not token_value.strip():
                 raise ValueError(
-                    f'Gateway auth response did not contain token at path "{token_path}".'
+                    f'Gateway auth response did not contain token at path '
+                    f'"{token_path}".'
                 )
 
             ttl_seconds: float | None = None
