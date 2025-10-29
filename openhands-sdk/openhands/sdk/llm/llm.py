@@ -142,7 +142,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     custom_llm_provider: str | None = Field(default=None)
     gateway_provider: str | None = Field(
         default=None,
-        description="Enterprise gateway provider name (e.g., 'tachyon').",
+        description="Enterprise gateway provider name.",
     )
     gateway_auth_url: str | None = Field(
         default=None,
