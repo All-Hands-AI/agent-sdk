@@ -40,15 +40,14 @@ jobs:
             - name: Checkout PR repository
               uses: actions/checkout@v5
               with:
-                  # Fetch the full history to get the diff
-                  fetch-depth: 0
-                  path: pr-repo
                   # When using pull_request_target, explicitly checkout the PR branch
                   # This ensures we review the actual PR code (including fork PRs)
                   repository: ${{ github.event.pull_request.head.repo.full_name }}
-                  ref: ${{ github.event.pull_request.head.sha }}
+                  ref: ${{ github.event.pull_request.head.ref }}
+                  fetch-depth: 0
                   # Security: Don't persist credentials to prevent untrusted PR code from using them
                   persist-credentials: false
+                  path: pr-repo
 
             - name: Set up Python
               uses: actions/setup-python@v6
