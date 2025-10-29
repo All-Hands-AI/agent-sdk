@@ -44,8 +44,17 @@ class BrowserObservation(Observation):
         ]
 
         if self.screenshot_data:
+            mime_type = "image/png"
+            if self.screenshot_data.startswith("/9j/"):
+                mime_type = "image/jpeg"
+            elif self.screenshot_data.startswith("iVBORw0KGgo"):
+                mime_type = "image/png"
+            elif self.screenshot_data.startswith("R0lGODlh"):
+                mime_type = "image/gif"
+            elif self.screenshot_data.startswith("UklGR"):
+                mime_type = "image/webp"
             # Convert base64 to data URL format for ImageContent
-            data_url = f"data:image/png;base64,{self.screenshot_data}"
+            data_url = f"data:{mime_type};base64,{self.screenshot_data}"
             content.append(ImageContent(image_urls=[data_url]))
 
         return content
