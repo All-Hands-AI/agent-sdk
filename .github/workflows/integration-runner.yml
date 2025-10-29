@@ -7,7 +7,6 @@ on:
     pull_request_target:
         types:
             - labeled
-            - synchronize
     workflow_dispatch:
         inputs:
             reason:
@@ -37,14 +36,12 @@ jobs:
     run-integration-tests:
         # Security: Only run when 'integration-test' label is present, via workflow_dispatch, or on schedule
         # This prevents automatic execution on fork PRs without maintainer approval
-        # For 'synchronize' events, check if the PR has the 'integration-test' label
         # Note: uses always() to run even when post-initial-comment is skipped (e.g., for workflow_dispatch)
         if: |
             always() && (
                 github.event.label.name == 'integration-test' ||
                 github.event_name == 'workflow_dispatch' ||
-                github.event_name == 'schedule' ||
-                (github.event_name == 'pull_request_target' && github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'integration-test'))
+                github.event_name == 'schedule'
             )
         needs: [post-initial-comment]
         # Use standard GitHub runners for workflow_dispatch from forks (no access to Blacksmith runners)
@@ -77,9 +74,12 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v5
               with:
-                  # When using pull_request_target, explicitly checkout the PR branch
-                  # This ensures we test the actual PR code, not the base branch
+                  # For pull_request_target: checkout fork PR code (requires explicit repository)
+                  # For other events: fallback to current repository and ref
+                  repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
                   ref: ${{ github.event.pull_request.head.sha || github.ref }}
+                  # Security: Don't persist credentials to prevent untrusted PR code from using them
+                  persist-credentials: false
 
             - name: Install uv
               uses: astral-sh/setup-uv@v7
