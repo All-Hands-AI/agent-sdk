@@ -15,7 +15,7 @@ class TestAgentContext:
 
     def test_agent_context_creation_empty(self):
         """Test creating an empty AgentContext."""
-        context = AgentContext()
+        context = AgentContext(load_user_skills=False)
         assert context.skills == []
         assert context.system_message_suffix is None
         assert context.user_message_suffix is None
@@ -25,6 +25,7 @@ class TestAgentContext:
         context = AgentContext(
             system_message_suffix="Custom system suffix",
             user_message_suffix="Custom user suffix",
+            load_user_skills=False,
         )
         assert context.system_message_suffix == "Custom system suffix"
         assert context.user_message_suffix == "Custom user suffix"
@@ -45,7 +46,7 @@ class TestAgentContext:
         )
 
         with pytest.raises(ValueError, match="Duplicate skill name found: duplicate"):
-            AgentContext(skills=[repo_skill1, repo_skill2])
+            AgentContext(skills=[repo_skill1, repo_skill2], load_user_skills=False)
 
     def test_get_system_message_suffix_no_repo_skills(self):
         """Test system message suffix with no repo skills."""
@@ -55,7 +56,7 @@ class TestAgentContext:
             source="test.md",
             trigger=KeywordTrigger(keywords=["test"]),
         )
-        context = AgentContext(skills=[knowledge_skill])
+        context = AgentContext(load_user_skills=False, skills=[knowledge_skill])
         result = context.get_system_message_suffix()
         assert result is None
 
@@ -74,7 +75,7 @@ class TestAgentContext:
             trigger=None,
         )
 
-        context = AgentContext(skills=[repo_agent1, repo_agent2])
+        context = AgentContext(load_user_skills=False, skills=[repo_agent1, repo_agent2])
         result = context.get_system_message_suffix()
 
         expected_output = (
@@ -109,6 +110,7 @@ defined in user's repository.\n"
         context = AgentContext(
             skills=[repo_agent],
             system_message_suffix="Additional custom instructions for the system.",
+            load_user_skills=False,
         )
         result = context.get_system_message_suffix()
 
@@ -141,7 +143,7 @@ defined in user's repository.\n"
             trigger=KeywordTrigger(keywords=["python", "performance"]),
         )
 
-        context = AgentContext(skills=[knowledge_agent])
+        context = AgentContext(load_user_skills=False, skills=[knowledge_agent])
         empty_message = Message(role="user", content=[])
         result = context.get_user_message_suffix(empty_message, [])
 
@@ -156,7 +158,7 @@ defined in user's repository.\n"
             trigger=KeywordTrigger(keywords=["python", "performance"]),
         )
 
-        context = AgentContext(skills=[knowledge_agent])
+        context = AgentContext(load_user_skills=False, skills=[knowledge_agent])
         user_message = Message(
             role="user", content=[TextContent(text="How do I write JavaScript code?")]
         )
@@ -173,7 +175,7 @@ defined in user's repository.\n"
             trigger=KeywordTrigger(keywords=["python", "performance"]),
         )
 
-        context = AgentContext(skills=[knowledge_agent])
+        context = AgentContext(load_user_skills=False, skills=[knowledge_agent])
         user_message = Message(
             role="user",
             content=[TextContent(text="How can I improve my Python code performance?")],
@@ -212,7 +214,7 @@ parametrization.",
             trigger=KeywordTrigger(keywords=["testing", "pytest"]),
         )
 
-        context = AgentContext(skills=[python_agent, testing_agent])
+        context = AgentContext(load_user_skills=False, skills=[python_agent, testing_agent])
         user_message = Message(
             role="user",
             content=[
@@ -257,7 +259,7 @@ parametrization.\n"
             trigger=KeywordTrigger(keywords=["python", "performance"]),
         )
 
-        context = AgentContext(skills=[knowledge_agent])
+        context = AgentContext(load_user_skills=False, skills=[knowledge_agent])
         user_message = Message(
             role="user",
             content=[TextContent(text="How can I improve my Python code performance?")],
@@ -276,7 +278,7 @@ attacks.",
             trigger=KeywordTrigger(keywords=["database", "sql"]),
         )
 
-        context = AgentContext(skills=[knowledge_agent])
+        context = AgentContext(load_user_skills=False, skills=[knowledge_agent])
         user_message = Message(
             role="user",
             content=[
@@ -318,7 +320,7 @@ attacks.",
             trigger=KeywordTrigger(keywords=["git", "commit"]),
         )
 
-        context = AgentContext(skills=[repo_agent, knowledge_agent])
+        context = AgentContext(load_user_skills=False, skills=[repo_agent, knowledge_agent])
 
         # Test system message suffix (should only include repo skills)
         system_result = context.get_system_message_suffix()
@@ -369,7 +371,7 @@ for "git".\n'
             trigger=KeywordTrigger(keywords=["docker", "container"]),
         )
 
-        context = AgentContext(skills=[knowledge_agent])
+        context = AgentContext(load_user_skills=False, skills=[knowledge_agent])
         user_message = Message(
             role="user",
             content=[TextContent(text="I need help with DOCKER containerization.")],
@@ -402,7 +404,7 @@ templates.",
             trigger=None,
         )
 
-        context = AgentContext(skills=[repo_agent])
+        context = AgentContext(load_user_skills=False, skills=[repo_agent])
         result = context.get_system_message_suffix()
 
         expected_output = (
@@ -428,7 +430,7 @@ templates.\n"
             name="empty_content", content="", source="test.md", trigger=None
         )
 
-        context = AgentContext(skills=[repo_agent])
+        context = AgentContext(load_user_skills=False, skills=[repo_agent])
         result = context.get_system_message_suffix()
 
         expected_output = (
@@ -465,6 +467,7 @@ defined in user's repository.\n"
         context = AgentContext(
             skills=[knowledge_agent],
             system_message_suffix="Custom system instructions without repo context.",
+            load_user_skills=False,
         )
 
         result = context.get_system_message_suffix()
@@ -482,6 +485,7 @@ defined in user's repository.\n"
         context = AgentContext(
             skills=[],
             user_message_suffix="Custom user instructions for empty messages.",
+            load_user_skills=False,
         )
 
         # Create a message with no text content (empty query)
