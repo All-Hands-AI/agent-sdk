@@ -257,9 +257,10 @@ def test_remote_conversation_over_real_server(server_env, patched_llm):
                 assert hasattr(e, "llm_message"), (
                     "MessageEvent should have llm_message attribute"
                 )
-                assert e.llm_message.role in ("assistant", "user"), (
-                    f"Expected role to be assistant or user, got {e.llm_message.role}"
-                )
+                assert e.llm_message.role in (
+                    "assistant",
+                    "user",
+                ), f"Expected role to be assistant or user, got {e.llm_message.role}"
                 found_agent_related_event = True
             elif isinstance(e, ActionEvent) and e.source == "agent":
                 # Verify ActionEvent has expected structure

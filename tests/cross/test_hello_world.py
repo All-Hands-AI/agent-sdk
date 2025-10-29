@@ -360,9 +360,12 @@ class TestHelloWorld:
 
         for j, logged_msg in enumerate(logged_messages):
             assert "role" in logged_msg, f"{context} message {j}: Missing role"
-            assert logged_msg.get("role") in ["user", "assistant", "system", "tool"], (
-                f"{context} message {j}: Invalid role"
-            )
+            assert logged_msg.get("role") in [
+                "user",
+                "assistant",
+                "system",
+                "tool",
+            ], f"{context} message {j}: Invalid role"
 
         # Validate tools structure
         logged_tools = logged_data.get("tools", [])

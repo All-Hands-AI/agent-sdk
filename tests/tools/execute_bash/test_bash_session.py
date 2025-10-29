@@ -403,9 +403,13 @@ def test_command_output_continuation(terminal_type):
                 assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
         # Verify we've seen all numbers
-        assert numbers_seen == {1, 2, 3, 4, 5}, (
-            f"Expected to see numbers 1-5, but saw {numbers_seen}"
-        )
+        assert numbers_seen == {
+            1,
+            2,
+            3,
+            4,
+            5,
+        }, f"Expected to see numbers 1-5, but saw {numbers_seen}"
 
         # Verify the command completed
         assert session.prev_status == TerminalCommandStatus.COMPLETED

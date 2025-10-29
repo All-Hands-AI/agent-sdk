@@ -1043,7 +1043,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             headers.update(existing_headers)
 
         if self._static_gateway_headers:
-            rendered_headers = self._render_gateway_templates(self._static_gateway_headers)
+            rendered_headers = self._render_gateway_templates(
+                self._static_gateway_headers
+            )
             if isinstance(rendered_headers, dict):
                 headers.update(rendered_headers)
 
