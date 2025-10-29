@@ -103,6 +103,7 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
     "kimi-k2-instruct",
     "qwen3-coder*",
     "qwen3-coder-480b-a35b-instruct",
+    "minimax-m2",
 ]
 
 REASONING_EFFORT_PATTERNS: list[str] = [
