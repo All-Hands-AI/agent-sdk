@@ -450,11 +450,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self._gateway_lock = threading.Lock()
         self._gateway_token = None
         self._gateway_token_expiry = None
+        custom_headers = getattr(self, "custom_headers", None)
         self._static_gateway_headers = (
-            copy.deepcopy(self.custom_headers) if self.custom_headers else {}
+            copy.deepcopy(custom_headers) if custom_headers else {}
         )
+        extra_body_params = getattr(self, "extra_body_params", None)
         self._static_gateway_body = (
-            copy.deepcopy(self.extra_body_params) if self.extra_body_params else {}
+            copy.deepcopy(extra_body_params) if extra_body_params else {}
         )
 
         logger.debug(
