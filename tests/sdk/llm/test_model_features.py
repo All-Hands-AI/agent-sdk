@@ -57,14 +57,16 @@ def test_model_matches(name, pattern, expected):
         ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
         ("bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0", True),
         ("bedrock/anthropic.claude-sonnet-4-20250514-v1:0", True),
-        (
-            "llama-3.1-70b",
-            False,
-        ),  # Most open source models don't support native function calling
-        ("unknown-model", False),  # Default to False for unknown models
+        # Function calling is now enabled by default for all models
+        ("llama-3.1-70b", True),
+        ("unknown-model", True),  # Default to True for all models
     ],
 )
 def test_function_calling_support(model, expected_function_calling):
+    """Test that function calling is enabled by default for all models.
+
+    Users can opt-out by setting native_tool_calling=False in LLM config.
+    """
     features = get_features(model)
     assert features.supports_function_calling == expected_function_calling
 
@@ -217,8 +219,8 @@ def test_get_features_unknown_model():
     """Test get_features with completely unknown model."""
     features = get_features("completely-unknown-model-12345")
 
-    # Unknown models should have conservative defaults
-    assert features.supports_function_calling is False
+    # Function calling is now enabled by default
+    assert features.supports_function_calling is True
     assert features.supports_reasoning_effort is False
     assert features.supports_prompt_cache is False
     assert features.supports_stop_words is True  # Most models support stop words
@@ -229,9 +231,9 @@ def test_get_features_empty_model():
     features_empty = get_features("")
     features_none = get_features(None)  # type: ignore[arg-type]
 
-    # Both should return conservative defaults
-    assert features_empty.supports_function_calling is False
-    assert features_none.supports_function_calling is False
+    # Function calling is now enabled by default
+    assert features_empty.supports_function_calling is True
+    assert features_none.supports_function_calling is True
     assert features_empty.supports_reasoning_effort is False
     assert features_none.supports_reasoning_effort is False
 
