@@ -38,6 +38,7 @@ jobs:
         # Security: Only run when 'integration-test' label is present, via workflow_dispatch, or on schedule
         # This prevents automatic execution on fork PRs without maintainer approval
         # For 'synchronize' events, check if the PR has the 'integration-test' label
+        # Note: uses always() to run even when post-initial-comment is skipped (e.g., for workflow_dispatch)
         if: |
             always() && (
                 github.event.label.name == 'integration-test' ||
