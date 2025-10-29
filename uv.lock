@@ -1947,7 +1947,7 @@ dependencies = [
 requires-dist = [
     { name = "bashlex", specifier = ">=0.18" },
     { name = "binaryornot", specifier = ">=0.4.4" },
-    { name = "browser-use", specifier = ">=0.7.7" },
+    { name = "browser-use", specifier = ">=0.8.0" },
     { name = "cachetools" },
     { name = "func-timeout", specifier = ">=4.3.5" },
     { name = "libtmux", specifier = ">=0.46.2" },
