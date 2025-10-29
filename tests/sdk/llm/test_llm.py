@@ -245,6 +245,70 @@ def test_llm_cost_calculation(default_llm):
         llm.metrics.add_cost(-1.0)
 
 
+def test_sdk_gateway_headers_and_token_caching(monkeypatch):
+    request_calls: list[dict[str, Any]] = []
+
+    def fake_request(method, url, headers=None, json=None, timeout=None, verify=None):
+        request_calls.append(
+            {
+                'method': method,
+                'url': url,
+                'headers': headers,
+                'json': json,
+                'timeout': timeout,
+                'verify': verify,
+            }
+        )
+
+        class _Response:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {'data': {'token': 'sdk-token', 'expires_in': 90}}
+
+        return _Response()
+
+    monkeypatch.setattr('openhands.sdk.llm.llm.httpx.request', fake_request)
+
+    llm = LLM(
+        model='openai/gpt-4o',
+        api_key=SecretStr('sdk-secret'),
+        gateway_provider='custom-enterprise',
+        gateway_auth_url='https://idp.example.com/token',
+        gateway_auth_method='post',
+        gateway_auth_headers={'X-Identity-Key': '{{llm_api_key}}'},
+        gateway_auth_body={'client': 'sdk'},
+        gateway_auth_token_path='data.token',
+        gateway_auth_expires_in_path='data.expires_in',
+        custom_headers={'X-Gateway-Key': 'sdk-static'},
+        extra_body_params={'metadata': {'source': 'sdk-cli'}},
+    )
+
+    kwargs: dict[str, Any] = {'extra_body': {'metadata': {'existing': True}}}
+    llm._prepare_gateway_call(kwargs)
+
+    assert len(request_calls) == 1
+    request = request_calls[0]
+    assert request['method'] == 'POST'
+    assert request['headers']['X-Identity-Key'] == 'sdk-secret'
+    assert request['json'] == {'client': 'sdk'}
+
+    headers = kwargs['extra_headers']
+    assert headers['Authorization'] == 'Bearer sdk-token'
+    assert headers['X-Gateway-Key'] == 'sdk-static'
+
+    extra_body = kwargs['extra_body']
+    assert extra_body['metadata']['existing'] is True
+    assert extra_body['metadata']['source'] == 'sdk-cli'
+    assert extra_body['headers']['Authorization'] == 'Bearer sdk-token'
+
+    follow_up_kwargs: dict[str, Any] = {}
+    llm._prepare_gateway_call(follow_up_kwargs)
+    assert len(request_calls) == 1
+    assert follow_up_kwargs['extra_headers']['Authorization'] == 'Bearer sdk-token'
+
+
 def test_llm_token_counting(default_llm):
     """Test LLM token counting functionality."""
     llm = default_llm
