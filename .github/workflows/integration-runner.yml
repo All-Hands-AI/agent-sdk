@@ -19,8 +19,22 @@ env:
     N_PROCESSES: 4 # Global configuration for number of parallel processes for evaluation
 
 jobs:
+    post-initial-comment:
+        if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
+        runs-on: ubuntu-latest
+        permissions:
+            pull-requests: write
+        steps:
+            - name: Comment on PR
+              uses: KeisukeYamashita/create-comment@v1
+              with:
+                  unique: false
+                  comment: |
+                      Hi! I started running the integration tests on your PR. You will receive a comment with the results shortly.
+
     run-integration-tests:
-        if: github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        if: always() && (github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        needs: [post-initial-comment]
         runs-on: blacksmith-4vcpu-ubuntu-2204
         permissions:
             contents: read
@@ -34,14 +48,14 @@ jobs:
                     - name: Claude Sonnet 4.5
                       run-suffix: sonnet_run
                       llm-config:
-                          model: litellm_proxy/anthropic/claude-sonnet-4-5-20250929
-                    - name: GPT-5 Mini
+                          model: litellm_proxy/claude-sonnet-4-5-20250929
+                    - name: GPT-5 Mini 2025-08-07
                       run-suffix: gpt5_mini_run
                       llm-config:
-                          model: litellm_proxy/openai/gpt-5-mini
+                          model: litellm_proxy/gpt-5-mini-2025-08-07
                           temperature: 1.0
-                    - name: DeepSeek Chat
-                      run-suffix: deepseek_run
+                    - name: Devstral Medium 2507
+                      run-suffix: devstral_run
                       llm-config:
                           model: litellm_proxy/deepseek/deepseek-chat
         steps:
@@ -54,14 +68,6 @@ jobs:
                   version: latest
                   python-version: ${{ matrix.python-version }}
 
-            - name: Comment on PR if 'integration-test' label is present
-              if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
-              uses: KeisukeYamashita/create-comment@v1
-              with:
-                  unique: false
-                  comment: |
-                      Hi! I started running the integration tests on your PR. You will receive a comment with the results shortly.
-
             - name: Install Python dependencies using uv
               run: |
                   uv sync --dev
@@ -72,7 +78,7 @@ jobs:
               env:
                   LLM_CONFIG: ${{ toJson(matrix.job-config.llm-config) }}
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-                  LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+                  LLM_BASE_URL: https://llm-proxy.app.all-hands.dev
               run: |
                   set -eo pipefail
 
@@ -204,4 +210,26 @@ jobs:
                   echo "$COMMENT_BODY" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
               env:
                   GH_TOKEN: ${{ github.token }}
+
+            - name: Read consolidated report for tracker issue
+              if: github.event_name == 'schedule'
+              id: read_report
+              run: |
+                  # Read the report and set as output
+                  REPORT_CONTENT=$(cat consolidated_report.md)
+                  echo "report<<EOF" >> $GITHUB_OUTPUT
+                  echo "$REPORT_CONTENT" >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+
+            - name: Comment with results on tracker issue
+              if: github.event_name == 'schedule'
+              uses: KeisukeYamashita/create-comment@v1
+              with:
+                  number: 939
+                  unique: false
+                  comment: |
+                      **Trigger:** Nightly Scheduled Run
+                      **Commit:** ${{ github.sha }}
+
+                      ${{ steps.read_report.outputs.report }}
 
