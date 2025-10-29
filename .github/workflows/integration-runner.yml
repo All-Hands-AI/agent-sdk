@@ -63,8 +63,8 @@ jobs:
                       llm-config:
                           model: litellm_proxy/gpt-5-mini-2025-08-07
                           temperature: 1.0
-                    - name: Devstral Medium 2507
-                      run-suffix: devstral_run
+                    - name: Deepseek Chat
+                      run-suffix: deepseek_run
                       llm-config:
                           model: litellm_proxy/deepseek/deepseek-chat
         steps:
