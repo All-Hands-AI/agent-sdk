@@ -75,7 +75,7 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
     def __init__(self, bash: BashExecutor):
         self.bash: BashExecutor = bash
 
-    def __call__(self, action: GrepAction) -> GrepObservation:
+    def __call__(self, action: GrepAction, conversation=None) -> GrepObservation:  # noqa: ARG002
         root = os.path.abspath(action.path)
         pat = shlex.quote(action.pattern)
         root_q = shlex.quote(root)

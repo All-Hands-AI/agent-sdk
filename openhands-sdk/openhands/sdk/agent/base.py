@@ -21,7 +21,7 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.state import ConversationState
+    from openhands.sdk.conversation import ConversationState, LocalConversation
     from openhands.sdk.conversation.types import ConversationCallbackType
 
 logger = get_logger(__name__)
@@ -32,7 +32,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     Agents are stateless and should be fully defined by their configuration.
     """
 
-    model_config: ConfigDict = ConfigDict(
+    model_config = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,
     )
@@ -80,7 +80,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         "the agent with specific context.",
         examples=[
             {
-                "microagents": [
+                "skills": [
                     {
                         "name": "repo.md",
                         "content": "When you see this message, you should reply like "
@@ -105,7 +105,15 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             }
         ],
     )
-    system_prompt_filename: str = Field(default="system_prompt.j2")
+    system_prompt_filename: str = Field(
+        default="system_prompt.j2",
+        description=(
+            "System prompt template filename. Can be either:\n"
+            "- A relative filename (e.g., 'system_prompt.j2') loaded from the "
+            "agent's prompts directory\n"
+            "- An absolute path (e.g., '/path/to/custom_prompt.j2')"
+        ),
+    )
     system_prompt_kwargs: dict[str, object] = Field(
         default_factory=dict,
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
@@ -234,7 +242,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @abstractmethod
     def step(
         self,
-        state: "ConversationState",
+        conversation: "LocalConversation",
         on_event: "ConversationCallbackType",
     ) -> None:
         """Taking a step in the conversation.
