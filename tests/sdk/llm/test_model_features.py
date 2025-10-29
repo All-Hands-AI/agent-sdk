@@ -57,11 +57,12 @@ def test_model_matches(name, pattern, expected):
         ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
         ("bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0", True),
         ("bedrock/anthropic.claude-sonnet-4-20250514-v1:0", True),
+        # Most modern models support function calling
+        ("llama-3.1-70b", True),
         (
-            "llama-3.1-70b",
-            False,
-        ),  # Most open source models don't support native function calling
-        ("unknown-model", False),  # Default to False for unknown models
+            "unknown-model",
+            True,
+        ),  # Default to True - most models support function calling
     ],
 )
 def test_function_calling_support(model, expected_function_calling):
@@ -217,8 +218,10 @@ def test_get_features_unknown_model():
     """Test get_features with completely unknown model."""
     features = get_features("completely-unknown-model-12345")
 
-    # Unknown models should have conservative defaults
-    assert features.supports_function_calling is False
+    # Unknown models should have permissive defaults
+    assert (
+        features.supports_function_calling is True
+    )  # Most models support function calling
     assert features.supports_reasoning_effort is False
     assert features.supports_prompt_cache is False
     assert features.supports_stop_words is True  # Most models support stop words
@@ -229,9 +232,9 @@ def test_get_features_empty_model():
     features_empty = get_features("")
     features_none = get_features(None)  # type: ignore[arg-type]
 
-    # Both should return conservative defaults
-    assert features_empty.supports_function_calling is False
-    assert features_none.supports_function_calling is False
+    # Both should return permissive defaults
+    assert features_empty.supports_function_calling is True
+    assert features_none.supports_function_calling is True
     assert features_empty.supports_reasoning_effort is False
     assert features_none.supports_reasoning_effort is False
 

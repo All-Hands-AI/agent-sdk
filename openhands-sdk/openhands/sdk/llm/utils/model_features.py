@@ -77,32 +77,11 @@ class ModelFeatures:
 
 
 # Pattern tables capturing current behavior. Keep patterns lowercase.
-FUNCTION_CALLING_PATTERNS: list[str] = [
-    # Anthropic families
-    "claude-3-7-sonnet*",
-    "claude-3.7-sonnet*",
-    "claude-sonnet-3-7-latest",
-    "claude-3-5-sonnet*",
-    "claude-3.5-haiku*",
-    "claude-3-5-haiku*",
-    "claude-sonnet-4*",
-    "claude-haiku-4*",
-    "claude-opus-4*",
-    # OpenAI families
-    "gpt-4o*",
-    "gpt-4.1",
-    "gpt-5*",
-    # o-series (keep exact o1 support per existing list)
-    "o1-2024-12-17",
-    "o3*",
-    "o4-mini",
-    # Google Gemini
-    "gemini-2.5-pro",
-    # Others
-    "kimi-k2-0711-preview",
-    "kimi-k2-instruct",
-    "qwen3-coder*",
-    "qwen3-coder-480b-a35b-instruct",
+# Most modern models support function calling, so we list exceptions instead
+NON_FUNCTION_CALLING_PATTERNS: list[str] = [
+    # Older open-source base models without instruction tuning typically
+    # don't support function calling. Add specific patterns here as needed.
+    # Examples: older LLaMA 2.x models, base Mistral models, etc.
 ]
 
 REASONING_EFFORT_PATTERNS: list[str] = [
@@ -162,7 +141,9 @@ RESPONSES_API_PATTERNS: list[str] = [
 
 def get_features(model: str) -> ModelFeatures:
     return ModelFeatures(
-        supports_function_calling=model_matches(model, FUNCTION_CALLING_PATTERNS),
+        supports_function_calling=not model_matches(
+            model, NON_FUNCTION_CALLING_PATTERNS
+        ),
         supports_reasoning_effort=model_matches(model, REASONING_EFFORT_PATTERNS),
         supports_extended_thinking=model_matches(model, EXTENDED_THINKING_PATTERNS),
         supports_prompt_cache=model_matches(model, PROMPT_CACHE_PATTERNS),
