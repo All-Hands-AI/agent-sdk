@@ -16,7 +16,11 @@ from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.exceptions import ConversationRunError
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.conversation.types import (
+    ConversationCallbackType,
+    ConversationID,
+    StuckDetectionThresholds,
+)
 from openhands.sdk.conversation.visualizer import (
     ConversationVisualizer,
     create_default_visualizer,
@@ -413,6 +417,9 @@ class RemoteConversation(BaseConversation):
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
+        stuck_detection_thresholds: (
+            StuckDetectionThresholds | Mapping[str, int] | None
+        ) = None,
         visualize: bool = False,
         name_for_visualization: str | None = None,
         secrets: Mapping[str, SecretValue] | None = None,
@@ -427,6 +434,11 @@ class RemoteConversation(BaseConversation):
             callbacks: Optional callbacks to receive events (not yet streamed)
             max_iteration_per_run: Max iterations configured on server
             stuck_detection: Whether to enable stuck detection on server
+            stuck_detection_thresholds: Optional configuration for stuck detection
+                      thresholds. Can be a StuckDetectionThresholds instance or
+                      a dict with keys: 'action_observation', 'action_error',
+                      'monologue', 'alternating_pattern'. Values are integers
+                      representing the number of repetitions before triggering.
             visualize: Whether to enable the default visualizer callback
             name_for_visualization: Optional name to prefix in panel titles to identify
                                   which agent/conversation is speaking.
@@ -451,6 +463,15 @@ class RemoteConversation(BaseConversation):
                     working_dir=self.workspace.working_dir
                 ).model_dump(),
             }
+            if stuck_detection_thresholds is not None:
+                # Convert to StuckDetectionThresholds if dict, then serialize
+                if isinstance(stuck_detection_thresholds, Mapping):
+                    threshold_config = StuckDetectionThresholds(
+                        **stuck_detection_thresholds
+                    )
+                else:
+                    threshold_config = stuck_detection_thresholds
+                payload["stuck_detection_thresholds"] = threshold_config.model_dump()
             resp = _send_request(
                 self._client, "POST", "/api/conversations", json=payload
             )

@@ -9,7 +9,11 @@ from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.title_utils import generate_conversation_title
-from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.conversation.types import (
+    ConversationCallbackType,
+    ConversationID,
+    StuckDetectionThresholds,
+)
 from openhands.sdk.conversation.visualizer import (
     ConversationVisualizer,
     create_default_visualizer,
@@ -50,6 +54,9 @@ class LocalConversation(BaseConversation):
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
+        stuck_detection_thresholds: (
+            StuckDetectionThresholds | Mapping[str, int] | None
+        ) = None,
         visualize: bool = True,
         name_for_visualization: str | None = None,
         secrets: Mapping[str, SecretValue] | None = None,
@@ -72,6 +79,11 @@ class LocalConversation(BaseConversation):
             name_for_visualization: Optional name to prefix in panel titles to identify
                                   which agent/conversation is speaking.
             stuck_detection: Whether to enable stuck detection
+            stuck_detection_thresholds: Optional configuration for stuck detection
+                      thresholds. Can be a StuckDetectionThresholds instance or
+                      a dict with keys: 'action_observation', 'action_error',
+                      'monologue', 'alternating_pattern'. Values are integers
+                      representing the number of repetitions before triggering.
         """
         self.agent = agent
         if isinstance(workspace, str):
@@ -116,7 +128,20 @@ class LocalConversation(BaseConversation):
         self.max_iteration_per_run = max_iteration_per_run
 
         # Initialize stuck detector
-        self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
+        if stuck_detection:
+            # Convert dict to StuckDetectionThresholds if needed
+            if isinstance(stuck_detection_thresholds, Mapping):
+                threshold_config = StuckDetectionThresholds(
+                    **stuck_detection_thresholds
+                )
+            else:
+                threshold_config = stuck_detection_thresholds
+            self._stuck_detector = StuckDetector(
+                self._state,
+                thresholds=threshold_config,
+            )
+        else:
+            self._stuck_detector = None
 
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
