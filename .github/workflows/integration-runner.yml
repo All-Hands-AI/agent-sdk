@@ -38,6 +38,7 @@ jobs:
         # Security: Only run when 'integration-test' label is present, via workflow_dispatch, or on schedule
         # This prevents automatic execution on fork PRs without maintainer approval
         # For 'synchronize' events, check if the PR has the 'integration-test' label
+        # Note: uses always() to run even when post-initial-comment is skipped (e.g., for workflow_dispatch)
         if: |
             always() && (
                 github.event.label.name == 'integration-test' ||
@@ -46,7 +47,10 @@ jobs:
                 (github.event_name == 'pull_request_target' && github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'integration-test'))
             )
         needs: [post-initial-comment]
-        runs-on: blacksmith-4vcpu-ubuntu-2204
+        # Use standard GitHub runners for workflow_dispatch from forks (no access to Blacksmith runners)
+        # Use Blacksmith runners for pull_request_target and schedule (runs from base repo)
+        runs-on: ${{ github.event_name == 'workflow_dispatch' && github.repository != 'OpenHands/agent-sdk' && 'ubuntu-latest' || 
+            'blacksmith-4vcpu-ubuntu-2204' }}
         permissions:
             contents: read
             id-token: write
@@ -157,7 +161,10 @@ jobs:
     consolidate-results:
         needs: run-integration-tests
         if: always() && (github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
-        runs-on: blacksmith-2vcpu-ubuntu-2404
+        # Use standard GitHub runners for workflow_dispatch from forks (no access to Blacksmith runners)
+        # Use Blacksmith runners for pull_request_target and schedule (runs from base repo)
+        runs-on: ${{ github.event_name == 'workflow_dispatch' && github.repository != 'OpenHands/agent-sdk' && 'ubuntu-latest' || 
+            'blacksmith-2vcpu-ubuntu-2404' }}
         permissions:
             contents: read
             pull-requests: write
