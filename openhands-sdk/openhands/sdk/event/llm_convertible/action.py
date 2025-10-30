@@ -15,6 +15,7 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import Action
+from openhands.sdk.event.base import EventID
 
 
 class ActionEvent(LLMConvertibleEvent):
@@ -49,6 +50,14 @@ class ActionEvent(LLMConvertibleEvent):
             "This could be different from `action`: e.g., `tool_call` may contain "
             "`security_risk` field predicted by LLM when LLM risk analyzer is enabled"
             ", while `action` does not."
+        ),
+    )
+    llm_response_id: EventID = Field(
+        description=(
+            "Completion or Response ID of the LLM response that generated this event"
+            "E.g., Can be used to group related actions from same LLM response. "
+            "This helps in tracking and managing results of parallel function calling "
+            "from the same LLM response."
         ),
     )
 
