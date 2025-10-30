@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from enum import Enum
 from typing import Any, Self
 
-from pydantic import Field, PrivateAttr
+from pydantic import AliasChoices, Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.conversation_stats import ConversationStats
@@ -91,10 +91,12 @@ class ConversationState(OpenHandsModel):
         description="Conversation statistics for tracking LLM metrics",
     )
 
-    # Secrets manager for handling sensitive data (changed from private attribute)
-    secrets_manager: SecretRegistry = Field(
+    # Secret registry for handling sensitive data
+    secret_registry: SecretRegistry = Field(
         default_factory=SecretRegistry,
-        description="Manager for handling secrets and sensitive data",
+        description="Registry for handling secrets and sensitive data",
+        validation_alias=AliasChoices("secret_registry", "secrets_manager"),
+        serialization_alias="secret_registry",
     )
 
     # ===== Private attrs (NOT Fields) =====

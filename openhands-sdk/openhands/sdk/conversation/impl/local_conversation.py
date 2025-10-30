@@ -353,8 +353,8 @@ class LocalConversation(BaseConversation):
                      when a command references the secret key.
         """
 
-        secrets_manager = self._state.secrets_manager
-        secrets_manager.update_secrets(secrets)
+        secret_registry = self._state.secret_registry
+        secret_registry.update_secrets(secrets)
         logger.info(f"Added {len(secrets)} secrets to conversation")
 
     def close(self) -> None:
