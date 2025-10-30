@@ -1,6 +1,7 @@
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 from openhands.sdk.llm.llm_response import LLMResponse
+from openhands.sdk.llm.llm_with_gateway import LLMWithGateway
 from openhands.sdk.llm.message import (
     ImageContent,
     Message,
@@ -23,6 +24,7 @@ from openhands.sdk.llm.utils.verified_models import VERIFIED_MODELS
 __all__ = [
     "LLMResponse",
     "LLM",
+    "LLMWithGateway",
     "LLMRegistry",
     "RouterLLM",
     "RegistryEvent",
