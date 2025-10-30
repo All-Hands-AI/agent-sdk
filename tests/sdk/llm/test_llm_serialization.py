@@ -112,8 +112,8 @@ def test_llm_private_attributes_not_serialized() -> None:
     # (LLM creates telemetry automatically)
     assert deserialized_llm._model_info is None
     assert deserialized_llm._tokenizer is None
-    # Function calling is now enabled by default via function_calling_active field
-    assert deserialized_llm.function_calling_active is True
+    # Function calling is now enabled by default via native_tool_calling field
+    assert deserialized_llm.native_tool_calling is True
     assert deserialized_llm.is_function_calling_active() is True
     assert (
         deserialized_llm._telemetry is not None

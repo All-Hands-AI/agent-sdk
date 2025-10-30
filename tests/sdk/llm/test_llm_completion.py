@@ -309,14 +309,14 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     )
     mock_completion.return_value = mock_response
 
-    # Create LLM with function_calling_active explicitly set to False
+    # Create LLM with native_tool_calling explicitly set to False
     # This forces the LLM to use prompt-based tool calling instead of native FC
     llm = LLM(
         usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         # This is the key setting for non-function call mode
-        function_calling_active=False,
+        native_tool_calling=False,
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -405,7 +405,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
         usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
-        function_calling_active=True,  # Explicitly enable native function calling
+        native_tool_calling=True,  # Explicitly enable native function calling
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -420,7 +420,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
         usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
-        function_calling_active=False,  # Explicitly disable native function calling
+        native_tool_calling=False,  # Explicitly disable native function calling
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,

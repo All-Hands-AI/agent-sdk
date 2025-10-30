@@ -36,7 +36,7 @@ def test_llm_config_defaults():
     assert config.caching_prompt is True
     assert config.log_completions is False
     assert config.custom_tokenizer is None
-    assert config.function_calling_active is True
+    assert config.native_tool_calling is True
     assert config.reasoning_effort == "high"  # Default for non-Gemini models
     assert config.seed is None
     assert config.safety_settings is None
@@ -72,7 +72,7 @@ def test_llm_config_custom_values():
         caching_prompt=False,
         log_completions=True,
         custom_tokenizer=None,  # Changed from "custom_tokenizer" to avoid HF API call
-        function_calling_active=True,
+        native_tool_calling=True,
         reasoning_effort="high",
         seed=42,
         safety_settings=[
@@ -111,7 +111,7 @@ def test_llm_config_custom_values():
     assert config.caching_prompt is False
     assert config.log_completions is True
     assert config.custom_tokenizer is None
-    assert config.function_calling_active is True
+    assert config.native_tool_calling is True
     assert config.reasoning_effort == "high"
     assert config.seed == 42
     assert config.safety_settings == [
@@ -302,7 +302,7 @@ def test_llm_config_boolean_fields():
         disable_stop_word=False,
         caching_prompt=True,
         log_completions=False,
-        function_calling_active=True,
+        native_tool_calling=True,
         usage_id="test-llm",
     )
 
@@ -312,7 +312,7 @@ def test_llm_config_boolean_fields():
     assert config.disable_stop_word is False
     assert config.caching_prompt is True
     assert config.log_completions is False
-    assert config.function_calling_active is True
+    assert config.native_tool_calling is True
 
 
 def test_llm_config_optional_fields():
