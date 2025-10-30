@@ -188,6 +188,10 @@ class DockerWorkspace(RemoteWorkspace):
             if key in os.environ:
                 flags += ["-e", f"{key}={os.environ[key]}"]
 
+        # Enable VNC when extra_ports is True (user wants VNC access)
+        if self.extra_ports:
+            flags += ["-e", "OH_ENABLE_VNC=true"]
+
         if self.mount_dir:
             mount_path = "/workspace"
             flags += ["-v", f"{self.mount_dir}:{mount_path}"]
