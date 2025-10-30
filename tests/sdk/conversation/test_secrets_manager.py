@@ -3,12 +3,12 @@
 from pydantic import SecretStr
 
 from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
-from openhands.sdk.conversation.secrets_manager import SecretsManager
+from openhands.sdk.conversation.secrets_manager import SecretRegistry
 
 
 def test_update_secrets_with_static_values():
     """Test updating secrets with static string values."""
-    manager = SecretsManager()
+    manager = SecretRegistry()
     secrets = {
         "API_KEY": "test-api-key",
         "DATABASE_URL": "postgresql://localhost/test",
@@ -23,7 +23,7 @@ def test_update_secrets_with_static_values():
 
 def test_update_secrets_overwrites_existing():
     """Test that update_secrets overwrites existing keys."""
-    manager = SecretsManager()
+    manager = SecretRegistry()
 
     # Add initial secrets
     manager.update_secrets({"API_KEY": "old-value"})
@@ -45,7 +45,7 @@ def test_update_secrets_overwrites_existing():
 
 def test_find_secrets_in_text_case_insensitive():
     """Test that find_secrets_in_text is case insensitive."""
-    manager = SecretsManager()
+    manager = SecretRegistry()
     manager.update_secrets(
         {
             "API_KEY": "test-key",
@@ -69,7 +69,7 @@ def test_find_secrets_in_text_case_insensitive():
 
 def test_find_secrets_in_text_partial_matches():
     """Test that find_secrets_in_text handles partial matches correctly."""
-    manager = SecretsManager()
+    manager = SecretRegistry()
     manager.update_secrets(
         {
             "API_KEY": "test-key",
@@ -85,7 +85,7 @@ def test_find_secrets_in_text_partial_matches():
 
 def test_get_secrets_as_env_vars_static_values():
     """Test get_secrets_as_env_vars with static values."""
-    manager = SecretsManager()
+    manager = SecretRegistry()
     manager.update_secrets(
         {
             "API_KEY": "test-api-key",
@@ -107,7 +107,7 @@ def test_get_secrets_as_env_vars_static_values():
 
 def test_get_secrets_as_env_vars_callable_values():
     """Test get_secrets_as_env_vars with callable values."""
-    manager = SecretsManager()
+    manager = SecretRegistry()
 
     class MyTokenSource(SecretSource):
         def get_value(self):
@@ -126,7 +126,7 @@ def test_get_secrets_as_env_vars_callable_values():
 
 def test_get_secrets_as_env_vars_handles_callable_exceptions():
     """Test that get_secrets_as_env_vars handles exceptions from callables."""
-    manager = SecretsManager()
+    manager = SecretRegistry()
 
     class MyFailingTokenSource(SecretSource):
         def get_value(self):

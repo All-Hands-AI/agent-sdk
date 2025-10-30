@@ -11,7 +11,7 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
-from openhands.sdk.conversation.secrets_manager import SecretsManager
+from openhands.sdk.conversation.secrets_manager import SecretRegistry
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import Event
@@ -92,8 +92,8 @@ class ConversationState(OpenHandsModel):
     )
 
     # Secrets manager for handling sensitive data (changed from private attribute)
-    secrets_manager: SecretsManager = Field(
-        default_factory=SecretsManager,
+    secrets_manager: SecretRegistry = Field(
+        default_factory=SecretRegistry,
         description="Manager for handling secrets and sensitive data",
     )
 
