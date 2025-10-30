@@ -105,7 +105,15 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             }
         ],
     )
-    system_prompt_filename: str = Field(default="system_prompt.j2")
+    system_prompt_filename: str = Field(
+        default="system_prompt.j2",
+        description=(
+            "System prompt template filename. Can be either:\n"
+            "- A relative filename (e.g., 'system_prompt.j2') loaded from the "
+            "agent's prompts directory\n"
+            "- An absolute path (e.g., '/path/to/custom_prompt.j2')"
+        ),
+    )
     system_prompt_kwargs: dict[str, object] = Field(
         default_factory=dict,
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
