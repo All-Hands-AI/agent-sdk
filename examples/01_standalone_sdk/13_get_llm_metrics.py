@@ -60,7 +60,7 @@ conversation = Conversation(
 
 logger.info("Starting conversation with MCP integration...")
 conversation.send_message(
-    "Read https://github.com/All-Hands-AI/OpenHands and write 3 facts "
+    "Read https://github.com/OpenHands/OpenHands and write 3 facts "
     "about the project into FACTS.txt."
 )
 conversation.run()

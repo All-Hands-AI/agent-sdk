@@ -5,18 +5,17 @@ Local Event router for OpenHands SDK.
 import logging
 from datetime import datetime
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import (
     APIRouter,
+    Depends,
     HTTPException,
     Query,
     status,
 )
 
-from openhands.agent_server.conversation_service import (
-    get_default_conversation_service,
-)
+from openhands.agent_server.dependencies import get_event_service
+from openhands.agent_server.event_service import EventService
 from openhands.agent_server.models import (
     ConfirmationResponseRequest,
     EventPage,
@@ -31,7 +30,6 @@ from openhands.sdk.event import Event
 event_router = APIRouter(
     prefix="/conversations/{conversation_id}/events", tags=["Events"]
 )
-conversation_service = get_default_conversation_service()
 logger = logging.getLogger(__name__)
 
 
@@ -61,7 +59,6 @@ def normalize_datetime_to_server_timezone(dt: datetime) -> datetime:
 
 @event_router.get("/search", responses={404: {"description": "Conversation not found"}})
 async def search_conversation_events(
-    conversation_id: UUID,
     page_id: Annotated[
         str | None,
         Query(title="Optional next_page_id from the previously returned page"),
@@ -88,13 +85,11 @@ async def search_conversation_events(
         datetime | None,
         Query(title="Filter: event timestamp < this datetime"),
     ] = None,
+    event_service: EventService = Depends(get_event_service),
 ) -> EventPage:
     """Search / List local events"""
     assert limit > 0
     assert limit <= 100
-    event_service = await conversation_service.get_event_service(conversation_id)
-    if event_service is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     # Normalize timezone-aware datetimes to server timezone
     normalized_gte = (
@@ -113,7 +108,6 @@ async def search_conversation_events(
 
 @event_router.get("/count", responses={404: {"description": "Conversation not found"}})
 async def count_conversation_events(
-    conversation_id: UUID,
     kind: Annotated[
         str | None,
         Query(
@@ -128,12 +122,9 @@ async def count_conversation_events(
         datetime | None,
         Query(title="Filter: event timestamp < this datetime"),
     ] = None,
+    event_service: EventService = Depends(get_event_service),
 ) -> int:
     """Count local events matching the given filters"""
-    event_service = await conversation_service.get_event_service(conversation_id)
-    if event_service is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
-
     # Normalize timezone-aware datetimes to server timezone
     normalized_gte = (
         normalize_datetime_to_server_timezone(timestamp__gte)
@@ -145,15 +136,16 @@ async def count_conversation_events(
     )
 
     count = await event_service.count_events(kind, normalized_gte, normalized_lt)
+
     return count
 
 
 @event_router.get("/{event_id}", responses={404: {"description": "Item not found"}})
-async def get_conversation_event(conversation_id: UUID, event_id: str) -> Event:
+async def get_conversation_event(
+    event_id: str,
+    event_service: EventService = Depends(get_event_service),
+) -> Event:
     """Get a local event given an id"""
-    event_service = await conversation_service.get_event_service(conversation_id)
-    if event_service is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
     event = await event_service.get_event(event_id)
     if event is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
@@ -162,23 +154,21 @@ async def get_conversation_event(conversation_id: UUID, event_id: str) -> Event:
 
 @event_router.get("")
 async def batch_get_conversation_events(
-    conversation_id: UUID, event_ids: list[str]
+    event_ids: list[str],
+    event_service: EventService = Depends(get_event_service),
 ) -> list[Event | None]:
     """Get a batch of local events given their ids, returning null for any
     missing item."""
-    event_service = await conversation_service.get_event_service(conversation_id)
-    if event_service is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
     events = await event_service.batch_get_events(event_ids)
     return events
 
 
 @event_router.post("")
-async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Success:
+async def send_message(
+    request: SendMessageRequest,
+    event_service: EventService = Depends(get_event_service),
+) -> Success:
     """Send a message to a conversation"""
-    event_service = await conversation_service.get_event_service(conversation_id)
-    if event_service is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
     message = Message(role=request.role, content=request.content)
     await event_service.send_message(message, request.run)
     return Success()
@@ -188,11 +178,9 @@ async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Su
     "/respond_to_confirmation", responses={404: {"description": "Item not found"}}
 )
 async def respond_to_confirmation(
-    conversation_id: UUID, request: ConfirmationResponseRequest
+    request: ConfirmationResponseRequest,
+    event_service: EventService = Depends(get_event_service),
 ) -> Success:
     """Accept or reject a pending action in confirmation mode."""
-    event_service = await conversation_service.get_event_service(conversation_id)
-    if event_service is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
     await event_service.respond_to_confirmation(request)
     return Success()

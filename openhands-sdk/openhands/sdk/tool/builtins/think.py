@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 from rich.text import Text
@@ -11,6 +12,10 @@ from openhands.sdk.tool.tool import (
     ToolDefinition,
     ToolExecutor,
 )
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.base import BaseConversation
 
 
 class ThinkAction(Action):
@@ -70,7 +75,11 @@ The tool simply logs your thought process for better transparency and does not e
 
 
 class ThinkExecutor(ToolExecutor):
-    def __call__(self, _: ThinkAction) -> ThinkObservation:
+    def __call__(
+        self,
+        _: ThinkAction,
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+    ) -> ThinkObservation:
         return ThinkObservation()
 
 

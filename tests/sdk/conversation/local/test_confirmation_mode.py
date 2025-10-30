@@ -18,7 +18,7 @@ from litellm.types.utils import (
 from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
-from openhands.sdk.conversation import Conversation
+from openhands.sdk.conversation import Conversation, LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
 from openhands.sdk.event.base import Event
@@ -95,7 +95,9 @@ class TestConfirmationMode:
             ToolExecutor[MockConfirmationModeAction, MockConfirmationModeObservation]
         ):
             def __call__(
-                self, action: MockConfirmationModeAction
+                self,
+                action: MockConfirmationModeAction,
+                conversation=None,  # noqa: ARG002
             ) -> MockConfirmationModeObservation:
                 return MockConfirmationModeObservation(
                     result=f"Executed: {action.command}"
@@ -118,7 +120,7 @@ class TestConfirmationMode:
             llm=self.llm,
             tools=[Tool(name="test_tool")],
         )
-        self.conversation: Conversation = Conversation(agent=self.agent)
+        self.conversation: LocalConversation = Conversation(agent=self.agent)
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> MagicMock:
         """Configure LLM to return a plain assistant message (no tool calls)."""

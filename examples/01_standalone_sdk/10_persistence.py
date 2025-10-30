@@ -67,7 +67,7 @@ conversation = Conversation(
     conversation_id=conversation_id,
 )
 conversation.send_message(
-    "Read https://github.com/All-Hands-AI/OpenHands. Then write 3 facts "
+    "Read https://github.com/OpenHands/OpenHands. Then write 3 facts "
     "about the project into FACTS.txt."
 )
 conversation.run()

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any, ClassVar, Protocol, Self, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, Self, TypeVar
 
 from litellm import (
     ChatCompletionToolParam,
@@ -24,6 +24,10 @@ from openhands.sdk.utils.models import (
     get_known_concrete_subclasses,
     kind_of,
 )
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation import LocalConversation
 
 
 ActionT = TypeVar("ActionT", bound=Action)
@@ -70,12 +74,22 @@ class ToolExecutor[ActionT, ObservationT](ABC):
     """Executor function type for a Tool."""
 
     @abstractmethod
-    def __call__(self, action: ActionT) -> ObservationT:
+    def __call__(
+        self, action: ActionT, conversation: "LocalConversation | None" = None
+    ) -> ObservationT:
         """Execute the tool with the given action and return an observation.
 
         Args:
             action: The action to execute, containing the parameters and context
                    needed for the tool operation.
+            conversation: The conversation context for the tool execution.
+                         Note: This is typed as LocalConversation (not
+                         BaseConversation) because all tool executions happen
+                         within a LocalConversation context. Even when tools are
+                         invoked via RemoteConversation, the remote agent server
+                         creates a LocalConversation instance to handle the actual
+                         tool execution. See https://github.com/OpenHands/agent-sdk/pull/925
+                         for more details.
 
         Returns:
             An observation containing the results of the tool execution.
@@ -101,7 +115,9 @@ class ExecutableTool(Protocol):
     name: str
     executor: ToolExecutor[Any, Any]  # Non-optional executor
 
-    def __call__(self, action: Action) -> Observation:
+    def __call__(
+        self, action: Action, conversation: "LocalConversation | None" = None
+    ) -> Observation:
         """Execute the tool with the given action."""
         ...
 
@@ -217,7 +233,9 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         """
         return self.action_type.model_validate(arguments)
 
-    def __call__(self, action: ActionT) -> Observation:
+    def __call__(
+        self, action: ActionT, conversation: "LocalConversation | None" = None
+    ) -> Observation:
         """Validate input, execute, and coerce output.
 
         We always return some Observation subclass, but not always the
@@ -227,7 +245,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             raise NotImplementedError(f"Tool '{self.name}' has no executor")
 
         # Execute
-        result = self.executor(action)
+        result = self.executor(action, conversation)
 
         # Coerce output only if we declared a model; else wrap in base Observation
         if self.observation_type:
@@ -370,7 +388,7 @@ class ToolDefinition[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
     def create(cls, *args, **kwargs) -> Sequence[Self]:
         """Create a sequence of ToolDefinition instances.
 
-        TODO https://github.com/All-Hands-AI/agent-sdk/issues/493
+        TODO https://github.com/OpenHands/agent-sdk/issues/493
         Refactor this - the ToolDefinition class should not have a concrete create()
         implementation. Built-in tools should be refactored to not rely on this
         method, and then this should be made abstract with @abstractmethod.

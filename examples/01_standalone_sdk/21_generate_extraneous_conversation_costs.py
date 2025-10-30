@@ -71,8 +71,8 @@ conversation.run()
 # Demonstrate extraneous costs part of the conversation
 second_llm = LLM(
     usage_id="demo-secondary",
-    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    model="openhands/claude-sonnet-4-5-20250929",
+    base_url=os.getenv("LLM_BASE_URL"),
     api_key=SecretStr(api_key),
 )
 conversation.llm_registry.add(second_llm)

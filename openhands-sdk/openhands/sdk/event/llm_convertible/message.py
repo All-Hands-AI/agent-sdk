@@ -29,9 +29,9 @@ class MessageEvent(LLMConvertibleEvent):
         ..., description="The exact LLM message for this message event"
     )
 
-    # context extensions stuff / microagent can go here
-    activated_microagents: list[str] = Field(
-        default_factory=list, description="List of activated microagent name"
+    # context extensions stuff / skill can go here
+    activated_skills: list[str] = Field(
+        default_factory=list, description="List of activated skill name"
     )
     extended_content: list[TextContent] = Field(
         default_factory=list, description="List of content added by agent context"
@@ -70,10 +70,10 @@ class MessageEvent(LLMConvertibleEvent):
                 for b in reasoning_item.content:
                     content.append(f"{b}\n")
 
-        # Add microagent information if present
-        if self.activated_microagents:
+        # Add skill information if present
+        if self.activated_skills:
             content.append(
-                f"\n\nActivated Microagents: {', '.join(self.activated_microagents)}",
+                f"\n\nActivated Skills: {', '.join(self.activated_skills)}",
             )
 
         # Add extended content if available
@@ -110,9 +110,9 @@ class MessageEvent(LLMConvertibleEvent):
             content_preview = " ".join(text_parts)
             if len(content_preview) > N_CHAR_PREVIEW:
                 content_preview = content_preview[: N_CHAR_PREVIEW - 3] + "..."
-            microagent_info = (
-                f" [Microagents: {', '.join(self.activated_microagents)}]"
-                if self.activated_microagents
+            skill_info = (
+                f" [Skills: {', '.join(self.activated_skills)}]"
+                if self.activated_skills
                 else ""
             )
             thinking_info = (
@@ -122,7 +122,7 @@ class MessageEvent(LLMConvertibleEvent):
             )
             return (
                 f"{base_str}\n  {message.role}: "
-                f"{content_preview}{microagent_info}{thinking_info}"
+                f"{content_preview}{skill_info}{thinking_info}"
             )
         else:
             return f"{base_str}\n  {message.role}: [no text content]"
