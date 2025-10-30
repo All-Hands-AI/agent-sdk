@@ -417,7 +417,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         formatted_messages = self.format_messages_for_llm(messages)
 
         # 2) choose function-calling strategy
-        use_native_fc = self.is_function_calling_active()
+        use_native_fc = self.native_tool_calling
         original_fncall_msgs = copy.deepcopy(formatted_messages)
 
         # Convert Tool objects to ChatCompletionToolParam once here
@@ -807,10 +807,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # only Anthropic models need explicit caching breakpoints
         return self.caching_prompt and get_features(self.model).supports_prompt_cache
 
-    def is_function_calling_active(self) -> bool:
-        """Returns whether function calling is enabled for this LLM instance."""
-        return self.native_tool_calling
-
     def uses_responses_api(self) -> bool:
         """Whether this model uses the OpenAI Responses API path."""
 
@@ -851,7 +847,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
-            message.function_calling_enabled = self.is_function_calling_active()
+            message.function_calling_enabled = self.native_tool_calling
             if "deepseek" in self.model or (
                 "kimi-k2-instruct" in self.model and "groq" in self.model
             ):
