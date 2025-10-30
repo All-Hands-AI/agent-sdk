@@ -220,7 +220,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             )
 
         # Always include built-in tools; not subject to filtering
-        tools.extend(BUILT_IN_TOOLS)
+        # Instantiate built-in tools using their .create() method
+        for tool_class in BUILT_IN_TOOLS:
+            tools.extend(tool_class.create(state))
 
         # Check tool types
         for tool in tools:

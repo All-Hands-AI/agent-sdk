@@ -27,7 +27,7 @@ from openhands.sdk.utils.models import (
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation import LocalConversation
+    from openhands.sdk.conversation import ConversationState, LocalConversation
 
 
 ActionT = TypeVar("ActionT", bound=Action)
@@ -151,10 +151,15 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     @classmethod
     @abstractmethod
     def create(cls, *args, **kwargs) -> Sequence[Self]:
-        """Create a sequence of Tool instances. Placeholder for subclasses.
+        """Create a sequence of Tool instances.
 
-        This can be overridden in subclasses to provide custom initialization logic
-            (e.g., typically initializing the executor with parameters).
+        All tool classes must implement this method to provide custom initialization
+        logic, typically initializing the executor with parameters from conv_state
+        and other optional parameters.
+
+        Args:
+            *args: Variable positional arguments (typically conv_state as first arg).
+            **kwargs: Optional parameters for tool initialization.
 
         Returns:
             A sequence of Tool instances. Even single tools are returned as a sequence
@@ -374,27 +379,42 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
 
 
 class ToolDefinition[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
-    """Concrete tool class that inherits from ToolBase.
+    """Base tool class for creating concrete tool implementations.
 
-    This class serves as a concrete implementation of ToolBase for cases where
-    you want to create a tool instance directly without implementing a custom
-    subclass. Built-in tools (like FinishTool, ThinkTool) are instantiated
-    directly from this class, while more complex tools (like BashTool,
-    FileEditorTool) inherit from this class and provide their own create()
-    method implementations.
+    All tools should inherit from this class and implement the .create() method.
+    The .create() method is responsible for initializing the tool with its executor
+    and any required parameters.
+
+    Examples:
+        Simple tool with no parameters:
+            class FinishTool(ToolDefinition[FinishAction, FinishObservation]):
+                @classmethod
+                def create(cls, conv_state=None, **params):
+                    return [cls(name="finish", ..., executor=FinishExecutor())]
+
+        Complex tool with initialization parameters:
+            class BashTool(ToolDefinition[ExecuteBashAction, ExecuteBashObservation]):
+                @classmethod
+                def create(cls, conv_state, **params):
+                    executor = BashExecutor(
+                        working_dir=conv_state.workspace.working_dir
+                    )
+                    return [cls(name="execute_bash", ..., executor=executor)]
     """
 
     @classmethod
-    def create(cls, *args, **kwargs) -> Sequence[Self]:
-        """Create a sequence of ToolDefinition instances.
+    def create(
+        cls,
+        conv_state: "ConversationState | None" = None,
+        **params: Any,
+    ) -> Sequence["Self"]:
+        """Create tool instances with initialized executors.
 
-        TODO https://github.com/OpenHands/agent-sdk/issues/493
-        Refactor this - the ToolDefinition class should not have a concrete create()
-        implementation. Built-in tools should be refactored to not rely on this
-        method, and then this should be made abstract with @abstractmethod.
+        This implementation is for backward compatibility and fallback cases.
+        Subclasses MUST override this method to provide their own implementation.
         """
         raise NotImplementedError(
-            "ToolDefinition.create() should be implemented by subclasses"
+            f"{cls.__name__}.create() must be implemented by subclasses."
         )
 
 
