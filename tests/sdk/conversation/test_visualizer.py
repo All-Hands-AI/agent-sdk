@@ -376,7 +376,6 @@ def test_metrics_formatting_zero_cost():
     # And that the cost is displayed correctly with a single $
     assert "$ 0.00" in subtitle
 
-
 def test_event_base_fallback_visualize():
     """Test that Event provides fallback visualization."""
     from openhands.sdk.event.base import Event
