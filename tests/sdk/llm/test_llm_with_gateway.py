@@ -151,6 +151,93 @@ class TestGatewayTokenFetch:
         with pytest.raises(ValueError, match="not found in response"):
             gateway_llm._ensure_gateway_token()
 
+    @patch("openhands.sdk.llm.llm_with_gateway.time.time")
+    @patch("openhands.sdk.llm.llm_with_gateway.httpx.request")
+    def test_token_ttl_uses_expires_in_by_default(
+        self, mock_request, mock_time
+    ) -> None:
+        """Token expiry should honor expires_in when TTL override not configured."""
+        mock_time.return_value = 1_000.0
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "token-expires-in",
+            "expires_in": 120,
+        }
+        mock_response.raise_for_status = Mock()
+        mock_request.return_value = mock_response
+
+        llm = LLMWithGateway(
+            model="gpt-4",
+            api_key=SecretStr("key"),
+            base_url="https://gateway.example.com/llm/v1",
+            gateway_auth_url="https://gateway.example.com/oauth/token",
+            gateway_auth_headers={"X-Client-Id": "client"},
+            gateway_auth_body={"grant_type": "client_credentials"},
+            usage_id="ttl-expires-in-test",
+            num_retries=0,
+        )
+
+        token = llm._ensure_gateway_token()
+
+        assert token == "token-expires-in"
+        assert llm._gateway_token_expiry == pytest.approx(1_120.0, abs=0.1)
+
+    @patch("openhands.sdk.llm.llm_with_gateway.time.time")
+    @patch("openhands.sdk.llm.llm_with_gateway.httpx.request")
+    def test_token_ttl_falls_back_to_default(self, mock_request, mock_time) -> None:
+        """Missing expires_in should fall back to default TTL."""
+        mock_time.return_value = 2_000.0
+
+        mock_response = Mock()
+        mock_response.json.return_value = {"access_token": "token-default"}
+        mock_response.raise_for_status = Mock()
+        mock_request.return_value = mock_response
+
+        llm = LLMWithGateway(
+            model="gpt-4",
+            api_key=SecretStr("key"),
+            base_url="https://gateway.example.com/llm/v1",
+            gateway_auth_url="https://gateway.example.com/oauth/token",
+            usage_id="ttl-default-test",
+            num_retries=0,
+        )
+
+        llm._ensure_gateway_token()
+
+        assert llm._gateway_token_expiry == pytest.approx(2_300.0, abs=0.1)
+
+    @patch("openhands.sdk.llm.llm_with_gateway.time.time")
+    @patch("openhands.sdk.llm.llm_with_gateway.httpx.request")
+    def test_token_ttl_prefers_configured_override(
+        self, mock_request, mock_time
+    ) -> None:
+        """Configured TTL should override expires_in from response."""
+        mock_time.return_value = 3_000.0
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "token-override",
+            "expires_in": 3_600,
+        }
+        mock_response.raise_for_status = Mock()
+        mock_request.return_value = mock_response
+
+        llm = LLMWithGateway(
+            model="gpt-4",
+            api_key=SecretStr("key"),
+            base_url="https://gateway.example.com/llm/v1",
+            gateway_auth_url="https://gateway.example.com/oauth/token",
+            gateway_auth_body={"grant_type": "client_credentials"},
+            gateway_auth_token_ttl=45,
+            usage_id="ttl-override-test",
+            num_retries=0,
+        )
+
+        llm._ensure_gateway_token()
+
+        assert llm._gateway_token_expiry == pytest.approx(3_045.0, abs=0.1)
+
 
 class TestTemplateReplacement:
     """Test template variable replacement."""
@@ -299,6 +386,46 @@ class TestGatewayIntegration:
         # Verify response
         assert isinstance(response.message.content[0], TextContent)
         assert response.message.content[0].text == "Hello from gateway!"
+
+    @patch("openhands.sdk.llm.llm_with_gateway.httpx.request")
+    @patch("openhands.sdk.llm.llm.litellm_completion")
+    def test_gateway_headers_merge_with_extended_thinking(
+        self, mock_completion, mock_request, mock_gateway_auth_response
+    ):
+        """Gateway headers should merge with extended thinking defaults."""
+        mock_oauth_response = Mock()
+        mock_oauth_response.json.return_value = mock_gateway_auth_response
+        mock_oauth_response.raise_for_status = Mock()
+        mock_request.return_value = mock_oauth_response
+
+        mock_completion.return_value = create_mock_litellm_response(
+            content="extended thinking response"
+        )
+
+        llm = LLMWithGateway(
+            model="claude-sonnet-4-5-latest",
+            api_key=SecretStr("test-api-key"),
+            base_url="https://gateway.example.com/llm/v1",
+            gateway_auth_url="https://gateway.example.com/oauth/token",
+            gateway_auth_headers={
+                "X-Client-Id": "client123",
+                "X-Client-Secret": "secret456",
+            },
+            gateway_auth_body={"grant_type": "client_credentials"},
+            custom_headers={"X-Gateway-Key": "gateway789"},
+            extended_thinking_budget=512,
+            usage_id="extended-thinking-test",
+            num_retries=0,
+        )
+
+        messages = [Message(role="user", content=[TextContent(text="Hello")])]
+        llm.completion(messages)
+
+        completion_kwargs = mock_completion.call_args[1]
+        headers = completion_kwargs["extra_headers"]
+        assert headers["Authorization"] == "Bearer test-gateway-token-12345"
+        assert headers["X-Gateway-Key"] == "gateway789"
+        assert headers["anthropic-beta"] == "interleaved-thinking-2025-05-14"
 
     def test_gateway_disabled_when_no_config(self):
         """Test that gateway logic is skipped when not configured."""

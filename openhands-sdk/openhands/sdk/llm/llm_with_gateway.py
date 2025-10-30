@@ -11,6 +11,7 @@ import time
 from typing import Any
 
 import httpx
+from litellm.types.utils import ModelResponse
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.llm.llm import LLM
@@ -71,7 +72,10 @@ class LLMWithGateway(LLM):
     )
     gateway_auth_token_ttl: int | None = Field(
         default=None,
-        description="Token TTL in seconds. If not set, defaults to 300s (5 minutes).",
+        description=(
+            "Token TTL in seconds. If not set, uses `expires_in` from the OAuth"
+            " response when available, falling back to 300s (5 minutes)."
+        ),
     )
 
     # Token header configuration
@@ -102,15 +106,17 @@ class LLMWithGateway(LLM):
         self._gateway_token = None
         self._gateway_token_expiry = None
 
-    def completion(self, *args, **kwargs):
-        """Override to inject gateway authentication before calling LiteLLM."""
-        self._prepare_gateway_call(kwargs)
-        return super().completion(*args, **kwargs)
-
     def responses(self, *args, **kwargs):
         """Override to inject gateway authentication before calling LiteLLM."""
         self._prepare_gateway_call(kwargs)
         return super().responses(*args, **kwargs)
+
+    def _transport_call(
+        self, *, messages: list[dict[str, Any]], **kwargs
+    ) -> ModelResponse:
+        """Inject gateway headers just before delegating to LiteLLM."""
+        self._prepare_gateway_call(kwargs)
+        return super()._transport_call(messages=messages, **kwargs)
 
     def _prepare_gateway_call(self, call_kwargs: dict[str, Any]) -> None:
         """Augment LiteLLM kwargs with gateway headers and token.
@@ -237,7 +243,30 @@ class LLMWithGateway(LLM):
             )
 
         # Determine TTL
-        ttl_seconds = float(self.gateway_auth_token_ttl or 300)
+        ttl_seconds: float | None = None
+        if self.gateway_auth_token_ttl is not None:
+            try:
+                ttl_seconds = float(self.gateway_auth_token_ttl)
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                logger.warning(
+                    "Configured gateway_auth_token_ttl is not numeric; falling back"
+                )
+                ttl_seconds = None
+        else:
+            expires_in = None
+            if isinstance(payload, dict):
+                expires_in = payload.get("expires_in")
+            if expires_in is not None:
+                try:
+                    ttl_seconds = float(expires_in)
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Invalid expires_in value %r from gateway; using default",
+                        expires_in,
+                    )
+
+        if ttl_seconds is None or ttl_seconds <= 0:
+            ttl_seconds = 300.0
 
         # Update cache
         self._gateway_token = token_value.strip()
