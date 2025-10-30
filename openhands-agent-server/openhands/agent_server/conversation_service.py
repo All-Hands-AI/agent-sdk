@@ -22,7 +22,6 @@ from openhands.agent_server.server_details_router import update_last_execution_t
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import LLM, Event, Message
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.utils.cipher import Cipher
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +49,6 @@ class ConversationService:
     conversations_dir: Path = field()
     webhook_specs: list[WebhookSpec] = field(default_factory=list)
     session_api_key: str | None = field(default=None)
-    cipher: Cipher | None = field(default=None)
     _event_services: dict[UUID, EventService] | None = field(default=None, init=False)
     _conversation_webhook_subscribers: list["ConversationWebhookSubscriber"] = field(
         default_factory=list, init=False
@@ -300,12 +298,7 @@ class ConversationService:
                 if not meta_file.exists():
                     continue
                 json_str = meta_file.read_text()
-                stored = StoredConversation.model_validate_json(
-                    json_str,
-                    context={
-                        "cipher": self.cipher,
-                    },
-                )
+                stored = StoredConversation.model_validate_json(json_str)
                 await self._start_event_service(stored)
             except Exception:
                 logger.exception(
@@ -344,7 +337,6 @@ class ConversationService:
             session_api_key=(
                 config.session_api_keys[0] if config.session_api_keys else None
             ),
-            cipher=config.cipher,
         )
 
     async def _start_event_service(self, stored: StoredConversation) -> EventService:
@@ -355,7 +347,6 @@ class ConversationService:
         event_service = EventService(
             stored=stored,
             conversations_dir=self.conversations_dir,
-            cipher=self.cipher,
         )
         # Create subscribers...
         await event_service.subscribe_to_events(_EventSubscriber(service=event_service))
