@@ -109,7 +109,7 @@ class LLMConvertibleEvent(Event, ABC):
                 j = i + 1
                 while j < len(events) and isinstance(events[j], ActionEvent):
                     event = events[j]
-                    assert isinstance(event, ActionEvent) # for type checker
+                    assert isinstance(event, ActionEvent)  # for type checker
                     if event.llm_response_id != response_id:
                         break
                     batch_events.append(event)

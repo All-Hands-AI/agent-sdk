@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
+from openhands.sdk.event.base import N_CHAR_PREVIEW, EventID, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType, ToolCallID
 from openhands.sdk.llm import (
     Message,
@@ -15,7 +15,6 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import Action
-from openhands.sdk.event.base import EventID
 
 
 class ActionEvent(LLMConvertibleEvent):

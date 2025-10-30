@@ -31,7 +31,6 @@ class Condensation(Event):
         ),
     )
 
-
     source: SourceType = "environment"
 
     @property

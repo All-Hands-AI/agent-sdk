@@ -5,7 +5,7 @@ from typing import ClassVar
 from pydantic import ConfigDict, Field
 from rich.text import Text
 
-from openhands.sdk.event.base import EventID, N_CHAR_PREVIEW, LLMConvertibleEvent
+from openhands.sdk.event.base import N_CHAR_PREVIEW, EventID, LLMConvertibleEvent
 from openhands.sdk.event.types import SourceType
 from openhands.sdk.llm import (
     ImageContent,
