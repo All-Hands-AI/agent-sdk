@@ -15,14 +15,12 @@ from openhands.sdk.tool.tool import (
     ExecutableTool,
     ToolAnnotations,
     ToolBase,
-    ToolDefinition,
     ToolExecutor,
 )
 
 
 __all__ = [
     "Tool",
-    "ToolDefinition",
     "ToolBase",
     "ToolAnnotations",
     "ToolExecutor",

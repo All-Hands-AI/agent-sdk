@@ -9,7 +9,7 @@ from openhands.sdk.tool.tool import (
     Action,
     Observation,
     ToolAnnotations,
-    ToolDefinition,
+    ToolBase,
     ToolExecutor,
 )
 
@@ -68,7 +68,7 @@ class FinishExecutor(ToolExecutor):
         return FinishObservation(message=action.message)
 
 
-class FinishTool(ToolDefinition[FinishAction, FinishObservation]):
+class FinishTool(ToolBase[FinishAction, FinishObservation]):
     """Tool for signaling the completion of a task or conversation."""
 
     @classmethod

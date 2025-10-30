@@ -10,7 +10,7 @@ from openhands.sdk.tool.tool import (
     Action,
     Observation,
     ToolAnnotations,
-    ToolDefinition,
+    ToolBase,
 )
 
 
@@ -76,7 +76,7 @@ This tool provides two commands:
 - Sub-agents work in the same workspace as the main agent: {workspace_path}
 """  # noqa
 
-delegate_tool = ToolDefinition(
+delegate_tool = ToolBase(
     name="delegate",
     action_type=DelegateAction,
     observation_type=DelegateObservation,
@@ -91,8 +91,8 @@ delegate_tool = ToolDefinition(
 )
 
 
-class DelegateTool(ToolDefinition[DelegateAction, DelegateObservation]):
-    """A ToolDefinition subclass that automatically initializes a DelegateExecutor."""
+class DelegateTool(ToolBase[DelegateAction, DelegateObservation]):
+    """A ToolBase subclass that automatically initializes a DelegateExecutor."""
 
     @classmethod
     def create(
