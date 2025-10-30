@@ -152,9 +152,7 @@ class TestMessageWhileFinishing:
     def setup_method(self):
         """Set up test fixtures."""
         # Use gpt-4o which supports native function calling and multiple tool calls
-        self.llm: LLM = LLM(
-            model="gpt-4o", native_tool_calling=True, usage_id="test-llm"
-        )
+        self.llm: LLM = LLM(model="gpt-4o", usage_id="test-llm")
         self.llm_completion_calls: list[Any] = []
         self.agent: Agent = Agent(llm=self.llm, tools=[Tool(name="SleepTool")])
         self.step_count: int = 0
