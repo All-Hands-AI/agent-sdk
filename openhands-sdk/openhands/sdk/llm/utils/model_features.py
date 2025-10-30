@@ -133,7 +133,6 @@ RESPONSES_API_PATTERNS: list[str] = [
 ]
 
 
-
 def get_features(model: str) -> ModelFeatures:
     """Get model features."""
     return ModelFeatures(
