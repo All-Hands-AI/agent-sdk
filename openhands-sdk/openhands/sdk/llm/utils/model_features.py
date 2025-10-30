@@ -128,6 +128,8 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
 RESPONSES_API_PATTERNS: list[str] = [
     # OpenAI GPT-5 family (includes mini variants)
     "gpt-5*",
+    # OpenAI Codex (uses Responses API)
+    "codex-mini-latest",
 ]
 
 
