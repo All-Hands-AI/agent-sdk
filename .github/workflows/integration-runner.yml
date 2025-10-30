@@ -2,10 +2,11 @@
 name: Run Integration Tests
 
 on:
-    pull_request:
+    # Use pull_request_target to access secrets even on fork PRs
+    # This is safe because we only run when the 'integration-test' label is added by a maintainer
+    pull_request_target:
         types:
             - labeled
-            - synchronize
     workflow_dispatch:
         inputs:
             reason:
@@ -20,7 +21,7 @@ env:
 
 jobs:
     post-initial-comment:
-        if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
+        if: github.event_name == 'pull_request_target' && github.event.label.name == 'integration-test'
         runs-on: ubuntu-latest
         permissions:
             pull-requests: write
@@ -33,7 +34,15 @@ jobs:
                       Hi! I started running the integration tests on your PR. You will receive a comment with the results shortly.
 
     run-integration-tests:
-        if: always() && (github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        # Security: Only run when 'integration-test' label is present, via workflow_dispatch, or on schedule
+        # This prevents automatic execution on fork PRs without maintainer approval
+        # Note: uses always() to run even when post-initial-comment is skipped (e.g., for workflow_dispatch)
+        if: |
+            always() && (
+                github.event.label.name == 'integration-test' ||
+                github.event_name == 'workflow_dispatch' ||
+                github.event_name == 'schedule'
+            )
         needs: [post-initial-comment]
         runs-on: blacksmith-4vcpu-ubuntu-2204
         permissions:
@@ -54,13 +63,20 @@ jobs:
                       llm-config:
                           model: litellm_proxy/gpt-5-mini-2025-08-07
                           temperature: 1.0
-                    - name: Devstral Medium 2507
-                      run-suffix: devstral_run
+                    - name: Deepseek Chat
+                      run-suffix: deepseek_run
                       llm-config:
                           model: litellm_proxy/deepseek/deepseek-chat
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5
+              with:
+                  # For pull_request_target: checkout fork PR code (requires explicit repository)
+                  # For other events: fallback to current repository and ref
+                  repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+                  ref: ${{ github.event.pull_request.head.sha || github.ref }}
+                  # Security: Don't persist credentials to prevent untrusted PR code from using them
+                  persist-credentials: false
 
             - name: Install uv
               uses: astral-sh/setup-uv@v7
@@ -150,6 +166,10 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5
+              with:
+                  # When using pull_request_target, explicitly checkout the PR branch
+                  # This ensures we use the scripts from the actual PR code
+                  ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
             - name: Install uv
               uses: astral-sh/setup-uv@v7
@@ -203,7 +223,7 @@ jobs:
                   path: consolidated_report.md
 
             - name: Create consolidated PR comment
-              if: github.event_name == 'pull_request'
+              if: github.event_name == 'pull_request_target'
               run: |
                   COMMENT_BODY=$(cat consolidated_report.md)
                   # Use GitHub CLI to create comment with explicit PR number
