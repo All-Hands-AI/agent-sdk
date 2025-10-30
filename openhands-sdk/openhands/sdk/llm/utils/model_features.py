@@ -68,7 +68,6 @@ def model_matches(model: str, patterns: list[str]) -> bool:
 
 @dataclass(frozen=True)
 class ModelFeatures:
-    supports_function_calling: bool
     supports_reasoning_effort: bool
     supports_extended_thinking: bool
     supports_prompt_cache: bool
@@ -133,13 +132,8 @@ RESPONSES_API_PATTERNS: list[str] = [
 
 
 def get_features(model: str) -> ModelFeatures:
-    """Get model features.
-
-    Function calling is now enabled by default. If a model doesn't support it,
-    users should set native_tool_calling=False in the LLM configuration.
-    """
+    """Get model features."""
     return ModelFeatures(
-        supports_function_calling=True,
         supports_reasoning_effort=model_matches(model, REASONING_EFFORT_PATTERNS),
         supports_extended_thinking=model_matches(model, EXTENDED_THINKING_PATTERNS),
         supports_prompt_cache=model_matches(model, PROMPT_CACHE_PATTERNS),
