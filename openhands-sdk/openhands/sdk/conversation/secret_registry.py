@@ -129,7 +129,3 @@ def _wrap_secret(value: SecretValue) -> SecretSource:
     if isinstance(value, str):
         return StaticSecret(value=SecretStr(value))
     raise ValueError("Invalid SecretValue")
-
-
-# Backward-compatibility alias
-SecretsManager = SecretRegistry
