@@ -90,7 +90,7 @@ class SleepExecutor(ToolExecutor):
     test_start_time: float | None = None
     test_instance: "TestMessageWhileFinishing | None" = None
 
-    def __call__(self, action: SleepAction) -> SleepObservation:
+    def __call__(self, action: SleepAction, conversation=None) -> SleepObservation:  # noqa: ARG002
         start_time = time.time()
         test_start_time = getattr(self, "test_start_time", None)
         if test_start_time is None:
@@ -152,9 +152,7 @@ class TestMessageWhileFinishing:
     def setup_method(self):
         """Set up test fixtures."""
         # Use gpt-4o which supports native function calling and multiple tool calls
-        self.llm: LLM = LLM(
-            model="gpt-4o", native_tool_calling=True, usage_id="test-llm"
-        )
+        self.llm: LLM = LLM(model="gpt-4o", usage_id="test-llm")
         self.llm_completion_calls: list[Any] = []
         self.agent: Agent = Agent(llm=self.llm, tools=[Tool(name="SleepTool")])
         self.step_count: int = 0

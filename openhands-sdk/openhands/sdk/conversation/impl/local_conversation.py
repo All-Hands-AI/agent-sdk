@@ -51,6 +51,7 @@ class LocalConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
+        name_for_visualization: str | None = None,
         secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
     ):
@@ -68,6 +69,8 @@ class LocalConversation(BaseConversation):
             visualize: Whether to enable default visualization. If True, adds
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
+            name_for_visualization: Optional name to prefix in panel titles to identify
+                                  which agent/conversation is speaking.
             stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
@@ -101,7 +104,8 @@ class LocalConversation(BaseConversation):
         # Add default visualizer if requested
         if visualize:
             self._visualizer = create_default_visualizer(
-                conversation_stats=self._state.stats
+                conversation_stats=self._state.stats,
+                name_for_visualization=name_for_visualization,
             )
             composed_list = [self._visualizer.on_event] + composed_list
             # visualize should happen first for visibility
@@ -219,7 +223,10 @@ class LocalConversation(BaseConversation):
         """
 
         with self._state:
-            if self._state.agent_status == AgentExecutionStatus.PAUSED:
+            if self._state.agent_status in [
+                AgentExecutionStatus.IDLE,
+                AgentExecutionStatus.PAUSED,
+            ]:
                 self._state.agent_status = AgentExecutionStatus.RUNNING
 
         iteration = 0
@@ -254,7 +261,7 @@ class LocalConversation(BaseConversation):
                         self._state.agent_status = AgentExecutionStatus.RUNNING
 
                     # step must mutate the SAME state object
-                    self.agent.step(self._state, on_event=self._on_event)
+                    self.agent.step(self, on_event=self._on_event)
                     iteration += 1
 
                     # Check for non-finished terminal conditions

@@ -68,7 +68,6 @@ def model_matches(model: str, patterns: list[str]) -> bool:
 
 @dataclass(frozen=True)
 class ModelFeatures:
-    supports_function_calling: bool
     supports_reasoning_effort: bool
     supports_extended_thinking: bool
     supports_prompt_cache: bool
@@ -77,34 +76,6 @@ class ModelFeatures:
 
 
 # Pattern tables capturing current behavior. Keep patterns lowercase.
-FUNCTION_CALLING_PATTERNS: list[str] = [
-    # Anthropic families
-    "claude-3-7-sonnet*",
-    "claude-3.7-sonnet*",
-    "claude-sonnet-3-7-latest",
-    "claude-3-5-sonnet*",
-    "claude-3.5-haiku*",
-    "claude-3-5-haiku*",
-    "claude-sonnet-4*",
-    "claude-haiku-4*",
-    "claude-opus-4*",
-    # OpenAI families
-    "gpt-4o*",
-    "gpt-4.1",
-    "gpt-5*",
-    # o-series (keep exact o1 support per existing list)
-    "o1-2024-12-17",
-    "o3*",
-    "o4-mini",
-    # Google Gemini
-    "gemini-2.5-pro",
-    # Others
-    "kimi-k2-0711-preview",
-    "kimi-k2-instruct",
-    "qwen3-coder*",
-    "qwen3-coder-480b-a35b-instruct",
-]
-
 REASONING_EFFORT_PATTERNS: list[str] = [
     # Mirror main behavior exactly (no unintended expansion)
     "o1-2024-12-17",
@@ -161,8 +132,8 @@ RESPONSES_API_PATTERNS: list[str] = [
 
 
 def get_features(model: str) -> ModelFeatures:
+    """Get model features."""
     return ModelFeatures(
-        supports_function_calling=model_matches(model, FUNCTION_CALLING_PATTERNS),
         supports_reasoning_effort=model_matches(model, REASONING_EFFORT_PATTERNS),
         supports_extended_thinking=model_matches(model, EXTENDED_THINKING_PATTERNS),
         supports_prompt_cache=model_matches(model, PROMPT_CACHE_PATTERNS),

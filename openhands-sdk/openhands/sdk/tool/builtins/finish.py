@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 from rich.text import Text
@@ -11,6 +12,10 @@ from openhands.sdk.tool.tool import (
     ToolDefinition,
     ToolExecutor,
 )
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.base import BaseConversation
 
 
 class FinishAction(Action):
@@ -54,7 +59,11 @@ The message should include:
 
 
 class FinishExecutor(ToolExecutor):
-    def __call__(self, action: FinishAction) -> FinishObservation:
+    def __call__(
+        self,
+        action: FinishAction,
+        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+    ) -> FinishObservation:
         return FinishObservation(message=action.message)
 
 

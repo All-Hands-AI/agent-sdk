@@ -434,7 +434,7 @@ def test_agent_resolve_diff_different_class_raises_error():
         def init_state(self, state, on_event):
             pass
 
-        def step(self, state, on_event):
+        def step(self, conversation, on_event):
             pass
 
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), usage_id="test-llm")

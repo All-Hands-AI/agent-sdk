@@ -75,7 +75,7 @@ jobs:
                 Thanks in advance for the help!
 
             LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
+            LLM_BASE_URL: https://llm-proxy.app.all-hands.dev
         steps:
             - name: Checkout repository
               uses: actions/checkout@v5
@@ -154,7 +154,7 @@ jobs:
                   fi
 
             - name: Upload logs as artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               if: always()
               with:
                   name: openhands-task-logs
