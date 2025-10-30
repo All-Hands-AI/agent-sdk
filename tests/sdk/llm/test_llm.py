@@ -297,12 +297,13 @@ def test_llm_function_calling_enabled_by_default():
 
 
 def test_llm_function_calling_can_be_disabled():
-    """Test that users can opt-out of function calling via native_tool_calling=False."""
+    """Test that users can opt-out of function calling via
+    function_calling_active=False."""
     # Test with a known model that normally has function calling
     llm_disabled = LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
-        native_tool_calling=False,
+        function_calling_active=False,
         usage_id="test-disabled",
     )
     assert llm_disabled.is_function_calling_active() is False
@@ -311,7 +312,7 @@ def test_llm_function_calling_can_be_disabled():
     llm_unknown_disabled = LLM(
         model="some-unknown-model-xyz",
         api_key=SecretStr("test_key"),
-        native_tool_calling=False,
+        function_calling_active=False,
         usage_id="test-unknown-disabled",
     )
     assert llm_unknown_disabled.is_function_calling_active() is False

@@ -188,7 +188,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     custom_tokenizer: str | None = Field(
         default=None, description="A custom tokenizer to use for token counting."
     )
-    native_tool_calling: bool = Field(
+    function_calling_active: bool = Field(
         default=True,
         description="Whether to use native tool calling.",
     )
@@ -809,7 +809,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     def is_function_calling_active(self) -> bool:
         """Returns whether function calling is enabled for this LLM instance."""
-        return self.native_tool_calling
+        return self.function_calling_active
 
     def uses_responses_api(self) -> bool:
         """Whether this model uses the OpenAI Responses API path."""
