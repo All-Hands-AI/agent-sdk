@@ -32,7 +32,7 @@ def test_bash_executor_without_conversation():
 
 
 def test_bash_executor_with_conversation_secrets():
-    """Test that BashExecutor uses secrets from conversation.state.secrets_manager."""
+    """Test that BashExecutor uses secrets from conversation.state.secret_registry."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a conversation with secrets
         llm = LLM(
