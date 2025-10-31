@@ -292,10 +292,6 @@ class ConversationService:
                 event_service.conversation_dir,
                 f"conversation directory for {conversation_id}",
             )
-            _safe_rmtree(
-                event_service.stored.workspace.working_dir,
-                f"workspace directory for {conversation_id}",
-            )
 
             logger.info(f"Successfully deleted conversation {conversation_id}")
             return True
