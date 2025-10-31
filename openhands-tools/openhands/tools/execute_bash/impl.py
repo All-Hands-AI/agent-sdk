@@ -161,7 +161,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                 observation = command_result.model_copy(
                     update={
                         "output": [TextContent(text=f"{reset_text}\n\n{command_text}")],
-                        "cmd": f"[RESET] {action.command}",
+                        "command": f"[RESET] {action.command}",
                     }
                 )
             else:
