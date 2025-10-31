@@ -616,7 +616,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         assert isinstance(ret, ResponsesAPIResponse), (
                             f"Expected ResponsesAPIResponse, got {type(ret)}"
                         )
-                        # telemetry (latency, cost). Token usage mapping we handle after.
+                        # telemetry (latency, cost). Token usage handled after.
                         assert self._telemetry is not None
                         self._telemetry.on_response(ret)
                         return ret
