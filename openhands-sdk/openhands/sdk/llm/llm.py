@@ -188,10 +188,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     custom_tokenizer: str | None = Field(
         default=None, description="A custom tokenizer to use for token counting."
     )
-    native_tool_calling: bool | None = Field(
-        default=None,
-        description="Whether to use native tool calling "
-        "if supported by the model. Can be True, False, or not set.",
+    native_tool_calling: bool = Field(
+        default=True,
+        description="Whether to use native tool calling.",
     )
     reasoning_effort: Literal["low", "medium", "high", "none"] | None = Field(
         default=None,
@@ -258,7 +257,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Runtime-only private attrs
     _model_info: Any = PrivateAttr(default=None)
     _tokenizer: Any = PrivateAttr(default=None)
-    _function_calling_active: bool = PrivateAttr(default=False)
     _telemetry: Telemetry | None = PrivateAttr(default=None)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
@@ -419,7 +417,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         formatted_messages = self.format_messages_for_llm(messages)
 
         # 2) choose function-calling strategy
-        use_native_fc = self.is_function_calling_active()
+        use_native_fc = self.native_tool_calling
         original_fncall_msgs = copy.deepcopy(formatted_messages)
 
         # Convert Tool objects to ChatCompletionToolParam once here
@@ -769,15 +767,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 elif isinstance(self._model_info.get("max_tokens"), int):
                     self.max_output_tokens = self._model_info.get("max_tokens")
 
-        # Function-calling capabilities
-        feats = get_features(self.model)
-        logger.debug(f"Model features for {self.model}: {feats}")
-        self._function_calling_active = (
-            self.native_tool_calling
-            if self.native_tool_calling is not None
-            else feats.supports_function_calling
-        )
-
     def vision_is_active(self) -> bool:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -817,12 +806,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # We don't need to look-up model_info, because
         # only Anthropic models need explicit caching breakpoints
         return self.caching_prompt and get_features(self.model).supports_prompt_cache
-
-    def is_function_calling_active(self) -> bool:
-        """Returns whether function calling is supported
-        and enabled for this LLM instance.
-        """
-        return bool(self._function_calling_active)
 
     def uses_responses_api(self) -> bool:
         """Whether this model uses the OpenAI Responses API path."""
@@ -864,7 +847,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
-            message.function_calling_enabled = self.is_function_calling_active()
+            message.function_calling_enabled = self.native_tool_calling
             if "deepseek" in self.model or (
                 "kimi-k2-instruct" in self.model and "groq" in self.model
             ):

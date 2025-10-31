@@ -275,8 +275,47 @@ def test_llm_function_calling_support(default_llm):
     llm = default_llm
 
     # Function calling support detection should work without errors
-    function_calling_active = llm.is_function_calling_active()
-    assert isinstance(function_calling_active, bool)
+    native_tool_calling = llm.native_tool_calling
+    assert isinstance(native_tool_calling, bool)
+
+
+def test_llm_function_calling_enabled_by_default():
+    """Test that function calling is enabled by default for all models."""
+    # Test with a known model
+    llm_known = LLM(
+        model="gpt-4o", api_key=SecretStr("test_key"), usage_id="test-known"
+    )
+    assert llm_known.native_tool_calling is True
+
+    # Test with an unknown model - should still be enabled by default
+    llm_unknown = LLM(
+        model="some-unknown-model-xyz",
+        api_key=SecretStr("test_key"),
+        usage_id="test-unknown",
+    )
+    assert llm_unknown.native_tool_calling is True
+
+
+def test_llm_function_calling_can_be_disabled():
+    """Test that users can opt-out of function calling via
+    native_tool_calling=False."""
+    # Test with a known model that normally has function calling
+    llm_disabled = LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        native_tool_calling=False,
+        usage_id="test-disabled",
+    )
+    assert llm_disabled.native_tool_calling is False
+
+    # Test with an unknown model with function calling disabled
+    llm_unknown_disabled = LLM(
+        model="some-unknown-model-xyz",
+        api_key=SecretStr("test_key"),
+        native_tool_calling=False,
+        usage_id="test-unknown-disabled",
+    )
+    assert llm_unknown_disabled.native_tool_calling is False
 
 
 def test_llm_caching_support(default_llm):
