@@ -104,3 +104,7 @@ with DockerWorkspace(
     finally:
         print("\n🧹 Cleaning up conversation...")
         conversation.close()
+
+# Report cost
+cost = llm.metrics.accumulated_cost
+print(f"EXAMPLE_COST: {cost}")
