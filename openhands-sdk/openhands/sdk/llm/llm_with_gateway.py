@@ -214,6 +214,10 @@ class LLMWithGateway(LLM):
             f"Fetching gateway token from {self.gateway_auth_url} (method={method})"
         )
 
+        request_kwargs: dict[str, Any] = {}
+        if self.ssl_verify is not None:
+            request_kwargs["verify"] = self.ssl_verify
+
         try:
             response = httpx.request(
                 method,
@@ -221,6 +225,7 @@ class LLMWithGateway(LLM):
                 headers=headers if isinstance(headers, dict) else None,
                 json=body if isinstance(body, dict) else None,
                 timeout=self.timeout or 30,
+                **request_kwargs,
             )
             response.raise_for_status()
         except Exception as exc:

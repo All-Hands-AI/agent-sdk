@@ -162,6 +162,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     )
     ollama_base_url: str | None = Field(default=None)
 
+    ssl_verify: bool | str | None = Field(
+        default=None,
+        description=(
+            "TLS verification forwarded to LiteLLM; "
+            "set to False when corporate proxies break certificate chains."
+        ),
+    )
+
     drop_params: bool = Field(default=True)
     modify_params: bool = Field(
         default=True,
@@ -669,6 +677,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     api_version=self.api_version,
                     custom_llm_provider=self.custom_llm_provider,
                     timeout=self.timeout,
+                    ssl_verify=self.ssl_verify,
                     drop_params=self.drop_params,
                     seed=self.seed,
                     messages=messages,
