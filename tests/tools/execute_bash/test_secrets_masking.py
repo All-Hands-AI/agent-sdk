@@ -69,6 +69,7 @@ def test_bash_executor_with_conversation_secrets():
                 ],
             )
             mock_session.execute.return_value = mock_observation
+            mock_session._closed = False
             executor.session = mock_session
 
             # Execute command with conversation - secrets should be exported and masked
