@@ -21,14 +21,15 @@ def test_responses_api_forwards_all_relevant_attrs(mock_responses):
     any other potential failures.
     """
 
-    # Minimal valid fake response object expected by code path is not needed because
-    # we do not reach parsing if assertions fail; return a simple dict-like with
-    # fields that won't be accessed by this test. A plain object is fine as long
-    # as the call is made.
-    class DummyResponses:
-        pass
+    # Return a minimal valid ResponsesAPIResponse to let the call path complete
+    # and avoid exceptions before our assertions.
+    from litellm.types.llms.openai import ResponsesAPIResponse
 
-    mock_responses.return_value = DummyResponses()
+    mock_responses.return_value = ResponsesAPIResponse(
+        id="resp_test_1",
+        created_at=1234567890,
+        output=[],
+    )
 
     llm = LLM(
         model="gpt-4o",  # non-reasoning path; Responses still enforced temperature=1.0

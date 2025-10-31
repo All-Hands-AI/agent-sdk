@@ -48,10 +48,6 @@ def test_all_config_attrs_are_forwarded_to_litellm_completion(mock_completion):
     assert called_kwargs.get("api_key") == "sk-test-123"
     assert called_kwargs.get("base_url") == "https://example.com/v1"
     assert called_kwargs.get("api_version") == "2024-01-01"
-    # Known gap on main: ensure we detect missing provider forwarding
-    assert called_kwargs.get("custom_llm_provider") == "my-provider", (
-        "custom_llm_provider was not forwarded"
-    )
     assert called_kwargs.get("timeout") == 42
     assert called_kwargs.get("drop_params") is False
     assert called_kwargs.get("seed") == 1234
@@ -68,4 +64,10 @@ def test_all_config_attrs_are_forwarded_to_litellm_completion(mock_completion):
     #   (Azure uses `max_tokens`, but this test uses non-Azure model id)
     assert called_kwargs.get("max_completion_tokens") == 99, (
         "Expected max_output_tokens -> max_completion_tokens forwarding"
+    )
+
+    # Known bug: custom_llm_provider not forwarded; check this last so it doesn't
+    # hide earlier failures
+    assert called_kwargs.get("custom_llm_provider") == "my-provider", (
+        "custom_llm_provider was not forwarded"
     )
