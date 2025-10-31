@@ -59,7 +59,7 @@ class PlanningFileEditorExecutor(ToolExecutor):
 
         # Convert FileEditorObservation to PlanningFileEditorObservation
         return PlanningFileEditorObservation(
-            cmd=action.command,
+            command=action.command,
             output=file_editor_obs.output,
             error=file_editor_obs.error,
         )
