@@ -27,9 +27,15 @@ def test_tool_serialization_deserialization() -> None:
 
 def test_tool_supports_polymorphic_field_json_serialization() -> None:
     """Test that Tool supports polymorphic JSON serialization when used as a field."""
+    from typing import Any
+
+    from openhands.sdk.tool.tool import get_polymorphic_tool_type
+
+    # Use get_polymorphic_tool_type() for polymorphic deserialization
+    PolymorphicTool: Any = get_polymorphic_tool_type()
 
     class Container(BaseModel):
-        tool: ToolBase  # Use abstract base for polymorphic deserialization
+        tool: PolymorphicTool  # type: ignore[valid-type]
 
     # Create container with tool
     tool = FinishTool.create()[0]
@@ -48,9 +54,15 @@ def test_tool_supports_polymorphic_field_json_serialization() -> None:
 
 def test_tool_supports_nested_polymorphic_json_serialization() -> None:
     """Test that Tool supports nested polymorphic JSON serialization."""
+    from typing import Any
+
+    from openhands.sdk.tool.tool import get_polymorphic_tool_type
+
+    # Use get_polymorphic_tool_type() for polymorphic deserialization
+    PolymorphicTool: Any = get_polymorphic_tool_type()
 
     class NestedContainer(BaseModel):
-        tools: list[ToolBase]  # Use abstract base for polymorphic deserialization
+        tools: list[PolymorphicTool]  # type: ignore[valid-type]
 
     # Create container with multiple tools
     tool1 = FinishTool.create()[0]
@@ -106,12 +118,18 @@ def test_tool_no_fallback_behavior_json() -> None:
 
 def test_tool_type_annotation_works_json() -> None:
     """Test that ToolType annotation works correctly with JSON."""
+    from typing import Any
+
+    from openhands.sdk.tool.tool import get_polymorphic_tool_type
+
     # Create tool
     tool = FinishTool.create()[0]
 
-    # Use ToolType annotation with abstract base for polymorphism
+    # Use get_polymorphic_tool_type() for polymorphic deserialization
+    PolymorphicTool: Any = get_polymorphic_tool_type()
+
     class TestModel(BaseModel):
-        tool: ToolBase
+        tool: PolymorphicTool  # type: ignore[valid-type]
 
     model = TestModel(tool=tool)
 
