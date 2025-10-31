@@ -1867,7 +1867,7 @@ wheels = [
 
 [[package]]
 name = "openhands-agent-server"
-version = "1.0.0a3"
+version = "1.0.0a5"
 source = { editable = "openhands-agent-server" }
 dependencies = [
     { name = "aiosqlite" },
@@ -1896,7 +1896,7 @@ requires-dist = [
 
 [[package]]
 name = "openhands-sdk"
-version = "1.0.0a3"
+version = "1.0.0a5"
 source = { editable = "openhands-sdk" }
 dependencies = [
     { name = "fastmcp" },
@@ -1930,7 +1930,7 @@ provides-extras = ["boto3"]
 
 [[package]]
 name = "openhands-tools"
-version = "1.0.0a3"
+version = "1.0.0a5"
 source = { editable = "openhands-tools" }
 dependencies = [
     { name = "bashlex" },
@@ -1947,7 +1947,7 @@ dependencies = [
 requires-dist = [
     { name = "bashlex", specifier = ">=0.18" },
     { name = "binaryornot", specifier = ">=0.4.4" },
-    { name = "browser-use", specifier = ">=0.7.7" },
+    { name = "browser-use", specifier = ">=0.8.0" },
     { name = "cachetools" },
     { name = "func-timeout", specifier = ">=4.3.5" },
     { name = "libtmux", specifier = ">=0.46.2" },
@@ -1957,7 +1957,7 @@ requires-dist = [
 
 [[package]]
 name = "openhands-workspace"
-version = "1.0.0a3"
+version = "1.0.0a5"
 source = { editable = "openhands-workspace" }
 dependencies = [
     { name = "openhands-sdk" },
