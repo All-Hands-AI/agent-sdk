@@ -107,9 +107,11 @@ class ExecuteBashObservation(Observation):
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
-            # When there's an error, format it appropriately
-            return [self.format_error()]
+            # When there's an error, return formatted error message
+            # Use custom header instead of base class format
+            return [TextContent(text=f"Tool Execution Error: {self.error}")]
 
+        # Build output string with metadata (same as main branch)
         ret = f"{self.metadata.prefix}{self.raw_output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
@@ -117,6 +119,7 @@ class ExecuteBashObservation(Observation):
             ret += f"\n[Python interpreter: {self.metadata.py_interpreter_path}]"
         if self.metadata.exit_code != -1:
             ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
+        # Apply truncation to the entire output (preserving main branch behavior)
         return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
 
     @property
