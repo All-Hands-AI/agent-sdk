@@ -26,7 +26,7 @@ def select_responses_options(
     out["tool_choice"] = "auto"
 
     # If user didn't set extra_headers, propagate from llm config
-    if getattr(llm, "extra_headers", None) and "extra_headers" not in out:
+    if llm.extra_headers is not None and "extra_headers" not in out:
         out["extra_headers"] = dict(llm.extra_headers)
 
     # Store defaults to False (stateless) unless explicitly provided

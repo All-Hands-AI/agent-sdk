@@ -29,7 +29,7 @@ def select_chat_options(
             out["max_tokens"] = out.pop("max_completion_tokens")
 
     # If user didn't set extra_headers, propagate from llm config
-    if getattr(llm, "extra_headers", None) and "extra_headers" not in out:
+    if llm.extra_headers is not None and "extra_headers" not in out:
         out["extra_headers"] = dict(llm.extra_headers)
 
     # Reasoning-model quirks

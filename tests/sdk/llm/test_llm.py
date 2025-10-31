@@ -356,9 +356,12 @@ def test_completion_merges_llm_extra_headers_with_extended_thinking_default(
     assert mock_completion.call_count == 1
     _, kwargs = mock_completion.call_args
     headers = kwargs.get("extra_headers") or {}
-    # Should include default interleaved-thinking header
+    # Intended behavior:
+    # - No per-call headers provided.
+    # - LLM.extra_headers should be used.
+    # - Extended thinking default (anthropic-beta) should be merged in.
+    # - Result keeps both the default and configured headers.
     assert headers.get("anthropic-beta") == "interleaved-thinking-2025-05-14"
-    # Should preserve configured headers as well
     assert headers.get("X-Trace") == "1"
 
 
@@ -380,7 +383,10 @@ def test_completion_call_time_extra_headers_override_config_and_defaults(
     )
 
     messages = [Message(role="user", content=[TextContent(text="Hi")])]
-    # Call-time headers should take full precedence
+    # Intended behavior:
+    # - Per-call headers should replace any LLM.extra_headers.
+    # - Extended thinking default should still be merged in.
+    # - On conflicts, per-call headers win (anthropic-beta => custom-beta).
     call_headers = {"anthropic-beta": "custom-beta", "Header-Only": "H"}
     _ = llm.completion(messages=messages, extra_headers=call_headers)
 
@@ -390,6 +396,7 @@ def test_completion_call_time_extra_headers_override_config_and_defaults(
     assert headers.get("anthropic-beta") == "custom-beta"
     assert headers.get("Header-Only") == "H"
     # LLM.config headers should not be merged when user specifies their own
+    # (except defaults we explicitly add)
     assert "X-Trace" not in headers
 
 
@@ -427,6 +434,9 @@ def test_responses_call_time_extra_headers_override_config(mock_responses):
     )
 
     messages = [Message(role="user", content=[TextContent(text="Hi")])]
+    # Intended behavior:
+    # - Per-call headers should replace any LLM.extra_headers for Responses path.
+    # - No Anthropic default is currently added on the Responses path.
     call_headers = {"Header-Only": "H"}
     _ = llm.responses(messages=messages, extra_headers=call_headers)
 
