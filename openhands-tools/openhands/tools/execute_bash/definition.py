@@ -108,7 +108,7 @@ class ExecuteBashObservation(Observation):
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             # When there's an error, format it appropriately
-            return [TextContent(text=f"Tool Execution Error: {self.error}")]
+            return [self.format_error()]
 
         ret = f"{self.metadata.prefix}{self.raw_output}{self.metadata.suffix}"
         if self.metadata.working_dir:

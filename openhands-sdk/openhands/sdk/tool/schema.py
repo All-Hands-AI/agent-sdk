@@ -226,7 +226,8 @@ class Observation(Schema, ABC):
     def result_status(self) -> ObservationStatus:
         return ObservationStatus.ERROR if self.has_error else ObservationStatus.SUCCESS
 
-    def _format_error(self) -> TextContent:
+    def format_error(self) -> TextContent:
+        """Format the error message for LLM display."""
         return TextContent(text=f"Tool Execution Error: {self.error}")
 
     @property
@@ -240,7 +241,7 @@ class Observation(Schema, ABC):
         if self.command:
             llm_content.append(TextContent(text=f"Executed Command: {self.command}\n"))
         if self.error:
-            llm_content.append(self._format_error())
+            llm_content.append(self.format_error())
         if self.output:
             llm_content.extend(self.output)
         return llm_content
