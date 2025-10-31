@@ -103,6 +103,15 @@ class ExecuteBashObservation(Observation):
         return self.metadata.pid
 
     @property
+    def raw_output(self) -> str:
+        """Return the raw output text for backward compatibility.
+
+        Extracts the text from the first TextContent item in output.
+        """
+        first_item = self.output[0] if self.output else None
+        return first_item.text if isinstance(first_item, TextContent) else ""
+
+    @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
             error_msg = f"{self.metadata.prefix}{self.error}{self.metadata.suffix}"
