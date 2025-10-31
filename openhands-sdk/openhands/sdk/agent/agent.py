@@ -169,8 +169,7 @@ class Agent(AgentBase):
             on_event(error_message)
             return
         except Exception as e:
-            # If there is a condenser registered and the exception is a context window
-            # exceeded, we can recover by triggering a condensation request.
+            # If condenser is available and error is context window exceeded, trigger condensation
             if (
                 self.condenser is not None
                 and self.condenser.handles_condensation_requests()
@@ -181,9 +180,11 @@ class Agent(AgentBase):
                 )
                 on_event(CondensationRequest())
                 return
-            # If the error isn't recoverable, keep propagating it up the stack.
-            else:
-                raise e
+            # Otherwise, map to SDK-typed errors and rethrow for clients
+            mapped = self.llm._map_exception(e)
+            if mapped is not e:
+                raise mapped from e
+            raise
 
         # LLMResponse already contains the converted message and metrics snapshot
         message: Message = llm_response.message

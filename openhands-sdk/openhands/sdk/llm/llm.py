@@ -397,6 +397,66 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Only used by ConversationStats to seed metrics
         self._metrics = metrics
 
+    def _map_exception(self, exception: Exception) -> Exception:
+        """Map provider/litellm exceptions into SDK-typed exceptions.
+
+        Preserves original exception via chaining at call sites.
+        """
+        from litellm.exceptions import (
+            BadRequestError,
+            ContextWindowExceededError,
+            OpenAIError,
+            RateLimitError,
+            Timeout as LiteLLMTimeout,
+            ServiceUnavailableError,
+            APIConnectionError,
+            InternalServerError,
+        )
+        from openhands.sdk.llm.exceptions import (
+            LLMAuthenticationError,
+            LLMContextWindowExceedError,
+            LLMRateLimitError,
+            LLMTimeoutError,
+            LLMServiceUnavailableError,
+            LLMBadRequestError,
+            LLMNoResponseError,
+        )
+
+        # First, explicit context window detection
+        if self.is_context_window_exceeded_exception(exception):
+            return LLMContextWindowExceedError(str(exception))
+
+        # Authentication (401/403 patterns) live inside BadRequest/OpenAIError text in many providers
+        def _looks_like_auth(err: Exception) -> bool:
+            s = str(err).lower()
+            for p in ["invalid api key", "unauthorized", "missing api key", "invalid authentication", "access denied"]:
+                if p in s:
+                    return True
+            # Some providers return explicit status
+            for code in [" 401 ", " 403 "]:
+                if code in s:
+                    return True
+            return False
+
+        if isinstance(exception, (BadRequestError, OpenAIError)) and _looks_like_auth(exception):
+            return LLMAuthenticationError(str(exception))
+
+        if isinstance(exception, RateLimitError):
+            return LLMRateLimitError(str(exception))
+        if isinstance(exception, LiteLLMTimeout):
+            return LLMTimeoutError(str(exception))
+        if isinstance(exception, ServiceUnavailableError):
+            return LLMServiceUnavailableError(str(exception))
+        if isinstance(exception, (APIConnectionError, InternalServerError)):
+            # Let RetryMixin handle retries; surface as service unavailable for clients
+            return LLMServiceUnavailableError(str(exception))
+
+        if isinstance(exception, (BadRequestError, OpenAIError)):
+            return LLMBadRequestError(str(exception))
+
+        # Preserve the original if we didn't match any category
+        return exception
+
     def completion(
         self,
         messages: list[Message],
@@ -513,6 +573,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             )
         except Exception as e:
             self._telemetry.on_error(e)
+            mapped = self._map_exception(e)
+            if mapped is not e:
+                raise mapped from e
             raise
 
     # =========================================================================
@@ -632,6 +695,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             )
         except Exception as e:
             self._telemetry.on_error(e)
+            mapped = self._map_exception(e)
+            if mapped is not e:
+                raise mapped from e
             raise
 
     # =========================================================================

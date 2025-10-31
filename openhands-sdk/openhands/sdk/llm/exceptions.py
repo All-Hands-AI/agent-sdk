@@ -52,8 +52,36 @@ class LLMNoResponseError(LLMError):
 class LLMContextWindowExceedError(LLMError):
     def __init__(
         self,
-        message: str = "Conversation history longer than LLM context window limit. Consider turning on enable_history_truncation config to avoid this error",  # noqa: E501
+        message: str = (
+            "Conversation history longer than LLM context window limit. "
+            "Consider enabling a condenser or shortening inputs."
+        ),
     ) -> None:
+        super().__init__(message)
+
+
+class LLMAuthenticationError(LLMError):
+    def __init__(self, message: str = "Invalid or missing API credentials") -> None:
+        super().__init__(message)
+
+
+class LLMRateLimitError(LLMError):
+    def __init__(self, message: str = "Rate limit exceeded") -> None:
+        super().__init__(message)
+
+
+class LLMTimeoutError(LLMError):
+    def __init__(self, message: str = "LLM request timed out") -> None:
+        super().__init__(message)
+
+
+class LLMServiceUnavailableError(LLMError):
+    def __init__(self, message: str = "LLM service unavailable") -> None:
+        super().__init__(message)
+
+
+class LLMBadRequestError(LLMError):
+    def __init__(self, message: str = "Bad request to LLM provider") -> None:
         super().__init__(message)
 
 
