@@ -591,34 +591,35 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         def _one_attempt(**retry_kwargs) -> ResponsesAPIResponse:
             final_kwargs = {**call_kwargs, **retry_kwargs}
             with self._litellm_modify_params_ctx(self.modify_params):
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=DeprecationWarning)
-                    typed_input: ResponseInputParam | str = (
-                        cast(ResponseInputParam, input_items) if input_items else ""
-                    )
-                    ret = litellm_responses(
-                        model=self.model,
-                        input=typed_input,
-                        instructions=instructions,
-                        tools=resp_tools,
-                        api_key=self.api_key.get_secret_value()
-                        if self.api_key
-                        else None,
-                        api_base=self.base_url,
-                        api_version=self.api_version,
-                        custom_llm_provider=self.custom_llm_provider,
-                        timeout=self.timeout,
-                        drop_params=self.drop_params,
-                        seed=self.seed,
-                        **final_kwargs,
-                    )
-                    assert isinstance(ret, ResponsesAPIResponse), (
-                        f"Expected ResponsesAPIResponse, got {type(ret)}"
-                    )
-                    # telemetry (latency, cost). Token usage mapping we handle after.
-                    assert self._telemetry is not None
-                    self._telemetry.on_response(ret)
-                    return ret
+                with self._litellm_ssl_verify_ctx():
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", category=DeprecationWarning)
+                        typed_input: ResponseInputParam | str = (
+                            cast(ResponseInputParam, input_items) if input_items else ""
+                        )
+                        ret = litellm_responses(
+                            model=self.model,
+                            input=typed_input,
+                            instructions=instructions,
+                            tools=resp_tools,
+                            api_key=self.api_key.get_secret_value()
+                            if self.api_key
+                            else None,
+                            api_base=self.base_url,
+                            api_version=self.api_version,
+                            custom_llm_provider=self.custom_llm_provider,
+                            timeout=self.timeout,
+                            drop_params=self.drop_params,
+                            seed=self.seed,
+                            **final_kwargs,
+                        )
+                        assert isinstance(ret, ResponsesAPIResponse), (
+                            f"Expected ResponsesAPIResponse, got {type(ret)}"
+                        )
+                        # telemetry (latency, cost). Token usage mapping we handle after.
+                        assert self._telemetry is not None
+                        self._telemetry.on_response(ret)
+                        return ret
 
         try:
             resp: ResponsesAPIResponse = _one_attempt()
@@ -651,42 +652,45 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     ) -> ModelResponse:
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", category=DeprecationWarning, module="httpx.*"
-                )
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r".*content=.*upload.*",
-                    category=DeprecationWarning,
-                )
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r"There is no current event loop",
-                    category=DeprecationWarning,
-                )
-                warnings.filterwarnings(
-                    "ignore",
-                    category=UserWarning,
-                )
-                # Some providers need renames handled in _normalize_call_kwargs.
-                ret = litellm_completion(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    base_url=self.base_url,
-                    api_version=self.api_version,
-                    custom_llm_provider=self.custom_llm_provider,
-                    timeout=self.timeout,
-                    ssl_verify=self.ssl_verify,
-                    drop_params=self.drop_params,
-                    seed=self.seed,
-                    messages=messages,
-                    **kwargs,
-                )
-                assert isinstance(ret, ModelResponse), (
-                    f"Expected ModelResponse, got {type(ret)}"
-                )
-                return ret
+            with self._litellm_ssl_verify_ctx():
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", category=DeprecationWarning, module="httpx.*"
+                    )
+                    warnings.filterwarnings(
+                        "ignore",
+                        message=r".*content=.*upload.*",
+                        category=DeprecationWarning,
+                    )
+                    warnings.filterwarnings(
+                        "ignore",
+                        message=r"There is no current event loop",
+                        category=DeprecationWarning,
+                    )
+                    warnings.filterwarnings(
+                        "ignore",
+                        category=UserWarning,
+                    )
+                    # Some providers need renames handled in _normalize_call_kwargs.
+                    ret = litellm_completion(
+                        model=self.model,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        base_url=self.base_url,
+                        api_version=self.api_version,
+                        custom_llm_provider=self.custom_llm_provider,
+                        timeout=self.timeout,
+                        ssl_verify=self.ssl_verify,
+                        drop_params=self.drop_params,
+                        seed=self.seed,
+                        messages=messages,
+                        **kwargs,
+                    )
+                    assert isinstance(ret, ModelResponse), (
+                        f"Expected ModelResponse, got {type(ret)}"
+                    )
+                    return ret
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
@@ -696,6 +700,18 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             yield
         finally:
             litellm.modify_params = old
+
+    @contextmanager
+    def _litellm_ssl_verify_ctx(self):
+        if self.ssl_verify is None:
+            yield
+            return
+        old = getattr(litellm, "ssl_verify", None)
+        try:
+            litellm.ssl_verify = self.ssl_verify
+            yield
+        finally:
+            litellm.ssl_verify = old
 
     # =========================================================================
     # Capabilities, formatting, and info
