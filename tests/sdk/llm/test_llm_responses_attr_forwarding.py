@@ -32,7 +32,9 @@ def test_responses_api_forwards_all_relevant_attrs(mock_responses):
     )
 
     llm = LLM(
-        model="gpt-4o",  # non-reasoning path; Responses still enforced temperature=1.0
+        # Choose a model that triggers the Responses API path per model_features
+        # See RESPONSES_API_PATTERNS in model_features.py (e.g., 'gpt-5*')
+        model="gpt-5-mini",
         api_key=SecretStr("sk-test-456"),
         base_url="https://example.com/v1",
         api_version="2024-01-01",
@@ -45,13 +47,18 @@ def test_responses_api_forwards_all_relevant_attrs(mock_responses):
         usage_id="responses-forwarding",
     )
 
-    _ = llm.responses(messages=[Message(role="user", content=[TextContent(text="hi")])])
+    _ = llm.responses(
+        messages=[
+            Message(role="system", content=[TextContent(text="You are helpful")]),
+            Message(role="user", content=[TextContent(text="hi")]),
+        ]
+    )
 
     assert mock_responses.called, "Expected litellm.responses to be called"
     called_kwargs = mock_responses.call_args.kwargs
 
     # Transport-level passthrough
-    assert called_kwargs.get("model") == "gpt-4o"
+    assert called_kwargs.get("model") == "gpt-5-mini"
     assert called_kwargs.get("api_key") == "sk-test-456"
     # responses() uses api_base for base URL
     assert called_kwargs.get("api_base") == "https://example.com/v1"
