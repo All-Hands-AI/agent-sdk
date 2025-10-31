@@ -271,7 +271,7 @@ def test_llm_forwards_extra_headers_to_litellm(mock_completion):
 
     headers = {"anthropic-beta": "context-1m-2025-08-07"}  # Enable 1M context
     llm = LLM(
-        service_id="test-llm",
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         extra_headers=headers,
@@ -316,7 +316,7 @@ def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
 
     headers = {"anthropic-beta": "context-1m-2025-08-07"}
     llm = LLM(
-        service_id="test-llm",
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         extra_headers=headers,
@@ -334,16 +334,16 @@ def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
     assert kwargs.get("extra_headers") == headers
 
 
-
-
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_completion_merges_llm_extra_headers_with_extended_thinking_default(mock_completion):
+def test_completion_merges_llm_extra_headers_with_extended_thinking_default(
+    mock_completion,
+):
     mock_response = create_mock_litellm_response("ok")
     mock_completion.return_value = mock_response
 
     llm = LLM(
-        service_id="test-llm",
-        model="claude-sonnet-4-20250514",
+        usage_id="test-llm",
+        model="claude-sonnet-4-5-20250514",
         api_key=SecretStr("test_key"),
         extra_headers={"X-Trace": "1"},
         extended_thinking_budget=1000,
@@ -363,13 +363,15 @@ def test_completion_merges_llm_extra_headers_with_extended_thinking_default(mock
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
-def test_completion_call_time_extra_headers_override_config_and_defaults(mock_completion):
+def test_completion_call_time_extra_headers_override_config_and_defaults(
+    mock_completion,
+):
     mock_response = create_mock_litellm_response("ok")
     mock_completion.return_value = mock_response
 
     llm = LLM(
-        service_id="test-llm",
-        model="claude-sonnet-4-20250514",
+        usage_id="test-llm",
+        model="claude-sonnet-4-5-20250514",
         api_key=SecretStr("test_key"),
         # Config sets a conflicting header
         extra_headers={"anthropic-beta": "context-1m-2025-08-07", "X-Trace": "1"},
@@ -417,7 +419,7 @@ def test_responses_call_time_extra_headers_override_config(mock_responses):
     mock_responses.return_value = resp
 
     llm = LLM(
-        service_id="test-llm",
+        usage_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         extra_headers={"X-Trace": "1"},
@@ -433,6 +435,7 @@ def test_responses_call_time_extra_headers_override_config(mock_responses):
     headers = kwargs.get("extra_headers") or {}
     assert headers.get("Header-Only") == "H"
     assert "X-Trace" not in headers
+
 
 def test_llm_vision_support(default_llm):
     """Test LLM vision support detection."""
