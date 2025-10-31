@@ -18,6 +18,7 @@ from openhands.tools.execute_bash.terminal import (
     TerminalSession,
     TmuxTerminal,
 )
+from tests.tools.execute_bash.conftest import get_output_text
 
 
 def _create_conv_state(working_dir: str) -> ConversationState:
@@ -52,7 +53,7 @@ def test_default_auto_detection():
         # Test that it works
         action = ExecuteBashAction(command="echo 'Auto-detection test'")
         obs = executor(action)
-        assert "Auto-detection test" in obs.raw_output
+        assert "Auto-detection test" in get_output_text(obs)
 
 
 def test_forced_terminal_types():
@@ -138,7 +139,7 @@ def test_backward_compatibility():
         assert tool.executor is not None
         action = ExecuteBashAction(command="echo 'Backward compatibility test'")
         obs = tool.executor(action)
-        assert "Backward compatibility test" in obs.raw_output
+        assert "Backward compatibility test" in get_output_text(obs)
         assert obs.metadata.exit_code == 0
 
 

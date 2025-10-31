@@ -1,6 +1,5 @@
 import json
 
-from openhands.sdk import TextContent
 from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_METADATA_PS1_REGEX,
     CMD_OUTPUT_PS1_BEGIN,
@@ -270,10 +269,15 @@ def test_ps1_metadata_regex_pattern():
 
 def test_cmd_output_observation_properties():
     """Test ExecuteBashObservation class properties"""
+    from openhands.sdk.tool.schema import TextContent
+
     # Test with successful command
     metadata = CmdOutputMetadata(exit_code=0, pid=123)
     obs = ExecuteBashObservation(
-        cmd="ls", raw_output="file1\nfile2", exit_code=0, metadata=metadata
+        cmd="ls",
+        output=[TextContent(text="file1\nfile2")],
+        exit_code=0,
+        metadata=metadata,
     )
     assert obs.command_id == 123
     assert obs.exit_code == 0
@@ -289,7 +293,6 @@ def test_cmd_output_observation_properties():
     metadata = CmdOutputMetadata(exit_code=1, pid=456)
     obs = ExecuteBashObservation(
         cmd="invalid",
-        raw_output="",
         exit_code=1,
         error="Command failed",
         metadata=metadata,

@@ -5,6 +5,7 @@ import time
 from enum import Enum
 
 from openhands.sdk.logger import get_logger
+from openhands.sdk.tool.schema import TextContent
 from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_PS1_END,
     NO_CHANGE_TIMEOUT_SECONDS,
@@ -188,7 +189,7 @@ class TerminalSession(TerminalSessionBase):
         self._ready_for_next_command()
         return ExecuteBashObservation(
             cmd=command,
-            raw_output=command_output,
+            output=[TextContent(text=command_output)],
             metadata=metadata,
         )
 
@@ -222,7 +223,7 @@ class TerminalSession(TerminalSessionBase):
         )
         return ExecuteBashObservation(
             cmd=command,
-            raw_output=command_output,
+            output=[TextContent(text=command_output)],
             metadata=metadata,
         )
 
@@ -257,7 +258,7 @@ class TerminalSession(TerminalSessionBase):
         )
         return ExecuteBashObservation(
             cmd=command,
-            raw_output=command_output,
+            output=[TextContent(text=command_output)],
             metadata=metadata,
         )
 
@@ -387,7 +388,7 @@ class TerminalSession(TerminalSessionBase):
             )
             obs = ExecuteBashObservation(
                 cmd=command,
-                raw_output=command_output,
+                output=[TextContent(text=command_output)],
                 metadata=metadata,
             )
             logger.debug(f"RETURNING OBSERVATION (previous-command): {obs}")

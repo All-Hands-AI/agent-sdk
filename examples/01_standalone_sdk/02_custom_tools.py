@@ -93,8 +93,10 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
         files: set[str] = set()
 
         # grep returns exit code 1 when no matches; treat as empty
-        if result.raw_output.strip():
-            for line in result.raw_output.strip().splitlines():
+        first_item = result.output[0] if result.output else None
+        output_text = first_item.text if isinstance(first_item, TextContent) else ""
+        if output_text.strip():
+            for line in output_text.strip().splitlines():
                 matches.append(line)
                 # Expect "path:line:content" — take the file part before first ":"
                 file_path = line.split(":", 1)[0]

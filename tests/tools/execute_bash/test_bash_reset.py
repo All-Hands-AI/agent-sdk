@@ -15,6 +15,7 @@ from openhands.tools.execute_bash import (
     ExecuteBashAction,
     ExecuteBashObservation,
 )
+from tests.tools.execute_bash.conftest import get_output_text
 
 
 def _create_conv_state(working_dir: str) -> ConversationState:
@@ -43,13 +44,13 @@ def test_bash_reset_basic():
         action = ExecuteBashAction(command="echo $TEST_VAR")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
-        assert "hello" in result.raw_output
+        assert "hello" in get_output_text(result)
 
         # Reset the terminal
         reset_action = ExecuteBashAction(command="", reset=True)
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
-        assert "Terminal session has been reset" in reset_result.raw_output
+        assert "Terminal session has been reset" in get_output_text(reset_result)
         assert reset_result.command == "[RESET]"
 
         # Verify the variable is no longer set after reset
@@ -57,7 +58,7 @@ def test_bash_reset_basic():
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
         # The variable should be empty after reset
-        assert result.raw_output.strip() == ""
+        assert get_output_text(result).strip() == ""
 
 
 def test_bash_reset_with_command():
@@ -78,15 +79,15 @@ def test_bash_reset_with_command():
         )
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
-        assert "Terminal session has been reset" in reset_result.raw_output
-        assert "hello from fresh terminal" in reset_result.raw_output
+        assert "Terminal session has been reset" in get_output_text(reset_result)
+        assert "hello from fresh terminal" in get_output_text(reset_result)
         assert reset_result.command == "[RESET] echo 'hello from fresh terminal'"
 
         # Verify the variable is no longer set (confirming reset worked)
         action = ExecuteBashAction(command="echo $TEST_VAR")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
-        assert result.raw_output.strip() == ""
+        assert get_output_text(result).strip() == ""
 
 
 def test_bash_reset_working_directory():
@@ -99,7 +100,7 @@ def test_bash_reset_working_directory():
         action = ExecuteBashAction(command="pwd")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
-        assert temp_dir in result.raw_output
+        assert temp_dir in get_output_text(result)
 
         # Change directory
         action = ExecuteBashAction(command="cd /home")
@@ -110,19 +111,19 @@ def test_bash_reset_working_directory():
         action = ExecuteBashAction(command="pwd")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
-        assert "/home" in result.raw_output
+        assert "/home" in get_output_text(result)
 
         # Reset the terminal
         reset_action = ExecuteBashAction(command="", reset=True)
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
-        assert "Terminal session has been reset" in reset_result.raw_output
+        assert "Terminal session has been reset" in get_output_text(reset_result)
 
         # Verify working directory is back to original
         action = ExecuteBashAction(command="pwd")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
-        assert temp_dir in result.raw_output
+        assert temp_dir in get_output_text(result)
 
 
 def test_bash_reset_multiple_times():
@@ -135,25 +136,25 @@ def test_bash_reset_multiple_times():
         reset_action = ExecuteBashAction(command="", reset=True)
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
-        assert "Terminal session has been reset" in reset_result.raw_output
+        assert "Terminal session has been reset" in get_output_text(reset_result)
 
         # Execute a command after first reset
         action = ExecuteBashAction(command="echo 'after first reset'")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
-        assert "after first reset" in result.raw_output
+        assert "after first reset" in get_output_text(result)
 
         # Second reset
         reset_action = ExecuteBashAction(command="", reset=True)
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
-        assert "Terminal session has been reset" in reset_result.raw_output
+        assert "Terminal session has been reset" in get_output_text(reset_result)
 
         # Execute a command after second reset
         action = ExecuteBashAction(command="echo 'after second reset'")
         result = tool(action)
         assert isinstance(result, ExecuteBashObservation)
-        assert "after second reset" in result.raw_output
+        assert "after second reset" in get_output_text(result)
 
 
 def test_bash_reset_with_timeout():
@@ -166,7 +167,7 @@ def test_bash_reset_with_timeout():
         reset_action = ExecuteBashAction(command="", reset=True, timeout=5.0)
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
-        assert "Terminal session has been reset" in reset_result.raw_output
+        assert "Terminal session has been reset" in get_output_text(reset_result)
         assert reset_result.command == "[RESET]"
 
 
@@ -196,5 +197,5 @@ def test_bash_reset_only_with_empty_command():
         reset_action = ExecuteBashAction(command="", reset=True)
         reset_result = tool(reset_action)
         assert isinstance(reset_result, ExecuteBashObservation)
-        assert "Terminal session has been reset" in reset_result.raw_output
+        assert "Terminal session has been reset" in get_output_text(reset_result)
         assert reset_result.command == "[RESET]"

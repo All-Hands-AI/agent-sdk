@@ -79,8 +79,6 @@ class ExecuteBashAction(Action):
 class ExecuteBashObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
-    # Internal string output field (raw command output)
-    raw_output: str = Field(default="", description="Raw command output string")
     cmd: str | None = Field(default=None, description="The command that was executed")
     exit_code: int | None = Field(
         default=None,
@@ -110,7 +108,9 @@ class ExecuteBashObservation(Observation):
             error_msg = f"{self.metadata.prefix}{self.error}{self.metadata.suffix}"
             return [TextContent(text=f"Tool Execution Error: {error_msg}")]
 
-        ret = f"{self.metadata.prefix}{self.raw_output}{self.metadata.suffix}"
+        first_item = self.output[0] if self.output else None
+        output_text = first_item.text if isinstance(first_item, TextContent) else ""
+        ret = f"{self.metadata.prefix}{output_text}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
         if self.metadata.py_interpreter_path:
@@ -130,9 +130,11 @@ class ExecuteBashObservation(Observation):
             content.append("Command execution error\n", style="red")
 
         # Add command output with proper styling
-        if self.raw_output:
+        first_item = self.output[0] if self.output else None
+        output_text = first_item.text if isinstance(first_item, TextContent) else ""
+        if output_text:
             # Style the output based on content
-            output_lines = self.raw_output.split("\n")
+            output_lines = output_text.split("\n")
             for line in output_lines:
                 if line.strip():
                     # Color error-like lines differently
