@@ -46,30 +46,6 @@ def test_model_matches(name, pattern, expected):
 
 
 @pytest.mark.parametrize(
-    "model,expected_function_calling",
-    [
-        ("gpt-4o", True),
-        ("gpt-4o-mini", True),
-        ("claude-3-5-sonnet", True),
-        ("claude-3-7-sonnet", True),
-        ("gemini-2.5-pro", True),
-        # AWS Bedrock models
-        ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
-        ("bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0", True),
-        ("bedrock/anthropic.claude-sonnet-4-20250514-v1:0", True),
-        (
-            "llama-3.1-70b",
-            False,
-        ),  # Most open source models don't support native function calling
-        ("unknown-model", False),  # Default to False for unknown models
-    ],
-)
-def test_function_calling_support(model, expected_function_calling):
-    features = get_features(model)
-    assert features.supports_function_calling == expected_function_calling
-
-
-@pytest.mark.parametrize(
     "model,expected_reasoning",
     [
         ("o1-2024-12-17", True),
@@ -134,9 +110,11 @@ def test_stop_words_support(model, expected_stop_words):
 def test_get_features_with_provider_prefix():
     """Test that get_features works with provider prefixes."""
     # Test with various provider prefixes
-    assert get_features("openai/gpt-4o").supports_function_calling is True
-    assert get_features("anthropic/claude-3-5-sonnet").supports_function_calling is True
-    assert get_features("litellm_proxy/gpt-4o").supports_function_calling is True
+    assert get_features("openai/gpt-4o").supports_reasoning_effort is False
+    assert (
+        get_features("anthropic/claude-3-5-sonnet").supports_reasoning_effort is False
+    )
+    assert get_features("litellm_proxy/gpt-4o").supports_reasoning_effort is False
 
 
 def test_get_features_case_insensitive():
@@ -146,16 +124,13 @@ def test_get_features_case_insensitive():
     features_mixed = get_features("Gpt-4O")
 
     assert (
-        features_lower.supports_function_calling
-        == features_upper.supports_function_calling
-    )
-    assert (
         features_lower.supports_reasoning_effort
         == features_upper.supports_reasoning_effort
     )
+    assert features_lower.supports_stop_words == features_upper.supports_stop_words
     assert (
-        features_lower.supports_function_calling
-        == features_mixed.supports_function_calling
+        features_lower.supports_reasoning_effort
+        == features_mixed.supports_reasoning_effort
     )
 
 
@@ -166,13 +141,10 @@ def test_get_features_with_version_suffixes():
     versioned_features = get_features("claude-3-5-sonnet-20241022")
 
     assert (
-        base_features.supports_function_calling
-        == versioned_features.supports_function_calling
-    )
-    assert (
         base_features.supports_reasoning_effort
         == versioned_features.supports_reasoning_effort
     )
+    assert base_features.supports_stop_words == versioned_features.supports_stop_words
     assert (
         base_features.supports_prompt_cache == versioned_features.supports_prompt_cache
     )
@@ -217,8 +189,7 @@ def test_get_features_unknown_model():
     """Test get_features with completely unknown model."""
     features = get_features("completely-unknown-model-12345")
 
-    # Unknown models should have conservative defaults
-    assert features.supports_function_calling is False
+    # Unknown models should have default feature values
     assert features.supports_reasoning_effort is False
     assert features.supports_prompt_cache is False
     assert features.supports_stop_words is True  # Most models support stop words
@@ -229,11 +200,11 @@ def test_get_features_empty_model():
     features_empty = get_features("")
     features_none = get_features(None)  # type: ignore[arg-type]
 
-    # Both should return conservative defaults
-    assert features_empty.supports_function_calling is False
-    assert features_none.supports_function_calling is False
+    # Empty models should have default feature values
     assert features_empty.supports_reasoning_effort is False
     assert features_none.supports_reasoning_effort is False
+    assert features_empty.supports_stop_words is True
+    assert features_none.supports_stop_words is True
 
 
 def test_model_matches_with_provider_pattern():

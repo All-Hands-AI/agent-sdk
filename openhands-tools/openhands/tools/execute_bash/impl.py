@@ -1,5 +1,4 @@
 import json
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
 from openhands.sdk.logger import get_logger
@@ -7,7 +6,7 @@ from openhands.sdk.tool import ToolExecutor
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.base import BaseConversation
+    from openhands.sdk.conversation import LocalConversation
 from openhands.tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,
@@ -21,8 +20,6 @@ logger = get_logger(__name__)
 
 class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
     session: TerminalSession
-    env_provider: Callable[[str], dict[str, str]] | None
-    env_masker: Callable[[str], str] | None
 
     def __init__(
         self,
@@ -30,8 +27,6 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
-        env_provider: Callable[[str], dict[str, str]] | None = None,
-        env_masker: Callable[[str], str] | None = None,
         full_output_save_dir: str | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
@@ -43,11 +38,6 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             terminal_type: Force a specific session type:
                          ('tmux', 'subprocess').
                          If None, auto-detect based on system capabilities
-            env_provider: Optional function mapping a command string to env vars
-                          that should be exported for that command.
-            env_masker: Optional function that returns current secret values
-                        for masking purposes. This ensures consistent masking
-                        even when env_provider calls fail.
             full_output_save_dir: Path to directory to save full output
                                   logs and files, used when truncation is needed.
         """
@@ -58,8 +48,6 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             terminal_type=terminal_type,
         )
         self.session.initialize()
-        self.env_provider = env_provider
-        self.env_masker = env_masker
         self.full_output_save_dir: str | None = full_output_save_dir
         logger.info(
             f"BashExecutor initialized with working_dir: {working_dir}, "
@@ -67,16 +55,24 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             f"terminal_type: {terminal_type or self.session.__class__.__name__}"
         )
 
-    def _export_envs(self, action: ExecuteBashAction) -> None:
-        if not self.env_provider:
-            return
+    def _export_envs(
+        self, action: ExecuteBashAction, conversation: "LocalConversation | None" = None
+    ) -> None:
         if not action.command.strip():
             return
 
         if action.is_input:
             return
 
-        env_vars = self.env_provider(action.command)
+        # Get secrets from conversation
+        env_vars = {}
+        if conversation is not None:
+            try:
+                secret_registry = conversation.state.secret_registry
+                env_vars = secret_registry.get_secrets_as_env_vars(action.command)
+            except Exception:
+                env_vars = {}
+
         if not env_vars:
             return
 
@@ -131,7 +127,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
     def __call__(
         self,
         action: ExecuteBashAction,
-        conversation: "BaseConversation | None" = None,  # noqa: ARG002
+        conversation: "LocalConversation | None" = None,
     ) -> ExecuteBashObservation:
         # Validate field combinations
         if action.reset and action.is_input:
@@ -147,7 +143,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                     timeout=action.timeout,
                     is_input=False,  # is_input validated to be False when reset=True
                 )
-                self._export_envs(command_action)
+                self._export_envs(command_action, conversation)
                 command_result = self.session.execute(command_action)
                 observation = command_result.model_copy(
                     update={
@@ -162,17 +158,33 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                 observation = reset_result
         else:
             # If env keys detected, export env values to bash as a separate action first
-            self._export_envs(action)
+            self._export_envs(action, conversation)
             observation = self.session.execute(action)
 
-        # Apply automatic secrets masking using env_masker
-        if self.env_masker and observation.output:
-            masked_output = self.env_masker(observation.output)
-            data = observation.model_dump(exclude={"output", "full_output_save_dir"})
+        # Apply automatic secrets masking
+        if observation.output and conversation is not None:
+            try:
+                secret_registry = conversation.state.secret_registry
+                masked_output = secret_registry.mask_secrets_in_output(
+                    observation.output
+                )
+                if masked_output:
+                    data = observation.model_dump(
+                        exclude={"output", "full_output_save_dir"}
+                    )
+                    return ExecuteBashObservation(
+                        **data,
+                        output=masked_output,
+                        full_output_save_dir=self.full_output_save_dir,
+                    )
+            except Exception:
+                pass
+
+        # Set full_output_save_dir if not already set
+        if observation.full_output_save_dir is None and self.full_output_save_dir:
+            data = observation.model_dump(exclude={"full_output_save_dir"})
             return ExecuteBashObservation(
-                **data,
-                output=masked_output,
-                full_output_save_dir=self.full_output_save_dir,
+                **data, full_output_save_dir=self.full_output_save_dir
             )
 
         return observation

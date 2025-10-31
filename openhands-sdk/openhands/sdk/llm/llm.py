@@ -22,6 +22,8 @@ from pydantic import (
 )
 from pydantic.json_schema import SkipJsonSchema
 
+from openhands.sdk.utils.pydantic_secrets import serialize_secret, validate_secret
+
 
 if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
     from openhands.sdk.tool.tool import ToolBase
@@ -186,10 +188,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     custom_tokenizer: str | None = Field(
         default=None, description="A custom tokenizer to use for token counting."
     )
-    native_tool_calling: bool | None = Field(
-        default=None,
-        description="Whether to use native tool calling "
-        "if supported by the model. Can be True, False, or not set.",
+    native_tool_calling: bool = Field(
+        default=True,
+        description="Whether to use native tool calling.",
     )
     reasoning_effort: Literal["low", "medium", "high", "none"] | None = Field(
         default=None,
@@ -256,7 +257,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Runtime-only private attrs
     _model_info: Any = PrivateAttr(default=None)
     _tokenizer: Any = PrivateAttr(default=None)
-    _function_calling_active: bool = PrivateAttr(default=False)
     _telemetry: Telemetry | None = PrivateAttr(default=None)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
@@ -266,24 +266,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Validators
     # =========================================================================
-    @field_validator("api_key", mode="before")
+    @field_validator("api_key", "aws_access_key_id", "aws_secret_access_key")
     @classmethod
-    def _validate_api_key(cls, v):
-        """Convert empty API keys to None to allow boto3 to use alternative auth methods."""  # noqa: E501
-        if v is None:
-            return None
-
-        # Handle both SecretStr and string inputs
-        if isinstance(v, SecretStr):
-            secret_value = v.get_secret_value()
-        else:
-            secret_value = str(v)
-
-        # If the API key is empty or whitespace-only, return None
-        if not secret_value or not secret_value.strip():
-            return None
-
-        return v
+    def _validate_secrets(cls, v: SecretStr | None, info):
+        return validate_secret(v, info)
 
     @model_validator(mode="before")
     @classmethod
@@ -377,16 +363,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="always"
     )
     def _serialize_secrets(self, v: SecretStr | None, info):
-        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
-        if v is None:
-            return None
-
-        # Check if the 'expose_secrets' flag is in the serialization context
-        if info.context and info.context.get("expose_secrets"):
-            return v.get_secret_value()
-
-        # Let Pydantic handle the default masking
-        return v
+        return serialize_secret(v, info)
 
     # =========================================================================
     # Public API
@@ -440,7 +417,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         formatted_messages = self.format_messages_for_llm(messages)
 
         # 2) choose function-calling strategy
-        use_native_fc = self.is_function_calling_active()
+        use_native_fc = self.native_tool_calling
         original_fncall_msgs = copy.deepcopy(formatted_messages)
 
         # Convert Tool objects to ChatCompletionToolParam once here
@@ -478,7 +455,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "messages": formatted_messages[:],  # already simple dicts
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
+                "context_window": self.max_input_tokens or 0,
             }
             if tools and not use_native_fc:
                 log_ctx["raw_messages"] = original_fncall_msgs
@@ -590,7 +567,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "input": input_items[:],
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
+                "context_window": self.max_input_tokens or 0,
             }
         self._telemetry.on_request(log_ctx=log_ctx)
 
@@ -790,15 +767,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 elif isinstance(self._model_info.get("max_tokens"), int):
                     self.max_output_tokens = self._model_info.get("max_tokens")
 
-        # Function-calling capabilities
-        feats = get_features(self.model)
-        logger.debug(f"Model features for {self.model}: {feats}")
-        self._function_calling_active = (
-            self.native_tool_calling
-            if self.native_tool_calling is not None
-            else feats.supports_function_calling
-        )
-
     def vision_is_active(self) -> bool:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -838,12 +806,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # We don't need to look-up model_info, because
         # only Anthropic models need explicit caching breakpoints
         return self.caching_prompt and get_features(self.model).supports_prompt_cache
-
-    def is_function_calling_active(self) -> bool:
-        """Returns whether function calling is supported
-        and enabled for this LLM instance.
-        """
-        return bool(self._function_calling_active)
 
     def uses_responses_api(self) -> bool:
         """Whether this model uses the OpenAI Responses API path."""
@@ -885,7 +847,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
-            message.function_calling_enabled = self.is_function_calling_active()
+            message.function_calling_enabled = self.native_tool_calling
             if "deepseek" in self.model or (
                 "kimi-k2-instruct" in self.model and "groq" in self.model
             ):
@@ -1036,7 +998,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Copy allowed fields from runtime llm into the persisted llm
         llm_updates = {}
-        persisted_dump = persisted.model_dump(exclude_none=True)
+        persisted_dump = persisted.model_dump(context={"expose_secrets": True})
         for field in self.OVERRIDE_ON_SERIALIZE:
             if field in persisted_dump.keys():
                 llm_updates[field] = getattr(self, field)
@@ -1045,9 +1007,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         else:
             reconciled = persisted
 
-        if self.model_dump(exclude_none=True) != reconciled.model_dump(
-            exclude_none=True
-        ):
+        dump = self.model_dump(context={"expose_secrets": True})
+        reconciled_dump = reconciled.model_dump(context={"expose_secrets": True})
+        if dump != reconciled_dump:
             raise ValueError(
                 "The LLM provided is different from the one in persisted state.\n"
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
