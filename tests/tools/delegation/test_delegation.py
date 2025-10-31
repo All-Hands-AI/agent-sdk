@@ -67,7 +67,7 @@ def test_delegate_observation_creation():
     """Test creating DelegateObservation instances."""
     # Test spawn observation
     spawn_observation = DelegateObservation(
-        cmd="spawn",
+        command="spawn",
         output=[TextContent(text="spawn: Sub-agents created successfully")],
     )
     assert len(spawn_observation.output) == 1
@@ -77,7 +77,7 @@ def test_delegate_observation_creation():
 
     # Test delegate observation
     delegate_observation = DelegateObservation(
-        cmd="delegate",
+        command="delegate",
         output=[
             TextContent(
                 text=(
@@ -114,7 +114,7 @@ def test_delegate_executor_delegate():
 
     with patch.object(executor, "_delegate_tasks") as mock_delegate:
         mock_observation = DelegateObservation(
-            cmd="delegate",
+            command="delegate",
             output=[
                 TextContent(
                     text=(

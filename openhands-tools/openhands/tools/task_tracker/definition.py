@@ -70,17 +70,12 @@ class TaskTrackerAction(Action):
 class TaskTrackerObservation(Observation):
     """This data class represents the result of a task tracking operation."""
 
-    cmd: Literal["view", "plan"] = Field(
+    command: Literal["view", "plan"] = Field(
         description='The command that was executed: "view" or "plan".'
     )
     task_list: list[TaskItem] = Field(
         default_factory=list, description="The current task list"
     )
-
-    @property
-    def command(self) -> Literal["view", "plan"]:
-        """Return the command that was executed, type-narrowed to Literal."""
-        return self.cmd
 
     @property
     def visualize(self) -> Text:
@@ -183,7 +178,7 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
                         )
                     )
                 ],
-                cmd=action.command,
+                command=action.command,
                 task_list=self._task_list,
             )
         elif action.command == "view":
@@ -198,13 +193,13 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
                             )
                         )
                     ],
-                    cmd=action.command,
+                    command=action.command,
                     task_list=[],
                 )
             output = self._format_task_list(self._task_list)
             return TaskTrackerObservation(
                 output=[TextContent(text=output)],
-                cmd=action.command,
+                command=action.command,
                 task_list=self._task_list,
             )
         else:
@@ -213,7 +208,7 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
                     f"Unknown command: {action.command}. "
                     'Supported commands are "view" and "plan".'
                 ),
-                cmd=action.command,
+                command=action.command,
                 task_list=[],
             )
 

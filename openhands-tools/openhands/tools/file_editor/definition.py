@@ -65,17 +65,12 @@ class FileEditorAction(Action):
 class FileEditorObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
-    cmd: CommandLiteral = Field(
+    command: CommandLiteral = Field(
         description=(
             "The command that was run: `view`, `create`, `str_replace`, "
             "`insert`, or `undo_edit`."
         )
     )
-
-    @property
-    def command(self) -> CommandLiteral:
-        """Return the command that was executed, type-narrowed to CommandLiteral."""
-        return self.cmd
 
     path: str | None = Field(default=None, description="The file path that was edited.")
     prev_exist: bool = Field(

@@ -208,14 +208,6 @@ class Observation(Schema, ABC):
     )
 
     @property
-    def command(self) -> str | None:
-        """
-        The command that was executed to produce this observation.
-        Subclasses can override to provide the actual command run.
-        """
-        return None
-
-    @property
     def has_error(self) -> bool:
         """
         Check if the observation indicates an error.
@@ -240,8 +232,6 @@ class Observation(Schema, ABC):
         Errors can be partial so both output and error are included if present.
         """
         llm_content: list[TextContent | ImageContent] = []
-        if self.command:
-            llm_content.append(TextContent(text=f"Executed Command: {self.command}\n"))
         if self.error:
             llm_content.append(self.format_error())
         if self.output:

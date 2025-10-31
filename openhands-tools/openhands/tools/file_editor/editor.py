@@ -110,7 +110,7 @@ class FileEditor:
             self.write_file(_path, file_text)
             self._history_manager.add_history(_path, file_text)
             return FileEditorObservation(
-                cmd=command,
+                command=command,
                 path=str(_path),
                 new_content=file_text,
                 prev_exist=False,
@@ -255,7 +255,7 @@ class FileEditor:
             "file again if necessary."
         )
         return FileEditorObservation(
-            cmd="str_replace",
+            command="str_replace",
             output=[TextContent(text=success_message)],
             prev_exist=True,
             path=str(path),
@@ -315,7 +315,7 @@ class FileEditor:
                     )
                 stdout = "\n".join(msg)
             return FileEditorObservation(
-                cmd="view",
+                command="view",
                 output=[TextContent(text=stdout)],
                 error=stderr,
                 path=str(path),
@@ -332,7 +332,7 @@ class FileEditor:
             output = self._make_output(file_content, str(path), start_line)
 
             return FileEditorObservation(
-                cmd="view",
+                command="view",
                 output=[TextContent(text=output)],
                 path=str(path),
                 prev_exist=True,
@@ -385,7 +385,7 @@ class FileEditor:
             output = f"NOTE: {warning_message}\n{output}"
 
         return FileEditorObservation(
-            cmd="view",
+            command="view",
             path=str(path),
             output=[TextContent(text=output)],
             prev_exist=True,
@@ -498,7 +498,7 @@ class FileEditor:
             "indentation, no duplicate lines, etc). Edit the file again if necessary."
         )
         return FileEditorObservation(
-            cmd="insert",
+            command="insert",
             output=[TextContent(text=success_message)],
             prev_exist=True,
             path=str(path),
@@ -567,7 +567,7 @@ class FileEditor:
         self.write_file(path, old_text)
 
         return FileEditorObservation(
-            cmd="undo_edit",
+            command="undo_edit",
             output=[
                 TextContent(
                     text=(

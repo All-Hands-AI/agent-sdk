@@ -60,7 +60,7 @@ class DelegateExecutor(ToolExecutor):
             return self._delegate_tasks(action)
         else:
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 error=f"Unsupported command: {action.command}. "
                 "Available commands: spawn, delegate",
             )
@@ -77,13 +77,13 @@ class DelegateExecutor(ToolExecutor):
         """
         if not action.ids:
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 error="At least one ID is required for spawn action",
             )
 
         if len(self._sub_agents) + len(action.ids) > self._max_children:
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 error=(
                     f"Cannot spawn {len(action.ids)} agents. "
                     f"Already have {len(self._sub_agents)} agents, "
@@ -118,14 +118,14 @@ class DelegateExecutor(ToolExecutor):
             agent_list = ", ".join(action.ids)
             message = f"Successfully spawned {len(action.ids)} sub-agents: {agent_list}"
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 output=[TextContent(text=message)],
             )
 
         except Exception as e:
             logger.error(f"Error: failed to spawn agents: {e}", exc_info=True)
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 error=f"failed to spawn agents: {str(e)}",
             )
 
@@ -142,7 +142,7 @@ class DelegateExecutor(ToolExecutor):
         """
         if not action.tasks:
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 error="at least one task is required for delegate action",
             )
 
@@ -150,7 +150,7 @@ class DelegateExecutor(ToolExecutor):
         missing_agents = set(action.tasks.keys()) - set(self._sub_agents.keys())
         if missing_agents:
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 error=(
                     f"sub-agents not found: {', '.join(missing_agents)}. "
                     f"Available agents: {', '.join(self._sub_agents.keys())}"
@@ -224,13 +224,13 @@ class DelegateExecutor(ToolExecutor):
                 output_text += f"\n\nResults:\n{results_text}"
 
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 output=[TextContent(text=output_text)],
             )
 
         except Exception as e:
             logger.error(f"Failed to delegate tasks: {e}", exc_info=True)
             return DelegateObservation(
-                cmd=action.command,
+                command=action.command,
                 error=f"failed to delegate tasks: {str(e)}",
             )

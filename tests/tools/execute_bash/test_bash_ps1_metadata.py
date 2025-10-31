@@ -274,7 +274,7 @@ def test_cmd_output_observation_properties():
     # Test with successful command
     metadata = CmdOutputMetadata(exit_code=0, pid=123)
     obs = ExecuteBashObservation(
-        cmd="ls",
+        command="ls",
         output=[TextContent(text="file1\nfile2")],
         exit_code=0,
         metadata=metadata,
@@ -292,7 +292,7 @@ def test_cmd_output_observation_properties():
     # Test with failed command
     metadata = CmdOutputMetadata(exit_code=1, pid=456)
     obs = ExecuteBashObservation(
-        cmd="invalid",
+        command="invalid",
         exit_code=1,
         error="Command failed",
         metadata=metadata,

@@ -121,7 +121,7 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                     )
                 )
             ],
-            cmd="[RESET]",
+            command="[RESET]",
             exit_code=0,
         )
 

@@ -79,7 +79,9 @@ class ExecuteBashAction(Action):
 class ExecuteBashObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
-    cmd: str | None = Field(default=None, description="The command that was executed")
+    command: str | None = Field(
+        default=None, description="The command that was executed"
+    )
     exit_code: int | None = Field(
         default=None,
         description="The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",  # noqa
@@ -91,11 +93,6 @@ class ExecuteBashObservation(Observation):
         default_factory=CmdOutputMetadata,
         description="Additional metadata captured from PS1 after command execution.",
     )
-
-    @property
-    def command(self) -> str | None:
-        """Return the command that was executed."""
-        return self.cmd
 
     @property
     def command_id(self) -> int | None:

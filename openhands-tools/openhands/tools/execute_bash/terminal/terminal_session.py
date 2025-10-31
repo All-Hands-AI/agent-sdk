@@ -188,7 +188,7 @@ class TerminalSession(TerminalSessionBase):
         self.prev_output = ""  # Reset previous command output
         self._ready_for_next_command()
         return ExecuteBashObservation(
-            cmd=command,
+            command=command,
             output=[TextContent(text=command_output)],
             metadata=metadata,
         )
@@ -222,7 +222,7 @@ class TerminalSession(TerminalSessionBase):
             continue_prefix="[Below is the output of the previous command.]\n",
         )
         return ExecuteBashObservation(
-            cmd=command,
+            command=command,
             output=[TextContent(text=command_output)],
             metadata=metadata,
         )
@@ -257,7 +257,7 @@ class TerminalSession(TerminalSessionBase):
             continue_prefix="[Below is the output of the previous command.]\n",
         )
         return ExecuteBashObservation(
-            cmd=command,
+            command=command,
             output=[TextContent(text=command_output)],
             metadata=metadata,
         )
@@ -314,12 +314,12 @@ class TerminalSession(TerminalSessionBase):
         }:
             if command == "":
                 return ExecuteBashObservation(
-                    cmd=command,
+                    command=command,
                     error="No previous running command to retrieve logs from.",
                 )
             if is_input:
                 return ExecuteBashObservation(
-                    cmd=command,
+                    command=command,
                     error="No previous running command to interact with.",
                 )
 
@@ -330,7 +330,7 @@ class TerminalSession(TerminalSessionBase):
                 f"({i + 1}) {cmd}" for i, cmd in enumerate(splited_commands)
             )
             return ExecuteBashObservation(
-                cmd=command,
+                command=command,
                 error=(
                     "Cannot execute multiple commands at once.\n"
                     "Please run each command separately OR chain them into a single "
@@ -387,7 +387,7 @@ class TerminalSession(TerminalSessionBase):
                 continue_prefix="[Below is the output of the previous command.]\n",
             )
             obs = ExecuteBashObservation(
-                cmd=command,
+                command=command,
                 output=[TextContent(text=command_output)],
                 metadata=metadata,
             )
