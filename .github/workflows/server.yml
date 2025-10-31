@@ -185,6 +185,7 @@ jobs:
             GITHUB_SHA: ${{ github.sha }}
             GITHUB_REF: ${{ github.ref }}
             CI: 'true'
+            USE_BLACKSMITH_CACHE: 'true'
 
         steps:
             - name: Checkout

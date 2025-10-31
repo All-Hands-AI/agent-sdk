@@ -428,18 +428,28 @@ def build(opts: BuildOptions) -> list[str]:
     driver = _active_buildx_driver() or "unknown"
     local_cache_dir = _default_local_cache_dir()
     cache_args: list[str] = []
+    use_blacksmith = os.environ.get("USE_BLACKSMITH_CACHE", "").lower() == "true"
 
     if push:
-        # Remote/CI builds: use registry cache + inline for maximum reuse.
-        cache_args += [
-            "--cache-from",
-            f"type=registry,ref={opts.image}:{cache_tag}",
-            "--cache-from",
-            f"type=registry,ref={opts.image}:{cache_tag_base}-main",
-            "--cache-to",
-            f"type=registry,ref={opts.image}:{cache_tag},mode=max",
-        ]
-        logger.info("[build] Cache: registry (remote/CI) + inline")
+        # Remote/CI builds with Blacksmith: Let Blacksmith handle caching
+        # via sticky disks.
+        # See: https://docs.blacksmith.sh/blacksmith-caching/docker-builds
+        if use_blacksmith:
+            logger.info(
+                "[build] Cache: Blacksmith (automatic via sticky disks). "
+                "No explicit --cache-from/--cache-to needed."
+            )
+        else:
+            # Fallback: use registry cache + inline for maximum reuse.
+            cache_args += [
+                "--cache-from",
+                f"type=registry,ref={opts.image}:{cache_tag}",
+                "--cache-from",
+                f"type=registry,ref={opts.image}:{cache_tag_base}-main",
+                "--cache-to",
+                f"type=registry,ref={opts.image}:{cache_tag},mode=max",
+            ]
+            logger.info("[build] Cache: registry (remote/CI) + inline")
     else:
         # Local/dev builds: prefer local dir cache if
         # driver supports it; otherwise inline-only.
