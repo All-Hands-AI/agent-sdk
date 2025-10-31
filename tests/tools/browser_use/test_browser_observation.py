@@ -72,7 +72,7 @@ def test_browser_observation_to_llm_content_with_error():
 
     assert len(agent_obs) == 1
     assert isinstance(agent_obs[0], TextContent)
-    assert agent_obs[0].text == "Error: Test error"
+    assert agent_obs[0].text == "Tool Execution Error: Test error"
 
 
 def test_browser_observation_output_truncation():

@@ -6,6 +6,7 @@ from collections.abc import Generator
 
 import pytest
 
+from openhands.sdk.tool.schema import TextContent
 from openhands.tools.browser_use.definition import (
     BrowserClickAction,
     BrowserCloseTabAction,
@@ -20,6 +21,11 @@ from openhands.tools.browser_use.definition import (
     BrowserTypeAction,
 )
 from openhands.tools.browser_use.impl import BrowserToolExecutor
+
+
+def get_output_text(observation: BrowserObservation) -> str:
+    """Extract text from observation output."""
+    return "".join([c.text for c in observation.output if isinstance(c, TextContent)])
 
 
 # Test HTML content for browser operations
@@ -172,10 +178,8 @@ class TestBrowserExecutorE2E:
 
         assert isinstance(result, BrowserObservation)
         assert result.error is None
-        assert (
-            "successfully" in result.output.lower()
-            or "navigated" in result.output.lower()
-        )
+        output_text = get_output_text(result).lower()
+        assert "successfully" in output_text or "navigated" in output_text
 
     def test_get_state_action(
         self, browser_executor: BrowserToolExecutor, test_server: str
@@ -191,7 +195,7 @@ class TestBrowserExecutorE2E:
 
         assert isinstance(result, BrowserObservation)
         assert result.error is None
-        assert "Browser Test Page" in result.output
+        assert "Browser Test Page" in get_output_text(result)
 
     def test_get_state_with_screenshot(
         self, browser_executor: BrowserToolExecutor, test_server: str
@@ -224,7 +228,7 @@ class TestBrowserExecutorE2E:
 
         # Parse the state to find button index
         # The test button should be indexed in the interactive elements
-        assert "Click Me" in state_result.output
+        assert "Click Me" in get_output_text(state_result)
 
         # Try to click the first interactive element (likely the button)
         click_action = BrowserClickAction(index=0)
@@ -244,7 +248,8 @@ class TestBrowserExecutorE2E:
         state_result = browser_executor(get_state_action)
 
         # Look for input field in the state
-        assert "test-input" in state_result.output or "Type here" in state_result.output
+        state_output = get_output_text(state_result)
+        assert "test-input" in state_output or "Type here" in state_output
 
         # Find the input field index and type into it
         # This assumes the input field is one of the interactive elements
@@ -290,7 +295,7 @@ class TestBrowserExecutorE2E:
 
         assert isinstance(result, BrowserObservation)
         assert result.error is None
-        assert "Browser Test Page" in result.output
+        assert "Browser Test Page" in get_output_text(result)
 
         # Get content with links
         content_with_links_action = BrowserGetContentAction(
@@ -300,7 +305,7 @@ class TestBrowserExecutorE2E:
 
         assert isinstance(result, BrowserObservation)
         assert result.error is None
-        assert "Browser Test Page" in result.output
+        assert "Browser Test Page" in get_output_text(result)
 
     def test_navigate_new_tab(
         self, browser_executor: BrowserToolExecutor, test_server: str
@@ -328,7 +333,7 @@ class TestBrowserExecutorE2E:
         assert isinstance(result, BrowserObservation)
         assert result.error is None
         # Should contain tab information
-        assert len(result.output) > 0
+        assert len(get_output_text(result)) > 0
 
     def test_go_back_action(
         self, browser_executor: BrowserToolExecutor, test_server: str
@@ -370,7 +375,7 @@ class TestBrowserExecutorE2E:
 
         # Parse tab information to get a tab ID
         # This is a simplified approach - in practice you'd parse the JSON response
-        if "tab" in tabs_result.output.lower():
+        if "tab" in get_output_text(tabs_result).lower():
             # Try to switch to first tab (assuming tab ID format)
             switch_action = BrowserSwitchTabAction(tab_id="0")
             result = browser_executor(switch_action)

@@ -525,10 +525,8 @@ class TestConfirmationMode:
             e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
         ]
         assert len(obs_events) == 1
-        assert len(obs_events[0].observation.output) == 1
-        output_block = obs_events[0].observation.output[0]
-        assert isinstance(output_block, TextContent)
-        assert output_block.text == "Task completed successfully!"
+        # FinishObservation should have empty output per base behavior
+        assert len(obs_events[0].observation.output) == 0
 
     def test_think_and_finish_action_skips_confirmation_entirely(self):
         """First step: ThinkAction (skips confirmation). Second step: FinishAction."""
@@ -567,19 +565,13 @@ class TestConfirmationMode:
         ]
         assert len(obs_events) == 2
 
-        # 1) ThinkAction observation
+        # 1) ThinkAction observation - should have empty output per base behavior
         assert hasattr(obs_events[0].observation, "output")
-        assert len(obs_events[0].observation.output) == 1
-        think_output = obs_events[0].observation.output[0]
-        assert isinstance(think_output, TextContent)
-        assert think_output.text == "Your thought has been logged."
+        assert len(obs_events[0].observation.output) == 0
 
-        # 2) FinishAction observation
+        # 2) FinishAction observation - should have empty output per base behavior
         assert hasattr(obs_events[1].observation, "output")
-        assert len(obs_events[1].observation.output) == 1
-        finish_output = obs_events[1].observation.output[0]
-        assert isinstance(finish_output, TextContent)
-        assert finish_output.text == "Analysis complete"
+        assert len(obs_events[1].observation.output) == 0
 
     def test_pause_during_confirmation_preserves_waiting_status(self):
         """Test that pausing during WAITING_FOR_CONFIRMATION preserves the status.

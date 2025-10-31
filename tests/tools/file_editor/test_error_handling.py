@@ -2,7 +2,7 @@
 
 from openhands.tools.file_editor.impl import file_editor
 
-from .conftest import assert_error_result
+from .conftest import assert_error_result, get_output_text
 
 
 def test_validation_error_formatting():
@@ -88,7 +88,7 @@ def test_view_range_validation(temp_file):
     assert result.error is None
     assert (
         "NOTE: We only show up to 3 since there're only 3 lines in this file."
-        in result.output
+        in get_output_text(result)
     )
 
     # Test invalid range order

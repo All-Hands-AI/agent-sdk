@@ -24,8 +24,8 @@ def test_bash_executor_without_conversation():
             result = executor(action)
 
             # Check that the output is not masked (no conversation provided)
-            assert "secret-value-123" in result.output
-            assert "<secret-hidden>" not in result.output
+            assert "secret-value-123" in result.raw_output
+            assert "<secret-hidden>" not in result.raw_output
 
         finally:
             executor.close()
@@ -60,9 +60,9 @@ def test_bash_executor_with_conversation_secrets():
             mock_session = Mock()
             # session.execute returns ExecuteBashObservation
             mock_observation = ExecuteBashObservation(
-                command="echo 'Token: $SECRET_TOKEN, Key: $API_KEY'",
+                cmd="echo 'Token: $SECRET_TOKEN, Key: $API_KEY'",
                 exit_code=0,
-                output="Token: secret-value-123, Key: another-secret-456",
+                raw_output="Token: secret-value-123, Key: another-secret-456",
             )
             mock_session.execute.return_value = mock_observation
             executor.session = mock_session
@@ -77,10 +77,10 @@ def test_bash_executor_with_conversation_secrets():
             assert mock_session.execute.called
 
             # Check that both secrets were masked in the output
-            assert "secret-value-123" not in result.output
-            assert "another-secret-456" not in result.output
+            assert "secret-value-123" not in result.raw_output
+            assert "another-secret-456" not in result.raw_output
             # SecretsManager uses <secret-hidden> as the mask
-            assert "<secret-hidden>" in result.output
+            assert "<secret-hidden>" in result.raw_output
 
         finally:
             executor.close()

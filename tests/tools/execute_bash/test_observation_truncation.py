@@ -18,7 +18,7 @@ def test_execute_bash_observation_truncation_under_limit():
     )
 
     observation = ExecuteBashObservation(
-        output="Short output",
+        raw_output="Short output",
         metadata=metadata,
         error=None,
     )
@@ -52,7 +52,7 @@ def test_execute_bash_observation_truncation_over_limit():
     long_output = "A" * (MAX_CMD_OUTPUT_SIZE + 1000)
 
     observation = ExecuteBashObservation(
-        output=long_output,
+        raw_output=long_output,
         metadata=metadata,
         error=None,
     )
@@ -89,7 +89,7 @@ def test_execute_bash_observation_truncation_with_error():
     long_output = "B" * (MAX_CMD_OUTPUT_SIZE + 500)
 
     observation = ExecuteBashObservation(
-        output=long_output,
+        raw_output=long_output,
         metadata=metadata,
         error="Command failed",
     )
@@ -99,16 +99,8 @@ def test_execute_bash_observation_truncation_with_error():
     assert isinstance(result[0], TextContent)
     result = result[0].text
 
-    # The result should be truncated and have error prefix
-    assert result.startswith("[There was an error during command execution.]")
-    assert len(result) < len(long_output) + 300  # Account for metadata and error prefix
-    # With head-and-tail truncation, should end with original content + metadata
-    expected_end = (
-        "B\n[Current working directory: /test]\n[Python interpreter: /usr/bin/python]\n"
-        "[Command finished with exit code 1]"
-    )
-    assert result.endswith(expected_end)
-    assert "<response clipped>" in result  # Should contain truncation notice
+    # When there's an error, only the error message is returned
+    assert result == "Tool Execution Error: Command failed"
 
 
 def test_execute_bash_observation_truncation_exact_limit():
@@ -132,7 +124,7 @@ def test_execute_bash_observation_truncation_exact_limit():
     exact_output = "C" * exact_output_size
 
     observation = ExecuteBashObservation(
-        output=exact_output,
+        raw_output=exact_output,
         metadata=metadata,
         error=None,
     )
@@ -162,7 +154,7 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
     long_output = "D" * (MAX_CMD_OUTPUT_SIZE + 200)
 
     observation = ExecuteBashObservation(
-        output=long_output,
+        raw_output=long_output,
         metadata=metadata,
         error=None,
     )

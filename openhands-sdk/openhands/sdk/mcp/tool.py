@@ -12,7 +12,6 @@ import mcp.types
 from litellm import ChatCompletionToolParam
 from pydantic import Field, ValidationError
 
-from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
@@ -68,7 +67,6 @@ class MCPToolExecutor(ToolExecutor):
                 error_msg = f"Error calling MCP tool {self.tool_name}: {str(e)}"
                 logger.error(error_msg, exc_info=True)
                 return MCPToolObservation(
-                    content=[TextContent(text=error_msg)],
                     error=error_msg,
                     tool_name=self.tool_name,
                 )
@@ -148,7 +146,6 @@ class MCPToolDefinition(ToolDefinition[MCPToolAction, MCPToolObservation]):
             error_msg = f"Validation error for MCP tool '{self.name}' args: {e}"
             logger.error(error_msg, exc_info=True)
             return MCPToolObservation(
-                content=[TextContent(text=error_msg)],
                 error=error_msg,
                 tool_name=self.name,
             )

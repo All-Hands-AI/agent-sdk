@@ -187,7 +187,8 @@ class TerminalSession(TerminalSessionBase):
         self.prev_output = ""  # Reset previous command output
         self._ready_for_next_command()
         return ExecuteBashObservation(
-            output=command_output,
+            cmd=command,
+            raw_output=command_output,
             metadata=metadata,
         )
 
@@ -220,7 +221,8 @@ class TerminalSession(TerminalSessionBase):
             continue_prefix="[Below is the output of the previous command.]\n",
         )
         return ExecuteBashObservation(
-            output=command_output,
+            cmd=command,
+            raw_output=command_output,
             metadata=metadata,
         )
 
@@ -254,7 +256,8 @@ class TerminalSession(TerminalSessionBase):
             continue_prefix="[Below is the output of the previous command.]\n",
         )
         return ExecuteBashObservation(
-            output=command_output,
+            cmd=command,
+            raw_output=command_output,
             metadata=metadata,
         )
 
@@ -310,10 +313,12 @@ class TerminalSession(TerminalSessionBase):
         }:
             if command == "":
                 return ExecuteBashObservation(
+                    cmd=command,
                     error="No previous running command to retrieve logs from.",
                 )
             if is_input:
                 return ExecuteBashObservation(
+                    cmd=command,
                     error="No previous running command to interact with.",
                 )
 
@@ -324,6 +329,7 @@ class TerminalSession(TerminalSessionBase):
                 f"({i + 1}) {cmd}" for i, cmd in enumerate(splited_commands)
             )
             return ExecuteBashObservation(
+                cmd=command,
                 error=(
                     "Cannot execute multiple commands at once.\n"
                     "Please run each command separately OR chain them into a single "
@@ -380,7 +386,8 @@ class TerminalSession(TerminalSessionBase):
                 continue_prefix="[Below is the output of the previous command.]\n",
             )
             obs = ExecuteBashObservation(
-                output=command_output,
+                cmd=command,
+                raw_output=command_output,
                 metadata=metadata,
             )
             logger.debug(f"RETURNING OBSERVATION (previous-command): {obs}")

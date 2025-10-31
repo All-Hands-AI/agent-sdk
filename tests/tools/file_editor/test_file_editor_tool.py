@@ -16,6 +16,8 @@ from openhands.tools.file_editor import (
     FileEditorTool,
 )
 
+from .conftest import get_output_text
+
 
 def _create_test_conv_state(temp_dir: str) -> ConversationState:
     """Helper to create a test conversation state."""
@@ -95,9 +97,9 @@ def test_file_editor_tool_view_file():
         assert result is not None
         assert isinstance(result, FileEditorObservation)
         assert not result.error
-        assert "Line 1" in result.output
-        assert "Line 2" in result.output
-        assert "Line 3" in result.output
+        assert "Line 1" in get_output_text(result)
+        assert "Line 2" in get_output_text(result)
+        assert "Line 3" in get_output_text(result)
 
 
 def test_file_editor_tool_str_replace():
@@ -178,8 +180,8 @@ def test_file_editor_tool_view_directory():
         assert result is not None
         assert isinstance(result, FileEditorObservation)
         assert not result.error
-        assert "file1.txt" in result.output
-        assert "file2.txt" in result.output
+        assert "file1.txt" in get_output_text(result)
+        assert "file2.txt" in get_output_text(result)
 
 
 def test_file_editor_tool_includes_working_directory_in_description():

@@ -76,8 +76,6 @@ class MCPToolObservation(Observation):
 
         # Build initial message
         initial_message = f"[Tool '{tool_name}' executed.]"
-        if result.isError:
-            initial_message += "\n[An error occurred during execution.]"
 
         # Prepend initial message to content
         content_with_header = [TextContent(text=initial_message)] + converted_content

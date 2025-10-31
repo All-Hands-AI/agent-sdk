@@ -43,6 +43,13 @@ class DelegateAction(Action):
 class DelegateObservation(Observation):
     """Observation from delegation operations."""
 
+    cmd: CommandLiteral = Field(description="The command that was executed")
+
+    @property
+    def command(self) -> CommandLiteral:
+        """Return the command that was executed, type-narrowed to CommandLiteral."""
+        return self.cmd
+
 
 TOOL_DESCRIPTION = """Delegation tool for spawning sub-agents and delegating tasks to them.
 

@@ -59,7 +59,6 @@ class TestMCPToolObservation:
         assert observation.tool_name == "test_tool"
         assert observation.error is not None
         assert "[Tool 'test_tool' executed.]" in observation.error
-        assert "[An error occurred during execution.]" in observation.error
         assert "Operation failed" in observation.error
         assert len(observation.output) == 0
         assert observation.has_error is True

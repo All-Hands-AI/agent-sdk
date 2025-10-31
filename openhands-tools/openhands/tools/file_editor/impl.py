@@ -44,7 +44,7 @@ class FileEditorExecutor(ToolExecutor):
             action_path = Path(action.path).resolve()
             if action_path not in self.allowed_edits_files:
                 return FileEditorObservation(
-                    command=action.command,
+                    cmd=action.command,
                     error=f"Operation '{action.command}' is not allowed "
                     f"on file '{action_path}'. "
                     f"Only the following files can be edited: "
@@ -63,7 +63,7 @@ class FileEditorExecutor(ToolExecutor):
                 insert_line=action.insert_line,
             )
         except ToolError as e:
-            result = FileEditorObservation(command=action.command, error=e.message)
+            result = FileEditorObservation(cmd=action.command, error=e.message)
         assert result is not None, "file_editor should always return a result"
         return result
 
@@ -95,6 +95,6 @@ def file_editor(
             insert_line=insert_line,
         )
     except ToolError as e:
-        result = FileEditorObservation(command=command, error=e.message)
+        result = FileEditorObservation(cmd=command, error=e.message)
     assert result is not None, "file_editor should always return a result"
     return result

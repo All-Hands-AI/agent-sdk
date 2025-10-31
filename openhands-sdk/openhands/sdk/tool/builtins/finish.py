@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.llm.message import TextContent
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
@@ -54,10 +53,10 @@ The message should include:
 class FinishExecutor(ToolExecutor):
     def __call__(
         self,
-        action: FinishAction,
+        action: FinishAction,  # noqa: ARG002
         conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> FinishObservation:
-        return FinishObservation(output=[TextContent(text=action.message)])
+        return FinishObservation()
 
 
 FinishTool = ToolDefinition(

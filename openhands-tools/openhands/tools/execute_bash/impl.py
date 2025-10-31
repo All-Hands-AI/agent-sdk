@@ -112,11 +112,11 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
         )
 
         return ExecuteBashObservation(
-            output=(
+            raw_output=(
                 "Terminal session has been reset. All previous environment "
                 "variables and session state have been cleared."
             ),
-            command="[RESET]",
+            cmd="[RESET]",
             exit_code=0,
         )
 
@@ -143,10 +143,10 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                 command_result = self.session.execute(command_action)
                 observation = command_result.model_copy(
                     update={
-                        "output": (
-                            reset_result.output + "\n\n" + command_result.output
+                        "raw_output": (
+                            reset_result.raw_output + "\n\n" + command_result.raw_output
                         ),
-                        "command": f"[RESET] {action.command}",
+                        "cmd": f"[RESET] {action.command}",
                     }
                 )
             else:
@@ -158,15 +158,15 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             observation = self.session.execute(action)
 
         # Apply automatic secrets masking
-        if observation.output and conversation is not None:
+        if observation.raw_output and conversation is not None:
             try:
                 secret_registry = conversation.state.secret_registry
                 masked_output = secret_registry.mask_secrets_in_output(
-                    observation.output
+                    observation.raw_output
                 )
                 if masked_output:
-                    data = observation.model_dump(exclude={"output"})
-                    return ExecuteBashObservation(**data, output=masked_output)
+                    data = observation.model_dump(exclude={"raw_output"})
+                    return ExecuteBashObservation(**data, raw_output=masked_output)
             except Exception:
                 pass
 

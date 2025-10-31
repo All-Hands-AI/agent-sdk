@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.llm.message import TextContent
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
@@ -69,9 +68,7 @@ class ThinkExecutor(ToolExecutor):
         _: ThinkAction,
         conversation: "BaseConversation | None" = None,  # noqa: ARG002
     ) -> ThinkObservation:
-        return ThinkObservation(
-            output=[TextContent(text="Your thought has been logged.")]
-        )
+        return ThinkObservation()
 
 
 ThinkTool = ToolDefinition(

@@ -6,7 +6,7 @@ from openhands.tools.file_editor.definition import (
     FileEditorObservation,
 )
 
-from .conftest import assert_successful_result
+from .conftest import assert_successful_result, get_output_text
 
 
 def test_view_pdf_file():
@@ -74,12 +74,16 @@ startxref
 
         assert isinstance(result, FileEditorObservation)
         assert_successful_result(result)
-        assert f"Here's the result of running `cat -n` on {test_file}" in result.output
+        assert (
+            f"Here's the result of running `cat -n` on {test_file}"
+            in get_output_text(result)
+        )
 
         # Check for specific content present in the PDF
-        assert (
-            result.output is not None
-            and "Printer-Friendly Caltrain Schedule" in result.output
+        assert get_output_text(
+            result
+        ) is not None and "Printer-Friendly Caltrain Schedule" in get_output_text(
+            result
         )
     finally:
         # Clean up the temporary file

@@ -35,10 +35,14 @@ class BrowserObservation(Observation):
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.error:
-            return [TextContent(text=f"Error: {self.error}")]
+            return [TextContent(text=f"Tool Execution Error: {self.error}")]
 
+        # Extract text from output list
+        output_text = "".join(
+            [c.text for c in self.output if isinstance(c, TextContent)]
+        )
         content: list[TextContent | ImageContent] = [
-            TextContent(text=maybe_truncate(self.output, MAX_BROWSER_OUTPUT_SIZE))
+            TextContent(text=maybe_truncate(output_text, MAX_BROWSER_OUTPUT_SIZE))
         ]
 
         if self.screenshot_data:

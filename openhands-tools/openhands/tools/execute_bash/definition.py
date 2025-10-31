@@ -79,7 +79,9 @@ class ExecuteBashAction(Action):
 class ExecuteBashObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
-    output: str = ""  # type: ignore[assignment]
+    # Internal string output field (raw command output)
+    raw_output: str = Field(default="", description="Raw command output string")
+    cmd: str | None = Field(default=None, description="The command that was executed")
     exit_code: int | None = Field(
         default=None,
         description="The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",  # noqa
@@ -93,6 +95,11 @@ class ExecuteBashObservation(Observation):
     )
 
     @property
+    def command(self) -> str | None:
+        """Return the command that was executed."""
+        return self.cmd
+
+    @property
     def command_id(self) -> int | None:
         """Get the command ID from metadata."""
         return self.metadata.pid
@@ -103,7 +110,7 @@ class ExecuteBashObservation(Observation):
             # When there's an error, format it appropriately
             return [TextContent(text=f"Tool Execution Error: {self.error}")]
 
-        ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
+        ret = f"{self.metadata.prefix}{self.raw_output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
         if self.metadata.py_interpreter_path:
@@ -123,9 +130,9 @@ class ExecuteBashObservation(Observation):
             content.append("Command execution error\n", style="red")
 
         # Add command output with proper styling
-        if self.output:
+        if self.raw_output:
             # Style the output based on content
-            output_lines = self.output.split("\n")
+            output_lines = self.raw_output.split("\n")
             for line in output_lines:
                 if line.strip():
                     # Color error-like lines differently

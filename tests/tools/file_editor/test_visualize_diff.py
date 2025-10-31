@@ -20,7 +20,7 @@ def test_visualize_diff_simple_replacement():
     return True"""
 
     observation = FileEditorObservation(
-        command="str_replace",
+        cmd="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
@@ -50,7 +50,7 @@ def test_visualize_diff_no_changes():
     return True"""
 
     observation = FileEditorObservation(
-        command="str_replace",
+        cmd="str_replace",
         path="/test/file.py",
         old_content=content,
         new_content=content,
@@ -93,7 +93,7 @@ def main():
     calculate(x, y)"""
 
     observation = FileEditorObservation(
-        command="str_replace",
+        cmd="str_replace",
         path="/test/calc.py",
         old_content=old_content,
         new_content=new_content,
@@ -121,7 +121,7 @@ def test_visualize_diff_attempted_edit():
     new_content = "new line"
 
     observation = FileEditorObservation(
-        command="str_replace",
+        cmd="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
@@ -149,7 +149,7 @@ def test_visualize_diff_caching():
     new_content = "new line"
 
     observation = FileEditorObservation(
-        command="str_replace",
+        cmd="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
@@ -190,7 +190,7 @@ line6
 line7"""
 
     observation = FileEditorObservation(
-        command="str_replace",
+        cmd="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
@@ -232,7 +232,7 @@ new_line2
 line3"""
 
     observation = FileEditorObservation(
-        command="str_replace",
+        cmd="str_replace",
         path="/test/file.py",
         old_content=old_content,
         new_content=new_content,
@@ -280,7 +280,7 @@ def test_get_edit_groups_no_content():
 def test_visualize_diff_none_content():
     """Test visualize_diff when content is None."""
     observation = FileEditorObservation(
-        command="str_replace",
+        cmd="str_replace",
         path="/test/file.py",
         old_content=None,
         new_content=None,

@@ -273,7 +273,7 @@ def test_cmd_output_observation_properties():
     # Test with successful command
     metadata = CmdOutputMetadata(exit_code=0, pid=123)
     obs = ExecuteBashObservation(
-        command="ls", output="file1\nfile2", exit_code=0, metadata=metadata
+        cmd="ls", raw_output="file1\nfile2", exit_code=0, metadata=metadata
     )
     assert obs.command_id == 123
     assert obs.exit_code == 0
@@ -288,8 +288,8 @@ def test_cmd_output_observation_properties():
     # Test with failed command
     metadata = CmdOutputMetadata(exit_code=1, pid=456)
     obs = ExecuteBashObservation(
-        command="invalid",
-        output="error",
+        cmd="invalid",
+        raw_output="",
         exit_code=1,
         error="Command failed",
         metadata=metadata,
@@ -299,7 +299,8 @@ def test_cmd_output_observation_properties():
     assert obs.has_error
     assert len(obs.to_llm_content) == 1
     assert isinstance(obs.to_llm_content[0], TextContent)
-    assert "exit code 1" in obs.to_llm_content[0].text
+    # When there's an error, only error message is returned
+    assert "Tool Execution Error: Command failed" == obs.to_llm_content[0].text
     assert obs.has_error
 
 
