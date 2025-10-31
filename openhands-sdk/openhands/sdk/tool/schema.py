@@ -209,6 +209,14 @@ class Observation(Schema, ABC):
     )
 
     @property
+    def command(self) -> str | None:
+        """
+        The command that was executed to produce this observation.
+        Subclasses can override to provide the actual command run.
+        """
+        return None
+
+    @property
     def has_error(self) -> bool:
         # Support both string and boolean-style error flags across subclasses.
         # Using bool() handles: None/""/False -> False; non-empty str/True -> True.
@@ -218,19 +226,24 @@ class Observation(Schema, ABC):
     def result_status(self) -> ObservationStatus:
         return ObservationStatus.ERROR if self.has_error else ObservationStatus.SUCCESS
 
-    def _format_error(self) -> list[TextContent | ImageContent]:
-        return [TextContent(text=f"Tool Execution Error: {self.error}")]
+    def _format_error(self) -> TextContent:
+        return TextContent(text=f"Tool Execution Error: {self.error}")
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        """Default content formatting prioritizing error then output.
-
-        Subclasses can override to provide richer content (e.g., images, diffs),
-        but should preserve the error-first convention.
         """
+        Default content formatting for converting observation to LLM readable content.
+        Subclasses can override to provide richer content (e.g., images, diffs).
+        Errors can be partial so both output and error are included if present.
+        """
+        llm_content: list[TextContent | ImageContent] = []
+        if self.command:
+            llm_content.append(TextContent(text=f"Executed Command: {self.command}\n"))
         if self.error:
-            return self._format_error()
-        return self.output
+            llm_content.append(self._format_error())
+        if self.output:
+            llm_content.extend(self.output)
+        return llm_content
 
     @property
     def visualize(self) -> Text:
