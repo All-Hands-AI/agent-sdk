@@ -196,7 +196,6 @@ class ObservationStatus(str, Enum):
 class Observation(Schema, ABC):
     """Base schema for output observation."""
 
-    # Standardized primary output and error handling
     output: list[TextContent | ImageContent] = Field(
         default_factory=list,
         description=(
@@ -218,12 +217,15 @@ class Observation(Schema, ABC):
 
     @property
     def has_error(self) -> bool:
-        # Support both string and boolean-style error flags across subclasses.
-        # Using bool() handles: None/""/False -> False; non-empty str/True -> True.
+        """
+        Check if the observation indicates an error.
+        """
         return bool(self.error)
 
     @property
     def result_status(self) -> ObservationStatus:
+        """
+        Get the observation result status based on presence of error."""
         return ObservationStatus.ERROR if self.has_error else ObservationStatus.SUCCESS
 
     def format_error(self) -> TextContent:
