@@ -668,7 +668,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 ret = litellm_completion(
                     model=self.model,
                     api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    base_url=self.base_url,
+                    api_base=self.base_url,
                     api_version=self.api_version,
                     timeout=self.timeout,
                     drop_params=self.drop_params,
