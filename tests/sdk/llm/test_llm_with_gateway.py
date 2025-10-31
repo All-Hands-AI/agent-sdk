@@ -41,9 +41,7 @@ class TestHeaderInjection:
     @patch("openhands.sdk.llm.llm.litellm_completion")
     def test_headers_passed_to_litellm(self, mock_completion) -> None:
         llm = create_llm(custom_headers={"X-Test": "value"})
-        mock_completion.return_value = create_mock_litellm_response(
-            content="Hello!"
-        )
+        mock_completion.return_value = create_mock_litellm_response(content="Hello!")
 
         messages = [Message(role="user", content=[TextContent(text="Hi")])]
         response = llm.completion(messages)
@@ -53,14 +51,14 @@ class TestHeaderInjection:
         assert headers["X-Test"] == "value"
 
         # Ensure we still surface the underlying content.
-        assert response.message.content[0].text == "Hello!"
+        content = response.message.content[0]
+        assert isinstance(content, TextContent)
+        assert content.text == "Hello!"
 
     @patch("openhands.sdk.llm.llm.litellm_completion")
     def test_headers_merge_existing_extra_headers(self, mock_completion) -> None:
         llm = create_llm(custom_headers={"X-Test": "value"})
-        mock_completion.return_value = create_mock_litellm_response(
-            content="Merged!"
-        )
+        mock_completion.return_value = create_mock_litellm_response(content="Merged!")
 
         messages = [Message(role="user", content=[TextContent(text="Hi")])]
         llm.completion(messages, extra_headers={"Existing": "1"})
