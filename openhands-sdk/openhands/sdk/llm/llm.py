@@ -419,7 +419,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             LLMTimeoutError,
             LLMServiceUnavailableError,
             LLMBadRequestError,
-            LLMNoResponseError,
         )
 
         # First, explicit context window detection
