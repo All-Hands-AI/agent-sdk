@@ -73,9 +73,9 @@ class GrepObservation(Observation):
 
 class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
     def __init__(self, bash: BashExecutor):
-        self.bash = bash
+        self.bash: BashExecutor = bash
 
-    def __call__(self, action: GrepAction) -> GrepObservation:
+    def __call__(self, action: GrepAction, conversation=None) -> GrepObservation:  # noqa: ARG002
         root = os.path.abspath(action.path)
         pat = shlex.quote(action.pattern)
         root_q = shlex.quote(root)
@@ -121,7 +121,7 @@ assert api_key is not None, "LLM_API_KEY environment variable is not set."
 model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
 base_url = os.getenv("LLM_BASE_URL")
 llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),

@@ -15,7 +15,7 @@ def mock_llm():
     return LLM(
         model="gpt-4o",
         api_key=SecretStr("test-key"),
-        service_id="test-llm",
+        usage_id="test-llm",
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -27,7 +27,7 @@ def mock_tool():
     """Create a mock tool for testing."""
 
     class MockExecutor(ToolExecutor):
-        def __call__(self, action):
+        def __call__(self, action, conversation=None):
             return MagicMock(output="mock output", metadata=MagicMock(exit_code=0))
 
     # Create a simple mock tool without complex dependencies

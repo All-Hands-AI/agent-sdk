@@ -27,7 +27,7 @@ base_url = os.getenv("LLM_BASE_URL")
 
 # Create LLM instance
 main_llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
@@ -69,7 +69,7 @@ for i, message in enumerate(llm_messages):
     print(f"Message {i}: {str(message)[:200]}")
 
 print("=" * 100)
-print(f"LLM Registry services: {llm_registry.list_services()}")
+print(f"LLM Registry usage IDs: {llm_registry.list_usage_ids()}")
 
 # Demonstrate getting the same LLM instance from registry
 same_llm = llm_registry.get("agent")
@@ -82,8 +82,9 @@ completion_response = llm.completion(
     ]
 )
 # Access the response content
-if completion_response.choices and completion_response.choices[0].message:  # type: ignore
-    content = completion_response.choices[0].message.content  # type: ignore
+raw_response = completion_response.raw_response
+if raw_response.choices and raw_response.choices[0].message:  # type: ignore
+    content = raw_response.choices[0].message.content  # type: ignore
     print(f"Direct completion response: {content}")
 else:
     print("No response content available")
