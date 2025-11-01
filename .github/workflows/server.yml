@@ -233,6 +233,7 @@ jobs:
                   fi
 
                   echo "build_context=$BUILD_CTX" >> $GITHUB_OUTPUT
+                  echo "dockerfile=$BUILD_CTX/Dockerfile" >> $GITHUB_OUTPUT
 
                   # Compute tags and metadata
                   SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
