@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolDefinition
+from openhands.sdk.tool import Action, Observation, ToolAnnotations, ToolBase
 
 
 class GrepAction(Action):
@@ -95,8 +95,8 @@ TOOL_DESCRIPTION = """Fast content search tool.
 """  # noqa
 
 
-class GrepTool(ToolDefinition[GrepAction, GrepObservation]):
-    """A ToolDefinition subclass that automatically initializes a GrepExecutor."""
+class GrepTool(ToolBase[GrepAction, GrepObservation]):
+    """A ToolBase subclass that automatically initializes a GrepExecutor."""
 
     @classmethod
     def create(
@@ -127,7 +127,7 @@ class GrepTool(ToolDefinition[GrepAction, GrepObservation]):
             f"When searching for content, searches are performed in this directory."
         )
 
-        # Initialize the parent ToolDefinition with the executor
+        # Initialize the parent ToolBase with the executor
         return [
             cls(
                 name="grep",

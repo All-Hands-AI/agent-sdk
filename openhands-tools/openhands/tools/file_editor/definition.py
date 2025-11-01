@@ -15,7 +15,7 @@ from openhands.sdk.tool import (
     Action,
     Observation,
     ToolAnnotations,
-    ToolDefinition,
+    ToolBase,
 )
 from openhands.tools.file_editor.utils.diff import visualize_diff
 
@@ -187,7 +187,7 @@ Remember: when making multiple file edits in a row to the same file, you should 
 """  # noqa: E501
 
 
-file_editor_tool = ToolDefinition(
+file_editor_tool = ToolBase(
     name="str_replace_editor",
     action_type=FileEditorAction,
     observation_type=FileEditorObservation,
@@ -202,8 +202,8 @@ file_editor_tool = ToolDefinition(
 )
 
 
-class FileEditorTool(ToolDefinition[FileEditorAction, FileEditorObservation]):
-    """A ToolDefinition subclass that automatically initializes a FileEditorExecutor."""
+class FileEditorTool(ToolBase[FileEditorAction, FileEditorObservation]):
+    """A ToolBase subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
     def create(
