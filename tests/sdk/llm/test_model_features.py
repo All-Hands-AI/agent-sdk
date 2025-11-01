@@ -210,3 +210,19 @@ def test_supports_stop_words_false_models(model):
     """Test models that don't support stop words."""
     features = get_features(model)
     assert features.supports_stop_words is False
+
+
+@pytest.mark.parametrize(
+    "model,expected_responses",
+    [
+        ("gpt-5", True),
+        ("openai/gpt-5-mini", True),
+        ("codex-mini-latest", True),
+        ("openai/codex-mini-latest", True),
+        ("gpt-4o", False),
+        ("unknown-model", False),
+    ],
+)
+def test_responses_api_support(model, expected_responses):
+    features = get_features(model)
+    assert features.supports_responses_api is expected_responses
