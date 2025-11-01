@@ -113,6 +113,7 @@ RESPONSES_API_PATTERNS: list[str] = [
 
 
 def get_features(model: str) -> ModelFeatures:
+    """Get model features."""
     return ModelFeatures(
         supports_function_calling=model_matches(model, FUNCTION_CALLING_PATTERNS),
         supports_reasoning_effort=model_matches(model, REASONING_EFFORT_PATTERNS),
