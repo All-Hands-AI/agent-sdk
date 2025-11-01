@@ -219,7 +219,8 @@ jobs:
                   uv sync --frozen
 
                   # Generate build context using the build script (build-ctx-only mode)
-                  BUILD_CTX=$(uv run ./openhands-agent-server/openhands/agent_server/docker/build.py --build-ctx-only)
+                  # Redirect stderr to avoid warnings polluting the output
+                  BUILD_CTX=$(uv run ./openhands-agent-server/openhands/agent_server/docker/build.py --build-ctx-only 2>&1 | grep -v "warning:" | tail -n 1)
                   echo "build_context=$BUILD_CTX" >> $GITHUB_OUTPUT
 
                   # Compute tags and metadata
