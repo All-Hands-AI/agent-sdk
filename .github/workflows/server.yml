@@ -219,8 +219,19 @@ jobs:
                   uv sync --frozen
 
                   # Generate build context using the build script (build-ctx-only mode)
-                  # Redirect stderr to avoid warnings polluting the output
-                  BUILD_CTX=$(uv run ./openhands-agent-server/openhands/agent_server/docker/build.py --build-ctx-only 2>&1 | grep -v "warning:" | tail -n 1)
+                  # Filter out all non-path lines (logs, warnings, etc.) and extract just the directory path
+                  BUILD_CTX=$(uv run ./openhands-agent-server/openhands/agent_server/docker/build.py --build-ctx-only 2>&1 | \
+                      grep -v "DeprecationWarning" | \
+                      grep -v "warning:" | \
+                      grep -v "^{" | \
+                      grep "^/tmp/" | \
+                      head -n 1)
+
+                  if [ -z "$BUILD_CTX" ] || [ ! -d "$BUILD_CTX" ]; then
+                      echo "Error: Failed to get valid build context directory"
+                      exit 1
+                  fi
+
                   echo "build_context=$BUILD_CTX" >> $GITHUB_OUTPUT
 
                   # Compute tags and metadata
