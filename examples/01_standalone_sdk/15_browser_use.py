@@ -10,7 +10,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.tool import Tool, register_tool
+from openhands.sdk.tool import Tool
 from openhands.tools.browser_use import BrowserToolSet
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.file_editor import FileEditorTool
@@ -32,15 +32,12 @@ llm = LLM(
 
 # Tools
 cwd = os.getcwd()
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
-register_tool("BrowserToolSet", BrowserToolSet)
 tools = [
     Tool(
-        name="BashTool",
+        name=BashTool.tool_name,
     ),
-    Tool(name="FileEditorTool"),
-    Tool(name="BrowserToolSet"),
+    Tool(name=FileEditorTool.tool_name),
+    Tool(name=BrowserToolSet.tool_name),
 ]
 
 # If you need fine-grained browser control, you can manually register individual browser
@@ -67,7 +64,6 @@ conversation.send_message(
     "points of the latest blog?"
 )
 conversation.run()
-
 
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")

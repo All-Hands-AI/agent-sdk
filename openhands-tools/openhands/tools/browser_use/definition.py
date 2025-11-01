@@ -11,6 +11,7 @@ from openhands.sdk.tool import (
     Observation,
     ToolAnnotations,
     ToolDefinition,
+    register_tool,
 )
 from openhands.sdk.tool.tool import ToolBase
 from openhands.sdk.utils import maybe_truncate
@@ -641,3 +642,7 @@ class BrowserToolSet(ToolBase[BrowserAction, BrowserObservation]):
             browser_switch_tab_tool.set_executor(executor),
             browser_close_tab_tool.set_executor(executor),
         ]
+
+
+# Automatically register the tool when this module is imported
+register_tool(BrowserToolSet.tool_name, BrowserToolSet)

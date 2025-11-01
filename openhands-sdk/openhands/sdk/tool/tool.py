@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, Self, TypeVar
@@ -33,6 +34,20 @@ if TYPE_CHECKING:
 ActionT = TypeVar("ActionT", bound=Action)
 ObservationT = TypeVar("ObservationT", bound=Observation)
 _action_types_with_risk: dict[type, type] = {}
+
+
+def _camel_to_snake(name: str) -> str:
+    """Convert CamelCase to snake_case.
+
+    Examples:
+        BashTool -> bash_tool
+        FileEditorTool -> file_editor_tool
+        XMLHttpRequest -> xml_http_request
+    """
+    # Insert underscore before uppercase letters (except the first one)
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    # Insert underscore before uppercase letters that follow lowercase letters
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
 class ToolAnnotations(BaseModel):
@@ -134,6 +149,16 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         frozen=True, arbitrary_types_allowed=True
     )
+
+    # Automatic tool naming - set by __init_subclass__
+    tool_name: ClassVar[str | None] = None
+
+    def __init_subclass__(cls, **kwargs):
+        """Automatically set tool_name from class name when subclass is created."""
+        super().__init_subclass__(**kwargs)
+        # Only set automatically if not explicitly defined in the current class
+        if "tool_name" not in cls.__dict__:
+            cls.tool_name = _camel_to_snake(cls.__name__)
 
     name: str
     description: str
