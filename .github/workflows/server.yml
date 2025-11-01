@@ -145,7 +145,7 @@ jobs:
                   make test-server-schema
 
     build-and-push-image:
-        name: Build & Push
+        name: Build & Push (${{ matrix.variant }}-${{ matrix.arch }})
         # Run on push events and pull requests from the same repository (not forks)
         # Fork PRs cannot push to GHCR and would fail authentication
         if: >
@@ -155,33 +155,41 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
+                # Build each platform on native hardware for maximum performance
+                variant: [python, java, golang]
+                arch: [amd64, arm64]
                 include:
                     # Python + Node.js variant
-                    - name: python
-                      runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64,linux/arm64
+                    - variant: python
                       base_image: nikolaik/python-nodejs:python3.12-nodejs22
 
                     # Java variant (OpenJDK base)
-                    - name: java
-                      runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64,linux/arm64
+                    - variant: java
                       base_image: eclipse-temurin:17-jdk
 
                     # Golang variant (Go base)
-                    - name: golang
-                      runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64,linux/arm64
+                    - variant: golang
                       base_image: golang:1.21-bookworm
+
+                    # amd64 uses standard x86_64 runners
+                    - arch: amd64
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platform: linux/amd64
+
+                    # arm64 uses ARM-specific runners
+                    - arch: arm64
+                      runner: blacksmith-8vcpu-ubuntu-2404-arm
+                      platform: linux/arm64
 
         runs-on: ${{ matrix.runner }}
 
         env:
             IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/openhands/agent-server' }}
             BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
-            CUSTOM_TAGS: ${{ matrix.name }}
+            VARIANT: ${{ matrix.variant }}
+            ARCH: ${{ matrix.arch }}
             TARGET: binary
-            PLATFORMS: ${{ matrix.platforms }}
+            PLATFORM: ${{ matrix.platform }}
             GITHUB_SHA: ${{ github.sha }}
             GITHUB_REF: ${{ github.ref }}
             CI: 'true'
@@ -195,7 +203,7 @@ jobs:
               with:
                   version: latest
 
-            - name: Set up Docker Buildx
+            - name: Set up Docker Buildx with Blacksmith
               uses: useblacksmith/setup-docker-builder@v1
 
             - name: Log in to GHCR
@@ -205,43 +213,148 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Build & Push (${{ matrix.name }})
-              id: build
+            - name: Prepare build context and metadata
+              id: prep
               run: |
                   uv sync --frozen
-                  uv run ./openhands-agent-server/openhands/agent_server/docker/build.py
 
-            - name: Summary (${{ matrix.name }}) - outputs
+                  # Generate build context using the build script (build-ctx-only mode)
+                  BUILD_CTX=$(uv run ./openhands-agent-server/openhands/agent_server/docker/build.py --build-ctx-only)
+                  echo "build_context=$BUILD_CTX" >> $GITHUB_OUTPUT
+
+                  # Compute tags and metadata
+                  SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+                  echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+                  # Build per-architecture tags for this variant
+                  # Format: image:sha-variant-arch (e.g., image:abc1234-python-amd64)
+                  TAGS="${IMAGE}:${SHORT_SHA}-${VARIANT}-${ARCH}"
+
+                  # Add latest tags for main branch
+                  if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+                      TAGS="${TAGS},${IMAGE}:latest-${VARIANT}-${ARCH}"
+                  fi
+
+                  echo "tags=$TAGS" >> $GITHUB_OUTPUT
+                  echo "dockerfile=$BUILD_CTX/Dockerfile" >> $GITHUB_OUTPUT
+                  echo "variant_arch=${VARIANT}-${ARCH}" >> $GITHUB_OUTPUT
+
+            - name: Build & Push with Blacksmith (${{ matrix.variant }}-${{ matrix.arch }})
+              id: build
+              uses: useblacksmith/build-push-action@v2
+              with:
+                  context: ${{ steps.prep.outputs.build_context }}
+                  file: ${{ steps.prep.outputs.dockerfile }}
+                  target: ${{ env.TARGET }}
+                  platforms: ${{ env.PLATFORM }}
+                  push: true
+                  tags: ${{ steps.prep.outputs.tags }}
+                  build-args: |
+                      BASE_IMAGE=${{ env.BASE_IMAGE }}
+
+            - name: Cleanup build context
+              if: always()
               run: |
-                  echo "Image: ${{ steps.build.outputs.image }}"
-                  echo "Short SHA: ${{ steps.build.outputs.short_sha }}"
-                  echo "Versioned Tag: ${{ steps.build.outputs.versioned_tag }}"
-                  echo "Multiline tags:"
-                  echo "${{ steps.build.outputs.tags }}"
+                  if [ -n "${{ steps.prep.outputs.build_context }}" ] && [ -d "${{ steps.prep.outputs.build_context }}" ]; then
+                      echo "Cleaning up build context: ${{ steps.prep.outputs.build_context }}"
+                      rm -rf "${{ steps.prep.outputs.build_context }}"
+                  fi
+
+            - name: Summary (${{ matrix.variant }}-${{ matrix.arch }}) - outputs
+              run: |
+                  echo "Image: ${{ env.IMAGE }}"
+                  echo "Variant: ${{ env.VARIANT }}"
+                  echo "Architecture: ${{ env.ARCH }}"
+                  echo "Platform: ${{ env.PLATFORM }}"
+                  echo "Short SHA: ${{ steps.prep.outputs.short_sha }}"
+                  echo "Tags: ${{ steps.prep.outputs.tags }}"
+                  echo "Build digest: ${{ steps.build.outputs.digest }}"
 
             - name: Save build info for consolidation
               run: |
                   mkdir -p build-info
-                  cat > "build-info/${{ matrix.name }}.json" << EOF
+                  cat > "build-info/${{ matrix.variant }}-${{ matrix.arch }}.json" << EOF
                   {
-                    "custom_tags": "${{ matrix.name }}",
+                    "variant": "${{ matrix.variant }}",
+                    "arch": "${{ matrix.arch }}",
                     "base_image": "${{ matrix.base_image }}",
-                    "image": "${{ steps.build.outputs.image }}",
-                    "short_sha": "${{ steps.build.outputs.short_sha }}",
-                    "tags": "${{ steps.build.outputs.tags_csv }}"
+                    "image": "${{ env.IMAGE }}",
+                    "short_sha": "${{ steps.prep.outputs.short_sha }}",
+                    "tags": "${{ steps.prep.outputs.tags }}",
+                    "platform": "${{ env.PLATFORM }}"
                   }
                   EOF
 
             - name: Upload build info artifact
               uses: actions/upload-artifact@v5
               with:
-                  name: build-info-${{ matrix.name }}
-                  path: build-info/${{ matrix.name }}.json
+                  name: build-info-${{ matrix.variant }}-${{ matrix.arch }}
+                  path: build-info/${{ matrix.variant }}-${{ matrix.arch }}.json
                   retention-days: 1
+
+    merge-manifests:
+        name: Merge Multi-Arch Manifests
+        needs: build-and-push-image
+        if: >
+            github.event_name == 'push' ||
+            (github.event_name == 'pull_request' &&
+             !github.event.pull_request.head.repo.fork)
+        runs-on: blacksmith-2vcpu-ubuntu-2404
+        strategy:
+            matrix:
+                variant: [python, java, golang]
+        env:
+            IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/openhands/agent-server' }}
+
+        steps:
+            - name: Log in to GHCR
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Create and push multi-arch manifest for ${{ matrix.variant }}
+              run: |
+                  SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+                  VARIANT=${{ matrix.variant }}
+
+                  # Create multi-arch manifest combining amd64 and arm64
+                  echo "Creating multi-arch manifest: ${IMAGE}:${SHORT_SHA}-${VARIANT}"
+                  docker manifest create ${IMAGE}:${SHORT_SHA}-${VARIANT} \
+                    ${IMAGE}:${SHORT_SHA}-${VARIANT}-amd64 \
+                    ${IMAGE}:${SHORT_SHA}-${VARIANT}-arm64
+
+                  # Annotate architectures explicitly
+                  docker manifest annotate ${IMAGE}:${SHORT_SHA}-${VARIANT} \
+                    ${IMAGE}:${SHORT_SHA}-${VARIANT}-amd64 --arch amd64
+                  docker manifest annotate ${IMAGE}:${SHORT_SHA}-${VARIANT} \
+                    ${IMAGE}:${SHORT_SHA}-${VARIANT}-arm64 --arch arm64
+
+                  # Push the multi-arch manifest
+                  docker manifest push ${IMAGE}:${SHORT_SHA}-${VARIANT}
+
+                  echo "✓ Multi-arch manifest created: ${IMAGE}:${SHORT_SHA}-${VARIANT}"
+
+                  # Create latest manifest if on main branch
+                  if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+                      echo "Creating latest multi-arch manifest: ${IMAGE}:latest-${VARIANT}"
+                      docker manifest create ${IMAGE}:latest-${VARIANT} \
+                        ${IMAGE}:latest-${VARIANT}-amd64 \
+                        ${IMAGE}:latest-${VARIANT}-arm64
+                      
+                      docker manifest annotate ${IMAGE}:latest-${VARIANT} \
+                        ${IMAGE}:latest-${VARIANT}-amd64 --arch amd64
+                      docker manifest annotate ${IMAGE}:latest-${VARIANT} \
+                        ${IMAGE}:latest-${VARIANT}-arm64 --arch arm64
+                      
+                      docker manifest push ${IMAGE}:latest-${VARIANT}
+                      echo "✓ Latest multi-arch manifest created: ${IMAGE}:latest-${VARIANT}"
+                  fi
 
     consolidate-build-info:
         name: Consolidate Build Information
-        needs: build-and-push-image
+        needs: [build-and-push-image, merge-manifests]
         # Run if it's a PR and the matrix job completed (even if some variants failed)
         if: github.event_name == 'pull_request' && always() && (needs.build-and-push-image.result == 'success' || needs.build-and-push-image.result ==
             'failure')
@@ -267,7 +380,10 @@ jobs:
                   IMAGE=""
                   SHORT_SHA=""
                   ALL_TAGS=""
-                  VARIANTS_JSON="[]"
+
+                  # Use associative arrays to track variants (bash 4+)
+                  declare -A VARIANT_BASE_IMAGE
+                  declare -A VARIANT_ARCHS
 
                   # Process each build info
                   for info_file in build-info/*.json; do
@@ -281,7 +397,8 @@ jobs:
                       echo "=== End of $info_file ==="
                       
                       # Extract information from JSON
-                      CUSTOM_TAGS=$(jq -r '.custom_tags' "$info_file")
+                      VARIANT=$(jq -r '.variant' "$info_file")
+                      ARCH=$(jq -r '.arch' "$info_file")
                       BASE_IMAGE=$(jq -r '.base_image' "$info_file")
                       VARIANT_IMAGE=$(jq -r '.image' "$info_file")
                       VARIANT_SHA=$(jq -r '.short_sha' "$info_file")
@@ -293,14 +410,13 @@ jobs:
                           SHORT_SHA="$VARIANT_SHA"
                       fi
                       
-                      # Add to JSON array
-                      VARIANTS_JSON=$(echo "$VARIANTS_JSON" | jq \
-                          --arg custom_tags "$CUSTOM_TAGS" \
-                          --arg base_image "$BASE_IMAGE" \
-                          '. += [{custom_tags: $custom_tags, base_image: $base_image}]')
-                      
-                      echo "Added custom_tags $CUSTOM_TAGS, current variants JSON:"
-                      echo "$VARIANTS_JSON" | jq .
+                      # Store variant information
+                      VARIANT_BASE_IMAGE[$VARIANT]=$BASE_IMAGE
+                      if [[ -z "${VARIANT_ARCHS[$VARIANT]}" ]]; then
+                          VARIANT_ARCHS[$VARIANT]=$ARCH
+                      else
+                          VARIANT_ARCHS[$VARIANT]="${VARIANT_ARCHS[$VARIANT]}, $ARCH"
+                      fi
                       
                       # Collect tags (comma-separated to newline-separated)
                       if [[ -n "$VARIANT_TAGS" ]]; then
@@ -312,6 +428,40 @@ jobs:
                           fi
                       fi
                   done
+
+                  # Build variants JSON array from collected data
+                  VARIANTS_JSON="[]"
+                  for VARIANT in "${!VARIANT_BASE_IMAGE[@]}"; do
+                      BASE_IMG="${VARIANT_BASE_IMAGE[$VARIANT]}"
+                      ARCHS="${VARIANT_ARCHS[$VARIANT]}"
+                      VARIANTS_JSON=$(echo "$VARIANTS_JSON" | jq \
+                          --arg variant "$VARIANT" \
+                          --arg base_image "$BASE_IMG" \
+                          --arg archs "$ARCHS" \
+                          '. += [{custom_tags: $variant, base_image: $base_image, architectures: $archs}]')
+                      
+                      echo "Added variant $VARIANT ($ARCHS), current variants JSON:"
+                      echo "$VARIANTS_JSON" | jq .
+                  done
+
+                  # Add multi-arch manifest tags
+                  MANIFEST_TAGS=""
+                  for VARIANT in "${!VARIANT_BASE_IMAGE[@]}"; do
+                      if [[ -n "$MANIFEST_TAGS" ]]; then
+                          MANIFEST_TAGS="${MANIFEST_TAGS}"$'\n'"${IMAGE}:${SHORT_SHA}-${VARIANT}"
+                      else
+                          MANIFEST_TAGS="${IMAGE}:${SHORT_SHA}-${VARIANT}"
+                      fi
+                  done
+
+                  # Add manifest tags to ALL_TAGS
+                  if [[ -n "$MANIFEST_TAGS" ]]; then
+                      if [[ -n "$ALL_TAGS" ]]; then
+                          ALL_TAGS="${ALL_TAGS}"$'\n'"${MANIFEST_TAGS}"
+                      else
+                          ALL_TAGS="$MANIFEST_TAGS"
+                      fi
+                  fi
 
                   # Create consolidated build summary
                   BUILD_SUMMARY=$(jq -n \
@@ -385,10 +535,11 @@ jobs:
                       echo "DEBUG: Processing build JSON: $VARIANT_JSON"
                       CUSTOM_TAGS=$(echo "$VARIANT_JSON" | jq -r '.custom_tags')
                       BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
+                      ARCHS=$(echo "$VARIANT_JSON" | jq -r '.architectures // "amd64, arm64"')
                       
-                      echo "DEBUG: Adding custom_tags $CUSTOM_TAGS with base image $BASE_IMAGE"
-                      # Add to variants table
-                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${CUSTOM_TAGS} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |"$'\n'
+                      echo "DEBUG: Adding variant $CUSTOM_TAGS with base image $BASE_IMAGE (archs: $ARCHS)"
+                      # Add to variants table with architecture info
+                      VARIANTS_TABLE="${VARIANTS_TABLE}| ${CUSTOM_TAGS} | ${ARCHS} | \`${BASE_IMAGE}\` | [Link](https://hub.docker.com/_/${BASE_IMAGE}) |"$'\n'
                   done
 
                   echo "DEBUG: Final variants table:"
@@ -404,12 +555,13 @@ jobs:
                   • **GHCR package:** ${GHCR_URL}
 
                   **Variants & Base Images**
-                  | Variant | Base Image | Docs / Tags |
-                  |---|---|---|
+                  | Variant | Architectures | Base Image | Docs / Tags |
+                  |---|---|---|---|
                   ${VARIANTS_TABLE}
 
                   **Pull (multi-arch manifest)**
                   \`\`\`bash
+                  # Each variant is a multi-arch manifest supporting both amd64 and arm64
                   docker pull ${IMAGE}:${SHORT_SHA}-python
                   \`\`\`
 
@@ -426,7 +578,11 @@ jobs:
                   ${ALL_TAGS}
                   \`\`\`
 
-                  _The \`${SHORT_SHA}\` tag is a multi-arch manifest (amd64/arm64); your client pulls the right arch automatically._
+                  **About Multi-Architecture Support**
+                  - Each variant tag (e.g., \`${SHORT_SHA}-python\`) is a **multi-arch manifest** supporting both **amd64** and **arm64**
+                  - Docker automatically pulls the correct architecture for your platform
+                  - Individual architecture tags (e.g., \`${SHORT_SHA}-python-amd64\`) are also available if needed
+                  - Built on native hardware (no emulation) for maximum performance
                   <!-- AGENT_SERVER_IMAGES_END -->
                   EOF
                   )
