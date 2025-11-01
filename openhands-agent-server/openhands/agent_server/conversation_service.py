@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import os
 import shutil
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -25,6 +27,43 @@ from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationS
 
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_rmtree(path: str | Path | None, description: str = "directory") -> bool:
+    """Safely remove a directory tree, handling permission errors gracefully.
+
+    Args:
+        path: Path to the directory to remove
+        description: Description of what's being removed (for logging)
+
+    Returns:
+        bool: True if removal was successful, False if it failed
+    """
+    if not path or not os.path.exists(path):
+        return True
+
+    def handle_remove_readonly(func, path, _exc):
+        """Error handler for removing read-only files."""
+        if os.path.exists(path):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except (OSError, PermissionError) as e:
+                logger.warning(f"Failed to remove read-only file {path}: {e}")
+
+    try:
+        shutil.rmtree(path, onerror=handle_remove_readonly)
+        logger.debug(f"Successfully removed {description}: {path}")
+        return True
+    except (OSError, PermissionError) as e:
+        logger.warning(
+            f"Failed to remove {description} at {path}: {e}. "
+            f"This may leave temporary files on disk but won't affect functionality."
+        )
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error removing {description} at {path}: {e}")
+        return False
 
 
 def _compose_conversation_info(
@@ -226,13 +265,35 @@ class ConversationService:
         event_service = self._event_services.pop(conversation_id, None)
         if event_service:
             # Notify conversation webhooks about the stopped conversation before closing
-            state = await event_service.get_state()
-            conversation_info = _compose_conversation_info(event_service.stored, state)
-            await self._notify_conversation_webhooks(conversation_info)
+            try:
+                state = await event_service.get_state()
+                conversation_info = _compose_conversation_info(
+                    event_service.stored, state
+                )
+                await self._notify_conversation_webhooks(conversation_info)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to notify webhooks for conversation {conversation_id}: {e}"
+                )
 
-            await event_service.close()
-            shutil.rmtree(event_service.conversation_dir)
-            shutil.rmtree(event_service.stored.workspace.working_dir)
+            # Close the event service
+            try:
+                await event_service.close()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to close event service for conversation "
+                    f"{conversation_id}: {e}"
+                )
+
+            # Safely remove conversation directory and workspace
+            # These operations may fail due to permission issues, but we don't want
+            # that to prevent the conversation from being marked as deleted
+            _safe_rmtree(
+                event_service.conversation_dir,
+                f"conversation directory for {conversation_id}",
+            )
+
+            logger.info(f"Successfully deleted conversation {conversation_id}")
             return True
         return False
 
