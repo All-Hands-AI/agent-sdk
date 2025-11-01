@@ -194,13 +194,7 @@ class ObservationStatus(str, Enum):
 
 
 class Observation(Schema, ABC):
-    """Base schema for output observation.
-
-    All observations use a standardized 'output' field (not 'message', 'content', etc.)
-    to represent what the tool produced. For simple text output (most tools), use the
-    text_output() helper. For rich content with images (Browser, MCP), build the list
-    directly.
-    """
+    """Base schema for output observation."""
 
     output: list[TextContent | ImageContent] = Field(
         default_factory=list,
@@ -213,35 +207,17 @@ class Observation(Schema, ABC):
         default=None, description="Error message if operation failed"
     )
 
-    @staticmethod
-    def text_output(text: str) -> list[TextContent | ImageContent]:
-        """Helper to create output from plain text.
-
-        Use this for the common case of text-only output:
-            return MyObservation(output=Observation.text_output("result"))
-
-        Instead of manually wrapping:
-            return MyObservation(output=[TextContent(text="result")])
-        """
-        return [TextContent(text=text)]
-
-    @property
-    def output_as_text(self) -> str:
-        """Extract output as plain text.
-
-        Convenience property for text-only observations. Concatenates all
-        TextContent items, ignoring images.
-        """
-        return "".join(c.text for c in self.output if isinstance(c, TextContent))
-
     @property
     def has_error(self) -> bool:
-        """Check if the observation indicates an error."""
+        """
+        Check if the observation indicates an error.
+        """
         return bool(self.error)
 
     @property
     def result_status(self) -> ObservationStatus:
-        """Get the observation result status based on presence of error."""
+        """
+        Get the observation result status based on presence of error."""
         return ObservationStatus.ERROR if self.has_error else ObservationStatus.SUCCESS
 
     def format_error(self) -> TextContent:
