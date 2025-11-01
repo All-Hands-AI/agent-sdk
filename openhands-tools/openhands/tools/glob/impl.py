@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from openhands.sdk.tool import ToolExecutor
-from openhands.sdk.tool.schema import TextContent
+from openhands.sdk.tool.schema import Observation
 
 
 if TYPE_CHECKING:
@@ -103,7 +103,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
                 pattern=original_pattern,
                 search_path=str(search_path),
                 truncated=truncated,
-                output=[TextContent(text=output)],
+                output=Observation.text_output(output),
             )
 
         except Exception as e:

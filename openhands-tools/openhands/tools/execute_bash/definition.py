@@ -103,10 +103,9 @@ class ExecuteBashObservation(Observation):
     def raw_output(self) -> str:
         """Return the raw output text for backward compatibility.
 
-        Extracts the text from the first TextContent item in output.
+        Extracts the text from output using the helper property.
         """
-        first_item = self.output[0] if self.output else None
-        return first_item.text if isinstance(first_item, TextContent) else ""
+        return self.output_as_text
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
@@ -114,8 +113,7 @@ class ExecuteBashObservation(Observation):
             error_msg = f"{self.metadata.prefix}{self.error}{self.metadata.suffix}"
             return [TextContent(text=f"Tool Execution Error: {error_msg}")]
 
-        first_item = self.output[0] if self.output else None
-        output_text = first_item.text if isinstance(first_item, TextContent) else ""
+        output_text = self.output_as_text
         ret = f"{self.metadata.prefix}{output_text}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
@@ -136,8 +134,7 @@ class ExecuteBashObservation(Observation):
             content.append("Command execution error\n", style="red")
 
         # Add command output with proper styling
-        first_item = self.output[0] if self.output else None
-        output_text = first_item.text if isinstance(first_item, TextContent) else ""
+        output_text = self.output_as_text
         if output_text:
             # Style the output based on content
             output_lines = output_text.split("\n")
