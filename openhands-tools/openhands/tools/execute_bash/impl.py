@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Literal
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import ToolExecutor
+from openhands.sdk.tool.schema import TextContent
 
 
 if TYPE_CHECKING:
@@ -112,10 +113,14 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
         )
 
         return ExecuteBashObservation(
-            output=(
-                "Terminal session has been reset. All previous environment "
-                "variables and session state have been cleared."
-            ),
+            output=[
+                TextContent(
+                    text=(
+                        "Terminal session has been reset. All previous environment "
+                        "variables and session state have been cleared."
+                    )
+                )
+            ],
             command="[RESET]",
             exit_code=0,
         )
@@ -141,11 +146,21 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
                 )
                 self._export_envs(command_action, conversation)
                 command_result = self.session.execute(command_action)
+                reset_text = (
+                    reset_result.output[0].text
+                    if reset_result.output
+                    and isinstance(reset_result.output[0], TextContent)
+                    else ""
+                )
+                command_text = (
+                    command_result.output[0].text
+                    if command_result.output
+                    and isinstance(command_result.output[0], TextContent)
+                    else ""
+                )
                 observation = command_result.model_copy(
                     update={
-                        "output": (
-                            reset_result.output + "\n\n" + command_result.output
-                        ),
+                        "output": [TextContent(text=f"{reset_text}\n\n{command_text}")],
                         "command": f"[RESET] {action.command}",
                     }
                 )
@@ -158,15 +173,17 @@ class BashExecutor(ToolExecutor[ExecuteBashAction, ExecuteBashObservation]):
             observation = self.session.execute(action)
 
         # Apply automatic secrets masking
-        if observation.output and conversation is not None:
+        first_item = observation.output[0] if observation.output else None
+        output_text = first_item.text if isinstance(first_item, TextContent) else ""
+        if output_text and conversation is not None:
             try:
                 secret_registry = conversation.state.secret_registry
-                masked_output = secret_registry.mask_secrets_in_output(
-                    observation.output
-                )
+                masked_output = secret_registry.mask_secrets_in_output(output_text)
                 if masked_output:
                     data = observation.model_dump(exclude={"output"})
-                    return ExecuteBashObservation(**data, output=masked_output)
+                    return ExecuteBashObservation(
+                        **data, output=[TextContent(text=masked_output)]
+                    )
             except Exception:
                 pass
 

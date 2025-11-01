@@ -1,5 +1,6 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any, ClassVar, TypeVar
 
 from pydantic import ConfigDict, Field, create_model
@@ -187,20 +188,62 @@ class Action(Schema, ABC):
         return content
 
 
+class ObservationStatus(str, Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+
+
 class Observation(Schema, ABC):
     """Base schema for output observation."""
 
+    output: list[TextContent | ImageContent] = Field(
+        default_factory=list,
+        description=(
+            "Output returned from the tool converted to LLM Ready "
+            "TextContent or ImageContent"
+        ),
+    )
+    error: str | None = Field(
+        default=None, description="Error message if operation failed"
+    )
+
     @property
-    @abstractmethod
+    def has_error(self) -> bool:
+        """
+        Check if the observation indicates an error.
+        """
+        return bool(self.error)
+
+    @property
+    def result_status(self) -> ObservationStatus:
+        """
+        Get the observation result status based on presence of error."""
+        return ObservationStatus.ERROR if self.has_error else ObservationStatus.SUCCESS
+
+    def format_error(self) -> TextContent:
+        """Format the error message for LLM display."""
+        return TextContent(text=f"Tool Execution Error: {self.error}")
+
+    @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        """Get the observation string to show to the agent."""
+        """
+        Default content formatting for converting observation to LLM readable content.
+        Subclasses can override to provide richer content (e.g., images, diffs).
+        Errors can be partial so both output and error are included if present.
+        """
+        llm_content: list[TextContent | ImageContent] = []
+        if self.error:
+            llm_content.append(self.format_error())
+        if self.output:
+            llm_content.extend(self.output)
+        return llm_content
 
     @property
     def visualize(self) -> Text:
-        """Return Rich Text representation of this action.
+        """Return Rich Text representation of this observation.
 
-        This method can be overridden by subclasses to customize visualization.
-        The base implementation displays all action fields systematically.
+        Subclasses can override for custom visualization; by default we show the
+        same text that would be sent to the LLM.
         """
         content = Text()
         text_parts = content_to_str(self.to_llm_content)

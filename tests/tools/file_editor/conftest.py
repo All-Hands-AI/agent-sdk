@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from openhands.sdk.tool.schema import TextContent
 from openhands.tools.file_editor.definition import (
     FileEditorObservation,
 )
@@ -75,3 +76,8 @@ def create_test_file(path: Path, content: str):
     """Helper to create a test file with given content."""
     path.write_text(content)
     return path
+
+
+def get_output_text(result: FileEditorObservation) -> str:
+    """Extract text content from a FileEditorObservation's output list."""
+    return "".join([c.text for c in result.output if isinstance(c, TextContent)])

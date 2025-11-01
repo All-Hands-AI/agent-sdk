@@ -14,6 +14,7 @@ from openhands.tools.execute_bash import (
     ExecuteBashAction,
     ExecuteBashObservation,
 )
+from tests.tools.execute_bash.conftest import get_output_text
 
 
 def _create_test_conv_state(temp_dir: str) -> ConversationState:
@@ -69,7 +70,7 @@ def test_bash_tool_execution():
         # Check the result
         assert result is not None
         assert isinstance(result, ExecuteBashObservation)
-        assert "Hello, World!" in result.output
+        assert "Hello, World!" in get_output_text(result)
 
 
 def test_bash_tool_working_directory():
@@ -87,7 +88,7 @@ def test_bash_tool_working_directory():
 
         # Check that the working directory is correct
         assert isinstance(result, ExecuteBashObservation)
-        assert temp_dir in result.output
+        assert temp_dir in get_output_text(result)
 
 
 def test_bash_tool_to_openai_tool():

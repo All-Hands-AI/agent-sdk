@@ -1,10 +1,8 @@
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
     Action,
     Observation,
@@ -45,21 +43,11 @@ class ThinkAction(Action):
 
 
 class ThinkObservation(Observation):
-    """Observation returned after logging a thought."""
-
-    content: str = Field(
-        default="Your thought has been logged.", description="Confirmation message."
-    )
-
-    @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.content)]
-
-    @property
-    def visualize(self) -> Text:
-        """Return Rich Text representation - empty since action shows the thought."""
-        # Don't duplicate the thought display - action already shows it
-        return Text()
+    """
+    Observation returned after logging a thought.
+    The ThinkAction itself contains the thought logged so no extra
+    fields are needed here.
+    """
 
 
 THINK_DESCRIPTION = """Use the tool to think about something. It will not obtain new information or make any changes to the repository, but just log the thought. Use it when complex reasoning or brainstorming is needed.

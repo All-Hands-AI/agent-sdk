@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 from openhands.sdk.logger import DEBUG, get_logger
 from openhands.sdk.tool import ToolExecutor
+from openhands.sdk.tool.schema import TextContent
 from openhands.sdk.utils.async_executor import AsyncExecutor
 from openhands.tools.browser_use.definition import BrowserAction, BrowserObservation
 from openhands.tools.browser_use.server import CustomBrowserUseServer
@@ -225,13 +226,13 @@ class BrowserToolExecutor(ToolExecutor[BrowserAction, BrowserObservation]):
                 result = await self.close_tab(action.tab_id)
             else:
                 error_msg = f"Unsupported action type: {type(action)}"
-                return BrowserObservation(output="", error=error_msg)
+                return BrowserObservation(error=error_msg)
 
-            return BrowserObservation(output=result)
+            return BrowserObservation(output=[TextContent(text=result)])
         except Exception as e:
             error_msg = f"Browser operation failed: {str(e)}"
             logger.error(error_msg, exc_info=True)
-            return BrowserObservation(output="", error=error_msg)
+            return BrowserObservation(error=error_msg)
 
     async def _ensure_initialized(self):
         """Ensure browser session is initialized."""
@@ -282,13 +283,14 @@ class BrowserToolExecutor(ToolExecutor[BrowserAction, BrowserObservation]):
                 # Return clean JSON + separate screenshot data
                 clean_json = json.dumps(result_data, indent=2)
                 return BrowserObservation(
-                    output=clean_json, screenshot_data=screenshot_data
+                    output=[TextContent(text=clean_json)],
+                    screenshot_data=screenshot_data,
                 )
             except json.JSONDecodeError:
                 # If JSON parsing fails, return as-is
                 pass
 
-        return BrowserObservation(output=result_json)
+        return BrowserObservation(output=[TextContent(text=result_json)])
 
     # Tab Management
     async def list_tabs(self) -> str:

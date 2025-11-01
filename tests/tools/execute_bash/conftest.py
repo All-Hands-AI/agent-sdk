@@ -3,11 +3,25 @@
 import tempfile
 
 from openhands.sdk.logger import get_logger
+from openhands.sdk.tool.schema import TextContent
 from openhands.tools.execute_bash.constants import TIMEOUT_MESSAGE_TEMPLATE
+from openhands.tools.execute_bash.definition import ExecuteBashObservation
 from openhands.tools.execute_bash.terminal import create_terminal_session
 
 
 logger = get_logger(__name__)
+
+
+def get_output_text(obs: ExecuteBashObservation) -> str:
+    """Extract text from observation output field.
+
+    This helper handles type-safe extraction of text from the observation's
+    output field, which contains Content items (TextContent or ImageContent).
+    """
+    if not obs.output:
+        return ""
+    first_item = obs.output[0]
+    return first_item.text if isinstance(first_item, TextContent) else ""
 
 
 def get_no_change_timeout_suffix(timeout_seconds):

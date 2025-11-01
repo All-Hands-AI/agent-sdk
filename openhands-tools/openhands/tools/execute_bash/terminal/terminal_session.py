@@ -5,6 +5,7 @@ import time
 from enum import Enum
 
 from openhands.sdk.logger import get_logger
+from openhands.sdk.tool.schema import TextContent
 from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_PS1_END,
     NO_CHANGE_TIMEOUT_SECONDS,
@@ -187,8 +188,8 @@ class TerminalSession(TerminalSessionBase):
         self.prev_output = ""  # Reset previous command output
         self._ready_for_next_command()
         return ExecuteBashObservation(
-            output=command_output,
             command=command,
+            output=[TextContent(text=command_output)],
             metadata=metadata,
         )
 
@@ -221,8 +222,8 @@ class TerminalSession(TerminalSessionBase):
             continue_prefix="[Below is the output of the previous command.]\n",
         )
         return ExecuteBashObservation(
-            output=command_output,
             command=command,
+            output=[TextContent(text=command_output)],
             metadata=metadata,
         )
 
@@ -255,10 +256,9 @@ class TerminalSession(TerminalSessionBase):
             metadata,
             continue_prefix="[Below is the output of the previous command.]\n",
         )
-
         return ExecuteBashObservation(
-            output=command_output,
             command=command,
+            output=[TextContent(text=command_output)],
             metadata=metadata,
         )
 
@@ -314,26 +314,28 @@ class TerminalSession(TerminalSessionBase):
         }:
             if command == "":
                 return ExecuteBashObservation(
-                    output="ERROR: No previous running command to retrieve logs from.",
-                    error=True,
+                    command=command,
+                    error="No previous running command to retrieve logs from.",
                 )
             if is_input:
                 return ExecuteBashObservation(
-                    output="ERROR: No previous running command to interact with.",
-                    error=True,
+                    command=command,
+                    error="No previous running command to interact with.",
                 )
 
         # Check if the command is a single command or multiple commands
         splited_commands = split_bash_commands(command)
         if len(splited_commands) > 1:
+            commands_list = "\n".join(
+                f"({i + 1}) {cmd}" for i, cmd in enumerate(splited_commands)
+            )
             return ExecuteBashObservation(
-                output=(
-                    f"ERROR: Cannot execute multiple commands at once.\n"
-                    f"Please run each command separately OR chain them into a single "
-                    f"command via && or ;\nProvided commands:\n"
-                    f"{'\n'.join(f'({i + 1}) {cmd}' for i, cmd in enumerate(splited_commands))}"  # noqa: E501
+                command=command,
+                error=(
+                    "Cannot execute multiple commands at once.\n"
+                    "Please run each command separately OR chain them into a single "
+                    f"command via && or ;\nProvided commands:\n{commands_list}"
                 ),
-                error=True,
             )
 
         # Get initial state before sending command
@@ -385,8 +387,8 @@ class TerminalSession(TerminalSessionBase):
                 continue_prefix="[Below is the output of the previous command.]\n",
             )
             obs = ExecuteBashObservation(
-                output=command_output,
                 command=command,
+                output=[TextContent(text=command_output)],
                 metadata=metadata,
             )
             logger.debug(f"RETURNING OBSERVATION (previous-command): {obs}")

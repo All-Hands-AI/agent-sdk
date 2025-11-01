@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 from rich.text import Text
 
-from openhands.sdk import ImageContent, TextContent
+from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     Action,
@@ -70,17 +70,12 @@ class TaskTrackerAction(Action):
 class TaskTrackerObservation(Observation):
     """This data class represents the result of a task tracking operation."""
 
-    content: str = Field(
-        default="", description="The formatted task list or status message"
+    command: Literal["view", "plan"] = Field(
+        description='The command that was executed: "view" or "plan".'
     )
-    command: str = Field(default="", description="The command that was executed")
     task_list: list[TaskItem] = Field(
         default_factory=list, description="The current task list"
     )
-
-    @property
-    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.content)]
 
     @property
     def visualize(self) -> Text:
@@ -175,8 +170,14 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
             if self.save_dir:
                 self._save_tasks()
             return TaskTrackerObservation(
-                content="Task list has been updated with "
-                + f"{len(self._task_list)} item(s).",
+                output=[
+                    TextContent(
+                        text=(
+                            f"Task list has been updated with "
+                            f"{len(self._task_list)} item(s)."
+                        )
+                    )
+                ],
                 command=action.command,
                 task_list=self._task_list,
             )
@@ -184,18 +185,29 @@ class TaskTrackerExecutor(ToolExecutor[TaskTrackerAction, TaskTrackerObservation
             # Return the current task list
             if not self._task_list:
                 return TaskTrackerObservation(
-                    content='No task list found. Use the "plan" command to create one.',
+                    output=[
+                        TextContent(
+                            text=(
+                                "No task list found. Use the "
+                                '"plan" command to create one.'
+                            )
+                        )
+                    ],
                     command=action.command,
                     task_list=[],
                 )
-            content = self._format_task_list(self._task_list)
+            output = self._format_task_list(self._task_list)
             return TaskTrackerObservation(
-                content=content, command=action.command, task_list=self._task_list
+                output=[TextContent(text=output)],
+                command=action.command,
+                task_list=self._task_list,
             )
         else:
             return TaskTrackerObservation(
-                content=f"Unknown command: {action.command}. "
-                + 'Supported commands are "view" and "plan".',
+                error=(
+                    f"Unknown command: {action.command}. "
+                    'Supported commands are "view" and "plan".'
+                ),
                 command=action.command,
                 task_list=[],
             )
