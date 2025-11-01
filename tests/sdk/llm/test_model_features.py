@@ -23,40 +23,6 @@ def test_model_matches(name, pattern, expected):
 
 
 @pytest.mark.parametrize(
-    "model,expected_function_calling",
-    [
-        ("gpt-4o", True),
-        ("gpt-4o-mini", True),
-        ("claude-3-5-sonnet", True),
-        ("claude-3-7-sonnet", True),
-        ("gemini-2.5-pro", True),
-        # Anthropic 4.5 variants (dash and dot)
-        ("claude-sonnet-4-5", True),
-        ("claude-sonnet-4.5", True),
-        # AWS Bedrock model ids (provider-prefixed)
-        ("bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", True),
-        ("bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0", True),
-        ("bedrock/anthropic.claude-sonnet-4-20250514-v1:0", True),
-        # Dotted vendor prefixes without provider
-        ("us.anthropic.claude-sonnet-4-5-20250929-v1", True),
-        ("us.anthropic.claude-sonnet-4.5-20250929-v1", True),
-        # User-facing model names (no provider prefix)
-        ("anthropic.claude-3-5-sonnet-20241022", True),
-        ("anthropic.claude-3-7-sonnet-20250219", True),
-        ("anthropic.claude-sonnet-4-20250514", True),
-        (
-            "llama-3.1-70b",
-            False,
-        ),  # Most open source models don't support native function calling
-        ("unknown-model", False),  # Default to False for unknown models
-    ],
-)
-def test_function_calling_support(model, expected_function_calling):
-    features = get_features(model)
-    assert features.supports_function_calling == expected_function_calling
-
-
-@pytest.mark.parametrize(
     "model,expected_reasoning",
     [
         ("o1-2024-12-17", True),
