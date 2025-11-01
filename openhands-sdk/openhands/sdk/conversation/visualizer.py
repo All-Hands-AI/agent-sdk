@@ -292,7 +292,7 @@ class ConversationVisualizer:
                 s = f"{n / 1_000:.2f}K"
             else:
                 return str(n)
-            return s.replace(".0", "")
+            return s.rstrip("0").rstrip(".")
 
         input_tokens = abbr(usage.prompt_tokens or 0)
         output_tokens = abbr(usage.completion_tokens or 0)
