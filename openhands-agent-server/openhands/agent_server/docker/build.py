@@ -431,15 +431,31 @@ def build(opts: BuildOptions) -> list[str]:
 
     if push:
         # Remote/CI builds: use registry cache + inline for maximum reuse.
+        # However, the default "docker" driver doesn't support cache export.
+        # Only add cache-to if we have a driver that supports it.
         cache_args += [
             "--cache-from",
             f"type=registry,ref={opts.image}:{cache_tag}",
             "--cache-from",
             f"type=registry,ref={opts.image}:{cache_tag_base}-main",
-            "--cache-to",
-            f"type=registry,ref={opts.image}:{cache_tag},mode=max",
         ]
-        logger.info("[build] Cache: registry (remote/CI) + inline")
+        if driver != "docker":
+            # Only export cache if driver supports it (docker-container, etc.)
+            cache_args += [
+                "--cache-to",
+                f"type=registry,ref={opts.image}:{cache_tag},mode=max",
+            ]
+            logger.info("[build] Cache: registry (remote/CI) with export")
+        else:
+            logger.warning(
+                "[build] WARNING: Active buildx driver is 'docker', which does not "
+                "support cache export. Cache will be read-only (--cache-from only).\n"
+                " To enable cache export, set up a docker-container builder:\n"
+                "  1. docker buildx create --name openhands-builder "
+                "--driver docker-container --use\n"
+                "  2. docker buildx inspect --bootstrap"
+            )
+            logger.info("[build] Cache: registry read-only (driver=docker)")
     else:
         # Local/dev builds: prefer local dir cache if
         # driver supports it; otherwise inline-only.
