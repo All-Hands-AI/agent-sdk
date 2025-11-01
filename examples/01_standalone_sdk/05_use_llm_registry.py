@@ -88,3 +88,7 @@ if raw_response.choices and raw_response.choices[0].message:  # type: ignore
     print(f"Direct completion response: {content}")
 else:
     print("No response content available")
+
+# Report cost
+cost = llm.metrics.accumulated_cost
+print(f"EXAMPLE_COST: {cost}")

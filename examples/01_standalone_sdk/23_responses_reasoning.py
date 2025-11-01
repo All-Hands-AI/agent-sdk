@@ -73,3 +73,7 @@ print("Conversation finished. Got the following LLM messages:")
 for i, message in enumerate(llm_messages):
     ms = str(message)
     print(f"Message {i}: {ms[:200]}{'...' if len(ms) > 200 else ''}")
+
+# Report cost
+cost = llm.metrics.accumulated_cost
+print(f"EXAMPLE_COST: {cost}")
