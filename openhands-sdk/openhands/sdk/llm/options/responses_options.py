@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from openhands.sdk.llm.options.common import apply_defaults_if_absent
+from openhands.sdk.llm.utils.model_features import get_features
 
 
 def select_responses_options(
@@ -22,7 +23,11 @@ def select_responses_options(
     )
 
     # Enforce sampling/tool behavior for Responses path
-    out["temperature"] = 1.0
+    # Reasoning models (e.g., GPT-5, o1) don't support temperature
+    if get_features(llm.model).supports_reasoning_effort:
+        out.pop("temperature", None)
+    else:
+        out["temperature"] = 1.0
     out["tool_choice"] = "auto"
 
     # Store defaults to False (stateless) unless explicitly provided
