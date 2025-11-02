@@ -68,8 +68,8 @@ def test_normalize_responses_kwargs_policy():
     out = select_responses_options(
         llm, {"temperature": 0.3}, include=["text.output_text"], store=None
     )
-    # Temperature forced to 1.0 for Responses path
-    assert out["temperature"] == 1.0
+    # Temperature should NOT be set for reasoning models like gpt-5-mini
+    assert "temperature" not in out
     assert out["tool_choice"] == "auto"
     # include should contain original and encrypted_content
     assert set(out["include"]) >= {"text.output_text", "reasoning.encrypted_content"}
@@ -81,6 +81,30 @@ def test_normalize_responses_kwargs_policy():
     assert r["summary"] == "detailed"
     # max_output_tokens preserved
     assert out["max_output_tokens"] == 128
+
+
+def test_normalize_responses_kwargs_non_reasoning_model():
+    llm = LLM(model="codex-mini-latest")
+    # Use a non-reasoning Responses-capable model
+
+    llm.max_output_tokens = 256
+
+    out = select_responses_options(
+        llm, {"temperature": 0.3}, include=["text.output_text"], store=None
+    )
+    # Temperature forced to 1.0 for non-reasoning Responses path
+    assert out["temperature"] == 1.0
+    assert out["tool_choice"] == "auto"
+    # include should contain original and encrypted_content
+    assert set(out["include"]) >= {"text.output_text", "reasoning.encrypted_content"}
+    # store default to False when None passed
+    assert out["store"] is False
+    # reasoning config defaulted
+    r = out["reasoning"]
+    assert r["effort"] in {"low", "medium", "high", "none"}
+    assert r["summary"] == "detailed"
+    # max_output_tokens preserved
+    assert out["max_output_tokens"] == 256
 
 
 @patch("openhands.sdk.llm.llm.litellm_responses")
