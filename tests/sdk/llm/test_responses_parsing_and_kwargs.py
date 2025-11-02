@@ -68,14 +68,21 @@ def test_normalize_responses_kwargs_policy():
     out = select_responses_options(
         llm, {"temperature": 0.3}, include=["text.output_text"], store=None
     )
-    # Temperature forced to 1.0 for Responses path
-    assert out["temperature"] == 1.0
+    # Reasoning models should not include temperature for Responses path
+    assert "temperature" not in out
     assert out["tool_choice"] == "auto"
     # include should contain original and encrypted_content
     assert set(out["include"]) >= {"text.output_text", "reasoning.encrypted_content"}
     # store default to False when None passed
     assert out["store"] is False
     # reasoning config defaulted
+    # For non-reasoning models, temperature should be enforced to 1.0
+    llm_gpt4 = LLM(model="gpt-4o")
+    out_gpt4 = select_responses_options(
+        llm_gpt4, {"temperature": 0.2}, include=None, store=None
+    )
+    assert out_gpt4["temperature"] == 1.0
+
     r = out["reasoning"]
     assert r["effort"] in {"low", "medium", "high", "none"}
     assert r["summary"] == "detailed"
